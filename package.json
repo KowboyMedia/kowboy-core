@@ -20,7 +20,8 @@
     "start:web": "node dist/main.js web",
     "start:worker": "node dist/main.js worker",
     "dev:web": "node --experimental-strip-types main.ts web",
-    "migrate": "node dist/engine/storage/migrate-cli.js"
+    "migrate": "node dist/engine/storage/migrate-cli.js",
+    "report": "node scripts/acceptance-report.mjs"
   },
   "dependencies": {
     "pg": "^8.13.1"

@@ -32,8 +32,14 @@ const fetchList = new Map<string, Queued>();
 const signatures = new Map<string, string>();
 let api: AdapterApi | null = null;
 let drain: NodeJS.Timeout | null = null;
-/** The drain in flight, so two never overlap and shutdown can wait for one to finish. */
-let draining: Promise<void> | null = null;
+/** Drains run one after another, so two never overlap and shutdown can wait for the last one. */
+let draining: Promise<void> = Promise.resolve();
+
+/** Queue another drain behind whatever is running, and hand back a promise for it. */
+const scheduleDrain = (): Promise<void> => {
+  draining = draining.then(drainOnce, drainOnce);
+  return draining;
+};
 
 const key = (queued: Pick<Queued, 'connectionId' | 'datatype' | 'remoteId'>): string =>
   `${queued.connectionId}/${queued.datatype}/${queued.remoteId}`;
@@ -79,30 +85,34 @@ const routes: Route[] = [
 ];
 
 async function drainOnce(): Promise<void> {
-  if (!api) return;
-  const due = [...fetchList.values()];
-  for (const queued of due) {
-    // stop() can land between two awaits; after it, this adapter does no more work.
+  const current = api;
+  if (!current) return;
+
+  for (const queued of [...fetchList.values()]) {
+    // Claim the entry before fetching: two passes must never fetch one record twice, and a
+    // record queued again while a fetch is running gets its own later pass.
+    if (!fetchList.delete(key(queued))) continue;
     if (!api) return;
-    const connection = (await api.connections()).find((item) => item.id === queued.connectionId);
-    if (!connection) {
-      fetchList.delete(key(queued));
-      continue;
-    }
+
+    const connection = (await current.connections()).find(
+      (item) => item.id === queued.connectionId,
+    );
+    if (!connection) continue;
+
     try {
       const payload = crm.get(queued.datatype, queued.remoteId);
       if (payload === null) {
-        await api.notFound(connection, queued.datatype, queued.remoteId);
+        await current.notFound(connection, queued.datatype, queued.remoteId);
       } else {
-        await api.ingest(connection, queued.datatype, queued.remoteId, payload);
+        await current.ingest(connection, queued.datatype, queued.remoteId, payload);
       }
-      fetchList.delete(key(queued));
     } catch (error) {
+      // A failed fetch is retried, never treated as a delete (strategy §5.3).
       queued.attempts += 1;
-      // A failed fetch is never treated as a delete (strategy §5.3).
-      if (queued.attempts >= MAX_ATTEMPTS) {
-        fetchList.delete(key(queued));
-        await api.logEvent('fetch.failed', {
+      if (queued.attempts < MAX_ATTEMPTS) {
+        fetchList.set(key(queued), queued);
+      } else {
+        await current.logEvent('fetch.failed', {
           connection_id: queued.connectionId,
           datatype: queued.datatype,
           remote_id: queued.remoteId,
@@ -157,9 +167,7 @@ export const fakeWebhookAdapter: Adapter = {
         : { ok: false, detail: `a record has waited ${Math.round(lag / 1000)} s` };
     });
 
-    drain = setInterval(() => {
-      draining ??= drainOnce().finally(() => (draining = null));
-    }, DRAIN_MS);
+    drain = setInterval(() => void scheduleDrain(), DRAIN_MS);
     drain.unref?.();
   },
 
@@ -172,6 +180,6 @@ export const fakeWebhookAdapter: Adapter = {
   },
 };
 
-/** Test and local use: run the drain loop once, synchronously. */
-export const drainFetchList = drainOnce;
+/** Test and local use: drain everything queued now, and wait for it. */
+export const drainFetchList = scheduleDrain;
 export const queueDepth = (): number => fetchList.size;

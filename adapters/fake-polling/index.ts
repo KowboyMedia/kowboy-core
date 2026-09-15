@@ -19,29 +19,38 @@ const ID_FIELD: Record<Datatype, string> = {
 let api: AdapterApi | null = null;
 let timer: NodeJS.Timeout | null = null;
 let lastPollAt = Date.now();
+/** Polls run one after another, so two never overlap and shutdown can wait for the last one. */
+let polling: Promise<void> = Promise.resolve();
+
+/** Queue another poll behind whatever is running, and hand back a promise for it. */
+const schedulePoll = (): Promise<void> => {
+  polling = polling.then(pollOnce, pollOnce);
+  return polling;
+};
 
 async function pollOnce(): Promise<void> {
-  if (!api) return;
-  const connections = await api.connections();
-  for (const connection of connections) {
+  // Held for the whole pass: stop() may null `api` between two awaits, and a pass that has
+  // started finishes against the API it started with.
+  const current = api;
+  if (!current) return;
+  for (const connection of await current.connections()) {
     if (!connection.active) continue;
-    await sweep(connection);
+    await sweep(connection, current);
   }
   lastPollAt = Date.now();
 }
 
-async function sweep(connection: Connection): Promise<void> {
-  if (!api) return;
+async function sweep(connection: Connection, current: AdapterApi): Promise<void> {
   for (const datatype of DATATYPES) {
     const records = crm.all(datatype);
     for (const record of records) {
       const remoteId = String(record[ID_FIELD[datatype]] ?? '');
       if (!remoteId) continue;
       // Records that did not really change get the same hash, so no seq and no bell.
-      await api.ingest(connection, datatype, remoteId, record);
+      await current.ingest(connection, datatype, remoteId, record);
     }
     // Deletes have no webhook here: whatever the CRM no longer lists is gone.
-    await api.presentIds(connection, datatype, { officeId: null }, crm.ids(datatype));
+    await current.presentIds(connection, datatype, { officeId: null }, crm.ids(datatype));
   }
 }
 
@@ -53,8 +62,9 @@ export const fakePollingAdapter: Adapter = {
     api = given;
 
     given.onLifecycle(async (event) => {
-      if (event.type === 'connection_added' || event.type === 'resync')
-        await sweep(event.connection);
+      if (event.type === 'connection_added' || event.type === 'resync') {
+        await sweep(event.connection, given);
+      }
     });
 
     given.healthCheck(`${PROVIDER}.poll`, () => {
@@ -64,16 +74,17 @@ export const fakePollingAdapter: Adapter = {
         : { ok: false, detail: `last poll ${Math.round(age / 1000)} s ago` };
     });
 
-    timer = setInterval(() => void pollOnce(), POLL_MS);
+    timer = setInterval(() => void schedulePoll(), POLL_MS);
     timer.unref?.();
   },
 
-  stop(): void {
+  async stop(): Promise<void> {
     if (timer) clearInterval(timer);
     timer = null;
+    await polling;
     api = null;
   },
 };
 
-/** Test and local use: one poll, synchronously. */
-export const poll = pollOnce;
+/** Test and local use: run a poll after any in flight, and wait for it. */
+export const poll = schedulePoll;

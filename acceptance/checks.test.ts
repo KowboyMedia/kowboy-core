@@ -112,21 +112,29 @@ describe('the secret check', () => {
     expect((await check('check-secrets.mjs', repo)).code).toBe(0);
   });
 
+  // Assembled at runtime: written out literally, these seeded violations would make this very
+  // file fail the check it is testing.
+  const keyMarker = (what: string): string => `-----${what} PRIVATE KEY-----`;
+
   it('fails on a committed private key', async () => {
     const dir = fixture({
-      'deploy/key.pem':
-        '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkq\n-----END PRIVATE KEY-----\n',
+      'deploy/key.pem': `${keyMarker('BEGIN')}\nMIIEvQIBADANBgkq\n${keyMarker('END')}\n`,
     });
     const result = await check('check-secrets.mjs', dir);
     expect(result.code).toBe(1);
     expect(result.output).toContain('a private key');
   });
 
-  it('fails on a database URL with a password', async () => {
-    const dir = fixture({
-      'engine/config.ts': "const url = 'postgres://core:hunter2sekrit@db.internal:5432/core';\n",
-    });
+  it('fails on a database URL with a password for a real host', async () => {
+    const url = `postgres://core:${['hunter', '2', 'sekrit'].join('')}@db.internal:5432/core`;
+    const dir = fixture({ 'engine/config.ts': `const url = '${url}';\n` });
     expect((await check('check-secrets.mjs', dir)).code).toBe(1);
+  });
+
+  it('ignores a local database URL, which cannot hold a real secret', async () => {
+    const local = `postgres://core:core@127.0.0.1:5432/core`;
+    const dir = fixture({ 'acceptance/setup.ts': `const url = '${local}';\n` });
+    expect((await check('check-secrets.mjs', dir)).code).toBe(0);
   });
 
   it('allows an obvious placeholder', async () => {
