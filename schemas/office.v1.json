@@ -2,28 +2,22 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kowboy.se/schemas/office.v1.json",
   "title": "office.data",
+  "description": "INCOMPLETE. Only identity is defined, because the CRM data models have not been read yet. The descriptive model is added in one piece once they have (docs/field-tables.md). `additionalProperties` is true until then, so this schema does not yet reject an unknown field.",
   "type": "object",
   "properties": {
-    "id": { "$ref": "_shared.v1.json#/$defs/id" },
-    "name": { "type": "string" },
-    "address": { "$ref": "_shared.v1.json#/$defs/address" },
-    "lat": { "$ref": "_shared.v1.json#/$defs/latitude" },
-    "lng": { "$ref": "_shared.v1.json#/$defs/longitude" },
-    "phone": { "$ref": "_shared.v1.json#/$defs/nullableString" },
-    "email": { "$ref": "_shared.v1.json#/$defs/nullableString" },
-    "display": { "$ref": "_shared.v1.json#/$defs/display" },
-    "provider_extras": { "$ref": "_shared.v1.json#/$defs/providerExtras" }
+    "id": {
+      "$ref": "_shared.v1.json#/$defs/id",
+      "source": "SRS §6.9 - references are by id"
+    },
+    "display": {
+      "$ref": "_shared.v1.json#/$defs/display",
+      "source": "SRS §6 - data shape: display holds strings computed by Core"
+    },
+    "provider_extras": {
+      "$ref": "_shared.v1.json#/$defs/providerExtras",
+      "source": "SRS §6.4 - provider-only fields, excluded from content_hash"
+    }
   },
-  "required": [
-    "id",
-    "name",
-    "address",
-    "lat",
-    "lng",
-    "phone",
-    "email",
-    "display",
-    "provider_extras"
-  ],
-  "additionalProperties": false
+  "required": ["id", "display", "provider_extras"],
+  "additionalProperties": true
 }

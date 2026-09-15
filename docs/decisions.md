@@ -40,3 +40,6 @@ One line per structural decision: date, decision, reference. Append only. Detail
 - 2026-09-15 · Acceptance report is generated from a real test run by `npm run report`; `acceptance/criteria.json` maps criteria to named tests · acceptance/report.md
 - 2026-09-15 · Engine-owned tables only in the engine; adapters open their own pool for adapter-owned tables unless the adapter API is extended (open question 4) · docs/open-questions.md
 - 2026-09-15 · Phases 2 and 3 built before Gate 2, on Kowboy's instruction to start the engine; Gate 2 approval is still owed · strategy §9
+- 2026-09-15 · Invented contract fields removed: the model is the structural spine (identity, references, display, provider_extras) until the CRM data models are read; schemas are marked INCOMPLETE and permissive · docs/field-tables.md
+- 2026-09-15 · Business rules removed with them; `engine/rules/` computes nothing until `rules-ledger/` entries exist · engine/rules/run.ts
+- 2026-09-15 · New enforced check `check:provenance`: every schema field cites a human-written source, every rule cites its ledger entry (needs approval, adds a hard block) · AGENTS.md enforced 4

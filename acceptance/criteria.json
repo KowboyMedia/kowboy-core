@@ -13,7 +13,7 @@
         "golden masters (fake provider) area/with-polygon",
         "golden masters (fake provider) association/basic"
       ],
-      "note": "Proved on golden/fake. Real per-CRM golden masters arrive at Gate 3."
+      "note": "Proved on golden/fake, whose cases now cover identity, references and dummy fake_* fields only. display is empty in every case because no business rule exists. Real per-CRM golden masters arrive at Gate 3."
     },
     {
       "ac": 2,
@@ -196,7 +196,7 @@
         "ingest turns a webhook into a served item (AC 2, AC 3)",
         "admin previews a recompute without writing anything (AC 36)"
       ],
-      "note": "The write path refuses an item that fails its schema; the release preview reports failures. Blocking a release on that report needs the pipeline."
+      "note": "The write path refuses an item that fails its schema, and the release preview reports failures. The schemas themselves are the structural spine and permissive until the data model is defined, so today this proves the mechanism, not the model."
     },
     {
       "ac": 24,
@@ -311,7 +311,10 @@
         "the skipped-test check fails on a skipped test",
         "the skipped-test check fails on a test that silently skips the rest of its file",
         "the secret check fails on a committed private key",
-        "the secret check fails on a database URL with a password for a real host"
+        "the secret check fails on a database URL with a password for a real host",
+        "the provenance check fails on a contract field with no source",
+        "the provenance check fails when the source is a justification rather than a citation",
+        "the provenance check fails on a business rule that names no ledger entry"
       ]
     },
     {

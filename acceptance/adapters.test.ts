@@ -18,44 +18,23 @@ const pollingProperty = (
   stage: 'active',
   object_type: 'flat',
   street: 'Kungsgatan 1',
-  city: 'Stockholm',
-  postcode: '11143',
   price: 7250000,
-  area_sqm: 96,
-  secondary_sqm: null,
-  rooms: 4,
-  lat: 59.3326,
-  lon: 18.0649,
   branch_id: 'B-1',
   districts: [],
   staff: [],
   coop_id: null,
-  listed_at: '2026-09-02T09:00:00Z',
-  closed_at: null,
   ...overrides,
 });
 
 const webhookProperty = (ref: string): Record<string, unknown> => ({
   ref,
   state: 'FOR_SALE',
-  kind: 'APARTMENT',
   streetAddress: 'Storgatan 12',
-  town: 'Lidingö',
-  zip: '18131',
   askingPrice: 4950000,
-  livingArea: 82,
-  extraArea: 12,
-  roomCount: 3,
-  latitude: 59.3667,
-  longitude: 18.1333,
   officeRef: '100',
   areaRefs: [],
   brokerRefs: [],
   associationRef: null,
-  photos: [],
-  showings: [],
-  publishedUtc: null,
-  soldUtc: null,
   updatedUtc: '2026-09-08T10:02:00Z',
   internalCode: 1,
 });
@@ -95,13 +74,18 @@ describe('two adapters, one engine', () => {
     const byId = Object.fromEntries(page.items.map((item) => [item['remote_id'], item]));
     expect(Object.keys(byId).sort()).toEqual(['OBJ-1', 'P-1']);
 
+    // Two CRM vocabularies, one universal record: only identity and references are contract
+    // fields today, and each provider's own words stay in provider_extras.
     const polled = byId['P-1']?.['data'] as Record<string, unknown>;
-    expect(polled['listing_type']).toBe('apartment');
-    expect((polled['display'] as Record<string, string>)['price']).toBe('7 250 000 kr');
+    expect(polled['id']).toBe('P-1');
+    expect(polled['office_id']).toBe('B-1');
+    expect(polled['provider_extras']).toEqual({ 'fake-polling': { object_type: 'flat' } });
     expect(byId['P-1']?.['connection_id']).toBe(POLLING);
 
     const pushed = byId['OBJ-1']?.['data'] as Record<string, unknown>;
-    expect((pushed['display'] as Record<string, string>)['price']).toBe('4 950 000 kr');
+    expect(pushed['id']).toBe('OBJ-1');
+    expect(pushed['office_id']).toBe('100');
+    expect(pushed['provider_extras']).toEqual({ 'fake-webhook': { internal_code: 1 } });
   });
 
   it('tombstones through presentIds when a polled record disappears (AC 35)', async () => {

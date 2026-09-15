@@ -142,3 +142,52 @@ describe('the secret check', () => {
     expect((await check('check-secrets.mjs', dir)).code).toBe(0);
   });
 });
+
+describe('the provenance check', () => {
+  it('passes on this repository', async () => {
+    expect((await check('check-provenance.mjs', repo)).code).toBe(0);
+  });
+
+  it('fails on a contract field with no source', async () => {
+    const dir = fixture({
+      'schemas/property.v1.json': JSON.stringify({ properties: { price: { type: 'number' } } }),
+    });
+    const result = await check('check-provenance.mjs', dir);
+    expect(result.code).toBe(1);
+    expect(result.output).toContain('has no "source"');
+  });
+
+  it('fails when the source is a justification rather than a citation', async () => {
+    const dir = fixture({
+      'schemas/property.v1.json': JSON.stringify({
+        properties: {
+          phone: { type: 'string', source: 'SRS §7 - assumed, every broker shows one' },
+        },
+      }),
+    });
+    const result = await check('check-provenance.mjs', dir);
+    expect(result.code).toBe(1);
+    expect(result.output).toContain('reads as a guess');
+  });
+
+  it('fails when the source cites a document that does not exist', async () => {
+    const dir = fixture({
+      'schemas/property.v1.json': JSON.stringify({
+        properties: { price: { type: 'number', source: 'rules-ledger/price-on-request.md' } },
+      }),
+    });
+    const result = await check('check-provenance.mjs', dir);
+    expect(result.code).toBe(1);
+    expect(result.output).toContain('does not exist');
+  });
+
+  it('fails on a business rule that names no ledger entry', async () => {
+    const dir = fixture({
+      'engine/rules/price.ts':
+        'export const formatPrice = (value: number): string => String(value);\n',
+    });
+    const result = await check('check-provenance.mjs', dir);
+    expect(result.code).toBe(1);
+    expect(result.output).toContain('must name the ledger entry');
+  });
+});

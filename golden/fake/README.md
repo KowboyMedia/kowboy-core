@@ -12,5 +12,9 @@ golden/fake/<datatype>/<case>/
   display.json     the `display` object, which is part of the same `data` in production
 ```
 
-`canonical.json` and `display.json` are split so a formatting change shows up in one small file.
-Together they are the `data` a subscriber receives.
+**The `fake_*` fields are dummy.** The universal model has no descriptive fields yet, because no
+CRM data model has been read (see `docs/field-tables.md`). Nothing here says what a real property
+or office looks like, and none of it should be copied into `schemas/`.
+
+`display.json` is `{}` in every case: there are no business rules yet, and inventing formatting
+would be a guess. The day the rules ledger defines one, these files are where it shows up.

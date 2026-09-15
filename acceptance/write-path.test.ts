@@ -15,24 +15,12 @@ const property = (
 ): Record<string, unknown> => ({
   ref,
   state: 'FOR_SALE',
-  kind: 'APARTMENT',
   streetAddress: 'Storgatan 12',
-  town: 'Lidingö',
-  zip: '18131',
   askingPrice: 4950000,
-  livingArea: 82,
-  extraArea: 12,
-  roomCount: 3,
-  latitude: 59.3667,
-  longitude: 18.1333,
   officeRef: '100',
   areaRefs: [],
   brokerRefs: [],
   associationRef: null,
-  photos: [],
-  showings: [],
-  publishedUtc: '2026-09-01T08:00:00Z',
-  soldUtc: null,
   updatedUtc: '2026-09-08T10:02:00Z',
   internalCode: 1,
   ...overrides,
@@ -84,7 +72,10 @@ describe('ingest', () => {
     expect(item['deleted']).toBe(false);
     expect(item['remote_updated_at']).toBe('2026-09-08T10:02:00.000Z');
     const data = item['data'] as Record<string, unknown>;
-    expect((data['display'] as Record<string, string>)['price']).toBe('4 950 000 kr');
+    expect(data['id']).toBe('OBJ-1');
+    expect(data['office_id']).toBe('100');
+    // No rules exist yet, so display is empty rather than invented (engine/rules/run.ts).
+    expect(data['display']).toEqual({});
   });
 
   it('gives an unchanged record no new seq and no bell (AC 15)', async () => {
@@ -138,8 +129,7 @@ describe('ingest', () => {
     const changed = (
       latest?.fields as Record<string, Record<string, { from: unknown; to: unknown }>>
     )['changed'];
-    expect(changed?.['price']).toEqual({ from: 4950000, to: 4750000 });
-    expect(changed?.['display.price']).toEqual({ from: '4 950 000 kr', to: '4 750 000 kr' });
+    expect(changed?.['fake_amount']).toEqual({ from: 4950000, to: 4750000 });
   });
 
   it('drops a record from an unlicensed office and says why (AC 9)', async () => {

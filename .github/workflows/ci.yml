@@ -32,6 +32,8 @@ jobs:
         run: npm run typecheck
       - name: The seam
         run: npm run check:seam
+      - name: Nothing invented
+        run: npm run check:provenance
       - name: No skipped tests
         run: npm run check:tests
       - name: No committed secrets

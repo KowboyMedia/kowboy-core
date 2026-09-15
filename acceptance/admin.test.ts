@@ -13,24 +13,12 @@ const CONNECTION = 'fake-acme';
 const property = (ref: string, officeRef = '100'): Record<string, unknown> => ({
   ref,
   state: 'FOR_SALE',
-  kind: 'APARTMENT',
   streetAddress: 'Storgatan 12',
-  town: 'Lidingö',
-  zip: '18131',
   askingPrice: 4950000,
-  livingArea: 82,
-  extraArea: 12,
-  roomCount: 3,
-  latitude: 59.3667,
-  longitude: 18.1333,
   officeRef,
   areaRefs: [],
   brokerRefs: [],
   associationRef: null,
-  photos: [],
-  showings: [],
-  publishedUtc: null,
-  soldUtc: null,
   updatedUtc: '2026-09-08T10:02:00Z',
   internalCode: 1,
 });
@@ -145,7 +133,7 @@ describe('admin', () => {
     // Pretend the stored row came from older rules: its data and its hash are both stale, which
     // is exactly what a rules change looks like to the preview.
     await db().query(
-      `update items set data = jsonb_set(data, '{display,price}', '"wrong"'), content_hash = 'produced-by-older-rules'
+      `update items set data = jsonb_set(data, '{fake_label}', '"stale"'), content_hash = 'produced-by-older-rules'
        where remote_id = 'OBJ-1'`,
     );
 
@@ -153,9 +141,9 @@ describe('admin', () => {
     expect(preview.examined).toBe(1);
     expect(preview.changed).toBe(1);
     expect(preview.failed).toBe(0);
-    expect(preview.examples[0]?.changed['display.price']).toEqual({
-      from: 'wrong',
-      to: '4 950 000 kr',
+    expect(preview.examples[0]?.changed['fake_label']).toEqual({
+      from: 'stale',
+      to: 'Storgatan 12',
     });
 
     const afterPreview = await pull(running.baseUrl, 'property');
@@ -172,7 +160,7 @@ describe('admin', () => {
 
     const before = await pull(running.baseUrl, 'property');
     await db().query(
-      `update items set data = jsonb_set(data, '{display,price}', '"wrong"'), content_hash = 'stale' where remote_id = 'OBJ-1'`,
+      `update items set data = jsonb_set(data, '{fake_label}', '"stale"'), content_hash = 'stale' where remote_id = 'OBJ-1'`,
     );
 
     // The CRM is emptied first: a recompute that needed it would fail this test.
@@ -184,7 +172,7 @@ describe('admin', () => {
 
     const after = await pull(running.baseUrl, 'property');
     const data = after.items[0]?.['data'] as Record<string, unknown>;
-    expect((data['display'] as Record<string, string>)['price']).toBe('4 950 000 kr');
+    expect(data['fake_label']).toBe('Storgatan 12');
     expect(Number(after.items[0]?.['seq'])).toBeGreaterThan(Number(before.items[0]?.['seq']));
   });
 

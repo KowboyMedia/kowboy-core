@@ -1,12 +1,5 @@
 {
   "ref": "100",
-  "title": "Kowboy Mäkleri Lidingö",
-  "streetAddress": "Stockholmsvägen 33",
-  "town": "Lidingö",
-  "zip": "18134",
-  "latitude": 59.3661,
-  "longitude": 18.1291,
-  "phoneNumber": "08-123 45 67",
-  "emailAddress": "lidingo@example.se",
+  "title": "Fake office",
   "updatedUtc": "2026-08-30T09:00:00Z"
 }

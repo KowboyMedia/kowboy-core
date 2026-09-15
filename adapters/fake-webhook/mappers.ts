@@ -1,20 +1,11 @@
 import type { Mappers, MappedRecord } from '../../engine/adapter-api/index.js';
 
 // This CRM's own vocabulary. Mapping it to the universal model is the adapter's whole job.
-const STATUS: Record<string, string> = {
-  COMING: 'coming_soon',
-  FOR_SALE: 'for_sale',
-  SOLD: 'sold',
-  WITHDRAWN: 'withdrawn',
-};
-
-const KIND: Record<string, string> = {
-  APARTMENT: 'apartment',
-  VILLA: 'house',
-  ROW: 'townhouse',
-  PLOT: 'plot',
-  COMMERCIAL: 'commercial',
-};
+//
+// The universal model has no descriptive fields yet (see schemas/), so everything this fake CRM
+// knows beyond identity is carried in fields named `fake_*`. That name is deliberate: these are
+// dummy fields belonging to a dummy provider, and none of them is a claim about what a real
+// property, office or agent looks like.
 
 type Raw = Record<string, unknown>;
 
@@ -22,139 +13,74 @@ const text = (value: unknown): string | null => (typeof value === 'string' && va
 const number = (value: unknown): number | null => (typeof value === 'number' ? value : null);
 const list = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
 
-const property = (raw: unknown): MappedRecord => {
-  const record = raw as Raw;
+const STATES = new Set(['COMING', 'FOR_SALE', 'SOLD', 'WITHDRAWN']);
+
+const requireRef = (record: Raw): string => {
   const id = text(record['ref']);
   if (!id) throw new Error('a record without a ref cannot be mapped');
+  return id;
+};
 
-  const status = STATUS[String(record['state'])];
-  if (!status) throw new Error(`unknown state "${String(record['state'])}"`);
+const property = (raw: unknown): MappedRecord => {
+  const record = raw as Raw;
+  const id = requireRef(record);
 
-  // An unknown listing type becomes "other", and the CRM's own value is kept in provider_extras
-  // so nothing is lost (SRS §6.5).
-  const kind = KIND[String(record['kind'])] ?? 'other';
+  // A value this adapter does not understand is a mapping failure, not a silent default.
+  const state = String(record['state']);
+  if (!STATES.has(state)) throw new Error(`unknown state "${state}"`);
 
   return {
     officeId: text(record['officeRef']),
     remoteUpdatedAt: text(record['updatedUtc']),
     data: {
       id,
-      slug: '',
-      status,
-      listing_type: kind,
-      address: {
-        street: text(record['streetAddress']),
-        city: text(record['town']),
-        postal_code: text(record['zip']),
-      },
-      price: number(record['askingPrice']),
-      living_space: number(record['livingArea']),
-      additional_space: number(record['extraArea']),
-      rooms: number(record['roomCount']),
-      lat: number(record['latitude']),
-      lng: number(record['longitude']),
       office_id: text(record['officeRef']),
-      area_ids: list(record['areaRefs']),
       agent_ids: list(record['brokerRefs']),
+      area_ids: list(record['areaRefs']),
       association_id: text(record['associationRef']),
-      images: (Array.isArray(record['photos']) ? record['photos'] : []).map((photo, index) => {
-        const item = photo as Raw;
-        return { url: text(item['src']) ?? '', sort: number(item['order']) ?? index };
-      }),
-      viewings: (Array.isArray(record['showings']) ? record['showings'] : []).map((showing) => {
-        const item = showing as Raw;
-        return { starts_at: text(item['from']) ?? '', ends_at: text(item['to']) };
-      }),
-      published_at: text(record['publishedUtc']),
-      sold_at: text(record['soldUtc']),
+      fake_state: state,
+      fake_label: text(record['streetAddress']),
+      fake_amount: number(record['askingPrice']),
       display: {},
-      provider_extras: {
-        'fake-webhook': {
-          kind: String(record['kind']),
-          internal_code: record['internalCode'] ?? null,
-        },
-      },
+      provider_extras: { 'fake-webhook': { internal_code: record['internalCode'] ?? null } },
     },
   };
 };
 
 const office = (raw: unknown): MappedRecord => {
   const record = raw as Raw;
-  const id = text(record['ref']);
-  if (!id) throw new Error('a record without a ref cannot be mapped');
+  const id = requireRef(record);
   return {
     officeId: id,
     remoteUpdatedAt: text(record['updatedUtc']),
-    data: {
-      id,
-      name: text(record['title']) ?? '',
-      address: {
-        street: text(record['streetAddress']),
-        city: text(record['town']),
-        postal_code: text(record['zip']),
-      },
-      lat: number(record['latitude']),
-      lng: number(record['longitude']),
-      phone: text(record['phoneNumber']),
-      email: text(record['emailAddress']),
-      display: {},
-      provider_extras: {},
-    },
+    data: { id, fake_label: text(record['title']), display: {}, provider_extras: {} },
   };
 };
 
 const agent = (raw: unknown): MappedRecord => {
   const record = raw as Raw;
-  const id = text(record['ref']);
-  if (!id) throw new Error('a record without a ref cannot be mapped');
+  const id = requireRef(record);
   return {
     officeId: text(record['officeRef']),
     remoteUpdatedAt: text(record['updatedUtc']),
-    data: {
-      id,
-      name: [text(record['firstName']), text(record['lastName'])].filter(Boolean).join(' '),
-      title: text(record['role']),
-      phone: text(record['phoneNumber']),
-      email: text(record['emailAddress']),
-      image_url: text(record['portraitUrl']),
-      office_id: text(record['officeRef']),
-      display: {},
-      provider_extras: {},
-    },
+    data: { id, fake_label: text(record['firstName']), display: {}, provider_extras: {} },
   };
 };
 
-const area = (raw: unknown): MappedRecord => {
+const tenantWide = (raw: unknown): MappedRecord => {
   const record = raw as Raw;
-  const id = text(record['ref']);
-  if (!id) throw new Error('a record without a ref cannot be mapped');
+  const id = requireRef(record);
   return {
     officeId: null,
     remoteUpdatedAt: text(record['updatedUtc']),
-    data: {
-      id,
-      name: text(record['title']) ?? '',
-      polygon: (record['geo'] as Record<string, unknown> | undefined) ?? null,
-      display: {},
-      provider_extras: {},
-    },
+    data: { id, fake_label: text(record['title']), display: {}, provider_extras: {} },
   };
 };
 
-const association = (raw: unknown): MappedRecord => {
-  const record = raw as Raw;
-  const id = text(record['ref']);
-  if (!id) throw new Error('a record without a ref cannot be mapped');
-  return {
-    officeId: null,
-    remoteUpdatedAt: text(record['updatedUtc']),
-    data: {
-      id,
-      name: text(record['title']) ?? '',
-      display: {},
-      provider_extras: {},
-    },
-  };
+export const mappers: Mappers = {
+  property,
+  office,
+  agent,
+  area: tenantWide,
+  association: tenantWide,
 };
-
-export const mappers: Mappers = { property, office, agent, area, association };

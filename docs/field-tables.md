@@ -1,122 +1,76 @@
-# Field tables (Gate 2)
+# Field tables
 
-One table per datatype. **This is the Gate 2 approval item** (strategy §9). The schemas in
-`schemas/` are the source of truth for shape; this document says what each field means and where
-it comes from.
+**The universal data model is not defined yet, and this document is the record of that.**
 
-**v1 contains only fields the SRS data contract (§6) names.** Everything else a broker site might
-need is listed under "Proposed" at the end and is _not_ in the schema yet. Adding a field later is
-additive and does not bump `schema_version` (SRS §6 rule 2), so nothing here blocks the engine.
+An earlier version of this file listed a full model: addresses, prices, living space, rooms, phone
+numbers, agent portraits. None of it came from a CRM. It was assembled from the SRS's data-contract
+example, which the SRS itself labels _illustrative, not the schema_, and from what an agent
+supposed a Swedish brokerage site shows. That is a guess, and a guess in the contract is worse than
+a gap: it gets built on, tested against and believed. It has been removed.
 
-Conventions: every field is required and explicitly `null` when the CRM has no value. `display.*`
-holds human-readable strings computed by Core. `provider_extras.<provider>` holds provider-only
-fields and is excluded from `content_hash`.
+What remains in `schemas/` is the structural spine, and every field in it cites the human-written
+line it came from (`npm run check:provenance` fails on a field that does not).
 
-## Envelope (`schemas/item.v1.json`)
+## What is defined
 
-| Field               | Type           | Meaning                                                   |
-| ------------------- | -------------- | --------------------------------------------------------- |
-| `datatype`          | enum           | `property`, `agent`, `office`, `area`, `association`      |
-| `connection_id`     | string         | Which CRM connection produced the item                    |
-| `remote_id`         | string         | The CRM's id, untouched                                   |
-| `office_id`         | string \| null | Licensing filter; null for tenant-wide datatypes          |
-| `seq`               | integer        | Cursor. Strictly increasing per tenant, assigned on write |
-| `deleted`           | boolean        | Tombstone. `data` is null when true                       |
-| `schema_version`    | string         | `"1"` today                                               |
-| `content_hash`      | string         | Hash of `data` excluding `provider_extras`                |
-| `remote_updated_at` | string \| null | The CRM's own timestamp, never Core's write time          |
-| `data`              | object \| null | The universal model below                                 |
+### Envelope (`schemas/item.v1.json`)
 
-## property
+The envelope is machinery, not description: the cursor, identity, the tombstone flag, the hash and
+the licensing filter. It comes from SRS §3 and §6 and is unchanged.
 
-| Field              | Type           | Source  | Notes                                                                                                                                      |
-| ------------------ | -------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `id`               | string         | CRM     | Same value as `remote_id`                                                                                                                  |
-| `slug`             | string         | Core    | ASCII-folded from address and city. Not unique, not stable (SRS §6.7)                                                                      |
-| `status`           | enum           | Core    | `coming_soon \| for_sale \| sold \| withdrawn`. Unknown CRM values are a mapping question, not `other`                                     |
-| `listing_type`     | enum           | Core    | `apartment \| house \| townhouse \| plot \| commercial \| other`. Unknown values map to `other`, raw value to `provider_extras` (SRS §6.5) |
-| `address`          | object         | CRM     | `street`, `city`, `postal_code`                                                                                                            |
-| `price`            | number \| null | CRM     | Asking price in SEK. Null when the CRM has none (price on request is a ledger rule)                                                        |
-| `living_space`     | number \| null | CRM     | m²                                                                                                                                         |
-| `additional_space` | number \| null | CRM     | m²                                                                                                                                         |
-| `rooms`            | number \| null | CRM     | May be a half number (3.5)                                                                                                                 |
-| `lat`, `lng`       | number \| null | CRM     | Plain numbers (SRS §6.8)                                                                                                                   |
-| `office_id`        | string \| null | CRM     | Reference                                                                                                                                  |
-| `area_ids`         | string[]       | CRM     | References                                                                                                                                 |
-| `agent_ids`        | string[]       | CRM     | References                                                                                                                                 |
-| `association_id`   | string \| null | CRM     | Reference                                                                                                                                  |
-| `images`           | array          | CRM     | `{url, sort}`, sorted, entries without a URL dropped (SRS §7). Core never hosts or resizes                                                 |
-| `viewings`         | array          | CRM     | `{starts_at, ends_at}`. Past viewings are hidden by the subscriber, not here                                                               |
-| `published_at`     | string \| null | CRM     |                                                                                                                                            |
-| `sold_at`          | string \| null | CRM     |                                                                                                                                            |
-| `display`          | object         | Core    | `price`, `living_space`, `rooms`, `address` today; additive                                                                                |
-| `provider_extras`  | object         | Adapter | Keyed by provider                                                                                                                          |
+| Field                                    | Source                                                   |
+| ---------------------------------------- | -------------------------------------------------------- |
+| `datatype`, `connection_id`, `remote_id` | SRS §3, item identity                                    |
+| `office_id`                              | SRS §3, licensing filter; null for tenant-wide datatypes |
+| `seq`                                    | SRS §3, the only cursor                                  |
+| `deleted`                                | SRS §3, tombstone flag                                   |
+| `schema_version`                         | SRS §6                                                   |
+| `content_hash`                           | SRS §3, change detection and the subscriber's skip test  |
+| `remote_updated_at`                      | SRS §3, the CRM's own last-change time                   |
+| `data`                                   | SRS §6, the canonical object served to subscribers       |
 
-## office
+### `data`, every datatype
 
-| Field             | Type           | Source  | Notes                                           |
-| ----------------- | -------------- | ------- | ----------------------------------------------- |
-| `id`              | string         | CRM     | The unit of licensing                           |
-| `name`            | string         | CRM     |                                                 |
-| `address`         | object         | CRM     |                                                 |
-| `lat`, `lng`      | number \| null | CRM     | SRS §6.8                                        |
-| `phone`           | string \| null | CRM     | Formatted into `display.phone` by Core (SRS §7) |
-| `email`           | string \| null | CRM     |                                                 |
-| `display`         | object         | Core    |                                                 |
-| `provider_extras` | object         | Adapter |                                                 |
+| Field             | Source                                                       |
+| ----------------- | ------------------------------------------------------------ |
+| `id`              | SRS §6.9, references are by id                               |
+| `display`         | SRS §6, strings computed by Core. Empty: no rule exists yet  |
+| `provider_extras` | SRS §6.4, provider-only fields, excluded from `content_hash` |
 
-## agent
+### `data`, property only
 
-| Field             | Type           | Source  | Notes                                  |
-| ----------------- | -------------- | ------- | -------------------------------------- |
-| `id`              | string         | CRM     |                                        |
-| `name`            | string         | CRM     |                                        |
-| `title`           | string \| null | CRM     | Job title, e.g. "Fastighetsmäklare"    |
-| `phone`           | string \| null | CRM     | Formatted into `display.phone` by Core |
-| `email`           | string \| null | CRM     |                                        |
-| `image_url`       | string \| null | CRM     | A CDN URL. Core never hosts images     |
-| `office_id`       | string \| null | CRM     | Reference                              |
-| `display`         | object         | Core    |                                        |
-| `provider_extras` | object         | Adapter |                                        |
+| Field                                                  | Source                         |
+| ------------------------------------------------------ | ------------------------------ |
+| `office_id`, `agent_ids`, `area_ids`, `association_id` | SRS §6.9, references are by id |
 
-## area
+That is the whole contract today. The schemas set `additionalProperties: true` and say
+`INCOMPLETE` in their description, so nothing pretends this is finished.
 
-| Field             | Type           | Source  | Notes                                                                         |
-| ----------------- | -------------- | ------- | ----------------------------------------------------------------------------- |
-| `id`              | string         | CRM     |                                                                               |
-| `name`            | string         | CRM     |                                                                               |
-| `polygon`         | object \| null | CRM     | GeoJSON Polygon or MultiPolygon (SRS §6.8). Null when the CRM has no geometry |
-| `display`         | object         | Core    |                                                                               |
-| `provider_extras` | object         | Adapter |                                                                               |
+## What is missing, and what it takes to define it
 
-## association
+The descriptive model - what a property, office, agent, area and association actually hold - is
+added **in one piece**, not field by field as guesses accumulate. Defining it needs three things,
+none of which an agent can supply:
 
-| Field             | Type   | Source  | Notes                    |
-| ----------------- | ------ | ------- | ------------------------ |
-| `id`              | string | CRM     |                          |
-| `name`            | string | CRM     | The bostadsrättsförening |
-| `display`         | object | Core    |                          |
-| `provider_extras` | object | Adapter |                          |
+1. **The CRM data models.** Vitec Connect's marketing endpoints and its full (not default limited)
+   datamodel, and the same for Mspecs. Neither has been read: the documentation is unreachable
+   from this environment (`docs/open-questions.md`, question 7).
+2. **The parity inventory** (strategy §9, Phase 5): what the current sites actually show, so the
+   model covers the real use rather than the CRM's whole surface.
+3. **The rules ledger** for anything derived rather than copied, including every `display.*` string.
 
-## Proposed, needs a decision at Gate 2
+Statements the SRS makes that will feed that work, once there is a data model to apply them to:
+closed enums for `status` and `listing_type` (§6.5), images as CDN URLs with a sort order (§6.6),
+`slug` derived from address and city (§6.7), `lat`/`lng` on property and office and a GeoJSON
+`polygon` on area (§6.8). These are recorded here rather than implemented, because the SRS
+describes how a field behaves without establishing that the CRM supplies it.
 
-Not in the schema. Each of these is something broker sites usually show, but none is named in the
-SRS data contract, and AGENTS.md forbids inventing them. Approve the ones we need and they are
-added as additive fields; the rest stay out.
+## What this costs right now
 
-| Datatype    | Candidate fields                                                                                                                                                             |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| property    | `headline`, `description`, `monthly_fee`, `operating_cost`, `plot_area`, `build_year`, `floor`, `energy_class`, `tenure`, `balcony`, `elevator`, `bidding_open`, `documents` |
-| office      | `opening_hours`, `website`, `image_url`, `organisation_number`                                                                                                               |
-| agent       | `mobile`, `description`, `role_on_property` (agent's role per listing)                                                                                                       |
-| area        | `municipality`, `parent_area_id`                                                                                                                                             |
-| association | `organisation_number`, `address`, `built_year`, `fee_includes`                                                                                                               |
+Nothing structural. The engine does not read contract fields: identity, hashing, `seq`, tombstones,
+the licensed-office filter, bells, the cursor, recompute and the event log all work on whatever
+`data` holds. The fake adapters carry `fake_*` fields so change detection has something to detect,
+and those names are deliberately impossible to mistake for the contract.
 
-Two of these are shaped by the parity inventory (strategy §9, Phase 5), so the honest order is:
-approve what is obviously needed now, and revisit the rest when the inventory arrives.
-
-## Open question for Gate 2: images
-
-Kowboy serves images through a separate CDN app, so the Vitec adapter is expected to leave
-`images` and `image_url` empty. The fields stay in the contract because the SRS defines them and
-another provider may fill them. Confirm that is what you want, or say the field should go.
+When the model lands, it lands as an additive change (SRS §6 rule 2): new fields do not bump
+`schema_version`, so nothing here blocks the clients or the adapters being built first.

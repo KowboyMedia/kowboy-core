@@ -16,12 +16,13 @@
     "check:seam": "node scripts/check-seam.mjs",
     "check:tests": "node scripts/check-no-skipped-tests.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
-    "check": "npm run typecheck && npm run check:seam && npm run check:tests && npm run check:secrets && npm run build && npm run test",
+    "check": "npm run typecheck && npm run check:seam && npm run check:provenance && npm run check:tests && npm run check:secrets && npm run build && npm run test",
     "start:web": "node dist/main.js web",
     "start:worker": "node dist/main.js worker",
     "dev:web": "node --experimental-strip-types main.ts web",
     "migrate": "node dist/engine/storage/migrate-cli.js",
-    "report": "node scripts/acceptance-report.mjs"
+    "report": "node scripts/acceptance-report.mjs",
+    "check:provenance": "node scripts/check-provenance.mjs"
   },
   "dependencies": {
     "pg": "^8.13.1"
