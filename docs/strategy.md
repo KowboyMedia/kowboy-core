@@ -1,6 +1,6 @@
 # Kowboy Core - Delivery Strategy
 
-**Status:** v9 · Gate 1 approved 2026-09-15 (amended same day) · **Current phase: 1 - Foundation** (§9) · **Inputs:** [Concept](inputs/Kowboy_Kore_Concept.md), [SRS v1.2](inputs/Kowboy_Kore_SRS_v1.2.md) (suggestions; amended by §12)
+**Status:** v10 · Gate 1 approved 2026-09-15 (amended same day) · **Current phase: 1 - Foundation** (§9) · **Inputs:** [Concept](inputs/Kowboy_Kore_Concept.md), [SRS v1.2](inputs/Kowboy_Kore_SRS_v1.2.md) (suggestions; amended by §12)
 
 **Naming:** the product is **Kowboy Core**, or just **Core** (formerly "Kore"). The CRM-agnostic part inside it is called the **engine**. Every `Kore`/`kore` identifier in the SRS becomes `Core`/`core`, for example `X-Core-Secret` and `/wp-json/core/v1/bell`.
 
@@ -28,16 +28,16 @@ Get from the Concept and SRS to a production deploy of a simple, lean and reliab
 | Checks | Few blocking checks; the rest are warnings (§3) | |
 | CI/CD | GitHub Actions and GitHub Environments | Production approval is one button |
 | Monitoring | `/v1/health`: 200 when every check passes, 500 when any fails, same payload (§8.1). Watched by Sentry Uptime. | Works with any monitoring tool |
-| Errors | Sentry (EU) in Core and both clients | One error surface |
+| Errors | Sentry (EU) in Core and both clients. Until the account exists, error reporting is a **placeholder**: one small module, active only when `SENTRY_DSN` is set, a no-op otherwise. | One error surface, and no waiting on an account |
 | WP client | PHP 8.3, PHPUnit, PHPStan, wp-env | |
 | Lovable client | Supabase edge functions (Deno), Supabase CLI, staging and prod projects | Required by Lovable |
 | Repo | `KowboyMedia/kowboy-core`: `engine/`, `adapters/<provider>/`, `clients/wordpress/`, `clients/lovable-kit/`, `schemas/`, `golden/`, `rules-ledger/`, `acceptance/`, `docs/`. The Lovable example site gets its own repo. | CI runs real clients against the real Core |
 
-### Hosting: decided at the start of Phase 1
+### Hosting: supplied by Kowboy, not chosen by agents
 
-Render is excluded. An agent compares market-leading options, including Google Cloud Run with Cloud SQL, AWS ECS Fargate with RDS, Azure Container Apps and Fly.io/Railway, and picks one. The pick is logged in `docs/decisions.md` and reported with a monthly cost estimate.
+Hosting is outside the agents' scope. Kowboy provisions the platform and hands over the connection details; the intended target is **DigitalOcean App Platform with managed PostgreSQL, EU region**. Agents build the app so it runs there: 12-factor config from the environment, separate `web` and `worker` commands, plain SQL migrations at startup, and no dependency on a specific vendor's APIs.
 
-Hard criteria:
+The platform must satisfy:
 - **Billing:** no servers to manage, billed per instance or resource, not per invocation.
 - **Region:** EU for both app and database.
 - **Database:** managed Postgres with point-in-time recovery, in the same region.
@@ -140,6 +140,7 @@ One approval promotes Core, the WP plugin channel and the Lovable kit. Every dep
 | `onLifecycle(handler)` | Receive connection added/removed, offices added/removed, resync |
 | `logEvent(type, fields)` | Write to the event log |
 | `healthCheck(name, fn)` | Add a named check to `/v1/health` |
+
 Every call is idempotent. The engine never calls back into CRM-specific code except through the mappers and lifecycle handlers the adapter registered.
 
 **Startup.** A tiny entrypoint, `main.ts`, is the only file that imports both the engine and the adapters.
@@ -304,7 +305,8 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
 | Phase | Output | Exit |
 |---|---|---|
 | **0. Decide** | Strategy and acceptance criteria | **Gate 1: approved 2026-09-15** |
-| **1. Foundation** ◄ current | Hosting pick, repo tooling, §3 checks and warnings, staging and prod as code, Sentry, health endpoint, release gate, a "hello health" app | A trivial change goes PR → staging → approved → production, and a failing health check alerts |
+| **1. Foundation** ◄ current | Repo tooling, §3 checks and warnings, Sentry placeholder, health endpoint, release gate, a "hello health" app | Checks block a seeded violation, and the app serves `/v1/health` locally and in CI |
+| **1b. Deploy** (waits on the platform) | Staging and prod deployed on the platform Kowboy supplies, Sentry account wired up | A trivial change goes PR → staging → approved → production, and a failing health check alerts |
 | **2. Canonical model** | JSON Schemas, a field table per datatype, dummy data (`golden/fake/`) | **Gate 2:** field tables approved |
 | **3. Engine** | Engine, adapter API, bells, recompute, health, event log, two fake adapters (one webhook-style, one polling-style), fake subscriber | Engine acceptance criteria green |
 | **4. Clients** | WP plugin, Lovable kit, example site, staging client sites | Client acceptance criteria green |
@@ -327,7 +329,7 @@ golden/<provider>/<datatype>/<case>/
   display.json     human-readable output used by websites
 ```
 
-## 10. Acceptance Criteria v1.8
+## 10. Acceptance Criteria v1.9
 
 ### SRS AC 1-15, with clarifications
 
@@ -373,6 +375,8 @@ golden/<provider>/<datatype>/<case>/
 | 37 | **Checks.** Each enforced check (§3.1) fails on a seeded violation, including an adapter importing engine internals and a CRM name in the engine. Warnings (§3.2) never block. |
 | 38 | **Webhook lag (Vitec).** A webhook whose record isn't fetched and ingested within 5 min turns `vitec.webhook_lag` red, and green again once it is processed. |
 | 39 | **Repeated retries (Vitec).** A record failing 3 fetches in a row turns `vitec.retries` red. It turns green after a successful fetch or when an operator discards the record. |
+| 40 | **Compression.** A 100-item `/v1/changes` page is served gzip-encoded with `Content-Encoding: gzip`, at least 4x smaller than the same body uncompressed, and adds under 10 ms p95 per page. A client that does not accept gzip still gets valid plain JSON. |
+
 ## 11. Rules ledger: what Kowboy supplies
 
 **What it is.** A plain-language list of every piece of logic that is more than copying a CRM field. Golden masters show *what* the output is for examples; the ledger says *why*, so agents implement the general rule.
@@ -416,17 +420,19 @@ Examples: golden/vitec/property/price-on-request
 10. Add a `CREDENTIALS_KEY` env var.
 11. Generate TS types from JSON Schema; use golden masters for the initial build only; ledger format as in §11.
 12. Add a manual production approval with a release report and impact preview (§4).
-13. Choose hosting in Phase 1 against fixed criteria.
+13. Hosting is supplied by Kowboy (DigitalOcean App Platform with managed Postgres, EU), not chosen by agents.
 14. Build on dummy data first; real golden masters before the adapters.
 15. Recompute automatically after a release that changes mapping or rules.
-16. Gzip JSON responses at a low level.
+16. Gzip JSON responses at a low level (AC 40).
 17. Webhook listeners, schedules and timers are adapter concerns. `main.ts` starts the engine, mounts adapter endpoints and starts the adapters.
 
 ## 13. Defaults (changeable without a gate)
 
 | Setting | Default |
 |---|---|
-| Bell throttle window | 10 s || Event log retention | 30 days |
+| Bell throttle window | 10 s |
+| Response compression | gzip level 3 |
+| Event log retention | 30 days |
 | Vitec catch-up | every 12 h, 1 h overlap |
 | Vitec id comparison for deletes | daily |
 | Vitec fetch retries | exponential backoff; health red after 3 consecutive failures; Sentry after the last attempt |

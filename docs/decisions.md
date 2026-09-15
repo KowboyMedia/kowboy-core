@@ -27,3 +27,7 @@ One line per structural decision: date, decision, reference. Append only. Detail
 - 2026-09-15 · JSON responses gzip-compressed at a low level · strategy §2
 - 2026-09-15 · Webhook listeners (the whole endpoint), schedules and timers live in the adapter; `main.ts` is the only file importing engine and adapters · strategy §5.1, §5.3
 - 2026-09-15 · Health: engine checks plus adapter-registered checks (Vitec webhook lag 5 min, 3 consecutive failed fetches, catch-up overdue) · strategy §5.4, §8.1
+- 2026-09-15 · Hosting is out of agent scope: Kowboy provisions DigitalOcean App Platform with managed Postgres (EU); Phase 1 splits into Foundation and a Deploy step that waits on the platform (supersedes the agent hosting pick) · strategy §2, §9
+- 2026-09-15 · Error reporting ships as a placeholder module, active only when `SENTRY_DSN` is set · strategy §2
+- 2026-09-15 · Compression has an acceptance criterion again: gzip level 3, AC 40 · strategy §10, §13
+- 2026-09-15 · CODEOWNERS for the protected paths is patric@kowboy.se · AGENTS.md rule 3
