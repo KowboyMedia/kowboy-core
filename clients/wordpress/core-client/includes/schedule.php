@@ -4,8 +4,12 @@
 
 declare(strict_types=1);
 
-add_action('core_client_run_sync', 'core_client_sync');
-add_action('core_client_backstop', fn () => core_client_sync('delta'));
+add_action('core_client_run_sync', function (string $kind = 'delta'): void {
+    core_client_sync($kind);
+});
+add_action('core_client_backstop', function (): void {
+    core_client_sync('delta');
+});
 
 /** Run a sync as soon as WP-Cron can: leave the note now, so a running sync picks it up too. */
 function core_client_schedule_sync(string $kind): void
@@ -26,4 +30,6 @@ add_action('init', function (): void {
     }
 });
 
-register_deactivation_hook(CORE_CLIENT_FILE, fn () => wp_clear_scheduled_hook('core_client_backstop'));
+register_deactivation_hook(CORE_CLIENT_FILE, function (): void {
+    wp_clear_scheduled_hook('core_client_backstop');
+});

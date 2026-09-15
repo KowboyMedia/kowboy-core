@@ -27,7 +27,7 @@ function core_client_bell_permitted(WP_REST_Request $request): bool|WP_Error
 function core_client_bell(WP_REST_Request $request): WP_REST_Response
 {
     $body = $request->get_json_params();
-    $kind = is_array($body) && ($body['kind'] ?? '') === 'forcerefresh' ? 'forcerefresh' : 'delta';
+    $kind = ($body['kind'] ?? '') === 'forcerefresh' ? 'forcerefresh' : 'delta';
     core_client_schedule_sync($kind);
     return new WP_REST_Response(['queued' => true], 202);
 }

@@ -43,7 +43,10 @@ add_filter('pre_http_request', function ($pre, array $args, string $url) {
     return $pre;
 }, 10, 3);
 
-/** @param array<string, string> $settings */
+/**
+ * @param array<string, string> $settings
+ * @return array<string, mixed>
+ */
 function core_driver_configure(array $settings): array
 {
     update_option('siteurl', $settings['site']);
@@ -54,6 +57,7 @@ function core_driver_configure(array $settings): array
     return ['bell_url' => rest_url('core/v1/bell')];
 }
 
+/** @return array<string, mixed> */
 function core_driver_reset(): array
 {
     global $wpdb;
@@ -71,6 +75,7 @@ function core_driver_reset(): array
     return ['ok' => true];
 }
 
+/** @return array<string, mixed> */
 function core_driver_backstop(): array
 {
     $scheduled = wp_next_scheduled('core_client_backstop') !== false;
@@ -105,7 +110,10 @@ function core_driver_items(string $datatype): array
     return $items;
 }
 
-/** @param array<string, string> $spec */
+/**
+ * @param array<string, string> $spec
+ * @return array<string, mixed>
+ */
 function core_driver_damage(array $spec): array
 {
     global $wpdb;
@@ -122,6 +130,7 @@ function core_driver_damage(array $spec): array
     return ['damaged' => true];
 }
 
+/** @return array<string, mixed> */
 function core_driver_update_check(): array
 {
     delete_site_transient('update_plugins');
