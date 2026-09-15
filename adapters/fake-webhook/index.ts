@@ -142,6 +142,7 @@ async function drainOnce(): Promise<void> {
   }
 }
 
+/** Everything the CRM has for a connection, in reference order: offices and agents before properties. */
 async function loadEverything(connection: Connection, datatypes: Datatype[]): Promise<void> {
   const correlationId = randomUUID();
   for (const datatype of datatypes) {
@@ -149,6 +150,63 @@ async function loadEverything(connection: Connection, datatypes: Datatype[]): Pr
       enqueue(connection.id, datatype, remoteId, correlationId);
     }
   }
+}
+
+/**
+ * Only the named offices' records, plus the tenant-wide entities they reference (AC 14). Other
+ * offices are not touched, so their items get no new seq.
+ */
+function loadOffices(connection: Connection, officeIds: string[]): void {
+  const correlationId = randomUUID();
+  const queue = (datatype: Datatype, remoteId: string): void =>
+    enqueue(connection.id, datatype, remoteId, correlationId);
+
+  for (const officeId of officeIds) {
+    if (crm.get('office', officeId)) queue('office', officeId);
+  }
+
+  const referenced = new Map<Datatype, Set<string>>([
+    ['area', new Set()],
+    ['association', new Set()],
+  ]);
+
+  for (const datatype of ['agent', 'property'] as Datatype[]) {
+    for (const payload of recordsForOffices(datatype, officeIds)) {
+      queue(datatype, String(payload['ref']));
+      for (const [refDatatype, remoteId] of referencesOf(payload)) {
+        referenced.get(refDatatype)?.add(remoteId);
+      }
+    }
+  }
+
+  for (const [datatype, ids] of referenced) {
+    for (const remoteId of ids) queue(datatype, remoteId);
+  }
+}
+
+/** This CRM's records for the given offices. Knowing `officeRef` is adapter knowledge. */
+function recordsForOffices(datatype: Datatype, officeIds: string[]): Record<string, unknown>[] {
+  const wanted = new Set(officeIds);
+  return crm
+    .ids(datatype)
+    .map((remoteId) => crm.get(datatype, remoteId))
+    .filter((payload): payload is Record<string, unknown> => payload !== null)
+    .filter((payload) => {
+      const officeRef = payload['officeRef'];
+      return typeof officeRef === 'string' && wanted.has(officeRef);
+    });
+}
+
+/** The tenant-wide entities a record points at, which a new office may not have loaded yet. */
+function referencesOf(payload: Record<string, unknown>): [Datatype, string][] {
+  const areas = Array.isArray(payload['areaRefs']) ? payload['areaRefs'] : [];
+  const association = payload['associationRef'];
+  return [
+    ...areas.map((ref): [Datatype, string] => ['area', String(ref)]),
+    ...(typeof association === 'string'
+      ? ([['association', association]] as [Datatype, string][])
+      : []),
+  ];
 }
 
 export const fakeWebhookAdapter: Adapter = {
@@ -173,7 +231,7 @@ export const fakeWebhookAdapter: Adapter = {
         ]);
       }
       if (event.type === 'offices_added') {
-        await loadEverything(event.connection, ['office', 'agent', 'property']);
+        loadOffices(event.connection, event.officeIds);
       }
     });
 

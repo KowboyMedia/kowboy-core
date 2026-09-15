@@ -101,6 +101,37 @@ describe('admin', () => {
     expect(tombstoned.map((item) => item['remote_id'])).toEqual(['OBJ-1']);
   });
 
+  it('loads only the added office, and gives other offices no new seq (AC 14)', async () => {
+    crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
+    crm.put('office', '200', { ref: '200', title: 'Nacka', updatedUtc: '2026-08-30T09:00:00Z' });
+    crm.put('property', 'OBJ-100', property('OBJ-100', '100'));
+    await admin('event', { connection_id: CONNECTION, event: 'connection_added' });
+    await until(async () => {
+      await drainFetchList();
+      return (await pull(running.baseUrl, 'property')).items.length === 1;
+    }, 'the first office');
+
+    const before = await pull(running.baseUrl, 'property');
+    const seqBefore = before.items[0]?.['seq'];
+
+    // A second office is licensed later, and its records arrive.
+    crm.put('property', 'OBJ-200', property('OBJ-200', '200'));
+    await admin('event', {
+      connection_id: CONNECTION,
+      event: 'offices_added',
+      office_ids: ['200'],
+    });
+    await until(async () => {
+      await drainFetchList();
+      return (await pull(running.baseUrl, 'property')).items.length === 2;
+    }, 'the second office');
+
+    const after = await pull(running.baseUrl, 'property');
+    const untouched = after.items.find((item) => item['remote_id'] === 'OBJ-100');
+    expect(untouched?.['seq']).toBe(seqBefore);
+    expect(after.items.map((item) => item['remote_id']).sort()).toEqual(['OBJ-100', 'OBJ-200']);
+  });
+
   it('previews a recompute without writing anything (AC 36)', async () => {
     crm.put('property', 'OBJ-1', property('OBJ-1'));
     await admin('event', { connection_id: CONNECTION, event: 'connection_added' });

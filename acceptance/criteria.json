@@ -120,8 +120,11 @@
       "ac": 14,
       "title": "Adding an office loads only that office's records",
       "phase": "engine",
-      "tests": ["two adapters, one engine resyncs a connection on request (AC 14)"],
-      "note": "Partly covered: resync and the offices_added lifecycle event are wired, but the narrow office-only load is not yet asserted."
+      "tests": [
+        "admin loads only the added office, and gives other offices no new seq (AC 14)",
+        "two adapters, one engine resyncs a connection on request (AC 14)"
+      ],
+      "note": "The adapter loads the added office's records plus the tenant-wide entities they reference; other offices get no new seq."
     },
     {
       "ac": 15,

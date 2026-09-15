@@ -21,7 +21,7 @@ The authoritative wording of each criterion is strategy §10, which amends SRS �
 | 11 | A malformed record is dropped, logged, and blocks nothing | ✅ green | `ingest drops one malformed record and still writes the others (AC 11)` |
 | 12 | An invented provider works end to end; no CRM name in the engine | ✅ green | `two adapters, one engine serves items from both, side by side, with different payload shapes`<br>`two adapters, one engine reports the health check each adapter registered`<br>`the seam check passes on this repository`<br>`the seam check fails when the engine names a CRM` |
 | 13 | recompute rewrites affected records with no CRM traffic | ✅ green | `admin recomputes from stored raw with no CRM traffic, and gives a new seq (AC 13)` |
-| 14 | Adding an office loads only that office's records | ✅ green | `two adapters, one engine resyncs a connection on request (AC 14)` |
+| 14 | Adding an office loads only that office's records | ✅ green | `admin loads only the added office, and gives other offices no new seq (AC 14)`<br>`two adapters, one engine resyncs a connection on request (AC 14)` |
 | 15 | replay reproduces the current records exactly | ✅ green | `admin recomputes from stored raw with no CRM traffic, and gives a new seq (AC 13)`<br>`admin previews a recompute without writing anything (AC 36)` |
 | 16 | The event log answers one entity's whole timeline | ✅ green | `ingest keeps the whole timeline of an entity in the event log (AC 16)`<br>`admin answers the event timeline query`<br>`ingest links a webhook to the write it caused by correlation id (AC 16)`<br>`the event log loses no event when many writers race to create the day partition`<br>`the event log drops partitions outside the retention window (AC 16)` |
 | 17 | Health and alerting | ✅ green | `health is 500 while a check fails and 200 when everything passes (AC 17)` |
@@ -56,7 +56,7 @@ The authoritative wording of each criterion is strategy §10, which amends SRS �
 - **AC 8.** Needs the WordPress and Lovable clients (Phase 4).
 - **AC 10.** Half of this is client behaviour (Phase 4). The engine half is that data is stored and served verbatim.
 - **AC 11.** Reported to the event log. Sentry reporting waits on the DSN.
-- **AC 14.** Partly covered: resync and the offices_added lifecycle event are wired, but the narrow office-only load is not yet asserted.
+- **AC 14.** The adapter loads the added office's records plus the tenant-wide entities they reference; other offices get no new seq.
 - **AC 16.** Causes covered: written, unchanged, dropped (unlicensed, malformed, inactive, unknown datatype), tombstoned, bell, pull. A correlation id links a webhook to the write it caused; an adapter cannot yet stamp its own events with one (open question 9).
 - **AC 17.** Sentry Uptime alerting waits on the account.
 - **AC 18.** Waits on the platform Kowboy supplies.
