@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kowboy.se/schemas/agent.v1.json",
+  "title": "agent.data",
+  "type": "object",
+  "properties": {
+    "id": { "$ref": "_shared.v1.json#/$defs/id" },
+    "name": { "type": "string" },
+    "title": { "$ref": "_shared.v1.json#/$defs/nullableString" },
+    "phone": { "$ref": "_shared.v1.json#/$defs/nullableString" },
+    "email": { "$ref": "_shared.v1.json#/$defs/nullableString" },
+    "image_url": { "$ref": "_shared.v1.json#/$defs/nullableString" },
+    "office_id": { "type": ["string", "null"] },
+    "display": { "$ref": "_shared.v1.json#/$defs/display" },
+    "provider_extras": { "$ref": "_shared.v1.json#/$defs/providerExtras" }
+  },
+  "required": [
+    "id",
+    "name",
+    "title",
+    "phone",
+    "email",
+    "image_url",
+    "office_id",
+    "display",
+    "provider_extras"
+  ],
+  "additionalProperties": false
+}

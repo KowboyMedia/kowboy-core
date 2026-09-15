@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kowboy.se/schemas/property.v1.json",
+  "title": "property.data",
+  "type": "object",
+  "properties": {
+    "id": { "$ref": "_shared.v1.json#/$defs/id" },
+    "slug": {
+      "description": "URL-safe, ASCII-folded, derived by Core. Not unique, not stable.",
+      "type": "string"
+    },
+    "status": { "type": "string", "enum": ["coming_soon", "for_sale", "sold", "withdrawn"] },
+    "listing_type": {
+      "type": "string",
+      "enum": ["apartment", "house", "townhouse", "plot", "commercial", "other"]
+    },
+    "address": { "$ref": "_shared.v1.json#/$defs/address" },
+    "price": { "type": ["number", "null"] },
+    "living_space": { "type": ["number", "null"] },
+    "additional_space": { "type": ["number", "null"] },
+    "rooms": { "type": ["number", "null"] },
+    "lat": { "$ref": "_shared.v1.json#/$defs/latitude" },
+    "lng": { "$ref": "_shared.v1.json#/$defs/longitude" },
+    "office_id": { "type": ["string", "null"] },
+    "area_ids": { "type": "array", "items": { "type": "string" } },
+    "agent_ids": { "type": "array", "items": { "type": "string" } },
+    "association_id": { "type": ["string", "null"] },
+    "images": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "minLength": 1 },
+          "sort": { "type": "integer", "minimum": 0 }
+        },
+        "required": ["url", "sort"],
+        "additionalProperties": false
+      }
+    },
+    "viewings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "starts_at": { "type": "string", "format": "date-time" },
+          "ends_at": { "type": ["string", "null"], "format": "date-time" }
+        },
+        "required": ["starts_at", "ends_at"],
+        "additionalProperties": false
+      }
+    },
+    "published_at": { "$ref": "_shared.v1.json#/$defs/timestamp" },
+    "sold_at": { "$ref": "_shared.v1.json#/$defs/timestamp" },
+    "display": { "$ref": "_shared.v1.json#/$defs/display" },
+    "provider_extras": { "$ref": "_shared.v1.json#/$defs/providerExtras" }
+  },
+  "required": [
+    "id",
+    "slug",
+    "status",
+    "listing_type",
+    "address",
+    "price",
+    "living_space",
+    "additional_space",
+    "rooms",
+    "lat",
+    "lng",
+    "office_id",
+    "area_ids",
+    "agent_ids",
+    "association_id",
+    "images",
+    "viewings",
+    "published_at",
+    "sold_at",
+    "display",
+    "provider_extras"
+  ],
+  "additionalProperties": false
+}

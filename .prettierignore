@@ -1,0 +1,7 @@
+dist
+node_modules
+golden
+package-lock.json
+
+# Human-supplied source documents: never reformat.
+docs/inputs

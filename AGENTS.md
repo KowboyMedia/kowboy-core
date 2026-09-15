@@ -6,12 +6,12 @@ Every agent reads this file before doing any work. `CLAUDE.md` only imports it. 
 
 Kowboy Core ("Core") is one central service. It reads real estate CRMs, normalizes their data into one model and lets any number of thin clients (a WordPress plugin, Lovable sites) pull changes by cursor.
 
-| Document | Role |
-|---|---|
-| [docs/strategy.md](docs/strategy.md) | **The authoritative plan**, including the current phase (§9). Where it conflicts with the inputs, it wins. |
-| [docs/inputs/Kowboy_Kore_Concept.md](docs/inputs/Kowboy_Kore_Concept.md) | The *why*. Its rules settle arguments. |
-| [docs/inputs/Kowboy_Kore_SRS_v1.2.md](docs/inputs/Kowboy_Kore_SRS_v1.2.md) | The original spec, amended by strategy §12. |
-| [docs/decisions.md](docs/decisions.md) | One line per structural decision. Append only. |
+| Document                                                                   | Role                                                                                                       |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| [docs/strategy.md](docs/strategy.md)                                       | **The authoritative plan**, including the current phase (§9). Where it conflicts with the inputs, it wins. |
+| [docs/inputs/Kowboy_Kore_Concept.md](docs/inputs/Kowboy_Kore_Concept.md)   | The _why_. Its rules settle arguments.                                                                     |
+| [docs/inputs/Kowboy_Kore_SRS_v1.2.md](docs/inputs/Kowboy_Kore_SRS_v1.2.md) | The original spec, amended by strategy §12.                                                                |
+| [docs/decisions.md](docs/decisions.md)                                     | One line per structural decision. Append only.                                                             |
 
 ## Enforced: CI blocks merge or deploy
 
@@ -41,7 +41,7 @@ Lint findings (including function complexity), duplicate code, dead code (unused
 - **The adapter bends to the engine, never the other way round.**
   - Never call CRM-specific code from the engine.
   - No CRM-specific branches, flags, config keys, workarounds or hacks in the engine.
-  - If an adapter needs something `engine/adapter-api/` doesn't offer, propose a *generic* engine capability any adapter could use. That needs approval.
+  - If an adapter needs something `engine/adapter-api/` doesn't offer, propose a _generic_ engine capability any adapter could use. That needs approval.
 - **All data logic lives in Core.** Clients are templates plus a sync loop.
 - **Tests are the acceptance.** If something can't be tested automatically, raise it as a design problem. Never add a manual step.
 - **Anything derived must be patchable** from stored raw data without CRM traffic.

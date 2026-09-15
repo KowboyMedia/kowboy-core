@@ -1,0 +1,10 @@
+{
+  "id": "AG-12",
+  "name": "Anna Lindqvist",
+  "title": "Fastighetsmäklare",
+  "phone": "070-123 45 67",
+  "email": "anna@example.se",
+  "image_url": "https://cdn.example/anna.jpg",
+  "office_id": "100",
+  "provider_extras": {}
+}

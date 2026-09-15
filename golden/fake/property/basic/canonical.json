@@ -1,0 +1,25 @@
+{
+  "id": "OBJ-19203",
+  "slug": "storgatan-12-lidingo",
+  "status": "for_sale",
+  "listing_type": "apartment",
+  "address": { "street": "Storgatan 12", "city": "Lidingö", "postal_code": "18131" },
+  "price": 4950000,
+  "living_space": 82,
+  "additional_space": 12,
+  "rooms": 3,
+  "lat": 59.3667,
+  "lng": 18.1333,
+  "office_id": "100",
+  "area_ids": ["area-77"],
+  "agent_ids": ["AG-12"],
+  "association_id": "BRF-311",
+  "images": [
+    { "url": "https://cdn.example/1.jpg", "sort": 1 },
+    { "url": "https://cdn.example/2.jpg", "sort": 2 }
+  ],
+  "viewings": [{ "starts_at": "2026-09-14T13:00:00+02:00", "ends_at": "2026-09-14T13:45:00+02:00" }],
+  "published_at": "2026-09-01T08:00:00Z",
+  "sold_at": null,
+  "provider_extras": { "fake-webhook": { "kind": "APARTMENT", "internal_code": 4711 } }
+}

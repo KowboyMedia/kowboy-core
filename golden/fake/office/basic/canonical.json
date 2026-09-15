@@ -1,0 +1,10 @@
+{
+  "id": "100",
+  "name": "Kowboy Mäkleri Lidingö",
+  "address": { "street": "Stockholmsvägen 33", "city": "Lidingö", "postal_code": "18134" },
+  "lat": 59.3661,
+  "lng": 18.1291,
+  "phone": "08-123 45 67",
+  "email": "lidingo@example.se",
+  "provider_extras": {}
+}

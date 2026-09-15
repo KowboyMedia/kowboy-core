@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kowboy.se/schemas/association.v1.json",
+  "title": "association.data",
+  "type": "object",
+  "properties": {
+    "id": { "$ref": "_shared.v1.json#/$defs/id" },
+    "name": { "type": "string" },
+    "display": { "$ref": "_shared.v1.json#/$defs/display" },
+    "provider_extras": { "$ref": "_shared.v1.json#/$defs/providerExtras" }
+  },
+  "required": ["id", "name", "display", "provider_extras"],
+  "additionalProperties": false
+}

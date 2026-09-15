@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kowboy.se/schemas/area.v1.json",
+  "title": "area.data",
+  "type": "object",
+  "properties": {
+    "id": { "$ref": "_shared.v1.json#/$defs/id" },
+    "name": { "type": "string" },
+    "polygon": {
+      "description": "GeoJSON Polygon or MultiPolygon, or null when the CRM has no geometry.",
+      "type": ["object", "null"]
+    },
+    "display": { "$ref": "_shared.v1.json#/$defs/display" },
+    "provider_extras": { "$ref": "_shared.v1.json#/$defs/providerExtras" }
+  },
+  "required": ["id", "name", "polygon", "display", "provider_extras"],
+  "additionalProperties": false
+}

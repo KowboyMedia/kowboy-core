@@ -1,0 +1,27 @@
+{
+  "ref": "OBJ-19203",
+  "state": "FOR_SALE",
+  "kind": "APARTMENT",
+  "streetAddress": "Storgatan 12",
+  "town": "Lidingö",
+  "zip": "18131",
+  "askingPrice": 4950000,
+  "livingArea": 82,
+  "extraArea": 12,
+  "roomCount": 3,
+  "latitude": 59.3667,
+  "longitude": 18.1333,
+  "officeRef": "100",
+  "areaRefs": ["area-77"],
+  "brokerRefs": ["AG-12"],
+  "associationRef": "BRF-311",
+  "photos": [
+    { "src": "https://cdn.example/2.jpg", "order": 2 },
+    { "src": "https://cdn.example/1.jpg", "order": 1 }
+  ],
+  "showings": [{ "from": "2026-09-14T13:00:00+02:00", "to": "2026-09-14T13:45:00+02:00" }],
+  "publishedUtc": "2026-09-01T08:00:00Z",
+  "soldUtc": null,
+  "updatedUtc": "2026-09-08T10:02:00Z",
+  "internalCode": 4711
+}

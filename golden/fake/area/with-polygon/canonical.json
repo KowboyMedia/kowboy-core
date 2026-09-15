@@ -1,0 +1,9 @@
+{
+  "id": "area-77",
+  "name": "Gåshaga",
+  "polygon": {
+    "type": "Polygon",
+    "coordinates": [[[18.16, 59.35], [18.19, 59.35], [18.19, 59.37], [18.16, 59.37], [18.16, 59.35]]]
+  },
+  "provider_extras": {}
+}
