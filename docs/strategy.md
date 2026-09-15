@@ -1,6 +1,6 @@
 # Kowboy Core - Delivery Strategy
 
-**Status:** v7 · Gate 1 approved 2026-09-15 (amended same day) · **Current phase: 1 - Foundation** (§9) · **Inputs:** [Concept](inputs/Kowboy_Kore_Concept.md), [SRS v1.2](inputs/Kowboy_Kore_SRS_v1.2.md) (suggestions; amended by §12)
+**Status:** v8 · Gate 1 approved 2026-09-15 (amended same day) · **Current phase: 1 - Foundation** (§9) · **Inputs:** [Concept](inputs/Kowboy_Kore_Concept.md), [SRS v1.2](inputs/Kowboy_Kore_SRS_v1.2.md) (suggestions; amended by §12)
 
 **Naming:** the product is **Kowboy Core**, or just **Core** (formerly "Kore"). The CRM-agnostic part inside it is called the **engine**. Every `Kore`/`kore` identifier in the SRS becomes `Core`/`core`, for example `X-Core-Secret` and `/wp-json/core/v1/bell`.
 
@@ -20,6 +20,7 @@ Get from the Concept and SRS to a production deploy of a simple, lean and reliab
 | Processes | One codebase, two roles: <br>• `web`: subscriber API, admin, health, and the webhook routes adapters mount <br>• `worker`: adapter background work, bells, recompute | Requests stay fast whatever background work is running |
 | Database | Postgres, plain SQL migrations, no ORM | Fewest abstractions |
 | Item storage | One `items` row per entity, with two separate columns: <br>• `raw`: the CRM payload, untouched, never served <br>• `data`: the universal model, with `display` and `provider_extras` inside, served verbatim | `raw` enables recompute and preview without CRM traffic. Serving a precomputed `data` keeps reads fast. |
+| Response compression | JSON responses over 1 KB are gzip-compressed at a **low, fast level** (default 3), negotiated through `Accept-Encoding`. **Speed wins over ratio:** if measurements show a latency hit, lower the level first. If the host's load balancer can compress with the same settings, use that and skip app code. | JSON shrinks several-fold even at low levels, which cuts egress cost. Every client (PHP curl, Deno) supports gzip. |
 | Fetching strategy | **Owned by each adapter** (§5). The engine has no queues, webhooks or schedules. An adapter that needs a queue keeps it in its own tables. No Redis. | CRMs differ: some push webhooks, some must be polled |
 | Event log | Postgres `events` table, partitioned by day, 30-day retention (§8.2). Both engine and adapters write to it through the adapter API. | Full visibility into the past, no new vendor |
 | Contract | One JSON Schema per datatype describing the current shape. TS types are generated from it at build time. Breaking changes use expand-contract (§6). | Schema and code can't drift |
@@ -54,7 +55,7 @@ Hard criteria:
 | # | Check | Why it blocks |
 |---|---|---|
 | E1 | Build, typecheck and all tests pass. Skipped tests count as failures. | Tests are the acceptance |
-| E2 | **The seam.** <br>• The engine never imports or calls adapter code, and no CRM name appears in `engine/` or `clients/`. <br>• Adapters import only `engine/adapter-api/` and nothing else from the engine. | The core architecture. The adapter bends to the engine, never the other way round (§5.1). |
+| E2 | **The seam.** <br>• The engine never imports or calls adapter code, and no CRM name appears in `engine/` or `clients/`. <br>• Adapters import only `engine/adapter-api/` and nothing else from the engine. <br>• Only the entrypoint `main.ts` imports both. | The core architecture. The adapter bends to the engine, never the other way round (§5.1). |
 | E3 | **Protected paths need approval** (CODEOWNERS): `engine/adapter-api/`, `schemas/`, `acceptance/`, `rules-ledger/`, `golden/` (until go-live) and `AGENTS.md` | Extending what adapters can do, and changing expectations, are human decisions |
 | E4 | No committed secrets (secret scan) | A leaked CRM credential can't be taken back |
 | E5 | The release impact preview finds no item failing the schema or invariants | Protects production data |
@@ -123,9 +124,10 @@ One approval promotes Core, the WP plugin channel and the Lovable kit. Every dep
 | Engine (knows no CRM) | Adapter (one per CRM) |
 |---|---|
 | Storing `raw` and `data`, calling the adapter's mappers, business rules, `display` | Authentication, HTTP, endpoints, pagination, rate limits |
-| Hash, `seq`, write ordering, tombstones, licensed-office filter | **Deciding when to fetch:** webhooks, polling, schedules, catch-up |
-| Bells, subscriber API, recompute and replay | **Its own queue, dedupe and retries**, in its own tables, if it needs them |
-| Lifecycle events to adapters, event log, health endpoint | Mappers from CRM payload to the universal model |
+| Hash, `seq`, write ordering, tombstones, licensed-office filter | **Deciding when and how to fetch:** webhooks, polling, catch-up, and running its **own schedules and timers** |
+| Bells, subscriber API (compressed responses), recompute and replay | **Its own queue, dedupe and retries**, in its own tables, if it needs them |
+| Lifecycle events to adapters, event log, health endpoint | **Registering and removing webhook subscriptions with the CRM**, if the CRM uses webhooks |
+| | Mappers from CRM payload to the universal model |
 
 **The adapter API** (`engine/adapter-api/`) is the only part of the engine an adapter may use (E2). Changing it needs approval (E3). It offers:
 
@@ -141,6 +143,12 @@ One approval promotes Core, the WP plugin channel and the Lovable kit. Every dep
 | `mountRoutes(routes)` | Expose the adapter's own HTTP routes (e.g. webhooks) under `/v1/hook/<provider>/…` |
 
 Every call is idempotent. The engine never calls back into CRM-specific code except through the mappers and lifecycle handlers the adapter registered.
+
+**Startup.** A tiny entrypoint, `main.ts`, is the only file that imports both the engine and the adapters.
+1. It starts the engine.
+2. It calls each adapter's `start(api)`, where the adapter sets up its own timers and background loops.
+
+The engine has no scheduler.
 
 ### 5.2 Engine write path (identical for every adapter)
 
@@ -168,6 +176,7 @@ Vitec webhook ──► check signature ──► add "fetch record X" to the ad
 adapter worker ──► fetch X from Vitec ──► found: ingest · gone: notFound · failed: retry later
 ```
 
+- **Webhook registration:** on `connection_added` the adapter registers its webhook URL with Vitec, and on `connection_removed` it removes it. If Vitec's API doesn't allow this, the adapter's README documents the manual step.
 - **Why a fetch list instead of fetching inside the webhook request:** if Vitec sends thousands of webhooks at once (it has happened during bugs), the list absorbs them without crashing, and the worker fetches at the rate Vitec allows.
 - **Duplicates:** the same record listed twice is kept once.
 - **Retries:** a failed fetch is retried with backoff and reported to Sentry after the last attempt. It is never treated as a delete.
@@ -175,7 +184,7 @@ adapter worker ──► fetch X from Vitec ──► found: ingest · gone: not
 **Path 2 - Catch-up (rare safety net, separate schedule):**
 
 - **Why it exists:** a webhook can be lost, for example if Core was down or restarting when Vitec sent it, or Vitec failed to send it. Without a safety net, that record would stay out of date until it changed again.
-- **What it does:** every **12 h** it asks Vitec "which records changed since the last catch-up?". The window starts **1 h before** the previous run ended, so nothing slips through the gap between runs. Those records go on the same fetch list, after any webhook fetches.
+- **What it does:** on its own **12 h** timer, the adapter asks Vitec "which records changed since the last catch-up?". The window starts **1 h before** the previous run ended, so nothing slips through the gap between runs. Those records go on the same fetch list, after any webhook fetches.
 - **Records that didn't actually change** are recognised by the engine (same hash), so they get no new `seq`, no bell and reach no site.
 - **Missed deletes:** once a day the adapter sends Vitec's full id list to `presentIds`. Before tombstoning, the missing ids are confirmed gone with a fetch.
 - **Need it sooner?** An operator can trigger a `resync` event.
@@ -319,7 +328,7 @@ golden/<provider>/<datatype>/<case>/
   display.json     human-readable output used by websites
 ```
 
-## 10. Acceptance Criteria v1.7
+## 10. Acceptance Criteria v1.8
 
 ### SRS AC 1-15, with clarifications
 
@@ -332,7 +341,7 @@ golden/<provider>/<datatype>/<case>/
 | 9 | Also covers shrinking (AC 26). |
 | 10 | Also covers a new enum value (§6). |
 | 11 | The malformed record is also in the event log. Other records are still written. |
-| 12 | Two fake adapters, one webhook-style and one polling-style, work end to end using only the adapter API. The engine contains no CRM names, queues, webhook handling or schedules. |
+| 12 | Two fake adapters, one webhook-style and one polling-style, work end to end using only the adapter API. The engine contains no CRM names, queues, webhook handling, webhook registration, schedules or timers. |
 | 13 | The recompute runs automatically after a release that changes mapping or rules. Its impact was shown in the release report beforehand. |
 | 14 | Also loads missing tenant-wide entities the new office references. Other offices get no new `seq`. |
 | 15 | "Exactly" means zero new `seq` values when the mapper is unchanged. |
@@ -352,7 +361,7 @@ golden/<provider>/<datatype>/<case>/
 | 24 | **Recovery.** The scripted restore drill on staging ends with subscribers converged. |
 | 25 | **Secrets and privacy.** Credentials are encrypted at rest (`CREDENTIALS_KEY`). Seeded secrets never appear in Sentry, the event log, stdout or `/v1/health`. All hosting and Sentry data stays in the EU. |
 | 26 | **Removal.** Removing an office or deactivating a connection tombstones its items. Tombstones are hard-deleted after 90 days. |
-| 27 | **Scale and read latency.** Load test on staging at 10x launch: 200 tenants, one tenant with 300k properties. Page size is 100 items (default and max). Time to first byte p95 under 100 ms, full response p95 under 300 ms. |
+| 27 | **Scale and read latency.** Load test on staging at 10x launch: 200 tenants, one tenant with 300k properties. Page size is 100 items (default and max). Time to first byte p95 under 100 ms, full response p95 under 300 ms, both measured with compression on. |
 | 28 | **Functional parity.** Everything in the human-supplied parity inventory is servable from Core data. |
 | 29 | **Burst resilience (Vitec).** 50,000 webhooks in 1 minute across 50,000 different records: <br>• Every webhook gets 202 within 1 s (p99), with no crash and no lost webhook. <br>• Vitec calls stay within its rate limit. <br>• Each subscriber gets at most one bell per throttle window. <br>• `vitec.webhook_lag` goes red and back to green. <br>• All records converge. |
 | 30 | **Contract evolution.** <br>• Additive fields and unknown enum values break no client. <br>• A client receiving an item it can't use skips it, reports to Sentry and keeps serving. <br>• The release report flags breaking schema changes and lists client versions currently pulling. |
@@ -365,6 +374,8 @@ golden/<provider>/<datatype>/<case>/
 | 37 | **Checks.** Each enforced check (§3.1) fails on a seeded violation, including an adapter importing engine internals and a CRM name in the engine. Warnings (§3.2) never block. |
 | 38 | **Webhook lag (Vitec).** A webhook whose record isn't fetched and ingested within 5 min turns `vitec.webhook_lag` red, and green again once it is processed. |
 | 39 | **Repeated retries (Vitec).** A record failing 3 fetches in a row turns `vitec.retries` red. It turns green after a successful fetch or when an operator discards the record. |
+| 40 | **Compression.** A client sending `Accept-Encoding: gzip` gets gzip for JSON over 1 KB, and a full 100-item page is at least 4x smaller. Compression adds under 10 ms p95 per page. A client without gzip still gets plain JSON. |
+| 41 | **Webhook registration (Vitec).** `connection_added` registers the webhook with Vitec (or the documented manual step applies), and `connection_removed` removes it. The engine takes no part. |
 
 ## 11. Rules ledger: what Kowboy supplies
 
@@ -412,12 +423,15 @@ Examples: golden/vitec/property/price-on-request
 13. Choose hosting in Phase 1 against fixed criteria.
 14. Build on dummy data first; real golden masters before the adapters.
 15. Recompute automatically after a release that changes mapping or rules.
+16. Compress JSON responses with gzip at a low, fast level; speed wins over ratio.
+17. Webhook registration with the CRM, schedules and timers are adapter concerns. A small entrypoint starts the engine and the adapters.
 
 ## 13. Defaults (changeable without a gate)
 
 | Setting | Default |
 |---|---|
 | Bell throttle window | 10 s |
+| Response compression | gzip level 3, JSON over 1 KB |
 | Event log retention | 30 days |
 | Vitec catch-up | every 12 h, 1 h overlap |
 | Vitec id comparison for deletes | daily |

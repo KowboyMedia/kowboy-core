@@ -24,4 +24,6 @@ One line per structural decision: date, decision, reference. Append only. Detail
 - 2026-09-15 · Adapters import only the protected `engine/adapter-api/`; extending it needs approval; adapter bends to engine · strategy §3.1 E2/E3, §5.1
 - 2026-09-15 · Fetching strategy is fully adapter-owned: the engine has no queues, webhooks or schedules (supersedes the engine job queue and priority lines) · strategy §5
 - 2026-09-15 · Vitec: webhook path with fetch list, dedupe and retries; separate 12 h catch-up with 1 h overlap; daily id comparison; no catch-up at worker start (supersedes earlier catch-up lines) · strategy §5.3
+- 2026-09-15 · JSON responses gzip-compressed at a low, fast level (default 3, over 1 KB); speed wins over ratio · strategy §2
+- 2026-09-15 · Webhook registration with the CRM, schedules and timers are adapter concerns; `main.ts` is the only file importing engine and adapters · strategy §5.1, §5.3
 - 2026-09-15 · Health: engine checks plus adapter-registered checks (Vitec webhook lag 5 min, 3 consecutive failed fetches, catch-up overdue) · strategy §5.4, §8.1
