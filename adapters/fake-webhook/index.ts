@@ -37,10 +37,23 @@ let api: AdapterApi | null = null;
 let drain: NodeJS.Timeout | null = null;
 /** Drains run one after another, so two never overlap and shutdown can wait for the last one. */
 let draining: Promise<void> = Promise.resolve();
+/** Whether a drain is already waiting its turn. A second one would find nothing the first will not. */
+let waiting = false;
 
-/** Queue another drain behind whatever is running, and hand back a promise for it. */
+/**
+ * Queue one drain behind whatever is running, unless one is already waiting, and hand back a
+ * promise for it. Without the cap, a machine where a drain outlasts the timer interval builds an
+ * ever-growing backlog, and whoever waits for "the next drain" waits behind all of it.
+ */
 const scheduleDrain = (): Promise<void> => {
-  draining = draining.then(drainOnce, drainOnce);
+  if (!waiting) {
+    waiting = true;
+    const run = (): Promise<void> => {
+      waiting = false;
+      return drainOnce();
+    };
+    draining = draining.then(run, run);
+  }
   return draining;
 };
 

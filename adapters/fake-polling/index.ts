@@ -21,10 +21,23 @@ let timer: NodeJS.Timeout | null = null;
 let lastPollAt = Date.now();
 /** Polls run one after another, so two never overlap and shutdown can wait for the last one. */
 let polling: Promise<void> = Promise.resolve();
+/** Whether a poll is already waiting its turn. A second one would see nothing the first will not. */
+let waiting = false;
 
-/** Queue another poll behind whatever is running, and hand back a promise for it. */
+/**
+ * Queue one poll behind whatever is running, unless one is already waiting, and hand back a
+ * promise for it. Without the cap, a machine where a sweep outlasts the timer interval builds an
+ * ever-growing backlog, and whoever waits for "the next poll" waits behind all of it.
+ */
 const schedulePoll = (): Promise<void> => {
-  polling = polling.then(pollOnce, pollOnce);
+  if (!waiting) {
+    waiting = true;
+    const run = (): Promise<void> => {
+      waiting = false;
+      return pollOnce();
+    };
+    polling = polling.then(run, run);
+  }
   return polling;
 };
 
