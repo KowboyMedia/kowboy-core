@@ -145,3 +145,12 @@ no such tenant exists yet.
 (`clients/wordpress/test/setup.sh`, about a minute). CI has its own job for it. A cloud session
 has to run the setup once before it can run that suite; a SessionStart hook could do it
 automatically. `npm test` itself stays self-contained: the Lovable suite runs under Deno from npm.
+
+## 15. Strategy §2 names PHPUnit and wp-env for the WordPress client
+
+The WordPress suite was built as vitest scenarios that drive a real WordPress install through PHP's
+built-in server (`clients/wordpress/sync.test.ts`), the same scenarios the Lovable kit runs, so
+"CI runs real clients against the real Core" holds with one suite and no Docker. PHPStan stays, as
+§2 says. PHPUnit and wp-env are not used. Either the §2 row changes to "PHP 8.3, PHPStan, the shared
+scenario suite" (an agent can do it once you say so), or the plugin gets a PHPUnit suite and wp-env
+on top, which would prove nothing the scenarios do not.
