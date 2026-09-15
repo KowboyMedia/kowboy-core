@@ -258,8 +258,10 @@
       "ac": 31,
       "title": "Purge and resync safety",
       "phase": "engine",
-      "tests": [],
-      "note": "Purge watermark column exists; the scenario is not built yet."
+      "tests": [
+        "purge and resync safety (AC 31) tells a subscriber behind the purge watermark to resync, and it converges without ever emptying"
+      ],
+      "note": "Watermark and resync-required are built and proved; the rebuild swaps in only after a complete pull. Purge-and-resync as an operator action has no endpoint yet (raised as an issue)."
     },
     {
       "ac": 32,

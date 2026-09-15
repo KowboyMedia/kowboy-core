@@ -144,11 +144,26 @@ export async function itemsForScope(scope: {
   return rows;
 }
 
-/** Hard-delete tombstones older than the retention window and raise the purge watermark (§7). */
+/**
+ * Hard-delete tombstones older than the retention window and raise each tenant's purge watermark
+ * to the highest seq removed (strategy §7). A subscriber whose cursor is below the watermark may
+ * have missed a delete and is told to resync.
+ */
 export async function purgeTombstones(days: number): Promise<number> {
-  const { rowCount } = await db().query(
-    `delete from items where deleted = true and tombstoned_at < now() - ($1 || ' days')::interval`,
+  const { rows } = await db().query<{ tenant_id: string; seq: string }>(
+    `delete from items where deleted = true and tombstoned_at < now() - ($1 || ' days')::interval
+     returning tenant_id, seq`,
     [days],
   );
-  return rowCount ?? 0;
+  const highest = new Map<string, number>();
+  for (const row of rows) {
+    highest.set(row.tenant_id, Math.max(highest.get(row.tenant_id) ?? 0, Number(row.seq)));
+  }
+  for (const [tenantId, seq] of highest) {
+    await db().query(
+      'update tenants set purge_watermark = greatest(purge_watermark, $2) where id = $1',
+      [tenantId, seq],
+    );
+  }
+  return rows.length;
 }

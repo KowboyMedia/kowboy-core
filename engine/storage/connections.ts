@@ -52,12 +52,14 @@ export async function upsertTenant(input: {
   );
 }
 
-export async function tenantForToken(token: string): Promise<string | null> {
-  const { rows } = await db().query<{ id: string }>(
-    'select id from tenants where token_hmac = $1 and active = true',
+export async function tenantForToken(
+  token: string,
+): Promise<{ id: string; purgeWatermark: number } | null> {
+  const { rows } = await db().query<{ id: string; purge_watermark: string }>(
+    'select id, purge_watermark from tenants where token_hmac = $1 and active = true',
     [tokenHmac(token, credentialsKey)],
   );
-  return rows[0]?.id ?? null;
+  return rows[0] ? { id: rows[0].id, purgeWatermark: Number(rows[0].purge_watermark) } : null;
 }
 
 export async function upsertConnection(input: {

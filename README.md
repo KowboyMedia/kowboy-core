@@ -22,6 +22,15 @@ npm run start:worker          # adapter background work, bells, housekeeping
 
 Migrations run at startup.
 
+Tenants, connections and subscribers are added with one script, so tokens are hashed and CRM
+credentials encrypted the way the engine expects:
+
+```bash
+node dist/scripts/tenant.js add-tenant t_acme "Acme Mäkleri"        # prints the tenant token once
+node dist/scripts/tenant.js add-connection acme-1 t_acme <provider> '<credentials>' 100,205
+node dist/scripts/tenant.js add-subscriber t_acme "acme.se" https://acme.se/wp-json/core/v1/bell
+```
+
 ## Checking it
 
 ```bash

@@ -61,21 +61,28 @@ async function parseRequest(request: Request): Promise<ParsedRequest> {
   const params = parseParams(request.query);
   if (failed(params)) return params;
 
+  // A cursor below the purge watermark may have missed a delete: pull everything, then sweep
+  // locally only after a complete pull (strategy §7). A fresh subscriber (after = 0) is fine.
+  if (params.after > 0 && params.after < authenticated.purgeWatermark) {
+    return { error: 'resync_required', status: 409 };
+  }
   return { tenantId: authenticated.tenantId, ...params };
 }
 
 /** The tenant comes from the token, never from a parameter (SRS §8). */
-async function authenticate(request: Request): Promise<{ tenantId: string } | Failure> {
+async function authenticate(
+  request: Request,
+): Promise<{ tenantId: string; purgeWatermark: number } | Failure> {
   const token = (request.headers['authorization'] ?? '').replace(/^Bearer\s+/i, '');
   if (!token) return { error: 'a tenant token is required', status: 401 };
 
-  const tenantId = await tenantForToken(token);
-  if (!tenantId) return { error: 'unknown token', status: 401 };
+  const tenant = await tenantForToken(token);
+  if (!tenant) return { error: 'unknown token', status: 401 };
 
   if (request.query.has('tenant_id')) {
     return { error: 'tenant_id is not accepted; the token names the tenant', status: 400 };
   }
-  return { tenantId };
+  return { tenantId: tenant.id, purgeWatermark: tenant.purgeWatermark };
 }
 
 function parseParams(

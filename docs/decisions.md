@@ -51,3 +51,6 @@ One line per structural decision: date, decision, reference. Append only. Detail
 - 2026-09-15 · Bell throttle state lives on the subscriber row; the worker flushes trailing bells once a second, so workers scale horizontally · strategy §5.2
 - 2026-09-15 · Event log is one table with a retention delete, no partitions (supersedes the partitioned-by-day line) · strategy §8.2
 - 2026-09-15 · Secret check reduced to private keys; migrate CLI removed as having no current need · scripts/
+- 2026-09-15 · CREDENTIALS_KEY must be 32 bytes; startup refuses anything else and prints the generating command · engine/storage/crypto.ts
+- 2026-09-15 · Purge watermark per tenant raised by the tombstone purge; a cursor below it gets 409 resync_required; the fake subscriber rebuilds and swaps in only after a complete pull · strategy §7
+- 2026-09-15 · `scripts/tenant.ts` adds tenants, connections and subscribers through the engine's own hashing and encryption · SRS §10

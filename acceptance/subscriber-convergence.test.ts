@@ -1,7 +1,9 @@
 // A subscriber converges on Core's state: from zero, from a cursor, after a forcerefresh, and
 // while writes are happening (AC 5, AC 19, AC 22).
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { harness, until, TOKEN, type Harness } from './harness.js';
+import { harness, pull, until, TOKEN, type Harness } from './harness.js';
+import { db } from '../engine/storage/db.js';
+import { purgeTombstones } from '../engine/storage/items.js';
 import { fakeSubscriber } from './fake-subscriber.js';
 import { fakePollingAdapter, poll } from '../adapters/fake-polling/index.js';
 import * as crm from '../adapters/fake-polling/crm.js';
@@ -148,5 +150,43 @@ describe('a subscriber', () => {
 
     expect(site.syncs).toBeGreaterThan(0);
     expect(running.bells).toHaveLength(0);
+  });
+});
+
+describe('purge and resync safety (AC 31)', () => {
+  it('tells a subscriber behind the purge watermark to resync, and it converges without ever emptying', async () => {
+    for (const id of ['P-1', 'P-2', 'P-3']) crm.put('property', id, property(id));
+    await poll();
+    const site = fakeSubscriber(running.baseUrl, TOKEN);
+    await site.sync();
+    const staleCursor = site.cursors.get('property') ?? 0;
+
+    // P-1 is deleted, its tombstone ages past the window and is purged: the watermark rises.
+    crm.remove('property', 'P-1');
+    await poll();
+    await db().query("update items set tombstoned_at = now() - interval '91 days' where deleted");
+    expect(await purgeTombstones(90)).toBe(1);
+
+    // A cursor from before the purge is refused; a fresh one is not.
+    const stale = await fetch(
+      `${running.baseUrl}/v1/changes?datatype=property&after=${staleCursor}`,
+      {
+        headers: { authorization: `Bearer ${TOKEN}` },
+      },
+    );
+    expect(stale.status).toBe(409);
+    expect(((await stale.json()) as { error: string }).error).toBe('resync_required');
+    expect((await pull(running.baseUrl, 'property', 0)).items).toHaveLength(2);
+
+    // The subscriber's own next sync rebuilds and converges: P-1 gone, P-2 and P-3 kept.
+    const before = site.items('property').length;
+    await site.sync();
+    expect(before).toBe(3);
+    expect(
+      site
+        .items('property')
+        .map((item) => item.remote_id)
+        .sort(),
+    ).toEqual(['P-2', 'P-3']);
   });
 });
