@@ -12,6 +12,7 @@ Kowboy Core ("Core") is one central service. It reads real estate CRMs, normaliz
 | [docs/inputs/Kowboy_Kore_Concept.md](docs/inputs/Kowboy_Kore_Concept.md)   | The _why_. Its rules settle arguments.                                                                     |
 | [docs/inputs/Kowboy_Kore_SRS_v1.2.md](docs/inputs/Kowboy_Kore_SRS_v1.2.md) | The original spec, amended by strategy §12.                                                                |
 | [docs/decisions.md](docs/decisions.md)                                     | One line per structural decision. Append only.                                                             |
+| [docs/next-steps.md](docs/next-steps.md)                                   | The order of work. "Resume next steps" means: do the first item that is not done.                          |
 
 ## Enforced: CI blocks merge or deploy
 
