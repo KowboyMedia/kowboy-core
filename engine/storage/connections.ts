@@ -14,6 +14,7 @@ type ConnectionRow = {
 let credentialsKey = '';
 
 export function configureCredentials(key: string): void {
+  tokenHmac('startup check', key); // throws with the fix if the key is not 32 bytes
   credentialsKey = key;
 }
 

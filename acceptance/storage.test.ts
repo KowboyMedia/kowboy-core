@@ -95,3 +95,11 @@ describe('tombstone retention', () => {
     expect(page.items.map((item) => item['remote_id'])).toEqual(['OBJ-NEW']);
   });
 });
+
+describe('the credentials key', () => {
+  it('refuses anything that is not 32 bytes, and says how to make one', async () => {
+    const { configureCredentials } = await import('../engine/storage/connections.js');
+    expect(() => configureCredentials('hunter2')).toThrow('openssl rand -base64 32');
+    configureCredentials(Buffer.alloc(32).toString('base64'));
+  });
+});

@@ -32,9 +32,13 @@ export function sameSecret(a: string, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+/** The key must be 32 random bytes. Anything else stops the process with the command to fix it. */
 function key(keyBase64: string): Buffer {
   const bytes = Buffer.from(keyBase64, 'base64');
-  if (bytes.length === 32) return bytes;
-  // Accept any passphrase by stretching it, so local work does not need a generated key.
-  return createHmac('sha256', 'kowboy-core-credentials').update(keyBase64).digest();
+  if (bytes.length !== 32) {
+    throw new Error(
+      'CREDENTIALS_KEY must be 32 random bytes, base64. Generate one with: openssl rand -base64 32',
+    );
+  }
+  return bytes;
 }
