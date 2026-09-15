@@ -21,7 +21,8 @@
     "engine/**/*.ts",
     "adapters/**/*.ts",
     "acceptance/**/*.ts",
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "clients/**/*.ts"
   ],
-  "exclude": ["dist", "node_modules", "clients"]
+  "exclude": ["dist", "node_modules", "clients/lovable-kit/supabase"]
 }

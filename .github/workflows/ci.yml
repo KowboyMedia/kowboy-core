@@ -41,6 +41,44 @@ jobs:
       - name: Tests
         run: npm test
 
+  wordpress:
+    name: WordPress client tests (block merge)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: core
+          POSTGRES_PASSWORD: core
+          POSTGRES_DB: core
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: core_client_test
+          MARIADB_USER: core
+          MARIADB_PASSWORD: core
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://core:core@127.0.0.1:5432/core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: php --version
+      - name: A WordPress install with the plugin active
+        run: bash clients/wordpress/test/setup.sh
+      - name: WordPress client tests
+        run: npm run test:wordpress
+
   warnings:
     name: Warnings (never block)
     runs-on: ubuntu-latest
@@ -57,4 +95,9 @@ jobs:
         continue-on-error: true
       - name: Formatting
         run: npm run format:check
+        continue-on-error: true
+      - name: PHPStan (WordPress client)
+        run: |
+          composer install --no-interaction --no-progress --working-dir=clients/wordpress
+          clients/wordpress/vendor/bin/phpstan analyse --configuration=clients/wordpress/phpstan.neon --no-progress
         continue-on-error: true

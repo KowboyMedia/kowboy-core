@@ -49,6 +49,12 @@ When the model is defined, say whether Core carries image URLs at all or leaves 
 
 ## 7. Vitec Connect documentation is unreachable from this environment
 
+**Update 2026-09-15:** still refused after the domain was allowed. The proxy passes github.com,
+api.github.com, raw.githubusercontent.com, registry.npmjs.org, jsr.io and packagist.org, and refuses
+`connect.maklare.vitec.net`, `example.com`, `wordpress.org` and `deno.land`, so the policy in force
+is an allowlist and the Vitec host is not on it. Worth checking: whether the change was saved on the
+environment this branch's sessions use, and whether a new session picked it up.
+
 `https://connect.maklare.vitec.net/Help/Section?id=advertising` is refused by the environment's
 network egress proxy, which answers 403 to the CONNECT before any request is made. **No approval
 prompt can appear for this**: the block is the environment's network policy, chosen when the
@@ -87,3 +93,55 @@ logEvent(type, fields, context?: { correlationId?, connectionId?, datatype?, rem
 ```
 
 That is an adapter API change, so it needs approval (E3). It is additive and breaks no caller.
+
+## 10. Action Scheduler or WP-Cron for the WordPress client
+
+SRS Appendix A says the bell "schedules the sync via Action Scheduler". Action Scheduler is a
+library the plugin would have to ship, which makes it a new runtime dependency (AGENTS.md: ask
+first). The plugin was built without it: a bell leaves a note for any running sync, schedules a
+WP-Cron event and spawns cron; the 15 minute backstop is a WP-Cron event. Both paths are proved by
+the scenario suite. Action Scheduler would add a visible log of runs and retries at the cost of the
+dependency. Decide: keep WP-Cron (nothing to do) or add Action Scheduler (approval).
+
+## 11. Where WordPress plugin releases live
+
+Safe update is built: a must-use plugin points WordPress's own updater at a release JSON,
+`{"version": "…", "package": "https://…/core-client-x.y.z.zip"}`, named by
+`CORE_CLIENT_UPDATE_URL` in `wp-config.php`. Two things are assumed and need your word:
+
+- The JSON format above, and that WordPress's own updater does the swap (no custom swapping code).
+- Hosting. Proposal: the release pipeline (Phase 1b) publishes `core-client.zip` and
+  `core-client.json` as GitHub Release assets of this repository, and the plugin header's
+  `Update URI` and `Plugin URI` use `https://kowboy.se/core-client` as the plugin's identity.
+
+## 12. Client acceptance criteria in `acceptance/criteria.json` (protected)
+
+The scenario suite proves the client halves of several criteria. `acceptance/criteria.json` is
+protected, so the mapping is proposed here rather than written. Each test name exists twice, once
+per client, prefixed `the Lovable kit against Core >` and `the WordPress client against Core >`:
+
+| AC  | Test                                                                       | Note                                                                  |
+| --- | -------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| 8   | `keeps its copy and reports the failure when Core is down (AC 8)`          | The loop half: the copy stays. Page rendering needs templates.        |
+| 10  | `stores a field it has never seen, verbatim (AC 10, AC 30)`                |                                                                       |
+| 20  | every scenario in `clients/sync-scenarios.ts`                              | The sync half. The search/filter half needs the model.                |
+| 21  | `the WordPress client > lets the must-use updater offer a newer release …` | The Lovable half is structural: function and site deploy separately.  |
+| 22  | `converges on its own schedule when bells never arrive (AC 22)`            | Now proved on the real clients' own backstops, not only the fake one. |
+| 30  | `skips an item it cannot use, and keeps going (AC 30)` and the AC 10 test  | Sentry reporting is the placeholder, as in Core.                      |
+
+Say yes and the file gets these lines and the report is regenerated.
+
+## 13. Supabase edge function limits for very large first syncs
+
+A Supabase function invocation has a wall-clock limit (minutes, plan-dependent). The sync commits
+every page with its cursor, so a run cut short loses nothing and the next bell or 15 minute run
+carries on; a 300k-property first load would simply take several runs. If that is too slow for a
+large Lovable tenant, the function can re-invoke itself when it stops on a time budget. Not built:
+no such tenant exists yet.
+
+## 14. WordPress tests need WordPress and MariaDB on every machine
+
+`npm run test:wordpress` needs a WordPress checkout and a MariaDB or MySQL database
+(`clients/wordpress/test/setup.sh`, about a minute). CI has its own job for it. A cloud session
+has to run the setup once before it can run that suite; a SessionStart hook could do it
+automatically. `npm test` itself stays self-contained: the Lovable suite runs under Deno from npm.

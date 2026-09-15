@@ -36,11 +36,13 @@ node dist/scripts/tenant.js add-subscriber t_acme "acme.se" https://acme.se/wp-j
 ```bash
 npm run check                 # what CI blocks on: typecheck, the seam, no skipped tests,
                               #, no committed secrets, build, tests
+npm run test:wordpress        # the WordPress client suite; needs clients/wordpress/test/setup.sh once
 npm run lint                  # warnings, which never block
 npm run report                # regenerate acceptance/report.md from a test run
 ```
 
-Tests need a database. `DATABASE_URL` defaults to `postgres://core:core@127.0.0.1:5432/core`.
+Tests need a database. `DATABASE_URL` defaults to `postgres://core:core@127.0.0.1:5432/core`. The
+Lovable client suite is part of `npm test` and runs its function under Deno, installed from npm.
 
 ## Layout
 
@@ -49,6 +51,8 @@ main.ts               entrypoint: starts the engine, mounts adapter endpoints, s
 engine/               CRM-agnostic: storage, rules, bells, subscriber API, recompute, health, events
 engine/adapter-api/   the only engine code adapters may import (protected)
 adapters/<provider>/  everything CRM-specific, one folder per CRM
+clients/wordpress/    thin WordPress client: the sync loop, bell endpoint and store
+clients/lovable-kit/  one Supabase function and migrations every Lovable site starts from
 schemas/              JSON Schema per datatype (protected)
 golden/fake/          dummy golden masters for the fake adapters
 acceptance/           criteria mapped to named tests, plus the generated report (protected)

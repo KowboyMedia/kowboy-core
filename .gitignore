@@ -8,3 +8,5 @@ Thumbs.db
 coverage/
 dist/
 node_modules/
+clients/wordpress/vendor/
+clients/wordpress/composer.lock
