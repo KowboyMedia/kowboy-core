@@ -13,44 +13,51 @@ Kowboy Core ("Core") is one central service. It reads real estate CRMs, normaliz
 | [docs/inputs/Kowboy_Kore_SRS_v1.2.md](docs/inputs/Kowboy_Kore_SRS_v1.2.md) | The original spec, amended by strategy §12. |
 | [docs/decisions.md](docs/decisions.md) | One line per structural decision. Append only. |
 
-## Absolute rules
+## Enforced: CI blocks merge or deploy
 
-Rules marked **[CI]** must have a CI check that fails when broken. Until the check exists, follow the rule by hand.
+These are the only hard blocks. Don't add more without approval.
+
+1. **Build, typecheck and all tests pass.** A skipped test counts as a failure.
+2. **The seam.** The engine never imports an adapter. No CRM name appears in `engine/` or `clients/`.
+3. **Protected paths need approval** (CODEOWNERS): `schemas/`, `acceptance/`, `rules-ledger/`, `golden/` (until go-live) and this file. `golden/fake/` is dummy data that agents own.
+4. **No committed secrets.**
+5. **Release:** the impact preview finds no item failing the schema or invariants.
+6. **Production:** human approval, and a passing health check.
+
+## Warnings: reported, never block
+
+Lint findings (including function complexity), duplicate code, dead code (unused files, exports, functions, methods, dependencies), `any` and lint suppressions, new runtime dependencies, and breaking schema changes.
+
+**Leave every file you touch free of warnings.**
+
+## Guidelines
 
 ### Principles
 
-1. **Simple beats clever.** When two designs work, the one with less code wins. Nothing is built for a need that doesn't exist yet.
-2. **The seam [CI].** The engine knows nothing about any CRM and never names one. Adapters know nothing about engine storage. The engine never imports an adapter. Clients never name a CRM.
-3. **All data logic lives in Core.** Clients are templates plus a sync loop.
-4. **Tests are the acceptance.** Every change is verified automatically. If something can't be tested automatically, raise it as a design problem. Never add a manual step.
-5. **No legacy access.** Never read, request or search old plugin repos, other repositories, legacy code or other conversations. Anything needed from the past arrives as human-written specs, ledger entries or golden masters.
+- **Simple beats clever.** When two designs work, the one with less code wins. Nothing is built for a need that doesn't exist yet.
+- **The seam.** The engine knows nothing about any CRM. Adapters own everything CRM-specific, including when to fetch, and know nothing about engine storage. Clients never name a CRM.
+- **All data logic lives in Core.** Clients are templates plus a sync loop.
+- **Tests are the acceptance.** If something can't be tested automatically, raise it as a design problem. Never add a manual step.
+- **Anything derived must be patchable** from stored raw data without CRM traffic.
+- **No legacy access.** Never read, request or search old plugin repos, other repositories, legacy code or other conversations. Anything needed from the past arrives as human-written specs, ledger entries or golden masters.
 
 ### Code
 
-6. **Plain code [CI].**
-   - Write plain functions, plain data, and SQL where it is used.
-   - Banned: classes (so no inheritance), decorators, dependency-injection containers, generic repository/factory/strategy/event-bus layers, wrappers around libraries, and advanced type-level programming.
-   - A library that truly requires a class goes on an approved allowlist.
-7. **One code path per concern [CI].** The same logic never exists twice. Before writing, search for the existing function and use it. No options or flags for cases that don't exist yet.
-8. **Readable functions [CI].** Stay under the cognitive complexity limit. A function that needs a comment to explain its flow should be simpler.
-9. **Shallow indirection [CI].** An endpoint or job must be understandable by reading at most about 3 files.
-10. **No dead code [CI].** No unused files, exports, functions, methods or dependencies. Delete, don't comment out.
-11. **No escape hatches [CI].** No `any`, no lint suppressions, no skipped tests.
-12. **No new runtime dependency or vendor [CI]** without approval.
-13. **Generated files are never edited by hand [CI].**
-14. **LF line endings, UTF-8** everywhere.
+- **One code path per concern.** The same logic never exists twice. Search for the existing function before writing a new one. No options or flags for cases that don't exist yet.
+- **Readable code.** A reader should understand an endpoint or job from a few files. Avoid framework-style layers: dependency-injection containers, generic repositories, wrappers around libraries.
+- **Delete rather than comment out.**
+- **Ask before adding a runtime dependency or vendor.**
 
 ### Contract and data
 
-15. **Additive contract only [CI].** Never rename, remove or retype a served field in one step. Use expand → migrate → contract (strategy §6).
-16. **Never make a test pass by editing its expected output.**
-17. **Protected paths [CI].** `schemas/`, `rules-ledger/`, `acceptance/`, infra files and this file need approval (CODEOWNERS). The same applies to `golden/` until go-live. `golden/fake/` is dummy data that agents own.
-18. **Never invent business rules.** They come from `rules-ledger/`. A missing rule is a question.
+- **One contract shape.** Additive changes are fine. A breaking change (rename, remove, retype) is done as expand → migrate → contract in separate releases (strategy §6).
+- **Never make a test pass by editing its expected output.**
+- **Never invent business rules.** They come from `rules-ledger/`. A missing rule is a question.
 
 ### Naming and layout
 
-19. **Naming [CI].** The product is "Kowboy Core" or "Core"; its CRM-agnostic part is the **engine**. Never write "Kore" outside `docs/inputs/`.
-20. **Fixed layout [CI].** Adding a top-level folder needs a line in `docs/decisions.md`.
+- **Naming.** The product is "Kowboy Core" or "Core"; its CRM-agnostic part is the **engine**. Never write "Kore" outside `docs/inputs/`.
+- **Layout.** Adding a top-level folder needs a line in `docs/decisions.md`.
 
 ```
 engine/               CRM-agnostic: storage, jobs, rules runner, bells, API, health, event log
@@ -75,7 +82,7 @@ Stop and ask the person who gave you the task, and don't improvise, when a task 
 
 ## Definition of done
 
-1. All CI checks are green.
+1. The enforced checks are green, and the files you touched have no warnings.
 2. The acceptance report is updated if an acceptance criterion's status changed.
 3. A `docs/decisions.md` line exists for any structural choice.
 4. Strategy §9 is updated if the phase moved.

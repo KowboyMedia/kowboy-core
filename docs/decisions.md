@@ -16,3 +16,8 @@ One line per structural decision: date, decision, reference. Append only. Detail
 - 2026-09-15 · Event log in Postgres with correlation ids, 30-day retention · strategy §8.2
 - 2026-09-15 · Plain-code rules (no classes, one code path per concern, complexity and indirection limits, no dead code) · strategy §3
 - 2026-09-15 · Rejected: code-size budgets, AI reviewer gate, scheduled drift audits, down-converters, Redis · strategy §3
+- 2026-09-15 · Checks split into 6 enforced blocks, warnings, automatic fixes and guidelines; no language-feature bans · strategy §3
+- 2026-09-15 · Expand-contract as ordinary releases; no contract numbers or automated removal gates (supersedes earlier line) · strategy §6
+- 2026-09-15 · Catch-up at worker start and every 12 h (supersedes hourly) · strategy §5.4
+- 2026-09-15 · Health check `webhook_lag`: red if any webhook is unresolved after 5 min · strategy §8.1
+- 2026-09-15 · Items store `raw` and `data` (universal model incl. display) as separate columns · strategy §2

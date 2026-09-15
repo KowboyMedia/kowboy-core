@@ -1,6 +1,6 @@
 # Kowboy Core - Delivery Strategy
 
-**Status:** v5 · Gate 1 approved 2026-09-15 (amended same day) · **Current phase: 1 - Foundation** (§9) · **Inputs:** [Concept](inputs/Kowboy_Kore_Concept.md), [SRS v1.2](inputs/Kowboy_Kore_SRS_v1.2.md) (suggestions; amended by §12)
+**Status:** v6 · Gate 1 approved 2026-09-15 (amended same day) · **Current phase: 1 - Foundation** (§9) · **Inputs:** [Concept](inputs/Kowboy_Kore_Concept.md), [SRS v1.2](inputs/Kowboy_Kore_SRS_v1.2.md) (suggestions; amended by §12)
 
 **Naming:** the product is **Kowboy Core**, or just **Core** (formerly "Kore"). The CRM-agnostic part inside it is called the **engine**. Every `Kore`/`kore` identifier in the SRS becomes `Core`/`core`, for example `X-Core-Secret` and `/wp-json/core/v1/bell`.
 
@@ -8,9 +8,9 @@
 
 Get from the Concept and SRS to a production deploy of a simple, lean and reliable service.
 
-- **Agents build, CI decides correctness.** Automated checks are the definition of done.
+- **Agents build, CI decides correctness.** Automated tests are the definition of done.
 - **Humans approve behaviour, not code.** Approval happens at gates and per production release, based on plain-language reports.
-- **Drift and bloat are blocked by machine checks first**, and by written rules only where a machine can't check.
+- **Few hard blocks, clear guidance.** Only what protects production blocks; everything else warns or guides (§3).
 
 ## 2. Architecture decisions
 
@@ -19,17 +19,18 @@ Get from the Concept and SRS to a production deploy of a simple, lean and reliab
 | Language | TypeScript strict, Node LTS | One language for engine and adapters |
 | Processes | One codebase, two roles: `web` (API, webhook intake, health) and `worker` (jobs, schedules, bells) | Intake stays fast whatever workers are doing |
 | Database | Postgres, plain SQL migrations, no ORM | Fewest abstractions |
+| Item storage | One `items` row per entity, with two separate columns: <br>• `raw`: the CRM payload, untouched, never served <br>• `data`: the universal model, with `display` and `provider_extras` inside, served verbatim | `raw` enables recompute and preview without CRM traffic. Serving a precomputed `data` keeps reads fast. |
 | Queue | Postgres job table with a priority column. No Redis. | Every read is unique, so a cache adds nothing |
 | Event log | Postgres `events` table, partitioned by day, 30-day retention by dropping partitions (§8.2) | Full visibility into the past, no new vendor |
-| Contract | One JSON Schema per datatype describing the current shape; TS types are generated from it. Additive changes only (§6). | Schema and code can't drift |
+| Contract | One JSON Schema per datatype describing the current shape. TS types are generated from it at build time, not committed. Breaking changes use expand-contract (§6). | Schema and code can't drift |
 | Tests | Vitest against real Postgres in CI | |
-| Guards | Linter and architecture checks (§3) | Machine-enforced simplicity |
+| Checks | Few blocking checks; the rest are warnings (§3) | Blocks only what protects production |
 | CI/CD | GitHub Actions and GitHub Environments | Production approval is one button |
 | Monitoring | `/v1/health`: 200 when every check passes, 500 when any fails, same payload (§8.1). Watched by Sentry Uptime. | Works with any monitoring tool |
 | Errors | Sentry (EU) in Core and both clients | One error surface |
 | WP client | PHP 8.3, PHPUnit, PHPStan, wp-env | |
 | Lovable client | Supabase edge functions (Deno), Supabase CLI, staging and prod projects | Required by Lovable |
-| Repo | `kowboy-core` in the Kowboy Media GitHub org: `engine/`, `adapters/<provider>/`, `clients/wordpress/`, `clients/lovable-kit/`, `schemas/`, `golden/`, `rules-ledger/`, `acceptance/`, `docs/`. The Lovable example site gets its own repo. | CI runs real clients against the real Core |
+| Repo | `KowboyMedia/kowboy-core`: `engine/`, `adapters/<provider>/`, `clients/wordpress/`, `clients/lovable-kit/`, `schemas/`, `golden/`, `rules-ledger/`, `acceptance/`, `docs/`. The Lovable example site gets its own repo. | CI runs real clients against the real Core |
 
 ### Hosting: decided at the start of Phase 1
 
@@ -44,47 +45,63 @@ Hard criteria:
 - **Config and access:** infrastructure as code in the repo, and a CLI or API agents can drive.
 - **Maturity:** a published SLA and strong operator reputation.
 
-## 3. Simplicity and drift rules (enforced through AGENTS.md)
+## 3. Simplicity and drift: what blocks and what guides
 
-Rules marked **[CI]** fail the build when broken.
+**Principle:** something only blocks if it protects production data or the tests-are-acceptance model, and never produces false alarms. Everything else is a warning or a guideline.
 
-1. **Concept rules** verbatim: simple beats clever, the seam, all data logic in Core, tests are the acceptance, anything derived is patchable.
-2. **No legacy access.** Agents never read old plugin repos, other repos, legacy code or other conversations. Humans extract what is needed.
-3. **Plain code [CI].**
-   - Banned: classes (and therefore inheritance), decorators, dependency-injection containers, generic repository/factory/strategy/event-bus layers, wrappers around libraries, and advanced type-level programming.
-   - Allowed: plain functions, plain data, and SQL written where it is used.
-   - A library that truly requires a class is listed in an approved allowlist.
-4. **One code path per concern [CI + PROSE].** The same logic never exists twice (a duplicate-code check runs in CI). No options or flags for cases that don't exist yet.
-5. **Readable functions [CI].** Cognitive complexity limit per function.
-6. **Shallow indirection [CI].** An endpoint or job can be understood by reading at most about 3 files (import-depth limit).
-7. **No dead code [CI].** Unused files, exports, functions, methods and dependencies fail CI.
-8. **No escape hatches [CI].** No `any`, no lint suppressions, no skipped tests.
-9. **Dependency allowlist [CI].** A new runtime dependency or vendor needs approval.
-10. **The seam [CI].** The engine never imports adapters. No CRM name appears in `engine/` or `clients/`. Adapters never touch engine tables.
-11. **Fixed layout and glossary [CI].** Only approved top-level folders exist. `Kore` is rejected outside `docs/inputs/`.
-12. **Protected paths [CI].** `schemas/`, `rules-ledger/`, `acceptance/`, infra files and `AGENTS.md` need approval (CODEOWNERS). The same applies to `golden/` until go-live. Agents never make a test pass by editing its expected output.
-13. **Generated files are never hand-edited [CI].**
-14. **Additive contract only [CI]** (§6).
-15. **Decision log.** Each structural choice gets one line in `docs/decisions.md`.
-16. **Stop and ask** before any of these:
-    - changing a contract, schema, rules ledger or acceptance criterion
-    - adding a dependency, vendor or cost
-    - filling a gap the Concept can't settle
-    - acting on a production incident
+### 3.1 Enforced: blocks merge or deploy
+
+| # | Check | Why it blocks |
+|---|---|---|
+| E1 | Build, typecheck and all tests pass. Skipped tests count as failures. | Tests are the acceptance |
+| E2 | **The seam:** the engine never imports an adapter, and no CRM name appears in `engine/` or `clients/` | The core architecture; cheap and unambiguous |
+| E3 | **Protected paths** need approval (CODEOWNERS): `schemas/`, `acceptance/`, `rules-ledger/`, `golden/` (until go-live) and `AGENTS.md` | Stops tests being "passed" by changing expectations |
+| E4 | No committed secrets (secret scan) | A leaked CRM credential can't be taken back |
+| E5 | The release impact preview finds no item failing the schema or invariants | Protects production data |
+| E6 | Production deploy needs human approval, and the health check must pass or the old version stays live | The release gate |
+
+### 3.2 Warnings: reported on the PR, never block
+
+- Lint findings, including cognitive complexity per function
+- Duplicate code
+- Dead code: unused files, exports, functions, methods and dependencies
+- `any` and lint suppressions
+- New runtime dependencies (listed)
+- Breaking schema changes: a removed, renamed or retyped field (also flagged in the release report)
+
+### 3.3 Automatic: no rule needed
+
+- Formatting is applied by the formatter.
+- Line endings are fixed by `.gitattributes`.
+- TS types are generated from the schemas at build time and never committed.
+
+### 3.4 Guidelines (AGENTS.md)
+
+1. **Concept rules:** simple beats clever, the seam, all data logic in Core, tests are the acceptance, anything derived is patchable.
+2. **No legacy access.**
+3. **One code path per concern.** No options or flags for cases that don't exist.
+4. **Readable code.** Understandable by reading a few files. Avoid framework-style layers such as dependency-injection containers, generic repositories and wrappers around libraries.
+5. **Leave files you touch free of warnings.**
+6. **Never invent business rules. Never edit expected outputs to make a test pass.**
+7. **Breaking contract changes use expand-contract** (§6).
+8. **Naming and layout.**
+9. **Decision log** entries for structural choices.
+10. **Stop and ask** triggers.
 
 **Considered and rejected; do not reintroduce:**
-- code-size budgets
+- code-size budgets and file-size limits
+- bans on language features
 - an AI reviewer gate
 - scheduled drift audits
 - maintaining golden masters after go-live
-- down-converters or parallel output versions
+- schema versions and down-converters
+- automated contract gates tied to client versions
 - Redis
-- file-size limits as a simplicity metric
 
 ## 4. Pipeline and release gate
 
 ```
-PR ──► CI: typecheck · lint · §3 guards · tests · contract tests (Core + fake adapter + real clients)
+PR ──► CI: E1–E4 block · warnings reported
 merge main ──► auto-deploy STAGING (Core + staging WP site + staging Lovable site) ──► smoke suite
           ──► release report
 approver checks staging sites ──► clicks Approve ──► deploy PRODUCTION (health-gated; old version stays live on failure)
@@ -92,8 +109,8 @@ approver checks staging sites ──► clicks Approve ──► deploy PRODUCTI
 
 **The release report** (plain language) contains:
 - **What changed.**
-- **Output impact preview.** The new build does a read-only dry run of its mapping and rules over the raw payloads stored in production. It reports how many items would change, which fields, and before/after examples. No writes, no CRM calls.
-- **Blockers.** Any item that would fail the schema or the invariants (§10, AC 23), or any contract violation (§6), blocks the release.
+- **Output impact preview.** The new build does a read-only dry run of its mapping and rules over the raw payloads stored in production. It reports how many items would change, which fields, and before/after examples. No writes, no CRM calls. An item failing the schema or invariants blocks the release (E5).
+- **Flags for the approver (information only):** breaking schema changes, new dependencies, and the client versions currently pulling.
 - **Links** to what to check on the staging sites, and acceptance status.
 
 One approval promotes Core, the WP plugin channel and the Lovable kit. Every deploy tags a Sentry release.
@@ -123,21 +140,19 @@ One queue with a priority column:
 - **High:** webhooks.
 - **Low:** catch-up, initial load, resync and recompute.
 
-Workers always take high first, so an onboarding never delays live updates.
+Workers always take high first.
 
-### 5.4 Catch-up for missed webhooks
+### 5.4 Catch-up for missed webhooks (rare edge case)
 
-Webhooks get lost through downtime, restarts or CRM hiccups. Each adapter therefore runs a catch-up:
-
-- **When:** on a schedule (default **hourly**, never less often than every 12 h), and **once at worker start**.
+- **When:** once **at worker start**, which covers Core downtime and restarts, the most likely cause. After that, every **12 h** as a backstop for webhooks lost on the CRM side.
 - **What it asks:** the CRM for entities changed since the last successful catch-up, **minus an overlap** (default 1 h).
-- **Only what needs updating:** the CRM's last-modified time is compared with the stored `remote_updated_at`. Only entities that differ are enqueued, at low priority. Matching entities cost no fetch and no write, and a fetched entity with an unchanged hash gets no new `seq` and no bell.
+- **Only what needs updating:** the CRM's last-modified time is compared with the stored `remote_updated_at`. Only entities that differ are enqueued, at low priority. Unchanged entities cost no fetch and no write.
 - **Missed deletes:** once a day the adapter compares the CRM's full id list with Core's. Missing ids are enqueued as normal reconcile jobs, so a tombstone only follows a confirmed not-found.
 - **Marker:** it only advances after a successful run. A late or failed run turns the `schedules` health check red.
 
 ### 5.5 Intake never falls over
 
-- **Minimal work.** The webhook handler validates the signature, logs the event, upserts one queue row and returns 202. No in-memory queue.
+- **Minimal work.** The webhook handler validates the signature, logs the event, upserts one queue row and returns 202.
 - **Database failure.** If the database is unavailable, it returns 503 so the CRM retries.
 
 ### 5.6 Workers protect everything downstream
@@ -152,25 +167,23 @@ Subscribers read "everything after `seq` N". If two workers commit at the same t
 
 - **The fix:** each write transaction takes a short global transaction lock (milliseconds), so `seq` order equals commit order.
 - **It never bottlenecks:** CRM rate limits cap fetches far below what a single writer handles.
-- **Robustness:** it works across instances and during deploy overlap.
 
 ### 5.8 Bells are throttled per subscriber
 
 - **Leading edge:** the first change after a quiet period rings immediately.
 - **Trailing edge:** further changes within 10 s collapse into one bell.
-- **Result:** at most one bell per subscriber per window, however many entities changed.
 
-## 6. Contract evolution: one shape, additive only, expand-contract
+## 6. Contract evolution: one shape, expand-contract
 
-Core serves one shape: the current one. No versions to choose between, no converters.
+Core serves one shape: the current one. No versions, no converters, no automated gates.
 
-- **Additive changes at any time.** Clients must store unknown fields untouched, ignore them in templates, and handle **unknown enum values** safely (for example, not listed). This is part of the client contract suite, so a new enum value is never breaking.
-- **A breaking change** (rename, remove, retype, changed meaning) is done as **expand → migrate → contract**:
-  1. **Expand:** add the new field next to the old one. Both are populated, via recompute.
+- **Additive changes at any time.** Clients store unknown fields untouched, ignore them in templates, and handle unknown enum values safely (for example, not listed). This is tested in the client contract suite.
+- **A breaking change** (rename, remove, retype, changed meaning) is done as **expand → migrate → contract**, three ordinary releases:
+  1. **Expand:** add the new field next to the old one.
   2. **Migrate:** release clients that use the new field.
-  3. **Contract:** remove the old field. **This is blocked automatically** while any active subscriber reports a contract number that still uses it (from the pull log).
-- **Contract number.** Clients send `X-Core-Contract: <n>` on every pull, the contract they were built for. Core returns its `min_contract` in every response. The number only increases at a contract step.
-- **Safety net for a client that fell behind** (for example, offline for months): if its contract is below `min_contract`, it keeps serving its local data, stops applying new items, reports "update required" to Sentry, and lets its updater install the current release. The `subscribers` health check names it.
+  3. **Contract:** remove the old field in a later release. The release report flags the removal and lists the client versions currently pulling; the approver decides.
+- **Safety net** (SRS §8): a client that receives an item it can't use reports it to Sentry, skips it and keeps serving its local data.
+- **Client version header.** Clients send `X-Core-Client: <client>/<version>` on every pull. It is logged for debugging and shown in the release report.
 
 ## 7. Onboarding, deletes, patching, purge and resync
 
@@ -194,7 +207,7 @@ Core serves one shape: the current one. No versions to choose between, no conver
 ### 7.3 Patching display or canonical data
 
 - **Before release:** the release report previews the impact on production data (§4).
-- **After the production deploy:** a recompute runs automatically at low priority over rows with an older `rules_version`, using stored raw payloads and no CRM calls.
+- **After the production deploy:** a recompute runs automatically at low priority over rows with an older `rules_version`, using stored `raw` and no CRM calls.
 - **Changed rows:** rows whose hash changes get a new `seq`, bells go out as normal, and subscribers pull with their normal loop.
 - **Unchanged:** unchanged rows and `remote_updated_at` are never touched.
 - **Breaking shape changes** follow §6.
@@ -212,14 +225,23 @@ Returns **200 if all checks pass, 500 if any fails, with the same payload**. It 
   "version": "1.4.0",
   "checks": {
     "db":          { "ok": true },
-    "worker":      { "ok": true,  "last_heartbeat_s": 4,    "limit_s": 120 },
-    "high_queue":  { "ok": false, "oldest_job_age_s": 1320, "limit_s": 900 },
+    "worker":      { "ok": true,  "last_heartbeat_s": 4, "limit_s": 120 },
+    "webhook_lag": { "ok": false, "oldest_unresolved_s": 420, "limit_s": 300 },
     "low_queue":   { "ok": true,  "oldest_job_age_s": 3600, "limit_s": 86400 },
     "schedules":   { "ok": true,  "late": 0 },
-    "subscribers": { "ok": true,  "not_pulled_60m": 0, "outdated_contract": 0 }
+    "subscribers": { "ok": true,  "not_pulled_60m": 0 }
   }
 }
 ```
+
+| Check | Fails when |
+|---|---|
+| `db` | The database is unreachable |
+| `worker` | No worker heartbeat for 2 min |
+| `webhook_lag` | Any webhook received more than **5 min** ago has no final outcome yet for its entity. Final outcomes are written, unchanged, tombstoned or dropped. Retrying and parked jobs count as unresolved. It clears when the entity is reconciled or an operator discards the parked job. |
+| `low_queue` | The oldest waiting low-priority job is older than 24 h |
+| `schedules` | A catch-up is late or failed |
+| `subscribers` | An active subscriber hasn't pulled for 60 min |
 
 `GET /v1/admin/health` returns the same checks with names.
 
@@ -234,7 +256,7 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
 | `crm.call` | method, endpoint and query (secrets redacted), status, duration, response size, rate-limit headers, error body on failure |
 | `entity.written` | entity, `seq`, old and new hash, **changed fields with before/after values**, `rules_version`; or `unchanged` / `dropped` (reason) / `tombstoned` |
 | `bell.sent` | subscriber, sent or throttled, status, duration |
-| `pull` | subscriber, contract, datatype, `after`, items returned, duration |
+| `pull` | subscriber, client version, datatype, `after`, items returned, duration |
 | `schedule.run` | catch-up window, entities listed, enqueued, outcome |
 | `admin.call` | endpoint, parameters |
 
@@ -246,10 +268,10 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
 10:02:01.402 crm.call          GET /estates/OBJ-19203  200  268ms  rl-remaining=412
 10:02:01.455 entity.written    seq=48213  price: 4950000 → 4750000, display.price: "4 950 000 kr" → "4 750 000 kr"
 10:02:01.470 bell.sent         acme-prod  500  1.2s
-10:15:00.010 pull              acme-prod  datatype=property after=48100 items=0 ← hasn't received it yet
+10:15:00.010 pull              acme-prod  wordpress/1.4.2  datatype=property after=48100 items=0 ← hasn't received it yet
 ```
 
-- **Retention:** 30 days. Old days are dropped by partition, which is cheap.
+- **Retention:** 30 days, dropped by partition.
 - **Access:** admin auth only, because bodies can contain personal data.
 
 ## 9. Phases and approval gates
@@ -257,9 +279,9 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
 | Phase | Output | Exit |
 |---|---|---|
 | **0. Decide** | Strategy and acceptance criteria | **Gate 1: approved 2026-09-15** |
-| **1. Foundation** ◄ current | Hosting pick, repo tooling, all §3 guards, staging and prod as code, Sentry, health endpoint, release gate, a "hello health" app | A trivial change goes PR → staging → approved → production, and a failing health check alerts |
+| **1. Foundation** ◄ current | Hosting pick, repo tooling, §3 checks and warnings, staging and prod as code, Sentry, health endpoint, release gate, a "hello health" app | A trivial change goes PR → staging → approved → production, and a failing health check alerts |
 | **2. Canonical model** | JSON Schemas, a field table per datatype, dummy data (`golden/fake/`) | **Gate 2:** field tables approved |
-| **3. Engine** | Engine, queue, catch-up framework, bells, health, event log, contract gate, fake adapter, fake subscriber | Engine acceptance criteria green |
+| **3. Engine** | Engine, queue, catch-up framework, bells, health, event log, fake adapter, fake subscriber | Engine acceptance criteria green |
 | **4. Clients** | WP plugin, Lovable kit, example site, staging client sites | Client acceptance criteria green |
 | **5. Real data** | Humans supply real golden masters per CRM, rules ledger (§11), parity inventory, CRM docs and rate limits, test credentials | **Gate 3:** golden masters and ledger approved |
 | **6. Adapters** | Vitec and Mspecs: golden masters first, then test accounts on staging | Adapter acceptance criteria green |
@@ -270,7 +292,6 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
   - rule-level tests (one per ledger rule, updated with the rule)
   - schema and invariant checks
   - the release impact preview on real data (§4)
-- **Each production release after Gate 4** goes through the one-click release gate.
 
 **Golden-master case format** (initial build):
 
@@ -281,7 +302,7 @@ golden/<provider>/<datatype>/<case>/
   display.json     human-readable output used by websites
 ```
 
-## 10. Acceptance Criteria v1.5
+## 10. Acceptance Criteria v1.6
 
 ### SRS AC 1-15, with clarifications
 
@@ -314,15 +335,16 @@ golden/<provider>/<datatype>/<case>/
 | 26 | **Removal.** Removing an office or deactivating a connection tombstones its items. Tombstones are hard-deleted after 90 days. |
 | 27 | **Scale and read latency.** Load test on staging at 10x launch: 200 tenants, one tenant with 300k properties. Page size is 100 items (default and max). Time to first byte p95 under 100 ms, full response p95 under 300 ms. |
 | 28 | **Functional parity.** Everything in the human-supplied parity inventory is servable from Core data. |
-| 29 | **Burst resilience.** 50,000 webhooks in 1 minute across 50,000 different entities: <br>• Every webhook gets 202 within 1 s (p99), with no crash and no lost webhook. <br>• CRM calls stay within rate limits. <br>• Each subscriber gets at most one bell per throttle window. <br>• `high_queue` health goes red and back to green. <br>• All entities converge. |
-| 30 | **Contract evolution.** <br>• Removing a field is blocked while any active subscriber reports a contract that uses it. <br>• A client below `min_contract` keeps serving, reports "update required", and is named by health. <br>• Unknown fields and enum values break no client. |
+| 29 | **Burst resilience.** 50,000 webhooks in 1 minute across 50,000 different entities: <br>• Every webhook gets 202 within 1 s (p99), with no crash and no lost webhook. <br>• CRM calls stay within rate limits. <br>• Each subscriber gets at most one bell per throttle window. <br>• `webhook_lag` health goes red and back to green. <br>• All entities converge. |
+| 30 | **Contract evolution.** <br>• Additive fields and unknown enum values break no client. <br>• A client receiving an item it can't use skips it, reports to Sentry and keeps serving. <br>• The release report flags breaking schema changes and lists client versions currently pulling. |
 | 31 | **Purge and resync safety.** Purge-and-resync or resync-with-sweep on a live tenant never leaves a subscriber with fewer items than Core has at the end, and sites keep serving. A subscriber behind the purge watermark is told to resync and converges. |
 | 32 | **Near-instant under normal load.** At under 1 webhook/s, webhook received → bell sent is p95 under 2 s excluding CRM fetch time, including while another tenant's 30k-entity initial load runs. |
 | 33 | **Race conditions and dedupe.** Each ends with the CRM's current state and no Sentry error: <br>• update then delete before processing → tombstone <br>• delete then late update → tombstone <br>• 100 webhooks for one entity → at most 2 fetches <br>• a webhook during a fetch → exactly one follow-up <br>• a write from any source clears older pending hints <br>• a transient failure → retry, never tombstone |
 | 34 | **Initial sync.** A new tenant converges to a full load. A new office loads only that office plus missing referenced entities. A new subscriber converges from Core's store with zero CRM calls. |
 | 35 | **Catch-up.** <br>• With webhooks disabled for 6 h, every change converges after the next catch-up. <br>• Unchanged entities cause zero fetches and zero writes. <br>• A catch-up runs at worker start. <br>• A delete whose webhook was lost is tombstoned by the daily id comparison after a confirmed not-found. <br>• A failed catch-up doesn't advance its marker and turns health red. |
 | 36 | **Release impact preview.** The release report shows item counts, changed fields and before/after examples for the production data. It performs no writes and no CRM calls. |
-| 37 | **Simplicity guards.** Every [CI] rule in §3 has a check that fails on a seeded violation. |
+| 37 | **Checks.** Each enforced check (§3.1) fails on a seeded violation. Warnings (§3.2) never block. |
+| 38 | **Webhook lag.** A webhook whose entity isn't reconciled within 5 min, whether stuck, retrying or parked, turns `webhook_lag` red. It turns green once the entity is reconciled or the parked job is discarded. |
 
 ## 11. Rules ledger: what Kowboy supplies
 
@@ -357,12 +379,12 @@ Examples: golden/vitec/property/price-on-request
 
 1. Rename Kore to Kowboy Core (Core); the CRM-agnostic part becomes the engine.
 2. Split into `web` and `worker`, with Postgres "reconcile entity" jobs, one pending row per entity, and a priority column (§5).
-3. Add a catch-up schedule per adapter, plus a run at worker start and a daily id comparison (§5.4).
+3. Catch-up per adapter at worker start and every 12 h, plus a daily id comparison (§5.4).
 4. Add a short global transaction lock per write, replacing the in-process mutex (§5.7).
 5. Throttle bells per subscriber with a leading and trailing edge.
-6. Remove `schema_version` and down-converters. One shape, additive only, expand-contract with a client contract number (§6).
+6. Remove `schema_version` and down-converters. One shape, additive changes, and expand-contract as ordinary releases (§6).
 7. Add tombstone purge, a watermark, resync-required responses, resync-with-sweep and purge-and-resync (§7).
-8. `/v1/health` returns 200 or 500 with named checks; add `/v1/admin/health` and the event log with correlation ids (§8). No Sentry Crons.
+8. `/v1/health` returns 200 or 500 with named checks, including a 5-min webhook lag; add `/v1/admin/health` and the event log with correlation ids (§8). No Sentry Crons.
 9. Reduce page size from 1000 to 100.
 10. Add a `CREDENTIALS_KEY` env var.
 11. Generate TS types from JSON Schema; use golden masters for the initial build only; ledger format as in §11.
@@ -377,11 +399,11 @@ Examples: golden/vitec/property/price-on-request
 |---|---|
 | Bell throttle window | 10 s |
 | Event log retention | 30 days |
-| Catch-up interval / overlap | hourly (max 12 h) / 1 h |
+| Catch-up | at worker start and every 12 h, 1 h overlap |
 | Id comparison for deletes | daily |
 | Fetch retries | 5, exponential backoff, then park and report to Sentry |
 | Health: worker heartbeat | 2 min |
-| Health: high queue | 15 min |
+| Health: webhook lag | 5 min |
 | Health: low queue | 24 h |
 | Health: subscriber not pulled | 60 min |
 | Staging soak before go-live | 7 days |
