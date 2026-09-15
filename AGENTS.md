@@ -93,6 +93,14 @@ Stop and ask the person who gave you the task, and don't improvise, when a task 
 - a decision the Concept doesn't settle. First ask which side of the seam it belongs on, then pick the smaller option. If both still look reasonable, ask.
 - action on a production incident
 
+## Raising issues
+
+Patric is the strategist and product owner. Agents find problems; Patric decides.
+
+- Raise an issue when you find it, not at the end. Do not sit on it and do not resolve it yourself.
+- Raise it as a **numbered list**. Each item: the issue in one or two sentences, an optional suggested solution, and whether it needs approval. Patric answers by number.
+- Once an item is approved, act on it. That includes updating `docs/strategy.md`: agents may change the strategy when the change is approved, and note it in `docs/decisions.md`.
+
 ## Definition of done
 
 1. The enforced checks are green, and the files you touched have no warnings.
