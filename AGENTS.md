@@ -36,7 +36,7 @@ Lint findings (including function complexity), duplicate code, dead code (unused
 
 - **Simple beats clever.** When two designs work, the one with less code wins. Nothing is built for a need that doesn't exist yet.
 - **The seam.** The engine knows nothing about any CRM. Clients never name a CRM.
-  - **Adapters own everything CRM-specific:** authentication, HTTP, rate limits, and deciding when and how to fetch (webhooks, polling, catch-up). That includes registering webhooks with the CRM, running their own schedules and timers, and any queue, dedupe or retries in their own tables.
+  - **Adapters own everything CRM-specific:** authentication, HTTP, rate limits, and deciding when and how to fetch (webhooks, polling, catch-up). That includes their own HTTP endpoints such as webhook listeners, running their own schedules and timers, and any queue, dedupe or retries in their own tables.
   - **The engine has no queues, webhooks or schedules.** Adapters know nothing about engine storage.
 - **The adapter bends to the engine, never the other way round.**
   - Never call CRM-specific code from the engine.
@@ -66,7 +66,7 @@ Lint findings (including function complexity), duplicate code, dead code (unused
 - **Layout.** Adding a top-level folder needs a line in `docs/decisions.md`.
 
 ```
-main.ts               entrypoint: starts engine and adapters; the only file importing both
+main.ts               entrypoint: starts engine, mounts adapter endpoints, starts adapters; the only file importing both
 engine/               CRM-agnostic: storage, rules runner, bells, subscriber API, recompute, health, event log
 engine/adapter-api/   the only engine code adapters may import (protected)
 adapters/<provider>/  everything CRM-specific, incl. webhooks, schedules, fetch lists, one folder per CRM
