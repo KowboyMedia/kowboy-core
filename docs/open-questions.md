@@ -18,14 +18,6 @@ this contract means building against identity and references only.
 `schemas/`, `acceptance/` and `golden/fake/` did not exist before. CODEOWNERS now protects the
 first two, so this is the one time they are created without a prior review. They need your read.
 
-## 3. A second runtime dependency: `ajv`
-
-Runtime dependencies are `pg` and `ajv` (with `ajv-formats`). `pg` is implied by the Postgres
-decision. `ajv` validates a canonical record against its schema **on the write path**, so a record
-that does not match the contract never reaches a subscriber (AC 11, AC 23), and it backs the
-release impact preview. The alternative is hand-written validation, which would duplicate the
-schemas. Approve, or say validation should be test-time only.
-
 ## 4. Where an adapter keeps its own tables
 
 The strategy says an adapter owns its queue, dedupe and retries "in its own tables", and that
@@ -47,8 +39,7 @@ live. Earlier it formatted prices, areas, room counts, addresses and slugs; all 
 invented from the SRS's illustrative example and has been removed.
 
 A rule needs two things first: a field to compute over, and a ledger entry saying what the output
-should be. `check:provenance` now fails any rule module that does not name its `rules-ledger/`
-entry, so this cannot drift back.
+should be. `rules-ledger/` is protected and empty, so nothing can be written until an entry exists.
 
 ## 6. Images, when the model is defined
 
@@ -69,8 +60,7 @@ Two ways to unblock, either is fine:
   configured (claude.ai/code → environments); `connect.maklare.vitec.net` needs to be reachable.
   Documented at https://code.claude.com/docs/en/claude-code-on-the-web.
 - **Paste the documentation in.** Save the relevant pages into `docs/inputs/` as a human-supplied
-  spec. That is the path AGENTS.md already describes for anything from outside, and it is what the
-  provenance check will accept as a source.
+  spec. That is the path AGENTS.md already describes for anything from outside.
 
 Either way, what is needed is: the marketing endpoints, how to ask for the full datamodel rather
 than the default limited one, authentication and the installation id, pagination, and rate limits.

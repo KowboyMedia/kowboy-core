@@ -1,6 +1,6 @@
 # Kowboy Core - Delivery Strategy
 
-**Status:** v11 · Gate 1 approved 2026-09-15 (amended same day) · **Current phase: 3 - Engine**, built ahead of Gate 2 on Kowboy's instruction; Gate 2 still owed (§9) · **Inputs:** [Concept](inputs/Kowboy_Kore_Concept.md), [SRS v1.2](inputs/Kowboy_Kore_SRS_v1.2.md) (suggestions; amended by §12)
+**Status:** v12 · Gate 1 approved 2026-09-15 (amended same day) · **Current phase: 3 - Engine**, built ahead of Gate 2 on Kowboy's instruction; Gate 2 still owed (§9) · **Inputs:** [Concept](inputs/Kowboy_Kore_Concept.md), [SRS v1.2](inputs/Kowboy_Kore_SRS_v1.2.md) (suggestions; amended by §12)
 
 **Naming:** the product is **Kowboy Core**, or just **Core** (formerly "Kore"). The CRM-agnostic part inside it is called the **engine**. Every `Kore`/`kore` identifier in the SRS becomes `Core`/`core`, for example `X-Core-Secret` and `/wp-json/core/v1/bell`.
 
@@ -22,7 +22,7 @@ Get from the Concept and SRS to a production deploy of a simple, lean and reliab
 | Item storage         | One `items` row per entity, with two separate columns: <br>• `raw`: the CRM payload, untouched, never served <br>• `data`: the universal model, with `display` and `provider_extras` inside, served verbatim            | `raw` enables recompute and preview without CRM traffic. Serving a precomputed `data` keeps reads fast. |
 | Response compression | JSON responses are gzip-compressed at a low, fast level                                                                                                                                                                 | Cuts egress cost with little CPU                                                                        |
 | Fetching strategy    | **Owned by each adapter** (§5). The engine has no queues, webhooks or schedules. An adapter that needs a queue keeps it in its own tables. No Redis.                                                                    | CRMs differ: some push webhooks, some must be polled                                                    |
-| Event log            | Postgres `events` table, partitioned by day, 30-day retention (§8.2). Both engine and adapters write to it through the adapter API.                                                                                     | Full visibility into the past, no new vendor                                                            |
+| Event log            | Postgres `events` table, one table, rows older than 30 days deleted (§8.2). Both engine and adapters write to it through the adapter API.                                                                               | Full visibility into the past, no new vendor                                                            |
 | Contract             | One JSON Schema per datatype describing the current shape. TS types are generated from it at build time. Breaking changes use expand-contract (§6).                                                                     | Schema and code can't drift                                                                             |
 | Tests                | Vitest against real Postgres in CI                                                                                                                                                                                      |                                                                                                         |
 | Checks               | Few blocking checks; the rest are warnings (§3)                                                                                                                                                                         |                                                                                                         |
@@ -143,6 +143,7 @@ One approval promotes Core, the WP plugin channel and the Lovable kit. Every dep
 | `onLifecycle(handler)`                         | Receive connection added/removed, offices added/removed, resync                                                                           |
 | `logEvent(type, fields)`                       | Write to the event log                                                                                                                    |
 | `healthCheck(name, fn)`                        | Add a named check to `/v1/health`                                                                                                         |
+| `connections()`                                | The connections this provider owns, so an adapter can resume its own work after a restart                                                 |
 
 Every call is idempotent. The engine never calls back into CRM-specific code except through the mappers and lifecycle handlers the adapter registered.
 
@@ -168,6 +169,7 @@ The engine has no scheduler.
 
 - **Leading edge:** the first change after a quiet period rings immediately.
 - **Trailing edge:** further changes within 10 s collapse into one bell.
+- **Where the state lives:** on the subscriber row (`last_bell_at`, `bell_pending`), so any number of web and worker processes agree. The worker sends trailing bells once a second.
 
 However many records adapters ingest, a subscriber gets at most one bell per window.
 
@@ -303,7 +305,7 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
 10:15:00.010 pull              acme-prod  wordpress/1.4.2  datatype=property after=48100 items=0 ← hasn't received it yet
 ```
 
-- **Retention:** 30 days, dropped by partition.
+- **Retention:** 30 days, deleted by the worker once an hour.
 - **Access:** admin auth only, because bodies can contain personal data.
 
 ## 9. Phases and approval gates

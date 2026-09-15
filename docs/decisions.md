@@ -43,3 +43,11 @@ One line per structural decision: date, decision, reference. Append only. Detail
 - 2026-09-15 · Invented contract fields removed: the model is the structural spine (identity, references, display, provider_extras) until the CRM data models are read; schemas are marked INCOMPLETE and permissive · docs/field-tables.md
 - 2026-09-15 · Business rules removed with them; `engine/rules/` computes nothing until `rules-ledger/` entries exist · engine/rules/run.ts
 - 2026-09-15 · New enforced check `check:provenance`: every schema field cites a human-written source, every rule cites its ledger entry (needs approval, adds a hard block) · AGENTS.md enforced 4
+- 2026-09-15 · Patric is strategist and product owner; agents raise numbered issues with optional solutions, Patric decides by number, approved strategy changes may be made by agents · AGENTS.md "Raising issues"
+- 2026-09-15 · Root cause of the invented model: closed gates were treated as notes. Rule added: a closed gate is not a note; build only what does not depend on it and leave the gap empty · AGENTS.md "Stop and ask"
+- 2026-09-15 · Provenance check, its tests, `source` annotations and the seventh hard block removed as overhead that could not catch the mistake it targeted; "Never invent a contract field" stays as one line (supersedes the check:provenance line) · AGENTS.md
+- 2026-09-15 · `ajv` approved as a runtime dependency for write-path schema validation · engine/contract.ts
+- 2026-09-15 · Adapter API gains `connections()`, approved · strategy §5.1
+- 2026-09-15 · Bell throttle state lives on the subscriber row; the worker flushes trailing bells once a second, so workers scale horizontally · strategy §5.2
+- 2026-09-15 · Event log is one table with a retention delete, no partitions (supersedes the partitioned-by-day line) · strategy §8.2
+- 2026-09-15 · Secret check reduced to private keys; migrate CLI removed as having no current need · scripts/

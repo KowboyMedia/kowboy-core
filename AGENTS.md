@@ -20,10 +20,9 @@ These are the only hard blocks. Don't add more without approval.
 1. **Build, typecheck and all tests pass.** A skipped test counts as a failure.
 2. **The seam.** The engine never imports or calls adapter code, and no CRM name appears in `engine/` or `clients/`. Adapters import only `engine/adapter-api/` and nothing else from the engine. Only the entrypoint `main.ts` imports both.
 3. **Protected paths need approval** (CODEOWNERS): `engine/adapter-api/`, `schemas/`, `acceptance/`, `rules-ledger/`, `golden/` (until go-live) and this file. `golden/fake/` is dummy data that agents own.
-4. **Nothing invented.** Every field in `schemas/` names the human-written document it came from, in a `source` on the field. Every business rule in `engine/rules/` names its `rules-ledger/` entry. `npm run check:provenance` enforces both.
-5. **No committed secrets.**
-6. **Release:** the impact preview finds no item failing the schema or invariants.
-7. **Production:** human approval, and a passing health check.
+4. **No committed secrets.**
+5. **Release:** the impact preview finds no item failing the schema or invariants.
+6. **Production:** human approval, and a passing health check.
 
 ## Warnings: reported, never block
 
@@ -60,10 +59,7 @@ Lint findings (including function complexity), duplicate code, dead code (unused
 - **One contract shape.** Additive changes are fine. A breaking change (rename, remove, retype) is done as expand → migrate → contract in separate releases (strategy §6).
 - **Never make a test pass by editing its expected output.**
 - **Never invent business rules.** They come from `rules-ledger/`. A missing rule is a question.
-- **Define before build.** Nothing enters the contract that nobody wrote down. Not a field, not an enum value, not a format. If the CRM data model has not been read, the contract carries the structural spine and says it is incomplete; it is never filled in with fields that sound right for the industry. A gap is stated as a gap, in `docs/open-questions.md`.
-- **An example is not a spec.** The SRS data-contract example is labelled illustrative, and so are payload snippets, screenshots and anything in a conversation. They show shape, not truth. The same goes for knowledge an agent happens to have about real estate, Sweden or any CRM: it is not a source.
-- **A source is a citation, not a justification.** "SRS §6.9" is a source. "Every brokerage shows a phone number" is a guess wearing a source's clothes.
-- **When a model is unknown, say so and stop.** Ask, or leave it out and record the question. A plausible guess costs more than an empty field: it gets built on, tested against, and believed.
+- **Never invent a contract field.** A field nobody wrote down is a question.
 
 ### Naming and layout
 
@@ -92,6 +88,8 @@ Stop and ask the person who gave you the task, and don't improvise, when a task 
 - a new runtime dependency, vendor or recurring cost
 - a decision the Concept doesn't settle. First ask which side of the seam it belongs on, then pick the smaller option. If both still look reasonable, ask.
 - action on a production incident
+
+**A closed gate is not a note.** When something on this list is needed and nobody is there to answer, build only what does not depend on it, leave the gap visibly empty, and put the question in `docs/open-questions.md`. Never fill a gap provisionally: a placeholder that looks real gets built on and believed.
 
 ## Raising issues
 

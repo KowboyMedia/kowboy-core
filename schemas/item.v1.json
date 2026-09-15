@@ -6,50 +6,40 @@
   "properties": {
     "datatype": {
       "type": "string",
-      "enum": ["property", "agent", "office", "area", "association"],
-      "source": "SRS §3 - item identity"
+      "enum": ["property", "agent", "office", "area", "association"]
     },
     "connection_id": {
       "type": "string",
-      "minLength": 1,
-      "source": "SRS §3 - item identity"
+      "minLength": 1
     },
     "remote_id": {
       "type": "string",
-      "minLength": 1,
-      "source": "SRS §3 - item identity"
+      "minLength": 1
     },
     "office_id": {
-      "type": ["string", "null"],
-      "source": "SRS §3 - licensing filter, null for tenant-wide datatypes"
+      "type": ["string", "null"]
     },
     "seq": {
       "type": "integer",
-      "minimum": 1,
-      "source": "SRS §3 - the only cursor"
+      "minimum": 1
     },
     "deleted": {
-      "type": "boolean",
-      "source": "SRS §3 - tombstone flag"
+      "type": "boolean"
     },
     "schema_version": {
       "type": "string",
-      "minLength": 1,
-      "source": "SRS §6 - version of the data shape"
+      "minLength": 1
     },
     "content_hash": {
       "type": "string",
-      "minLength": 1,
-      "source": "SRS §3 - change detection and the subscriber's skip test"
+      "minLength": 1
     },
     "remote_updated_at": {
       "type": ["string", "null"],
-      "format": "date-time",
-      "source": "SRS §3 - the CRM's own last-change time"
+      "format": "date-time"
     },
     "data": {
-      "type": ["object", "null"],
-      "source": "SRS §6 - the canonical object served to subscribers"
+      "type": ["object", "null"]
     }
   },
   "required": [

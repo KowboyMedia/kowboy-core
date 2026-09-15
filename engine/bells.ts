@@ -5,7 +5,10 @@ import { report } from './errors.js';
 /**
  * Bells tell a subscriber "there is something new, pull". They carry no data (SRS §8).
  * Throttled per subscriber (strategy §5.2): the first change after a quiet period rings at once,
- * further changes inside the window collapse into one bell.
+ * further changes inside the window collapse into one trailing bell.
+ *
+ * The throttle state is the subscriber row itself (`last_bell_at`, `bell_pending`), so any number
+ * of web and worker processes agree on it. The worker flushes trailing bells once a second.
  */
 export type BellKind = 'delta' | 'forcerefresh';
 
@@ -16,53 +19,50 @@ type Subscriber = {
   bell_secret: string;
 };
 
-type Pending = { timer: NodeJS.Timeout; kind: BellKind };
-
 let throttleMs = 10_000;
-const lastRung = new Map<string, number>();
-const pending = new Map<string, Pending>();
 
 export function configureBells(windowMs: number): void {
   throttleMs = windowMs;
 }
 
-/** Ring every active subscriber of a tenant. Returns once immediate bells have been sent. */
+const window = (): string => `${throttleMs} milliseconds`;
+
+/** Ring every active subscriber of a tenant: at once if outside the window, otherwise queued. */
 export async function ring(tenantId: string, kind: BellKind = 'delta'): Promise<void> {
-  const { rows } = await db().query<Subscriber>(
-    'select id, tenant_id, bell_url, bell_secret from subscribers where tenant_id = $1 and active = true',
-    [tenantId],
+  // The update is the claim: only one process wins the leading edge for a subscriber.
+  const { rows: due } = await db().query<Subscriber>(
+    `update subscribers set last_bell_at = now()
+     where tenant_id = $1 and active = true
+       and (last_bell_at is null or last_bell_at < now() - $2::interval)
+     returning id, tenant_id, bell_url, bell_secret`,
+    [tenantId, window()],
   );
-  await Promise.all(rows.map((subscriber) => ringOne(subscriber, kind)));
+  // Everyone else is inside the window: collapse into one trailing bell. forcerefresh outranks delta.
+  await db().query(
+    `update subscribers
+     set bell_pending = case when bell_pending = 'forcerefresh' then bell_pending else $2 end
+     where tenant_id = $1 and active = true and last_bell_at >= now() - $3::interval
+       and id <> all($4::bigint[])`,
+    [tenantId, kind, window(), due.map((row) => row.id)],
+  );
+  await Promise.all(due.map((subscriber) => send(subscriber, kind)));
 }
 
-async function ringOne(subscriber: Subscriber, kind: BellKind): Promise<void> {
-  const key = subscriber.id;
-  const since = Date.now() - (lastRung.get(key) ?? 0);
-
-  if (since >= throttleMs) {
-    lastRung.set(key, Date.now());
-    await send(subscriber, kind);
-    return;
-  }
-
-  // Inside the window: collapse into one trailing bell. forcerefresh outranks delta.
-  const existing = pending.get(key);
-  if (existing) {
-    if (kind === 'forcerefresh') existing.kind = 'forcerefresh';
-    return;
-  }
-  const timer = setTimeout(() => {
-    const queued = pending.get(key);
-    pending.delete(key);
-    lastRung.set(key, Date.now());
-    if (queued) void send(subscriber, queued.kind);
-  }, throttleMs - since);
-  timer.unref?.();
-  pending.set(key, { timer, kind });
+/** Send the trailing bells whose window has passed. The worker calls this once a second. */
+export async function flushPendingBells(): Promise<void> {
+  const { rows } = await db().query<Subscriber & { kind: BellKind }>(
+    `update subscribers set last_bell_at = now(), bell_pending = null
+     where bell_pending is not null and active = true
+       and last_bell_at < now() - $1::interval
+     returning id, tenant_id, bell_url, bell_secret, bell_pending as kind`,
+    [window()],
+  );
+  await Promise.all(rows.map((row) => send(row, row.kind)));
 }
 
 async function send(subscriber: Subscriber, kind: BellKind): Promise<void> {
   const startedAt = Date.now();
+  let status: string;
   try {
     const response = await fetch(subscriber.bell_url, {
       method: 'POST',
@@ -70,23 +70,15 @@ async function send(subscriber: Subscriber, kind: BellKind): Promise<void> {
       body: JSON.stringify({ kind, tenant_id: subscriber.tenant_id }),
       signal: AbortSignal.timeout(10_000),
     });
-    await record(subscriber, kind, response.ok ? 'ok' : `http ${response.status}`, startedAt);
+    status = response.ok ? 'ok' : `http ${response.status}`;
   } catch (error) {
     report(error, { where: 'bell', subscriber: subscriber.id });
-    await record(subscriber, kind, 'failed', startedAt);
+    status = 'failed';
   }
-}
-
-async function record(
-  subscriber: Subscriber,
-  kind: BellKind,
-  status: string,
-  startedAt: number,
-): Promise<void> {
-  await db().query(
-    'update subscribers set last_bell_at = now(), last_bell_status = $2 where id = $1',
-    [subscriber.id, status],
-  );
+  await db().query('update subscribers set last_bell_status = $2 where id = $1', [
+    subscriber.id,
+    status,
+  ]);
   await logEvent({
     type: 'bell',
     tenantId: subscriber.tenant_id,
@@ -95,15 +87,8 @@ async function record(
   });
 }
 
-/** Wait for queued trailing bells. Tests and shutdown use it; nothing else needs to. */
+/** Test helper: let the window pass, then send whatever is queued. */
 export async function flushBells(): Promise<void> {
-  while (pending.size > 0) {
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
-}
-
-export function stopBells(): void {
-  for (const { timer } of pending.values()) clearTimeout(timer);
-  pending.clear();
-  lastRung.clear();
+  await new Promise((resolve) => setTimeout(resolve, throttleMs + 5));
+  await flushPendingBells();
 }

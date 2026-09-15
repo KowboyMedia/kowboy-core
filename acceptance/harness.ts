@@ -6,7 +6,6 @@ import { adapterRoutes } from '../engine/http/server.js';
 import { db } from '../engine/storage/db.js';
 import { addSubscriber, upsertConnection, upsertTenant } from '../engine/storage/connections.js';
 import { clearRegistry } from '../engine/registry.js';
-import { forgetPartitionCache } from '../engine/events.js';
 import type { Adapter } from '../engine/adapter-api/types.js';
 
 export const TENANT = 't_test';
@@ -29,7 +28,6 @@ export async function harness(options: {
   subscriber?: boolean;
 }): Promise<Harness> {
   clearRegistry();
-  forgetPartitionCache();
 
   const engine = await startEngine({ port: 0 });
   await truncate();
@@ -84,13 +82,9 @@ export async function harness(options: {
 
 async function truncate(): Promise<void> {
   await db().query(
-    'truncate tenants, connections, subscribers, items, heartbeats restart identity cascade',
+    'truncate tenants, connections, subscribers, items, heartbeats, events restart identity cascade',
   );
   await db().query("select setval('item_seq', 1, false)");
-  const { rows } = await db().query<{ tablename: string }>(
-    "select tablename from pg_tables where tablename like 'events\\_%'",
-  );
-  for (const row of rows) await db().query(`drop table if exists ${row.tablename}`);
 }
 
 function listen(

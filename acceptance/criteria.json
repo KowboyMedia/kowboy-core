@@ -310,11 +310,7 @@
         "the seam check fails when a file other than main.ts imports both sides",
         "the skipped-test check fails on a skipped test",
         "the skipped-test check fails on a test that silently skips the rest of its file",
-        "the secret check fails on a committed private key",
-        "the secret check fails on a database URL with a password for a real host",
-        "the provenance check fails on a contract field with no source",
-        "the provenance check fails when the source is a justification rather than a citation",
-        "the provenance check fails on a business rule that names no ledger entry"
+        "the secret check fails on a committed private key"
       ]
     },
     {

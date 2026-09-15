@@ -30,6 +30,7 @@ create table subscribers (
   active            boolean not null default true,
   last_bell_at      timestamptz,
   last_bell_status  text,
+  bell_pending      text,
   last_pull_at      timestamptz,
   last_client       text
 );
@@ -60,7 +61,7 @@ create table items (
 create index items_cursor on items(tenant_id, datatype, seq);
 create unique index items_seq on items(seq);
 
--- Event log (strategy §8.2), partitioned by day, dropped after the retention window.
+-- Event log (strategy §8.2). Rows older than the retention window are deleted.
 create table events (
   at              timestamptz not null default now(),
   type            text not null,
@@ -71,7 +72,7 @@ create table events (
   remote_id       text,
   subscriber_id   bigint,
   fields          jsonb not null default '{}'::jsonb
-) partition by range (at);
+);
 
 create index events_at on events(at);
 create index events_correlation on events(correlation_id);

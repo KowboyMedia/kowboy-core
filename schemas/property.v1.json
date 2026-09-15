@@ -6,32 +6,25 @@
   "type": "object",
   "properties": {
     "id": {
-      "$ref": "_shared.v1.json#/$defs/id",
-      "source": "SRS §6.9 - references are by id"
+      "$ref": "_shared.v1.json#/$defs/id"
     },
     "office_id": {
-      "$ref": "_shared.v1.json#/$defs/reference",
-      "source": "SRS §6.9 - references are by id"
+      "$ref": "_shared.v1.json#/$defs/reference"
     },
     "agent_ids": {
-      "$ref": "_shared.v1.json#/$defs/references",
-      "source": "SRS §6.9 - references are by id"
+      "$ref": "_shared.v1.json#/$defs/references"
     },
     "area_ids": {
-      "$ref": "_shared.v1.json#/$defs/references",
-      "source": "SRS §6.9 - references are by id"
+      "$ref": "_shared.v1.json#/$defs/references"
     },
     "association_id": {
-      "$ref": "_shared.v1.json#/$defs/reference",
-      "source": "SRS §6.9 - references are by id"
+      "$ref": "_shared.v1.json#/$defs/reference"
     },
     "display": {
-      "$ref": "_shared.v1.json#/$defs/display",
-      "source": "SRS §6 - data shape: display holds strings computed by Core"
+      "$ref": "_shared.v1.json#/$defs/display"
     },
     "provider_extras": {
-      "$ref": "_shared.v1.json#/$defs/providerExtras",
-      "source": "SRS §6.4 - provider-only fields, excluded from content_hash"
+      "$ref": "_shared.v1.json#/$defs/providerExtras"
     }
   },
   "required": [

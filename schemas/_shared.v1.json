@@ -3,18 +3,32 @@
   "$id": "https://kowboy.se/schemas/_shared.v1.json",
   "title": "Shared definitions",
   "$defs": {
-    "id": { "type": "string", "minLength": 1 },
-    "reference": { "type": ["string", "null"] },
-    "references": { "type": "array", "items": { "type": "string" } },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reference": {
+      "type": ["string", "null"]
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "display": {
       "description": "Human-readable strings computed by Core. Empty until the rules ledger defines a rule.",
       "type": "object",
-      "additionalProperties": { "type": "string" }
+      "additionalProperties": {
+        "type": "string"
+      }
     },
     "providerExtras": {
       "description": "Provider-only fields, keyed by provider. Excluded from content_hash.",
       "type": "object",
-      "additionalProperties": { "type": "object" }
+      "additionalProperties": {
+        "type": "object"
+      }
     }
   }
 }

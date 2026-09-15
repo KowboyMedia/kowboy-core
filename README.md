@@ -20,13 +20,13 @@ npm run start:web             # subscriber API, admin, health, adapter endpoints
 npm run start:worker          # adapter background work, bells, housekeeping
 ```
 
-Migrations run at startup, so `npm run migrate` is only needed to apply them on their own.
+Migrations run at startup.
 
 ## Checking it
 
 ```bash
-npm run check                 # what CI blocks on: typecheck, the seam, nothing invented,
-                              # no skipped tests, no committed secrets, build, tests
+npm run check                 # what CI blocks on: typecheck, the seam, no skipped tests,
+                              #, no committed secrets, build, tests
 npm run lint                  # warnings, which never block
 npm run report                # regenerate acceptance/report.md from a test run
 ```
@@ -49,6 +49,5 @@ docs/                 strategy, decisions, open questions, inputs
 The seam is enforced by CI: no CRM name appears in `engine/`, adapters import only
 `engine/adapter-api/`, and `main.ts` is the only file that imports both sides.
 
-So is provenance: every field in `schemas/` cites the human-written document it came from, and
-every rule in `engine/rules/` cites its `rules-ledger/` entry. The data model is not defined yet -
-[docs/field-tables.md](docs/field-tables.md) says what is missing and what defining it takes.
+The data model is not defined yet: [docs/field-tables.md](docs/field-tables.md) says what is missing
+and what defining it takes.

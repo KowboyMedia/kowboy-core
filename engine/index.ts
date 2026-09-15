@@ -4,9 +4,9 @@ import { initErrorReporting } from './errors.js';
 import { closeDb, db } from './storage/db.js';
 import { migrate } from './storage/migrate.js';
 import { configureCredentials } from './storage/connections.js';
-import { configureBells, stopBells } from './bells.js';
+import { configureBells, flushPendingBells } from './bells.js';
 import { heartbeat, healthReport } from './health.js';
-import { dropExpiredEventPartitions } from './events.js';
+import { deleteExpiredEvents } from './events.js';
 import { purgeTombstones } from './storage/items.js';
 import { changes } from './http/changes.js';
 import { adminRoutes } from './http/admin.js';
@@ -17,6 +17,7 @@ export const VERSION = '0.1.0';
 /** Tombstones are hard-deleted after 90 days (AC 26). */
 const TOMBSTONE_RETENTION_DAYS = 90;
 const HEARTBEAT_MS = 30_000;
+const BELL_FLUSH_MS = 1_000;
 const HOUSEKEEPING_MS = 60 * 60_000;
 
 export type Engine = {
@@ -70,14 +71,14 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
         timers.push(timer);
       };
       tick(() => heartbeat(), HEARTBEAT_MS);
+      tick(() => flushPendingBells(), BELL_FLUSH_MS);
       tick(async () => {
-        await dropExpiredEventPartitions(config.eventRetentionDays);
+        await deleteExpiredEvents(config.eventRetentionDays);
         await purgeTombstones(TOMBSTONE_RETENTION_DAYS);
       }, HOUSEKEEPING_MS);
     },
     async stop(): Promise<void> {
       for (const timer of timers) clearInterval(timer);
-      stopBells();
       await new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve()));
       await closeDb();
     },

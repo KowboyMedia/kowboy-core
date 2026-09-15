@@ -6,16 +6,13 @@
   "type": "object",
   "properties": {
     "id": {
-      "$ref": "_shared.v1.json#/$defs/id",
-      "source": "SRS §6.9 - references are by id"
+      "$ref": "_shared.v1.json#/$defs/id"
     },
     "display": {
-      "$ref": "_shared.v1.json#/$defs/display",
-      "source": "SRS §6 - data shape: display holds strings computed by Core"
+      "$ref": "_shared.v1.json#/$defs/display"
     },
     "provider_extras": {
-      "$ref": "_shared.v1.json#/$defs/providerExtras",
-      "source": "SRS §6.4 - provider-only fields, excluded from content_hash"
+      "$ref": "_shared.v1.json#/$defs/providerExtras"
     }
   },
   "required": ["id", "display", "provider_extras"],

@@ -8,8 +8,8 @@ example, which the SRS itself labels _illustrative, not the schema_, and from wh
 supposed a Swedish brokerage site shows. That is a guess, and a guess in the contract is worse than
 a gap: it gets built on, tested against and believed. It has been removed.
 
-What remains in `schemas/` is the structural spine, and every field in it cites the human-written
-line it came from (`npm run check:provenance` fails on a field that does not).
+What remains in `schemas/` is the structural spine, and the tables below say where each field
+comes from. `schemas/` is a protected path: nothing is added to it without approval.
 
 ## What is defined
 
