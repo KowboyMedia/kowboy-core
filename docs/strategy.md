@@ -1,6 +1,6 @@
 # Kowboy Core - Delivery Strategy
 
-**Status:** v10 · Gate 1 approved 2026-09-15 (amended same day) · **Current phase: 1 - Foundation** (§9) · **Inputs:** [Concept](inputs/Kowboy_Kore_Concept.md), [SRS v1.2](inputs/Kowboy_Kore_SRS_v1.2.md) (suggestions; amended by §12)
+**Status:** v11 · Gate 1 approved 2026-09-15 (amended same day) · **Current phase: 3 - Engine**, built ahead of Gate 2 on Kowboy's instruction; Gate 2 still owed (§9) · **Inputs:** [Concept](inputs/Kowboy_Kore_Concept.md), [SRS v1.2](inputs/Kowboy_Kore_SRS_v1.2.md) (suggestions; amended by §12)
 
 **Naming:** the product is **Kowboy Core**, or just **Core** (formerly "Kore"). The CRM-agnostic part inside it is called the **engine**. Every `Kore`/`kore` identifier in the SRS becomes `Core`/`core`, for example `X-Core-Secret` and `/wp-json/core/v1/bell`.
 
@@ -308,17 +308,17 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
 
 ## 9. Phases and approval gates
 
-| Phase                                  | Output                                                                                                                              | Exit                                                                                          |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| **0. Decide**                          | Strategy and acceptance criteria                                                                                                    | **Gate 1: approved 2026-09-15**                                                               |
-| **1. Foundation** ◄ current            | Repo tooling, §3 checks and warnings, Sentry placeholder, health endpoint, release gate, a "hello health" app                       | Checks block a seeded violation, and the app serves `/v1/health` locally and in CI            |
-| **1b. Deploy** (waits on the platform) | Staging and prod deployed on the platform Kowboy supplies, Sentry account wired up                                                  | A trivial change goes PR → staging → approved → production, and a failing health check alerts |
-| **2. Canonical model**                 | JSON Schemas, a field table per datatype, dummy data (`golden/fake/`)                                                               | **Gate 2:** field tables approved                                                             |
-| **3. Engine**                          | Engine, adapter API, bells, recompute, health, event log, two fake adapters (one webhook-style, one polling-style), fake subscriber | Engine acceptance criteria green                                                              |
-| **4. Clients**                         | WP plugin, Lovable kit, example site, staging client sites                                                                          | Client acceptance criteria green                                                              |
-| **5. Real data**                       | Humans supply real golden masters per CRM, rules ledger (§11), parity inventory, CRM docs and rate limits, test credentials         | **Gate 3:** golden masters and ledger approved                                                |
-| **6. Adapters**                        | Vitec (webhooks, fetch list, catch-up) and Mspecs: golden masters first, then test accounts on staging                              | Adapter acceptance criteria green                                                             |
-| **7. Soak & go-live**                  | 7 days on staging with no unresolved Sentry issues, burst and load tests, restore drill, parity check                               | **Gate 4:** first production tenant                                                           |
+| Phase                                     | Output                                                                                                                              | Exit                                                                                          |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **0. Decide**                             | Strategy and acceptance criteria                                                                                                    | **Gate 1: approved 2026-09-15**                                                               |
+| **1. Foundation** ✔ done                  | Repo tooling, §3 checks and warnings, Sentry placeholder, health endpoint, release gate, a "hello health" app                       | Checks block a seeded violation, and the app serves `/v1/health` locally and in CI            |
+| **1b. Deploy** ⏳ waits on the platform   | Staging and prod deployed on the platform Kowboy supplies, Sentry account wired up                                                  | A trivial change goes PR → staging → approved → production, and a failing health check alerts |
+| **2. Canonical model** ⏳ awaiting Gate 2 | JSON Schemas, a field table per datatype, dummy data (`golden/fake/`)                                                               | **Gate 2:** field tables approved                                                             |
+| **3. Engine** ◄ current                   | Engine, adapter API, bells, recompute, health, event log, two fake adapters (one webhook-style, one polling-style), fake subscriber | Engine acceptance criteria green ([report](../acceptance/report.md))                          |
+| **4. Clients**                            | WP plugin, Lovable kit, example site, staging client sites                                                                          | Client acceptance criteria green                                                              |
+| **5. Real data**                          | Humans supply real golden masters per CRM, rules ledger (§11), parity inventory, CRM docs and rate limits, test credentials         | **Gate 3:** golden masters and ledger approved                                                |
+| **6. Adapters**                           | Vitec (webhooks, fetch list, catch-up) and Mspecs: golden masters first, then test accounts on staging                              | Adapter acceptance criteria green                                                             |
+| **7. Soak & go-live**                     | 7 days on staging with no unresolved Sentry issues, burst and load tests, restore drill, parity check                               | **Gate 4:** first production tenant                                                           |
 
 - **Golden masters are the acceptance for the initial build only.** They are retired at Gate 4.
 - **After go-live, output correctness is protected by:**

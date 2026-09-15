@@ -31,3 +31,12 @@ One line per structural decision: date, decision, reference. Append only. Detail
 - 2026-09-15 · Error reporting ships as a placeholder module, active only when `SENTRY_DSN` is set · strategy §2
 - 2026-09-15 · Compression has an acceptance criterion again: gzip level 3, AC 40 · strategy §10, §13
 - 2026-09-15 · CODEOWNERS for the protected paths is patric@kowboy.se · AGENTS.md rule 3
+- 2026-09-15 · Top-level `scripts/` for the enforced checks and the acceptance report generator · AGENTS.md layout
+- 2026-09-15 · Node 22 with TypeScript strict, ESM, vitest, eslint and prettier; no web framework, the HTTP server is `node:http` plus a route table · strategy §2
+- 2026-09-15 · Runtime dependencies are `pg` and `ajv` (+`ajv-formats`); `ajv` validates records against the schema on the write path (pending approval, open question 3) · docs/open-questions.md
+- 2026-09-15 · Replay and recompute are one code path: raw is always stored, so re-running mappers and rules serves both · strategy §5.2, SRS §4.7
+- 2026-09-15 · Page size for `/v1/changes` is 100, default and max (strategy AC 27 over SRS §8's 1000) · strategy §10
+- 2026-09-15 · `golden/fake/<datatype>/<case>/` splits expected output into `canonical.json` (data without display) and `display.json` · golden/fake/README.md
+- 2026-09-15 · Acceptance report is generated from a real test run by `npm run report`; `acceptance/criteria.json` maps criteria to named tests · acceptance/report.md
+- 2026-09-15 · Engine-owned tables only in the engine; adapters open their own pool for adapter-owned tables unless the adapter API is extended (open question 4) · docs/open-questions.md
+- 2026-09-15 · Phases 2 and 3 built before Gate 2, on Kowboy's instruction to start the engine; Gate 2 approval is still owed · strategy §9
