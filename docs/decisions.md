@@ -21,3 +21,7 @@ One line per structural decision: date, decision, reference. Append only. Detail
 - 2026-09-15 · Catch-up at worker start and every 12 h (supersedes hourly) · strategy §5.4
 - 2026-09-15 · Health check `webhook_lag`: red if any webhook is unresolved after 5 min · strategy §8.1
 - 2026-09-15 · Items store `raw` and `data` (universal model incl. display) as separate columns · strategy §2
+- 2026-09-15 · Adapters import only the protected `engine/adapter-api/`; extending it needs approval; adapter bends to engine · strategy §3.1 E2/E3, §5.1
+- 2026-09-15 · Fetching strategy is fully adapter-owned: the engine has no queues, webhooks or schedules (supersedes the engine job queue and priority lines) · strategy §5
+- 2026-09-15 · Vitec: webhook path with fetch list, dedupe and retries; separate 12 h catch-up with 1 h overlap; daily id comparison; no catch-up at worker start (supersedes earlier catch-up lines) · strategy §5.3
+- 2026-09-15 · Health: engine checks plus adapter-registered checks (Vitec webhook lag 5 min, 3 consecutive failed fetches, catch-up overdue) · strategy §5.4, §8.1

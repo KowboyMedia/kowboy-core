@@ -1,6 +1,6 @@
 # Kowboy Core - Delivery Strategy
 
-**Status:** v6 · Gate 1 approved 2026-09-15 (amended same day) · **Current phase: 1 - Foundation** (§9) · **Inputs:** [Concept](inputs/Kowboy_Kore_Concept.md), [SRS v1.2](inputs/Kowboy_Kore_SRS_v1.2.md) (suggestions; amended by §12)
+**Status:** v7 · Gate 1 approved 2026-09-15 (amended same day) · **Current phase: 1 - Foundation** (§9) · **Inputs:** [Concept](inputs/Kowboy_Kore_Concept.md), [SRS v1.2](inputs/Kowboy_Kore_SRS_v1.2.md) (suggestions; amended by §12)
 
 **Naming:** the product is **Kowboy Core**, or just **Core** (formerly "Kore"). The CRM-agnostic part inside it is called the **engine**. Every `Kore`/`kore` identifier in the SRS becomes `Core`/`core`, for example `X-Core-Secret` and `/wp-json/core/v1/bell`.
 
@@ -10,21 +10,21 @@ Get from the Concept and SRS to a production deploy of a simple, lean and reliab
 
 - **Agents build, CI decides correctness.** Automated tests are the definition of done.
 - **Humans approve behaviour, not code.** Approval happens at gates and per production release, based on plain-language reports.
-- **Few hard blocks, clear guidance.** Only what protects production blocks; everything else warns or guides (§3).
+- **Few hard blocks, clear guidance.** Only what protects production or the architecture blocks; everything else warns or guides (§3).
 
 ## 2. Architecture decisions
 
 | Concern | Decision | Why |
 |---|---|---|
 | Language | TypeScript strict, Node LTS | One language for engine and adapters |
-| Processes | One codebase, two roles: `web` (API, webhook intake, health) and `worker` (jobs, schedules, bells) | Intake stays fast whatever workers are doing |
+| Processes | One codebase, two roles: <br>• `web`: subscriber API, admin, health, and the webhook routes adapters mount <br>• `worker`: adapter background work, bells, recompute | Requests stay fast whatever background work is running |
 | Database | Postgres, plain SQL migrations, no ORM | Fewest abstractions |
 | Item storage | One `items` row per entity, with two separate columns: <br>• `raw`: the CRM payload, untouched, never served <br>• `data`: the universal model, with `display` and `provider_extras` inside, served verbatim | `raw` enables recompute and preview without CRM traffic. Serving a precomputed `data` keeps reads fast. |
-| Queue | Postgres job table with a priority column. No Redis. | Every read is unique, so a cache adds nothing |
-| Event log | Postgres `events` table, partitioned by day, 30-day retention by dropping partitions (§8.2) | Full visibility into the past, no new vendor |
-| Contract | One JSON Schema per datatype describing the current shape. TS types are generated from it at build time, not committed. Breaking changes use expand-contract (§6). | Schema and code can't drift |
+| Fetching strategy | **Owned by each adapter** (§5). The engine has no queues, webhooks or schedules. An adapter that needs a queue keeps it in its own tables. No Redis. | CRMs differ: some push webhooks, some must be polled |
+| Event log | Postgres `events` table, partitioned by day, 30-day retention (§8.2). Both engine and adapters write to it through the adapter API. | Full visibility into the past, no new vendor |
+| Contract | One JSON Schema per datatype describing the current shape. TS types are generated from it at build time. Breaking changes use expand-contract (§6). | Schema and code can't drift |
 | Tests | Vitest against real Postgres in CI | |
-| Checks | Few blocking checks; the rest are warnings (§3) | Blocks only what protects production |
+| Checks | Few blocking checks; the rest are warnings (§3) | |
 | CI/CD | GitHub Actions and GitHub Environments | Production approval is one button |
 | Monitoring | `/v1/health`: 200 when every check passes, 500 when any fails, same payload (§8.1). Watched by Sentry Uptime. | Works with any monitoring tool |
 | Errors | Sentry (EU) in Core and both clients | One error surface |
@@ -47,15 +47,15 @@ Hard criteria:
 
 ## 3. Simplicity and drift: what blocks and what guides
 
-**Principle:** something only blocks if it protects production data or the tests-are-acceptance model, and never produces false alarms. Everything else is a warning or a guideline.
+**Principle:** something only blocks if it protects production data, the architecture or the tests-are-acceptance model, and never produces false alarms. Everything else is a warning or a guideline.
 
 ### 3.1 Enforced: blocks merge or deploy
 
 | # | Check | Why it blocks |
 |---|---|---|
 | E1 | Build, typecheck and all tests pass. Skipped tests count as failures. | Tests are the acceptance |
-| E2 | **The seam:** the engine never imports an adapter, and no CRM name appears in `engine/` or `clients/` | The core architecture; cheap and unambiguous |
-| E3 | **Protected paths** need approval (CODEOWNERS): `schemas/`, `acceptance/`, `rules-ledger/`, `golden/` (until go-live) and `AGENTS.md` | Stops tests being "passed" by changing expectations |
+| E2 | **The seam.** <br>• The engine never imports or calls adapter code, and no CRM name appears in `engine/` or `clients/`. <br>• Adapters import only `engine/adapter-api/` and nothing else from the engine. | The core architecture. The adapter bends to the engine, never the other way round (§5.1). |
+| E3 | **Protected paths need approval** (CODEOWNERS): `engine/adapter-api/`, `schemas/`, `acceptance/`, `rules-ledger/`, `golden/` (until go-live) and `AGENTS.md` | Extending what adapters can do, and changing expectations, are human decisions |
 | E4 | No committed secrets (secret scan) | A leaked CRM credential can't be taken back |
 | E5 | The release impact preview finds no item failing the schema or invariants | Protects production data |
 | E6 | Production deploy needs human approval, and the health check must pass or the old version stays live | The release gate |
@@ -67,26 +67,25 @@ Hard criteria:
 - Dead code: unused files, exports, functions, methods and dependencies
 - `any` and lint suppressions
 - New runtime dependencies (listed)
-- Breaking schema changes: a removed, renamed or retyped field (also flagged in the release report)
+- Breaking schema changes (also flagged in the release report)
 
 ### 3.3 Automatic: no rule needed
 
-- Formatting is applied by the formatter.
-- Line endings are fixed by `.gitattributes`.
-- TS types are generated from the schemas at build time and never committed.
+Formatting is applied by the formatter. Line endings are fixed by `.gitattributes`. TS types are generated at build time.
 
 ### 3.4 Guidelines (AGENTS.md)
 
 1. **Concept rules:** simple beats clever, the seam, all data logic in Core, tests are the acceptance, anything derived is patchable.
-2. **No legacy access.**
-3. **One code path per concern.** No options or flags for cases that don't exist.
-4. **Readable code.** Understandable by reading a few files. Avoid framework-style layers such as dependency-injection containers, generic repositories and wrappers around libraries.
-5. **Leave files you touch free of warnings.**
-6. **Never invent business rules. Never edit expected outputs to make a test pass.**
-7. **Breaking contract changes use expand-contract** (§6).
-8. **Naming and layout.**
-9. **Decision log** entries for structural choices.
-10. **Stop and ask** triggers.
+2. **The adapter bends to the engine.**
+   - No CRM-specific branches, flags, config keys or workarounds in the engine, ever.
+   - If an adapter needs something the adapter API doesn't offer, the engine gets a new *generic* capability that any adapter could use. That needs approval (E3).
+3. **No legacy access.**
+4. **One code path per concern.** No options or flags for cases that don't exist.
+5. **Readable code.** Understandable from a few files. Avoid framework-style layers.
+6. **Leave files you touch free of warnings.**
+7. **Never invent business rules. Never edit expected outputs to make a test pass.**
+8. **Breaking contract changes use expand-contract** (§6).
+9. **Naming, layout, decision log, stop-and-ask.**
 
 **Considered and rejected; do not reintroduce:**
 - code-size budgets and file-size limits
@@ -96,6 +95,8 @@ Hard criteria:
 - maintaining golden masters after go-live
 - schema versions and down-converters
 - automated contract gates tied to client versions
+- queues, webhooks or schedules in the engine
+- catch-up on worker start
 - Redis
 
 ## 4. Pipeline and release gate
@@ -109,81 +110,97 @@ approver checks staging sites ──► clicks Approve ──► deploy PRODUCTI
 
 **The release report** (plain language) contains:
 - **What changed.**
-- **Output impact preview.** The new build does a read-only dry run of its mapping and rules over the raw payloads stored in production. It reports how many items would change, which fields, and before/after examples. No writes, no CRM calls. An item failing the schema or invariants blocks the release (E5).
-- **Flags for the approver (information only):** breaking schema changes, new dependencies, and the client versions currently pulling.
+- **Output impact preview.** A read-only dry run of the new mapping and rules over the raw payloads stored in production. It reports how many items would change, which fields, and before/after examples. No writes, no CRM calls. An item failing the schema or invariants blocks the release (E5).
+- **Flags for the approver (information only):** adapter API extensions, breaking schema changes, new dependencies, and client versions currently pulling.
 - **Links** to what to check on the staging sites, and acceptance status.
 
 One approval promotes Core, the WP plugin channel and the Lovable kit. Every deploy tags a Sentry release.
 
-## 5. Webhooks, jobs, catch-up, writes and bells
+## 5. Engine and adapters
 
-**Normal load** is under 1 webhook per second, and changes reach subscribers near-instantly. **Bursts**, for the same or different entities, never crash Core or overload CRMs, the database or subscribers. **Design target:** 10x launch load.
+### 5.1 The seam
 
-### 5.1 One job per entity: "reconcile this entity"
+| Engine (knows no CRM) | Adapter (one per CRM) |
+|---|---|
+| Storing `raw` and `data`, calling the adapter's mappers, business rules, `display` | Authentication, HTTP, endpoints, pagination, rate limits |
+| Hash, `seq`, write ordering, tombstones, licensed-office filter | **Deciding when to fetch:** webhooks, polling, schedules, catch-up |
+| Bells, subscriber API, recompute and replay | **Its own queue, dedupe and retries**, in its own tables, if it needs them |
+| Lifecycle events to adapters, event log, health endpoint | Mappers from CRM payload to the universal model |
 
-- **A webhook, a catch-up or a resync is only a hint:** "entity X may have changed." The job fetches the current state from the CRM:
-  - **Found:** upsert.
-  - **Definitive not-found:** tombstone. This is the normal outcome of "updated then deleted before processing"; it is logged, not an error.
-  - **Fetch failed:** retry with backoff. Never tombstone on failure. After the final retry, report to Sentry and park the job.
-- **Order-independent.** Late, duplicate and out-of-order hints all end in the CRM's current state.
+**The adapter API** (`engine/adapter-api/`) is the only part of the engine an adapter may use (E2). Changing it needs approval (E3). It offers:
 
-### 5.2 Dedupe: at most one pending job per entity
+| Function | Meaning |
+|---|---|
+| `register(manifest, mappers)` | "I am provider X, I support these datatypes" |
+| `ingest(connection, datatype, remoteId, raw)` | "This is the record's current state." The engine maps, applies rules, and writes if changed. Returns `written`, `unchanged` or `dropped`. |
+| `notFound(connection, datatype, remoteId)` | "The CRM confirms this record is gone." The engine tombstones it. |
+| `presentIds(connection, datatype, scope, ids)` | "These are all the ids that exist in this scope." The engine tombstones the rest. |
+| `onLifecycle(handler)` | Receive connection added/removed, offices added/removed, resync |
+| `logEvent(type, fields)` | Write to the event log |
+| `healthCheck(name, fn)` | Add a named check to `/v1/health` |
+| `mountRoutes(routes)` | Expose the adapter's own HTTP routes (e.g. webhooks) under `/v1/hook/<provider>/…` |
 
-- **One queue row per `(connection, datatype, remote_id)`.** Repeated hints only update that row.
-- **Older hints are cleared by any write.** When the entity is fetched and written, from any source, every hint received before that fetch started is removed.
-- **A hint that arrives during a fetch** triggers exactly one follow-up run.
-- **No fixed delay.**
+Every call is idempotent. The engine never calls back into CRM-specific code except through the mappers and lifecycle handlers the adapter registered.
 
-### 5.3 Priority
+### 5.2 Engine write path (identical for every adapter)
 
-One queue with a priority column:
-- **High:** webhooks.
-- **Low:** catch-up, initial load, resync and recompute.
+`ingest` → map → rules and `display` → licensed-office filter → hash → if unchanged: stop (no `seq`, no bell) → otherwise write with a new `seq` → log the event → bell.
 
-Workers always take high first.
-
-### 5.4 Catch-up for missed webhooks (rare edge case)
-
-- **When:** once **at worker start**, which covers Core downtime and restarts, the most likely cause. After that, every **12 h** as a backstop for webhooks lost on the CRM side.
-- **What it asks:** the CRM for entities changed since the last successful catch-up, **minus an overlap** (default 1 h).
-- **Only what needs updating:** the CRM's last-modified time is compared with the stored `remote_updated_at`. Only entities that differ are enqueued, at low priority. Unchanged entities cost no fetch and no write.
-- **Missed deletes:** once a day the adapter compares the CRM's full id list with Core's. Missing ids are enqueued as normal reconcile jobs, so a tombstone only follows a confirmed not-found.
-- **Marker:** it only advances after a successful run. A late or failed run turns the `schedules` health check red.
-
-### 5.5 Intake never falls over
-
-- **Minimal work.** The webhook handler validates the signature, logs the event, upserts one queue row and returns 202.
-- **Database failure.** If the database is unavailable, it returns 503 so the CRM retries.
-
-### 5.6 Workers protect everything downstream
-
-- **CRMs:** a rate limit and concurrency cap per connection.
-- **Database:** a global worker concurrency cap.
-- **Fairness:** tenants are served round-robin, with `FOR UPDATE SKIP LOCKED` for claiming.
-
-### 5.7 Write ordering (why a lock exists)
-
-Subscribers read "everything after `seq` N". If two workers commit at the same time and a higher `seq` becomes visible before a lower one, a subscriber can move past the lower one and **skip an item forever**.
-
-- **The fix:** each write transaction takes a short global transaction lock (milliseconds), so `seq` order equals commit order.
+**Write ordering (why a lock exists).** Subscribers read "everything after `seq` N".
+- **The risk:** if two writes commit at the same time and a higher `seq` becomes visible before a lower one, a subscriber can move past the lower one and skip an item forever.
+- **The fix:** each write takes a short global transaction lock (milliseconds), so `seq` order equals commit order.
 - **It never bottlenecks:** CRM rate limits cap fetches far below what a single writer handles.
 
-### 5.8 Bells are throttled per subscriber
-
+**Bells** are throttled per subscriber:
 - **Leading edge:** the first change after a quiet period rings immediately.
 - **Trailing edge:** further changes within 10 s collapse into one bell.
+
+However many records adapters ingest, a subscriber gets at most one bell per window.
+
+### 5.3 Vitec adapter: webhooks plus a separate catch-up schedule
+
+The Vitec adapter has **two independent paths**. Both live inside the adapter. Other adapters may work completely differently; Mspecs, for example, might only poll.
+
+**Path 1 - Webhooks (fast, simple):**
+
+```
+Vitec webhook ──► check signature ──► add "fetch record X" to the adapter's fetch list ──► reply 202
+adapter worker ──► fetch X from Vitec ──► found: ingest · gone: notFound · failed: retry later
+```
+
+- **Why a fetch list instead of fetching inside the webhook request:** if Vitec sends thousands of webhooks at once (it has happened during bugs), the list absorbs them without crashing, and the worker fetches at the rate Vitec allows.
+- **Duplicates:** the same record listed twice is kept once.
+- **Retries:** a failed fetch is retried with backoff and reported to Sentry after the last attempt. It is never treated as a delete.
+
+**Path 2 - Catch-up (rare safety net, separate schedule):**
+
+- **Why it exists:** a webhook can be lost, for example if Core was down or restarting when Vitec sent it, or Vitec failed to send it. Without a safety net, that record would stay out of date until it changed again.
+- **What it does:** every **12 h** it asks Vitec "which records changed since the last catch-up?". The window starts **1 h before** the previous run ended, so nothing slips through the gap between runs. Those records go on the same fetch list, after any webhook fetches.
+- **Records that didn't actually change** are recognised by the engine (same hash), so they get no new `seq`, no bell and reach no site.
+- **Missed deletes:** once a day the adapter sends Vitec's full id list to `presentIds`. Before tombstoning, the missing ids are confirmed gone with a fetch.
+- **Need it sooner?** An operator can trigger a `resync` event.
+
+### 5.4 Adapter health checks (registered through the API)
+
+Vitec registers:
+
+| Check | Fails when |
+|---|---|
+| `vitec.webhook_lag` | Any webhook received more than **5 min** ago hasn't been fetched and ingested yet |
+| `vitec.retries` | Any record has failed **3 fetches in a row**. It clears on a successful fetch or when an operator discards the record. |
+| `vitec.catch_up` | The last successful catch-up is older than 13 h (12 h plus a 1 h margin) |
 
 ## 6. Contract evolution: one shape, expand-contract
 
 Core serves one shape: the current one. No versions, no converters, no automated gates.
 
-- **Additive changes at any time.** Clients store unknown fields untouched, ignore them in templates, and handle unknown enum values safely (for example, not listed). This is tested in the client contract suite.
+- **Additive changes at any time.** Clients store unknown fields untouched, ignore them in templates, and handle unknown enum values safely. This is tested in the client contract suite.
 - **A breaking change** (rename, remove, retype, changed meaning) is done as **expand → migrate → contract**, three ordinary releases:
   1. **Expand:** add the new field next to the old one.
   2. **Migrate:** release clients that use the new field.
-  3. **Contract:** remove the old field in a later release. The release report flags the removal and lists the client versions currently pulling; the approver decides.
+  3. **Contract:** remove the old field in a later release. The release report flags the removal and lists client versions currently pulling; the approver decides.
 - **Safety net** (SRS §8): a client that receives an item it can't use reports it to Sentry, skips it and keeps serving its local data.
-- **Client version header.** Clients send `X-Core-Client: <client>/<version>` on every pull. It is logged for debugging and shown in the release report.
+- **Client version header.** Clients send `X-Core-Client: <client>/<version>` on every pull. It is logged and shown in the release report.
 
 ## 7. Onboarding, deletes, patching, purge and resync
 
@@ -191,23 +208,26 @@ Core serves one shape: the current one. No versions, no converters, no automated
 
 | Situation | Operator action | What happens |
 |---|---|---|
-| **New tenant** | Add tenant and connection, then `event: connection_added` | Full load of all licensed offices at low priority: offices, then agents, areas, associations, properties. |
-| **New office in existing tenant** | Add to `licensed_offices`, then `event: offices_added` | Only that office's entities, plus referenced tenant-wide entities that are missing. |
-| **New subscriber on existing tenant** | Add subscriber | The subscriber pulls from `after = 0` out of Core's store. No CRM traffic. |
-| **Office removed / connection deactivated** | Update, then `event: offices_removed` / `connection_removed` | The affected entities become tombstones. |
+| **New tenant** | Add tenant and connection, then `event: connection_added` | The engine notifies the adapter. The adapter loads all licensed offices its own way (Vitec: onto the fetch list, after webhooks). |
+| **New office in existing tenant** | Add to `licensed_offices`, then `event: offices_added` | The adapter loads only that office's records, plus referenced tenant-wide records that are missing. |
+| **New subscriber on existing tenant** | Add subscriber | The subscriber pulls from `after = 0` out of Core's store. Engine only, no CRM traffic. |
+| **Office removed / connection deactivated** | Update, then `event: offices_removed` / `connection_removed` | The engine tombstones the affected items. |
 
 ### 7.2 Deletes and recovery
 
 - **Soft delete.** A deleted entity becomes a tombstone with a new `seq`. Tombstones are hard-deleted after 90 days, and Core keeps a purge watermark per tenant.
 - **Stale cursor.** A subscriber behind the watermark gets *resync-required*. It pulls everything, then deletes local items not seen, only after a complete, successful pull.
-- **Resync with sweep (operator).** Re-fetch a scope at low priority, rebuild in place, then tombstone anything not seen.
-- **Purge and resync (operator).** For broken stored data. The same flow with existing rows discarded first. Subscribers keep serving local data until the rebuild completes.
+- **Resync with sweep (operator).**
+  1. `event: resync`.
+  2. The adapter re-fetches the scope and reports `presentIds`.
+  3. The engine tombstones anything not present.
+- **Purge and resync (operator).** For broken stored data. The engine discards the scope's rows, then sends `resync`. Subscribers keep serving local data until the rebuild completes.
 - **Hard rule:** no operator action may make a subscriber empty its store as a side effect.
 
 ### 7.3 Patching display or canonical data
 
 - **Before release:** the release report previews the impact on production data (§4).
-- **After the production deploy:** a recompute runs automatically at low priority over rows with an older `rules_version`, using stored `raw` and no CRM calls.
+- **After the production deploy:** the engine automatically recomputes, in background batches, all rows with an older `rules_version`. It uses stored `raw`, no adapter calls and no CRM calls.
 - **Changed rows:** rows whose hash changes get a new `seq`, bells go out as normal, and subscribers pull with their normal loop.
 - **Unchanged:** unchanged rows and `remote_updated_at` are never touched.
 - **Breaking shape changes** follow §6.
@@ -217,54 +237,51 @@ Core serves one shape: the current one. No versions, no converters, no automated
 
 ### 8.1 `GET /v1/health` (no auth)
 
-Returns **200 if all checks pass, 500 if any fails, with the same payload**. It contains counts only, no names.
+Returns **200 if all checks pass, 500 if any fails, with the same payload**. It contains counts only, no tenant names.
 
 ```json
 {
   "ok": false,
   "version": "1.4.0",
   "checks": {
-    "db":          { "ok": true },
-    "worker":      { "ok": true,  "last_heartbeat_s": 4, "limit_s": 120 },
-    "webhook_lag": { "ok": false, "oldest_unresolved_s": 420, "limit_s": 300 },
-    "low_queue":   { "ok": true,  "oldest_job_age_s": 3600, "limit_s": 86400 },
-    "schedules":   { "ok": true,  "late": 0 },
-    "subscribers": { "ok": true,  "not_pulled_60m": 0 }
+    "db":                { "ok": true },
+    "worker":            { "ok": true,  "last_heartbeat_s": 4, "limit_s": 120 },
+    "subscribers":       { "ok": true,  "not_pulled_60m": 0 },
+    "vitec.webhook_lag": { "ok": false, "oldest_unprocessed_s": 420, "limit_s": 300 },
+    "vitec.retries":     { "ok": true,  "records_failing": 0, "limit_consecutive": 3 },
+    "vitec.catch_up":    { "ok": true,  "last_success_h": 5, "limit_h": 13 }
   }
 }
 ```
 
-| Check | Fails when |
+| Engine check | Fails when |
 |---|---|
 | `db` | The database is unreachable |
 | `worker` | No worker heartbeat for 2 min |
-| `webhook_lag` | Any webhook received more than **5 min** ago has no final outcome yet for its entity. Final outcomes are written, unchanged, tombstoned or dropped. Retrying and parked jobs count as unresolved. It clears when the entity is reconciled or an operator discards the parked job. |
-| `low_queue` | The oldest waiting low-priority job is older than 24 h |
-| `schedules` | A catch-up is late or failed |
 | `subscribers` | An active subscriber hasn't pulled for 60 min |
 
-`GET /v1/admin/health` returns the same checks with names.
+Adapter checks are defined by each adapter (§5.4). `GET /v1/admin/health` returns the same checks with names.
 
 ### 8.2 Event log: "what happened, where, and when"
 
-Every event is one row in `events`. Each row carries a **correlation id** that links the whole chain: webhook → job → CRM call → write → bell → pull. The same id is attached to Sentry errors.
+Every event is one row in `events`. Each row carries a **correlation id** that links the whole chain: webhook → fetch → write → bell → pull. The same id is attached to Sentry errors.
 
-| Event | Metadata stored |
-|---|---|
-| `webhook.received` | connection, path, headers (secrets redacted), body as received, signature valid, entities referenced, response code |
-| `job.queued` / `deduped` / `started` / `finished` | entity, priority, reason (webhook, catch-up, initial, resync, recompute), attempt, duration, outcome |
-| `crm.call` | method, endpoint and query (secrets redacted), status, duration, response size, rate-limit headers, error body on failure |
-| `entity.written` | entity, `seq`, old and new hash, **changed fields with before/after values**, `rules_version`; or `unchanged` / `dropped` (reason) / `tombstoned` |
-| `bell.sent` | subscriber, sent or throttled, status, duration |
-| `pull` | subscriber, client version, datatype, `after`, items returned, duration |
-| `schedule.run` | catch-up window, entities listed, enqueued, outcome |
-| `admin.call` | endpoint, parameters |
+| Event | Written by | Metadata stored |
+|---|---|---|
+| `webhook.received` | adapter | connection, path, headers (secrets redacted), body as received, signature valid, records referenced, response code |
+| `fetch.queued` / `deduped` / `started` / `finished` | adapter | record, reason (webhook, catch-up, initial, resync), attempt, duration, outcome |
+| `crm.call` | adapter | method, endpoint and query (secrets redacted), status, duration, response size, rate-limit headers, error body on failure |
+| `schedule.run` | adapter | catch-up window, records listed, queued, outcome |
+| `entity.written` | engine | entity, `seq`, old and new hash, **changed fields with before/after values**, `rules_version`; or `unchanged` / `dropped` (reason) / `tombstoned` |
+| `bell.sent` | engine | subscriber, sent or throttled, status, duration |
+| `pull` | engine | subscriber, client version, datatype, `after`, items returned, duration |
+| `admin.call` / `lifecycle.sent` | engine | endpoint or event, parameters |
 
 **Query:** `GET /v1/admin/events?entity=…|connection=…|subscriber=…|correlation=…|type=…&from=…&to=…` returns a timeline, for example:
 
 ```
 10:02:01.120 webhook.received  vitec-acme  property OBJ-19203  sig=ok  202
-10:02:01.131 job.started       reason=webhook priority=high
+10:02:01.131 fetch.started     reason=webhook attempt=1
 10:02:01.402 crm.call          GET /estates/OBJ-19203  200  268ms  rl-remaining=412
 10:02:01.455 entity.written    seq=48213  price: 4950000 → 4750000, display.price: "4 950 000 kr" → "4 750 000 kr"
 10:02:01.470 bell.sent         acme-prod  500  1.2s
@@ -281,15 +298,15 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
 | **0. Decide** | Strategy and acceptance criteria | **Gate 1: approved 2026-09-15** |
 | **1. Foundation** ◄ current | Hosting pick, repo tooling, §3 checks and warnings, staging and prod as code, Sentry, health endpoint, release gate, a "hello health" app | A trivial change goes PR → staging → approved → production, and a failing health check alerts |
 | **2. Canonical model** | JSON Schemas, a field table per datatype, dummy data (`golden/fake/`) | **Gate 2:** field tables approved |
-| **3. Engine** | Engine, queue, catch-up framework, bells, health, event log, fake adapter, fake subscriber | Engine acceptance criteria green |
+| **3. Engine** | Engine, adapter API, bells, recompute, health, event log, two fake adapters (one webhook-style, one polling-style), fake subscriber | Engine acceptance criteria green |
 | **4. Clients** | WP plugin, Lovable kit, example site, staging client sites | Client acceptance criteria green |
 | **5. Real data** | Humans supply real golden masters per CRM, rules ledger (§11), parity inventory, CRM docs and rate limits, test credentials | **Gate 3:** golden masters and ledger approved |
-| **6. Adapters** | Vitec and Mspecs: golden masters first, then test accounts on staging | Adapter acceptance criteria green |
+| **6. Adapters** | Vitec (webhooks, fetch list, catch-up) and Mspecs: golden masters first, then test accounts on staging | Adapter acceptance criteria green |
 | **7. Soak & go-live** | 7 days on staging with no unresolved Sentry issues, burst and load tests, restore drill, parity check | **Gate 4:** first production tenant |
 
 - **Golden masters are the acceptance for the initial build only.** They are retired at Gate 4.
 - **After go-live, output correctness is protected by:**
-  - rule-level tests (one per ledger rule, updated with the rule)
+  - rule-level tests
   - schema and invariant checks
   - the release impact preview on real data (§4)
 
@@ -302,19 +319,21 @@ golden/<provider>/<datatype>/<case>/
   display.json     human-readable output used by websites
 ```
 
-## 10. Acceptance Criteria v1.6
+## 10. Acceptance Criteria v1.7
 
 ### SRS AC 1-15, with clarifications
 
 | AC | Clarification |
 |---|---|
 | 1 | Initial build (until Gate 4): every golden-master case matches `canonical.json` and `display.json` exactly (canonical JSON: sorted keys, UTF-8) and validates against its schema. |
+| 2 | An unchanged record that is ingested again produces no new `seq` and no bell, whatever triggered the ingest (webhook, catch-up, resync). |
 | 5 | Applies to the WP and Lovable clients too (AC 20). |
 | 8 | "Keep serving" means every page type returns 200 with the last synced content through a 24 h Core outage. |
 | 9 | Also covers shrinking (AC 26). |
 | 10 | Also covers a new enum value (§6). |
-| 11 | The malformed record is also in the event log. Other records in the same run are still written. |
-| 13 | The recompute runs automatically after a release that changes mapping or rules, at low priority. Its impact was shown in the release report beforehand. |
+| 11 | The malformed record is also in the event log. Other records are still written. |
+| 12 | Two fake adapters, one webhook-style and one polling-style, work end to end using only the adapter API. The engine contains no CRM names, queues, webhook handling or schedules. |
+| 13 | The recompute runs automatically after a release that changes mapping or rules. Its impact was shown in the release report beforehand. |
 | 14 | Also loads missing tenant-wide entities the new office references. Other offices get no new `seq`. |
 | 15 | "Exactly" means zero new `seq` values when the mapper is unchanged. |
 
@@ -322,10 +341,10 @@ golden/<provider>/<datatype>/<case>/
 
 | AC | Criterion |
 |---|---|
-| 16 | **Event log.** For a given entity, one query returns its full timeline across webhook, job, CRM call (with metadata), write (with changed fields), bell and pull, linked by correlation id. For each "not updated" cause (deduped, unlicensed, hash unchanged, malformed, not-found, fetch failed, bell throttled, bell failed, subscriber not pulling), the timeline shows the cause. Secrets are redacted. Events older than 30 days are gone. |
-| 17 | **Health and alerting,** verified by injected faults on staging. Each §8.1 failure turns `/v1/health` to 500 with that check `ok: false`, and back to 200 when resolved. Sentry Uptime alerts on 500. Unhandled errors in Core, adapters and clients reach Sentry. |
+| 16 | **Event log.** For a given entity, one query returns its full timeline across webhook, fetch, CRM call (with metadata), write (with changed fields), bell and pull, linked by correlation id. For each "not updated" cause (deduped, unlicensed, hash unchanged, malformed, not-found, fetch failed, bell throttled, bell failed, subscriber not pulling), the timeline shows the cause. Secrets are redacted. Events older than 30 days are gone. |
+| 17 | **Health and alerting,** verified by injected faults on staging. Each engine and adapter check turns `/v1/health` to 500 with that check `ok: false`, and back to 200 when resolved. Sentry Uptime alerts on 500. Unhandled errors in Core, adapters and clients reach Sentry. |
 | 18 | **Pipeline.** Merging to main deploys staging and runs the smoke suite automatically. Production deploys only after approval. A failed production health check leaves the previous version live. |
-| 19 | **No skipped items.** With many concurrent workers and during deploy overlap, a subscriber paging by cursor never misses an item. |
+| 19 | **No skipped items.** With concurrent writes and during deploy overlap, a subscriber paging by cursor never misses an item. |
 | 20 | **Real clients.** WP and Lovable pass the sync scenario suite, and give identical results for the search/filter scenario suite on the same dataset. |
 | 21 | **Safe update.** A broken client release is replaced by the next release without manual steps. A broken Lovable site release doesn't stop syncing. |
 | 22 | **Backstop.** With bells blocked, a subscriber converges within 15 min. |
@@ -335,16 +354,17 @@ golden/<provider>/<datatype>/<case>/
 | 26 | **Removal.** Removing an office or deactivating a connection tombstones its items. Tombstones are hard-deleted after 90 days. |
 | 27 | **Scale and read latency.** Load test on staging at 10x launch: 200 tenants, one tenant with 300k properties. Page size is 100 items (default and max). Time to first byte p95 under 100 ms, full response p95 under 300 ms. |
 | 28 | **Functional parity.** Everything in the human-supplied parity inventory is servable from Core data. |
-| 29 | **Burst resilience.** 50,000 webhooks in 1 minute across 50,000 different entities: <br>• Every webhook gets 202 within 1 s (p99), with no crash and no lost webhook. <br>• CRM calls stay within rate limits. <br>• Each subscriber gets at most one bell per throttle window. <br>• `webhook_lag` health goes red and back to green. <br>• All entities converge. |
+| 29 | **Burst resilience (Vitec).** 50,000 webhooks in 1 minute across 50,000 different records: <br>• Every webhook gets 202 within 1 s (p99), with no crash and no lost webhook. <br>• Vitec calls stay within its rate limit. <br>• Each subscriber gets at most one bell per throttle window. <br>• `vitec.webhook_lag` goes red and back to green. <br>• All records converge. |
 | 30 | **Contract evolution.** <br>• Additive fields and unknown enum values break no client. <br>• A client receiving an item it can't use skips it, reports to Sentry and keeps serving. <br>• The release report flags breaking schema changes and lists client versions currently pulling. |
 | 31 | **Purge and resync safety.** Purge-and-resync or resync-with-sweep on a live tenant never leaves a subscriber with fewer items than Core has at the end, and sites keep serving. A subscriber behind the purge watermark is told to resync and converges. |
-| 32 | **Near-instant under normal load.** At under 1 webhook/s, webhook received → bell sent is p95 under 2 s excluding CRM fetch time, including while another tenant's 30k-entity initial load runs. |
-| 33 | **Race conditions and dedupe.** Each ends with the CRM's current state and no Sentry error: <br>• update then delete before processing → tombstone <br>• delete then late update → tombstone <br>• 100 webhooks for one entity → at most 2 fetches <br>• a webhook during a fetch → exactly one follow-up <br>• a write from any source clears older pending hints <br>• a transient failure → retry, never tombstone |
+| 32 | **Near-instant under normal load (Vitec).** At under 1 webhook/s, webhook received → bell sent is p95 under 2 s excluding Vitec's response time, including while another tenant's 30k-record initial load runs. |
+| 33 | **Race conditions and dedupe (Vitec).** Each ends with the CRM's current state and no Sentry error: <br>• update then delete before fetching → tombstone <br>• delete then late update webhook → tombstone <br>• 100 webhooks for one record → at most 2 fetches <br>• a transient failure → retry, never tombstone |
 | 34 | **Initial sync.** A new tenant converges to a full load. A new office loads only that office plus missing referenced entities. A new subscriber converges from Core's store with zero CRM calls. |
-| 35 | **Catch-up.** <br>• With webhooks disabled for 6 h, every change converges after the next catch-up. <br>• Unchanged entities cause zero fetches and zero writes. <br>• A catch-up runs at worker start. <br>• A delete whose webhook was lost is tombstoned by the daily id comparison after a confirmed not-found. <br>• A failed catch-up doesn't advance its marker and turns health red. |
+| 35 | **Catch-up (Vitec).** <br>• With webhooks disabled, every change converges after the next scheduled catch-up. <br>• Consecutive catch-up windows overlap by 1 h. <br>• Unchanged records produce no new `seq` and no bell. <br>• A delete whose webhook was lost is tombstoned by the daily id comparison after a confirmed not-found. <br>• A failed catch-up turns `vitec.catch_up` red once it is overdue. |
 | 36 | **Release impact preview.** The release report shows item counts, changed fields and before/after examples for the production data. It performs no writes and no CRM calls. |
-| 37 | **Checks.** Each enforced check (§3.1) fails on a seeded violation. Warnings (§3.2) never block. |
-| 38 | **Webhook lag.** A webhook whose entity isn't reconciled within 5 min, whether stuck, retrying or parked, turns `webhook_lag` red. It turns green once the entity is reconciled or the parked job is discarded. |
+| 37 | **Checks.** Each enforced check (§3.1) fails on a seeded violation, including an adapter importing engine internals and a CRM name in the engine. Warnings (§3.2) never block. |
+| 38 | **Webhook lag (Vitec).** A webhook whose record isn't fetched and ingested within 5 min turns `vitec.webhook_lag` red, and green again once it is processed. |
+| 39 | **Repeated retries (Vitec).** A record failing 3 fetches in a row turns `vitec.retries` red. It turns green after a successful fetch or when an operator discards the record. |
 
 ## 11. Rules ledger: what Kowboy supplies
 
@@ -378,13 +398,13 @@ Examples: golden/vitec/property/price-on-request
 ## 12. Changes to the SRS
 
 1. Rename Kore to Kowboy Core (Core); the CRM-agnostic part becomes the engine.
-2. Split into `web` and `worker`, with Postgres "reconcile entity" jobs, one pending row per entity, and a priority column (§5).
-3. Catch-up per adapter at worker start and every 12 h, plus a daily id comparison (§5.4).
-4. Add a short global transaction lock per write, replacing the in-process mutex (§5.7).
+2. The engine exposes a small, protected adapter API (§5.1). Adapters may import nothing else. Extending it needs approval.
+3. Fetching strategy is fully adapter-owned. For Vitec: a webhook path with its own fetch list, dedupe and retries, plus a separate 12 h catch-up schedule with 1 h overlap and a daily id comparison (§5.3).
+4. Add a short global transaction lock per write, replacing the in-process mutex (§5.2).
 5. Throttle bells per subscriber with a leading and trailing edge.
-6. Remove `schema_version` and down-converters. One shape, additive changes, and expand-contract as ordinary releases (§6).
+6. Remove `schema_version` and down-converters. One shape, additive changes, expand-contract as ordinary releases (§6).
 7. Add tombstone purge, a watermark, resync-required responses, resync-with-sweep and purge-and-resync (§7).
-8. `/v1/health` returns 200 or 500 with named checks, including a 5-min webhook lag; add `/v1/admin/health` and the event log with correlation ids (§8). No Sentry Crons.
+8. `/v1/health` returns 200 or 500, with engine checks plus adapter-registered checks (Vitec: webhook lag, repeated retries, catch-up). Add `/v1/admin/health` and the event log with correlation ids (§8).
 9. Reduce page size from 1000 to 100.
 10. Add a `CREDENTIALS_KEY` env var.
 11. Generate TS types from JSON Schema; use golden masters for the initial build only; ledger format as in §11.
@@ -399,11 +419,11 @@ Examples: golden/vitec/property/price-on-request
 |---|---|
 | Bell throttle window | 10 s |
 | Event log retention | 30 days |
-| Catch-up | at worker start and every 12 h, 1 h overlap |
-| Id comparison for deletes | daily |
-| Fetch retries | 5, exponential backoff, then park and report to Sentry |
+| Vitec catch-up | every 12 h, 1 h overlap |
+| Vitec id comparison for deletes | daily |
+| Vitec fetch retries | exponential backoff; health red after 3 consecutive failures; Sentry after the last attempt |
 | Health: worker heartbeat | 2 min |
-| Health: webhook lag | 5 min |
-| Health: low queue | 24 h |
 | Health: subscriber not pulled | 60 min |
+| Health: Vitec webhook lag | 5 min |
+| Health: Vitec catch-up overdue | 13 h |
 | Staging soak before go-live | 7 days |

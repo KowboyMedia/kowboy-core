@@ -18,8 +18,8 @@ Kowboy Core ("Core") is one central service. It reads real estate CRMs, normaliz
 These are the only hard blocks. Don't add more without approval.
 
 1. **Build, typecheck and all tests pass.** A skipped test counts as a failure.
-2. **The seam.** The engine never imports an adapter. No CRM name appears in `engine/` or `clients/`.
-3. **Protected paths need approval** (CODEOWNERS): `schemas/`, `acceptance/`, `rules-ledger/`, `golden/` (until go-live) and this file. `golden/fake/` is dummy data that agents own.
+2. **The seam.** The engine never imports or calls adapter code, and no CRM name appears in `engine/` or `clients/`. Adapters import only `engine/adapter-api/` and nothing else from the engine.
+3. **Protected paths need approval** (CODEOWNERS): `engine/adapter-api/`, `schemas/`, `acceptance/`, `rules-ledger/`, `golden/` (until go-live) and this file. `golden/fake/` is dummy data that agents own.
 4. **No committed secrets.**
 5. **Release:** the impact preview finds no item failing the schema or invariants.
 6. **Production:** human approval, and a passing health check.
@@ -35,7 +35,13 @@ Lint findings (including function complexity), duplicate code, dead code (unused
 ### Principles
 
 - **Simple beats clever.** When two designs work, the one with less code wins. Nothing is built for a need that doesn't exist yet.
-- **The seam.** The engine knows nothing about any CRM. Adapters own everything CRM-specific, including when to fetch, and know nothing about engine storage. Clients never name a CRM.
+- **The seam.** The engine knows nothing about any CRM. Clients never name a CRM.
+  - **Adapters own everything CRM-specific:** authentication, HTTP, rate limits, and deciding when to fetch (webhooks, polling, schedules, catch-up), plus any queue, dedupe or retries in their own tables.
+  - **The engine has no queues, webhooks or schedules.** Adapters know nothing about engine storage.
+- **The adapter bends to the engine, never the other way round.**
+  - Never call CRM-specific code from the engine.
+  - No CRM-specific branches, flags, config keys, workarounds or hacks in the engine.
+  - If an adapter needs something `engine/adapter-api/` doesn't offer, propose a *generic* engine capability any adapter could use. That needs approval.
 - **All data logic lives in Core.** Clients are templates plus a sync loop.
 - **Tests are the acceptance.** If something can't be tested automatically, raise it as a design problem. Never add a manual step.
 - **Anything derived must be patchable** from stored raw data without CRM traffic.
@@ -60,8 +66,9 @@ Lint findings (including function complexity), duplicate code, dead code (unused
 - **Layout.** Adding a top-level folder needs a line in `docs/decisions.md`.
 
 ```
-engine/               CRM-agnostic: storage, jobs, rules runner, bells, API, health, event log
-adapters/<provider>/  everything CRM-specific, one folder per CRM
+engine/               CRM-agnostic: storage, rules runner, bells, subscriber API, recompute, health, event log
+engine/adapter-api/   the only engine code adapters may import (protected)
+adapters/<provider>/  everything CRM-specific, incl. webhooks, schedules, fetch lists, one folder per CRM
 clients/wordpress/    thin WordPress client
 clients/lovable-kit/  Supabase sync + bell functions for Lovable sites
 schemas/              JSON Schema per datatype (current shape, source of truth)
@@ -75,7 +82,7 @@ docs/                 strategy, decisions, inputs
 
 Stop and ask the person who gave you the task, and don't improvise, when a task needs any of these:
 
-- a change to a contract, schema, rules ledger, golden master or acceptance criterion
+- a change to the adapter API, a contract, schema, rules ledger, golden master or acceptance criterion
 - a new runtime dependency, vendor or recurring cost
 - a decision the Concept doesn't settle. First ask which side of the seam it belongs on, then pick the smaller option. If both still look reasonable, ask.
 - action on a production incident
