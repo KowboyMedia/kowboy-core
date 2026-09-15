@@ -147,13 +147,15 @@ describe('a subscriber', () => {
     crm.put('property', 'P-1', property('P-1'));
     await poll();
 
+    // The client's own schedule, driven one sync at a time: a timer left running here would
+    // outlive the test and fetch against a closed server.
     const site = fakeSubscriber(running.baseUrl, TOKEN);
-    const backstop = setInterval(() => void site.sync(), 20);
-    try {
-      await until(() => site.items('property').length === 1, 'the backstop sync');
-    } finally {
-      clearInterval(backstop);
-    }
+    await until(async () => {
+      await site.sync();
+      return site.items('property').length === 1;
+    }, 'the backstop sync');
+
+    expect(site.syncs).toBeGreaterThan(0);
     expect(running.bells).toHaveLength(0);
   });
 });

@@ -240,6 +240,21 @@ describe('ingest', () => {
     setWebhookSecret(CONNECTION, '');
   });
 
+  it('links a webhook to the write it caused by correlation id (AC 16)', async () => {
+    crm.put('property', 'OBJ-1', property('OBJ-1'));
+    const response = await webhook(running.baseUrl, {
+      connection_id: CONNECTION,
+      datatype: 'property',
+      remote_id: 'OBJ-1',
+    });
+    const { correlation_id: correlationId } = (await response.json()) as { correlation_id: string };
+    await drainFetchList();
+
+    const chain = await queryEvents({ correlationId });
+    expect(chain.map((event) => event.type)).toContain('entity.written');
+    expect(chain.every((event) => event.correlation_id === correlationId)).toBe(true);
+  });
+
   it('keeps the whole timeline of an entity in the event log (AC 16)', async () => {
     crm.put('property', 'OBJ-1', property('OBJ-1'));
     await webhook(running.baseUrl, {

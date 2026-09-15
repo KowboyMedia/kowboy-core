@@ -23,7 +23,7 @@ The authoritative wording of each criterion is strategy §10, which amends SRS �
 | 13 | recompute rewrites affected records with no CRM traffic | ✅ green | `admin recomputes from stored raw with no CRM traffic, and gives a new seq (AC 13)` |
 | 14 | Adding an office loads only that office's records | ✅ green | `two adapters, one engine resyncs a connection on request (AC 14)` |
 | 15 | replay reproduces the current records exactly | ✅ green | `admin recomputes from stored raw with no CRM traffic, and gives a new seq (AC 13)`<br>`admin previews a recompute without writing anything (AC 36)` |
-| 16 | The event log answers one entity's whole timeline | ✅ green | `ingest keeps the whole timeline of an entity in the event log (AC 16)`<br>`admin answers the event timeline query` |
+| 16 | The event log answers one entity's whole timeline | ✅ green | `ingest keeps the whole timeline of an entity in the event log (AC 16)`<br>`admin answers the event timeline query`<br>`ingest links a webhook to the write it caused by correlation id (AC 16)`<br>`the event log loses no event when many writers race to create the day partition`<br>`the event log drops partitions outside the retention window (AC 16)` |
 | 17 | Health and alerting | ✅ green | `health is 500 while a check fails and 200 when everything passes (AC 17)` |
 | 18 | Pipeline: staging on merge, production on approval | ⏳ not yet | _needs the deployed platform_ |
 | 19 | No skipped items under concurrent writes | ✅ green | `a subscriber misses no item while writes keep arriving (AC 19)` |
@@ -32,7 +32,7 @@ The authoritative wording of each criterion is strategy §10, which amends SRS �
 | 22 | With bells blocked a subscriber converges within 15 min | ✅ green | `a subscriber converges on its own schedule when bells never arrive (AC 22)` |
 | 23 | Every item served validates against the schema and invariants | ✅ green | `ingest turns a webhook into a served item (AC 2, AC 3)`<br>`admin previews a recompute without writing anything (AC 36)` |
 | 24 | Restore drill ends with subscribers converged | ⏳ not yet | _needs the deployed platform_ |
-| 25 | Secrets and privacy | ✅ green | `the secret check passes on this repository`<br>`the secret check fails on a committed private key` |
+| 25 | Secrets and privacy | ✅ green | `the secret check passes on this repository`<br>`the secret check fails on a committed private key`<br>`the event log redacts secret-shaped fields, however deep (AC 16, AC 25)` |
 | 26 | Removal tombstones items; tombstones are purged after 90 days | ✅ green | `admin tombstones an office that is removed (AC 26)`<br>`ingest tombstones a record the CRM no longer has (AC 26)`<br>`tombstone retention hard-deletes a tombstone after the retention window, and keeps a fresh one (AC 26)` |
 | 27 | Scale and read latency at 10x launch | ⏳ not yet | _needs the deployed platform_ |
 | 28 | Functional parity with the parity inventory | ⏳ not yet | _Phase 5, real data_ |
@@ -57,7 +57,7 @@ The authoritative wording of each criterion is strategy §10, which amends SRS �
 - **AC 10.** Half of this is client behaviour (Phase 4). The engine half is that data is stored and served verbatim.
 - **AC 11.** Reported to the event log. Sentry reporting waits on the DSN.
 - **AC 14.** Partly covered: resync and the offices_added lifecycle event are wired, but the narrow office-only load is not yet asserted.
-- **AC 16.** Causes covered so far: written, unchanged, dropped (unlicensed, malformed, inactive, unknown datatype), tombstoned, bell, pull. Correlation ids are carried but not yet asserted end to end.
+- **AC 16.** Causes covered: written, unchanged, dropped (unlicensed, malformed, inactive, unknown datatype), tombstoned, bell, pull. A correlation id links a webhook to the write it caused; an adapter cannot yet stamp its own events with one (open question 9).
 - **AC 17.** Sentry Uptime alerting waits on the account.
 - **AC 18.** Waits on the platform Kowboy supplies.
 - **AC 19.** Proved against concurrent writes in one process. Deploy overlap needs staging.

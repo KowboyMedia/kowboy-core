@@ -138,9 +138,12 @@
       "phase": "engine",
       "tests": [
         "ingest keeps the whole timeline of an entity in the event log (AC 16)",
-        "admin answers the event timeline query"
+        "admin answers the event timeline query",
+        "ingest links a webhook to the write it caused by correlation id (AC 16)",
+        "the event log loses no event when many writers race to create the day partition",
+        "the event log drops partitions outside the retention window (AC 16)"
       ],
-      "note": "Causes covered so far: written, unchanged, dropped (unlicensed, malformed, inactive, unknown datatype), tombstoned, bell, pull. Correlation ids are carried but not yet asserted end to end."
+      "note": "Causes covered: written, unchanged, dropped (unlicensed, malformed, inactive, unknown datatype), tombstoned, bell, pull. A correlation id links a webhook to the write it caused; an adapter cannot yet stamp its own events with one (open question 9)."
     },
     {
       "ac": 17,
@@ -204,7 +207,8 @@
       "phase": "engine",
       "tests": [
         "the secret check passes on this repository",
-        "the secret check fails on a committed private key"
+        "the secret check fails on a committed private key",
+        "the event log redacts secret-shaped fields, however deep (AC 16, AC 25)"
       ],
       "note": "Credentials are encrypted at rest and tokens are stored as an HMAC; the event log redacts secret-shaped keys. EU hosting is Kowboy's to provision."
     },

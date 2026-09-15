@@ -74,3 +74,19 @@ Phase 1's exit is a real PR → staging → production deploy, and AC 18, 24, 27
 environment. The app is built to run on DigitalOcean App Platform with managed Postgres, but
 nothing is deployed. Phase 1 is split in the strategy into Foundation (done) and Deploy (waiting
 on you).
+
+## 9. The adapter API cannot stamp an adapter's own events
+
+`logEvent(type, fields)` writes a row with no correlation id and no entity reference, so an
+adapter's own events (a webhook arriving, a CRM call and its timing) cannot be linked to the write
+they caused. `ingest` does take a correlation id, so the chain works from the fetch onwards, and
+the fake adapter proves it.
+
+AC 16 asks for one query returning the whole timeline **across webhook, fetch, CRM call, write,
+bell and pull**. Meeting it fully needs one added argument:
+
+```ts
+logEvent(type, fields, context?: { correlationId?, connectionId?, datatype?, remoteId? })
+```
+
+That is an adapter API change, so it needs approval (E3). It is additive and breaks no caller.

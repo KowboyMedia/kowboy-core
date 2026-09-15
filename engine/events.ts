@@ -1,5 +1,4 @@
 import { db } from './storage/db.js';
-import type { PoolClient } from 'pg';
 
 export type EventFields = Record<string, unknown>;
 
@@ -43,24 +42,30 @@ export function redact(fields: EventFields): EventFields {
 const partitions = new Set<string>();
 
 /** Daily partitions are created on first use (strategy §8.2). */
-async function ensurePartition(client: Pick<PoolClient, 'query'>, at: Date): Promise<void> {
+async function ensurePartition(at: Date): Promise<void> {
   const day = at.toISOString().slice(0, 10);
   if (partitions.has(day)) return;
   const next = new Date(at.getTime() + 86_400_000).toISOString().slice(0, 10);
-  await client.query(
-    `create table if not exists events_${day.replace(/-/g, '_')}
-     partition of events for values from ('${day}') to ('${next}')`,
-  );
+  try {
+    await db().query(
+      `create table if not exists events_${day.replace(/-/g, '_')}
+       partition of events for values from ('${day}') to ('${next}')`,
+    );
+  } catch (error) {
+    // Two writers can create the same daily partition at the same moment: `if not exists` does
+    // not make that atomic, and the loser sees 42P07. The partition exists either way, so the
+    // event must still be written rather than quietly lost.
+    if ((error as { code?: string }).code !== '42P07') throw error;
+  }
   partitions.add(day);
 }
 
 /** Write one row to the event log. Never throws into the caller's path. */
-export async function logEvent(event: EventInput, client?: PoolClient): Promise<void> {
-  const executor = client ?? db();
+export async function logEvent(event: EventInput): Promise<void> {
   const at = new Date();
   try {
-    await ensurePartition(executor, at);
-    await executor.query(
+    await ensurePartition(at);
+    await db().query(
       `insert into events (at, type, correlation_id, tenant_id, connection_id, datatype, remote_id, subscriber_id, fields)
        values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
       [

@@ -3,6 +3,7 @@
 //
 //   webhook ──► signature check ──► fetch list ──► 202
 //   drain loop ──► fetch from the CRM ──► found: ingest · gone: notFound · failed: retry later
+import { randomUUID } from 'node:crypto';
 import { mappers } from './mappers.js';
 import * as crm from './crm.js';
 import type {
@@ -26,6 +27,8 @@ type Queued = {
   remoteId: string;
   queuedAt: number;
   attempts: number;
+  /** Links the webhook to the fetch and the write in the event log (SRS §11). */
+  correlationId: string;
 };
 
 const fetchList = new Map<string, Queued>();
@@ -45,8 +48,20 @@ const key = (queued: Pick<Queued, 'connectionId' | 'datatype' | 'remoteId'>): st
   `${queued.connectionId}/${queued.datatype}/${queued.remoteId}`;
 
 /** Duplicates collapse: the same record listed twice is kept once (strategy §5.3). */
-function enqueue(connectionId: string, datatype: Datatype, remoteId: string): void {
-  const queued = { connectionId, datatype, remoteId, queuedAt: Date.now(), attempts: 0 };
+function enqueue(
+  connectionId: string,
+  datatype: Datatype,
+  remoteId: string,
+  correlationId: string,
+): void {
+  const queued = {
+    connectionId,
+    datatype,
+    remoteId,
+    queuedAt: Date.now(),
+    attempts: 0,
+    correlationId,
+  };
   if (!fetchList.has(key(queued))) fetchList.set(key(queued), queued);
 }
 
@@ -78,8 +93,9 @@ const routes: Route[] = [
         return { status: 401, body: { error: 'bad signature' } };
       }
       // Never fetch inside the request: a burst must not become a burst of CRM calls.
-      enqueue(connectionId, datatype, remoteId);
-      return { status: 202, body: { queued: true } };
+      const correlationId = randomUUID();
+      enqueue(connectionId, datatype, remoteId, correlationId);
+      return { status: 202, body: { queued: true, correlation_id: correlationId } };
     },
   },
 ];
@@ -104,7 +120,9 @@ async function drainOnce(): Promise<void> {
       if (payload === null) {
         await current.notFound(connection, queued.datatype, queued.remoteId);
       } else {
-        await current.ingest(connection, queued.datatype, queued.remoteId, payload);
+        await current.ingest(connection, queued.datatype, queued.remoteId, payload, {
+          correlationId: queued.correlationId,
+        });
       }
     } catch (error) {
       // A failed fetch is retried, never treated as a delete (strategy §5.3).
@@ -125,8 +143,11 @@ async function drainOnce(): Promise<void> {
 }
 
 async function loadEverything(connection: Connection, datatypes: Datatype[]): Promise<void> {
+  const correlationId = randomUUID();
   for (const datatype of datatypes) {
-    for (const remoteId of crm.ids(datatype)) enqueue(connection.id, datatype, remoteId);
+    for (const remoteId of crm.ids(datatype)) {
+      enqueue(connection.id, datatype, remoteId, correlationId);
+    }
   }
 }
 
