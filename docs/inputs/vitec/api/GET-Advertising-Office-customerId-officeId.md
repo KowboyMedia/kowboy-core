@@ -53,12 +53,11 @@ Hämta kontor för hemsida.
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json971)
+- [application/json, text/json](https://connect.maklare.vitec.net#json871)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml971)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml871)
 
 ```
-
 {
   "id": "sample string 1",
   "customerId": "sample string 2",

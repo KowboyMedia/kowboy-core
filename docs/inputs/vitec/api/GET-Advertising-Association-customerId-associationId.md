@@ -53,12 +53,11 @@ Hämtar bostadsrättsförening [AdvertisingAssociation](https://connect.maklare.
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json360)
+- [application/json, text/json](https://connect.maklare.vitec.net#json402)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml360)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml402)
 
 ```
-
 {
   "id": "sample string 1",
   "changedAt": "2026-09-16T05:56:27.3094809+02:00",

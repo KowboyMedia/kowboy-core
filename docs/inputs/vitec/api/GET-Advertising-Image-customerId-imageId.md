@@ -41,22 +41,20 @@ Hämtar bilder. Collection of byte
 
 ## Response Formats
 
-- [application/octet-stream](https://connect.maklare.vitec.net#octet-stream393)
+- [application/octet-stream](https://connect.maklare.vitec.net#octet-stream277)
 
-- [text/x-base64](https://connect.maklare.vitec.net#x-base64393)
+- [text/x-base64](https://connect.maklare.vitec.net#x-base64277)
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json393)
+- [application/json, text/json](https://connect.maklare.vitec.net#json277)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml393)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml277)
 
 ```
-
 @@
 ```
 
 Sample not available.
 
 ```
-
 "QEA="
 ```

@@ -36,12 +36,11 @@ Uppgifter för intresseanmälan [AdvertisingInterestApplication](https://connect
 
 ### Request Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json877)
+- [application/json, text/json](https://connect.maklare.vitec.net#json862)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml877)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml862)
 
 ```
-
 {
   "leadSourceId": "sample string 1",
   "assignmentSourceId": "sample string 2",
@@ -77,7 +76,7 @@ Uppgifter för intresseanmälan [AdvertisingInterestApplication](https://connect
     "emailAddress": "sample string 1",
     "emailAddress2": "sample string 2"
   },
-  "gdprApprovalDate": "2026-09-16T05:55:43.35153+02:00",
+  "gdprApprovalDate": "2026-09-16T06:05:14.8467573+02:00",
   "presentAccommodation": {
     "estateType": "House",
     "livingSpace": 1.1,

@@ -34,7 +34,7 @@ const SPEC = ['/swagger/docs/advertising', 'advertising.openapi.json'];
 async function fetchText(path) {
   const response = await fetch(BASE + path);
   if (!response.ok) throw new Error(`${path}: http ${response.status}`);
-  return response.text();
+  return (await response.text()).replace(/\r\n?/g, '\n');
 }
 
 // --- HTML to Markdown, for this site's generated help pages -------------------------------------
@@ -131,159 +131,196 @@ function tokenize(html) {
 function headingLevel(name, attrs) {
   if (/^h[1-4]$/.test(name)) return Number(name[1]);
   const classes = (attrs.class ?? '').split(/\s+/);
-  if (name === 'span' && classes.includes('display1')) return 1;
-  if (name === 'span' && classes.includes('headline')) return 2;
-  if (name === 'span' && classes.includes('title')) return 3;
+  if (name !== 'span') return 0;
+  if (classes.includes('display1')) return 1;
+  if (classes.includes('headline')) return 2;
+  if (classes.includes('title')) return 3;
   return 0;
 }
 
-function toMarkdown(html) {
-  const tokens = tokenize(html);
-  const out = [];
-  let text = '';
-  const flush = () => {
-    const line = text.replace(/[ \t\r\n]+/g, ' ').trim();
-    if (line) out.push(line);
-    text = '';
-  };
-  const stack = [];
-  let dropDepth = 0;
-  let pre = null;
-  let table = null;
-  let row = null;
-  let link = null;
-  let heading = 0;
-  let listDepth = 0;
+const isDropped = (name, attrs) =>
+  DROP_TAGS.has(name) ||
+  (attrs.class ?? '').split(/\s+/).some((c) => DROP_CLASSES.includes(c)) ||
+  (attrs.id !== undefined && DROP_IDS.test(attrs.id));
 
-  for (const token of tokens) {
-    if (token.type === 'text') {
-      if (dropDepth > 0) continue;
-      if (pre !== null) pre += token.text;
-      else if (row !== null) row[row.length - 1] += token.text;
-      else text += token.text;
-      continue;
+const absolute = (href) =>
+  href.startsWith('http') ? href : href.startsWith('//') ? `https:${href}` : BASE + href;
+
+/** What the walk carries: finished blocks, the text being written, and where it is going. */
+function newState() {
+  return {
+    out: [],
+    text: '',
+    stack: [],
+    dropDepth: 0,
+    pre: null,
+    table: null,
+    row: null,
+    link: null,
+    heading: 0,
+    listDepth: 0,
+  };
+}
+
+/** Finish the paragraph being written, if any. */
+function flush(st) {
+  const line = st.text.replace(/[ \t\r\n]+/g, ' ').trim();
+  if (line) st.out.push(line);
+  st.text = '';
+}
+
+/** Where a piece of text goes right now: a code block, a table cell, or the paragraph. */
+function write(st, piece) {
+  if (st.pre !== null) st.pre += piece;
+  else if (st.row !== null) st.row[st.row.length - 1] += piece;
+  else st.text += piece;
+}
+
+function onOpen(st, token) {
+  const { name, attrs } = token;
+  if (st.dropDepth > 0 || isDropped(name, attrs)) {
+    if (!token.selfClosing) {
+      st.stack.push({ name, dropped: true });
+      st.dropDepth += 1;
     }
-    if (token.type === 'open') {
-      const { name, attrs } = token;
-      const classes = (attrs.class ?? '').split(/\s+/);
-      const drop =
-        DROP_TAGS.has(name) ||
-        classes.some((c) => DROP_CLASSES.includes(c)) ||
-        (attrs.id !== undefined && DROP_IDS.test(attrs.id));
-      if (dropDepth > 0 || drop) {
-        if (!token.selfClosing) {
-          stack.push({ name, dropped: true });
-          dropDepth += 1;
-        }
-        continue;
-      }
-      if (name === 'br') {
-        if (pre !== null) pre += '\n';
-        else if (row !== null) row[row.length - 1] += ' ';
-        else text += '\n';
-        continue;
-      }
-      if (token.selfClosing) continue;
-      const level = headingLevel(name, attrs);
-      if (level && pre === null && row === null) {
-        flush();
-        heading = level;
-      } else if (name === 'pre') {
-        flush();
-        pre = '';
-      } else if (name === 'table') {
-        flush();
-        table = [];
-      } else if (name === 'tr' && table) {
-        row = [];
-      } else if ((name === 'td' || name === 'th') && row) {
-        row.push('');
-      } else if (name === 'a' && attrs.href && pre === null) {
-        link = { href: attrs.href, start: row !== null ? row[row.length - 1].length : text.length };
-      } else if (name === 'ul' || name === 'ol') {
-        flush();
-        listDepth += 1;
-      } else if (name === 'li') {
-        flush();
-        text = `${'  '.repeat(listDepth - 1)}- `;
-      } else if (BLOCK.has(name) && pre === null && row === null) {
-        flush();
-      }
-      stack.push({
-        name,
-        level,
-        dropped: false,
-        isPre: name === 'pre',
-        isTable: name === 'table',
-        isList: name === 'ul' || name === 'ol',
-      });
-      continue;
-    }
-    // close
-    let frame;
-    do {
-      frame = stack.pop();
-    } while (
-      frame &&
-      frame.name !== token.name &&
-      !frame.dropped &&
-      stack.length > 0 &&
-      stack.some((f) => f.name === token.name)
-    );
-    if (!frame) continue;
-    if (frame.dropped) {
-      dropDepth -= 1;
-      continue;
-    }
-    if (frame.level && heading) {
-      const line = text.replace(/\s+/g, ' ').trim();
-      text = '';
-      if (line) out.push(`${'#'.repeat(frame.level)} ${line}`);
-      heading = 0;
-    } else if (frame.isPre) {
-      const code = pre.replace(/^\n+|\s+$/g, '');
-      pre = null;
-      if (code) out.push('```\n' + code + '\n```');
-    } else if (frame.name === 'tr' && row) {
-      table.push(row.map((cell) => cell.replace(/\s+/g, ' ').trim().replace(/\|/g, '\\|')));
-      row = null;
-    } else if (frame.isTable) {
-      const rows = table.filter((r) => r.some((c) => c));
-      table = null;
-      if (rows.length > 0) {
-        const width = Math.max(...rows.map((r) => r.length));
-        const pad = (r) => [...r, ...Array(width - r.length).fill('')];
-        const [head, ...body] = rows.map(pad);
-        out.push(
-          [
-            `| ${head.join(' | ')} |`,
-            `| ${head.map(() => '---').join(' | ')} |`,
-            ...body.map((r) => `| ${r.join(' | ')} |`),
-          ].join('\n'),
-        );
-      }
-    } else if (frame.name === 'a' && link) {
-      const href = link.href.startsWith('http')
-        ? link.href
-        : link.href.startsWith('//')
-          ? `https:${link.href}`
-          : BASE + link.href;
-      const wrap = (written) => {
-        const label = written.slice(link.start).replace(/\s+/g, ' ').trim();
-        return written.slice(0, link.start) + (label ? ` [${label}](${href}) ` : '');
-      };
-      if (row !== null) row[row.length - 1] = wrap(row[row.length - 1]);
-      else text = wrap(text);
-      link = null;
-    } else if (frame.isList) {
-      flush();
-      listDepth -= 1;
-    } else if (BLOCK.has(frame.name) && pre === null && row === null) {
-      flush();
-    }
+    return;
   }
-  flush();
-  return out.join('\n\n').replace(/\n{3,}/g, '\n\n') + '\n';
+  if (name === 'br') {
+    write(st, st.row !== null ? ' ' : '\n');
+    return;
+  }
+  if (token.selfClosing) return;
+  const level = st.pre === null && st.row === null ? headingLevel(name, attrs) : 0;
+  if (level) {
+    flush(st);
+    st.heading = level;
+  } else if (!startStructure(st, name, attrs)) {
+    startInline(st, name);
+  }
+  st.stack.push({ name, level, dropped: false });
+}
+
+/** Code blocks, tables and rows: the elements whose text is collected apart from paragraphs. */
+function startStructure(st, name, attrs) {
+  if (name === 'pre') {
+    flush(st);
+    st.pre = '';
+  } else if (name === 'table') {
+    flush(st);
+    st.table = [];
+  } else if (name === 'tr' && st.table) {
+    st.row = [];
+  } else if ((name === 'td' || name === 'th') && st.row) {
+    st.row.push('');
+  } else if (name === 'a' && attrs.href && st.pre === null) {
+    st.link = {
+      href: attrs.href,
+      start: st.row !== null ? st.row[st.row.length - 1].length : st.text.length,
+    };
+  } else {
+    return false;
+  }
+  return true;
+}
+
+/** Lists and other blocks: paragraph boundaries. */
+function startInline(st, name) {
+  if (name === 'ul' || name === 'ol') {
+    flush(st);
+    st.listDepth += 1;
+  } else if (name === 'li') {
+    flush(st);
+    st.text = `${'  '.repeat(st.listDepth - 1)}- `;
+  } else if (BLOCK.has(name) && st.pre === null && st.row === null) {
+    flush(st);
+  }
+}
+
+/** The frame a closing tag ends. A stray closing tag with no open frame is ignored. */
+function popFrame(st, name) {
+  let frame;
+  do {
+    frame = st.stack.pop();
+  } while (frame && frame.name !== name && !frame.dropped && st.stack.some((f) => f.name === name));
+  return frame;
+}
+
+function onClose(st, name) {
+  const frame = popFrame(st, name);
+  if (!frame) return;
+  if (frame.dropped) st.dropDepth -= 1;
+  else endElement(st, frame);
+}
+
+/** What ends with each closing tag. Anything else is a block boundary or nothing. */
+const END = { pre: endPre, tr: endRow, table: endTable, a: endLink, ul: endList, ol: endList };
+
+function endElement(st, frame) {
+  if (frame.level && st.heading) return endHeading(st, frame.level);
+  const end = END[frame.name];
+  if (end) return end(st);
+  if (BLOCK.has(frame.name) && st.pre === null && st.row === null) flush(st);
+}
+
+function endHeading(st, level) {
+  const line = st.text.replace(/\s+/g, ' ').trim();
+  st.text = '';
+  if (line) st.out.push(`${'#'.repeat(level)} ${line}`);
+  st.heading = 0;
+}
+
+function endPre(st) {
+  if (st.pre === null) return;
+  const code = st.pre.replace(/^\n+|\s+$/g, '');
+  st.pre = null;
+  if (code) st.out.push('```\n' + code + '\n```');
+}
+
+function endRow(st) {
+  if (!st.row || !st.table) return;
+  st.table.push(st.row.map((cell) => cell.replace(/\s+/g, ' ').trim().replace(/\|/g, '\\|')));
+  st.row = null;
+}
+
+function endTable(st) {
+  if (!st.table) return;
+  const rows = st.table.filter((r) => r.some((c) => c));
+  st.table = null;
+  if (rows.length === 0) return;
+  const width = Math.max(...rows.map((r) => r.length));
+  const [head, ...body] = rows.map((r) => [...r, ...Array(width - r.length).fill('')]);
+  const line = (r) => `| ${r.join(' | ')} |`;
+  st.out.push([line(head), line(head.map(() => '---')), ...body.map(line)].join('\n'));
+}
+
+/** The link wraps whatever was written since it opened, wherever that was going. */
+function endLink(st) {
+  if (!st.link) return;
+  const href = absolute(st.link.href);
+  const wrap = (written) => {
+    const label = written.slice(st.link.start).replace(/\s+/g, ' ').trim();
+    return written.slice(0, st.link.start) + (label ? ` [${label}](${href}) ` : '');
+  };
+  if (st.row !== null) st.row[st.row.length - 1] = wrap(st.row[st.row.length - 1]);
+  else st.text = wrap(st.text);
+  st.link = null;
+}
+
+function endList(st) {
+  flush(st);
+  st.listDepth -= 1;
+}
+
+function toMarkdown(html) {
+  const st = newState();
+  for (const token of tokenize(html)) {
+    if (token.type === 'text') {
+      if (st.dropDepth === 0) write(st, token.text);
+    } else if (token.type === 'open') onOpen(st, token);
+    else onClose(st, token.name);
+  }
+  flush(st);
+  return st.out.join('\n\n').replace(/\n{3,}/g, '\n\n') + '\n';
 }
 
 /** The generated pages put their content in one box; the rest is chrome. */
@@ -328,19 +365,25 @@ for (const [path, file, what] of PAGES) {
   }
 }
 
-// Every model the endpoints return, and every model and enumeration those reach in turn.
+// Every model the endpoints return, and every model and enumeration those reach in turn. A page
+// the site cannot serve (it answers 500 for some generic types) is listed, not fatal.
 const crawled = new Set();
+const unavailable = [];
 for (const link of modelLinks) {
   if (crawled.has(link)) continue;
   crawled.add(link);
   const name = new URL(BASE + link).searchParams.get('modelName');
   const dir = link.includes('EnumerationReference') ? 'enumerations' : 'models';
-  save(`${dir}/${name}.md`, link, await fetchText(link));
-  index.push([
-    `${dir}/${name}.md`,
-    `${dir === 'models' ? 'model' : 'enumeration'} ${name.replace(/^Advertising_|^Api_/, '')}`,
-    link,
-  ]);
+  let html;
+  try {
+    html = await fetchText(link);
+  } catch (error) {
+    unavailable.push([link, String(error.message)]);
+    continue;
+  }
+  save(`${dir}/${name}.md`, link, html);
+  const kind = dir === 'models' ? 'model' : 'enumeration';
+  index.push([`${dir}/${name}.md`, `${kind} ${name.replace(/^Advertising_|^Api_/, '')}`, link]);
 }
 
 const spec = JSON.parse(await fetchText(SPEC[0]));
@@ -362,6 +405,14 @@ const readme = [
   '| --- | --- | --- |',
   ...index.map(([file, what, path]) => `| [${file}](${file}) | ${what} | ${path} |`),
   '',
+  ...(unavailable.length > 0
+    ? [
+        'Pages the site could not serve when fetched:',
+        '',
+        ...unavailable.map(([link, why]) => `- ${link}: ${why}`),
+        '',
+      ]
+    : []),
 ].join('\n');
 writeFileSync(join(OUT, 'README.md'), readme);
 console.log(`${index.length} documents saved under ${OUT}`);

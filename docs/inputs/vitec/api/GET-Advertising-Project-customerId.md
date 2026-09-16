@@ -46,12 +46,11 @@ Hämta projektlista för publicerade projekt för hemsida [PageOfAdvertising_Adv
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json315)
+- [application/json, text/json](https://connect.maklare.vitec.net#json236)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml315)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml236)
 
 ```
-
 {
   "index": 1,
   "count": 2,
@@ -60,12 +59,12 @@ Hämta projektlista för publicerade projekt för hemsida [PageOfAdvertising_Adv
     {
       "id": "sample string 1",
       "customerId": "sample string 2",
-      "changedAt": "2026-09-16T05:55:41.7420991+02:00"
+      "changedAt": "2026-09-16T06:05:13.2362523+02:00"
     },
     {
       "id": "sample string 1",
       "customerId": "sample string 2",
-      "changedAt": "2026-09-16T05:55:41.7420991+02:00"
+      "changedAt": "2026-09-16T06:05:13.2362523+02:00"
     }
   ]
 }

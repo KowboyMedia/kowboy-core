@@ -45,12 +45,11 @@ Hämta användarlista för hemsida [PageOfAdvertising_AdvertisingUserListRow](ht
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json642)
+- [application/json, text/json](https://connect.maklare.vitec.net#json683)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml642)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml683)
 
 ```
-
 {
   "index": 1,
   "count": 2,

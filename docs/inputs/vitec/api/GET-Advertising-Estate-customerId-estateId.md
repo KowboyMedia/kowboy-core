@@ -78,12 +78,11 @@ Hämta bostad för hemsida.
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json393)
+- [application/json, text/json](https://connect.maklare.vitec.net#json324)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml393)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml324)
 
 ```
-
 {
   "id": "sample string 1",
   "referenceId": "sample string 2",

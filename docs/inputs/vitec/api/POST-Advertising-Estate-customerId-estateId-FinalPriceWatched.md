@@ -27,12 +27,11 @@ Uppgifter för bevakningen [AdvertisingFinalPriceWatchedApplication](https://con
 
 ### Request Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json362)
+- [application/json, text/json](https://connect.maklare.vitec.net#json340)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml362)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml340)
 
 ```
-
 {
   "person": {
     "firstName": "sample string 1",
@@ -96,11 +95,10 @@ Skickar in en ny bevakning av slutpris för en kontakt till en bostad. Innan nya
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json362)
+- [application/json, text/json](https://connect.maklare.vitec.net#json340)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml362)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml340)
 
 ```
-
 "sample string 1"
 ```

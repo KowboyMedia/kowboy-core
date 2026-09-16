@@ -37,22 +37,20 @@ Hämtar filer. Collection of byte
 
 ## Response Formats
 
-- [application/octet-stream](https://connect.maklare.vitec.net#octet-stream64)
+- [application/octet-stream](https://connect.maklare.vitec.net#octet-stream980)
 
-- [text/x-base64](https://connect.maklare.vitec.net#x-base6464)
+- [text/x-base64](https://connect.maklare.vitec.net#x-base64980)
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json64)
+- [application/json, text/json](https://connect.maklare.vitec.net#json980)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml64)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml980)
 
 ```
-
 @@
 ```
 
 Sample not available.
 
 ```
-
 "QEA="
 ```

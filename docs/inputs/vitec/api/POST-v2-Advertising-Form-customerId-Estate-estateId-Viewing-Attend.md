@@ -34,12 +34,11 @@ Anmälningsuppgifter [ViewingAttendeeApplication](https://connect.maklare.vitec.
 
 ### Request Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json673)
+- [application/json, text/json](https://connect.maklare.vitec.net#json574)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml673)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml574)
 
 ```
-
 {
   "timeSlotId": "sample string 1",
   "firstName": "sample string 2",
@@ -109,12 +108,11 @@ Lägg till en visningsdeltagare [AttendViewingResult](https://connect.maklare.vi
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json673)
+- [application/json, text/json](https://connect.maklare.vitec.net#json574)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml673)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml574)
 
 ```
-
 {
   "contactId": "sample string 1"
 }

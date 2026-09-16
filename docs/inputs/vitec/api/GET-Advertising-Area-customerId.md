@@ -45,12 +45,11 @@ Hämta områdeslista för hemsida [PageOfAdvertising_AdvertisingAreaListRow](htt
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json923)
+- [application/json, text/json](https://connect.maklare.vitec.net#json980)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml923)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml980)
 
 ```
-
 {
   "index": 1,
   "count": 2,

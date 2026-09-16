@@ -30,12 +30,11 @@ Anmälningsuppgifter [ValuationApplication](https://connect.maklare.vitec.net/He
 
 ### Request Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json34)
+- [application/json, text/json](https://connect.maklare.vitec.net#json939)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml34)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml939)
 
 ```
-
 {
   "firstName": "sample string 1",
   "lastName": "sample string 2",
@@ -99,12 +98,11 @@ Värderingsförfrågan [ValuationResult](https://connect.maklare.vitec.net/Help/
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json34)
+- [application/json, text/json](https://connect.maklare.vitec.net#json939)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml34)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml939)
 
 ```
-
 {
   "contactId": "sample string 1"
 }

@@ -46,12 +46,11 @@ Hämta lista av varumärken för hemsida.
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json157)
+- [application/json, text/json](https://connect.maklare.vitec.net#json261)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml157)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml261)
 
 ```
-
 {
   "index": 1,
   "count": 2,

@@ -64,12 +64,11 @@ Hämta projekt för hemsida.
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json674)
+- [application/json, text/json](https://connect.maklare.vitec.net#json590)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml674)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml590)
 
 ```
-
 {
   "id": "sample string 1",
   "name": "sample string 2",

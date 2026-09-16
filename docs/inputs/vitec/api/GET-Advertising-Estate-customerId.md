@@ -47,12 +47,11 @@ Hämta bostadslista för publicerade bostäder för hemsida [PageOfAdvertising_A
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json34)
+- [application/json, text/json](https://connect.maklare.vitec.net#json987)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml34)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml987)
 
 ```
-
 {
   "index": 1,
   "count": 2,
@@ -61,12 +60,12 @@ Hämta bostadslista för publicerade bostäder för hemsida [PageOfAdvertising_A
     {
       "id": "sample string 1",
       "customerId": "sample string 2",
-      "changedAt": "2026-09-16T05:51:40.0798551+02:00"
+      "changedAt": "2026-09-16T06:05:13.9715872+02:00"
     },
     {
       "id": "sample string 1",
       "customerId": "sample string 2",
-      "changedAt": "2026-09-16T05:51:40.0798551+02:00"
+      "changedAt": "2026-09-16T06:05:13.9715872+02:00"
     }
   ]
 }

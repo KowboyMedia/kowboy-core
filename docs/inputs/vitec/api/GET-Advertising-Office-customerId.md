@@ -45,12 +45,11 @@ Hämta kontorslista för hemsida [PageOfAdvertising_AdvertisingOfficeListRow](ht
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json612)
+- [application/json, text/json](https://connect.maklare.vitec.net#json533)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml612)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml533)
 
 ```
-
 {
   "index": 1,
   "count": 2,
@@ -59,12 +58,12 @@ Hämta kontorslista för hemsida [PageOfAdvertising_AdvertisingOfficeListRow](ht
     {
       "id": "sample string 1",
       "customerId": "sample string 2",
-      "changedAt": "2026-09-16T05:55:41.117094+02:00"
+      "changedAt": "2026-09-16T06:05:12.5175112+02:00"
     },
     {
       "id": "sample string 1",
       "customerId": "sample string 2",
-      "changedAt": "2026-09-16T05:55:41.117094+02:00"
+      "changedAt": "2026-09-16T06:05:12.5175112+02:00"
     }
   ]
 }

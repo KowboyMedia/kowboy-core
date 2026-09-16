@@ -44,29 +44,28 @@ Hämta varumärke för hemsida.
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json564)
+- [application/json, text/json](https://connect.maklare.vitec.net#json642)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml564)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml642)
 
 ```
-
 {
   "id": "sample string 1",
   "name": "sample string 2",
-  "createdAt": "2026-09-16T05:55:36.9446672+02:00",
-  "changedAt": "2026-09-16T05:55:36.9446672+02:00",
+  "createdAt": "2026-09-16T05:55:35.3844471+02:00",
+  "changedAt": "2026-09-16T05:55:35.3844471+02:00",
   "segments": [
     {
       "id": "sample string 1",
       "name": "sample string 2",
-      "createdAt": "2026-09-16T05:55:36.9446672+02:00",
-      "changedAt": "2026-09-16T05:55:36.9446672+02:00"
+      "createdAt": "2026-09-16T05:55:35.3844471+02:00",
+      "changedAt": "2026-09-16T05:55:35.3844471+02:00"
     },
     {
       "id": "sample string 1",
       "name": "sample string 2",
-      "createdAt": "2026-09-16T05:55:36.9446672+02:00",
-      "changedAt": "2026-09-16T05:55:36.9446672+02:00"
+      "createdAt": "2026-09-16T05:55:35.3844471+02:00",
+      "changedAt": "2026-09-16T05:55:35.3844471+02:00"
     }
   ]
 }
