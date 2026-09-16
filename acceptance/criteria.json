@@ -31,7 +31,8 @@
       "tests": [
         "ingest gives a real change a new seq and logs what changed",
         "ingest tombstones a record the CRM no longer has (AC 26)",
-        "two adapters, one engine tombstones through presentIds when a polled record disappears (AC 35)"
+        "two adapters, one engine tombstones through presentIds when a polled record disappears (AC 35)",
+        "the Vitec adapter tombstones after a Remove notification once Vitec answers 404 (AC 3)"
       ]
     },
     {
@@ -128,7 +129,9 @@
       "phase": "engine",
       "tests": [
         "admin loads only the added office, and gives other offices no new seq (AC 14)",
-        "two adapters, one engine resyncs a connection on request (AC 14)"
+        "two adapters, one engine resyncs a connection on request (AC 14)",
+        "the Vitec adapter loads an added office without a new seq for the others (AC 14)",
+        "the Vitec adapter tombstones what Vitec no longer lists on a resync (AC 14)"
       ],
       "note": "The adapter loads the added office's records plus the tenant-wide entities they reference; other offices get no new seq."
     },
@@ -282,9 +285,10 @@
       "title": "Burst resilience (Vitec)",
       "phase": "adapters",
       "tests": [
-        "two adapters, one engine absorbs a burst of webhooks without a fetch per webhook (AC 29 in miniature)"
+        "two adapters, one engine absorbs a burst of webhooks without a fetch per webhook (AC 29 in miniature)",
+        "the Vitec adapter answers a burst of webhooks with 202 and fetches the record once (AC 29, AC 33)"
       ],
-      "note": "The fake adapter shows the shape: 100 webhooks for one record collapse into one fetch. The real figures need the Vitec adapter and staging."
+      "note": "The fake adapter and the Vitec adapter both show the shape: a burst of webhooks for one record collapses into one queued fetch, answered 202 in the request. The real figures (50,000 webhooks, p99 under 1 s) need staging."
     },
     {
       "ac": 30,
@@ -318,7 +322,9 @@
       "title": "Race conditions and dedupe (Vitec)",
       "phase": "adapters",
       "tests": [
-        "two adapters, one engine absorbs a burst of webhooks without a fetch per webhook (AC 29 in miniature)"
+        "two adapters, one engine absorbs a burst of webhooks without a fetch per webhook (AC 29 in miniature)",
+        "the Vitec adapter answers a burst of webhooks with 202 and fetches the record once (AC 29, AC 33)",
+        "the Vitec adapter fetches at most five records at once (proposal point 10)"
       ]
     },
     {
@@ -335,9 +341,11 @@
       "title": "Catch-up (Vitec)",
       "phase": "adapters",
       "tests": [
-        "two adapters, one engine tombstones through presentIds when a polled record disappears (AC 35)"
+        "two adapters, one engine tombstones through presentIds when a polled record disappears (AC 35)",
+        "the Vitec adapter catches up on what changed since the last window, less one hour of overlap (AC 35)",
+        "the Vitec adapter confirms a missing id with a fetch before tombstoning it, once a day (AC 35)"
       ],
-      "note": "presentIds and the polling path are proved; Vitec's own catch-up schedule is Phase 6."
+      "note": "The 12 h catch-up with its 1 h overlap and the daily id comparison are proved against a stand-in Connect; the schedule itself runs on the worker's minute tick. Vitec's live behaviour waits for a test account (open question 18)."
     },
     {
       "ac": 36,
@@ -363,14 +371,17 @@
       "ac": 38,
       "title": "Webhook lag turns a check red (Vitec)",
       "phase": "adapters",
-      "tests": [],
-      "note": "The fake webhook adapter registers the same shape of check; the Vitec one is Phase 6."
+      "tests": [
+        "the Vitec adapter turns vitec.webhook_lag red when a webhook has waited five minutes (AC 38)"
+      ]
     },
     {
       "ac": 39,
       "title": "Repeated retries turn a check red (Vitec)",
       "phase": "adapters",
-      "tests": []
+      "tests": [
+        "the Vitec adapter retries a failed fetch with backoff, turns vitec.retries red after three, and recovers (AC 39)"
+      ]
     },
     {
       "ac": 40,

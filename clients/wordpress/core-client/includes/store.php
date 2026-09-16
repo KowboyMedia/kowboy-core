@@ -7,13 +7,13 @@
 declare(strict_types=1);
 
 /**
- * Reference order (SRS §6.9): offices and agents before the properties that point at them.
+ * Reference order (SRS §6.9): offices, agents and projects before the properties that point at them.
  *
  * @return list<string>
  */
 function core_client_datatypes(): array
 {
-    return ['office', 'agent', 'area', 'association', 'property'];
+    return ['office', 'agent', 'area', 'association', 'project', 'property'];
 }
 
 function core_client_post_type(string $datatype): string

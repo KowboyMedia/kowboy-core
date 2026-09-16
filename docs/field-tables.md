@@ -41,16 +41,29 @@ the licensing filter. It comes from SRS §3 and §6 and is unchanged.
 
 ### `data`, property only
 
-| Field                                                  | Source                         |
-| ------------------------------------------------------ | ------------------------------ |
-| `office_id`, `agent_ids`, `area_ids`, `association_id` | SRS §6.9, references are by id |
+| Field                                                  | Source                                                                                 |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `office_id`, `agent_ids`, `area_ids`, `association_id` | SRS §6.9, references are by id                                                         |
+| `project_id`                                           | The project a property belongs to (project approved as the sixth datatype, 2026-09-16) |
+
+### `data`, agent only
+
+| Field        | Source                                                          |
+| ------------ | --------------------------------------------------------------- |
+| `office_ids` | An agent belongs to one or several offices (Patric, 2026-09-16) |
+
+### `data`, project only
+
+| Field                                | Source                                         |
+| ------------------------------------ | ---------------------------------------------- |
+| `office_id`, `agent_ids`, `area_ids` | As property; a project has the same references |
 
 That is the whole contract today. The schemas set `additionalProperties: true` and say
 `INCOMPLETE` in their description, so nothing pretends this is finished.
 
 ## What is missing, and what it takes to define it
 
-The descriptive model - what a property, office, agent, area and association actually hold - is
+The descriptive model - what a property, office, agent, area, association and project actually hold - is
 added **in one piece**, not field by field as guesses accumulate. Defining it needs three things,
 none of which an agent can supply:
 

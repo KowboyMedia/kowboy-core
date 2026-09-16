@@ -2,13 +2,15 @@
 // reconciles deletes by comparing id lists.
 import { mappers } from './mappers.js';
 import * as crm from './crm.js';
-import type { Adapter, AdapterApi, Connection, Datatype } from '../../engine/adapter-api/index.js';
+import type { Adapter, AdapterApi, Connection } from '../../engine/adapter-api/index.js';
 
 const PROVIDER = 'fake-polling';
 const POLL_MS = 100;
-const DATATYPES: Datatype[] = ['office', 'agent', 'area', 'association', 'property'];
+/** The datatypes this fake CRM has; it knows no projects. */
+const DATATYPES = ['office', 'agent', 'area', 'association', 'property'] as const;
+type Polled = (typeof DATATYPES)[number];
 
-const ID_FIELD: Record<Datatype, string> = {
+const ID_FIELD: Record<Polled, string> = {
   property: 'object_id',
   office: 'branch_id',
   agent: 'staff_id',
@@ -68,7 +70,7 @@ async function sweep(connection: Connection, current: AdapterApi): Promise<void>
 }
 
 export const fakePollingAdapter: Adapter = {
-  manifest: { provider: PROVIDER, datatypes: DATATYPES },
+  manifest: { provider: PROVIDER, datatypes: [...DATATYPES] },
   mappers,
 
   start(given: AdapterApi): void {

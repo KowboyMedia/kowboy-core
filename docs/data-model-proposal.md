@@ -1,9 +1,10 @@
 # The universal data model: proposal for Gate 2
 
-**Status: proposed 2026-09-16, not approved.** Nothing in `schemas/` changes until the decisions at
-the end are answered by number (strategy §9, Gate 2). Until then `docs/field-tables.md` stays the
-record of what is defined. Patric's answers of 2026-09-16 (relations, tenant scope, loose areas,
-projects, files, fetch pace) are worked in below.
+**Status: superseded in part, 2026-09-16.** Patric chose the WordPress plugin's universal model
+over the mirror (its field specification is still to be supplied), so points 1 to 4 and decision 3
+no longer apply. What stands: the spine (point 5), scope (6), what the adapter fetches (7), files
+not carried (8), `project` as the sixth datatype (9, approved and built), the fetch pace (10), and
+decision 2 answered as keep (a tenant has connections, each with credentials and office ids).
 
 ## What Gate 2 decides, and what it does not
 

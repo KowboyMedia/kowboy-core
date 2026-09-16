@@ -1,7 +1,7 @@
 // The types an adapter may use. Protected path: changing this surface needs approval
 // (AGENTS.md rule 3, strategy §3.1 E3).
 
-export type Datatype = 'property' | 'agent' | 'office' | 'area' | 'association';
+export type Datatype = 'property' | 'agent' | 'office' | 'area' | 'association' | 'project';
 
 export const DATATYPES: readonly Datatype[] = [
   'property',
@@ -9,6 +9,7 @@ export const DATATYPES: readonly Datatype[] = [
   'office',
   'area',
   'association',
+  'project',
 ] as const;
 
 /** One canonical record's `data`, matching `schemas/<datatype>.v1.json`. */

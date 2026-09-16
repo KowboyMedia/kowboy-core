@@ -20,6 +20,9 @@
     "association_id": {
       "$ref": "_shared.v1.json#/$defs/reference"
     },
+    "project_id": {
+      "$ref": "_shared.v1.json#/$defs/reference"
+    },
     "display": {
       "$ref": "_shared.v1.json#/$defs/display"
     },

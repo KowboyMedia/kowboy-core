@@ -41,7 +41,7 @@ or `wp action-scheduler run`.
 ## What the site gets
 
 - One post type per datatype: `core_property` (archive and permalinks under `/objekt/`),
-  `core_agent`, `core_office`, `core_area`, `core_association`. Public, so sitemaps, permalinks and
+  `core_agent`, `core_office`, `core_area`, `core_association`, `core_project`. Public, so sitemaps, permalinks and
   cache plugins see them.
 - The item, exactly as Core served it, in the post meta `core_data`. `core_client_item($post_id)`
   returns it as an array; `display.*` are the strings to show.

@@ -1,0 +1,454 @@
+// The Vitec Connect adapter (strategy §5.3): two independent paths, both inside the adapter.
+//
+//   Vitec webhook ──► token check ──► fetch list ──► 202
+//   worker ──► fetch, five at a time ──► found: ingest · gone: notFound · failed: retry later
+//   every 12 h ──► "what changed since the last catch-up, less one hour" ──► fetch list
+//   every 24 h ──► Vitec's full id list against the ids seen ──► missing ones fetched to confirm
+//
+// A connection's credentials are a JSON document, `{"username", "password", "customer_ids"}`:
+// the Connect key pair and the customer ids (M30011 and the like) it fetches. Its licensed
+// offices are Vitec office ids, or empty for every office of those customers.
+import { randomUUID, timingSafeEqual } from 'node:crypto';
+import * as connect from './api.js';
+import * as store from './store.js';
+import { mappers, referencedIds } from './mappers.js';
+import type {
+  Adapter,
+  AdapterApi,
+  Connection,
+  Datatype,
+  Route,
+} from '../../engine/adapter-api/index.js';
+
+const PROVIDER = 'vitec';
+const DRAIN_MS = 250;
+const SCHEDULE_MS = 60_000;
+const CATCH_UP_EVERY_MS = 12 * 3_600_000;
+const CATCH_UP_OVERLAP_MS = 3_600_000;
+const CATCH_UP_LIMIT_MS = 13 * 3_600_000;
+const COMPARE_EVERY_MS = 24 * 3_600_000;
+const LAG_LIMIT_MS = 5 * 60_000;
+const RETRIES_RED = 3;
+
+type Credentials = { username: string; password: string; customer_ids: string[] };
+type Live = { connection: Connection; credentials: Credentials };
+
+/** Vitec's notification `type` per datatype; users are documented as both `User` and `Agent`. */
+const NOTIFIED: Record<string, Datatype> = {
+  estate: 'property',
+  project: 'project',
+  user: 'agent',
+  agent: 'agent',
+  office: 'office',
+  area: 'area',
+};
+
+let engine: AdapterApi | null = null;
+let drainTimer: NodeJS.Timeout | null = null;
+let scheduleTimer: NodeJS.Timeout | null = null;
+/** Drains run one after another; a second one waiting would find nothing the first will not. */
+let draining: Promise<void> = Promise.resolve();
+let drainWaiting = false;
+let scheduling: Promise<void> = Promise.resolve();
+
+const serial = (run: () => Promise<void>, chain: Promise<void>): Promise<void> =>
+  chain.then(run, run);
+
+const scheduleDrain = (): Promise<void> => {
+  if (!drainWaiting) {
+    drainWaiting = true;
+    draining = serial(() => {
+      drainWaiting = false;
+      return drainOnce();
+    }, draining);
+  }
+  return draining;
+};
+
+const scheduleTick = (): Promise<void> => {
+  scheduling = serial(tickOnce, scheduling);
+  return scheduling;
+};
+
+function credentialsOf(connection: Connection): Credentials | null {
+  if (!connection.credentials) return null;
+  try {
+    const parsed = JSON.parse(connection.credentials) as Partial<Credentials>;
+    if (
+      typeof parsed.username === 'string' &&
+      typeof parsed.password === 'string' &&
+      Array.isArray(parsed.customer_ids)
+    ) {
+      return {
+        username: parsed.username,
+        password: parsed.password,
+        customer_ids: parsed.customer_ids.map(String),
+      };
+    }
+  } catch {
+    // reported below as unreadable
+  }
+  return null;
+}
+
+/** Active connections whose credentials can be read. The others show up in `vitec.catch_up`. */
+async function live(current: AdapterApi): Promise<Live[]> {
+  const result: Live[] = [];
+  for (const connection of await current.connections()) {
+    if (!connection.active) continue;
+    const credentials = credentialsOf(connection);
+    if (credentials) result.push({ connection, credentials });
+  }
+  return result;
+}
+
+// ---- Path 1: webhooks -------------------------------------------------------------------------
+
+type Notification = { customerId: string; id: string; datatype: Datatype | null };
+
+/** Vitec sends the parameters as JSON and as query parameters (notifications.md); JSON first. */
+function parseNotification(
+  body: Buffer,
+  query: string | undefined,
+): Notification | { error: string } {
+  let json: Record<string, unknown> = {};
+  if (body.length > 0) {
+    try {
+      json = JSON.parse(body.toString('utf8')) as Record<string, unknown>;
+    } catch {
+      return { error: 'malformed body' };
+    }
+  }
+  const params = new URLSearchParams(query ?? '');
+  const field = (name: string): string | null => {
+    const value = json[name] ?? params.get(name);
+    return typeof value === 'string' && value !== '' ? value : null;
+  };
+  const type = field('type');
+  if (!type) return { error: 'type is required' };
+  const datatype = NOTIFIED[type.toLowerCase()] ?? null;
+  if (!datatype) return { customerId: '', id: '', datatype: null };
+  const customerId = field('customerId');
+  const id = field('id');
+  if (!customerId || !id) return { error: 'customerId and id are required' };
+  return { customerId, id, datatype };
+}
+
+const tokenMatches = (given: string | undefined, expected: string): boolean =>
+  given !== undefined &&
+  given.length === expected.length &&
+  timingSafeEqual(Buffer.from(given), Buffer.from(expected));
+
+const routes: Route[] = [
+  {
+    method: 'POST',
+    path: 'webhook/*',
+    handler: async (request) => {
+      const expected = process.env['VITEC_WEBHOOK_TOKEN'];
+      if (!expected) return { status: 503, body: { error: 'VITEC_WEBHOOK_TOKEN is not set' } };
+      const [path, query] = request.url.split('?');
+      if (!tokenMatches(path?.split('/').pop(), expected)) {
+        return { status: 401, body: { error: 'bad token' } };
+      }
+      const notification = parseNotification(request.body, query);
+      if ('error' in notification) return { status: 400, body: { error: notification.error } };
+      if (!notification.datatype) return { status: 202, body: { ignored: true } };
+      // Never fetch inside the request: a burst must not become a burst of Connect calls.
+      const correlationId = randomUUID();
+      await store.enqueue([
+        {
+          customerId: notification.customerId,
+          datatype: notification.datatype,
+          remoteId: notification.id,
+          reason: 'webhook',
+          correlationId,
+        },
+      ]);
+      return { status: 202, body: { queued: true, correlation_id: correlationId } };
+    },
+  },
+];
+
+// ---- The fetch list ---------------------------------------------------------------------------
+
+async function drainOnce(): Promise<void> {
+  const current = engine;
+  if (!current) return;
+  const targets = await live(current);
+  for (;;) {
+    if (!engine) return;
+    const claimed = await store.claim(connect.concurrency());
+    if (claimed.length === 0) return;
+    await Promise.all(claimed.map((entry) => fetchOne(entry, targets, current)));
+  }
+}
+
+/** One record: fetched once, ingested into every connection that carries its customer. */
+async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi): Promise<void> {
+  const owners = targets.filter((live) => live.credentials.customer_ids.includes(entry.customerId));
+  const first = owners[0];
+  if (!first) {
+    await current.logEvent('fetch.orphan', {
+      customer_id: entry.customerId,
+      datatype: entry.datatype,
+      remote_id: entry.remoteId,
+      detail: 'no active connection carries this customer id',
+    });
+    return;
+  }
+  try {
+    const payload = await connect.getOne(
+      first.credentials,
+      entry.datatype,
+      entry.customerId,
+      entry.remoteId,
+    );
+    if (payload === null) {
+      for (const { connection } of owners) {
+        await current.notFound(connection, entry.datatype, entry.remoteId);
+      }
+      await store.forget(entry.customerId, entry.datatype, entry.remoteId);
+      return;
+    }
+    for (const { connection } of owners) {
+      await current.ingest(connection, entry.datatype, entry.remoteId, payload, {
+        correlationId: entry.correlationId,
+      });
+    }
+    await store.remember(entry.customerId, entry.datatype, entry.remoteId);
+    await queueReferences(entry, payload);
+  } catch (error) {
+    // A failed fetch is retried, never treated as a delete (strategy §5.3).
+    const outcome = await store.requeue(entry, String(error));
+    if (outcome === 'given_up') {
+      const fields = {
+        customer_id: entry.customerId,
+        datatype: entry.datatype,
+        remote_id: entry.remoteId,
+        attempts: entry.attempts + 1,
+        detail: String(error),
+      };
+      await current.logEvent('fetch.failed', fields);
+      console.error(JSON.stringify({ level: 'error', message: 'vitec fetch given up', ...fields }));
+    }
+  }
+}
+
+/** Associations have no list, and a project may not be listed yet: fetch what a record names. */
+async function queueReferences(entry: store.Entry, payload: unknown): Promise<void> {
+  const missing = [];
+  for (const reference of referencedIds(entry.datatype, payload)) {
+    if (!(await store.isKnown(entry.customerId, reference.datatype, reference.id))) {
+      missing.push({
+        customerId: entry.customerId,
+        datatype: reference.datatype,
+        remoteId: reference.id,
+        reason: 'reference' as const,
+        correlationId: entry.correlationId,
+      });
+    }
+  }
+  await store.enqueue(missing);
+}
+
+// ---- Listing: initial load, resync, catch-up and the daily comparison --------------------------
+
+type Listed = Map<Datatype, Map<string, Set<string>>>;
+
+/** Every id Vitec lists for the connection's customers, per datatype and customer. */
+async function listAll(
+  live: Live,
+  datatypes: readonly Datatype[],
+  changedSince?: Date,
+): Promise<Listed> {
+  const listed: Listed = new Map();
+  for (const datatype of datatypes) {
+    const perCustomer = new Map<string, Set<string>>();
+    for (const customerId of live.credentials.customer_ids) {
+      const ids = new Set<string>();
+      for await (const row of connect.list(live.credentials, datatype, customerId, changedSince)) {
+        ids.add(row.id);
+      }
+      perCustomer.set(customerId, ids);
+    }
+    listed.set(datatype, perCustomer);
+  }
+  return listed;
+}
+
+async function enqueueListed(listed: Listed, reason: store.Reason): Promise<void> {
+  const correlationId = randomUUID();
+  for (const [datatype, perCustomer] of listed) {
+    for (const [customerId, ids] of perCustomer) {
+      await store.enqueue(
+        [...ids].map((remoteId) => ({ customerId, datatype, remoteId, reason, correlationId })),
+      );
+    }
+  }
+}
+
+/** The ids seen before that Vitec no longer lists: fetched to confirm, never tombstoned blind. */
+async function enqueueMissing(listed: Listed): Promise<void> {
+  const correlationId = randomUUID();
+  for (const [datatype, perCustomer] of listed) {
+    for (const [customerId, ids] of perCustomer) {
+      const missing = (await store.known(customerId, datatype)).filter((id) => !ids.has(id));
+      await store.enqueue(
+        missing.map((remoteId) => ({
+          customerId,
+          datatype,
+          remoteId,
+          reason: 'compare',
+          correlationId,
+        })),
+      );
+    }
+  }
+}
+
+const listable = (datatype?: Datatype): readonly Datatype[] =>
+  datatype ? connect.LISTABLE.filter((candidate) => candidate === datatype) : connect.LISTABLE;
+
+/** Everything the connection's customers publish, onto the list after any webhook fetches. */
+async function load(live: Live, datatype?: Datatype): Promise<Listed> {
+  const startedAt = new Date();
+  const listed = await listAll(live, listable(datatype));
+  await enqueueListed(listed, 'load');
+  await enqueueMissing(listed);
+  await markCatchUp(live.connection.id, startedAt);
+  await store.setState(live.connection.id, 'compare_at', startedAt.toISOString());
+  return listed;
+}
+
+/** Resync with sweep (strategy §7.2): reload, and tell the engine which ids exist. */
+async function resync(live: Live, current: AdapterApi, datatype?: Datatype): Promise<void> {
+  const listed = await load(live, datatype);
+  for (const [listedDatatype, perCustomer] of listed) {
+    const ids = [...perCustomer.values()].flatMap((set) => [...set]);
+    await current.presentIds(live.connection, listedDatatype, { officeId: null }, ids);
+  }
+}
+
+async function markCatchUp(connectionId: string, startedAt: Date): Promise<void> {
+  await store.setState(connectionId, 'catch_up_until', startedAt.toISOString());
+  await store.setState(connectionId, 'catch_up_at', new Date().toISOString());
+}
+
+/** What changed since the last catch-up, less one hour of overlap (strategy §5.3, §13). */
+async function catchUp(live: Live): Promise<void> {
+  const startedAt = new Date();
+  const until = await store.getState(live.connection.id, 'catch_up_until');
+  const since = until ? new Date(new Date(until).getTime() - CATCH_UP_OVERLAP_MS) : undefined;
+  const listed = await listAll(live, connect.LISTABLE, since);
+  await enqueueListed(listed, 'catch_up');
+  await markCatchUp(live.connection.id, startedAt);
+}
+
+async function compare(live: Live): Promise<void> {
+  const startedAt = new Date();
+  await enqueueMissing(await listAll(live, connect.LISTABLE));
+  await store.setState(live.connection.id, 'compare_at', startedAt.toISOString());
+}
+
+const ageMs = (iso: string | null): number =>
+  iso ? Date.now() - new Date(iso).getTime() : Number.POSITIVE_INFINITY;
+
+/** The two schedules, checked every minute so a restart never skips an overdue run. */
+async function tickOnce(): Promise<void> {
+  const current = engine;
+  if (!current) return;
+  for (const target of await live(current)) {
+    try {
+      if (ageMs(await store.getState(target.connection.id, 'catch_up_at')) >= CATCH_UP_EVERY_MS) {
+        await catchUp(target);
+      }
+      if (ageMs(await store.getState(target.connection.id, 'compare_at')) >= COMPARE_EVERY_MS) {
+        await compare(target);
+      }
+    } catch (error) {
+      await current.logEvent('schedule.failed', {
+        connection_id: target.connection.id,
+        detail: String(error),
+      });
+    }
+  }
+}
+
+// ---- Health -----------------------------------------------------------------------------------
+
+async function catchUpHealth(current: AdapterApi): Promise<{ ok: boolean; detail?: string }> {
+  const problems: string[] = [];
+  for (const connection of await current.connections()) {
+    if (!connection.active) continue;
+    if (!credentialsOf(connection)) {
+      problems.push(`${connection.id}: credentials are not readable`);
+      continue;
+    }
+    const age = ageMs(await store.getState(connection.id, 'catch_up_at'));
+    if (age > CATCH_UP_LIMIT_MS) {
+      problems.push(
+        Number.isFinite(age)
+          ? `${connection.id}: last catch-up ${Math.round(age / 3_600_000)} h ago`
+          : `${connection.id}: never caught up`,
+      );
+    }
+  }
+  return problems.length === 0 ? { ok: true } : { ok: false, detail: problems.join('; ') };
+}
+
+export const vitecAdapter: Adapter = {
+  manifest: {
+    provider: PROVIDER,
+    datatypes: ['property', 'agent', 'office', 'area', 'association', 'project'],
+  },
+  mappers,
+  routes,
+
+  start(given: AdapterApi): void {
+    engine = given;
+
+    given.onLifecycle(async (event) => {
+      const credentials = credentialsOf(event.connection);
+      if (!credentials || !event.connection.active) return;
+      const target = { connection: event.connection, credentials };
+      if (event.type === 'connection_added' || event.type === 'offices_added') await load(target);
+      if (event.type === 'resync') await resync(target, given, event.datatype);
+    });
+
+    given.healthCheck(`${PROVIDER}.webhook_lag`, async () => {
+      const wait = await store.oldestWebhookWaitMs();
+      return wait !== null && wait > LAG_LIMIT_MS
+        ? { ok: false, detail: `a webhook has waited ${Math.round(wait / 1000)} s` }
+        : { ok: true };
+    });
+    given.healthCheck(`${PROVIDER}.retries`, async () => {
+      const count = await store.retrying(RETRIES_RED);
+      return count === 0
+        ? { ok: true }
+        : { ok: false, detail: `${count} record(s) failed ${RETRIES_RED} fetches in a row` };
+    });
+    given.healthCheck(`${PROVIDER}.catch_up`, () => catchUpHealth(given));
+
+    drainTimer = setInterval(() => void scheduleDrain(), DRAIN_MS);
+    drainTimer.unref?.();
+    void scheduleTick();
+    scheduleTimer = setInterval(() => void scheduleTick(), SCHEDULE_MS);
+    scheduleTimer.unref?.();
+  },
+
+  async stop(): Promise<void> {
+    if (drainTimer) clearInterval(drainTimer);
+    if (scheduleTimer) clearInterval(scheduleTimer);
+    drainTimer = null;
+    scheduleTimer = null;
+    engine = null;
+    await draining;
+    await scheduling;
+    await store.close();
+  },
+};
+
+/** Test and local use: fetch everything queued now, and wait for it. */
+export const drainFetchList = scheduleDrain;
+/** Test and local use: run any overdue catch-up or comparison now, and wait for it. */
+export const runSchedules = scheduleTick;

@@ -10,9 +10,10 @@ import { report } from './engine/errors.js';
 import type { Adapter } from './engine/adapter-api/types.js';
 import { fakeWebhookAdapter } from './adapters/fake-webhook/index.js';
 import { fakePollingAdapter } from './adapters/fake-polling/index.js';
+import { vitecAdapter } from './adapters/vitec/index.js';
 
 /** Every adapter Core ships. Adding a CRM is adding a directory and one line here. */
-const adapters: Adapter[] = [fakeWebhookAdapter, fakePollingAdapter];
+const adapters: Adapter[] = [fakeWebhookAdapter, fakePollingAdapter, vitecAdapter];
 
 const role = process.argv[2] ?? 'web';
 const engine = await startEngine();

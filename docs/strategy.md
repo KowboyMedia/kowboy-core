@@ -319,7 +319,7 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
 | **3. Engine** ◄ current                                                                                                                         | Engine, adapter API, bells, recompute, health, event log, two fake adapters (one webhook-style, one polling-style), fake subscriber | Engine acceptance criteria green ([report](../acceptance/report.md))                          |
 | **4. Clients** ⏳ sync loops built 2026-09-15 ahead of Gate 2 (next-steps item 4); templates, example site and staging sites wait for the model | WP plugin, Lovable kit, example site, staging client sites                                                                          | Client acceptance criteria green                                                              |
 | **5. Real data**                                                                                                                                | Humans supply real golden masters per CRM, rules ledger (§11), parity inventory, CRM docs and rate limits, test credentials         | **Gate 3:** golden masters and ledger approved                                                |
-| **6. Adapters**                                                                                                                                 | Vitec (webhooks, fetch list, catch-up) and Mspecs: golden masters first, then test accounts on staging                              | Adapter acceptance criteria green                                                             |
+| **6. Adapters** ⏳ Vitec fetch layer built 2026-09-16 ahead of Gate 2 (adapters/vitec/); mappers map the spine until the model is approved      | Vitec (webhooks, fetch list, catch-up) and Mspecs: golden masters first, then test accounts on staging                              | Adapter acceptance criteria green                                                             |
 | **7. Soak & go-live**                                                                                                                           | 7 days on staging with no unresolved Sentry issues, burst and load tests, restore drill, parity check                               | **Gate 4:** first production tenant                                                           |
 
 - **Golden masters are the acceptance for the initial build only.** They are retired at Gate 4.
@@ -435,6 +435,7 @@ Examples: golden/vitec/property/price-on-request
 15. Recompute automatically after a release that changes mapping or rules.
 16. Gzip JSON responses at a low level (AC 40).
 17. Webhook listeners, schedules and timers are adapter concerns. `main.ts` starts the engine, mounts adapter endpoints and starts the adapters.
+18. A sixth datatype, `project` (approved 2026-09-16): a new-build project that groups properties. It has its own office, agents and areas; a property names its project by `project_id`.
 
 ## 13. Defaults (changeable without a gate)
 

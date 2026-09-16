@@ -6,7 +6,7 @@
   "properties": {
     "datatype": {
       "type": "string",
-      "enum": ["property", "agent", "office", "area", "association"]
+      "enum": ["property", "agent", "office", "area", "association", "project"]
     },
     "connection_id": {
       "type": "string",

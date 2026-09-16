@@ -21,9 +21,16 @@ the first item that is not done, and keep the file current. Decisions and open q
    identity, relations, change date, scope, and everything else mirrored mechanically from the
    CRM (`docs/data-model-reference.md`, generated). Mappings, enumerations, search scalars and
    display strings are the rules-ledger phase, not Gate 2. Patric's answers of 2026-09-16 are worked in (relations, tenant scope, loose areas, `project` as a sixth datatype, no files, five fetches at once); three decisions at the proposal's end are Gate 2.
+   Later on 2026-09-16 Patric chose the WordPress plugin's universal model over the mirror and
+   approved `project` as the sixth datatype. The plugin's field specification was not attached, so
+   the model waits for it; the sixth datatype is in.
 3. **After Gate 2:** update `schemas/`, then build the Vitec adapter: mappers against golden
    masters first, then the fetch layer (bulk sync via the marketing endpoints, webhooks, catch-up)
    per strategy §5.3. Images and documents are ignored; a separate app serves the CDN.
+   Status 2026-09-16: the fetch layer is built ahead of the mappers (`adapters/vitec/`: webhooks,
+   fetch list, catch-up, comparison, health), and the mappers map the spine only. The descriptive
+   mapping and `schemas/` wait for the field specification (item 2); golden masters for Vitec wait
+   for Gate 3.
 4. ~~**In parallel, approved:** the client sync loops in `clients/wordpress/` and
    `clients/lovable-kit/` per SRS §8 and Appendices A and B.~~ Done 2026-09-15: both loops, both
    bell endpoints, both backstops, the WordPress updater and WP-CLI, and one scenario suite that
@@ -39,6 +46,8 @@ the first item that is not done, and keep the file current. Decisions and open q
 
 - The platform (DigitalOcean App Platform, managed Postgres, EU) and its `DATABASE_URL` → Phase 1b.
 - Sentry DSN → replace the placeholder in `engine/errors.ts`.
+- The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
+- Vitec test credentials and a staging deploy → open question 18.
 - Mspecs documentation → second adapter.
 - Rules ledger, parity inventory, real golden masters → Phase 5.
 

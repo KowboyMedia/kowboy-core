@@ -66,3 +66,27 @@ That is an adapter API change, so it needs approval (E3). It is additive and bre
 Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPress plugins normally
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
+
+## 17. `[core]` An adapter cannot report to Sentry
+
+The adapter API offers `logEvent` only. The Vitec adapter logs `fetch.failed` after its last
+attempt and writes the same to stderr; strategy §5.3 wants Sentry told. Suggested: an additive
+`report(error, context)` on the adapter API, the engine's own `report` behind it. Adapter API
+change, needs approval.
+
+## 18. `[crm-vitec]` What a test account settles
+
+Built from the documentation alone (`docs/inputs/vitec/`), three things are unverified: whether
+list paging starts at 0 or 1 (the lister tolerates both); what `GET .../Estate/{customerId}/{id}`
+returns for an estate withdrawn from the website (404 tombstones, 200 keeps the record with its
+status); and whether a `Remove` notification's record is still fetchable. Needs Vitec test
+credentials and a staging deploy.
+
+## 19. `[crm-vitec]` Which id is the office
+
+Vitec has an `Office.Id` and a customer id (`M30011`) per office, and every API call and
+notification is keyed by the customer id. The adapter uses `Office.Id` as the office id in Core,
+licenses on it, and keeps the customer ids in the connection's credentials as the fetch scope. If
+one customer id always holds exactly one office, the customer id could be the office id instead,
+and the office ids Patric configures would be the M numbers. The smaller option is what is built;
+your call.

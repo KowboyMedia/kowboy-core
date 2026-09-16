@@ -14,17 +14,27 @@ export const ADMIN_SECRET = 'test-admin-secret';
 
 export type Bell = { kind: string; tenant_id: string; secret: string | undefined };
 
+export type ConnectionInput = {
+  id: string;
+  provider: string;
+  licensedOffices?: string[];
+  /** What the adapter needs to reach the CRM, stored encrypted; its format is the adapter's. */
+  credentials?: string | null;
+};
+
 export type Harness = {
   engine: Engine;
   baseUrl: string;
   bells: Bell[];
+  /** Add or change a connection of the test tenant. */
+  connection(input: ConnectionInput): Promise<void>;
   stop(): Promise<void>;
 };
 
 /** A running engine, a bell receiver, and whatever adapters a test needs. */
 export async function harness(options: {
   adapters?: Adapter[];
-  connections?: { id: string; provider: string; licensedOffices?: string[] }[];
+  connections?: ConnectionInput[];
   subscriber?: boolean;
 }): Promise<Harness> {
   clearRegistry();
@@ -43,14 +53,15 @@ export async function harness(options: {
   });
 
   await upsertTenant({ id: TENANT, displayName: 'Test tenant', token: TOKEN });
-  for (const connection of options.connections ?? []) {
-    await upsertConnection({
-      id: connection.id,
+  const connection = (input: ConnectionInput): Promise<void> =>
+    upsertConnection({
+      id: input.id,
       tenantId: TENANT,
-      provider: connection.provider,
-      licensedOffices: connection.licensedOffices ?? [],
+      provider: input.provider,
+      licensedOffices: input.licensedOffices ?? [],
+      credentials: input.credentials ?? null,
     });
-  }
+  for (const input of options.connections ?? []) await connection(input);
   if (options.subscriber !== false) {
     await addSubscriber({
       tenantId: TENANT,
@@ -72,6 +83,7 @@ export async function harness(options: {
     engine,
     baseUrl: `http://127.0.0.1:${port}`,
     bells,
+    connection,
     async stop() {
       for (const adapter of options.adapters ?? []) await adapter.stop?.();
       await new Promise<void>((resolve) => bellServer.close(() => resolve()));

@@ -222,7 +222,7 @@ describe('the WordPress client', () => {
     );
     const status = JSON.parse((await wp('core-client', 'status')).stdout) as ClientStatus;
     expect(Object.keys(status.after).sort()).toEqual(
-      ['agent', 'area', 'association', 'office', 'property'].sort(),
+      ['agent', 'area', 'association', 'office', 'project', 'property'].sort(),
     );
 
     await expect(wp('core-client', 'sync')).rejects.toMatchObject({

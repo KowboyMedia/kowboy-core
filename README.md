@@ -31,6 +31,9 @@ node dist/scripts/tenant.js add-connection acme-1 t_acme <provider> '<credential
 node dist/scripts/tenant.js add-subscriber t_acme "acme.se" https://acme.se/wp-json/core/v1/bell
 ```
 
+The Vitec adapter's connection format, webhook URL and settings (`VITEC_WEBHOOK_TOKEN`,
+`VITEC_FETCH_CONCURRENCY`) are in [adapters/vitec/README.md](adapters/vitec/README.md).
+
 ## Checking it
 
 ```bash
@@ -50,7 +53,7 @@ Lovable client suite is part of `npm test` and runs its function under Deno, ins
 main.ts               entrypoint: starts the engine, mounts adapter endpoints, starts adapters
 engine/               CRM-agnostic: storage, rules, bells, subscriber API, recompute, health, events
 engine/adapter-api/   the only engine code adapters may import (protected)
-adapters/<provider>/  everything CRM-specific, one folder per CRM
+adapters/<provider>/  everything CRM-specific, one folder per CRM: vitec, and two fakes
 clients/wordpress/    thin WordPress client: the sync loop, bell endpoint and store
 clients/lovable-kit/  one Supabase function and migrations every Lovable site starts from
 schemas/              JSON Schema per datatype (protected)

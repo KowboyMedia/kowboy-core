@@ -20,7 +20,7 @@ supabase/config.toml                    the section that lets Core call the func
 
 **How it works.** Core POSTs a bell to the function with `X-Core-Secret`. The function answers 202
 at once and then pulls `GET /v1/changes?datatype=…&after=<cursor>` page by page, for offices,
-agents, areas, associations and properties in that order. Each page and its cursor commit together.
+agents, areas, associations, projects and properties in that order. Each page and its cursor commit together.
 A tombstone deletes the row; an item whose `content_hash` is already stored is skipped; anything
 else is upserted with its `data` stored verbatim. `forcerefresh` pulls everything from 0 and
 rewrites every row; a `409 resync_required` from Core does the same and then deletes rows that were

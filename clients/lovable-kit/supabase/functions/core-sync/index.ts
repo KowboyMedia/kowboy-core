@@ -17,8 +17,8 @@ const VERSION = '0.1.0';
 /** How long one invocation works before handing over. Well under Supabase's wall-clock limit. */
 const BUDGET_MS = Number(Deno.env.get('CORE_SYNC_BUDGET_MS') ?? 60_000);
 
-/** Reference order (SRS §6.9): offices and agents before the properties that point at them. */
-const DATATYPES = ['office', 'agent', 'area', 'association', 'property'] as const;
+/** Reference order (SRS §6.9): offices, agents and projects before the properties that point at them. */
+const DATATYPES = ['office', 'agent', 'area', 'association', 'project', 'property'] as const;
 type Datatype = (typeof DATATYPES)[number];
 
 const TABLE: Record<Datatype, string> = {
@@ -26,6 +26,7 @@ const TABLE: Record<Datatype, string> = {
   agent: 'agents',
   area: 'areas',
   association: 'associations',
+  project: 'projects',
   property: 'properties',
 };
 

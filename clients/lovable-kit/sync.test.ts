@@ -32,6 +32,7 @@ const TABLES: Record<string, string> = {
   agent: 'agents',
   area: 'areas',
   association: 'associations',
+  project: 'projects',
   property: 'properties',
 };
 
