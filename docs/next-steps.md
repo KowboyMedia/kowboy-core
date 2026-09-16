@@ -42,6 +42,13 @@ the first item that is not done, and keep the file current. Decisions and open q
    routing, the example Lovable site and the search/filter half of AC 20 wait for the model
    (item 3).
 
+5. **Standing request (Patric, 2026-09-16), not done until fulfilled:** as soon as Vitec test
+   credentials are in the environment (`VITEC_USERNAME`, `VITEC_PASSWORD`, `VITEC_OFFICE_ID`, and
+   `VITEC_ESTATE_ID` for an estate withdrawn from the website), run
+   `npm run build && node dist/scripts/vitec-probe.js` (with `NODE_USE_ENV_PROXY=1` in a cloud
+   session), settle open question 18, adjust the adapter if Vitec differs from its documentation,
+   and delete the question.
+
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. The app spec is in `.do/app.yaml` (2026-09-16); Patric creates the

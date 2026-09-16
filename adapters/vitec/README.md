@@ -79,6 +79,8 @@ ids; only those are loaded. Then ask Vitec for subscriptions (docs/inputs/vitec/
 
 ## Not verified against Vitec yet (open question 18)
 
+`scripts/vitec-probe.ts` settles the first two with real credentials, read-only.
+
 - Whether page numbering starts at 0 or 1: the lister stops on an empty page or two pages without
   new ids, so either works.
 - What a record by id returns once an estate is withdrawn from the website: a 404 tombstones it, a

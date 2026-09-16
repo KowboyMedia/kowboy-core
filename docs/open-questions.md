@@ -73,4 +73,5 @@ Built from the documentation alone (`docs/inputs/vitec/`), three things are unve
 list paging starts at 0 or 1 (the lister tolerates both); what `GET .../Estate/{customerId}/{id}`
 returns for an estate withdrawn from the website (404 tombstones, 200 keeps the record with its
 status); and whether a `Remove` notification's record is still fetchable. Needs Vitec test
-credentials and a staging deploy.
+credentials: `scripts/vitec-probe.ts` answers the first two the moment they exist (next-steps
+item 5).

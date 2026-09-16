@@ -67,7 +67,13 @@ export class VitecError extends Error {
   }
 }
 
-type Page = { rows?: Partial<ListRow>[] };
+/** One page of a list endpoint, as Connect returns it. */
+export type Page = {
+  index?: number;
+  count?: number;
+  totalRowCount?: number;
+  rows?: Partial<ListRow>[];
+};
 
 async function get(
   auth: Auth,
@@ -103,6 +109,27 @@ export function getOne(
   return get(auth, `Advertising/${RESOURCE[datatype]}/${segment(officeId)}/${segment(id)}`, query);
 }
 
+/** One page of a list endpoint, or null when Connect answers 404. */
+export function page(
+  auth: Auth,
+  datatype: Datatype,
+  officeId: string,
+  pageIndex: number,
+  changedSince?: Date,
+  pageSize = PAGE_SIZE,
+): Promise<Page | null> {
+  const query: Record<string, string> = {
+    'paging.pageSize': String(pageSize),
+    'paging.pageIndex': String(pageIndex),
+  };
+  if (changedSince) query['criteria.changedAtMinValue'] = changedSince.toISOString();
+  return get(
+    auth,
+    `Advertising/${RESOURCE[datatype]}/${segment(officeId)}`,
+    query,
+  ) as Promise<Page | null>;
+}
+
 /**
  * Every list row for an office, page by page. Paging stops on an empty page, or when two pages in
  * a row bring nothing new, so it is right whether the server counts pages from 0 or from 1 (the
@@ -117,17 +144,7 @@ export async function* list(
   const seen = new Set<string>();
   let idle = 0;
   for (let pageIndex = 0; idle < 2; pageIndex += 1) {
-    const query: Record<string, string> = {
-      'paging.pageSize': String(PAGE_SIZE),
-      'paging.pageIndex': String(pageIndex),
-    };
-    if (changedSince) query['criteria.changedAtMinValue'] = changedSince.toISOString();
-    const page = (await get(
-      auth,
-      `Advertising/${RESOURCE[datatype]}/${segment(officeId)}`,
-      query,
-    )) as Page | null;
-    const rows = page?.rows ?? [];
+    const rows = (await page(auth, datatype, officeId, pageIndex, changedSince))?.rows ?? [];
     if (rows.length === 0) return;
     let fresh = 0;
     for (const row of rows) {
