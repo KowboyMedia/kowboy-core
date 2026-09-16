@@ -33,7 +33,12 @@ const DATATYPES = [
 const SPINE = {
   property: [
     ['id', 'string', 'Id', 'SRS §6.9, identity'],
-    ['office_id', 'string | null', 'Office.Id', 'SRS §6.9; also the envelope office_id'],
+    [
+      'office_id',
+      'string | null',
+      'Office.CustomerId',
+      'SRS §6.9; the office id is the customer id; also the envelope office_id',
+    ],
     [
       'agent_ids',
       'string[]',
@@ -61,14 +66,19 @@ const SPINE = {
     [
       'office_ids',
       'string[]',
-      'Offices[].Id',
+      'Offices[].CustomerId',
       'One or several offices; the order per office stays in offices[].order_number',
     ],
     ['display', 'object', 'rules, empty until the ledger exists', 'SRS §6'],
     ['provider_extras.vitec', 'object', 'nothing yet', 'SRS §6.4'],
   ],
   office: [
-    ['id', 'string', 'Id', 'SRS §6.9, identity; also the envelope office_id'],
+    [
+      'id',
+      'string',
+      'CustomerId',
+      'SRS §6.9, identity; the customer id is the office id; also the envelope office_id',
+    ],
     ['display', 'object', 'rules, empty until the ledger exists', 'SRS §6'],
     ['provider_extras.vitec', 'object', 'nothing yet', 'SRS §6.4'],
   ],
@@ -89,7 +99,7 @@ const SPINE = {
   ],
   project: [
     ['id', 'string', 'Id', 'Identity, as property'],
-    ['office_id', 'string | null', 'Office.Id', 'Also the envelope office_id'],
+    ['office_id', 'string | null', 'Office.CustomerId', 'Also the envelope office_id'],
     [
       'agent_ids',
       'string[]',
@@ -120,7 +130,7 @@ const DROP = {
     'extensions.secondaryAgent',
   ]),
   agent: new Set(['id', 'changedAt']),
-  office: new Set(['id', 'customerId', 'changedAt']),
+  office: new Set(['customerId', 'changedAt']),
   area: new Set(['id', 'changedAt']),
   association: new Set(['id', 'changedAt', 'documents']),
   project: new Set([

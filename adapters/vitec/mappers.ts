@@ -22,6 +22,13 @@ const isoDate = (value: unknown): string | null => {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 };
 
+/**
+ * The office id: what Connect calls the customer id (`M30011`), which every URL and notification
+ * carries; `Office.Id` is an alias of it (Patric, 2026-09-16).
+ */
+const officeIdOf = (reference: unknown): string | null =>
+  text(record(reference)['customerId']) ?? text(record(reference)['id']);
+
 const requireId = (raw: Raw): string => {
   const id = text(raw['id']);
   if (!id) throw new Error('a record without an id cannot be mapped');
@@ -39,7 +46,7 @@ const areaIds = (raw: Raw): string[] => {
 const property = (input: unknown): MappedRecord => {
   const raw = record(input);
   const id = requireId(raw);
-  const officeId = text(record(raw['office'])['id']);
+  const officeId = officeIdOf(raw['office']);
   const association = record(
     record(record(raw['extensions'])['housingCooperative'])['association'],
   );
@@ -62,7 +69,7 @@ const property = (input: unknown): MappedRecord => {
 const project = (input: unknown): MappedRecord => {
   const raw = record(input);
   const id = requireId(raw);
-  const officeId = text(record(raw['office'])['id']);
+  const officeId = officeIdOf(raw['office']);
   return {
     officeId,
     remoteUpdatedAt: isoDate(raw['changedAt']),
@@ -79,7 +86,7 @@ const project = (input: unknown): MappedRecord => {
 
 const office = (input: unknown): MappedRecord => {
   const raw = record(input);
-  const id = requireId(raw);
+  const id = officeIdOf(raw) ?? requireId(raw);
   return {
     officeId: id,
     remoteUpdatedAt: isoDate(raw['changedAt']),
@@ -97,7 +104,7 @@ const agent = (input: unknown): MappedRecord => {
     remoteUpdatedAt: isoDate(raw['changedAt']),
     data: {
       id,
-      office_ids: offices.map((entry) => text(record(entry)['id'])).filter((x): x is string => !!x),
+      office_ids: offices.map(officeIdOf).filter((x): x is string => !!x),
       display: {},
       provider_extras: {},
     },

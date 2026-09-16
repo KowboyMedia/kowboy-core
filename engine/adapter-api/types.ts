@@ -104,6 +104,8 @@ export type AdapterApi = {
   healthCheck(name: string, check: () => Promise<HealthResult> | HealthResult): void;
   /** The connections this provider owns, so an adapter can resume its own work at startup. */
   connections(): Promise<Connection[]>;
+  /** Report an unexpected error to the error tracker (Sentry once wired). Never pass credentials. */
+  report(error: unknown, context?: Record<string, unknown>): void;
 };
 
 /** What an adapter directory exports. */

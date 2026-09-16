@@ -6,7 +6,10 @@ import type { Datatype } from '../../engine/adapter-api/index.js';
 /** The Connect key pair from the partner portal (technical-information.md). */
 export type Auth = { username: string; password: string };
 
-/** One row of a list endpoint: identity and change date only. */
+/**
+ * One row of a list endpoint: identity and change date only, named as Connect names them. The
+ * `customerId` (M30011 and the like) is the office id: one office, one customer id (Patric).
+ */
 export type ListRow = { id: string; customerId: string; changedAt: string | null };
 
 /** The advertising resource per datatype. */
@@ -93,26 +96,22 @@ const segment = encodeURIComponent;
 export function getOne(
   auth: Auth,
   datatype: Datatype,
-  customerId: string,
+  officeId: string,
   id: string,
 ): Promise<unknown | null> {
   const query: Record<string, string> = datatype === 'property' ? { extend: ESTATE_EXTEND } : {};
-  return get(
-    auth,
-    `Advertising/${RESOURCE[datatype]}/${segment(customerId)}/${segment(id)}`,
-    query,
-  );
+  return get(auth, `Advertising/${RESOURCE[datatype]}/${segment(officeId)}/${segment(id)}`, query);
 }
 
 /**
- * Every list row for a customer, page by page. Paging stops on an empty page, or when two pages in
+ * Every list row for an office, page by page. Paging stops on an empty page, or when two pages in
  * a row bring nothing new, so it is right whether the server counts pages from 0 or from 1 (the
  * documentation names the parameters, not the first index).
  */
 export async function* list(
   auth: Auth,
   datatype: Datatype,
-  customerId: string,
+  officeId: string,
   changedSince?: Date,
 ): AsyncGenerator<ListRow> {
   const seen = new Set<string>();
@@ -125,7 +124,7 @@ export async function* list(
     if (changedSince) query['criteria.changedAtMinValue'] = changedSince.toISOString();
     const page = (await get(
       auth,
-      `Advertising/${RESOURCE[datatype]}/${segment(customerId)}`,
+      `Advertising/${RESOURCE[datatype]}/${segment(officeId)}`,
       query,
     )) as Page | null;
     const rows = page?.rows ?? [];
@@ -137,7 +136,7 @@ export async function* list(
       fresh += 1;
       yield {
         id: row.id,
-        customerId: row.customerId ?? customerId,
+        customerId: row.customerId ?? officeId,
         changedAt: row.changedAt ?? null,
       };
     }

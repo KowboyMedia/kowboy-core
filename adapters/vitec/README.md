@@ -25,11 +25,11 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   before loads and catch-ups. Up to five Connect requests run at once (`VITEC_FETCH_CONCURRENCY`),
   lists included. A failed fetch is retried with exponential backoff (10 s, doubling) and never
   treated as a delete; after six failures the record waits for the next signal or an operator, and
-  a `fetch.failed` event is logged. A record is fetched once and ingested into every connection
-  that carries its customer id.
-- **Initial load.** `connection_added` and `offices_added` list everything the connection's
-  customers publish, in reference order (offices, agents, areas, projects, properties), and put it
-  on the list. Associations have no list endpoint: they are fetched when a property names one.
+  a `fetch.failed` event is logged and the error reported through the adapter API. A record is
+  fetched once and ingested into every connection that licenses its office.
+- **Initial load.** `connection_added` lists everything the connection's offices publish, in
+  reference order (offices, agents, areas, projects, properties), and puts it on the list;
+  `offices_added` does the same for the added offices only. Associations have no list endpoint: they are fetched when a property names one.
 - **Catch-up.** Every 12 h per connection: what changed since the previous window, less one hour
   of overlap. A connection the worker has never caught up (for example one that existed before the
   worker started) is listed in full.
@@ -39,30 +39,32 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   present, so the engine tombstones whatever Vitec no longer lists.
 - **Health.** `vitec.webhook_lag` (a webhook waiting more than 5 min), `vitec.retries` (a record
   that failed three fetches in a row), `vitec.catch_up` (a connection whose last catch-up is older
-  than 13 h, or whose credentials cannot be read).
+  than 13 h, whose credentials cannot be read, or which has no offices).
 
 ## Mappers: the spine only
 
 `data` holds identity, the references and nothing else today: `id`, `office_id`, `agent_ids`,
 `area_ids`, `association_id`, `project_id` on a property; `office_ids` on an agent; `office_id`,
 `agent_ids`, `area_ids` on a project. The descriptive fields wait for the field specification
-(docs/next-steps.md item 2). `remote_updated_at` is Vitec's `changedAt`. The office id is Vitec's
-own `Office.Id`; licensing filters on it (open question 19).
+(docs/next-steps.md item 2). `remote_updated_at` is Vitec's `changedAt`. The office id is what
+Connect calls the customer id (`M30011`): one office, one customer id, and `Office.Id` is an alias
+of it (Patric, 2026-09-16). Licensing filters on it.
 
 ## Setting up a connection
 
-Credentials are one JSON document: the Connect key pair from the partner portal and the customer
-ids the connection fetches.
+Credentials are one JSON document, the Connect key pair from the partner portal. The licensed
+offices are the office ids (`M30011` and the like), and they are also what the adapter fetches: a
+connection without offices fetches nothing and `vitec.catch_up` says so.
 
 ```bash
 node dist/scripts/tenant.js add-connection acme-vitec t_acme vitec \
-  '{"username":"…","password":"…","customer_ids":["M30011"]}' [office-id,office-id]
+  '{"username":"…","password":"…"}' M30011,M30012
 curl -X POST https://core.example/v1/admin/event -H 'x-admin-secret: …' \
   -d '{"connection_id":"acme-vitec","event":"connection_added"}'
 ```
 
-Licensed offices are Vitec office ids; empty means every office of those customers. Then ask Vitec
-for subscriptions (docs/inputs/vitec/notifications.md) on `Estate` (published for the website,
+Adding an office later: set the connection's offices, then `event: offices_added` with the new
+ids; only those are loaded. Then ask Vitec for subscriptions (docs/inputs/vitec/notifications.md) on `Estate` (published for the website,
 `Update` and `Remove`), `Project`, `User`, `Office` and `Area`, pointing at
 `https://<core>/v1/hook/vitec/webhook/<VITEC_WEBHOOK_TOKEN>`.
 

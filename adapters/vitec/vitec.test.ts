@@ -1,26 +1,22 @@
 // The Vitec adapter against the real engine and a stand-in Connect (test/connect.ts): webhooks,
 // the fetch list, both schedules, licensing by office and the health checks. Vitec's behaviour
 // beyond its documentation waits for a test account on staging (strategy §9, Phase 6).
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { harness, pull, ADMIN_SECRET, type Harness } from '../../acceptance/harness.js';
 import { drainFetchList, runSchedules, vitecAdapter } from './index.js';
 import * as store from './store.js';
 import { PASSWORD, USERNAME, startFakeConnect, type FakeConnect } from './test/connect.js';
 
 const CONNECTION = 'vitec-acme';
-const CUSTOMER = 'M1';
+const OFFICE = 'M1';
 const TOKEN = 'hook-token';
 const CHANGED = '2026-09-10T08:00:00.1234567+02:00';
 
-const credentials = JSON.stringify({
-  username: USERNAME,
-  password: PASSWORD,
-  customer_ids: [CUSTOMER],
-});
+const credentials = JSON.stringify({ username: USERNAME, password: PASSWORD });
 
-const estate = (id: string, officeId = 'K1', extra: Record<string, unknown> = {}) => ({
+const estate = (id: string, officeId = OFFICE, extra: Record<string, unknown> = {}) => ({
   id,
-  office: { id: officeId, customerId: CUSTOMER },
+  office: { id: officeId, customerId: officeId },
   primaryAgentId: 'U1',
   secondaryAgentId: null,
   projectId: 'PR1',
@@ -30,30 +26,30 @@ const estate = (id: string, officeId = 'K1', extra: Record<string, unknown> = {}
   ...extra,
 });
 
-/** One customer with one of everything, the way Connect would publish it. */
+/** One office with one of everything, the way Connect would publish it. */
 function seed(fake: FakeConnect): void {
-  fake.put(CUSTOMER, 'office', {
-    id: 'K1',
-    customerId: CUSTOMER,
+  fake.put(OFFICE, 'office', {
+    id: OFFICE,
+    customerId: OFFICE,
     name: 'Kontor 1',
     changedAt: CHANGED,
   });
-  fake.put(CUSTOMER, 'agent', {
+  fake.put(OFFICE, 'agent', {
     id: 'U1',
     name: 'Anna',
-    offices: [{ id: 'K1', customerId: CUSTOMER, orderNumber: 1 }],
+    offices: [{ id: OFFICE, customerId: OFFICE, orderNumber: 1 }],
     changedAt: CHANGED,
   });
-  fake.put(CUSTOMER, 'area', { id: 'A1', name: 'Centrum', changedAt: CHANGED });
-  fake.put(CUSTOMER, 'project', {
+  fake.put(OFFICE, 'area', { id: 'A1', name: 'Centrum', changedAt: CHANGED });
+  fake.put(OFFICE, 'project', {
     id: 'PR1',
-    office: { id: 'K1', customerId: CUSTOMER },
+    office: { id: OFFICE, customerId: OFFICE },
     primaryAgentId: 'U1',
     address: { area: { id: 'A1' } },
     changedAt: CHANGED,
   });
-  fake.put(CUSTOMER, 'association', { id: 'F1', name: 'Brf Solen', changedAt: CHANGED });
-  fake.put(CUSTOMER, 'property', estate('OBJ1'));
+  fake.put(OFFICE, 'association', { id: 'F1', name: 'Brf Solen', changedAt: CHANGED });
+  fake.put(OFFICE, 'property', estate('OBJ1'));
 }
 
 let fake: FakeConnect;
@@ -88,9 +84,9 @@ const item = async (
   );
 
 const fetchesOf = (id: string): number =>
-  fake.requests.filter((request) => request.path.endsWith(`/${CUSTOMER}/${id}`)).length;
+  fake.requests.filter((request) => request.path.endsWith(`/${OFFICE}/${id}`)).length;
 
-async function start(licensedOffices: string[] = []): Promise<void> {
+async function start(licensedOffices: string[] = [OFFICE]): Promise<void> {
   running = await harness({
     adapters: [vitecAdapter],
     connections: [{ id: CONNECTION, provider: 'vitec', credentials, licensedOffices }],
@@ -121,7 +117,7 @@ describe('the Vitec adapter', () => {
     const property = await item('property', 'OBJ1');
     expect(property?.['data']).toEqual({
       id: 'OBJ1',
-      office_id: 'K1',
+      office_id: OFFICE,
       agent_ids: ['U1'],
       area_ids: ['A1'],
       association_id: 'F1',
@@ -129,16 +125,16 @@ describe('the Vitec adapter', () => {
       display: {},
       provider_extras: {},
     });
-    expect(property?.['office_id']).toBe('K1');
+    expect(property?.['office_id']).toBe(OFFICE);
     expect(property?.['remote_updated_at']).toBe('2026-09-10T06:00:00.123Z');
 
-    expect((await item('agent', 'U1'))?.['data']).toMatchObject({ office_ids: ['K1'] });
+    expect((await item('agent', 'U1'))?.['data']).toMatchObject({ office_ids: [OFFICE] });
     expect((await item('project', 'PR1'))?.['data']).toMatchObject({
-      office_id: 'K1',
+      office_id: OFFICE,
       agent_ids: ['U1'],
       area_ids: ['A1'],
     });
-    expect(await item('office', 'K1')).toBeDefined();
+    expect(await item('office', OFFICE)).toBeDefined();
     expect(await item('area', 'A1')).toBeDefined();
     // No list endpoint for associations: reached through the estate that names it.
     expect(await item('association', 'F1')).toBeDefined();
@@ -155,7 +151,7 @@ describe('the Vitec adapter', () => {
 
     const responses = await Promise.all(
       Array.from({ length: 100 }, () =>
-        hook({ type: 'Estate', event: 'Update', customerId: CUSTOMER, id: 'OBJ1' }),
+        hook({ type: 'Estate', event: 'Update', customerId: OFFICE, id: 'OBJ1' }),
       ),
     );
     expect(responses.every((response) => response.status === 202)).toBe(true);
@@ -170,22 +166,22 @@ describe('the Vitec adapter', () => {
 
   it('refuses a wrong token, and says so when none is configured', async () => {
     await start();
-    const wrong = await hook({ type: 'Estate', customerId: CUSTOMER, id: 'OBJ1' }, 'nope');
+    const wrong = await hook({ type: 'Estate', customerId: OFFICE, id: 'OBJ1' }, 'nope');
     expect(wrong.status).toBe(401);
 
     delete process.env['VITEC_WEBHOOK_TOKEN'];
-    const unset = await hook({ type: 'Estate', customerId: CUSTOMER, id: 'OBJ1' });
+    const unset = await hook({ type: 'Estate', customerId: OFFICE, id: 'OBJ1' });
     expect(unset.status).toBe(503);
     expect(await store.depth()).toBe(0);
   });
 
   it('ignores notification types it does not carry and rejects one without an id', async () => {
     await start();
-    const contact = await hook({ type: 'Contact', customerId: CUSTOMER, id: 'ADR1' });
+    const contact = await hook({ type: 'Contact', customerId: OFFICE, id: 'ADR1' });
     expect(contact.status).toBe(202);
     expect(await contact.json()).toEqual({ ignored: true });
 
-    const bare = await hook({ type: 'Estate', customerId: CUSTOMER });
+    const bare = await hook({ type: 'Estate', customerId: OFFICE });
     expect(bare.status).toBe(400);
     expect(await store.depth()).toBe(0);
   });
@@ -196,8 +192,8 @@ describe('the Vitec adapter', () => {
     await drainFetchList();
     expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
 
-    fake.remove(CUSTOMER, 'property', 'OBJ1');
-    await hook({ type: 'Estate', event: 'Remove', customerId: CUSTOMER, id: 'OBJ1' });
+    fake.remove(OFFICE, 'property', 'OBJ1');
+    await hook({ type: 'Estate', event: 'Remove', customerId: OFFICE, id: 'OBJ1' });
     await drainFetchList();
 
     expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
@@ -207,11 +203,11 @@ describe('the Vitec adapter', () => {
     seed(fake);
     await start();
     await drainFetchList();
-    fake.put(CUSTOMER, 'property', estate('OBJ1', 'K1', { primaryAgentId: 'U2' }));
+    fake.put(OFFICE, 'property', estate('OBJ1', OFFICE, { primaryAgentId: 'U2' }));
     const before = (await item('property', 'OBJ1'))?.['seq'];
 
     fake.failNext(3);
-    await hook({ type: 'Estate', event: 'Update', customerId: CUSTOMER, id: 'OBJ1' });
+    await hook({ type: 'Estate', event: 'Update', customerId: OFFICE, id: 'OBJ1' });
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       await drainFetchList();
       expect(await store.depth()).toBe(1);
@@ -229,6 +225,36 @@ describe('the Vitec adapter', () => {
     expect((await health())['vitec.retries']).toEqual({ ok: true });
   });
 
+  it('gives up after six failures, reports it, and a new webhook wakes the record (AC 39)', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      fake.failNext(6);
+      await hook({ type: 'Estate', event: 'Update', customerId: OFFICE, id: 'OBJ1' });
+      for (let attempt = 1; attempt <= 6; attempt += 1) {
+        await drainFetchList();
+        await store.expedite();
+      }
+      // Given up: still listed, but not due, and reported once.
+      await drainFetchList();
+      expect(await store.depth()).toBe(1);
+      expect(fetchesOf('OBJ1')).toBe(7);
+      expect(
+        errors.mock.calls.some((call) => String(call[0]).includes('vitec fetch given up')),
+      ).toBe(true);
+      expect((await health())['vitec.retries']).toMatchObject({ ok: false });
+
+      await hook({ type: 'Estate', event: 'Update', customerId: OFFICE, id: 'OBJ1' });
+      await drainFetchList();
+      expect(await store.depth()).toBe(0);
+      expect((await health())['vitec.retries']).toEqual({ ok: true });
+    } finally {
+      errors.mockRestore();
+    }
+  });
+
   it('turns vitec.webhook_lag red when a webhook has waited five minutes (AC 38)', async () => {
     seed(fake);
     await start();
@@ -236,7 +262,7 @@ describe('the Vitec adapter', () => {
     expect((await health())['vitec.webhook_lag']).toEqual({ ok: true });
 
     fake.failNext(100);
-    await hook({ type: 'Estate', event: 'Update', customerId: CUSTOMER, id: 'OBJ1' });
+    await hook({ type: 'Estate', event: 'Update', customerId: OFFICE, id: 'OBJ1' });
     await drainFetchList();
     await store.backdate(6 * 60_000);
     expect((await health())['vitec.webhook_lag']).toMatchObject({ ok: false });
@@ -249,7 +275,7 @@ describe('the Vitec adapter', () => {
     const until = await store.getState(CONNECTION, 'catch_up_until');
     expect(until).not.toBeNull();
 
-    fake.put(CUSTOMER, 'property', estate('OBJ2', 'K1', { changedAt: new Date().toISOString() }));
+    fake.put(OFFICE, 'property', estate('OBJ2', OFFICE, { changedAt: new Date().toISOString() }));
     await store.setState(
       CONNECTION,
       'catch_up_at',
@@ -284,7 +310,7 @@ describe('the Vitec adapter', () => {
     await start();
     await drainFetchList();
 
-    fake.remove(CUSTOMER, 'property', 'OBJ1');
+    fake.remove(OFFICE, 'property', 'OBJ1');
     await store.setState(
       CONNECTION,
       'compare_at',
@@ -304,16 +330,16 @@ describe('the Vitec adapter', () => {
     await start();
     await drainFetchList();
 
-    fake.remove(CUSTOMER, 'property', 'OBJ1');
+    fake.remove(OFFICE, 'property', 'OBJ1');
     await event({ event: 'resync' });
     expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
     await drainFetchList();
-    expect((await item('office', 'K1'))?.['deleted']).toBe(false);
+    expect((await item('office', OFFICE))?.['deleted']).toBe(false);
   });
 
   it('fetches at most five records at once (proposal point 10)', async () => {
     seed(fake);
-    for (let n = 2; n <= 20; n += 1) fake.put(CUSTOMER, 'property', estate(`OBJ${n}`));
+    for (let n = 2; n <= 20; n += 1) fake.put(OFFICE, 'property', estate(`OBJ${n}`));
     fake.delayMs = 20;
     await start();
     await drainFetchList();
@@ -325,8 +351,8 @@ describe('the Vitec adapter', () => {
 
   it('loads an added office without a new seq for the others (AC 14)', async () => {
     seed(fake);
-    fake.put(CUSTOMER, 'property', estate('OBJ2', 'K2'));
-    await start(['K1']);
+    fake.put('M2', 'property', estate('OBJ2', 'M2'));
+    await start([OFFICE]);
     await drainFetchList();
     const first = await item('property', 'OBJ1');
     expect(first?.['deleted']).toBe(false);
@@ -336,12 +362,15 @@ describe('the Vitec adapter', () => {
       id: CONNECTION,
       provider: 'vitec',
       credentials,
-      licensedOffices: ['K1', 'K2'],
+      licensedOffices: [OFFICE, 'M2'],
     });
-    await event({ event: 'offices_added', office_ids: ['K2'] });
+    fake.requests.length = 0;
+    await event({ event: 'offices_added', office_ids: ['M2'] });
     await drainFetchList();
 
-    expect((await item('property', 'OBJ2'))?.['office_id']).toBe('K2');
+    expect((await item('property', 'OBJ2'))?.['office_id']).toBe('M2');
     expect((await item('property', 'OBJ1'))?.['seq']).toBe(first?.['seq']);
+    // Only the added office was listed and fetched.
+    expect(fake.requests.every((request) => request.path.includes('/M2'))).toBe(true);
   });
 });

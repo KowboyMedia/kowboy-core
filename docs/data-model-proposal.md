@@ -40,13 +40,13 @@ and templates are per client, later.
    | all      | `id`                | the CRM's `Id`                                      | SRS §6.9, identity                                                             |
    | all      | `display`           | rules                                               | SRS §6; `{}` until the ledger exists                                           |
    | all      | `provider_extras`   | SRS §6.4                                            | `{}`; never hashed                                                             |
-   | property | `office_id`         | `Office.Id`                                         | Also the envelope `office_id`                                                  |
+   | property | `office_id`         | `Office.CustomerId`                                 | The office id is Vitec's customer id; `Office.Id` is its alias (Patric)        |
    | property | `agent_ids`         | `PrimaryAgentId`, `SecondaryAgentId`, primary first | SRS §6.9                                                                       |
    | property | `area_ids`          | `Address.Area.Id`, zero or one                      | As the CRM assigns it; no geographical matching (below)                        |
    | property | `association_id`    | `Extensions.HousingCooperative.Association.Id`      | SRS §6.9; needs `extend=housingCooperative`                                    |
    | property | `project_id`        | `ProjectId`                                         | The estate's project, null outside a project (point 9)                         |
-   | agent    | `office_ids`        | `Offices[].Id`                                      | One or several offices; the order per office stays in `offices[].order_number` |
-   | project  | `office_id`         | `Office.Id`                                         | Also the envelope `office_id`                                                  |
+   | agent    | `office_ids`        | `Offices[].CustomerId`                              | One or several offices; the order per office stays in `offices[].order_number` |
+   | project  | `office_id`         | `Office.CustomerId`                                 | Also the envelope `office_id`                                                  |
    | project  | `agent_ids`         | `PrimaryAgentId`, `SecondaryAgentId`, primary first | As property                                                                    |
    | project  | `area_ids`          | `Address.Area.Id`, zero or one                      | As property                                                                    |
    | envelope | `remote_updated_at` | the CRM's `ChangedAt`                               | SRS §3; the only "updated" timestamp                                           |

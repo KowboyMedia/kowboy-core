@@ -144,6 +144,7 @@ One approval promotes Core, the WP plugin channel and the Lovable kit. Every dep
 | `logEvent(type, fields)`                       | Write to the event log                                                                                                                    |
 | `healthCheck(name, fn)`                        | Add a named check to `/v1/health`                                                                                                         |
 | `connections()`                                | The connections this provider owns, so an adapter can resume its own work after a restart                                                 |
+| `report(error, context)`                       | Report an unexpected error to the error tracker (Sentry once wired) through the engine's own reporting; never with credentials            |
 
 Every call is idempotent. The engine never calls back into CRM-specific code except through the mappers and lifecycle handlers the adapter registered.
 

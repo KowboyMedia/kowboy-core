@@ -20,8 +20,8 @@ const RESOURCES: Record<string, string> = {
 
 export type FakeConnect = {
   url: string;
-  put(customerId: string, datatype: string, record: Record_): void;
-  remove(customerId: string, datatype: string, id: string): void;
+  put(officeId: string, datatype: string, record: Record_): void;
+  remove(officeId: string, datatype: string, id: string): void;
   /** Answer the next `times` requests with HTTP 500. */
   failNext(times: number): void;
   /** Hold every request this long, so concurrency can be observed. */
@@ -33,8 +33,8 @@ export type FakeConnect = {
 
 export function startFakeConnect(): Promise<FakeConnect> {
   const store = new Map<string, Map<string, Record_>>();
-  const bucket = (customerId: string, datatype: string): Map<string, Record_> => {
-    const key = `${customerId}/${datatype}`;
+  const bucket = (officeId: string, datatype: string): Map<string, Record_> => {
+    const key = `${officeId}/${datatype}`;
     const existing = store.get(key);
     if (existing) return existing;
     const created = new Map<string, Record_>();
@@ -47,8 +47,8 @@ export function startFakeConnect(): Promise<FakeConnect> {
   let inFlight = 0;
   const fake: FakeConnect = {
     url: '',
-    put: (customerId, datatype, record) => bucket(customerId, datatype).set(record.id, record),
-    remove: (customerId, datatype, id) => bucket(customerId, datatype).delete(id),
+    put: (officeId, datatype, record) => bucket(officeId, datatype).set(record.id, record),
+    remove: (officeId, datatype, id) => bucket(officeId, datatype).delete(id),
     failNext: (times) => (failures = times),
     delayMs: 0,
     requests: [],
@@ -72,10 +72,10 @@ export function startFakeConnect(): Promise<FakeConnect> {
         failures -= 1;
         return reply(500, { message: 'broken' });
       }
-      const [, advertising, resource, customerId, id] = url.pathname.split('/');
+      const [, advertising, resource, officeId, id] = url.pathname.split('/');
       const datatype = resource ? RESOURCES[resource] : undefined;
-      if (advertising !== 'Advertising' || !datatype || !customerId) return reply(404, {});
-      const records = bucket(customerId, datatype);
+      if (advertising !== 'Advertising' || !datatype || !officeId) return reply(404, {});
+      const records = bucket(officeId, datatype);
       if (id) {
         const record = records.get(id);
         return record ? reply(200, record) : reply(404, { message: 'not found' });
@@ -86,7 +86,11 @@ export function startFakeConnect(): Promise<FakeConnect> {
       const rows = [...records.values()]
         .filter((record) => !since || new Date(record.changedAt ?? 0) >= new Date(since))
         .sort((a, b) => a.id.localeCompare(b.id))
-        .map((record) => ({ id: record.id, customerId, changedAt: record.changedAt ?? null }));
+        .map((record) => ({
+          id: record.id,
+          customerId: officeId,
+          changedAt: record.changedAt ?? null,
+        }));
       const page = rows.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
       reply(200, {
         index: pageIndex,

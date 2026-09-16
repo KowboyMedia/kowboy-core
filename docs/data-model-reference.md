@@ -10,7 +10,7 @@ values are listed under `docs/inputs/vitec/enumerations/`. A field is `null` whe
 | Path | Type | Description | Source |
 | --- | --- | --- | --- |
 | `id` | string | SRS §6.9, identity | spine: Id |
-| `office_id` | string \| null | SRS §6.9; also the envelope office_id | spine: Office.Id |
+| `office_id` | string \| null | SRS §6.9; the office id is the customer id; also the envelope office_id | spine: Office.CustomerId |
 | `agent_ids` | string[] | SRS §6.9 | spine: PrimaryAgentId, SecondaryAgentId, primary first, nulls dropped |
 | `area_ids` | string[] | SRS §6.9; as the CRM assigns it, no geographical matching in Core | spine: Address.Area.Id, zero or one |
 | `association_id` | string \| null | SRS §6.9; needs extend=housingCooperative | spine: Extensions.HousingCooperative.Association.Id |
@@ -376,7 +376,7 @@ values are listed under `docs/inputs/vitec/enumerations/`. A field is `null` whe
 | Path | Type | Description | Source |
 | --- | --- | --- | --- |
 | `id` | string | SRS §6.9, identity; the envelope office_id is null, tenant-wide | spine: Id |
-| `office_ids` | string[] | One or several offices; the order per office stays in offices[].order_number | spine: Offices[].Id |
+| `office_ids` | string[] | One or several offices; the order per office stays in offices[].order_number | spine: Offices[].CustomerId |
 | `display` | object | SRS §6 | spine: rules, empty until the ledger exists |
 | `provider_extras.vitec` | object | SRS §6.4 | spine: nothing yet |
 | `name` | string | Namn | AdvertisingUser.Name |
@@ -416,13 +416,14 @@ values are listed under `docs/inputs/vitec/enumerations/`. A field is `null` whe
 | `reviews[].text` | string | Texten | AdvertisingUserReview.Text |
 | `reviews[].author_name` | string | Kund som gav omdöme | AdvertisingUserReview.AuthorName |
 
-## office (mirrors AdvertisingOffice, 20 paths)
+## office (mirrors AdvertisingOffice, 21 paths)
 
 | Path | Type | Description | Source |
 | --- | --- | --- | --- |
-| `id` | string | SRS §6.9, identity; also the envelope office_id | spine: Id |
+| `id` | string | SRS §6.9, identity; the customer id is the office id; also the envelope office_id | spine: CustomerId |
 | `display` | object | SRS §6 | spine: rules, empty until the ledger exists |
 | `provider_extras.vitec` | object | SRS §6.4 | spine: nothing yet |
+| `id` | string | Id | AdvertisingOffice.Id |
 | `brand_id` | string | Varumärkes-id | AdvertisingOffice.BrandId |
 | `name` | string | Namn på kontoret | AdvertisingOffice.Name |
 | `street_address` | string | Gatuadress/Besöksadress | AdvertisingOffice.StreetAddress |
@@ -517,7 +518,7 @@ values are listed under `docs/inputs/vitec/enumerations/`. A field is `null` whe
 | Path | Type | Description | Source |
 | --- | --- | --- | --- |
 | `id` | string | Identity, as property | spine: Id |
-| `office_id` | string \| null | Also the envelope office_id | spine: Office.Id |
+| `office_id` | string \| null | Also the envelope office_id | spine: Office.CustomerId |
 | `agent_ids` | string[] | As property | spine: PrimaryAgentId, SecondaryAgentId, primary first, nulls dropped |
 | `area_ids` | string[] | As property | spine: Address.Area.Id, zero or one |
 | `display` | object | SRS §6 | spine: rules, empty until the ledger exists |

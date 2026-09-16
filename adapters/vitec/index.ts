@@ -5,9 +5,10 @@
 //   every 12 h ──► "what changed since the last catch-up, less one hour" ──► fetch list
 //   every 24 h ──► Vitec's full id list against the ids seen ──► missing ones fetched to confirm
 //
-// A connection's credentials are a JSON document, `{"username", "password", "customer_ids"}`:
-// the Connect key pair and the customer ids (M30011 and the like) it fetches. Its licensed
-// offices are Vitec office ids, or empty for every office of those customers.
+// A connection's credentials are a JSON document, `{"username", "password"}`: the Connect key
+// pair. Its licensed offices are the office ids, which are what Connect calls customer ids
+// (M30011 and the like): every URL and notification carries one. They are also the fetch scope,
+// so a connection without offices fetches nothing and says so in `vitec.catch_up`.
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import * as connect from './api.js';
 import * as store from './store.js';
@@ -30,7 +31,7 @@ const COMPARE_EVERY_MS = 24 * 3_600_000;
 const LAG_LIMIT_MS = 5 * 60_000;
 const RETRIES_RED = 3;
 
-type Credentials = { username: string; password: string; customer_ids: string[] };
+type Credentials = { username: string; password: string };
 type Live = { connection: Connection; credentials: Credentials };
 
 /** Vitec's notification `type` per datatype; users are documented as both `User` and `Agent`. */
@@ -74,16 +75,8 @@ function credentialsOf(connection: Connection): Credentials | null {
   if (!connection.credentials) return null;
   try {
     const parsed = JSON.parse(connection.credentials) as Partial<Credentials>;
-    if (
-      typeof parsed.username === 'string' &&
-      typeof parsed.password === 'string' &&
-      Array.isArray(parsed.customer_ids)
-    ) {
-      return {
-        username: parsed.username,
-        password: parsed.password,
-        customer_ids: parsed.customer_ids.map(String),
-      };
+    if (typeof parsed.username === 'string' && typeof parsed.password === 'string') {
+      return { username: parsed.username, password: parsed.password };
     }
   } catch {
     // reported below as unreadable
@@ -91,11 +84,11 @@ function credentialsOf(connection: Connection): Credentials | null {
   return null;
 }
 
-/** Active connections whose credentials can be read. The others show up in `vitec.catch_up`. */
+/** Active connections with readable credentials and at least one office. The rest show up in `vitec.catch_up`. */
 async function live(current: AdapterApi): Promise<Live[]> {
   const result: Live[] = [];
   for (const connection of await current.connections()) {
-    if (!connection.active) continue;
+    if (!connection.active || connection.licensedOffices.length === 0) continue;
     const credentials = credentialsOf(connection);
     if (credentials) result.push({ connection, credentials });
   }
@@ -104,7 +97,7 @@ async function live(current: AdapterApi): Promise<Live[]> {
 
 // ---- Path 1: webhooks -------------------------------------------------------------------------
 
-type Notification = { customerId: string; id: string; datatype: Datatype | null };
+type Notification = { officeId: string; id: string; datatype: Datatype | null };
 
 /** Vitec sends the parameters as JSON and as query parameters (notifications.md); JSON first. */
 function parseNotification(
@@ -127,11 +120,11 @@ function parseNotification(
   const type = field('type');
   if (!type) return { error: 'type is required' };
   const datatype = NOTIFIED[type.toLowerCase()] ?? null;
-  if (!datatype) return { customerId: '', id: '', datatype: null };
-  const customerId = field('customerId');
+  if (!datatype) return { officeId: '', id: '', datatype: null };
+  const officeId = field('customerId');
   const id = field('id');
-  if (!customerId || !id) return { error: 'customerId and id are required' };
-  return { customerId, id, datatype };
+  if (!officeId || !id) return { error: 'customerId and id are required' };
+  return { officeId, id, datatype };
 }
 
 const tokenMatches = (given: string | undefined, expected: string): boolean =>
@@ -157,7 +150,7 @@ const routes: Route[] = [
       const correlationId = randomUUID();
       await store.enqueue([
         {
-          customerId: notification.customerId,
+          officeId: notification.officeId,
           datatype: notification.datatype,
           remoteId: notification.id,
           reason: 'webhook',
@@ -183,16 +176,16 @@ async function drainOnce(): Promise<void> {
   }
 }
 
-/** One record: fetched once, ingested into every connection that carries its customer. */
+/** One record: fetched once, ingested into every connection that licenses its office. */
 async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi): Promise<void> {
-  const owners = targets.filter((live) => live.credentials.customer_ids.includes(entry.customerId));
+  const owners = targets.filter((live) => live.connection.licensedOffices.includes(entry.officeId));
   const first = owners[0];
   if (!first) {
     await current.logEvent('fetch.orphan', {
-      customer_id: entry.customerId,
+      office_id: entry.officeId,
       datatype: entry.datatype,
       remote_id: entry.remoteId,
-      detail: 'no active connection carries this customer id',
+      detail: 'no active connection licenses this office',
     });
     return;
   }
@@ -200,14 +193,14 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
     const payload = await connect.getOne(
       first.credentials,
       entry.datatype,
-      entry.customerId,
+      entry.officeId,
       entry.remoteId,
     );
     if (payload === null) {
       for (const { connection } of owners) {
         await current.notFound(connection, entry.datatype, entry.remoteId);
       }
-      await store.forget(entry.customerId, entry.datatype, entry.remoteId);
+      await store.forget(entry.officeId, entry.datatype, entry.remoteId);
       return;
     }
     for (const { connection } of owners) {
@@ -215,21 +208,21 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
         correlationId: entry.correlationId,
       });
     }
-    await store.remember(entry.customerId, entry.datatype, entry.remoteId);
+    await store.remember(entry.officeId, entry.datatype, entry.remoteId);
     await queueReferences(entry, payload);
   } catch (error) {
     // A failed fetch is retried, never treated as a delete (strategy §5.3).
     const outcome = await store.requeue(entry, String(error));
     if (outcome === 'given_up') {
       const fields = {
-        customer_id: entry.customerId,
+        office_id: entry.officeId,
         datatype: entry.datatype,
         remote_id: entry.remoteId,
         attempts: entry.attempts + 1,
         detail: String(error),
       };
       await current.logEvent('fetch.failed', fields);
-      console.error(JSON.stringify({ level: 'error', message: 'vitec fetch given up', ...fields }));
+      current.report(new Error('vitec fetch given up'), fields);
     }
   }
 }
@@ -238,9 +231,9 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
 async function queueReferences(entry: store.Entry, payload: unknown): Promise<void> {
   const missing = [];
   for (const reference of referencedIds(entry.datatype, payload)) {
-    if (!(await store.isKnown(entry.customerId, reference.datatype, reference.id))) {
+    if (!(await store.isKnown(entry.officeId, reference.datatype, reference.id))) {
       missing.push({
-        customerId: entry.customerId,
+        officeId: entry.officeId,
         datatype: reference.datatype,
         remoteId: reference.id,
         reason: 'reference' as const,
@@ -255,33 +248,34 @@ async function queueReferences(entry: store.Entry, payload: unknown): Promise<vo
 
 type Listed = Map<Datatype, Map<string, Set<string>>>;
 
-/** Every id Vitec lists for the connection's customers, per datatype and customer. */
+/** Every id Vitec lists for the given offices, per datatype and office. */
 async function listAll(
   live: Live,
+  offices: readonly string[],
   datatypes: readonly Datatype[],
   changedSince?: Date,
 ): Promise<Listed> {
   const listed: Listed = new Map();
   for (const datatype of datatypes) {
-    const perCustomer = new Map<string, Set<string>>();
-    for (const customerId of live.credentials.customer_ids) {
+    const perOffice = new Map<string, Set<string>>();
+    for (const officeId of offices) {
       const ids = new Set<string>();
-      for await (const row of connect.list(live.credentials, datatype, customerId, changedSince)) {
+      for await (const row of connect.list(live.credentials, datatype, officeId, changedSince)) {
         ids.add(row.id);
       }
-      perCustomer.set(customerId, ids);
+      perOffice.set(officeId, ids);
     }
-    listed.set(datatype, perCustomer);
+    listed.set(datatype, perOffice);
   }
   return listed;
 }
 
 async function enqueueListed(listed: Listed, reason: store.Reason): Promise<void> {
   const correlationId = randomUUID();
-  for (const [datatype, perCustomer] of listed) {
-    for (const [customerId, ids] of perCustomer) {
+  for (const [datatype, perOffice] of listed) {
+    for (const [officeId, ids] of perOffice) {
       await store.enqueue(
-        [...ids].map((remoteId) => ({ customerId, datatype, remoteId, reason, correlationId })),
+        [...ids].map((remoteId) => ({ officeId, datatype, remoteId, reason, correlationId })),
       );
     }
   }
@@ -290,12 +284,12 @@ async function enqueueListed(listed: Listed, reason: store.Reason): Promise<void
 /** The ids seen before that Vitec no longer lists: fetched to confirm, never tombstoned blind. */
 async function enqueueMissing(listed: Listed): Promise<void> {
   const correlationId = randomUUID();
-  for (const [datatype, perCustomer] of listed) {
-    for (const [customerId, ids] of perCustomer) {
-      const missing = (await store.known(customerId, datatype)).filter((id) => !ids.has(id));
+  for (const [datatype, perOffice] of listed) {
+    for (const [officeId, ids] of perOffice) {
+      const missing = (await store.known(officeId, datatype)).filter((id) => !ids.has(id));
       await store.enqueue(
         missing.map((remoteId) => ({
-          customerId,
+          officeId,
           datatype,
           remoteId,
           reason: 'compare',
@@ -309,10 +303,10 @@ async function enqueueMissing(listed: Listed): Promise<void> {
 const listable = (datatype?: Datatype): readonly Datatype[] =>
   datatype ? connect.LISTABLE.filter((candidate) => candidate === datatype) : connect.LISTABLE;
 
-/** Everything the connection's customers publish, onto the list after any webhook fetches. */
-async function load(live: Live, datatype?: Datatype): Promise<Listed> {
+/** Everything the given offices publish, onto the list after any webhook fetches. */
+async function load(live: Live, offices: readonly string[], datatype?: Datatype): Promise<Listed> {
   const startedAt = new Date();
-  const listed = await listAll(live, listable(datatype));
+  const listed = await listAll(live, offices, listable(datatype));
   await enqueueListed(listed, 'load');
   await enqueueMissing(listed);
   await markCatchUp(live.connection.id, startedAt);
@@ -322,9 +316,9 @@ async function load(live: Live, datatype?: Datatype): Promise<Listed> {
 
 /** Resync with sweep (strategy §7.2): reload, and tell the engine which ids exist. */
 async function resync(live: Live, current: AdapterApi, datatype?: Datatype): Promise<void> {
-  const listed = await load(live, datatype);
-  for (const [listedDatatype, perCustomer] of listed) {
-    const ids = [...perCustomer.values()].flatMap((set) => [...set]);
+  const listed = await load(live, live.connection.licensedOffices, datatype);
+  for (const [listedDatatype, perOffice] of listed) {
+    const ids = [...perOffice.values()].flatMap((set) => [...set]);
     await current.presentIds(live.connection, listedDatatype, { officeId: null }, ids);
   }
 }
@@ -339,14 +333,14 @@ async function catchUp(live: Live): Promise<void> {
   const startedAt = new Date();
   const until = await store.getState(live.connection.id, 'catch_up_until');
   const since = until ? new Date(new Date(until).getTime() - CATCH_UP_OVERLAP_MS) : undefined;
-  const listed = await listAll(live, connect.LISTABLE, since);
+  const listed = await listAll(live, live.connection.licensedOffices, connect.LISTABLE, since);
   await enqueueListed(listed, 'catch_up');
   await markCatchUp(live.connection.id, startedAt);
 }
 
 async function compare(live: Live): Promise<void> {
   const startedAt = new Date();
-  await enqueueMissing(await listAll(live, connect.LISTABLE));
+  await enqueueMissing(await listAll(live, live.connection.licensedOffices, connect.LISTABLE));
   await store.setState(live.connection.id, 'compare_at', startedAt.toISOString());
 }
 
@@ -370,6 +364,7 @@ async function tickOnce(): Promise<void> {
         connection_id: target.connection.id,
         detail: String(error),
       });
+      current.report(error, { where: 'vitec schedule', connection_id: target.connection.id });
     }
   }
 }
@@ -382,6 +377,10 @@ async function catchUpHealth(current: AdapterApi): Promise<{ ok: boolean; detail
     if (!connection.active) continue;
     if (!credentialsOf(connection)) {
       problems.push(`${connection.id}: credentials are not readable`);
+      continue;
+    }
+    if (connection.licensedOffices.length === 0) {
+      problems.push(`${connection.id}: no offices configured`);
       continue;
     }
     const age = ageMs(await store.getState(connection.id, 'catch_up_at'));
@@ -411,7 +410,8 @@ export const vitecAdapter: Adapter = {
       const credentials = credentialsOf(event.connection);
       if (!credentials || !event.connection.active) return;
       const target = { connection: event.connection, credentials };
-      if (event.type === 'connection_added' || event.type === 'offices_added') await load(target);
+      if (event.type === 'connection_added') await load(target, event.connection.licensedOffices);
+      if (event.type === 'offices_added') await load(target, event.officeIds);
       if (event.type === 'resync') await resync(target, given, event.datatype);
     });
 
