@@ -1,6 +1,8 @@
 # Field tables
 
-**The universal data model is not defined yet, and this document is the record of that.**
+**The universal data model is not defined yet, and this document is the record of that.** A
+proposal exists, traced field by field to Vitec's models and the SRS:
+[data-model-proposal.md](data-model-proposal.md), waiting on Gate 2.
 
 An earlier version of this file listed a full model: addresses, prices, living space, rooms, phone
 numbers, agent portraits. None of it came from a CRM. It was assembled from the SRS's data-contract
@@ -52,9 +54,9 @@ The descriptive model - what a property, office, agent, area and association act
 added **in one piece**, not field by field as guesses accumulate. Defining it needs three things,
 none of which an agent can supply:
 
-1. **The CRM data models.** Vitec Connect's marketing endpoints and its full (not default limited)
-   datamodel, and the same for Mspecs. Neither has been read: the documentation is unreachable
-   from this environment (`docs/open-questions.md`, question 7).
+1. **The CRM data models.** Vitec Connect's advertising endpoints and its full (not default
+   limited) datamodel are read (`docs/inputs/vitec/`, fetched 2026-09-16) and the proposal is
+   traced to them. Mspecs is not documented yet.
 2. **The parity inventory** (strategy §9, Phase 5): what the current sites actually show, so the
    model covers the real use rather than the CRM's whole surface.
 3. **The rules ledger** for anything derived rather than copied, including every `display.*` string.
