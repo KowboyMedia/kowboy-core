@@ -47,29 +47,13 @@ Kowboy serves images through a separate CDN app. The SRS says images are CRM CDN
 order (§6.6), but there is no image field in the contract today and none will be added on a guess.
 When the model is defined, say whether Core carries image URLs at all or leaves them out entirely.
 
-## 7. Vitec Connect documentation is unreachable from this environment
+## 7. Vitec's rate limits are not documented
 
-**Update 2026-09-15:** still refused after the domain was allowed. The proxy passes github.com,
-api.github.com, raw.githubusercontent.com, registry.npmjs.org, jsr.io and packagist.org, and refuses
-`connect.maklare.vitec.net`, `example.com`, `wordpress.org` and `deno.land`, so the policy in force
-is an allowlist and the Vitec host is not on it. Worth checking: whether the change was saved on the
-environment this branch's sessions use, and whether a new session picked it up.
-
-`https://connect.maklare.vitec.net/Help/Section?id=advertising` is refused by the environment's
-network egress proxy, which answers 403 to the CONNECT before any request is made. **No approval
-prompt can appear for this**: the block is the environment's network policy, chosen when the
-environment was created, not a per-tool permission this session can ask for.
-
-Two ways to unblock, either is fine:
-
-- **Allow the domain.** The environment's network policy is edited where the environment is
-  configured (claude.ai/code → environments); `connect.maklare.vitec.net` needs to be reachable.
-  Documented at https://code.claude.com/docs/en/claude-code-on-the-web.
-- **Paste the documentation in.** Save the relevant pages into `docs/inputs/` as a human-supplied
-  spec. That is the path AGENTS.md already describes for anything from outside.
-
-Either way, what is needed is: the marketing endpoints, how to ask for the full datamodel rather
-than the default limited one, authentication and the installation id, pagination, and rate limits.
+The documentation is fetched (`docs/inputs/vitec/`), and it says nothing about rate limits: no
+limit, no headers, no guidance beyond "cache what you fetch". The adapter's fetch pacing (strategy
+§5.3, AC 29) needs a number. Ask Vitec, or take a conservative default such as a few requests per
+second per customer and raise it when Vitec says more. Until then the adapter is built with a
+configurable pace and no assumed limit.
 
 ## 8. Phase 1 cannot exit without the platform
 

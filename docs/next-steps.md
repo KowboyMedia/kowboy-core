@@ -6,15 +6,15 @@ the first item that is not done, and keep the file current. Decisions and open q
 
 ## Now
 
-1. **Fetch the Vitec Connect documentation** and save it as the spec of record under
-   `docs/inputs/vitec/`: the advertising section
-   (https://connect.maklare.vitec.net/Help/Section?id=advertising), the full datamodels (not the
-   default limited ones), authentication and installation id, pagination, rate limits. If the fetch
-   is refused with 403 from the proxy, tell Patric and carry on with whatever else is open. Status
-   2026-09-15: still refused after the domain was allowed; the environment reaches github.com and
-   registry.npmjs.org but not `connect.maklare.vitec.net` or `example.com`, so its policy is an
-   allowlist and the Vitec host is not on it yet (open question 7). The other way in is to paste the
-   pages into `docs/inputs/vitec/`.
+1. ~~**Fetch the Vitec Connect documentation**~~ Done 2026-09-16: `docs/inputs/vitec/` holds the
+   advertising section, one page per endpoint, every model and enumeration those pages reach, the
+   OpenAPI specification, the technical description (HTTP basic authentication with a key pair from
+   the Connect portal, customer-id prefixes such as `M30011`, security), the notifications (the
+   webhooks: subscriptions Vitec sets up, POSTs with `type`, `event`, `customerId`, `id`), the
+   Extend API (the full model behind `?extend=`), previews and the migration notes. Refresh with
+   `node scripts/fetch-vitec-docs.mjs`. Pagination is `paging.pageSize` and `paging.pageIndex` on
+   the list endpoints; a rate limit is not stated anywhere in the documentation, so it is a
+   question for Vitec (open question 7).
 2. **Propose the universal data model** from those documents, one field table per datatype
    (`property`, `agent`, `office`, `area`, `association`), every field traceable to a Vitec field or
    an SRS rule. Raise it as numbered issues for Gate 2. Do not touch `schemas/` until approved.
