@@ -55,9 +55,13 @@ function core_client_run_once(string $kind): void
         core_client_put_state('last_error', $error->getMessage());
         core_client_report('sync failed', ['kind' => $kind, 'detail' => $error->getMessage()]);
     } finally {
+        // One transaction, so "not running" and the run count are never seen half-written.
+        global $wpdb;
+        $wpdb->query('START TRANSACTION');
         core_client_put_state('running_since', null);
         core_client_put_state('last_finished_at', gmdate('c'));
         core_client_put_state('runs', (string) ((int) core_client_state('runs') + 1));
+        $wpdb->query('COMMIT');
     }
 }
 

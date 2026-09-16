@@ -151,10 +151,13 @@ async function runOnce(sql: Sql, kind: Kind, deadline: number): Promise<Outcome>
     await writeState(sql, 'last_error', String(error));
     report('sync failed', { kind, detail: String(error) });
   } finally {
-    await writeState(sql, 'running_since', null);
-    await writeState(sql, 'last_finished_at', now());
-    await sql`insert into core_sync_state (name, value) values ('runs', '1')
-              on conflict (name) do update set value = (core_sync_state.value::bigint + 1)::text`;
+    // One transaction, so "not running" and the run count are never seen half-written.
+    await sql.begin(async (tx) => {
+      await writeState(tx, 'running_since', null);
+      await writeState(tx, 'last_finished_at', now());
+      await tx`insert into core_sync_state (name, value) values ('runs', '1')
+               on conflict (name) do update set value = (core_sync_state.value::bigint + 1)::text`;
+    });
   }
   return outcome;
 }
