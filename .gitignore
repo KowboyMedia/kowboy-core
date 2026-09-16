@@ -1,4 +1,5 @@
 !.env.example
+.do/app.local.yaml
 *.log
 .DS_Store
 .claude/settings.local.json

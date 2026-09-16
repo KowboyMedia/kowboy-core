@@ -34,6 +34,25 @@ node dist/scripts/tenant.js add-subscriber t_acme "acme.se" https://acme.se/wp-j
 The Vitec adapter's connection format, webhook URL and settings (`VITEC_WEBHOOK_TOKEN`,
 `VITEC_FETCH_CONCURRENCY`) are in [adapters/vitec/README.md](adapters/vitec/README.md).
 
+## Deploying
+
+Core runs on DigitalOcean App Platform with a managed Postgres cluster in the same EU region
+(strategy §2). [`.do/app.yaml`](.do/app.yaml) is the app: a `web` service with its health check on
+`/v1/health`, a `worker`, and the cluster bound as `DATABASE_URL`. Once, to create it:
+
+1. Create the managed Postgres cluster in the region of the spec, named as its `cluster_name`,
+   with a database `core` and a user `core`.
+2. Copy `.do/app.yaml` to `.do/app.local.yaml` (ignored by git), fill in the three secrets
+   (`ADMIN_SECRET`, `CREDENTIALS_KEY` as 32 random bytes in base64, `VITEC_WEBHOOK_TOKEN`) and run
+   `doctl apps create --spec .do/app.local.yaml`.
+3. Commit back what DigitalOcean returns, secrets encrypted:
+   `doctl apps spec get <app-id> > .do/app.yaml`.
+
+Later changes are edits to `.do/app.yaml` followed by `doctl apps update <app-id> --spec
+.do/app.yaml`. Production never deploys on push, because a human approves each release
+(strategy §4); staging is the same spec with another name, `deploy_on_push: true` and its own
+cluster. Vitec is given the webhook URL `https://<app domain>/v1/hook/vitec/webhook/<token>`.
+
 ## Checking it
 
 ```bash

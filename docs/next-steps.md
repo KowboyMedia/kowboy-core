@@ -44,7 +44,9 @@ the first item that is not done, and keep the file current. Decisions and open q
 
 ## Later, when Patric supplies them
 
-- The platform (DigitalOcean App Platform, managed Postgres, EU) and its `DATABASE_URL` → Phase 1b.
+- The platform → Phase 1b. The app spec is in `.do/app.yaml` (2026-09-16); Patric creates the
+  managed Postgres cluster and either runs the three steps in the README or gives this environment
+  a DigitalOcean API token so an agent can.
 - Sentry DSN → replace the placeholder in `engine/errors.ts`.
 - The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
 - Vitec test credentials and a staging deploy → open question 18.
