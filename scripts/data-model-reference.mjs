@@ -25,140 +25,90 @@ const DATATYPES = [
 ];
 
 /**
- * The spine: the fields the SRS names, on top of the mirrored model. `rule` marks a value the
- * rules ledger computes; `source` is where the adapter reads it.
+ * The spine: the technical fields the SRS names, on top of the mirrored model. Identity, the
+ * relations between the five datatypes, and the two objects every item carries. Mappings,
+ * enumerations, search scalars and display strings are the rules-ledger phase, not Gate 2.
  */
 const SPINE = {
   property: [
-    ['id', 'string', 'Id', 'SRS §6.9'],
+    ['id', 'string', 'Id', 'SRS §6.9, identity'],
     [
-      'status',
-      'enum coming_soon | for_sale | sold | withdrawn',
-      'Status.Id, rule R-001',
-      'SRS §6.5; raw id in provider_extras',
+      'office_id',
+      'string | null',
+      'Office.Id',
+      'SRS §6.9; also the envelope office_id and the licensing filter',
     ],
     [
-      'listing_type',
-      'enum apartment | house | townhouse | plot | commercial | other',
-      'Subtype.Id and Type.Id, rule R-002',
-      'SRS §6.5',
+      'agent_ids',
+      'string[]',
+      'PrimaryAgentId, SecondaryAgentId, primary first, nulls dropped',
+      'SRS §6.9',
     ],
-    [
-      'tenure',
-      'enum freehold | leasehold | lease | tenant_ownership | share | condominium | tenancy | company | other',
-      'Tenure.Id, rule R-004',
-      'SRS §7; raw id in provider_extras',
-    ],
-    ['office_id', 'string', 'Office.Id', 'SRS §6.9; also the envelope office_id'],
-    ['agent_ids', 'string[]', 'PrimaryAgentId, SecondaryAgentId (primary first)', 'SRS §6.9'],
-    ['area_ids', 'string[]', 'Address.Area.Id (zero or one)', 'SRS §6.9'],
+    ['area_ids', 'string[]', 'Address.Area.Id, zero or one', 'SRS §6.9'],
     [
       'association_id',
       'string | null',
       'Extensions.HousingCooperative.Association.Id',
       'SRS §6.9; needs extend=housingCooperative',
     ],
-    ['lat', 'number | null', 'Address.Wgs84Coordinate.Latitude', 'SRS §6.8'],
-    ['lng', 'number | null', 'Address.Wgs84Coordinate.Longitude', 'SRS §6.8'],
-    ['slug', 'string', 'rule from address.street_address and address.postal_town', 'SRS §6.7'],
-    [
-      'price',
-      'number | null',
-      'pricing.starting_price, rule R-005 (price on request)',
-      'SRS §9 filter and sort',
-    ],
-    [
-      'rooms',
-      'number | null',
-      'buildings[].number_of_rooms of the main building, rule R-003',
-      'SRS §9 filter',
-    ],
-    [
-      'living_space',
-      'number | null',
-      'buildings[].area.living of the main building, rule R-003',
-      'SRS §9 filter',
-    ],
-    [
-      'additional_space',
-      'number | null',
-      'buildings[].area.gross_floor of the main building, rule R-003',
-      'SRS example',
-    ],
-    ['published_at', 'date-time | null', 'Marketing.PublishedAt', 'SRS §9 default sort'],
-    ['sold_at', 'date | null', 'sale.contract_date when status is sold, rule R-006', 'SRS §9 sort'],
-    [
-      'images[]',
-      'object[]',
-      'Images[]: Id, Category.Id, Name, Description, list order',
-      'SRS §6.6; items {id, category, name, description, sort}; URLs are decision 2',
-    ],
-    ['display', 'object', 'rules', 'SRS §6'],
-    ['provider_extras.vitec', 'object', 'raw Status.Id and Tenure.Id', 'SRS §6.4, never hashed'],
+    ['display', 'object', 'rules, empty until the ledger exists', 'SRS §6'],
+    ['provider_extras.vitec', 'object', 'nothing yet', 'SRS §6.4, never hashed'],
   ],
   agent: [
-    ['id', 'string', 'Id', 'SRS §6.9'],
+    ['id', 'string', 'Id', 'SRS §6.9, identity'],
     [
       'office_ids',
       'string[]',
       'Offices[].Id',
-      'SRS §6.9 style reference; the envelope office_id is null (tenant-wide)',
+      'The relation to offices; the envelope office_id is null, tenant-wide',
     ],
-    [
-      'image',
-      'object | null',
-      'Image: Id, Category.Id, Name, Description',
-      'The portrait; {id, category, name, description}; URLs are decision 2',
-    ],
-    ['display', 'object', 'rules', 'SRS §6'],
+    ['display', 'object', 'rules, empty until the ledger exists', 'SRS §6'],
     ['provider_extras.vitec', 'object', 'nothing yet', 'SRS §6.4'],
   ],
   office: [
-    ['id', 'string', 'Id', 'SRS §6.9; also the envelope office_id'],
-    ['lat', 'number | null', 'Coordinate.Latitude', 'SRS §6.8'],
-    ['lng', 'number | null', 'Coordinate.Longitude', 'SRS §6.8'],
-    ['display', 'object', 'rules', 'SRS §6'],
+    ['id', 'string', 'Id', 'SRS §6.9, identity; also the envelope office_id'],
+    ['display', 'object', 'rules, empty until the ledger exists', 'SRS §6'],
     ['provider_extras.vitec', 'object', 'nothing yet', 'SRS §6.4'],
   ],
   area: [
-    ['id', 'string', 'Id', 'SRS §6.9'],
-    ['office_id', 'string', 'Office.Id', 'Also the envelope office_id'],
-    ['polygon', 'object | null', 'Coordinates as GeoJSON MultiPolygon', 'SRS §6.8'],
-    ['images[]', 'object[]', 'Images[], as on property', 'Decision 2'],
-    ['display', 'object', 'rules', 'SRS §6'],
+    ['id', 'string', 'Id', 'SRS §6.9, identity'],
+    [
+      'office_id',
+      'string | null',
+      'Office.Id',
+      'The relation to its office; also the envelope office_id',
+    ],
+    ['display', 'object', 'rules, empty until the ledger exists', 'SRS §6'],
     ['provider_extras.vitec', 'object', 'nothing yet', 'SRS §6.4'],
   ],
   association: [
-    ['id', 'string', 'Id', 'SRS §6.9; the envelope office_id is null (tenant-wide)'],
-    ['display', 'object', 'rules', 'SRS §6'],
+    ['id', 'string', 'Id', 'SRS §6.9, identity; the envelope office_id is null, tenant-wide'],
+    ['display', 'object', 'rules, empty until the ledger exists', 'SRS §6'],
     ['provider_extras.vitec', 'object', 'nothing yet', 'SRS §6.4'],
   ],
 };
 
-/** Source fields the spine consumes, or that are not carried, so they are not mirrored. */
+/**
+ * Source fields the spine consumes, or that are not carried, so they are not mirrored: the
+ * identity and the reference objects, the change date (the envelope's remote_updated_at), files
+ * and documents (a separate app serves them), and the agent extensions (agents are their own items).
+ */
 const DROP = {
   property: new Set([
     'id',
-    'status',
     'office',
     'primaryAgentId',
     'secondaryAgentId',
-    'tenure',
     'changedAt',
-    'address.wgs84Coordinate',
     'files',
-    'images',
     'extensions.primaryAgent',
     'extensions.secondaryAgent',
   ]),
-  agent: new Set(['id', 'changedAt', 'image']),
-  office: new Set(['id', 'customerId', 'changedAt', 'coordinate']),
-  area: new Set(['id', 'changedAt', 'office', 'coordinates', 'images']),
+  agent: new Set(['id', 'changedAt']),
+  office: new Set(['id', 'customerId', 'changedAt']),
+  area: new Set(['id', 'changedAt', 'office']),
   association: new Set(['id', 'changedAt', 'documents']),
 };
-
-/** The one name the spine takes from the model: the SRS's `price` is a number. */
-const RENAME = { property: { price: 'pricing' } };
 
 const snake = (name) =>
   name
@@ -190,7 +140,7 @@ function typeOf(schema) {
 /** One property of a model: its path in `data`, its type, its source, and what to walk into. */
 function describe(datatype, definitionName, name, schema, prefix, sourcePrefix) {
   const sourcePath = sourcePrefix ? `${sourcePrefix}.${name}` : name;
-  const renamed = RENAME[datatype]?.[sourcePath] ?? snake(name);
+  const renamed = snake(name);
   const suffix = schema.type === 'array' ? '[]' : '';
   const path = (prefix ? `${prefix}.${renamed}` : renamed) + suffix;
   const items = schema.type === 'array' ? schema.items : schema;

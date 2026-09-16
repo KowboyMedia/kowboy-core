@@ -5,31 +5,19 @@ and the conventions in `docs/data-model-proposal.md`. Do not edit by hand. Every
 client finds in `data` for that datatype; every source is the Vitec model field it mirrors. Enum
 values are listed under `docs/inputs/vitec/enumerations/`. A field is `null` when the CRM has no value.
 
-## property (mirrors AdvertisingEstate, 359 paths)
+## property (mirrors AdvertisingEstate, 361 paths)
 
 | Path | Type | Description | Source |
 | --- | --- | --- | --- |
-| `id` | string | SRS §6.9 | spine: Id |
-| `status` | enum coming_soon \| for_sale \| sold \| withdrawn | SRS §6.5; raw id in provider_extras | spine: Status.Id, rule R-001 |
-| `listing_type` | enum apartment \| house \| townhouse \| plot \| commercial \| other | SRS §6.5 | spine: Subtype.Id and Type.Id, rule R-002 |
-| `tenure` | enum freehold \| leasehold \| lease \| tenant_ownership \| share \| condominium \| tenancy \| company \| other | SRS §7; raw id in provider_extras | spine: Tenure.Id, rule R-004 |
-| `office_id` | string | SRS §6.9; also the envelope office_id | spine: Office.Id |
-| `agent_ids` | string[] | SRS §6.9 | spine: PrimaryAgentId, SecondaryAgentId (primary first) |
-| `area_ids` | string[] | SRS §6.9 | spine: Address.Area.Id (zero or one) |
+| `id` | string | SRS §6.9, identity | spine: Id |
+| `office_id` | string \| null | SRS §6.9; also the envelope office_id and the licensing filter | spine: Office.Id |
+| `agent_ids` | string[] | SRS §6.9 | spine: PrimaryAgentId, SecondaryAgentId, primary first, nulls dropped |
+| `area_ids` | string[] | SRS §6.9 | spine: Address.Area.Id, zero or one |
 | `association_id` | string \| null | SRS §6.9; needs extend=housingCooperative | spine: Extensions.HousingCooperative.Association.Id |
-| `lat` | number \| null | SRS §6.8 | spine: Address.Wgs84Coordinate.Latitude |
-| `lng` | number \| null | SRS §6.8 | spine: Address.Wgs84Coordinate.Longitude |
-| `slug` | string | SRS §6.7 | spine: rule from address.street_address and address.postal_town |
-| `price` | number \| null | SRS §9 filter and sort | spine: pricing.starting_price, rule R-005 (price on request) |
-| `rooms` | number \| null | SRS §9 filter | spine: buildings[].number_of_rooms of the main building, rule R-003 |
-| `living_space` | number \| null | SRS §9 filter | spine: buildings[].area.living of the main building, rule R-003 |
-| `additional_space` | number \| null | SRS example | spine: buildings[].area.gross_floor of the main building, rule R-003 |
-| `published_at` | date-time \| null | SRS §9 default sort | spine: Marketing.PublishedAt |
-| `sold_at` | date \| null | SRS §9 sort | spine: sale.contract_date when status is sold, rule R-006 |
-| `images[]` | object[] | SRS §6.6; items {id, category, name, description, sort}; URLs are decision 2 | spine: Images[]: Id, Category.Id, Name, Description, list order |
-| `display` | object | SRS §6 | spine: rules |
-| `provider_extras.vitec` | object | SRS §6.4, never hashed | spine: raw Status.Id and Tenure.Id |
+| `display` | object | SRS §6 | spine: rules, empty until the ledger exists |
+| `provider_extras.vitec` | object | SRS §6.4, never hashed | spine: nothing yet |
 | `reference_id` | string | Objektnummer | AdvertisingEstate.ReferenceId |
+| `status` | enum (Api_EstateStatus) | Status på försäljningen/uthyrningen. | AdvertisingEstate.Status |
 | `project_id` | string | Projektid om bostaden ingår i ett projekt | AdvertisingEstate.ProjectId |
 | `address` | object | Adress och geografiska uppgifter | AdvertisingEstate.Address |
 | `address.street_address` | string | Gatuadress | AdvertisingAddress.StreetAddress |
@@ -43,6 +31,9 @@ values are listed under `docs/inputs/vitec/enumerations/`. A field is `null` whe
 | `address.municipality` | string | Kommun | AdvertisingAddress.Municipality |
 | `address.country_code` | string | Landskod | AdvertisingAddress.CountryCode |
 | `address.county_municipality_code` | string | LKF kod | AdvertisingAddress.CountyMunicipalityCode |
+| `address.wgs84_coordinate` | object | Wgs84 koordinat | AdvertisingAddress.Wgs84Coordinate |
+| `address.wgs84_coordinate.longitude` | number | Longitud | Wgs84Coordinate.Longitude |
+| `address.wgs84_coordinate.latitude` | number | Latitud | Wgs84Coordinate.Latitude |
 | `address.directions` | string | Vägbeskrivning | AdvertisingAddress.Directions |
 | `sale` | object | Försäljningen | AdvertisingEstate.Sale |
 | `sale.short_description` | string | Kort säljande beskrivning | AdvertisingSale.ShortDescription |
@@ -68,12 +59,23 @@ values are listed under `docs/inputs/vitec/enumerations/`. A field is `null` whe
 | `viewings[].is_digital` | boolean | Digital visning | AdvertisingViewing.IsDigital |
 | `viewings[].is_self_registration_enabled` | boolean | Om kunder ska kunna boka in sig själva | AdvertisingViewing.IsSelfRegistrationEnabled |
 | `viewings[].is_project_viewing` | boolean | Projektvisning | AdvertisingViewing.IsProjectViewing |
+| `images[]` | object[] | Bilder | AdvertisingEstate.Images |
+| `images[].id` | string | Id | AdvertisingImage.Id |
+| `images[].data_changed_at` | date-time | När bilddata förändrades senast | AdvertisingImage.DataChangedAt |
+| `images[].description` | string | Beskrivande text | AdvertisingImage.Description |
+| `images[].name` | string | Rubrik/Namn | AdvertisingImage.Name |
+| `images[].category` | enum (Api_ImageCategory) | Kategori | AdvertisingImage.Category |
+| `images[].extension` | string | Filändelse | AdvertisingImage.Extension |
+| `images[].cdn_references[]` | object[] | CDN referenser | AdvertisingImage.CdnReferences |
+| `images[].cdn_references[].name` | string |  | CdnImageReference.Name |
+| `images[].cdn_references[].url` | string |  | CdnImageReference.Url |
 | `links[]` | object[] | Länkar | AdvertisingEstate.Links |
 | `links[].name` | string | Namn | AdvertisingLink.Name |
 | `links[].category` | enum (Api_LinkCategory) | Kategori | AdvertisingLink.Category |
 | `links[].url` | string | URL | AdvertisingLink.Url |
 | `type` | enum (Api_EstateClassType) | Typ | AdvertisingEstate.Type |
 | `subtype` | enum (Api_EstateSubType) | Sökbegrepp | AdvertisingEstate.Subtype |
+| `tenure` | enum (Api_EstateTenure) | Upplåtelseform | AdvertisingEstate.Tenure |
 | `tags[]` | object[] | Taggningar (T ex VIP, Exklusiv) | AdvertisingEstate.Tags |
 | `tags[].type` | enum (Api_EstateTagType) | Typ av tagg | AdvertisingEstateTag.Type |
 | `tags[].names[]` | string[] | taggnamn | AdvertisingEstateTag.Names |
@@ -191,13 +193,13 @@ values are listed under `docs/inputs/vitec/enumerations/`. A field is `null` whe
 | `fees.lease.term` | date-time | Löptid | AdvertisingLease.Term |
 | `fees.lease.owner` | object | Upplåtare | AdvertisingLease.Owner |
 | `fees.lease.owner.name` | string | Namn | AdvertisingLeaseOwner.Name |
-| `pricing` | object | Prisuppgift | AdvertisingEstate.Price |
-| `pricing.starting_price` | number | Utgångspris | AdvertisingPrice.StartingPrice |
-| `pricing.final_price` | number | Slutpris | AdvertisingPrice.FinalPrice |
-| `pricing.starting_price_in_other_currency` | object | Utgångspris i annan valuta | AdvertisingPrice.StartingPriceInOtherCurrency |
-| `pricing.starting_price_in_other_currency.value` | number | Värde | MoneyValue.Value |
-| `pricing.starting_price_in_other_currency.currency` | string | Valuta (SEK, EURO, USD, osv) | MoneyValue.Currency |
-| `pricing.text` | string | Text | AdvertisingPrice.Text |
+| `price` | object | Prisuppgift | AdvertisingEstate.Price |
+| `price.starting_price` | number | Utgångspris | AdvertisingPrice.StartingPrice |
+| `price.final_price` | number | Slutpris | AdvertisingPrice.FinalPrice |
+| `price.starting_price_in_other_currency` | object | Utgångspris i annan valuta | AdvertisingPrice.StartingPriceInOtherCurrency |
+| `price.starting_price_in_other_currency.value` | number | Värde | MoneyValue.Value |
+| `price.starting_price_in_other_currency.currency` | string | Valuta (SEK, EURO, USD, osv) | MoneyValue.Currency |
+| `price.text` | string | Text | AdvertisingPrice.Text |
 | `electricity` | object | Elektricitet | AdvertisingEstate.Electricity |
 | `electricity.company` | string | Nätbolag | AdvertisingElectricity.Company |
 | `electricity.distributor` | string | Leverantör | AdvertisingElectricity.Distributor |
@@ -369,14 +371,13 @@ values are listed under `docs/inputs/vitec/enumerations/`. A field is `null` whe
 | `expenses.operation.entries[].value` | number | Kostnad per år | AdvertisingOperationExpenseEntry.Value |
 | `expenses.operation.description` | string | Beskrivning | AdvertisingOperationExpenses.Description |
 
-## agent (mirrors AdvertisingUser, 31 paths)
+## agent (mirrors AdvertisingUser, 40 paths)
 
 | Path | Type | Description | Source |
 | --- | --- | --- | --- |
-| `id` | string | SRS §6.9 | spine: Id |
-| `office_ids` | string[] | SRS §6.9 style reference; the envelope office_id is null (tenant-wide) | spine: Offices[].Id |
-| `image` | object \| null | The portrait; {id, category, name, description}; URLs are decision 2 | spine: Image: Id, Category.Id, Name, Description |
-| `display` | object | SRS §6 | spine: rules |
+| `id` | string | SRS §6.9, identity | spine: Id |
+| `office_ids` | string[] | The relation to offices; the envelope office_id is null, tenant-wide | spine: Offices[].Id |
+| `display` | object | SRS §6 | spine: rules, empty until the ledger exists |
 | `provider_extras.vitec` | object | SRS §6.4 | spine: nothing yet |
 | `name` | string | Namn | AdvertisingUser.Name |
 | `title` | string | Titel | AdvertisingUser.Title |
@@ -391,6 +392,16 @@ values are listed under `docs/inputs/vitec/enumerations/`. A field is `null` whe
 | `telephone.public` | object | Publikt telefonnummer | AdvertisingUserTelephoneNumbers.Public |
 | `telephone.public.msisdn` | string | MSISDN standardformat | PhoneNumber.Msisdn |
 | `telephone.public.display` | string | Visningstext | PhoneNumber.Display |
+| `image` | object | Bild | AdvertisingUser.Image |
+| `image.id` | string | Id | AdvertisingImage.Id |
+| `image.data_changed_at` | date-time | När bilddata förändrades senast | AdvertisingImage.DataChangedAt |
+| `image.description` | string | Beskrivande text | AdvertisingImage.Description |
+| `image.name` | string | Rubrik/Namn | AdvertisingImage.Name |
+| `image.category` | enum (Api_ImageCategory) | Kategori | AdvertisingImage.Category |
+| `image.extension` | string | Filändelse | AdvertisingImage.Extension |
+| `image.cdn_references[]` | object[] | CDN referenser | AdvertisingImage.CdnReferences |
+| `image.cdn_references[].name` | string |  | CdnImageReference.Name |
+| `image.cdn_references[].url` | string |  | CdnImageReference.Url |
 | `is_visible_in_staff_list` | boolean | Om användaren ska visas i personallistan | AdvertisingUser.IsVisibleInStaffList |
 | `offices[]` | object[] | Användarens tillhörighet till kontor | AdvertisingUser.Offices |
 | `offices[].id` | string | Kontorsid | AdvertisingUserOffice.Id |
@@ -405,14 +416,12 @@ values are listed under `docs/inputs/vitec/enumerations/`. A field is `null` whe
 | `reviews[].text` | string | Texten | AdvertisingUserReview.Text |
 | `reviews[].author_name` | string | Kund som gav omdöme | AdvertisingUserReview.AuthorName |
 
-## office (mirrors AdvertisingOffice, 19 paths)
+## office (mirrors AdvertisingOffice, 20 paths)
 
 | Path | Type | Description | Source |
 | --- | --- | --- | --- |
-| `id` | string | SRS §6.9; also the envelope office_id | spine: Id |
-| `lat` | number \| null | SRS §6.8 | spine: Coordinate.Latitude |
-| `lng` | number \| null | SRS §6.8 | spine: Coordinate.Longitude |
-| `display` | object | SRS §6 | spine: rules |
+| `id` | string | SRS §6.9, identity; also the envelope office_id | spine: Id |
+| `display` | object | SRS §6 | spine: rules, empty until the ledger exists |
 | `provider_extras.vitec` | object | SRS §6.4 | spine: nothing yet |
 | `brand_id` | string | Varumärkes-id | AdvertisingOffice.BrandId |
 | `name` | string | Namn på kontoret | AdvertisingOffice.Name |
@@ -428,32 +437,44 @@ values are listed under `docs/inputs/vitec/enumerations/`. A field is `null` whe
 | `email_address` | string | E-postadress | AdvertisingOffice.EmailAddress |
 | `seat` | string | Säte | AdvertisingOffice.Seat |
 | `description` | string | Beskrivning | AdvertisingOffice.Description |
+| `coordinate` | object | Koordinater | AdvertisingOffice.Coordinate |
+| `coordinate.longitude` | number | Longitud | Wgs84Coordinate.Longitude |
+| `coordinate.latitude` | number | Latitud | Wgs84Coordinate.Latitude |
 
-## area (mirrors AdvertisingArea, 14 paths)
+## area (mirrors AdvertisingArea, 23 paths)
 
 | Path | Type | Description | Source |
 | --- | --- | --- | --- |
-| `id` | string | SRS §6.9 | spine: Id |
-| `office_id` | string | Also the envelope office_id | spine: Office.Id |
-| `polygon` | object \| null | SRS §6.8 | spine: Coordinates as GeoJSON MultiPolygon |
-| `images[]` | object[] | Decision 2 | spine: Images[], as on property |
-| `display` | object | SRS §6 | spine: rules |
+| `id` | string | SRS §6.9, identity | spine: Id |
+| `office_id` | string \| null | The relation to its office; also the envelope office_id | spine: Office.Id |
+| `display` | object | SRS §6 | spine: rules, empty until the ledger exists |
 | `provider_extras.vitec` | object | SRS §6.4 | spine: nothing yet |
 | `name` | string | Namn | AdvertisingArea.Name |
 | `county_municipality_code` | string | LKF kod | AdvertisingArea.CountyMunicipalityCode |
+| `coordinates[]` | number[][][][] | Områdets koordinater i formatet GeoJSON Multipolygon (longitud, latitud) | AdvertisingArea.Coordinates |
 | `surroundings` | object | Närområde | AdvertisingArea.Surroundings |
 | `surroundings.service` | string | Närservice | AdvertisingSurroundings.Service |
 | `surroundings.communication` | string | Kommunikation | AdvertisingSurroundings.Communication |
 | `surroundings.area` | string | Allmänt om området | AdvertisingSurroundings.Area |
 | `surroundings.parking` | string | Parkering | AdvertisingSurroundings.Parking |
 | `surroundings.other` | string | Övrigt | AdvertisingSurroundings.Other |
+| `images[]` | object[] | Bilder | AdvertisingArea.Images |
+| `images[].id` | string | Id | AdvertisingImage.Id |
+| `images[].data_changed_at` | date-time | När bilddata förändrades senast | AdvertisingImage.DataChangedAt |
+| `images[].description` | string | Beskrivande text | AdvertisingImage.Description |
+| `images[].name` | string | Rubrik/Namn | AdvertisingImage.Name |
+| `images[].category` | enum (Api_ImageCategory) | Kategori | AdvertisingImage.Category |
+| `images[].extension` | string | Filändelse | AdvertisingImage.Extension |
+| `images[].cdn_references[]` | object[] | CDN referenser | AdvertisingImage.CdnReferences |
+| `images[].cdn_references[].name` | string |  | CdnImageReference.Name |
+| `images[].cdn_references[].url` | string |  | CdnImageReference.Url |
 
 ## association (mirrors AdvertisingAssociation, 36 paths)
 
 | Path | Type | Description | Source |
 | --- | --- | --- | --- |
-| `id` | string | SRS §6.9; the envelope office_id is null (tenant-wide) | spine: Id |
-| `display` | object | SRS §6 | spine: rules |
+| `id` | string | SRS §6.9, identity; the envelope office_id is null, tenant-wide | spine: Id |
+| `display` | object | SRS §6 | spine: rules, empty until the ledger exists |
 | `provider_extras.vitec` | object | SRS §6.4 | spine: nothing yet |
 | `name` | string | Föreningsnamn | AdvertisingAssociation.Name |
 | `corporate_number` | string | Organisationsnummer | AdvertisingAssociation.CorporateNumber |

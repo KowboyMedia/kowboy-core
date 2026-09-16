@@ -18,10 +18,11 @@ the first item that is not done, and keep the file current. Decisions and open q
 2. **Propose the universal data model** from those documents, one field table per datatype
    (`property`, `agent`, `office`, `area`, `association`), every field traceable to a Vitec field or
    an SRS rule. Raise it as numbered issues for Gate 2. Do not touch `schemas/` until approved.
-   Status 2026-09-16: proposed in `docs/data-model-proposal.md` as a shape, not a pick: `data`
-   mirrors everything the CRM publishes under mechanical snake_case names, with the SRS spine on
-   top; the inventory is generated into `docs/data-model-reference.md`. Seven decisions at the
-   proposal's end are Gate 2.
+   Status 2026-09-16: proposed in `docs/data-model-proposal.md` as the technical shape only:
+   identity, relations, change date, scope, and everything else mirrored mechanically from the
+   CRM (`docs/data-model-reference.md`, generated). Mappings, enumerations, search scalars and
+   display strings are the rules-ledger phase, not Gate 2. Four decisions at the proposal's end
+   are Gate 2.
 3. **After Gate 2:** update `schemas/`, then build the Vitec adapter: mappers against golden
    masters first, then the fetch layer (bulk sync via the marketing endpoints, webhooks, catch-up)
    per strategy §5.3. Images and documents are ignored; a separate app serves the CDN.
