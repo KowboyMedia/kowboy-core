@@ -6,3 +6,4 @@ package-lock.json
 # Human-supplied source documents: never reformat.
 docs/inputs
 acceptance/report.md
+clients/wordpress/core-client/lib

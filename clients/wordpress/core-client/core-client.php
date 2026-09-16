@@ -22,6 +22,10 @@ if (!defined('ABSPATH')) {
 const CORE_CLIENT_VERSION = '0.1.0';
 const CORE_CLIENT_FILE = __FILE__;
 
+// Action Scheduler, bundled: the job queue for the scheduled sync (includes/schedule.php). It
+// registers itself and loads the newest copy any plugin on the site brings.
+require_once __DIR__ . '/lib/action-scheduler/action-scheduler.php';
+
 require __DIR__ . '/includes/report.php';
 require __DIR__ . '/includes/settings.php';
 require __DIR__ . '/includes/store.php';

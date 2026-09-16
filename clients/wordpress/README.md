@@ -10,7 +10,8 @@ core-client/                     the plugin
   includes/store.php             post types, the index and state tables, upsert and delete
   includes/sync.php              the SRS §8 loop
   includes/bell.php              POST /wp-json/core/v1/bell
-  includes/schedule.php          WP-Cron: the 15 minute backstop
+  includes/schedule.php          the 15 minute backstop, an Action Scheduler recurring action
+  lib/action-scheduler/          Action Scheduler 4.1.0, bundled (GPLv3)
   includes/cli.php               wp core-client sync [--force], wp core-client status
   includes/report.php            error reporting placeholder (Sentry later)
 mu-plugins/core-client-updater.php   safe update, independent of the plugin (45 lines)
@@ -29,9 +30,13 @@ test/                            setup.sh, install.php and driver.php for the sc
 The first sync happens on the first bell or the next 15 minute run, or now: `wp core-client sync`.
 
 **How a bell is answered.** The endpoint answers 202 and then pulls from Core in that same request,
-after the answer has gone out, so neither WP-Cron nor traffic is needed for a bell to take effect.
-WP-Cron only runs the 15 minute backstop for a lost bell; a site with `DISABLE_WP_CRON` runs that
-from system cron. No task scheduler library is needed or used.
+after the answer has gone out, so neither a queue nor traffic is needed for a bell to take effect.
+
+**The backstop.** Every 15 minutes a sync runs anyway, as a recurring Action Scheduler action, in
+case a bell was lost. Action Scheduler is bundled with the plugin (`lib/action-scheduler`), so
+nothing else is installed, and every run is listed under Tools → Scheduled Actions. Its queue is
+ticked by WP-Cron; a site with `DISABLE_WP_CRON` runs `wp-cron.php` from system cron every minute,
+or `wp action-scheduler run`.
 
 ## What the site gets
 
@@ -59,10 +64,14 @@ itself, and does the swap. The release JSON is:
 { "version": "1.2.0", "package": "https://…/core-client.zip" }
 ```
 
-Every `v*` tag of this repository builds both files (`release.php`) and attaches them to the
-GitHub Release (`.github/workflows/release.yml`). Because the repository is private, a site cannot
-fetch them from there without a token; where they are served from is open question 16 in
-`docs/open-questions.md`. Whatever the answer, `CORE_CLIENT_UPDATE_URL` names the JSON's URL.
+Every `v*` tag of this repository builds both files (`release.php`), publishes them to the
+DigitalOcean Space named by the repository variables `DO_SPACES_BUCKET` and `DO_SPACES_REGION`
+(with the secrets `DO_SPACES_KEY` and `DO_SPACES_SECRET`), and attaches them to the GitHub Release
+as the record (`.github/workflows/release.yml`). Sites point at the Space:
+
+```php
+define('CORE_CLIENT_UPDATE_URL', 'https://<bucket>.<region>.digitaloceanspaces.com/core-client/core-client.json');
+```
 
 The updater never loads plugin code, so a broken release is replaced by the next one.
 

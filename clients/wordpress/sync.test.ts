@@ -97,8 +97,9 @@ async function start(core: CoreDetails): Promise<ClientDriver> {
       await driver('sync', kind);
     },
     async backstop(): Promise<void> {
-      const result = await driver<{ scheduled: boolean }>('backstop');
+      const result = await driver<{ scheduled: boolean; processed: number }>('backstop');
       expect(result.scheduled).toBe(true);
+      expect(result.processed).toBeGreaterThanOrEqual(1);
     },
     items: (datatype: string) => driver<ClientItem[]>('items', datatype),
     status: () => driver<ClientStatus>('status'),
@@ -163,6 +164,7 @@ describe('the WordPress client', () => {
     const files = stdout.trim().split('\n').sort();
     expect(files).toContain('core-client/core-client.php');
     expect(files).toContain('core-client/includes/sync.php');
+    expect(files).toContain('core-client/lib/action-scheduler/action-scheduler.php');
     expect(files.every((file) => file.startsWith('core-client/'))).toBe(true);
 
     const header = readFileSync(join(import.meta.dirname, 'core-client/core-client.php'), 'utf8');
@@ -174,8 +176,12 @@ describe('the WordPress client', () => {
   });
 
   it('ships PHP that parses', async () => {
+    // The plugin's own PHP; the bundled Action Scheduler is not ours to lint.
     const files = readdirSync(import.meta.dirname, { recursive: true, encoding: 'utf8' }).filter(
-      (file) => file.endsWith('.php') && !file.startsWith('vendor/'),
+      (file) =>
+        file.endsWith('.php') &&
+        !file.startsWith('vendor/') &&
+        !file.startsWith('core-client/lib/'),
     );
     expect(files.length).toBeGreaterThan(5);
     for (const file of files) await run('php', ['-l', join(import.meta.dirname, file)]);

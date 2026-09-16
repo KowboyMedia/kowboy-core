@@ -94,20 +94,8 @@ logEvent(type, fields, context?: { correlationId?, connectionId?, datatype?, rem
 
 That is an adapter API change, so it needs approval (E3). It is additive and breaks no caller.
 
-## 16. WordPress release assets live in a private repository
+## 16. The plugin's license, now that Action Scheduler is bundled
 
-Releases are approved as GitHub Release assets, and the workflow attaches `core-client.zip` and
-`core-client.json` to every `v*` release. But `KowboyMedia/kowboy-core` is private, and a
-WordPress site downloads updates with a plain URL and no token, so from this repository it would
-get 404. Three ways out, smallest first:
-
-- **a.** The workflow also copies the two files to a public place: a public `core-client-releases`
-  repository (GitHub Pages or its own releases), or a DigitalOcean Space next to the platform Core
-  will run on. One secret in this repository either way.
-- **b.** Core itself serves the two files once it is deployed (Phase 1b): one release promotes Core
-  and the plugin together, as strategy §4 wants, and nothing new is hosted. Not possible before the
-  platform exists.
-- **c.** Every site carries a read-only GitHub token in `wp-config.php` and the updater sends it.
-  More moving parts on every site; not recommended.
-
-Until one is chosen, `CORE_CLIENT_UPDATE_URL` can point at any URL that serves the JSON.
+Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPress plugins normally
+are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
+`clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.

@@ -43,6 +43,7 @@ define('WP_DEBUG', true);
 define('WP_DEBUG_DISPLAY', false);
 define('WP_DEBUG_LOG', true);
 define('WP_ENVIRONMENT_TYPE', 'local');
+define('DISABLE_WP_CRON', true);
 if (!defined('ABSPATH')) {
     define('ABSPATH', __DIR__ . '/');
 }
@@ -52,6 +53,14 @@ CONFIG
 ln -sfn "$repo/clients/wordpress/core-client" "$WP_ROOT/wp-content/plugins/core-client"
 mkdir -p "$WP_ROOT/wp-content/mu-plugins"
 ln -sfn "$repo/clients/wordpress/mu-plugins/core-client-updater.php" "$WP_ROOT/wp-content/mu-plugins/core-client-updater.php"
+
+# In the test install, Action Scheduler runs actions only when the driver asks it to.
+cat > "$WP_ROOT/wp-content/mu-plugins/core-client-test-runner.php" <<'RUNNER'
+<?php
+// Written by clients/wordpress/test/setup.sh. Not for any real site.
+add_filter('action_scheduler_allow_async_request_runner', '__return_false');
+add_filter('action_scheduler_disable_default_runner', '__return_true');
+RUNNER
 
 WP_ROOT="$WP_ROOT" php "$repo/clients/wordpress/test/install.php"
 echo "WordPress ready at $WP_ROOT"

@@ -7,6 +7,10 @@ parameters:
         - core-client
         - mu-plugins
         - test
+    excludePaths:
+        - core-client/lib
+    scanDirectories:
+        - core-client/lib/action-scheduler
     scanFiles:
         - vendor/php-stubs/wp-cli-stubs/wp-cli-stubs.php
         - vendor/php-stubs/wp-cli-stubs/wp-cli-commands-stubs.php

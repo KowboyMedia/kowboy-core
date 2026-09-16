@@ -4,7 +4,14 @@ import tseslint from 'typescript-eslint';
 
 /** Warnings only: lint never blocks a merge (strategy §3.2). CI reports them. */
 export default tseslint.config(
-  { ignores: ['dist/**', 'node_modules/**', 'clients/lovable-kit/supabase/**'] },
+  {
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'clients/lovable-kit/supabase/**',
+      'clients/wordpress/core-client/lib/**',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

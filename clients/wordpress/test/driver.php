@@ -69,7 +69,7 @@ function core_driver_reset(): array
     }
     $wpdb->query('TRUNCATE TABLE ' . core_client_index_table());
     $wpdb->query('TRUNCATE TABLE ' . core_client_state_table());
-    delete_transient('doing_cron');
+    as_unschedule_all_actions('core_client_backstop'); // the next boot schedules it afresh, due at once
     delete_site_transient('update_plugins');
     return ['ok' => true];
 }
@@ -94,9 +94,11 @@ function core_driver_sync(string $kind): array
 /** @return array<string, mixed> */
 function core_driver_backstop(): array
 {
-    $scheduled = wp_next_scheduled('core_client_backstop') !== false;
-    do_action('core_client_backstop');
-    return ['scheduled' => $scheduled, 'status' => core_client_status()];
+    $scheduled = as_has_scheduled_action('core_client_backstop');
+    // What Action Scheduler's own runners do from WP-Cron or at the end of a request: claim what
+    // is due and run it. The test install disables those runners, so this is the only one.
+    $processed = ActionScheduler::runner()->run('core-client driver');
+    return ['scheduled' => $scheduled, 'processed' => $processed, 'status' => core_client_status()];
 }
 
 /** @return list<array<string, mixed>> */
