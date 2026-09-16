@@ -98,6 +98,7 @@ Patric is the strategist and product owner. Agents find problems; Patric decides
 
 - Raise an issue when you find it, not at the end. Do not sit on it and do not resolve it yourself.
 - Raise it as a **numbered list**. Each item: the issue in one or two sentences, an optional suggested solution, and whether it needs approval. Patric answers by number.
+- **Tag every item with the part it concerns**, in brackets first: `[core]`, `[crm]` (any adapter), `[crm-vitec]`, `[crm-mspecs]`, `[client-wordpress]`, `[client-lovable]`.
 - Once an item is approved, act on it. That includes updating `docs/strategy.md`: agents may change the strategy when the change is approved, and note it in `docs/decisions.md`.
 
 ## Definition of done
