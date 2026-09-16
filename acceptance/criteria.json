@@ -1,5 +1,5 @@
 {
-  "note": "The authoritative wording lives in strategy \u00a710 (which amends SRS \u00a713). This file maps each criterion to the named tests that prove it. `phase` says when it can first be proved; a criterion with no tests yet must say why.",
+  "note": "The authoritative wording lives in strategy §10 (which amends SRS §13). This file maps each criterion to the named tests that prove it. `phase` says when it can first be proved; a criterion with no tests yet must say why.",
   "criteria": [
     {
       "ac": 1,
@@ -7,10 +7,10 @@
       "phase": "engine",
       "tests": [
         "golden masters (fake provider) property/basic",
-        "golden masters (fake provider) property/unknown-type",
+        "golden masters (fake provider) property/no-references",
         "golden masters (fake provider) office/basic",
         "golden masters (fake provider) agent/basic",
-        "golden masters (fake provider) area/with-polygon",
+        "golden masters (fake provider) area/basic",
         "golden masters (fake provider) association/basic"
       ],
       "note": "Proved on golden/fake, whose cases now cover identity, references and dummy fake_* fields only. display is empty in every case because no business rule exists. Real per-CRM golden masters arrive at Gate 3."
@@ -76,8 +76,11 @@
       "ac": 8,
       "title": "Core down: client sites keep serving",
       "phase": "clients",
-      "tests": [],
-      "note": "Needs the WordPress and Lovable clients (Phase 4)."
+      "tests": [
+        "the Lovable kit against Core keeps its copy and reports the failure when Core is down (AC 8)",
+        "the WordPress client against Core keeps its copy and reports the failure when Core is down (AC 8)"
+      ],
+      "note": "The sync half, on both real clients: the local copy stays and the failure is reported. Page rendering through a 24 h outage needs templates and a staging site."
     },
     {
       "ac": 9,
@@ -89,8 +92,11 @@
       "ac": 10,
       "title": "An added field reaches subscribers and breaks nothing",
       "phase": "clients",
-      "tests": [],
-      "note": "Half of this is client behaviour (Phase 4). The engine half is that data is stored and served verbatim."
+      "tests": [
+        "the Lovable kit against Core stores a field it has never seen, verbatim (AC 10, AC 30)",
+        "the WordPress client against Core stores a field it has never seen, verbatim (AC 10, AC 30)"
+      ],
+      "note": "Both real clients store an item with a field they have never seen, verbatim, and keep going. The engine half is that data is stored and served verbatim."
     },
     {
       "ac": 11,
@@ -143,8 +149,8 @@
         "ingest keeps the whole timeline of an entity in the event log (AC 16)",
         "admin answers the event timeline query",
         "ingest links a webhook to the write it caused by correlation id (AC 16)",
-        "the event log loses no event when many writers race to create the day partition",
-        "the event log drops partitions outside the retention window (AC 16)"
+        "the event log keeps every event when many writers log at once",
+        "the event log deletes events outside the retention window (AC 16)"
       ],
       "note": "Causes covered: written, unchanged, dropped (unlicensed, malformed, inactive, unknown datatype), tombstoned, bell, pull. A correlation id links a webhook to the write it caused; an adapter cannot yet stamp its own events with one (open question 9)."
     },
@@ -173,20 +179,52 @@
       "ac": 20,
       "title": "Real clients pass the sync and search suites",
       "phase": "clients",
-      "tests": []
+      "tests": [
+        "the Lovable kit against Core pulls when Core rings, and refuses a bell with the wrong secret",
+        "the WordPress client against Core pulls when Core rings, and refuses a bell with the wrong secret",
+        "the Lovable kit against Core converges from seq 0 to everything Core holds (AC 5, AC 34)",
+        "the WordPress client against Core converges from seq 0 to everything Core holds (AC 5, AC 34)",
+        "the Lovable kit against Core skips unchanged items and carries on from its cursor (AC 2)",
+        "the WordPress client against Core skips unchanged items and carries on from its cursor (AC 2)",
+        "the Lovable kit against Core drops an item locally when Core tombstones it (AC 3)",
+        "the WordPress client against Core drops an item locally when Core tombstones it (AC 3)",
+        "the Lovable kit against Core rewrites everything on forcerefresh, repairing damage a delta sync never sees (AC 5)",
+        "the WordPress client against Core rewrites everything on forcerefresh, repairing damage a delta sync never sees (AC 5)",
+        "the Lovable kit against Core stores a field it has never seen, verbatim (AC 10, AC 30)",
+        "the WordPress client against Core stores a field it has never seen, verbatim (AC 10, AC 30)",
+        "the Lovable kit against Core skips an item it cannot use, and keeps going (AC 30)",
+        "the WordPress client against Core skips an item it cannot use, and keeps going (AC 30)",
+        "the Lovable kit against Core rebuilds without ever emptying when Core says resync_required (AC 31)",
+        "the WordPress client against Core rebuilds without ever emptying when Core says resync_required (AC 31)",
+        "the Lovable kit against Core keeps its copy and reports the failure when Core is down (AC 8)",
+        "the WordPress client against Core keeps its copy and reports the failure when Core is down (AC 8)",
+        "the Lovable kit against Core misses no item while writes and bells keep coming (AC 19)",
+        "the WordPress client against Core misses no item while writes and bells keep coming (AC 19)",
+        "the Lovable kit against Core converges on its own schedule when bells never arrive (AC 22)",
+        "the WordPress client against Core converges on its own schedule when bells never arrive (AC 22)"
+      ],
+      "note": "The sync scenario suite (clients/sync-scenarios.ts), run as each real client against the real Core. The search/filter half needs the data model."
     },
     {
       "ac": 21,
       "title": "A broken client release is replaced safely",
       "phase": "clients",
-      "tests": []
+      "tests": [
+        "the WordPress client lets the must-use updater offer a newer release without touching the plugin (AC 21)",
+        "the WordPress client packages a release WordPress can install, with the version from the plugin header"
+      ],
+      "note": "WordPress: the must-use updater and the release package are proved; WordPress itself swaps the plugin. Lovable: the function and the site deploy separately by construction, which no test can add to."
     },
     {
       "ac": 22,
       "title": "With bells blocked a subscriber converges within 15 min",
       "phase": "engine",
-      "tests": ["a subscriber converges on its own schedule when bells never arrive (AC 22)"],
-      "note": "Proved with the client's own loop and no bell. The 15 minute figure is a client setting."
+      "tests": [
+        "a subscriber converges on its own schedule when bells never arrive (AC 22)",
+        "the Lovable kit against Core converges on its own schedule when bells never arrive (AC 22)",
+        "the WordPress client against Core converges on its own schedule when bells never arrive (AC 22)"
+      ],
+      "note": "Proved with the fake subscriber and with both real clients’ own backstops. The 15 minute figure is a client setting."
     },
     {
       "ac": 23,
@@ -252,7 +290,13 @@
       "ac": 30,
       "title": "Contract evolution",
       "phase": "clients",
-      "tests": []
+      "tests": [
+        "the Lovable kit against Core stores a field it has never seen, verbatim (AC 10, AC 30)",
+        "the WordPress client against Core stores a field it has never seen, verbatim (AC 10, AC 30)",
+        "the Lovable kit against Core skips an item it cannot use, and keeps going (AC 30)",
+        "the WordPress client against Core skips an item it cannot use, and keeps going (AC 30)"
+      ],
+      "note": "Additive fields and unusable items on both real clients. Reporting goes to the same placeholder as Core’s until a Sentry DSN exists. The release report’s flags wait on the pipeline."
     },
     {
       "ac": 31,

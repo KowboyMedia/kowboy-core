@@ -63,7 +63,8 @@ export type ClientSetup = {
   stop(): Promise<void>;
 };
 
-const property = (id: string): Record<string, unknown> => ({
+/** A property as the fake polling CRM holds it. */
+export const fakeProperty = (id: string): Record<string, unknown> => ({
   object_id: id,
   stage: 'active',
   object_type: 'flat',
@@ -110,7 +111,7 @@ export function syncScenarios(name: string, client: ClientSetup): void {
       (await site.items(datatype)).find((stored) => stored.remote_id === remoteId);
 
     const seed = async (...ids: string[]): Promise<void> => {
-      for (const id of ids) crm.put('property', id, property(id));
+      for (const id of ids) crm.put('property', id, fakeProperty(id));
       await poll();
     };
 
@@ -320,7 +321,7 @@ export function syncScenarios(name: string, client: ClientSetup): void {
         const ids = Array.from({ length: 30 }, (_, index) => `P-${String(index).padStart(3, '0')}`);
         const writing = (async () => {
           for (const id of ids) {
-            crm.put('property', id, property(id));
+            crm.put('property', id, fakeProperty(id));
             await poll();
           }
         })();

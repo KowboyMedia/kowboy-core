@@ -7,18 +7,27 @@ import { join } from 'node:path';
 
 const { criteria } = JSON.parse(readFileSync('acceptance/criteria.json', 'utf8'));
 
-const resultsFile = join(mkdtempSync(join(tmpdir(), 'core-report-')), 'results.json');
-try {
-  execFileSync('npx', ['vitest', 'run', '--reporter=json', `--outputFile=${resultsFile}`], {
-    stdio: 'inherit',
-  });
-} catch {
-  console.error('tests failed; the report below records that');
-}
+// Two runs: the default one, and the WordPress client suite, which has its own config because it
+// needs a WordPress install (clients/wordpress/test/setup.sh).
+const CONFIGS = ['vitest.config.ts', 'vitest.wordpress.config.ts'];
 
 const results = new Map();
-for (const file of JSON.parse(readFileSync(resultsFile, 'utf8')).testResults) {
-  for (const assertion of file.assertionResults) results.set(assertion.fullName, assertion.status);
+const outDir = mkdtempSync(join(tmpdir(), 'core-report-'));
+for (const config of CONFIGS) {
+  const resultsFile = join(outDir, `${config}.json`);
+  try {
+    execFileSync(
+      'npx',
+      ['vitest', 'run', '--config', config, '--reporter=json', `--outputFile=${resultsFile}`],
+      { stdio: 'inherit' },
+    );
+  } catch {
+    console.error(`tests under ${config} failed; the report below records that`);
+  }
+  for (const file of JSON.parse(readFileSync(resultsFile, 'utf8')).testResults) {
+    for (const assertion of file.assertionResults)
+      results.set(assertion.fullName, assertion.status);
+  }
 }
 
 const PHASE_LABEL = {

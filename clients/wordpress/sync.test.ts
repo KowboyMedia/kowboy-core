@@ -9,10 +9,16 @@ import type { AddressInfo } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { describe, expect, it } from 'vitest';
-import { until } from '../../acceptance/harness.js';
+import { harness, until, TOKEN } from '../../acceptance/harness.js';
+import { fakePollingAdapter, poll } from '../../adapters/fake-polling/index.js';
+import * as crm from '../../adapters/fake-polling/crm.js';
 import {
   BELL_SECRET,
+  CONNECTION,
+  fakeProperty,
   freePort,
   syncScenarios,
   type ClientDriver,
@@ -118,6 +124,55 @@ async function stop(): Promise<void> {
 syncScenarios('the WordPress client', { start, stop });
 
 describe('the WordPress client', () => {
+  it('touches posts the way WordPress and cache plugins listen for', async () => {
+    crm.reset();
+    const core = await harness({
+      adapters: [fakePollingAdapter],
+      connections: [{ id: CONNECTION, provider: 'fake-polling' }],
+      subscriber: false, // Core rings nobody, so every write below is this test's own sync
+    });
+    await start({ url: core.baseUrl, token: TOKEN, bellSecret: BELL_SECRET });
+    try {
+      crm.put('property', 'P-1', fakeProperty('P-1'));
+      crm.put('property', 'P-2', fakeProperty('P-2'));
+      await poll();
+      const written = await driver<{ hooks: Record<string, number> }>('sync', 'delta');
+      expect(written.hooks).toMatchObject({ core_item_updated: 2, core_item_deleted: 0 });
+      expect(written.hooks['save_post']).toBeGreaterThanOrEqual(2);
+      expect(written.hooks['clean_post_cache']).toBeGreaterThanOrEqual(2);
+
+      crm.remove('property', 'P-1');
+      await poll();
+      const deleted = await driver<{ hooks: Record<string, number> }>('sync', 'delta');
+      expect(deleted.hooks).toMatchObject({ deleted_post: 1, core_item_deleted: 1 });
+    } finally {
+      await stop();
+      await core.stop();
+    }
+  });
+
+  it('packages a release WordPress can install, with the version from the plugin header', async () => {
+    const out = mkdtempSync(join(tmpdir(), 'core-client-release-'));
+    await run('php', [
+      join(import.meta.dirname, 'release.php'),
+      out,
+      'https://example.test/core-client.zip',
+    ]);
+
+    const { stdout } = await run('unzip', ['-Z1', join(out, 'core-client.zip')]);
+    const files = stdout.trim().split('\n').sort();
+    expect(files).toContain('core-client/core-client.php');
+    expect(files).toContain('core-client/includes/sync.php');
+    expect(files.every((file) => file.startsWith('core-client/'))).toBe(true);
+
+    const header = readFileSync(join(import.meta.dirname, 'core-client/core-client.php'), 'utf8');
+    const version = /^\s*\*\s*Version:\s*(\S+)/m.exec(header)?.[1];
+    expect(JSON.parse(readFileSync(join(out, 'core-client.json'), 'utf8'))).toEqual({
+      version,
+      package: 'https://example.test/core-client.zip',
+    });
+  });
+
   it('ships PHP that parses', async () => {
     const files = readdirSync(import.meta.dirname, { recursive: true, encoding: 'utf8' }).filter(
       (file) => file.endsWith('.php') && !file.startsWith('vendor/'),

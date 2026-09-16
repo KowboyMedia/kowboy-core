@@ -28,7 +28,10 @@ not seen, only after every page succeeded, so the site is never emptied.
 
 One sync runs at a time per site (a Postgres advisory lock). A bell arriving during a run leaves a
 note that the running sync works through before it finishes, so nothing is lost and no two runs
-overlap. The schedule in `0002` runs a sync every 15 minutes whether or not a bell arrived.
+overlap. Supabase stops an invocation after a few minutes, so one works for at most a minute and
+then calls the function again to carry on where the cursors are: one bell finishes any sync,
+however large, without a second trigger from outside. The schedule in `0002` runs a sync every 15
+minutes whether or not a bell arrived.
 
 ## Installing it in a Lovable project
 
@@ -40,8 +43,9 @@ overlap. The schedule in `0002` runs a sync every 15 minutes whether or not a be
    supabase secrets set CORE_URL=https://core.example CORE_TENANT_TOKEN=… CORE_BELL_SECRET=…
    ```
 
-   `SUPABASE_DB_URL` is provided by Supabase itself. It must be the direct (session) connection,
-   which is what Supabase injects; a transaction-mode pooler cannot hold the lock.
+   `SUPABASE_DB_URL` and `SUPABASE_URL` are provided by Supabase itself. The database URL must be
+   the direct (session) connection, which is what Supabase injects; a transaction-mode pooler
+   cannot hold the lock. `SUPABASE_URL` is how the function calls itself to carry on a long sync.
 
 3. Deploy and migrate:
 

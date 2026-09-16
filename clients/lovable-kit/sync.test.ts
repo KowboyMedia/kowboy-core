@@ -3,11 +3,15 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterAll, beforeAll, expect } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
-import { until } from '../../acceptance/harness.js';
+import { harness, until, TOKEN } from '../../acceptance/harness.js';
+import { fakePollingAdapter, poll } from '../../adapters/fake-polling/index.js';
+import * as crm from '../../adapters/fake-polling/crm.js';
 import {
   BELL_SECRET,
+  CONNECTION,
+  fakeProperty,
   freePort,
   syncScenarios,
   type ClientDriver,
@@ -43,10 +47,14 @@ afterAll(async () => {
   await site.end();
 });
 
-async function start(core: CoreDetails): Promise<ClientDriver> {
+async function start(
+  core: CoreDetails,
+  extraEnv: Record<string, string> = {},
+): Promise<ClientDriver> {
   await site.query(`truncate ${Object.values(TABLES).join(', ')}, core_sync_state`);
 
   const port = await freePort();
+  const bellUrl = `http://127.0.0.1:${port}/`;
   deno = spawn(DENO, ['run', '--quiet', '--allow-all', '--config', CONFIG, FUNCTION], {
     env: {
       ...process.env,
@@ -55,10 +63,12 @@ async function start(core: CoreDetails): Promise<ClientDriver> {
       CORE_TENANT_TOKEN: core.token,
       CORE_BELL_SECRET: core.bellSecret,
       SUPABASE_DB_URL: process.env['DATABASE_URL'] ?? '',
+      // What Supabase injects for the function's own address; chaining calls itself through it.
+      SUPABASE_URL: `http://127.0.0.1:${port}`,
+      ...extraEnv,
     },
     stdio: ['ignore', 'inherit', 'inherit'],
   });
-  const bellUrl = `http://127.0.0.1:${port}/`;
   await until(
     () =>
       fetch(bellUrl).then(
@@ -133,3 +143,63 @@ async function stop(): Promise<void> {
 }
 
 syncScenarios('the Lovable kit', { start, stop });
+
+describe('the Lovable kit on its own', () => {
+  it('finishes a sync that outlasts one invocation by calling itself, from one bell', async () => {
+    crm.reset();
+    const core = await harness({
+      adapters: [fakePollingAdapter],
+      connections: [{ id: CONNECTION, provider: 'fake-polling' }],
+      subscriber: false, // Core rings nobody: the one bell below is the only external trigger
+    });
+    // A budget of nothing: every invocation hands over after its first page.
+    const client = await start(
+      { url: core.baseUrl, token: TOKEN, bellSecret: BELL_SECRET },
+      { CORE_SYNC_BUDGET_MS: '0' },
+    );
+    try {
+      const ids = Array.from({ length: 120 }, (_, index) => `P-${String(index).padStart(3, '0')}`);
+      for (const id of ids) crm.put('property', id, fakeProperty(id));
+      crm.put('office', 'B-1', { branch_id: 'B-1', branch_name: 'Main street' });
+      await poll();
+
+      const converged = async (): Promise<boolean> => {
+        const status = await client.status();
+        return (
+          status.pending === null &&
+          status.running_since === null &&
+          status.last_success_at !== null &&
+          (await client.items('property')).length === ids.length
+        );
+      };
+
+      expect(await client.bell('delta', BELL_SECRET)).toBe(202);
+      await until(converged, 'the chain of invocations to finish', 60_000);
+      const delta = await client.status();
+      // 120 properties are two pages: the first invocation hands over after page one.
+      expect(delta.runs).toBeGreaterThanOrEqual(2);
+      expect(delta.last_error).toBeNull();
+
+      // A rebuild hands over the same way, carries on from its cursors, and sweeps only at the end.
+      await site.query(
+        `update properties set data = '{"damaged": true}'::jsonb where remote_id = 'P-000'`,
+      );
+      expect(await client.bell('forcerefresh', BELL_SECRET)).toBe(202);
+      await until(
+        async () => (await converged()) && (await client.status()).runs >= delta.runs + 2,
+        'the chained rebuild to finish',
+        60_000,
+      );
+      const repaired = (await client.items('property')).find((item) => item.remote_id === 'P-000');
+      expect(repaired?.data?.['fake_label']).toBe('Kungsgatan P-000');
+      expect((await client.items('office')).map((item) => item.remote_id)).toEqual(['B-1']);
+      const { rows } = await site.query(
+        "select value from core_sync_state where name = 'rebuild_started_at'",
+      );
+      expect(rows).toHaveLength(0);
+    } finally {
+      await stop();
+      await core.stop();
+    }
+  }, 150_000);
+});

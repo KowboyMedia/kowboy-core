@@ -10,10 +10,11 @@ core-client/                     the plugin
   includes/store.php             post types, the index and state tables, upsert and delete
   includes/sync.php              the SRS §8 loop
   includes/bell.php              POST /wp-json/core/v1/bell
-  includes/schedule.php          WP-Cron: a run after each bell, and one every 15 minutes
+  includes/schedule.php          WP-Cron: the 15 minute backstop
   includes/cli.php               wp core-client sync [--force], wp core-client status
   includes/report.php            error reporting placeholder (Sentry later)
 mu-plugins/core-client-updater.php   safe update, independent of the plugin (45 lines)
+release.php                      builds core-client.zip and core-client.json for a release
 test/                            setup.sh, install.php and driver.php for the scenario suite
 ```
 
@@ -27,9 +28,10 @@ test/                            setup.sh, install.php and driver.php for the sc
 
 The first sync happens on the first bell or the next 15 minute run, or now: `wp core-client sync`.
 
-**Cron.** A bell schedules a WP-Cron event and spawns cron at once; the backstop is a WP-Cron event
-every 15 minutes. A site with `DISABLE_WP_CRON` runs both from system cron, so keep that cron at
-one minute.
+**How a bell is answered.** The endpoint answers 202 and then pulls from Core in that same request,
+after the answer has gone out, so neither WP-Cron nor traffic is needed for a bell to take effect.
+WP-Cron only runs the 15 minute backstop for a lost bell; a site with `DISABLE_WP_CRON` runs that
+from system cron. No task scheduler library is needed or used.
 
 ## What the site gets
 
@@ -40,19 +42,27 @@ one minute.
   returns it as an array; `display.*` are the strings to show.
 - `post_date` and `post_modified` are the CRM's `remote_updated_at`, never the local write time
   (SRS §7.1), so sitemaps and "updated" dates are right without any template logic.
-- Actions for cache plugins: `core_item_updated($post_id, $datatype)` and
-  `core_item_deleted($post_id, $datatype)`.
+- Every item goes through `wp_insert_post`, `wp_update_post` and `wp_delete_post`, so WordPress
+  fires what cache plugins listen for (`save_post`, `transition_post_status`, `clean_post_cache`,
+  `deleted_post`), and the plugin adds `core_item_updated($post_id, $datatype)` and
+  `core_item_deleted($post_id, $datatype)` for anything that wants the item itself.
 - The index table `wp_core_index` answers which post holds an item and its hash. Columns for the
   search filters are added with the data model.
 
 ## Safe update
 
 The must-use plugin tells WordPress's own updater where releases come from and enables auto-update
-for this plugin; WordPress downloads and swaps it. The release JSON Kowboy hosts is:
+for this plugin; WordPress shows the new version on the Plugins page, updates on request or by
+itself, and does the swap. The release JSON is:
 
 ```json
-{ "version": "1.2.0", "package": "https://…/core-client-1.2.0.zip" }
+{ "version": "1.2.0", "package": "https://…/core-client.zip" }
 ```
+
+Every `v*` tag of this repository builds both files (`release.php`) and attaches them to the
+GitHub Release (`.github/workflows/release.yml`). Because the repository is private, a site cannot
+fetch them from there without a token; where they are served from is open question 16 in
+`docs/open-questions.md`. Whatever the answer, `CORE_CLIENT_UPDATE_URL` names the JSON's URL.
 
 The updater never loads plugin code, so a broken release is replaced by the next one.
 

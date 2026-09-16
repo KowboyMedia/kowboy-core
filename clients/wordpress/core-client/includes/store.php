@@ -104,7 +104,13 @@ function core_client_index_row(string $datatype, string $connection_id, string $
     return is_object($row) ? $row : null;
 }
 
-/** Write one item from a /v1/changes page into its post and the index. Returns the post id. */
+/**
+ * Write one item from a /v1/changes page into its post and the index. Returns the post id.
+ *
+ * The post goes through wp_insert_post and wp_update_post, so WordPress fires what cache plugins
+ * listen for (save_post, transition_post_status, clean_post_cache), and core_item_updated says
+ * which item it was.
+ */
 function core_client_upsert_item(string $datatype, object $item, ?object $existing): int
 {
     global $wpdb;
@@ -155,7 +161,7 @@ function core_client_upsert_item(string $datatype, object $item, ?object $existi
     return $post_id;
 }
 
-/** A tombstone: the post and its index row go. Cache plugins listen on the action. */
+/** A tombstone: the post and its index row go, through wp_delete_post (deleted_post fires). */
 function core_client_delete_item(string $datatype, string $connection_id, string $remote_id): void
 {
     global $wpdb;

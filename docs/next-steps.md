@@ -24,9 +24,11 @@ the first item that is not done, and keep the file current. Decisions and open q
 4. ~~**In parallel, approved:** the client sync loops in `clients/wordpress/` and
    `clients/lovable-kit/` per SRS §8 and Appendices A and B.~~ Done 2026-09-15: both loops, both
    bell endpoints, both backstops, the WordPress updater and WP-CLI, and one scenario suite that
-   runs each real client against the real Core (`clients/README.md`). Open questions 10 to 14 came
-   out of it and need answers. Templates, search, routing, the example Lovable site and the
-   search/filter half of AC 20 wait for the model (item 3).
+   runs each real client against the real Core (`clients/README.md`). 2026-09-16: bells are
+   answered inside the WordPress request, the Lovable function chains itself, releases are packaged
+   on a `v*` tag, and the client criteria are in the acceptance report. Open: where the release
+   assets are hosted (open question 16). Templates, search, routing, the example Lovable site and
+   the search/filter half of AC 20 wait for the model (item 3).
 
 ## Later, when Patric supplies them
 

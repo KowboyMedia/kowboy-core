@@ -1,23 +1,13 @@
 <?php
-// When the sync runs (SRS §8): right after a bell, through WP-Cron, and every 15 minutes as the
-// backstop for a lost bell. A site on system cron (DISABLE_WP_CRON) runs both from there.
+// The 15 minute backstop (SRS §8): a bell can be lost, so WP-Cron runs a sync on a schedule too.
+// Bells themselves are answered inside the bell request (bell.php), so neither cron nor traffic is
+// needed for those. A site with DISABLE_WP_CRON runs this schedule from system cron.
 
 declare(strict_types=1);
 
-add_action('core_client_run_sync', function (string $kind = 'delta'): void {
-    core_client_sync($kind);
-});
 add_action('core_client_backstop', function (): void {
     core_client_sync('delta');
 });
-
-/** Run a sync as soon as WP-Cron can: leave the note now, so a running sync picks it up too. */
-function core_client_schedule_sync(string $kind): void
-{
-    core_client_leave_note($kind);
-    wp_schedule_single_event(time() - 1, 'core_client_run_sync', [$kind]);
-    spawn_cron();
-}
 
 add_filter('cron_schedules', function (array $schedules): array {
     $schedules['core_client_15min'] = ['interval' => 15 * MINUTE_IN_SECONDS, 'display' => 'Every 15 minutes'];

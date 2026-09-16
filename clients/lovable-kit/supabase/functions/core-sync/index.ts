@@ -7,9 +7,15 @@
 // All state is in Postgres (core_sync_state), so any number of function instances agree: an
 // advisory lock makes syncs run one at a time, and a bell arriving mid-run leaves a note
 // ("pending") that the running sync works through before it lets go of the lock.
+//
+// Supabase stops an invocation after a few minutes, so one works for at most BUDGET_MS and then
+// calls the function again to carry on (chain): one bell, however many invocations the sync takes.
 import postgres from 'postgres';
 
 const VERSION = '0.1.0';
+
+/** How long one invocation works before handing over. Well under Supabase's wall-clock limit. */
+const BUDGET_MS = Number(Deno.env.get('CORE_SYNC_BUDGET_MS') ?? 60_000);
 
 /** Reference order (SRS §6.9): offices and agents before the properties that point at them. */
 const DATATYPES = ['office', 'agent', 'area', 'association', 'property'] as const;
@@ -24,6 +30,9 @@ const TABLE: Record<Datatype, string> = {
 };
 
 type Kind = 'delta' | 'forcerefresh';
+
+/** How a run ended: everything pulled, or the budget spent with more to do. */
+type Outcome = 'done' | 'out_of_time';
 
 /** One sync at a time per site. The key is arbitrary; every instance uses the same one. */
 const LOCK_KEY = 20260915;
@@ -89,45 +98,54 @@ function background(task: Promise<void>): void {
   runtime?.waitUntil(guarded);
 }
 
-/** Leave the note, take the lock, work through every note, let go. Whoever holds the lock runs. */
+/**
+ * Leave the note, take the lock, work through every note, let go. Whoever holds the lock runs.
+ * When the budget runs out first, the note goes back and a fresh invocation takes over.
+ */
 async function sync(kind: Kind): Promise<void> {
+  const deadline = Date.now() + BUDGET_MS;
   // One connection, so the advisory lock belongs to this run and dies with it.
   const sql = postgres(env('SUPABASE_DB_URL'), { max: 1 });
+  let handOver: Kind | null = null;
   try {
     await leaveNote(sql, kind);
     while (await tryLock(sql)) {
       try {
         for (let next = await takeNote(sql); next; next = await takeNote(sql)) {
-          await runOnce(sql, next);
+          if ((await runOnce(sql, next, deadline)) === 'out_of_time') {
+            await leaveNote(sql, next);
+            handOver = next;
+            break;
+          }
         }
       } finally {
         await sql`select pg_advisory_unlock(${LOCK_KEY})`;
       }
       // A note left between the last look and the unlock is someone's to run: ours if still there.
-      if ((await readState(sql, 'pending')) === null) break;
+      if (handOver || (await readState(sql, 'pending')) === null) break;
     }
   } finally {
     await sql.end();
   }
+  if (handOver) await chain(handOver);
 }
 
-async function runOnce(sql: Sql, kind: Kind): Promise<void> {
+async function runOnce(sql: Sql, kind: Kind, deadline: number): Promise<Outcome> {
   const now = (): string => new Date().toISOString();
   await writeState(sql, 'running_since', now());
   await writeState(sql, 'last_kind', kind);
+  let outcome: Outcome = 'done';
   try {
-    if (kind === 'forcerefresh') {
-      await rebuild(sql);
-    } else {
-      for (const datatype of DATATYPES) {
-        if ((await pull(sql, datatype, false)) === 'resync_required') {
-          await rebuild(sql);
-          break;
-        }
-      }
+    // A rebuild that handed over mid-way carries on before anything else.
+    const rebuilding = (await readState(sql, 'rebuild_started_at')) !== null;
+    outcome =
+      kind === 'forcerefresh' || rebuilding
+        ? await rebuild(sql, deadline)
+        : await pullEverything(sql, deadline);
+    if (outcome === 'done') {
+      await writeState(sql, 'last_success_at', now());
+      await writeState(sql, 'last_error', null);
     }
-    await writeState(sql, 'last_success_at', now());
-    await writeState(sql, 'last_error', null);
   } catch (error) {
     // The cursor moved with every page that succeeded; the next run carries on from there.
     await writeState(sql, 'last_error', String(error));
@@ -138,18 +156,30 @@ async function runOnce(sql: Sql, kind: Kind): Promise<void> {
     await sql`insert into core_sync_state (name, value) values ('runs', '1')
               on conflict (name) do update set value = (core_sync_state.value::bigint + 1)::text`;
   }
+  return outcome;
+}
+
+/** A delta: every datatype from its cursor, in reference order. */
+async function pullEverything(sql: Sql, deadline: number): Promise<Outcome> {
+  for (const datatype of DATATYPES) {
+    const result = await pull(sql, datatype, false, deadline);
+    if (result === 'resync_required') return rebuild(sql, deadline);
+    if (result === 'out_of_time') return 'out_of_time';
+  }
+  return 'done';
 }
 
 /**
- * Page through /v1/changes from the stored cursor (or from 0 when rewriting everything). Each page
- * and its cursor commit together, so a failure never leaves the cursor ahead of the data.
+ * Page through /v1/changes from the stored cursor. Each page and its cursor commit together, so a
+ * failure never leaves the cursor ahead of the data, and a hand-over mid-way loses nothing.
  */
 async function pull(
   sql: Sql,
   datatype: Datatype,
   rewriteAll: boolean,
-): Promise<'ok' | 'resync_required'> {
-  let after = rewriteAll ? 0 : Number((await readState(sql, `after.${datatype}`)) ?? 0);
+  deadline: number,
+): Promise<'ok' | 'resync_required' | 'out_of_time'> {
+  let after = Number((await readState(sql, `after.${datatype}`)) ?? 0);
   for (;;) {
     const response = await fetch(
       `${env('CORE_URL')}/v1/changes?datatype=${datatype}&after=${after}`,
@@ -171,6 +201,7 @@ async function pull(
 
     after = page.next_after;
     if (!page.has_more) return 'ok';
+    if (Date.now() > deadline) return 'out_of_time';
   }
 }
 
@@ -223,18 +254,44 @@ const usable = (item: Item): boolean =>
 /**
  * Pull everything from seq 0 and rewrite every row (forcerefresh, SRS §8), then drop what was not
  * seen, only once every page succeeded: the site keeps serving its old copy until then and is
- * never emptied (strategy §7). Also the answer to resync_required.
+ * never emptied (strategy §7). Also the answer to resync_required. The start time is kept in the
+ * state, so a rebuild that hands over mid-way carries on from its cursors instead of starting again.
  */
-async function rebuild(sql: Sql): Promise<void> {
-  const [{ started }] = await sql<{ started: Date }[]>`select now() as started`;
-  for (const datatype of DATATYPES) {
-    if ((await pull(sql, datatype, true)) === 'resync_required') {
-      throw new Error('resync required from seq 0');
-    }
+async function rebuild(sql: Sql, deadline: number): Promise<Outcome> {
+  let started = await readState(sql, 'rebuild_started_at');
+  if (started === null) {
+    const [row] = await sql<{ now: Date }[]>`select now() as now`;
+    started = row.now.toISOString();
+    await sql.begin(async (tx) => {
+      for (const datatype of DATATYPES) await writeState(tx, `after.${datatype}`, '0');
+      await writeState(tx, 'rebuild_started_at', started);
+    });
   }
   for (const datatype of DATATYPES) {
-    await sql`delete from ${sql(TABLE[datatype])} where synced_at < ${started}`;
+    const result = await pull(sql, datatype, true, deadline);
+    if (result === 'resync_required') throw new Error('resync required from seq 0');
+    if (result === 'out_of_time') return 'out_of_time';
   }
+  for (const datatype of DATATYPES) {
+    await sql`delete from ${sql(TABLE[datatype])} where synced_at < ${started}::timestamptz`;
+  }
+  await writeState(sql, 'rebuild_started_at', null);
+  return 'done';
+}
+
+/** Hand the rest of the work to a fresh invocation: one bell, however many runs it takes. */
+async function chain(kind: Kind): Promise<void> {
+  const base = Deno.env.get('SUPABASE_URL');
+  if (!base) {
+    report('cannot chain: SUPABASE_URL is not set; the scheduled run carries on instead');
+    return;
+  }
+  const response = await fetch(`${base}/functions/v1/core-sync`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-core-secret': env('CORE_BELL_SECRET') },
+    body: JSON.stringify({ kind }),
+  });
+  if (response.status !== 202) report('chain refused', { status: response.status });
 }
 
 async function readState(sql: Sql, name: string): Promise<string | null> {

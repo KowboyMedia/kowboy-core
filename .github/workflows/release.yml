@@ -1,0 +1,29 @@
+name: Release
+
+# A tag v* is a release (strategy §4): the WordPress plugin's update assets are attached to it,
+# and sites find them through CORE_CLIENT_UPDATE_URL (clients/wordpress/README.md).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  wordpress-client:
+    name: WordPress client release assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package the plugin
+        run: |
+          php clients/wordpress/release.php dist/core-client \
+            "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/core-client.zip"
+      - name: Attach it to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${{ github.ref_name }}" >/dev/null 2>&1 \
+            || gh release create "${{ github.ref_name }}" --title "${{ github.ref_name }}" --generate-notes
+          gh release upload "${{ github.ref_name }}" --clobber \
+            dist/core-client/core-client.zip dist/core-client/core-client.json

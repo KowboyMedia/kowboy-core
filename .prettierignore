@@ -5,3 +5,4 @@ package-lock.json
 
 # Human-supplied source documents: never reformat.
 docs/inputs
+acceptance/report.md

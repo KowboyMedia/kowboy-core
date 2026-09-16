@@ -69,10 +69,26 @@ function core_driver_reset(): array
     }
     $wpdb->query('TRUNCATE TABLE ' . core_client_index_table());
     $wpdb->query('TRUNCATE TABLE ' . core_client_state_table());
-    wp_unschedule_hook('core_client_run_sync');
     delete_transient('doing_cron');
     delete_site_transient('update_plugins');
     return ['ok' => true];
+}
+
+/**
+ * Run a sync and count the WordPress actions it fired, the ones cache plugins listen for.
+ *
+ * @return array<string, mixed>
+ */
+function core_driver_sync(string $kind): array
+{
+    $hooks = ['save_post' => 0, 'deleted_post' => 0, 'clean_post_cache' => 0, 'core_item_updated' => 0, 'core_item_deleted' => 0];
+    foreach (array_keys($hooks) as $hook) {
+        add_action($hook, function () use (&$hooks, $hook): void {
+            $hooks[$hook] += 1;
+        });
+    }
+    $status = core_client_sync($kind);
+    return ['status' => $status, 'hooks' => $hooks];
 }
 
 /** @return array<string, mixed> */
@@ -147,7 +163,7 @@ function core_driver_update_check(): array
 $result = match ($command) {
     'configure' => core_driver_configure((array) json_decode($argument, true)),
     'reset' => core_driver_reset(),
-    'sync' => core_client_sync($argument === '' ? 'delta' : $argument),
+    'sync' => core_driver_sync($argument === '' ? 'delta' : $argument),
     'backstop' => core_driver_backstop(),
     'items' => core_driver_items($argument),
     'status' => core_client_status(),
