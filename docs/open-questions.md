@@ -4,15 +4,6 @@ Everything an agent could not settle from the Concept, the SRS, the strategy or 
 Each one names what is blocked and what the smaller option would be, so answering is quick.
 Answered questions move to `decisions.md` and are deleted from here.
 
-## 1. Gate 2 cannot be held yet: there is no data model to approve
-
-`docs/field-tables.md` no longer proposes a model. The invented fields are gone, the contract is
-the structural spine, and the schemas say `INCOMPLETE`.
-
-Defining the real model needs the CRM data models (question 7), the parity inventory and the rules
-ledger. Until then Gate 2 has nothing to approve, and building the clients or the adapters against
-this contract means building against identity and references only.
-
 ## 2. Protected paths created by an agent
 
 `schemas/`, `acceptance/` and `golden/fake/` did not exist before. CODEOWNERS now protects the
@@ -46,14 +37,6 @@ should be. `rules-ledger/` is protected and empty, so nothing can be written unt
 Kowboy serves images through a separate CDN app. The SRS says images are CRM CDN URLs with a sort
 order (§6.6), but there is no image field in the contract today and none will be added on a guess.
 When the model is defined, say whether Core carries image URLs at all or leaves them out entirely.
-
-## 7. Vitec's rate limits are not documented
-
-The documentation is fetched (`docs/inputs/vitec/`), and it says nothing about rate limits: no
-limit, no headers, no guidance beyond "cache what you fetch". The adapter's fetch pacing (strategy
-§5.3, AC 29) needs a number. Ask Vitec, or take a conservative default such as a few requests per
-second per customer and raise it when Vitec says more. Until then the adapter is built with a
-configurable pace and no assumed limit.
 
 ## 8. Phase 1 cannot exit without the platform
 

@@ -10,15 +10,15 @@ values are listed under `docs/inputs/vitec/enumerations/`. A field is `null` whe
 | Path | Type | Description | Source |
 | --- | --- | --- | --- |
 | `id` | string | SRS §6.9, identity | spine: Id |
-| `office_id` | string \| null | SRS §6.9; also the envelope office_id and the licensing filter | spine: Office.Id |
+| `office_id` | string \| null | SRS §6.9; also the envelope office_id | spine: Office.Id |
 | `agent_ids` | string[] | SRS §6.9 | spine: PrimaryAgentId, SecondaryAgentId, primary first, nulls dropped |
-| `area_ids` | string[] | SRS §6.9 | spine: Address.Area.Id, zero or one |
+| `area_ids` | string[] | SRS §6.9; as the CRM assigns it, no geographical matching in Core | spine: Address.Area.Id, zero or one |
 | `association_id` | string \| null | SRS §6.9; needs extend=housingCooperative | spine: Extensions.HousingCooperative.Association.Id |
+| `project_id` | string \| null | The estate's project, null outside a project | spine: ProjectId |
 | `display` | object | SRS §6 | spine: rules, empty until the ledger exists |
 | `provider_extras.vitec` | object | SRS §6.4, never hashed | spine: nothing yet |
 | `reference_id` | string | Objektnummer | AdvertisingEstate.ReferenceId |
 | `status` | enum (Api_EstateStatus) | Status på försäljningen/uthyrningen. | AdvertisingEstate.Status |
-| `project_id` | string | Projektid om bostaden ingår i ett projekt | AdvertisingEstate.ProjectId |
 | `address` | object | Adress och geografiska uppgifter | AdvertisingEstate.Address |
 | `address.street_address` | string | Gatuadress | AdvertisingAddress.StreetAddress |
 | `address.zip_code` | object | Postnummer | AdvertisingAddress.ZipCode |
@@ -375,8 +375,8 @@ values are listed under `docs/inputs/vitec/enumerations/`. A field is `null` whe
 
 | Path | Type | Description | Source |
 | --- | --- | --- | --- |
-| `id` | string | SRS §6.9, identity | spine: Id |
-| `office_ids` | string[] | The relation to offices; the envelope office_id is null, tenant-wide | spine: Offices[].Id |
+| `id` | string | SRS §6.9, identity; the envelope office_id is null, tenant-wide | spine: Id |
+| `office_ids` | string[] | One or several offices; the order per office stays in offices[].order_number | spine: Offices[].Id |
 | `display` | object | SRS §6 | spine: rules, empty until the ledger exists |
 | `provider_extras.vitec` | object | SRS §6.4 | spine: nothing yet |
 | `name` | string | Namn | AdvertisingUser.Name |
@@ -441,17 +441,19 @@ values are listed under `docs/inputs/vitec/enumerations/`. A field is `null` whe
 | `coordinate.longitude` | number | Longitud | Wgs84Coordinate.Longitude |
 | `coordinate.latitude` | number | Latitud | Wgs84Coordinate.Latitude |
 
-## area (mirrors AdvertisingArea, 23 paths)
+## area (mirrors AdvertisingArea, 25 paths)
 
 | Path | Type | Description | Source |
 | --- | --- | --- | --- |
-| `id` | string | SRS §6.9, identity | spine: Id |
-| `office_id` | string \| null | The relation to its office; also the envelope office_id | spine: Office.Id |
+| `id` | string | SRS §6.9, identity; no relations, areas are loose; the envelope office_id is null | spine: Id |
 | `display` | object | SRS §6 | spine: rules, empty until the ledger exists |
 | `provider_extras.vitec` | object | SRS §6.4 | spine: nothing yet |
 | `name` | string | Namn | AdvertisingArea.Name |
 | `county_municipality_code` | string | LKF kod | AdvertisingArea.CountyMunicipalityCode |
 | `coordinates[]` | number[][][][] | Områdets koordinater i formatet GeoJSON Multipolygon (longitud, latitud) | AdvertisingArea.Coordinates |
+| `office` | object | Kontor | AdvertisingArea.Office |
+| `office.id` | string | Kontorsid | AdvertisingOfficeReference.Id |
+| `office.customer_id` | string | Kund-id | AdvertisingOfficeReference.CustomerId |
 | `surroundings` | object | Närområde | AdvertisingArea.Surroundings |
 | `surroundings.service` | string | Närservice | AdvertisingSurroundings.Service |
 | `surroundings.communication` | string | Kommunikation | AdvertisingSurroundings.Communication |
@@ -509,3 +511,96 @@ values are listed under `docs/inputs/vitec/enumerations/`. A field is `null` whe
 | `public_contact.cell_phone` | string | Mobiltelefon | AssociationContact.CellPhone |
 | `public_contact.other_phone` | string | Övrigt telefonnummer | AssociationContact.OtherPhone |
 | `public_contact.email` | string | Email | AssociationContact.Email |
+
+## project (mirrors AdvertisingProject, 88 paths)
+
+| Path | Type | Description | Source |
+| --- | --- | --- | --- |
+| `id` | string | Identity, as property | spine: Id |
+| `office_id` | string \| null | Also the envelope office_id | spine: Office.Id |
+| `agent_ids` | string[] | As property | spine: PrimaryAgentId, SecondaryAgentId, primary first, nulls dropped |
+| `area_ids` | string[] | As property | spine: Address.Area.Id, zero or one |
+| `display` | object | SRS §6 | spine: rules, empty until the ledger exists |
+| `provider_extras.vitec` | object | SRS §6.4 | spine: nothing yet |
+| `name` | string | Name of project | AdvertisingProject.Name |
+| `status` | enum (Api_ProjectStatusFlags) | Status på projektet. | AdvertisingProject.Status |
+| `address` | object | Adress och geografiska uppgifter | AdvertisingProject.Address |
+| `address.street_address` | string | Gatuadress | AdvertisingProjectAddress.StreetAddress |
+| `address.zip_code` | object | Postnummer | AdvertisingProjectAddress.ZipCode |
+| `address.zip_code.numerical` | number |  | AdvertisingZipCode.Numerical |
+| `address.zip_code.value` | string |  | AdvertisingZipCode.Value |
+| `address.postal_town` | string | Ort | AdvertisingProjectAddress.PostalTown |
+| `address.area` | object | Område | AdvertisingProjectAddress.Area |
+| `address.area.id` | string | Id | AdvertisingAddressArea.Id |
+| `address.area.name` | string | Namn | AdvertisingAddressArea.Name |
+| `address.municipality` | string | Kommun | AdvertisingProjectAddress.Municipality |
+| `address.country_code` | string | Landskod | AdvertisingProjectAddress.CountryCode |
+| `address.county_municipality_code` | string | LKF kod | AdvertisingProjectAddress.CountyMunicipalityCode |
+| `address.wgs84_coordinate` | object | Wgs84 koordinat | AdvertisingProjectAddress.Wgs84Coordinate |
+| `address.wgs84_coordinate.longitude` | number | Longitud | Wgs84Coordinate.Longitude |
+| `address.wgs84_coordinate.latitude` | number | Latitud | Wgs84Coordinate.Latitude |
+| `address.directions` | string | Vägbeskrivning | AdvertisingProjectAddress.Directions |
+| `surroundings` | object | Närområde | AdvertisingProject.Surroundings |
+| `surroundings.service` | string | Närservice | AdvertisingSurroundings.Service |
+| `surroundings.communication` | string | Kommunikation | AdvertisingSurroundings.Communication |
+| `surroundings.area` | string | Allmänt om området | AdvertisingSurroundings.Area |
+| `surroundings.parking` | string | Parkering | AdvertisingSurroundings.Parking |
+| `surroundings.other` | string | Övrigt | AdvertisingSurroundings.Other |
+| `viewings[]` | object[] | Visningar | AdvertisingProject.Viewings |
+| `viewings[].id` | string | Visningsid | AdvertisingViewing.Id |
+| `viewings[].starts_at` | date-time | När visningen startar | AdvertisingViewing.StartsAt |
+| `viewings[].ends_at` | date-time | När visningen slutar | AdvertisingViewing.EndsAt |
+| `viewings[].comment` | string | Kommentar | AdvertisingViewing.Comment |
+| `viewings[].is_digital` | boolean | Digital visning | AdvertisingViewing.IsDigital |
+| `viewings[].is_self_registration_enabled` | boolean | Om kunder ska kunna boka in sig själva | AdvertisingViewing.IsSelfRegistrationEnabled |
+| `viewings[].is_project_viewing` | boolean | Projektvisning | AdvertisingViewing.IsProjectViewing |
+| `images[]` | object[] | Bilder | AdvertisingProject.Images |
+| `images[].id` | string | Id | AdvertisingImage.Id |
+| `images[].data_changed_at` | date-time | När bilddata förändrades senast | AdvertisingImage.DataChangedAt |
+| `images[].description` | string | Beskrivande text | AdvertisingImage.Description |
+| `images[].name` | string | Rubrik/Namn | AdvertisingImage.Name |
+| `images[].category` | enum (Api_ImageCategory) | Kategori | AdvertisingImage.Category |
+| `images[].extension` | string | Filändelse | AdvertisingImage.Extension |
+| `images[].cdn_references[]` | object[] | CDN referenser | AdvertisingImage.CdnReferences |
+| `images[].cdn_references[].name` | string |  | CdnImageReference.Name |
+| `images[].cdn_references[].url` | string |  | CdnImageReference.Url |
+| `links[]` | object[] | Länkar | AdvertisingProject.Links |
+| `links[].name` | string | Namn | AdvertisingLink.Name |
+| `links[].category` | enum (Api_LinkCategory) | Kategori | AdvertisingLink.Category |
+| `links[].url` | string | URL | AdvertisingLink.Url |
+| `marketing` | object | Marknadsföring | AdvertisingProject.Marketing |
+| `marketing.is_published` | boolean | Är annonserad på hemsidan | AdvertisingMarketing.IsPublished |
+| `marketing.is_preview` | boolean | Om förhandsgranskning är aktiverad | AdvertisingMarketing.IsPreview |
+| `marketing.published_at` | date-time | När bostaden blev publicerad på hemsidan | AdvertisingMarketing.PublishedAt |
+| `marketing.is_new_home` | boolean | Om bostaden ska annonseras som nyproducerad | AdvertisingMarketing.IsNewHome |
+| `marketing.viewing` | object | Marknadsföring av visningar | AdvertisingMarketing.Viewing |
+| `marketing.viewing.visible_limit` | number | Begränsa antalet synliga visningar | AdvertisingMarketingViewing.VisibleLimit |
+| `marketing.viewing.empty_text` | string | Text som ska visas om inga visningar finns | AdvertisingMarketingViewing.EmptyText |
+| `extensions` | object | Utöka hämtningen via inparametrar | AdvertisingProject.Extensions |
+| `currency` | string | Valutan för alla avgifter, priser etc. | AdvertisingProject.Currency |
+| `estates` | object | Uppgifter om bostäderna i projektet | AdvertisingProject.Estates |
+| `estates.price` | object | Pris | AdvertisingProjectEstates.Price |
+| `estates.price.max_value` | number | Högsta värdet i intervallet | Range`1_Int32.MaxValue |
+| `estates.price.min_value` | number | Minsta värdet i intervallet | Range`1_Int32.MinValue |
+| `estates.monthly_fee` | object | Månadsavgift | AdvertisingProjectEstates.MonthlyFee |
+| `estates.monthly_fee.max_value` | number | Högsta värdet i intervallet | Range`1_Int32.MaxValue |
+| `estates.monthly_fee.min_value` | number | Minsta värdet i intervallet | Range`1_Int32.MinValue |
+| `estates.living_space` | object | Boarea | AdvertisingProjectEstates.LivingSpace |
+| `estates.living_space.max_value` | number | Högsta värdet i intervallet | Range`1_Double.MaxValue |
+| `estates.living_space.min_value` | number | Minsta värdet i intervallet | Range`1_Double.MinValue |
+| `estates.number_of_rooms` | object | Rum | AdvertisingProjectEstates.NumberOfRooms |
+| `estates.number_of_rooms.max_value` | number | Högsta värdet i intervallet | Range`1_Double.MaxValue |
+| `estates.number_of_rooms.min_value` | number | Minsta värdet i intervallet | Range`1_Double.MinValue |
+| `estates.plot` | object | Tomtyta (m²) | AdvertisingProjectEstates.Plot |
+| `estates.plot.max_value` | number | Högsta värdet i intervallet | Range`1_Double.MaxValue |
+| `estates.plot.min_value` | number | Minsta värdet i intervallet | Range`1_Double.MinValue |
+| `sale` | object | Uppgifter kring försäljningen av bostäderna i projektet | AdvertisingProject.Sale |
+| `sale.short_description` | string | Kort säljande beskrivning | AdvertisingProjectSale.ShortDescription |
+| `sale.description` | string | Säljande beskrivning | AdvertisingProjectSale.Description |
+| `sale.phrase` | string | Säljfras | AdvertisingProjectSale.Phrase |
+| `sale.heading` | string | Säljrubrik | AdvertisingProjectSale.Heading |
+| `sale.other_information` | string | Övrig information | AdvertisingProjectSale.OtherInformation |
+| `sale.starts_at` | date-time | Säljstartsdag | AdvertisingProjectSale.StartsAt |
+| `sale.possession_estimation` | string | Inflyttningsdatum | AdvertisingProjectSale.PossessionEstimation |
+| `producer` | object | Producent | AdvertisingProject.Producer |
+| `producer.name` | string | Namn | AdvertisingProjectProducer.Name |

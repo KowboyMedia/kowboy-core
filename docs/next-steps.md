@@ -13,16 +13,14 @@ the first item that is not done, and keep the file current. Decisions and open q
    webhooks: subscriptions Vitec sets up, POSTs with `type`, `event`, `customerId`, `id`), the
    Extend API (the full model behind `?extend=`), previews and the migration notes. Refresh with
    `node scripts/fetch-vitec-docs.mjs`. Pagination is `paging.pageSize` and `paging.pageIndex` on
-   the list endpoints; a rate limit is not stated anywhere in the documentation, so it is a
-   question for Vitec (open question 7).
+   the list endpoints; a rate limit is not stated anywhere in the documentation, and Patric confirmed there is none: the adapter runs five fetches at once, configurable (proposal point 10).
 2. **Propose the universal data model** from those documents, one field table per datatype
    (`property`, `agent`, `office`, `area`, `association`), every field traceable to a Vitec field or
    an SRS rule. Raise it as numbered issues for Gate 2. Do not touch `schemas/` until approved.
    Status 2026-09-16: proposed in `docs/data-model-proposal.md` as the technical shape only:
    identity, relations, change date, scope, and everything else mirrored mechanically from the
    CRM (`docs/data-model-reference.md`, generated). Mappings, enumerations, search scalars and
-   display strings are the rules-ledger phase, not Gate 2. Four decisions at the proposal's end
-   are Gate 2.
+   display strings are the rules-ledger phase, not Gate 2. Patric's answers of 2026-09-16 are worked in (relations, tenant scope, loose areas, `project` as a sixth datatype, no files, five fetches at once); three decisions at the proposal's end are Gate 2.
 3. **After Gate 2:** update `schemas/`, then build the Vitec adapter: mappers against golden
    masters first, then the fetch layer (bulk sync via the marketing endpoints, webhooks, catch-up)
    per strategy §5.3. Images and documents are ignored; a separate app serves the CDN.

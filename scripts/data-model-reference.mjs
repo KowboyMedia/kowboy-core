@@ -15,52 +15,54 @@ const OUT = 'docs/data-model-reference.md';
 const spec = JSON.parse(readFileSync(SPEC, 'utf8'));
 const definitions = spec.definitions;
 
-/** The datatypes (SRS §2) and the Vitec model each mirrors. */
+/** The datatypes (SRS §2, plus `project`: proposal point 9) and the Vitec model each mirrors. */
 const DATATYPES = [
   { name: 'property', model: 'Advertising.Services.AdvertisingEstate' },
   { name: 'agent', model: 'Advertising.Services.AdvertisingUser' },
   { name: 'office', model: 'Advertising.Services.AdvertisingOffice' },
   { name: 'area', model: 'Advertising.Services.AdvertisingArea' },
   { name: 'association', model: 'Advertising.Models.AdvertisingAssociation' },
+  { name: 'project', model: 'Advertising.Services.AdvertisingProject' },
 ];
 
 /**
  * The spine: the technical fields the SRS names, on top of the mirrored model. Identity, the
- * relations between the five datatypes, and the two objects every item carries. Mappings,
+ * relations between the datatypes, and the two objects every item carries. Mappings,
  * enumerations, search scalars and display strings are the rules-ledger phase, not Gate 2.
  */
 const SPINE = {
   property: [
     ['id', 'string', 'Id', 'SRS §6.9, identity'],
-    [
-      'office_id',
-      'string | null',
-      'Office.Id',
-      'SRS §6.9; also the envelope office_id and the licensing filter',
-    ],
+    ['office_id', 'string | null', 'Office.Id', 'SRS §6.9; also the envelope office_id'],
     [
       'agent_ids',
       'string[]',
       'PrimaryAgentId, SecondaryAgentId, primary first, nulls dropped',
       'SRS §6.9',
     ],
-    ['area_ids', 'string[]', 'Address.Area.Id, zero or one', 'SRS §6.9'],
+    [
+      'area_ids',
+      'string[]',
+      'Address.Area.Id, zero or one',
+      'SRS §6.9; as the CRM assigns it, no geographical matching in Core',
+    ],
     [
       'association_id',
       'string | null',
       'Extensions.HousingCooperative.Association.Id',
       'SRS §6.9; needs extend=housingCooperative',
     ],
+    ['project_id', 'string | null', 'ProjectId', "The estate's project, null outside a project"],
     ['display', 'object', 'rules, empty until the ledger exists', 'SRS §6'],
     ['provider_extras.vitec', 'object', 'nothing yet', 'SRS §6.4, never hashed'],
   ],
   agent: [
-    ['id', 'string', 'Id', 'SRS §6.9, identity'],
+    ['id', 'string', 'Id', 'SRS §6.9, identity; the envelope office_id is null, tenant-wide'],
     [
       'office_ids',
       'string[]',
       'Offices[].Id',
-      'The relation to offices; the envelope office_id is null, tenant-wide',
+      'One or several offices; the order per office stays in offices[].order_number',
     ],
     ['display', 'object', 'rules, empty until the ledger exists', 'SRS §6'],
     ['provider_extras.vitec', 'object', 'nothing yet', 'SRS §6.4'],
@@ -71,18 +73,30 @@ const SPINE = {
     ['provider_extras.vitec', 'object', 'nothing yet', 'SRS §6.4'],
   ],
   area: [
-    ['id', 'string', 'Id', 'SRS §6.9, identity'],
     [
-      'office_id',
-      'string | null',
-      'Office.Id',
-      'The relation to its office; also the envelope office_id',
+      'id',
+      'string',
+      'Id',
+      'SRS §6.9, identity; no relations, areas are loose; the envelope office_id is null',
     ],
     ['display', 'object', 'rules, empty until the ledger exists', 'SRS §6'],
     ['provider_extras.vitec', 'object', 'nothing yet', 'SRS §6.4'],
   ],
   association: [
     ['id', 'string', 'Id', 'SRS §6.9, identity; the envelope office_id is null, tenant-wide'],
+    ['display', 'object', 'rules, empty until the ledger exists', 'SRS §6'],
+    ['provider_extras.vitec', 'object', 'nothing yet', 'SRS §6.4'],
+  ],
+  project: [
+    ['id', 'string', 'Id', 'Identity, as property'],
+    ['office_id', 'string | null', 'Office.Id', 'Also the envelope office_id'],
+    [
+      'agent_ids',
+      'string[]',
+      'PrimaryAgentId, SecondaryAgentId, primary first, nulls dropped',
+      'As property',
+    ],
+    ['area_ids', 'string[]', 'Address.Area.Id, zero or one', 'As property'],
     ['display', 'object', 'rules, empty until the ledger exists', 'SRS §6'],
     ['provider_extras.vitec', 'object', 'nothing yet', 'SRS §6.4'],
   ],
@@ -99,6 +113,7 @@ const DROP = {
     'office',
     'primaryAgentId',
     'secondaryAgentId',
+    'projectId',
     'changedAt',
     'files',
     'extensions.primaryAgent',
@@ -106,8 +121,18 @@ const DROP = {
   ]),
   agent: new Set(['id', 'changedAt']),
   office: new Set(['id', 'customerId', 'changedAt']),
-  area: new Set(['id', 'changedAt', 'office']),
+  area: new Set(['id', 'changedAt']),
   association: new Set(['id', 'changedAt', 'documents']),
+  project: new Set([
+    'id',
+    'office',
+    'primaryAgentId',
+    'secondaryAgentId',
+    'changedAt',
+    'files',
+    'extensions.primaryAgent',
+    'extensions.secondaryAgent',
+  ]),
 };
 
 const snake = (name) =>
