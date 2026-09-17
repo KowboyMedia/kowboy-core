@@ -55,11 +55,14 @@ Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPre
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
 
-## 18. `[crm-vitec]` What a test account settles
+## 18. `[crm-vitec]` What a record by id returns for an estate taken off the website
 
-Built from the documentation alone (`docs/inputs/vitec/`), three things are unverified: whether
-list paging starts at 0 or 1 (the lister tolerates both); what `GET .../Estate/{customerId}/{id}`
-returns for an estate withdrawn from the website (404 tombstones, 200 keeps the record with its
-status); and whether a `Remove` notification's record is still fetchable. Needs Vitec test
-credentials: `scripts/vitec-probe.ts` answers the first two the moment they exist (next-steps
-item 5).
+The probe of 2026-09-17 settled paging (pages count from 0, `count` is the page count) and that a
+made-up id is 404 (`docs/decisions.md`). What remains is what `GET .../Estate/{customerId}/{id}`
+returns once an estate is taken off the website: a 404 tombstones it, a 200 keeps it on every site.
+The estate given as withdrawn (`VITEC_ESTATE_ID`) is not withdrawn according to Connect: it is in
+the list, its `marketing.isPublished` is true and its status is `Sold`, so it answers 200 like any
+listed estate. Needed: an estate in the test account that is actually unpublished
+(`marketing.isPublished` false), or one unpublished for the test; then the probe again (next-steps
+item 5). Smaller option if that cannot be arranged: keep the design as built, where only a 404
+tombstones.

@@ -48,6 +48,10 @@ the first item that is not done, and keep the file current. Decisions and open q
    `npm run build && node dist/scripts/vitec-probe.js` (with `NODE_USE_ENV_PROXY=1` in a cloud
    session), settle open question 18, adjust the adapter if Vitec differs from its documentation,
    and delete the question.
+   Status 2026-09-17: run with the test credentials. Paging and the 404 are settled and the lister
+   simplified (`docs/decisions.md`). The estate named as withdrawn is still published according to
+   Connect (`marketing.isPublished` true, status `Sold`), so question 18 is narrowed to that one
+   part. Run the probe again once `VITEC_ESTATE_ID` names an estate that is actually unpublished.
 
 ## Later, when Patric supplies them
 

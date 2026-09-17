@@ -384,6 +384,26 @@ describe('the Vitec adapter', () => {
     expect((await item('office', OFFICE))?.['deleted']).toBe(false);
   });
 
+  it('lists page by page and stops after the page Connect names as the last', async () => {
+    seed(fake);
+    for (let n = 2; n <= 250; n += 1) fake.put(OFFICE, 'property', estate(`OBJ${n}`));
+    await start();
+    await drainFetchList();
+
+    let held = 0;
+    for (let after = 0, more = true; more;) {
+      const page = await pull(running.baseUrl, 'property', after);
+      held += page.items.length;
+      after = page.next_after;
+      more = page.has_more;
+    }
+    expect(held).toBe(250);
+    const pages = fake.requests
+      .filter((request) => request.path.endsWith(`/Estate/${OFFICE}`))
+      .map((request) => request.query.get('paging.pageIndex'));
+    expect([...new Set(pages)].sort()).toEqual(['0', '1', '2']);
+  });
+
   it('fetches at most five records at once (proposal point 10)', async () => {
     seed(fake);
     for (let n = 2; n <= 20; n += 1) fake.put(OFFICE, 'property', estate(`OBJ${n}`));
