@@ -321,23 +321,22 @@ const listable = (datatype?: Datatype): readonly Datatype[] =>
   datatype ? connect.LISTABLE.filter((candidate) => candidate === datatype) : connect.LISTABLE;
 
 /** Everything the given offices publish, onto the list after any webhook fetches. */
-async function load(live: Live, offices: readonly string[], datatype?: Datatype): Promise<Listed> {
+async function load(live: Live, offices: readonly string[], datatype?: Datatype): Promise<void> {
   const startedAt = new Date();
   const listed = await listAll(live, offices, listable(datatype));
   await enqueueListed(listed, 'load', false);
   await enqueueMissing(listed);
   await markCatchUp(live.connection.id, startedAt);
   await store.setState(live.connection.id, 'compare_at', startedAt.toISOString());
-  return listed;
 }
 
-/** Resync with sweep (strategy §7.2): reload, and tell the engine which ids exist. */
-async function resync(live: Live, current: AdapterApi, datatype?: Datatype): Promise<void> {
-  const listed = await load(live, live.connection.licensedOffices, datatype);
-  for (const [listedDatatype, perOffice] of listed) {
-    const ids = [...perOffice.values()].flatMap((office) => [...office.keys()]);
-    await current.presentIds(live.connection, listedDatatype, { officeId: null }, ids);
-  }
+/**
+ * Resync (strategy §7.2): reload everything listed, and confirm every id no longer listed with a
+ * fetch. Never a sweep by the list: Vitec lists marketed estates only, so an estate missing from
+ * it may well exist, and only Vitec answering 404 says it is gone (Core funnels, never judges).
+ */
+async function resync(live: Live, datatype?: Datatype): Promise<void> {
+  await load(live, live.connection.licensedOffices, datatype);
 }
 
 async function markCatchUp(connectionId: string, startedAt: Date): Promise<void> {
@@ -444,7 +443,7 @@ export const vitecAdapter: Adapter = {
       const target = { connection: event.connection, credentials };
       if (event.type === 'connection_added') await load(target, event.connection.licensedOffices);
       if (event.type === 'offices_added') await load(target, event.officeIds);
-      if (event.type === 'resync') await resync(target, given, event.datatype);
+      if (event.type === 'resync') await resync(target, event.datatype);
     });
 
     given.healthCheck(`${PROVIDER}.webhook_lag`, async () => {

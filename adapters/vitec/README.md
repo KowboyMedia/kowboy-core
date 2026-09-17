@@ -36,8 +36,9 @@ vitec.test.ts   the adapter against the real engine and the stand-in
 - **Comparison.** Once a day per connection, and at every worker start: Vitec's full id list
   against the ids seen. A missing id is fetched to confirm; the 404 tombstones it. Nothing is
   tombstoned blind.
-- **Resync** (`event: resync`, optionally with a datatype) reloads and reports the listed ids as
-  present, so the engine tombstones whatever Vitec no longer lists.
+- **Resync** (`event: resync`, optionally with a datatype) reloads everything listed and confirms
+  every id no longer listed with a fetch; only a 404 tombstones. Never a sweep by the list, which
+  holds marketed estates only.
 - **Health.** `vitec.webhook_lag` (a webhook waiting more than 5 min), `vitec.retries` (a record
   that failed three fetches in a row), `vitec.catch_up` (red from a worker start until the
   catch-up, the comparison and their fetches are done; then a connection whose last catch-up is
@@ -90,10 +91,11 @@ on `Estate` for every status, published for the website or not (`Update` and `Re
 - A made-up id is HTTP 404, so the tombstone path works as designed.
 - The list holds every estate whose `marketing.isPublished` is true, whatever its sale status
   (`Sold` and `AssignmentWithdrawn` were both listed). An estate taken off the website is fetched
-  on its `Remove` notification and stored as Vitec answers it, `marketing.isPublished` false and
-  all: Core funnels everything Vitec returns and interprets nothing, the sites read
-  `marketing.isPublished` and `status` (Patric, 2026-09-17). Only a 404 tombstones. Estates that
-  are not published never appear in Vitec's lists, so they reach Core through notifications only.
+  on its `Remove` notification and stored exactly as Vitec answers it; nothing in Core reads the
+  answer's content, and only a 404 tombstones (Core funnels, never judges; Patric, 2026-09-17).
+  Which fields reach the sites is the data model (next-steps item 2). Estates that are not
+  published never appear in Vitec's lists, so they reach Core through notifications only, and a
+  resync confirms every unlisted id with a fetch instead of sweeping by the list.
 - An office's own id (`FIR31529`) is not its customer id (`M31529`): the office endpoint takes the
   office id, and a customer id in its place is 404. Core keeps the customer id as the office id
   (Patric, 2026-09-16), so an office item's `remote_id` is Vitec's office id and its `data.id` the
