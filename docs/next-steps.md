@@ -45,18 +45,18 @@ the first item that is not done, and keep the file current. Decisions and open q
 5. ~~**Standing request (Patric, 2026-09-16):** run the Vitec probe as soon as test credentials
    are in the environment, settle open question 18 and adjust the adapter.~~ Done 2026-09-17: paging
    settled and the lister simplified, a made-up id is 404, and Patric closed the rest by principle:
-   Core funnels everything Vitec returns and interprets nothing, the sites read
-   `marketing.isPublished` and `status` (`docs/decisions.md`).
+   Core funnels everything Vitec returns and judges nothing; only a 404 deletes (AGENTS.md
+   "Funnel, never judge", `docs/decisions.md`).
 
 6. **Confirm Vitec's behaviour for a listing taken off the website** (Patric, 2026-09-17), on
-   staging: Vitec lists only marketed listings, so the expectation is that taking one off the
-   website sends a notification like any change, Core fetches it and stores it with
-   `marketing.isPublished` false, the sites hide it, and it stops appearing in the list, which the
-   daily comparison then re-fetches and keeps. To confirm it: Vitec's subscription for the test
-   account points at the staging app, a listing is taken off the website in the test account, and
-   the staging event log shows the notification, the fetch result (200 or 404) and what was stored.
-   Needs: the subscription at Vitec (Patric gives them the staging URL), a Vitec connection on
-   staging (an agent sets it up), and someone taking a listing off the website in Vitec.
+   staging. Vitec lists only marketed listings, so the expectation is: taking one off the website
+   sends a notification like any change, Core fetches it and stores it exactly as answered, it
+   stops appearing in the list, and the daily comparison re-fetches it and keeps it; the sites hide
+   it once the data model carries the marketing fields (question 28). To confirm it: Vitec's
+   subscription for the test account points at the staging app, a listing is taken off the website
+   in the test account, and the staging event log shows the notification, the fetch result (200 or 404) and what was stored. Needs: the subscription at Vitec (Patric gives them the staging URL),
+   a Vitec connection on staging (an agent sets it up; needs a way in from chat first), and
+   someone taking a listing off the website in Vitec.
 
 ## Later, when Patric supplies them
 

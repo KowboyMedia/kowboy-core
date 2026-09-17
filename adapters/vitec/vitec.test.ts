@@ -379,9 +379,35 @@ describe('the Vitec adapter', () => {
 
     fake.remove(OFFICE, 'property', 'OBJ1');
     await event({ event: 'resync' });
-    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
+    // Not listed is not gone: nothing is tombstoned until Vitec answers 404 for it.
+    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
     await drainFetchList();
+    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
     expect((await item('office', OFFICE))?.['deleted']).toBe(false);
+  });
+
+  it('keeps a record live while Vitec still answers it, whatever the record says: Core funnels, never judges', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
+
+    // Taken off the website: Vitec sends a Remove, no longer lists it, but still answers it by id.
+    fake.put(
+      OFFICE,
+      'property',
+      estate('OBJ1', OFFICE, { marketing: { isPublished: false }, status: { id: 'NoAssignment' } }),
+    );
+    fake.requests.length = 0;
+    await hook({ type: 'Estate', event: 'Remove', customerId: OFFICE, id: 'OBJ1' });
+    await drainFetchList();
+    expect(fetchesOf('OBJ1')).toBe(1);
+    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
+
+    // Nor does a resync judge it: absent from the list, confirmed present by the fetch, it stays.
+    await event({ event: 'resync' });
+    await drainFetchList();
+    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
   });
 
   it('lists page by page and stops after the page Connect names as the last', async () => {

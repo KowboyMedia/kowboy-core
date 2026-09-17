@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 28.
+answering is quick. Next number: 29.
 
 ## 2. Protected paths created by an agent
 
@@ -55,12 +55,23 @@ Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPre
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
 
-## 27. `[core]` One release flow for agents and human devs
+## 27. `[core]` One gate for everyone, agent or human
 
-Today `staging` deploys on every push, and production deploys when an agent asks App Platform to,
-on Patric's word in chat (README "Deploying"). Human devs and contractors would use the same: push
-or merge to `staging` to test, confirm there, then ask for the production deploy. Leaner, if
-wanted: `main` deploys production on every merge, so the merge itself is the release, for agents
-(on Patric's word) and for devs (the merge button) alike, and the separate deploy step goes away.
-Trade-off: every merge to `main` goes live at once, health-gated, with nothing between merge and
-production. Pick one: keep the explicit deploy step, or merge-is-release.
+The requirement: whoever changes the code, the same steps, nothing bypassed. Proposed: every change
+goes through a pull request; GitHub refuses the merge until the enforced checks are green;
+`staging` updates itself on every merge into it; someone confirms on staging; a pull request into
+`main` merges the same way, and production updates itself from `main`, health-gated. An agent
+merges on Patric's word, a dev with the merge button; the path is identical. What it needs:
+GitHub's branch protection switched on for `staging` and `main` (a one-time setting by someone
+with admin rights on the repository, about two minutes, not reachable from an agent session), and
+production set to deploy on merge (one "allow" from Patric). Say yes, or say what differs.
+
+## 28. `[core]` Funnel everything to the sites now, or wait for the plugin's field list
+
+Today the data the sites receive holds identity and relations only; every other Vitec field waits
+for the field list Patric chose on 2026-09-16 (the WordPress plugin's universal model, next-steps
+item 2), so a site cannot see `marketing.isPublished` or `status` yet. The principle says
+everything Vitec returns reaches the sites. Smaller option: map everything now, mechanically
+(every Vitec field, snake_case, the CRM's nesting, next to the spine; nothing chosen, nothing
+judged), and lay the plugin's field names on top when the list arrives. Or wait for the list.
+Pick one.
