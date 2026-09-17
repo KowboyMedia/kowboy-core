@@ -1,14 +1,10 @@
 name: Deploy
 
-# Production never deploys on push (strategy §4). Once CI is green on main, this run waits for a
-# reviewer of the GitHub environment `production`, then asks App Platform to deploy the app from
-# main and follows the deployment until it is live or has failed. The environment holds the secret
-# DIGITALOCEAN_ACCESS_TOKEN; the app is found by its name in .do/app.yaml.
+# A manual button only. A release is normally an agent asking App Platform to deploy main on
+# Patric's word in chat (strategy §4, README "Deploying"); this workflow is the same deployment
+# started from GitHub's "Run workflow" button, for whoever prefers that. It needs the secret
+# DIGITALOCEAN_ACCESS_TOKEN on the GitHub environment `production`; the app is found by its name.
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -16,8 +12,7 @@ permissions:
 
 jobs:
   production:
-    name: Deploy production (a reviewer approves)
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    name: Deploy production (manual)
     runs-on: ubuntu-latest
     environment: production
     steps:

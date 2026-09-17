@@ -6,9 +6,10 @@
 #
 # The managed Postgres cluster is the one Kowboy created (Frankfurt, 2026-09-17), so the app runs
 # in fra too and binds the cluster's own database and user. The platform hands the cluster's CA
-# over as DATABASE_CA_CERT and scripts/start.sh gives it to Node. Production never deploys on push
-# (strategy §4: a human approves, .github/workflows/deploy.yml). Staging is app.staging.yaml: the
-# same cluster with its own database, deploying the `staging` branch on push.
+# over as DATABASE_CA_CERT and scripts/start.sh gives it to Node. Production never deploys on push:
+# a release is Patric saying so in chat, and an agent asks App Platform for a deployment of main
+# (strategy §4). Staging is app.staging.yaml: the same cluster with its own database, deploying the
+# `staging` branch on every push.
 name: kowboy-core
 region: fra
 

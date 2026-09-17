@@ -67,8 +67,9 @@ curl -X POST https://core.example/v1/admin/event -H 'x-admin-secret: …' \
 ```
 
 Adding an office later: set the connection's offices, then `event: offices_added` with the new
-ids; only those are loaded. Then ask Vitec for subscriptions (docs/inputs/vitec/notifications.md) on `Estate` (published for the website,
-`Update` and `Remove`), `Project`, `User`, `Office` and `Area`, pointing at
+ids; only those are loaded. Then ask Vitec for subscriptions (docs/inputs/vitec/notifications.md)
+on `Estate` for every status, published for the website or not (`Update` and `Remove`), and on
+`Project`, `User`, `Office` and `Area`, pointing at
 `https://<core>/v1/hook/vitec/webhook/<VITEC_WEBHOOK_TOKEN>`.
 
 ## Environment
@@ -88,9 +89,11 @@ ids; only those are loaded. Then ask Vitec for subscriptions (docs/inputs/vitec/
   lister stops after the last page.
 - A made-up id is HTTP 404, so the tombstone path works as designed.
 - The list holds every estate whose `marketing.isPublished` is true, whatever its sale status
-  (`Sold` and `AssignmentWithdrawn` were both listed). Whether an estate taken off the website still
-  answers 200 by id is not settled: the estate named for the probe is still published according to
-  Connect (question 18, narrowed).
+  (`Sold` and `AssignmentWithdrawn` were both listed). An estate taken off the website is fetched
+  on its `Remove` notification and stored as Vitec answers it, `marketing.isPublished` false and
+  all: Core funnels everything Vitec returns and interprets nothing, the sites read
+  `marketing.isPublished` and `status` (Patric, 2026-09-17). Only a 404 tombstones. Estates that
+  are not published never appear in Vitec's lists, so they reach Core through notifications only.
 - An office's own id (`FIR31529`) is not its customer id (`M31529`): the office endpoint takes the
   office id, and a customer id in its place is 404. Core keeps the customer id as the office id
   (Patric, 2026-09-16), so an office item's `remote_id` is Vitec's office id and its `data.id` the

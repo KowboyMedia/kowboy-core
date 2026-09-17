@@ -42,16 +42,11 @@ the first item that is not done, and keep the file current. Decisions and open q
    routing, the example Lovable site and the search/filter half of AC 20 wait for the model
    (item 3).
 
-5. **Standing request (Patric, 2026-09-16), not done until fulfilled:** as soon as Vitec test
-   credentials are in the environment (`VITEC_USERNAME`, `VITEC_PASSWORD`, `VITEC_OFFICE_ID`, and
-   `VITEC_ESTATE_ID` for an estate withdrawn from the website), run
-   `npm run build && node dist/scripts/vitec-probe.js` (with `NODE_USE_ENV_PROXY=1` in a cloud
-   session), settle open question 18, adjust the adapter if Vitec differs from its documentation,
-   and delete the question.
-   Status 2026-09-17: run with the test credentials. Paging and the 404 are settled and the lister
-   simplified (`docs/decisions.md`). The estate named as withdrawn is still published according to
-   Connect (`marketing.isPublished` true, status `Sold`), so question 18 is narrowed to that one
-   part, and question 26 (Vitec's preview flow) may settle it without another run.
+5. ~~**Standing request (Patric, 2026-09-16):** run the Vitec probe as soon as test credentials
+   are in the environment, settle open question 18 and adjust the adapter.~~ Done 2026-09-17: paging
+   settled and the lister simplified, a made-up id is 404, and Patric closed the rest by principle:
+   Core funnels everything Vitec returns and interprets nothing, the sites read
+   `marketing.isPublished` and `status` (`docs/decisions.md`).
 
 ## Later, when Patric supplies them
 
