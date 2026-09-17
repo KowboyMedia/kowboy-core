@@ -1,0 +1,37 @@
+name: Deploy
+
+# A manual button only. A release is normally an agent asking App Platform to deploy main on
+# Patric's word in chat (strategy §4, README "Deploying"); this workflow is the same deployment
+# started from GitHub's "Run workflow" button, for whoever prefers that. It needs the secret
+# DIGITALOCEAN_ACCESS_TOKEN on the GitHub environment `production`; the app is found by its name.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production:
+    name: Deploy production (manual)
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy kowboy-core and wait for it
+        env:
+          TOKEN: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+        run: |
+          api() { curl -fsS -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "$@"; }
+          app_id=$(api "https://api.digitalocean.com/v2/apps" | jq -r '.apps[] | select(.spec.name == "kowboy-core") | .id')
+          test -n "$app_id" || { echo "no app named kowboy-core"; exit 1; }
+          deployment=$(api -X POST "https://api.digitalocean.com/v2/apps/$app_id/deployments" -d '{"force_build": true}' | jq -r '.deployment.id')
+          echo "deployment $deployment"
+          for attempt in $(seq 1 80); do
+            phase=$(api "https://api.digitalocean.com/v2/apps/$app_id/deployments/$deployment" | jq -r '.deployment.phase')
+            echo "$phase"
+            case "$phase" in
+              ACTIVE) exit 0 ;;
+              ERROR | CANCELED | SUPERSEDED) exit 1 ;;
+            esac
+            sleep 15
+          done
+          echo "still not live after 20 minutes"; exit 1

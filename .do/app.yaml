@@ -4,19 +4,25 @@
 #   read     doctl apps spec get <app-id> > .do/app.yaml      (secrets come back encrypted, safe to commit)
 #   update   doctl apps update <app-id> --spec .do/app.yaml
 #
-# The managed Postgres cluster is created first, in the same region, and named below. Production
-# never deploys on push (strategy §4: a human approves); a staging app is this spec with another
-# name, deploy_on_push true and its own cluster.
+# The managed Postgres cluster is the one Kowboy created (Frankfurt, 2026-09-17), so the app runs
+# in fra too and binds the cluster's own database and user. The platform hands the cluster's CA
+# over as DATABASE_CA_CERT and scripts/start.sh gives it to Node. Production never deploys on push:
+# a release is Patric saying so in chat, and an agent asks App Platform for a deployment of main
+# (strategy §4). Staging is app.staging.yaml: the same cluster with its own database, deploying the
+# `staging` branch on every push.
 name: kowboy-core
-region: ams
+region: fra
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
 
 databases:
   - name: db
     engine: PG
     production: true
-    cluster_name: kowboy-core-db
-    db_name: core
-    db_user: core
+    cluster_name: kowboy-core-production
+    db_name: defaultdb
+    db_user: doadmin
 
 services:
   - name: web
@@ -26,8 +32,8 @@ services:
       deploy_on_push: false
     source_dir: /
     environment_slug: node-js
-    build_command: npm ci && npm run build
-    run_command: npm run start:web
+    build_command: npm run build
+    run_command: sh scripts/start.sh web
     http_port: 8080
     instance_count: 1
     instance_size_slug: apps-s-1vcpu-0.5gb
@@ -41,6 +47,9 @@ services:
       - key: DATABASE_URL
         scope: RUN_TIME
         value: ${db.DATABASE_URL}
+      - key: DATABASE_CA_CERT
+        scope: RUN_TIME
+        value: ${db.CA_CERT}
       - key: ADMIN_SECRET
         scope: RUN_TIME
         type: SECRET
@@ -62,14 +71,17 @@ workers:
       deploy_on_push: false
     source_dir: /
     environment_slug: node-js
-    build_command: npm ci && npm run build
-    run_command: npm run start:worker
+    build_command: npm run build
+    run_command: sh scripts/start.sh worker
     instance_count: 1
     instance_size_slug: apps-s-1vcpu-0.5gb
     envs:
       - key: DATABASE_URL
         scope: RUN_TIME
         value: ${db.DATABASE_URL}
+      - key: DATABASE_CA_CERT
+        scope: RUN_TIME
+        value: ${db.CA_CERT}
       - key: ADMIN_SECRET
         scope: RUN_TIME
         type: SECRET

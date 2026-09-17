@@ -67,7 +67,10 @@ export class VitecError extends Error {
   }
 }
 
-/** One page of a list endpoint, as Connect returns it. */
+/**
+ * One page of a list endpoint, as Connect returns it: `index` counts pages from 0, `count` is the
+ * number of pages and `totalRowCount` the number of rows (verified against Connect, 2026-09-17).
+ */
 export type Page = {
   index?: number;
   count?: number;
@@ -131,9 +134,8 @@ export function page(
 }
 
 /**
- * Every list row for an office, page by page. Paging stops on an empty page, or when two pages in
- * a row bring nothing new, so it is right whether the server counts pages from 0 or from 1 (the
- * documentation names the parameters, not the first index).
+ * Every list row for an office, page by page: pages count from 0, and paging stops after the page
+ * `count` names as the last, or on an empty one.
  */
 export async function* list(
   auth: Auth,
@@ -141,22 +143,18 @@ export async function* list(
   officeId: string,
   changedSince?: Date,
 ): AsyncGenerator<ListRow> {
-  const seen = new Set<string>();
-  let idle = 0;
-  for (let pageIndex = 0; idle < 2; pageIndex += 1) {
-    const rows = (await page(auth, datatype, officeId, pageIndex, changedSince))?.rows ?? [];
-    if (rows.length === 0) return;
-    let fresh = 0;
+  for (let pageIndex = 0; ; pageIndex += 1) {
+    const result = await page(auth, datatype, officeId, pageIndex, changedSince);
+    const rows = result?.rows ?? [];
     for (const row of rows) {
-      if (!row.id || seen.has(row.id)) continue;
-      seen.add(row.id);
-      fresh += 1;
+      if (!row.id) continue;
       yield {
         id: row.id,
         customerId: row.customerId ?? officeId,
         changedAt: row.changedAt ?? null,
       };
     }
-    idle = fresh === 0 ? idle + 1 : 0;
+    const last = result?.count !== undefined && pageIndex + 1 >= result.count;
+    if (rows.length === 0 || last) return;
   }
 }

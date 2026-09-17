@@ -92,12 +92,34 @@ Stop and ask the person who gave you the task, and don't improvise, when a task 
 
 **A closed gate is not a note.** When something on this list is needed and nobody is there to answer, build only what does not depend on it, leave the gap visibly empty, and put the question in `docs/open-questions.md`. Never fill a gap provisionally: a placeholder that looks real gets built on and believed.
 
+## Working with Patric
+
+Patric's only interface is this chat. He decides product questions; agents do all the work, git,
+infrastructure and configuration included. These rules exist because sessions kept handing him
+instructions instead of results.
+
+- **Do it yourself first.** Never ask Patric to edit a file, run a command, open a console or click
+  through GitHub or DigitalOcean. When a tool or a permission blocks you, say what blocked you in
+  one line and ask him how to unblock it, not to do the work. When only a human can do a step (an
+  authorisation, a payment), do everything around it and describe that one step in plain words.
+- **Cost him the least.** Rate every option by Patric's time and effort and pick the cheapest for
+  him. Only a real trade-off justifies another choice, and then each side gets one sentence.
+- **Changes he asks for are ours end to end.** A rename, a move, a new branch or app: the agent
+  makes every update that follows. "Let me know and I'll make all updates", never "then update the
+  config files".
+- **Write for the product owner.** Plain words, short, what it means for the product. No git,
+  infrastructure or configuration vocabulary unless he asked for it.
+- **One number per question, the register's.** A question to Patric carries its
+  `docs/open-questions.md` number in chat too, never a fresh "1."; numbers keep counting across
+  sessions. Each question is phrased so that a yes, a no or a pick answers it, with the smaller
+  option named.
+
 ## Raising issues
 
 Patric is the strategist and product owner. Agents find problems; Patric decides.
 
 - Raise an issue when you find it, not at the end. Do not sit on it and do not resolve it yourself.
-- Raise it as a **numbered list**. Each item: the issue in one or two sentences, an optional suggested solution, and whether it needs approval. Patric answers by number.
+- Raise it as a **numbered list whose numbers are the register's** (`docs/open-questions.md`). Each item: the issue in one or two sentences, an optional suggested solution, and whether it needs approval. Patric answers by number.
 - **Tag every item with the part it concerns**, in brackets first: `[core]`, `[crm]` (any adapter), `[crm-vitec]`, `[crm-mspecs]`, `[client-wordpress]`, `[client-lovable]`.
 - **One number per question, for good.** `docs/open-questions.md` is the register: a question gets the next number there before it is asked, chat refers to that number, and Patric answers by number in any conversation. Numbers are never reused; an answered question moves to `docs/decisions.md` and leaves the register.
 - Once an item is approved, act on it. That includes updating `docs/strategy.md`: agents may change the strategy when the change is approved, and note it in `docs/decisions.md`.

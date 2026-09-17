@@ -26,7 +26,7 @@ Get from the Concept and SRS to a production deploy of a simple, lean and reliab
 | Contract             | One JSON Schema per datatype describing the current shape. TS types are generated from it at build time. Breaking changes use expand-contract (§6).                                                                     | Schema and code can't drift                                                                             |
 | Tests                | Vitest against real Postgres in CI                                                                                                                                                                                      |                                                                                                         |
 | Checks               | Few blocking checks; the rest are warnings (§3)                                                                                                                                                                         |                                                                                                         |
-| CI/CD                | GitHub Actions and GitHub Environments                                                                                                                                                                                  | Production approval is one button                                                                       |
+| CI/CD                | GitHub Actions for the checks; App Platform deploys the `staging` branch on push, and production only when an agent asks it to, on Patric's word in chat                                                                | Production approval is one sentence in chat, no console                                                 |
 | Monitoring           | `/v1/health`: 200 when every check passes, 500 when any fails, same payload (§8.1). Watched by Sentry Uptime.                                                                                                           | Works with any monitoring tool                                                                          |
 | Errors               | Sentry (EU) in Core and both clients. Until the account exists, error reporting is a **placeholder**: one small module, active only when `SENTRY_DSN` is set, a no-op otherwise.                                        | One error surface, and no waiting on an account                                                         |
 | WP client            | PHP 8.3, PHPStan, and the shared sync scenario suite run against a real WordPress install (no PHPUnit, no wp-env)                                                                                                       | One suite proves both clients against the real Core                                                     |
@@ -106,9 +106,9 @@ Formatting is applied by the formatter. Line endings are fixed by `.gitattribute
 
 ```
 PR ──► CI: E1–E4 block · warnings reported
-merge main ──► auto-deploy STAGING (Core + staging WP site + staging Lovable site) ──► smoke suite
-          ──► release report
-approver checks staging sites ──► clicks Approve ──► deploy PRODUCTION (health-gated; old version stays live on failure)
+push staging ──► auto-deploy STAGING (Core + staging WP site + staging Lovable site) ──► smoke suite
+             ──► release report
+merge main ──► Patric checks staging sites ──► says "release" in chat ──► an agent asks App Platform to deploy main ──► PRODUCTION (health-gated; old version stays live on failure)
 ```
 
 **The release report** (plain language) contains:
@@ -119,6 +119,11 @@ approver checks staging sites ──► clicks Approve ──► deploy PRODUCTI
 - **Links** to what to check on the staging sites, and acceptance status.
 
 One approval promotes Core, the WP plugin channel and the Lovable kit. Every deploy tags a Sentry release.
+
+Staging is its own app deploying the `staging` branch on every push, on the production cluster with
+a database of its own. Production never deploys by itself: a release is Patric saying so in chat,
+after which an agent asks App Platform for a deployment of `main`. Humans never touch git or a
+console (Patric, 2026-09-17).
 
 ## 5. Engine and adapters
 
@@ -321,7 +326,7 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
 | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | **0. Decide**                                                                                                                                   | Strategy and acceptance criteria                                                                                                    | **Gate 1: approved 2026-09-15**                                                               |
 | **1. Foundation** ✔ done                                                                                                                        | Repo tooling, §3 checks and warnings, Sentry placeholder, health endpoint, release gate, a "hello health" app                       | Checks block a seeded violation, and the app serves `/v1/health` locally and in CI            |
-| **1b. Deploy** ⏳ app spec in `.do/app.yaml` (2026-09-16); waits on the cluster and a token                                                     | Staging and prod deployed on the platform Kowboy supplies, Sentry account wired up                                                  | A trivial change goes PR → staging → approved → production, and a failing health check alerts |
+| **1b. Deploy** ⏳ cluster and both specs ready (2026-09-17); the two apps and the `production` environment wait (README)                        | Staging and prod deployed on the platform Kowboy supplies, Sentry account wired up                                                  | A trivial change goes PR → staging → approved → production, and a failing health check alerts |
 | **2. Canonical model** ⏳ awaiting Gate 2                                                                                                       | JSON Schemas, a field table per datatype, dummy data (`golden/fake/`)                                                               | **Gate 2:** field tables approved                                                             |
 | **3. Engine** ◄ current                                                                                                                         | Engine, adapter API, bells, recompute, health, event log, two fake adapters (one webhook-style, one polling-style), fake subscriber | Engine acceptance criteria green ([report](../acceptance/report.md))                          |
 | **4. Clients** ⏳ sync loops built 2026-09-15 ahead of Gate 2 (next-steps item 4); templates, example site and staging sites wait for the model | WP plugin, Lovable kit, example site, staging client sites                                                                          | Client acceptance criteria green                                                              |

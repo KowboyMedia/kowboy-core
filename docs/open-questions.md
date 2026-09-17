@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 25.
+answering is quick. Next number: 27.
 
 ## 2. Protected paths created by an agent
 
@@ -54,12 +54,3 @@ That is an adapter API change, so it needs approval (E3). It is additive and bre
 Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPress plugins normally
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
-
-## 18. `[crm-vitec]` What a test account settles
-
-Built from the documentation alone (`docs/inputs/vitec/`), three things are unverified: whether
-list paging starts at 0 or 1 (the lister tolerates both); what `GET .../Estate/{customerId}/{id}`
-returns for an estate withdrawn from the website (404 tombstones, 200 keeps the record with its
-status); and whether a `Remove` notification's record is still fetchable. Needs Vitec test
-credentials: `scripts/vitec-probe.ts` answers the first two the moment they exist (next-steps
-item 5).

@@ -1,0 +1,89 @@
+# The staging app (Patric, 2026-09-17): app.yaml with another name, the `staging` branch deploying
+# on push, and its own database `core_staging` on the same cluster. Created, read back and updated
+# the same way as app.yaml, with secrets of its own.
+# App id 57498bcc-59a5-4812-aa1f-ed65c83a5b2f, created 2026-09-17 through the API; secrets are encrypted by DigitalOcean.
+name: kowboy-core-staging
+services:
+  - name: web
+    github:
+      repo: KowboyMedia/kowboy-core
+      branch: staging
+      deploy_on_push: true
+    build_command: npm run build
+    run_command: sh scripts/start.sh web
+    source_dir: /
+    environment_slug: node-js
+    envs:
+      - key: DATABASE_URL
+        value: ${db.DATABASE_URL}
+        scope: RUN_TIME
+      - key: DATABASE_CA_CERT
+        value: ${db.CA_CERT}
+        scope: RUN_TIME
+      - key: ADMIN_SECRET
+        value: EV[1:qeNsuORKwpu1hbMP+q1jKmdJs7lmdSFC:Q63rWWTMW0czEt0JMxuqLOjYVV+XdXE9NSSG0JrFIF1lu6vpPAXbzAOaIDKaPDd/SUuOCcB9ERloons=]
+        scope: RUN_TIME
+        type: SECRET
+      - key: CREDENTIALS_KEY
+        value: EV[1:bgk8XOdGy1VfzAIfz1stxfXc3RiUEyAh:E4vFHMxNaQPOrWRs3ojYRW4SlmsBY8WYGMIsgZ/Il3XJHHsgNUa//7P0DJmN9QvLmOA80tkc/oC/lqqi]
+        scope: RUN_TIME
+        type: SECRET
+      - key: VITEC_WEBHOOK_TOKEN
+        value: EV[1:hOO3+g5WuYm4pzme/z4V0vtqUvjPIh84:LcAwrVM/08EW3EQs1S0aFGc3fSdEhFTTUyIjzH7IIZsh+W33a8vTIUcYcWOg+Apu]
+        scope: RUN_TIME
+        type: SECRET
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+    http_port: 8080
+    health_check:
+      initial_delay_seconds: 15
+      period_seconds: 30
+      timeout_seconds: 5
+      failure_threshold: 3
+      http_path: /v1/ready
+workers:
+  - name: worker
+    github:
+      repo: KowboyMedia/kowboy-core
+      branch: staging
+      deploy_on_push: true
+    build_command: npm run build
+    run_command: sh scripts/start.sh worker
+    source_dir: /
+    environment_slug: node-js
+    envs:
+      - key: DATABASE_URL
+        value: ${db.DATABASE_URL}
+        scope: RUN_TIME
+      - key: DATABASE_CA_CERT
+        value: ${db.CA_CERT}
+        scope: RUN_TIME
+      - key: ADMIN_SECRET
+        value: EV[1:LrbZO5XdGEiMHZigOKnaDlBPaVmxP5+q:lxGnApkeCgHPs+oJwlA7enBxBs6pQqsAiadwOikECrPg1npCbE66F2SEIHE/q8qcWXiBB8lqvCkf/wo=]
+        scope: RUN_TIME
+        type: SECRET
+      - key: CREDENTIALS_KEY
+        value: EV[1:bXCPiQ3i5oZD5/Fpa0u5wNdS+/myat0p:QkNWjoD35n9Rr27BQMbnrndq/yyVbSTvhgkvhS3MCgl5XY2Vz+DCiYoz1VHoRXKDra/3pGqjxmmDQXTA]
+        scope: RUN_TIME
+        type: SECRET
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+databases:
+  - name: db
+    engine: PG
+    production: true
+    cluster_name: kowboy-core-production
+    db_name: core_staging
+    db_user: doadmin
+region: fra
+alerts:
+  - rule: DEPLOYMENT_FAILED
+ingress:
+  rules:
+    - match:
+        path:
+          prefix: /
+      component:
+        name: web
+features:
+  - buildpack-stack=ubuntu-22

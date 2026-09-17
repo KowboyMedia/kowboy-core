@@ -67,8 +67,9 @@ curl -X POST https://core.example/v1/admin/event -H 'x-admin-secret: …' \
 ```
 
 Adding an office later: set the connection's offices, then `event: offices_added` with the new
-ids; only those are loaded. Then ask Vitec for subscriptions (docs/inputs/vitec/notifications.md) on `Estate` (published for the website,
-`Update` and `Remove`), `Project`, `User`, `Office` and `Area`, pointing at
+ids; only those are loaded. Then ask Vitec for subscriptions (docs/inputs/vitec/notifications.md)
+on `Estate` for every status, published for the website or not (`Update` and `Remove`), and on
+`Project`, `User`, `Office` and `Area`, pointing at
 `https://<core>/v1/hook/vitec/webhook/<VITEC_WEBHOOK_TOKEN>`.
 
 ## Environment
@@ -80,13 +81,25 @@ ids; only those are loaded. Then ask Vitec for subscriptions (docs/inputs/vitec/
 | `VITEC_FETCH_CONCURRENCY` | Connect requests at once, default 5.                                                    |
 | `DATABASE_URL`            | Where the adapter's own tables live (`vitec_fetch_list`, `vitec_known`, `vitec_state`). |
 
-## Not verified against Vitec yet (open question 18)
+## Verified against Connect (2026-09-17)
 
-`scripts/vitec-probe.ts` settles the first two with real credentials, read-only.
+`scripts/vitec-probe.ts` ran read-only with the test account (open question 18):
 
-- Whether page numbering starts at 0 or 1: the lister stops on an empty page or two pages without
-  new ids, so either works.
-- What a record by id returns once an estate is withdrawn from the website: a 404 tombstones it, a
-  200 keeps it with whatever status it carries.
-- A webhook accepted and then lost to a crash before its fetch ran is picked up by the next
-  catch-up, not sooner.
+- List paging counts from 0, `count` is the number of pages and a page past the end is empty. The
+  lister stops after the last page.
+- A made-up id is HTTP 404, so the tombstone path works as designed.
+- The list holds every estate whose `marketing.isPublished` is true, whatever its sale status
+  (`Sold` and `AssignmentWithdrawn` were both listed). An estate taken off the website is fetched
+  on its `Remove` notification and stored as Vitec answers it, `marketing.isPublished` false and
+  all: Core funnels everything Vitec returns and interprets nothing, the sites read
+  `marketing.isPublished` and `status` (Patric, 2026-09-17). Only a 404 tombstones. Estates that
+  are not published never appear in Vitec's lists, so they reach Core through notifications only.
+- An office's own id (`FIR31529`) is not its customer id (`M31529`): the office endpoint takes the
+  office id, and a customer id in its place is 404. Core keeps the customer id as the office id
+  (Patric, 2026-09-16), so an office item's `remote_id` is Vitec's office id and its `data.id` the
+  customer id. Agent list rows carry no customer id, only their offices.
+
+Not verified: what an `Office` notification carries as `id`, the office id or the customer id. A
+customer id would fetch a 404 and change nothing; the next catch-up carries the change. A webhook
+accepted and then lost to a crash before its fetch ran is picked up by the next catch-up, not
+sooner.
