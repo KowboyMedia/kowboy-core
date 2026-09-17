@@ -51,10 +51,11 @@ async function snapshot(): Promise<number> {
 
 /** What the platform does: the database as it was at the snapshot, then the app starts again. */
 async function restoreAndRestart(snapshotSeq: number): Promise<void> {
-  await db().query('truncate items');
-  await db().query('insert into items select * from items_backup');
-  await db().query("select setval('item_seq', $1)", [snapshotSeq]);
-  await running.restart();
+  await running.restart(async () => {
+    await db().query('truncate items');
+    await db().query('insert into items select * from items_backup');
+    await db().query("select setval('item_seq', $1)", [snapshotSeq]);
+  });
 }
 
 describe('restore (AC 41)', () => {

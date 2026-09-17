@@ -226,11 +226,12 @@ export function syncScenarios(name: string, client: ClientSetup): void {
         const before = byId(await site.items('property'));
         expect(before.map((stored) => stored.remote_id)).toEqual(['P-1', 'P-2', 'P-4']);
 
-        // The platform restores the database to day 29 and starts Core again.
-        await db().query('truncate items');
-        await db().query('insert into items select * from items_backup');
-        await db().query("select setval('item_seq', $1)", [snapshotSeq]);
-        await core.restart();
+        // The platform restores the database to day 29 while Core is down, then starts it again.
+        await core.restart(async () => {
+          await db().query('truncate items');
+          await db().query('insert into items select * from items_backup');
+          await db().query("select setval('item_seq', $1)", [snapshotSeq]);
+        });
 
         // Nothing arrives, nothing is lost, nothing is deleted.
         const paused = await sync();

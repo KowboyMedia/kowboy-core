@@ -31,8 +31,12 @@ export type Harness = {
   connection(input: ConnectionInput): Promise<void>;
   /** Deliver queued lifecycle events, as the worker's tick would. */
   deliver(): Promise<void>;
-  /** Stop and start Core again on the same port, as the platform does after a deploy or a restore. */
-  restart(): Promise<void>;
+  /**
+   * Stop Core, run `during` while it is down (a database restore, say), and start it again on
+   * the same port, as the platform does. Adapters and the server are stopped first, so nothing
+   * polls or pulls while the database changes under it.
+   */
+  restart(during?: () => Promise<void>): Promise<void>;
   stop(): Promise<void>;
 };
 
@@ -93,9 +97,10 @@ export async function harness(options: {
     deliver: async () => {
       await deliverLifecycleEvents();
     },
-    async restart() {
+    async restart(during?: () => Promise<void>) {
       for (const adapter of adapters) await adapter.stop?.();
       await new Promise<void>((resolve) => server.close(() => resolve()));
+      await during?.();
       await engine.stop();
       engine = await startEngine({ port });
       running.engine = engine;
