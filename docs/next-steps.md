@@ -48,15 +48,24 @@ the first item that is not done, and keep the file current. Decisions and open q
    Core funnels everything Vitec returns and interprets nothing, the sites read
    `marketing.isPublished` and `status` (`docs/decisions.md`).
 
+6. **Confirm Vitec's behaviour for a listing taken off the website** (Patric, 2026-09-17), on
+   staging: Vitec lists only marketed listings, so the expectation is that taking one off the
+   website sends a notification like any change, Core fetches it and stores it with
+   `marketing.isPublished` false, the sites hide it, and it stops appearing in the list, which the
+   daily comparison then re-fetches and keeps. To confirm it: Vitec's subscription for the test
+   account points at the staging app, a listing is taken off the website in the test account, and
+   the staging event log shows the notification, the fetch result (200 or 404) and what was stored.
+   Needs: the subscription at Vitec (Patric gives them the staging URL), a Vitec connection on
+   staging (an agent sets it up), and someone taking a listing off the website in Vitec.
+
 ## Later, when Patric supplies them
 
-- The platform → Phase 1b. Status 2026-09-17: the staging app `kowboy-core-staging` is live on
-  the cluster (its own database `core_staging`, the `staging` branch on push, web and worker
-  started, spec committed back). The production app is one API call from `.do/app.yaml`, which
-  the session's permission classifier refused as a production deploy: an allow rule for the
-  agent's DigitalOcean API calls, or a session with wider permissions, and an agent creates it,
-  commits the spec back and hands Patric both notification URLs for Vitec. Nothing for Patric to
-  click otherwise.
+- The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health
+  check is green, `kowboy-core-staging` (the `staging` branch on every push, database
+  `core_staging`) and `kowboy-core` (`main`, deployed when an agent asks on Patric's word,
+  database `defaultdb`); both specs are committed back. Left: Vitec's subscriptions pointing at
+  each app (Patric gives Vitec the URLs, handed over in chat), a Vitec connection on each app
+  (item 6), Sentry, and question 27 on the release flow.
 - Sentry DSN → replace the placeholder in `engine/errors.ts`.
 - The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
 - Vitec test credentials and a staging deploy → open question 18.
@@ -71,4 +80,8 @@ the first item that is not done, and keep the file current. Decisions and open q
   Tag each item with its part: `[core]`, `[crm]`, `[crm-vitec]`, `[crm-mspecs]`, `[client-wordpress]`,
   `[client-lovable]`.
 - A closed gate is not a note: build only what does not depend on it and leave the gap empty.
+- Writes to the DigitalOcean account that touch production (creating or changing the production
+  app, asking for a deployment) are refused by the session's permission classifier until Patric
+  says "allow" in chat; the agent then adds `Bash(python3 *)` and `Bash(curl *)` to
+  `.claude/settings.local.json` (gitignored), does the work, and removes them again.
 - Never invent a contract field or a business rule.
