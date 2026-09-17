@@ -55,9 +55,12 @@ the first item that is not done, and keep the file current. Decisions and open q
 
 ## Later, when Patric supplies them
 
-- The platform → Phase 1b. The app spec is in `.do/app.yaml` (2026-09-16); Patric creates the
-  managed Postgres cluster and either runs the three steps in the README or gives this environment
-  a DigitalOcean API token so an agent can.
+- The platform → Phase 1b. Status 2026-09-17: the cluster exists (`kowboy-core-production`,
+  Frankfurt), and the build, `.do/app.yaml`, `scripts/start.sh` and `.github/workflows/deploy.yml`
+  are ready for it. Left, for Patric or a session allowed to write to the DigitalOcean account
+  (this one was not): create the app from the spec and commit it back, create the GitHub
+  environment `production` with required reviewers and its secret `DIGITALOCEAN_ACCESS_TOKEN`,
+  then give Vitec the webhook URL (README "Deploying"). Staging is open question 25.
 - Sentry DSN → replace the placeholder in `engine/errors.ts`.
 - The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
 - Vitec test credentials and a staging deploy → open question 18.

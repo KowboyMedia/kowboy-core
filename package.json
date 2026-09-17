@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": "22.x"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && cp -r schemas dist/ && cp -r engine/storage/migrations dist/engine/storage/",
     "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck:deno",
     "typecheck:deno": "deno check --config clients/lovable-kit/supabase/functions/core-sync/deno.json clients/lovable-kit/supabase/functions/core-sync/index.ts",
     "test": "vitest run",
@@ -20,9 +20,9 @@
     "check:tests": "node scripts/check-no-skipped-tests.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
     "check": "npm run typecheck && npm run check:seam && npm run check:tests && npm run check:secrets && npm run build && npm run test",
-    "start:web": "node dist/main.js web",
-    "start:worker": "node dist/main.js worker",
-    "dev:web": "node --experimental-strip-types main.ts web",
+    "start:web": "node --env-file-if-exists=.env dist/main.js web",
+    "start:worker": "node --env-file-if-exists=.env dist/main.js worker",
+    "dev:web": "node --env-file-if-exists=.env --experimental-strip-types main.ts web",
     "report": "node scripts/acceptance-report.mjs"
   },
   "dependencies": {

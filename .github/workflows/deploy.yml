@@ -1,0 +1,42 @@
+name: Deploy
+
+# Production never deploys on push (strategy §4). Once CI is green on main, this run waits for a
+# reviewer of the GitHub environment `production`, then asks App Platform to deploy the app from
+# main and follows the deployment until it is live or has failed. The environment holds the secret
+# DIGITALOCEAN_ACCESS_TOKEN; the app is found by its name in .do/app.yaml.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production:
+    name: Deploy production (a reviewer approves)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy kowboy-core and wait for it
+        env:
+          TOKEN: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+        run: |
+          api() { curl -fsS -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "$@"; }
+          app_id=$(api "https://api.digitalocean.com/v2/apps" | jq -r '.apps[] | select(.spec.name == "kowboy-core") | .id')
+          test -n "$app_id" || { echo "no app named kowboy-core"; exit 1; }
+          deployment=$(api -X POST "https://api.digitalocean.com/v2/apps/$app_id/deployments" -d '{"force_build": true}' | jq -r '.deployment.id')
+          echo "deployment $deployment"
+          for attempt in $(seq 1 80); do
+            phase=$(api "https://api.digitalocean.com/v2/apps/$app_id/deployments/$deployment" | jq -r '.deployment.phase')
+            echo "$phase"
+            case "$phase" in
+              ACTIVE) exit 0 ;;
+              ERROR | CANCELED | SUPERSEDED) exit 1 ;;
+            esac
+            sleep 15
+          done
+          echo "still not live after 20 minutes"; exit 1

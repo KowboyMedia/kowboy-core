@@ -37,21 +37,26 @@ The Vitec adapter's connection format, webhook URL and settings (`VITEC_WEBHOOK_
 ## Deploying
 
 Core runs on DigitalOcean App Platform with a managed Postgres cluster in the same EU region
-(strategy §2). [`.do/app.yaml`](.do/app.yaml) is the app: a `web` service with its health check on
-`/v1/health`, a `worker`, and the cluster bound as `DATABASE_URL`. Once, to create it:
+(strategy §2). The cluster exists: `kowboy-core-production` in Frankfurt (2026-09-17).
+[`.do/app.yaml`](.do/app.yaml) is the app: a `web` service with its readiness probe on `/v1/ready`,
+a `worker`, and the cluster bound as `DATABASE_URL` with its CA as `DATABASE_CA_CERT`, which
+`scripts/start.sh` hands to Node. Once, to create it:
 
-1. Create the managed Postgres cluster in the region of the spec, named as its `cluster_name`,
-   with a database `core` and a user `core`.
-2. Copy `.do/app.yaml` to `.do/app.local.yaml` (ignored by git), fill in the three secrets
+1. Copy `.do/app.yaml` to `.do/app.local.yaml` (ignored by git), fill in the three secrets
    (`ADMIN_SECRET`, `CREDENTIALS_KEY` as 32 random bytes in base64, `VITEC_WEBHOOK_TOKEN`) and run
-   `doctl apps create --spec .do/app.local.yaml`.
-3. Commit back what DigitalOcean returns, secrets encrypted:
+   `doctl apps create --spec .do/app.local.yaml`. DigitalOcean's GitHub app needs access to this
+   repository first.
+2. Commit back what DigitalOcean returns, secrets encrypted:
    `doctl apps spec get <app-id> > .do/app.yaml`.
+3. In GitHub, create the environment `production` with required reviewers and give it the secret
+   `DIGITALOCEAN_ACCESS_TOKEN`. From then on `.github/workflows/deploy.yml` deploys `main` once CI
+   is green and a reviewer has approved.
 
 Later changes are edits to `.do/app.yaml` followed by `doctl apps update <app-id> --spec
 .do/app.yaml`. Production never deploys on push, because a human approves each release
 (strategy §4); staging is the same spec with another name, `deploy_on_push: true` and its own
-cluster. Vitec is given the webhook URL `https://<app domain>/v1/hook/vitec/webhook/<token>`.
+cluster (open question 25). Vitec is given the webhook URL
+`https://<app domain>/v1/hook/vitec/webhook/<token>`.
 
 **Restoring the database:** restore it in DigitalOcean, restart the app, nothing else (strategy
 §7.2). `/v1/health` stays red until every adapter has caught up; send no `forcerefresh` to a site

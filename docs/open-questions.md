@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 25.
+answering is quick. Next number: 26.
 
 ## 2. Protected paths created by an agent
 
@@ -66,3 +66,11 @@ listed estate. Needed: an estate in the test account that is actually unpublishe
 (`marketing.isPublished` false), or one unpublished for the test; then the probe again (next-steps
 item 5). Smaller option if that cannot be arranged: keep the design as built, where only a 404
 tombstones.
+
+## 25. `[core]` Staging: its own cluster, or a second database on the production cluster
+
+Strategy §4 and the README give staging its own cluster, which is a second managed Postgres
+cluster, priced like the production one. Blocked without it: the staging half of the pipeline (AC 18), the
+restore drill (AC 24) and the load test (AC 27). Smaller option: a database `core_staging` on
+`kowboy-core-production` and a staging app that deploys on push; the strategy line changes to say
+so. Either is one line in `.do/`; your call on the cost.
