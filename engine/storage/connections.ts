@@ -136,6 +136,18 @@ export async function recordPull(tenantId: string, client: string | null): Promi
   );
 }
 
+/** The tenant's site, for a preview link: its first active subscriber. */
+export async function firstSubscriber(
+  tenantId: string,
+): Promise<{ bell_url: string; bell_secret: string } | null> {
+  const { rows } = await db().query<{ bell_url: string; bell_secret: string }>(
+    `select bell_url, bell_secret from subscribers
+     where tenant_id = $1 and active = true order by id limit 1`,
+    [tenantId],
+  );
+  return rows[0] ?? null;
+}
+
 export async function subscribers(): Promise<SubscriberRow[]> {
   const { rows } = await db().query<SubscriberRow>(
     'select id, tenant_id, label, bell_url, active, last_bell_at, last_bell_status, last_pull_at, last_client from subscribers order by id',

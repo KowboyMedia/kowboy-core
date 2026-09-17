@@ -54,20 +54,3 @@ That is an adapter API change, so it needs approval (E3). It is additive and bre
 Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPress plugins normally
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
-
-## 27. `[core]` `[crm-vitec]` `[client-wordpress]` `[client-lovable]` Previews: where does the agent get the link?
-
-A preview is a property page the seller can see before the property is public. The property is
-on the website but hidden, and a secret link opens it. When the link is opened, the website first
-fetches the latest data from Core, then shows the page, so the seller always sees the newest
-version. There are two ways for the agent to get that link:
-
-- **A. From the website.** The agent copies the link from the website's admin. Nothing in Core
-  changes. This can be built with the templates once the data model is in.
-- **B. From Vitec Express.** The agent clicks "Förhandsgranska" in Express, Vitec asks Core to
-  fetch the property, waits until the website has it, and opens the page. Nothing to copy. For
-  this Core must know each customer's website address, which is a small addition to Core, and
-  Vitec must be told Core's address.
-
-Suggested: A first, B after. Say yes, or say B only. The first, technical wording of this question
-(the endpoints, the token) is settled by the suggestion and needs no answer.

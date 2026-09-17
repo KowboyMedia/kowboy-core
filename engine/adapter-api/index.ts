@@ -4,6 +4,7 @@
 import { ingest, notFound, presentIds } from '../ingest.js';
 import { logEvent } from '../events.js';
 import { report } from '../errors.js';
+import { previewUrl } from '../preview.js';
 import { connectionsForProvider } from '../storage/connections.js';
 import * as registry from '../registry.js';
 import type {
@@ -66,6 +67,9 @@ export function adapterApi(provider: string): AdapterApi {
     },
     report(error: unknown, context: Record<string, unknown> = {}): void {
       report(error, { provider, ...context });
+    },
+    previewUrl(connection, datatype, remoteId) {
+      return previewUrl(connection.tenantId, datatype, remoteId);
     },
   };
 }

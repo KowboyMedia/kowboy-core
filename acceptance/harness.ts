@@ -9,6 +9,8 @@ import { deliverLifecycleEvents } from '../engine/lifecycle.js';
 import { clearRegistry } from '../engine/registry.js';
 import type { Adapter } from '../engine/adapter-api/types.js';
 
+export { previewToken } from '../engine/preview.js';
+
 export const TENANT = 't_test';
 export const TOKEN = 'test-tenant-token';
 export const ADMIN_SECRET = 'test-admin-secret';
@@ -26,6 +28,8 @@ export type ConnectionInput = {
 export type Harness = {
   engine: Engine;
   baseUrl: string;
+  /** The test subscriber's bell endpoint, when one was added. */
+  bellUrl: string;
   bells: Bell[];
   /** Add or change a connection of the test tenant. */
   connection(input: ConnectionInput): Promise<void>;
@@ -62,6 +66,7 @@ export async function harness(options: {
     respond(200);
   });
 
+  const bellUrl = `http://127.0.0.1:${(bellServer.address() as AddressInfo).port}/bell`;
   await upsertTenant({ id: TENANT, displayName: 'Test tenant', token: TOKEN });
   const connection = (input: ConnectionInput): Promise<void> =>
     upsertConnection({
@@ -76,7 +81,7 @@ export async function harness(options: {
     await addSubscriber({
       tenantId: TENANT,
       label: 'test site',
-      bellUrl: `http://127.0.0.1:${(bellServer.address() as AddressInfo).port}/bell`,
+      bellUrl,
       bellSecret: 'bell-secret',
     });
   }
@@ -92,6 +97,7 @@ export async function harness(options: {
   const running: Harness = {
     engine,
     baseUrl: `http://127.0.0.1:${port}`,
+    bellUrl,
     bells,
     connection,
     deliver: async () => {

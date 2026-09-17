@@ -61,7 +61,18 @@ create table if not exists vitec_state (
   name          text not null,
   value         text not null,
   primary key (connection_id, name)
+);
+create table if not exists vitec_preview (
+  office_id    text not null,
+  datatype     text not null,
+  remote_id    text not null,
+  requested_at timestamptz not null default now(),
+  outcome      text,
+  primary key (office_id, datatype, remote_id)
 );`;
+
+/** How the fetch a preview asked for ended. Null while it has not. */
+export type PreviewOutcome = 'found' | 'gone' | 'failed';
 
 let pool: pg.Pool | null = null;
 let ready: Promise<pg.Pool> | null = null;
@@ -293,6 +304,52 @@ export async function retrying(threshold: number): Promise<number> {
   return Number(rows[0]?.n ?? 0);
 }
 
+/**
+ * A preview asked for this record (strategy §5.3, AC 42): the fetch it queued has no outcome
+ * yet. Requests older than a day are of no use to anyone and go.
+ */
+export async function requestPreview(
+  officeId: string,
+  datatype: Datatype,
+  remoteId: string,
+): Promise<void> {
+  const open = await db();
+  await open.query("delete from vitec_preview where requested_at < now() - interval '1 day'");
+  await open.query(
+    `insert into vitec_preview (office_id, datatype, remote_id) values ($1, $2, $3)
+     on conflict (office_id, datatype, remote_id) do update set requested_at = now(), outcome = null`,
+    [officeId, datatype, remoteId],
+  );
+}
+
+/** The preview's state: undefined when none was asked for, else how its fetch ended, if it has. */
+export async function previewOutcome(
+  officeId: string,
+  datatype: Datatype,
+  remoteId: string,
+): Promise<PreviewOutcome | null | undefined> {
+  const { rows } = await (
+    await db()
+  ).query<{ outcome: PreviewOutcome | null }>(
+    'select outcome from vitec_preview where office_id = $1 and datatype = $2 and remote_id = $3',
+    [officeId, datatype, remoteId],
+  );
+  return rows[0]?.outcome;
+}
+
+/** The fetch ended: tell the preview waiting for it, if one is. */
+export async function answerPreview(
+  entry: Pick<Entry, 'officeId' | 'datatype' | 'remoteId'>,
+  outcome: PreviewOutcome,
+): Promise<void> {
+  await (
+    await db()
+  ).query(
+    'update vitec_preview set outcome = $4 where office_id = $1 and datatype = $2 and remote_id = $3',
+    [entry.officeId, entry.datatype, entry.remoteId, outcome],
+  );
+}
+
 export async function getState(connectionId: string, name: string): Promise<string | null> {
   const { rows } = await (
     await db()
@@ -337,5 +394,5 @@ export async function backdate(ms: number): Promise<void> {
 }
 
 export async function reset(): Promise<void> {
-  await (await db()).query('truncate vitec_fetch_list, vitec_known, vitec_state');
+  await (await db()).query('truncate vitec_fetch_list, vitec_known, vitec_state, vitec_preview');
 }

@@ -66,6 +66,8 @@ async function start(
       SUPABASE_DB_URL: process.env['DATABASE_URL'] ?? '',
       // What Supabase injects for the function's own address; chaining calls itself through it.
       SUPABASE_URL: `http://127.0.0.1:${port}`,
+      // The site's page for an item, where a preview link ends up.
+      CORE_PREVIEW_URL: 'http://site.test/objekt/{id}?preview={token}',
       ...extraEnv,
     },
     stdio: ['ignore', 'inherit', 'inherit'],

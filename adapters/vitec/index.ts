@@ -4,6 +4,7 @@
 //   worker ──► fetch, five at a time ──► found: ingest · gone: notFound · failed: retry later
 //   every 12 h ──► "what changed since the last catch-up, less one hour" ──► fetch list
 //   every 24 h ──► Vitec's full id list against the ids seen ──► missing ones fetched to confirm
+//   Express "Förhandsgranska" ──► Vitec's landing page ──► init ──► fetch list ──► verify ──► the site
 //
 // A connection's credentials are a JSON document, `{"username", "password"}`: the Connect key
 // pair. Its licensed offices are the office ids, which are what Connect calls customer ids
@@ -19,6 +20,8 @@ import type {
   Connection,
   Datatype,
   Route,
+  RouteRequest,
+  RouteResponse,
 } from '../../engine/adapter-api/index.js';
 
 const PROVIDER = 'vitec';
@@ -30,6 +33,14 @@ const CATCH_UP_LIMIT_MS = 13 * 3_600_000;
 const COMPARE_EVERY_MS = 24 * 3_600_000;
 const LAG_LIMIT_MS = 5 * 60_000;
 const RETRIES_RED = 3;
+/** What Vitec's preview landing page shows the agent when a preview cannot be shown. */
+const PREVIEW_MESSAGE = {
+  unlicensed: 'Kontoret är inte kopplat till Kowboy Core',
+  not_started: 'Förhandsgranskningen är inte startad',
+  gone: 'Bostaden finns inte i Vitec',
+  failed: 'Bostaden kunde inte hämtas från Vitec',
+  no_site: 'Ingen webbplats är kopplad till kontoret',
+};
 
 type Credentials = { username: string; password: string };
 type Live = { connection: Connection; credentials: Credentials };
@@ -132,17 +143,24 @@ const tokenMatches = (given: string | undefined, expected: string): boolean =>
   given.length === expected.length &&
   timingSafeEqual(Buffer.from(given), Buffer.from(expected));
 
+/** The secret in the path is the permission, for the webhook and the preview calls alike. */
+function refused(url: string): RouteResponse | null {
+  const expected = process.env['VITEC_WEBHOOK_TOKEN'];
+  if (!expected) return { status: 503, body: { error: 'VITEC_WEBHOOK_TOKEN is not set' } };
+  const path = url.split('?')[0];
+  return tokenMatches(path?.split('/').pop(), expected)
+    ? null
+    : { status: 401, body: { error: 'bad token' } };
+}
+
 const routes: Route[] = [
   {
     method: 'POST',
     path: 'webhook/*',
     handler: async (request) => {
-      const expected = process.env['VITEC_WEBHOOK_TOKEN'];
-      if (!expected) return { status: 503, body: { error: 'VITEC_WEBHOOK_TOKEN is not set' } };
-      const [path, query] = request.url.split('?');
-      if (!tokenMatches(path?.split('/').pop(), expected)) {
-        return { status: 401, body: { error: 'bad token' } };
-      }
+      const denied = refused(request.url);
+      if (denied) return denied;
+      const query = request.url.split('?')[1];
       const notification = parseNotification(request.body, query);
       if ('error' in notification) return { status: 400, body: { error: notification.error } };
       if (!notification.datatype) return { status: 202, body: { ignored: true } };
@@ -160,7 +178,84 @@ const routes: Route[] = [
       return { status: 202, body: { queued: true, correlation_id: correlationId } };
     },
   },
+  {
+    method: 'GET',
+    path: 'preview/init/*',
+    handler: (request, api) => preview(request, api, initPreview),
+  },
+  {
+    method: 'GET',
+    path: 'preview/verify/*',
+    handler: (request, api) => preview(request, api, verifyPreview),
+  },
 ];
+
+// ---- Previews (strategy §5.3, AC 42) ----------------------------------------------------------
+//
+// Vitec's preview landing page (docs/inputs/vitec/advertising-preview.md) calls `init` when the
+// agent clicks "Förhandsgranska" in Express, then polls `verify` until the answer is ready, and
+// opens the url it gets. Ready means the estate has been fetched since the click; the site's
+// preview link pulls from Core before it shows the estate, so what the agent sees is what Vitec
+// holds at that moment. Both calls carry `customerId` and `estateId`.
+
+type PreviewRequest = { officeId: string; estateId: string };
+type PreviewAnswer = (
+  request: PreviewRequest,
+  owner: Live | null,
+  api: AdapterApi,
+) => Promise<Record<string, unknown>>;
+
+async function preview(
+  request: RouteRequest,
+  api: AdapterApi,
+  answer: PreviewAnswer,
+): Promise<RouteResponse> {
+  const denied = refused(request.url);
+  if (denied) return denied;
+  const params = new URLSearchParams(request.url.split('?')[1] ?? '');
+  const officeId = params.get('customerId');
+  const estateId = params.get('estateId');
+  if (!officeId || !estateId) {
+    return { status: 400, body: { error: 'customerId and estateId are required' } };
+  }
+  const owner =
+    (await live(api)).find((candidate) =>
+      candidate.connection.licensedOffices.includes(officeId),
+    ) ?? null;
+  return { status: 200, body: await answer({ officeId, estateId }, owner, api) };
+}
+
+/** Queue the fetch. The url is the site's page meanwhile, when the site can have the estate. */
+const initPreview: PreviewAnswer = async ({ officeId, estateId }, owner, api) => {
+  if (!owner) return { url: null };
+  const correlationId = randomUUID();
+  await store.requestPreview(officeId, 'property', estateId);
+  await store.enqueue([
+    { officeId, datatype: 'property', remoteId: estateId, reason: 'webhook', correlationId },
+  ]);
+  await api.logEvent('preview.requested', {
+    office_id: officeId,
+    remote_id: estateId,
+    correlation_id: correlationId,
+  });
+  const known = await store.isKnown(officeId, 'property', estateId);
+  return { url: known ? await api.previewUrl(owner.connection, 'property', estateId) : null };
+};
+
+const notReady = { isReady: false, url: null };
+const failedPreview = (message: string) => ({ ...notReady, errorMessage: message });
+
+/** Ready once the fetch the click queued has found the estate. */
+const verifyPreview: PreviewAnswer = async ({ officeId, estateId }, owner, api) => {
+  if (!owner) return failedPreview(PREVIEW_MESSAGE.unlicensed);
+  const outcome = await store.previewOutcome(officeId, 'property', estateId);
+  if (outcome === undefined) return failedPreview(PREVIEW_MESSAGE.not_started);
+  if (outcome === null) return notReady;
+  if (outcome === 'gone') return failedPreview(PREVIEW_MESSAGE.gone);
+  if (outcome === 'failed') return failedPreview(PREVIEW_MESSAGE.failed);
+  const url = await api.previewUrl(owner.connection, 'property', estateId);
+  return url ? { isReady: true, url } : failedPreview(PREVIEW_MESSAGE.no_site);
+};
 
 // ---- The fetch list ---------------------------------------------------------------------------
 
@@ -201,6 +296,7 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
         await current.notFound(connection, entry.datatype, entry.remoteId);
       }
       await store.forget(entry.officeId, entry.datatype, entry.remoteId);
+      await store.answerPreview(entry, 'gone');
       return;
     }
     for (const { connection } of owners) {
@@ -209,6 +305,7 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
       });
     }
     await store.remember(entry.officeId, entry.datatype, entry.remoteId, changedAtOf(payload));
+    await store.answerPreview(entry, 'found');
     await queueReferences(entry, payload);
   } catch (error) {
     // A failed fetch is retried, never treated as a delete (strategy §5.3).
@@ -223,6 +320,7 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
       };
       await current.logEvent('fetch.failed', fields);
       current.report(new Error('vitec fetch given up'), fields);
+      await store.answerPreview(entry, 'failed');
     }
   }
 }

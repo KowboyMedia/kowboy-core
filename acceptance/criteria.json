@@ -412,8 +412,13 @@
       "ac": 42,
       "title": "Preview (Vitec)",
       "phase": "clients",
-      "tests": [],
-      "note": "Requirement added 2026-09-17 (Patric). Waits on the data model for the status and marketing flags, then the clients' preview link and the pull before rendering; Vitec's preview landing page is open question 27."
+      "tests": [
+        "the Vitec adapter answers a preview: fetches the estate first, then points Vitec at the site's preview link (AC 42)",
+        "the Vitec adapter tells Vitec when a previewed estate does not exist, and refuses a wrong token (AC 42)",
+        "the WordPress client against Core opens a preview link only with the right token, and pulls before answering (AC 42)",
+        "the Lovable kit against Core opens a preview link only with the right token, and pulls before answering (AC 42)"
+      ],
+      "note": "Built 2026-09-17: Vitec's landing page is answered by the adapter against the stand-in Connect, and both real clients pull before answering the preview link. The page itself, shown through the link only while the estate's status is one Vitec previews and it is not marketed, comes with the templates and the data model."
     }
   ]
 }

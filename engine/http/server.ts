@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { gzipSync } from 'node:zlib';
 import { report } from '../errors.js';
+import { adapterApi } from '../adapter-api/index.js';
 import type { Route } from '../adapter-api/types.js';
 
 /**
@@ -36,18 +37,25 @@ export function jsonResponse(status: number, body: unknown): Response {
   return { status, body };
 }
 
-/** Mount an adapter's own routes under /v1/hook/<provider>/ (strategy §5.1). */
+/**
+ * Mount an adapter's own routes under /v1/hook/<provider>/ (strategy §5.1). The handlers get the
+ * adapter API, because the web process, which serves them, never starts the adapter.
+ */
 export function adapterRoutes(provider: string, routes: Route[]): RouteTable {
+  const api = adapterApi(provider);
   return routes.map((route) => ({
     method: route.method,
     path: `/v1/hook/${provider}/${route.path.replace(/^\//, '')}`,
     handler: async (request: Request): Promise<Response> => {
-      const response = await route.handler({
-        method: request.method,
-        url: request.path + (request.query.size ? `?${request.query}` : ''),
-        headers: request.headers,
-        body: request.body,
-      });
+      const response = await route.handler(
+        {
+          method: request.method,
+          url: request.path + (request.query.size ? `?${request.query}` : ''),
+          headers: request.headers,
+          body: request.body,
+        },
+        api,
+      );
       return { status: response.status, body: response.body, headers: response.headers };
     },
   }));

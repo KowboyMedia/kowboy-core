@@ -104,6 +104,20 @@ function core_client_index_row(string $datatype, string $connection_id, string $
     return is_object($row) ? $row : null;
 }
 
+/** The post holding an item, whichever connection it came from, or null. */
+function core_client_post_for(string $datatype, string $remote_id): ?int
+{
+    global $wpdb;
+    $index = core_client_index_table();
+    $post_id = $wpdb->get_var($wpdb->prepare(
+        "SELECT i.post_id FROM $index i JOIN {$wpdb->posts} p ON p.ID = i.post_id
+         WHERE i.datatype = %s AND i.remote_id = %s ORDER BY i.post_id LIMIT 1",
+        $datatype,
+        $remote_id,
+    ));
+    return $post_id === null ? null : (int) $post_id;
+}
+
 /**
  * Write one item from a /v1/changes page into its post and the index. Returns the post id.
  *

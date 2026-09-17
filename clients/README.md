@@ -15,6 +15,12 @@ minute backstop, and a local store that keeps `data` verbatim. Templates, search
 index columns for filters wait for the data model (`docs/field-tables.md`): nothing here guesses at
 a field.
 
+**The preview link.** A GET on the bell endpoint, `?datatype=…&id=…&token=…`, is Core's preview
+link for one item (strategy §5.3, AC 42). The token is an HMAC-SHA256 of `datatype:id` with the
+bell secret, so the client checks it without asking Core. The client pulls from Core first, then
+sends the visitor on to the item's page with the token, which is what lets that page show an item
+that is not public. A wrong token is 401.
+
 ## The sync scenario suite
 
 [sync-scenarios.ts](sync-scenarios.ts) is one set of scenarios that every client must pass, run as

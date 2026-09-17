@@ -59,8 +59,12 @@ the first item that is not done, and keep the file current. Decisions and open q
    and the environment: agents need the first for admin calls, Vitec's subscriptions the second in
    the webhook URL (`adapters/vitec/README.md`). Then staging the same way. Blocked until the token
    is there.
-7. **Preview (AC 42), after the model (item 2):** the clients' preview link with the pull before
-   rendering, and the Vitec preview landing page in the adapter once question 27 is answered.
+7. ~~**Preview (AC 42).**~~ Built 2026-09-17 (Patric: the link comes from Vitec's preview button,
+   and the site must have the change before the page opens): Vitec's landing page is answered by
+   the adapter, the engine makes the site's preview link, and both clients pull before they answer
+   it (`adapters/vitec/README.md`, "Previews"). Left for the templates, with the model (item 2):
+   the page itself, shown through the link only while the estate's status is one Vitec previews
+   and it is not marketed. Vitec is given the two preview URLs with the webhook URL (item 6).
 
 ## Later, when Patric supplies them
 

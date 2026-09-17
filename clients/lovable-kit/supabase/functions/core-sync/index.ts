@@ -3,6 +3,9 @@
 //
 //   POST /    header X-Core-Secret, body {"kind": "delta" | "forcerefresh"}
 //             → 202 at once; the sync runs on after the response
+//   GET /?datatype=property&id=<remote id>&token=<hmac>
+//             a preview link Core made (strategy §5.3, AC 42): the sync runs first, then the
+//             visitor is sent on to the site's page for the item, CORE_PREVIEW_URL
 //
 // All state is in Postgres (core_sync_state), so any number of function instances agree: an
 // advisory lock makes syncs run one at a time, and a bell arriving mid-run leaves a note
@@ -65,6 +68,7 @@ function report(message: string, context: Record<string, unknown> = {}): void {
 }
 
 Deno.serve({ port: Number(Deno.env.get('PORT') ?? 8000) }, async (request) => {
+  if (request.method === 'GET') return preview(request);
   if (request.method !== 'POST') return Response.json({ error: 'POST a bell' }, { status: 405 });
 
   const given = request.headers.get('x-core-secret') ?? '';
@@ -79,6 +83,43 @@ Deno.serve({ port: Number(Deno.env.get('PORT') ?? 8000) }, async (request) => {
   background(sync(kind));
   return Response.json({ queued: true }, { status: 202 });
 });
+
+/**
+ * A preview link: the token is an HMAC of "datatype:id" with the bell secret, as Core makes it.
+ * The sync runs first, so the page shows what Core holds now. CORE_PREVIEW_URL is the site's page
+ * for an item, with {datatype}, {id} and {token} filled in; the token lets the page show what is
+ * not public. Without it the answer says only that the site is current.
+ */
+async function preview(request: Request): Promise<Response> {
+  const params = new URL(request.url).searchParams;
+  const datatype = params.get('datatype') ?? '';
+  const id = params.get('id') ?? '';
+  const token = params.get('token') ?? '';
+  if (!(await sameSecret(token, await previewToken(datatype, id)))) {
+    return Response.json({ error: 'bad token' }, { status: 401 });
+  }
+  await sync('delta');
+  const template = Deno.env.get('CORE_PREVIEW_URL');
+  if (!template) return Response.json({ synced: true, datatype, id });
+  const url = template
+    .replace('{datatype}', encodeURIComponent(datatype))
+    .replace('{id}', encodeURIComponent(id))
+    .replace('{token}', encodeURIComponent(token));
+  return new Response(null, { status: 302, headers: { location: url } });
+}
+
+async function previewToken(datatype: string, id: string): Promise<string> {
+  const encode = (value: string) => new TextEncoder().encode(value);
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encode(env('CORE_BELL_SECRET')),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, encode(`${datatype}:${id}`));
+  return [...new Uint8Array(signature)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
 
 /** Compare two secrets through their digests, so the comparison's timing says nothing about them. */
 async function sameSecret(given: string, expected: string): Promise<boolean> {

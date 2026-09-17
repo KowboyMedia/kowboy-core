@@ -108,8 +108,21 @@ catch-up or comparison, not sooner.
 
 ## Previews
 
-An estate the agent previews before marketing it (`marketing.isPreview`) is carried like any
-other and shown only through a site's preview link (strategy §5.3, AC 42). Vitec also offers a
-preview landing page that calls two GET endpoints at the partner, `init` and `verify`
-(docs/inputs/vitec/advertising-preview.md); whether the adapter answers them, and with which
-site's URL, is open question 27.
+The agent's "Förhandsgranska" in Express opens Vitec's preview landing page
+(docs/inputs/vitec/advertising-preview.md), which calls two GET endpoints here, both with
+`?customerId=…&estateId=…` appended by Vitec:
+
+- `/v1/hook/vitec/preview/init/<VITEC_WEBHOOK_TOKEN>` puts the estate on the fetch list, first in
+  line, and answers `{ "url": … }`: the site's preview link when the estate is known already, so
+  Vitec can show the current page meanwhile, else null.
+- `/v1/hook/vitec/preview/verify/<VITEC_WEBHOOK_TOKEN>`, polled by Vitec, answers
+  `{ "isReady": true, "url": … }` once that fetch has found the estate, `{ "isReady": false }`
+  while it runs, or `{ "isReady": false, "errorMessage": … }`, in Swedish for the agent, when the
+  office is not connected, the estate is not in Vitec, the fetch gave up, or the tenant has no
+  site.
+
+The url is the site's preview link, which the engine makes from the tenant's bell endpoint and a
+token the site checks with its bell secret (strategy §5.3, AC 42); the site pulls from Core before
+it shows the estate, so what the agent sees is what Vitec held at the click. Give Vitec both URLs
+together with the webhook URL. The fetch records how it ended for a waiting preview in
+`vitec_preview`.

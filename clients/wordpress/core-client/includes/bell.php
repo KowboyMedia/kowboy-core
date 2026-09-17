@@ -2,16 +2,71 @@
 // The bell endpoint (SRS §5, Appendix A): POST /wp-json/core/v1/bell with X-Core-Secret. It
 // carries no data; it means "something changed, come and pull". The pull happens in this same
 // request, after the answer has gone out, so a bell is acted on whatever WP-Cron and traffic do.
+//
+// A GET on the same endpoint is a preview link Core made (strategy §5.3, AC 42):
+// ?datatype=property&id=<remote id>&token=<hmac>. The site pulls first, so the page shows what
+// Core holds now, then sends the visitor on to the item's page.
 
 declare(strict_types=1);
 
 add_action('rest_api_init', function (): void {
     register_rest_route('core/v1', '/bell', [
-        'methods' => 'POST',
-        'permission_callback' => 'core_client_bell_permitted',
-        'callback' => 'core_client_bell',
+        [
+            'methods' => 'POST',
+            'permission_callback' => 'core_client_bell_permitted',
+            'callback' => 'core_client_bell',
+        ],
+        [
+            'methods' => 'GET',
+            'permission_callback' => 'core_client_preview_permitted',
+            'callback' => 'core_client_preview',
+        ],
     ]);
 });
+
+/** The token is the permission: an HMAC of "datatype:id" with the bell secret, as Core makes it. */
+function core_client_preview_permitted(WP_REST_Request $request): bool|WP_Error
+{
+    $secret = core_client_settings()['bell_secret'];
+    $given = (string) $request->get_param('token');
+    $expected = $secret === '' ? '' : hash_hmac(
+        'sha256',
+        (string) $request->get_param('datatype') . ':' . (string) $request->get_param('id'),
+        $secret,
+    );
+    if ($expected === '' || $given === '' || !hash_equals($expected, $given)) {
+        return new WP_Error('core_client_bad_token', 'bad token', ['status' => 401]);
+    }
+    return true;
+}
+
+/** Pull now, then on to the item's page with the token, which lets the page show what is not public. */
+function core_client_preview(WP_REST_Request $request): WP_REST_Response
+{
+    $datatype = (string) $request->get_param('datatype');
+    $remote_id = (string) $request->get_param('id');
+    core_client_sync('delta');
+    core_client_await_sync();
+    $post_id = core_client_post_for($datatype, $remote_id);
+    if ($post_id === null) {
+        return new WP_REST_Response(['error' => 'not stored'], 404);
+    }
+    $response = new WP_REST_Response(null, 302);
+    $response->header('Location', add_query_arg('core_preview', (string) $request->get_param('token'), (string) get_permalink($post_id)));
+    return $response;
+}
+
+/** A sync that was already running works through the note this one left; wait for it, briefly. */
+function core_client_await_sync(): void
+{
+    $deadline = microtime(true) + 10;
+    while (microtime(true) < $deadline) {
+        if (core_client_state('pending') === null && core_client_state('running_since') === null) {
+            return;
+        }
+        usleep(200_000);
+    }
+}
 
 /** The secret is the permission. */
 function core_client_bell_permitted(WP_REST_Request $request): bool|WP_Error

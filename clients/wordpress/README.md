@@ -9,7 +9,7 @@ core-client/                     the plugin
   includes/settings.php          Core URL, tenant token, bell secret; the settings page with the last sync
   includes/store.php             post types, the index and state tables, upsert and delete
   includes/sync.php              the SRS §8 loop
-  includes/bell.php              POST /wp-json/core/v1/bell
+  includes/bell.php              POST /wp-json/core/v1/bell, and GET for a preview link
   includes/schedule.php          the 15 minute backstop, an Action Scheduler recurring action
   lib/action-scheduler/          Action Scheduler 4.1.0, bundled (GPLv3)
   includes/cli.php               wp core-client sync [--force], wp core-client status
@@ -31,6 +31,11 @@ The first sync happens on the first bell or the next 15 minute run, or now: `wp 
 
 **How a bell is answered.** The endpoint answers 202 and then pulls from Core in that same request,
 after the answer has gone out, so neither a queue nor traffic is needed for a bell to take effect.
+
+**The preview link.** `GET /wp-json/core/v1/bell?datatype=property&id=…&token=…` is Core's
+preview link (strategy §5.3, AC 42): the plugin checks the token against the bell secret, pulls,
+and redirects to the item's permalink with `core_preview=<token>`. Showing a not-yet-public item
+there, and only with that token, is the template layer's, which comes with the data model.
 
 **The backstop.** Every 15 minutes a sync runs anyway, as a recurring Action Scheduler action, in
 case a bell was lost. Action Scheduler is bundled with the plugin (`lib/action-scheduler`), so

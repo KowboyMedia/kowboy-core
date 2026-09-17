@@ -6,6 +6,7 @@ import { createServer } from 'node:net';
 import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { harness, until, TENANT, TOKEN, type Harness } from '../acceptance/harness.js';
+import { previewUrl } from '../engine/preview.js';
 import { addSubscriber } from '../engine/storage/connections.js';
 import { db } from '../engine/storage/db.js';
 import { purgeTombstones } from '../engine/storage/items.js';
@@ -382,6 +383,32 @@ export function syncScenarios(name: string, client: ClientSetup): void {
 
         await sync();
         expect(await remoteIds('property')).toEqual(ids);
+      },
+      SCENARIO_TIMEOUT_MS,
+    );
+
+    it(
+      'opens a preview link only with the right token, and pulls before answering (AC 42)',
+      async () => {
+        await seed('P-1');
+        await sync();
+        const link = await previewUrl(TENANT, 'property', 'P-2');
+        expect(link).not.toBeNull();
+
+        // Bells reach nobody from here on: what the site learns, the preview's own pull teaches it.
+        await db().query("update subscribers set bell_url = 'http://127.0.0.1:9/'");
+        await seed('P-2');
+        expect(await remoteIds('property')).toEqual(['P-1']);
+
+        const wrong = new URL(link!);
+        wrong.searchParams.set('token', 'not-the-token');
+        expect((await fetch(wrong, { redirect: 'manual' })).status).toBe(401);
+        expect(await remoteIds('property')).toEqual(['P-1']);
+
+        const opened = await fetch(link!, { redirect: 'manual' });
+        expect(opened.status).toBe(302);
+        expect(opened.headers.get('location')?.toLowerCase()).toContain('p-2');
+        expect(await remoteIds('property')).toEqual(['P-1', 'P-2']);
       },
       SCENARIO_TIMEOUT_MS,
     );

@@ -65,7 +65,8 @@ export type Route = {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   /** Mounted under /v1/hook/<provider>/, e.g. "webhook" or "webhook/:connection". */
   path: string;
-  handler: (request: RouteRequest) => Promise<RouteResponse> | RouteResponse;
+  /** `api` is the adapter API, for what answering a request needs from the engine. */
+  handler: (request: RouteRequest, api: AdapterApi) => Promise<RouteResponse> | RouteResponse;
 };
 
 export type RouteRequest = {
@@ -106,6 +107,12 @@ export type AdapterApi = {
   connections(): Promise<Connection[]>;
   /** Report an unexpected error to the error tracker (Sentry once wired). Never pass credentials. */
   report(error: unknown, context?: Record<string, unknown>): void;
+  /**
+   * The tenant's site's preview link for one item (strategy §5.3, AC 42): a GET on the site's
+   * bell endpoint with a token the site checks with its bell secret. The site pulls from Core
+   * before it shows the item. Null when the tenant has no subscriber.
+   */
+  previewUrl(connection: Connection, datatype: Datatype, remoteId: string): Promise<string | null>;
 };
 
 /** What an adapter directory exports. */

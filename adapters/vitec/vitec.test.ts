@@ -3,7 +3,13 @@
 // what a read-only probe of Connect showed on 2026-09-17 (scripts/vitec-probe.ts). Core carries
 // every estate Vitec answers 200 for, marketed or not (Patric); only a 404 tombstones.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { harness, pull, ADMIN_SECRET, type Harness } from '../../acceptance/harness.js';
+import {
+  harness,
+  previewToken,
+  pull,
+  ADMIN_SECRET,
+  type Harness,
+} from '../../acceptance/harness.js';
 import { drainFetchList, runSchedules, vitecAdapter } from './index.js';
 import { isoDate } from './mappers.js';
 import * as store from './store.js';
@@ -87,6 +93,12 @@ const hook = (body: Record<string, unknown>, token = TOKEN): Promise<Response> =
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
+
+/** What Vitec's preview landing page calls: init when the agent clicks, verify until ready. */
+const preview = (step: 'init' | 'verify', estateId: string, token = TOKEN): Promise<Response> =>
+  fetch(
+    `${running.baseUrl}/v1/hook/vitec/preview/${step}/${token}?customerId=${OFFICE}&estateId=${estateId}`,
+  );
 
 const health = async (): Promise<Record<string, { ok: boolean; detail?: string }>> => {
   const response = await fetch(`${running.baseUrl}/v1/health`);
@@ -437,6 +449,52 @@ describe('the Vitec adapter', () => {
     expect((await item('property', 'OBJ1'))?.['seq']).toBe(first?.['seq']);
     // Only the added office was listed and fetched.
     expect(fake.requests.every((request) => request.path.includes('/M2'))).toBe(true);
+  });
+
+  it("answers a preview: fetches the estate first, then points Vitec at the site's preview link (AC 42)", async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    // The agent changed the estate and clicked "Förhandsgranska".
+    fake.put(OFFICE, 'property', estate('OBJ1', OFFICE, { primaryAgentId: 'U2' }));
+
+    const started = (await (await preview('init', 'OBJ1')).json()) as { url: string | null };
+    // The estate is known already, so Vitec may show the site's page while the fetch runs.
+    expect(started.url).toContain('?datatype=property&id=OBJ1&token=');
+    expect(await (await preview('verify', 'OBJ1')).json()).toEqual({ isReady: false, url: null });
+
+    await drainFetchList();
+    const ready = (await (await preview('verify', 'OBJ1')).json()) as {
+      isReady: boolean;
+      url: string;
+    };
+    expect(ready).toEqual({ isReady: true, url: started.url });
+    expect((await item('property', 'OBJ1'))?.['data']).toMatchObject({ agent_ids: ['U2'] });
+    // The link is the site's bell endpoint, with the token the site checks with its bell secret.
+    const link = new URL(ready.url);
+    expect(link.searchParams.get('token')).toBe(previewToken('bell-secret', 'property', 'OBJ1'));
+    expect(`${link.origin}${link.pathname}`).toBe(running.bellUrl);
+  });
+
+  it('tells Vitec when a previewed estate does not exist, and refuses a wrong token (AC 42)', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+
+    expect((await preview('init', 'OBJ1', 'nope')).status).toBe(401);
+    expect(await (await preview('verify', 'OBJ9')).json()).toEqual({
+      isReady: false,
+      url: null,
+      errorMessage: 'Förhandsgranskningen är inte startad',
+    });
+
+    expect(await (await preview('init', 'OBJ9')).json()).toEqual({ url: null });
+    await drainFetchList();
+    expect(await (await preview('verify', 'OBJ9')).json()).toEqual({
+      isReady: false,
+      url: null,
+      errorMessage: 'Bostaden finns inte i Vitec',
+    });
   });
 
   it('lists page by page from page 0 and stops at the first empty page', async () => {

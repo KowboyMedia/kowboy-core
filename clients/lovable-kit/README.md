@@ -11,7 +11,7 @@ model is not defined yet (`docs/field-tables.md`).
 ## What is in it
 
 ```
-supabase/functions/core-sync/index.ts   the bell endpoint and the sync loop, one function
+supabase/functions/core-sync/index.ts   the bell endpoint, the preview link and the sync loop, one function
 supabase/functions/core-sync/deno.json  its one dependency (a Postgres driver)
 supabase/migrations/0001_core_client.sql   the tables: one per datatype, plus the sync's state
 supabase/migrations/0002_core_backstop.sql the 15 minute schedule (pg_cron + pg_net, secrets from Vault)
@@ -42,6 +42,12 @@ minutes whether or not a bell arrived.
    ```bash
    supabase secrets set CORE_URL=https://core.example CORE_TENANT_TOKEN=… CORE_BELL_SECRET=…
    ```
+
+   Optionally `CORE_PREVIEW_URL`, the site's page for one item, such as
+   `https://<site>/objekt/{id}?preview={token}`: Core's preview link, a GET on the function with
+   `?datatype=…&id=…&token=…`, syncs first and then sends the visitor there (strategy §5.3, AC 42).
+   The page shows a not-yet-public item only with that token, an HMAC-SHA256 of `datatype:id`
+   with the bell secret.
 
    `SUPABASE_DB_URL` and `SUPABASE_URL` are provided by Supabase itself. The database URL must be
    the direct (session) connection, which is what Supabase injects; a transaction-mode pooler
