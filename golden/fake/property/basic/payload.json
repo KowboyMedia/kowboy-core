@@ -1,0 +1,16 @@
+{
+  "ref": "OBJ-19203",
+  "state": "FOR_SALE",
+  "streetAddress": "Storgatan 12",
+  "askingPrice": 4950000,
+  "officeRef": "100",
+  "areaRefs": [
+    "area-77"
+  ],
+  "brokerRefs": [
+    "AG-12"
+  ],
+  "associationRef": "BRF-311",
+  "updatedUtc": "2026-09-08T10:02:00Z",
+  "internalCode": 4711
+}

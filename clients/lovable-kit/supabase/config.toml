@@ -1,0 +1,4 @@
+# Add to the site's supabase/config.toml. Core calls the bell with X-Core-Secret, not a Supabase
+# JWT, so the function checks the secret itself.
+[functions.core-sync]
+verify_jwt = false

@@ -1,0 +1,14 @@
+# Protected paths (AGENTS.md rule 3, strategy §3.1 E3).
+# Changes here need approval from Patric.
+
+/AGENTS.md            @patric-kowboy
+/CLAUDE.md            @patric-kowboy
+/.github/CODEOWNERS   @patric-kowboy
+/engine/adapter-api/  @patric-kowboy
+/schemas/             @patric-kowboy
+/acceptance/          @patric-kowboy
+/rules-ledger/        @patric-kowboy
+/golden/              @patric-kowboy
+
+# Dummy data is agent-owned and deliberately not protected.
+/golden/fake/

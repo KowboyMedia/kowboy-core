@@ -1,0 +1,45 @@
+{
+  "name": "kowboy-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck:deno",
+    "typecheck:deno": "deno check --config clients/lovable-kit/supabase/functions/core-sync/deno.json clients/lovable-kit/supabase/functions/core-sync/index.ts",
+    "test": "vitest run",
+    "test:wordpress": "vitest run --config vitest.wordpress.config.ts",
+    "lint": "eslint . && npm run lint:deno",
+    "lint:deno": "deno lint --config clients/lovable-kit/supabase/functions/core-sync/deno.json clients/lovable-kit/supabase/functions/core-sync",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:seam": "node scripts/check-seam.mjs",
+    "check:tests": "node scripts/check-no-skipped-tests.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "check": "npm run typecheck && npm run check:seam && npm run check:tests && npm run check:secrets && npm run build && npm run test",
+    "start:web": "node dist/main.js web",
+    "start:worker": "node dist/main.js worker",
+    "dev:web": "node --experimental-strip-types main.ts web",
+    "report": "node scripts/acceptance-report.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "deno": "^2.9.6",
+    "eslint": "^9.17.0",
+    "globals": "^17.12.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1",
+    "vitest": "^2.1.8"
+  }
+}

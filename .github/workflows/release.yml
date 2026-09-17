@@ -1,0 +1,48 @@
+name: Release
+
+# A tag v* is a release (strategy §4). The WordPress plugin's update assets are published to the
+# DigitalOcean Space sites read from (CORE_CLIENT_UPDATE_URL, clients/wordpress/README.md), and
+# attached to the GitHub Release as the record.
+#
+# Repository variables: DO_SPACES_BUCKET, DO_SPACES_REGION (for example fra1).
+# Repository secrets:   DO_SPACES_KEY, DO_SPACES_SECRET (a Spaces access key pair).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  wordpress-client:
+    name: WordPress client release
+    runs-on: ubuntu-latest
+    env:
+      SPACE_URL: https://${{ vars.DO_SPACES_BUCKET }}.${{ vars.DO_SPACES_REGION }}.digitaloceanspaces.com
+      ZIP_NAME: core-client-${{ github.ref_name }}.zip
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package the plugin
+        run: php clients/wordpress/release.php dist/core-client "$SPACE_URL/core-client/$ZIP_NAME"
+      - name: Publish to the DigitalOcean Space
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DO_SPACES_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DO_SPACES_SECRET }}
+          AWS_DEFAULT_REGION: us-east-1
+          ENDPOINT: https://${{ vars.DO_SPACES_REGION }}.digitaloceanspaces.com
+          BUCKET: ${{ vars.DO_SPACES_BUCKET }}
+        run: |
+          aws s3 cp dist/core-client/core-client.zip "s3://$BUCKET/core-client/$ZIP_NAME" \
+            --endpoint-url "$ENDPOINT" --acl public-read --content-type application/zip
+          aws s3 cp dist/core-client/core-client.json "s3://$BUCKET/core-client/core-client.json" \
+            --endpoint-url "$ENDPOINT" --acl public-read --content-type application/json \
+            --cache-control max-age=300
+          echo "published $SPACE_URL/core-client/core-client.json"
+      - name: Attach it to the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${{ github.ref_name }}" >/dev/null 2>&1 \
+            || gh release create "${{ github.ref_name }}" --title "${{ github.ref_name }}" --generate-notes
+          gh release upload "${{ github.ref_name }}" --clobber \
+            dist/core-client/core-client.zip dist/core-client/core-client.json

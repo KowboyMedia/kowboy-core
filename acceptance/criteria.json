@@ -1,0 +1,412 @@
+{
+  "note": "The authoritative wording lives in strategy §10 (which amends SRS §13). This file maps each criterion to the named tests that prove it. `phase` says when it can first be proved; a criterion with no tests yet must say why.",
+  "criteria": [
+    {
+      "ac": 1,
+      "title": "Golden masters map byte for byte, display included",
+      "phase": "engine",
+      "tests": [
+        "golden masters (fake provider) property/basic",
+        "golden masters (fake provider) property/no-references",
+        "golden masters (fake provider) office/basic",
+        "golden masters (fake provider) agent/basic",
+        "golden masters (fake provider) area/basic",
+        "golden masters (fake provider) association/basic"
+      ],
+      "note": "Proved on golden/fake, whose cases now cover identity, references and dummy fake_* fields only. display is empty in every case because no business rule exists. Real per-CRM golden masters arrive at Gate 3."
+    },
+    {
+      "ac": 2,
+      "title": "An unchanged record produces no new seq and no bell",
+      "phase": "engine",
+      "tests": [
+        "ingest gives an unchanged record no new seq and no bell (AC 15)",
+        "two adapters, one engine writes nothing new when a poll finds no change (AC 15)"
+      ]
+    },
+    {
+      "ac": 3,
+      "title": "A change gives one new seq; a gone record becomes a tombstone",
+      "phase": "engine",
+      "tests": [
+        "ingest gives a real change a new seq and logs what changed",
+        "ingest tombstones a record the CRM no longer has (AC 26)",
+        "two adapters, one engine tombstones through presentIds when a polled record disappears (AC 35)",
+        "the Vitec adapter tombstones after a Remove notification once Vitec answers 404 (AC 3)"
+      ]
+    },
+    {
+      "ac": 4,
+      "title": "The cursor returns everything from 0 and only changes after that",
+      "phase": "engine",
+      "tests": [
+        "GET /v1/changes returns everything from seq 0 and only newer items after that (AC 4)",
+        "GET /v1/changes caps a page at the page size and says there is more"
+      ]
+    },
+    {
+      "ac": 5,
+      "title": "A subscriber converges from 0, from a cursor, and on forcerefresh",
+      "phase": "engine",
+      "tests": [
+        "a subscriber converges from seq 0 to everything Core holds (AC 5)",
+        "a subscriber carries on from its cursor and pulls nothing when nothing changed",
+        "a subscriber rebuilds its whole copy on forcerefresh (AC 5)",
+        "a subscriber drops an item locally when Core tombstones it"
+      ]
+    },
+    {
+      "ac": 6,
+      "title": "Two connections of one provider under one tenant do not collide",
+      "phase": "engine",
+      "tests": [
+        "identity keeps two connections of one provider apart, even with the same remote id (AC 6)"
+      ]
+    },
+    {
+      "ac": 7,
+      "title": "Tenant isolation and the admin secret",
+      "phase": "engine",
+      "tests": [
+        "GET /v1/changes refuses an unknown token, a missing token and a tenant_id parameter",
+        "admin needs the admin secret"
+      ],
+      "note": "Cross-tenant reads are blocked by the token-to-tenant lookup; a second tenant fixture would make that explicit."
+    },
+    {
+      "ac": 8,
+      "title": "Core down: client sites keep serving",
+      "phase": "clients",
+      "tests": [
+        "the Lovable kit against Core keeps its copy and reports the failure when Core is down (AC 8)",
+        "the WordPress client against Core keeps its copy and reports the failure when Core is down (AC 8)"
+      ],
+      "note": "The sync half, on both real clients: the local copy stays and the failure is reported. Page rendering through a 24 h outage needs templates and a staging site."
+    },
+    {
+      "ac": 9,
+      "title": "licensed_offices limits what exists in Core",
+      "phase": "engine",
+      "tests": ["ingest drops a record from an unlicensed office and says why (AC 9)"]
+    },
+    {
+      "ac": 10,
+      "title": "An added field reaches subscribers and breaks nothing",
+      "phase": "clients",
+      "tests": [
+        "the Lovable kit against Core stores a field it has never seen, verbatim (AC 10, AC 30)",
+        "the WordPress client against Core stores a field it has never seen, verbatim (AC 10, AC 30)"
+      ],
+      "note": "Both real clients store an item with a field they have never seen, verbatim, and keep going. The engine half is that data is stored and served verbatim."
+    },
+    {
+      "ac": 11,
+      "title": "A malformed record is dropped, logged, and blocks nothing",
+      "phase": "engine",
+      "tests": ["ingest drops one malformed record and still writes the others (AC 11)"],
+      "note": "Reported to the event log. Sentry reporting waits on the DSN."
+    },
+    {
+      "ac": 12,
+      "title": "An invented provider works end to end; no CRM name in the engine",
+      "phase": "engine",
+      "tests": [
+        "two adapters, one engine serves items from both, side by side, with different payload shapes",
+        "two adapters, one engine reports the health check each adapter registered",
+        "the seam check passes on this repository",
+        "the seam check fails when the engine names a CRM"
+      ]
+    },
+    {
+      "ac": 13,
+      "title": "recompute rewrites affected records with no CRM traffic",
+      "phase": "engine",
+      "tests": ["admin recomputes from stored raw with no CRM traffic, and gives a new seq (AC 13)"]
+    },
+    {
+      "ac": 14,
+      "title": "Adding an office loads only that office's records",
+      "phase": "engine",
+      "tests": [
+        "admin loads only the added office, and gives other offices no new seq (AC 14)",
+        "two adapters, one engine resyncs a connection on request (AC 14)",
+        "the Vitec adapter loads an added office without a new seq for the others (AC 14)",
+        "the Vitec adapter tombstones what Vitec no longer lists on a resync (AC 14)",
+        "restore (AC 41) delivers a lifecycle event queued by the admin endpoint, and counts one nobody takes"
+      ],
+      "note": "The adapter loads the added office's records plus the tenant-wide entities they reference; other offices get no new seq. Admin events reach the worker through the lifecycle_events table."
+    },
+    {
+      "ac": 15,
+      "title": "replay reproduces the current records exactly",
+      "phase": "engine",
+      "tests": [
+        "admin recomputes from stored raw with no CRM traffic, and gives a new seq (AC 13)",
+        "admin previews a recompute without writing anything (AC 36)"
+      ]
+    },
+    {
+      "ac": 16,
+      "title": "The event log answers one entity's whole timeline",
+      "phase": "engine",
+      "tests": [
+        "ingest keeps the whole timeline of an entity in the event log (AC 16)",
+        "admin answers the event timeline query",
+        "ingest links a webhook to the write it caused by correlation id (AC 16)",
+        "the event log keeps every event when many writers log at once",
+        "the event log deletes events outside the retention window (AC 16)"
+      ],
+      "note": "Causes covered: written, unchanged, dropped (unlicensed, malformed, inactive, unknown datatype), tombstoned, bell, pull. A correlation id links a webhook to the write it caused; an adapter cannot yet stamp its own events with one (open question 9)."
+    },
+    {
+      "ac": 17,
+      "title": "Health and alerting",
+      "phase": "engine",
+      "tests": ["health is 500 while a check fails and 200 when everything passes (AC 17)"],
+      "note": "Sentry Uptime alerting waits on the account."
+    },
+    {
+      "ac": 18,
+      "title": "Pipeline: staging on merge, production on approval",
+      "phase": "deploy",
+      "tests": [],
+      "note": "Waits on the platform Kowboy supplies."
+    },
+    {
+      "ac": 19,
+      "title": "No skipped items under concurrent writes",
+      "phase": "engine",
+      "tests": ["a subscriber misses no item while writes keep arriving (AC 19)"],
+      "note": "Proved against concurrent writes in one process. Deploy overlap needs staging."
+    },
+    {
+      "ac": 20,
+      "title": "Real clients pass the sync and search suites",
+      "phase": "clients",
+      "tests": [
+        "the Lovable kit against Core pulls when Core rings, and refuses a bell with the wrong secret",
+        "the WordPress client against Core pulls when Core rings, and refuses a bell with the wrong secret",
+        "the Lovable kit against Core converges from seq 0 to everything Core holds (AC 5, AC 34)",
+        "the WordPress client against Core converges from seq 0 to everything Core holds (AC 5, AC 34)",
+        "the Lovable kit against Core skips unchanged items and carries on from its cursor (AC 2)",
+        "the WordPress client against Core skips unchanged items and carries on from its cursor (AC 2)",
+        "the Lovable kit against Core drops an item locally when Core tombstones it (AC 3)",
+        "the WordPress client against Core drops an item locally when Core tombstones it (AC 3)",
+        "the Lovable kit against Core rewrites everything on forcerefresh, repairing damage a delta sync never sees (AC 5)",
+        "the WordPress client against Core rewrites everything on forcerefresh, repairing damage a delta sync never sees (AC 5)",
+        "the Lovable kit against Core stores a field it has never seen, verbatim (AC 10, AC 30)",
+        "the WordPress client against Core stores a field it has never seen, verbatim (AC 10, AC 30)",
+        "the Lovable kit against Core skips an item it cannot use, and keeps going (AC 30)",
+        "the WordPress client against Core skips an item it cannot use, and keeps going (AC 30)",
+        "the Lovable kit against Core rebuilds without ever emptying when Core says resync_required (AC 31)",
+        "the WordPress client against Core rebuilds without ever emptying when Core says resync_required (AC 31)",
+        "the Lovable kit against Core keeps its copy and reports the failure when Core is down (AC 8)",
+        "the WordPress client against Core keeps its copy and reports the failure when Core is down (AC 8)",
+        "the Lovable kit against Core misses no item while writes and bells keep coming (AC 19)",
+        "the WordPress client against Core misses no item while writes and bells keep coming (AC 19)",
+        "the Lovable kit against Core converges on its own schedule when bells never arrive (AC 22)",
+        "the WordPress client against Core converges on its own schedule when bells never arrive (AC 22)"
+      ],
+      "note": "The sync scenario suite (clients/sync-scenarios.ts), run as each real client against the real Core. The search/filter half needs the data model."
+    },
+    {
+      "ac": 21,
+      "title": "A broken client release is replaced safely",
+      "phase": "clients",
+      "tests": [
+        "the WordPress client lets the must-use updater offer a newer release without touching the plugin (AC 21)",
+        "the WordPress client packages a release WordPress can install, with the version from the plugin header"
+      ],
+      "note": "WordPress: the must-use updater and the release package are proved; WordPress itself swaps the plugin. Lovable: the function and the site deploy separately by construction, which no test can add to."
+    },
+    {
+      "ac": 22,
+      "title": "With bells blocked a subscriber converges within 15 min",
+      "phase": "engine",
+      "tests": [
+        "a subscriber converges on its own schedule when bells never arrive (AC 22)",
+        "the Lovable kit against Core converges on its own schedule when bells never arrive (AC 22)",
+        "the WordPress client against Core converges on its own schedule when bells never arrive (AC 22)"
+      ],
+      "note": "Proved with the fake subscriber and with both real clients’ own backstops. The 15 minute figure is a client setting."
+    },
+    {
+      "ac": 23,
+      "title": "Every item served validates against the schema and invariants",
+      "phase": "engine",
+      "tests": [
+        "ingest turns a webhook into a served item (AC 2, AC 3)",
+        "admin previews a recompute without writing anything (AC 36)"
+      ],
+      "note": "The write path refuses an item that fails its schema, and the release preview reports failures. The schemas themselves are the structural spine and permissive until the data model is defined, so today this proves the mechanism, not the model."
+    },
+    {
+      "ac": 24,
+      "title": "Restore drill ends with subscribers converged",
+      "phase": "deploy",
+      "tests": [],
+      "note": "The engine half of the drill is proved as AC 41; the scripted drill on staging waits for the platform."
+    },
+    {
+      "ac": 25,
+      "title": "Secrets and privacy",
+      "phase": "engine",
+      "tests": [
+        "the secret check passes on this repository",
+        "the secret check fails on a committed private key",
+        "the event log redacts secret-shaped fields, however deep (AC 16, AC 25)"
+      ],
+      "note": "Credentials are encrypted at rest and tokens are stored as an HMAC; the event log redacts secret-shaped keys. EU hosting is Kowboy's to provision."
+    },
+    {
+      "ac": 26,
+      "title": "Removal tombstones items; tombstones are purged after 90 days",
+      "phase": "engine",
+      "tests": [
+        "admin tombstones an office that is removed (AC 26)",
+        "ingest tombstones a record the CRM no longer has (AC 26)",
+        "tombstone retention hard-deletes a tombstone after the retention window, and keeps a fresh one (AC 26)"
+      ],
+      "note": "The 90 day window is proved by ageing a tombstone; the worker runs the same purge hourly."
+    },
+    {
+      "ac": 27,
+      "title": "Scale and read latency at 10x launch",
+      "phase": "deploy",
+      "tests": [],
+      "note": "Needs staging."
+    },
+    {
+      "ac": 28,
+      "title": "Functional parity with the parity inventory",
+      "phase": "real-data",
+      "tests": []
+    },
+    {
+      "ac": 29,
+      "title": "Burst resilience (Vitec)",
+      "phase": "adapters",
+      "tests": [
+        "two adapters, one engine absorbs a burst of webhooks without a fetch per webhook (AC 29 in miniature)",
+        "the Vitec adapter answers a burst of webhooks with 202 and fetches the record once (AC 29, AC 33)"
+      ],
+      "note": "The fake adapter and the Vitec adapter both show the shape: a burst of webhooks for one record collapses into one queued fetch, answered 202 in the request. The real figures (50,000 webhooks, p99 under 1 s) need staging."
+    },
+    {
+      "ac": 30,
+      "title": "Contract evolution",
+      "phase": "clients",
+      "tests": [
+        "the Lovable kit against Core stores a field it has never seen, verbatim (AC 10, AC 30)",
+        "the WordPress client against Core stores a field it has never seen, verbatim (AC 10, AC 30)",
+        "the Lovable kit against Core skips an item it cannot use, and keeps going (AC 30)",
+        "the WordPress client against Core skips an item it cannot use, and keeps going (AC 30)"
+      ],
+      "note": "Additive fields and unusable items on both real clients. Reporting goes to the same placeholder as Core’s until a Sentry DSN exists. The release report’s flags wait on the pipeline."
+    },
+    {
+      "ac": 31,
+      "title": "Purge and resync safety",
+      "phase": "engine",
+      "tests": [
+        "purge and resync safety (AC 31) tells a subscriber behind the purge watermark to resync, and it converges without ever emptying"
+      ],
+      "note": "Watermark and resync-required are built and proved; the rebuild swaps in only after a complete pull. Purge-and-resync as an operator action has no endpoint yet (raised as an issue)."
+    },
+    {
+      "ac": 32,
+      "title": "Near-instant under normal load (Vitec)",
+      "phase": "adapters",
+      "tests": []
+    },
+    {
+      "ac": 33,
+      "title": "Race conditions and dedupe (Vitec)",
+      "phase": "adapters",
+      "tests": [
+        "two adapters, one engine absorbs a burst of webhooks without a fetch per webhook (AC 29 in miniature)",
+        "the Vitec adapter answers a burst of webhooks with 202 and fetches the record once (AC 29, AC 33)",
+        "the Vitec adapter fetches at most five records at once (proposal point 10)"
+      ]
+    },
+    {
+      "ac": 34,
+      "title": "Initial sync for a new tenant, office and subscriber",
+      "phase": "engine",
+      "tests": [
+        "admin loads a new connection end to end on connection_added (AC 34)",
+        "a subscriber converges from seq 0 to everything Core holds (AC 5)"
+      ]
+    },
+    {
+      "ac": 35,
+      "title": "Catch-up (Vitec)",
+      "phase": "adapters",
+      "tests": [
+        "two adapters, one engine tombstones through presentIds when a polled record disappears (AC 35)",
+        "the Vitec adapter catches up on what changed since the last window, less one hour of overlap (AC 35)",
+        "the Vitec adapter confirms a missing id with a fetch before tombstoning it, once a day (AC 35)",
+        "the Vitec adapter starts with a catch-up since the last window, fetching only records whose change date moved (AC 35, AC 41)"
+      ],
+      "note": "The 12 h catch-up with its 1 h overlap and the daily id comparison are proved against a stand-in Connect; the schedule itself runs on the worker's minute tick. Vitec's live behaviour waits for a test account (open question 18)."
+    },
+    {
+      "ac": 36,
+      "title": "Release impact preview performs no writes",
+      "phase": "engine",
+      "tests": ["admin previews a recompute without writing anything (AC 36)"]
+    },
+    {
+      "ac": 37,
+      "title": "Each enforced check fails on a seeded violation",
+      "phase": "engine",
+      "tests": [
+        "the seam check fails when the engine names a CRM",
+        "the seam check fails when an adapter imports engine internals",
+        "the seam check fails when the engine imports an adapter",
+        "the seam check fails when a file other than main.ts imports both sides",
+        "the skipped-test check fails on a skipped test",
+        "the skipped-test check fails on a test that silently skips the rest of its file",
+        "the secret check fails on a committed private key"
+      ]
+    },
+    {
+      "ac": 38,
+      "title": "Webhook lag turns a check red (Vitec)",
+      "phase": "adapters",
+      "tests": [
+        "the Vitec adapter turns vitec.webhook_lag red when a webhook has waited five minutes (AC 38)"
+      ]
+    },
+    {
+      "ac": 39,
+      "title": "Repeated retries turn a check red (Vitec)",
+      "phase": "adapters",
+      "tests": [
+        "the Vitec adapter retries a failed fetch with backoff, turns vitec.retries red after three, and recovers (AC 39)"
+      ]
+    },
+    {
+      "ac": 40,
+      "title": "Compression",
+      "phase": "engine",
+      "tests": ["GET /v1/changes gzips a full page and stays readable without gzip (AC 40)"],
+      "note": "Ratio and plain-JSON fallback are asserted. The under-10 ms figure needs staging."
+    },
+    {
+      "ac": 41,
+      "title": "A restored database recovers without a subscriber skipping, deleting or rewriting anything",
+      "phase": "engine",
+      "tests": [
+        "restore (AC 41) recovers a restored database without a subscriber deleting or rewriting anything",
+        "restore (AC 41) reports when the database is ahead of the app",
+        "restore (AC 41) turns health red while the worker's last report is stale, and keeps readiness green",
+        "the Vitec adapter starts with a catch-up since the last window, fetching only records whose change date moved (AC 35, AC 41)",
+        "the Vitec adapter keeps vitec.catch_up red from a start until the catch-up and its fetches are done (AC 41)",
+        "the Lovable kit against Core keeps its copy through a database restore and converges again without deleting or rewriting anything (AC 41)",
+        "the WordPress client against Core keeps its copy through a database restore and converges again without deleting or rewriting anything (AC 41)"
+      ],
+      "note": "Proved end to end: the database put back to a snapshot and Core started again, with the fake subscriber and with both real clients, whose copies are byte for byte the same before, during and after the recovery. Health is red until the worker has caught up and readiness stays green. Vitec's live behaviour waits for a test account (open question 18)."
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+# DigitalOcean App Platform app spec: the infrastructure as code strategy §2 asks for.
+#
+#   create   doctl apps create --spec <local copy with the secrets filled in>
+#   read     doctl apps spec get <app-id> > .do/app.yaml      (secrets come back encrypted, safe to commit)
+#   update   doctl apps update <app-id> --spec .do/app.yaml
+#
+# The managed Postgres cluster is created first, in the same region, and named below. Production
+# never deploys on push (strategy §4: a human approves); a staging app is this spec with another
+# name, deploy_on_push true and its own cluster.
+name: kowboy-core
+region: ams
+
+databases:
+  - name: db
+    engine: PG
+    production: true
+    cluster_name: kowboy-core-db
+    db_name: core
+    db_user: core
+
+services:
+  - name: web
+    github:
+      repo: KowboyMedia/kowboy-core
+      branch: main
+      deploy_on_push: false
+    source_dir: /
+    environment_slug: node-js
+    build_command: npm ci && npm run build
+    run_command: npm run start:web
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    health_check:
+      http_path: /v1/ready
+      initial_delay_seconds: 15
+      period_seconds: 30
+      timeout_seconds: 5
+      failure_threshold: 3
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${db.DATABASE_URL}
+      - key: ADMIN_SECRET
+        scope: RUN_TIME
+        type: SECRET
+        value: ''
+      - key: CREDENTIALS_KEY # 32 random bytes, base64
+        scope: RUN_TIME
+        type: SECRET
+        value: ''
+      - key: VITEC_WEBHOOK_TOKEN # the secret in the webhook URL Vitec is given
+        scope: RUN_TIME
+        type: SECRET
+        value: ''
+
+workers:
+  - name: worker
+    github:
+      repo: KowboyMedia/kowboy-core
+      branch: main
+      deploy_on_push: false
+    source_dir: /
+    environment_slug: node-js
+    build_command: npm ci && npm run build
+    run_command: npm run start:worker
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${db.DATABASE_URL}
+      - key: ADMIN_SECRET
+        scope: RUN_TIME
+        type: SECRET
+        value: ''
+      - key: CREDENTIALS_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: ''

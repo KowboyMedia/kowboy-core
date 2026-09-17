@@ -1,0 +1,16 @@
+# Warnings only (strategy §3.2): CI reports findings and never blocks on them.
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+parameters:
+    level: 6
+    paths:
+        - core-client
+        - mu-plugins
+        - test
+    excludePaths:
+        - core-client/lib
+    scanDirectories:
+        - core-client/lib/action-scheduler
+    scanFiles:
+        - vendor/php-stubs/wp-cli-stubs/wp-cli-stubs.php
+        - vendor/php-stubs/wp-cli-stubs/wp-cli-commands-stubs.php

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kowboy.se/schemas/project.v1.json",
+  "title": "project.data",
+  "description": "INCOMPLETE. A new-build project that groups properties (approved 2026-09-16 as the sixth datatype). Only identity and references are defined; the descriptive model is added in one piece when the universal model is approved (docs/field-tables.md). `additionalProperties` is true until then, so this schema does not yet reject an unknown field.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "_shared.v1.json#/$defs/id"
+    },
+    "office_id": {
+      "$ref": "_shared.v1.json#/$defs/reference"
+    },
+    "agent_ids": {
+      "$ref": "_shared.v1.json#/$defs/references"
+    },
+    "area_ids": {
+      "$ref": "_shared.v1.json#/$defs/references"
+    },
+    "display": {
+      "$ref": "_shared.v1.json#/$defs/display"
+    },
+    "provider_extras": {
+      "$ref": "_shared.v1.json#/$defs/providerExtras"
+    }
+  },
+  "required": ["id", "office_id", "agent_ids", "area_ids", "display", "provider_extras"],
+  "additionalProperties": true
+}

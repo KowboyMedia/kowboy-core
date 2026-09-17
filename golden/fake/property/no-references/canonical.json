@@ -1,0 +1,15 @@
+{
+  "id": "OBJ-55",
+  "office_id": "100",
+  "agent_ids": [],
+  "area_ids": [],
+  "association_id": null,
+  "fake_state": "COMING",
+  "fake_label": null,
+  "fake_amount": null,
+  "provider_extras": {
+    "fake-webhook": {
+      "internal_code": null
+    }
+  }
+}

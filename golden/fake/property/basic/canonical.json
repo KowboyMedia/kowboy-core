@@ -1,0 +1,19 @@
+{
+  "id": "OBJ-19203",
+  "office_id": "100",
+  "agent_ids": [
+    "AG-12"
+  ],
+  "area_ids": [
+    "area-77"
+  ],
+  "association_id": "BRF-311",
+  "fake_state": "FOR_SALE",
+  "fake_label": "Storgatan 12",
+  "fake_amount": 4950000,
+  "provider_extras": {
+    "fake-webhook": {
+      "internal_code": 4711
+    }
+  }
+}
