@@ -55,23 +55,18 @@ Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPre
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
 
-## 27. `[core]` One gate for everyone, agent or human
+## 27. `[core]` The release flow, one path for agents and humans
 
-The requirement: whoever changes the code, the same steps, nothing bypassed. Proposed: every change
-goes through a pull request; GitHub refuses the merge until the enforced checks are green;
-`staging` updates itself on every merge into it; someone confirms on staging; a pull request into
-`main` merges the same way, and production updates itself from `main`, health-gated. An agent
-merges on Patric's word, a dev with the merge button; the path is identical. What it needs:
-GitHub's branch protection switched on for `staging` and `main` (a one-time setting by someone
-with admin rights on the repository, about two minutes, not reachable from an agent session), and
-production set to deploy on merge (one "allow" from Patric). Say yes, or say what differs.
+Every change, from an agent or a human: pull request → the checks must pass → merge into
+`staging` → staging updates itself → confirm on staging → pull request into `main` → the checks
+again → merge → production updates itself, health-gated. Needs GitHub's branch protection on
+`staging` and `main` (one-time, by someone with admin rights on the repository; an agent cannot
+set it) and production set to deploy on merge (one "allow" from Patric). Answer: yes, or what
+differs.
 
-## 28. `[core]` Funnel everything to the sites now, or wait for the plugin's field list
+## 28. `[core]` Which fields reach the sites
 
-Today the data the sites receive holds identity and relations only; every other Vitec field waits
-for the field list Patric chose on 2026-09-16 (the WordPress plugin's universal model, next-steps
-item 2), so a site cannot see `marketing.isPublished` or `status` yet. The principle says
-everything Vitec returns reaches the sites. Smaller option: map everything now, mechanically
-(every Vitec field, snake_case, the CRM's nesting, next to the spine; nothing chosen, nothing
-judged), and lay the plugin's field names on top when the list arrives. Or wait for the list.
-Pick one.
+Today the sites receive only an item's id and its links to other items. Everything else waits for
+the plugin's field list Patric named on 2026-09-16. Answer A or B. A: pass every Vitec field
+through now, mechanically, and rename to the plugin's names when the list arrives. B: wait for the
+list.

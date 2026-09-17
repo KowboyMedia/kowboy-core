@@ -22,6 +22,8 @@ fi
 
 # MariaDB for the WordPress client tests.
 if ! command -v mariadbd >/dev/null 2>&1 && ! command -v mysqld >/dev/null 2>&1; then
+  # The package lists are stale in a fresh session; without a refresh the install fails quietly.
+  DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null 2>&1 || true
   DEBIAN_FRONTEND=noninteractive apt-get install -y -qq mariadb-server mariadb-client >/dev/null 2>&1 || true
 fi
 if command -v mariadbd >/dev/null 2>&1 || command -v mysqld >/dev/null 2>&1; then

@@ -44,7 +44,7 @@ Lint findings (including function complexity), duplicate code, dead code (unused
   - No CRM-specific branches, flags, config keys, workarounds or hacks in the engine.
   - If an adapter needs something `engine/adapter-api/` doesn't offer, propose a _generic_ engine capability any adapter could use. That needs approval.
 - **All data logic lives in Core.** Clients are templates plus a sync loop.
-- **Funnel, never judge.** Core and its adapters carry what a CRM returns and decide nothing from a field's value: no publish, status or visibility logic anywhere in Core. A record is gone only when the CRM answers 404 for it; absence from a list is confirmed by a fetch, never taken as deletion. Which fields reach the sites is the data model; what to show is the sites' decision (Patric, 2026-09-17).
+- **The CRM's list defines what exists.** Core syncs what a CRM lists for the sites (Vitec: the marketed estates) and nothing else. In the list: on the sites. A Remove notification, or gone from the list: deleted, without a fetch. Core and its adapters decide nothing from a field's value: no publish, status or visibility logic anywhere in Core (Patric, 2026-09-17).
 - **Tests are the acceptance.** If something can't be tested automatically, raise it as a design problem. Never add a manual step.
 - **Anything derived must be patchable** from stored raw data without CRM traffic.
 - **No legacy access.** Never read, request or search old plugin repos, other repositories, legacy code or other conversations. Anything needed from the past arrives as human-written specs, ledger entries or golden masters.
