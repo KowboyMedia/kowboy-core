@@ -54,7 +54,9 @@ Later changes are edits to `.do/app.yaml` followed by `doctl apps update <app-id
 cluster. Vitec is given the webhook URL `https://<app domain>/v1/hook/vitec/webhook/<token>`.
 
 **Restoring the database:** restore it in DigitalOcean, restart the app, nothing else (strategy
-§7.2). Send no `forcerefresh` to a site until `/v1/health` is green again.
+§7.2). `/v1/health` stays red until every adapter has caught up; send no `forcerefresh` to a site
+while it is red. The platform's own probe is `/v1/ready`, which only asks whether the process can
+serve, so a deploy is never held up by a site or an adapter.
 
 ## Checking it
 

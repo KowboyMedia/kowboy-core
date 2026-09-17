@@ -55,12 +55,16 @@ function seed(fake: FakeConnect): void {
 let fake: FakeConnect;
 let running: Harness;
 
-const event = (body: Record<string, unknown>): Promise<Response> =>
-  fetch(`${running.baseUrl}/v1/admin/event`, {
+/** An admin event: queued by the web process, delivered by the worker, here by hand. */
+const event = async (body: Record<string, unknown>): Promise<Response> => {
+  const response = await fetch(`${running.baseUrl}/v1/admin/event`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-admin-secret': ADMIN_SECRET },
     body: JSON.stringify({ connection_id: CONNECTION, ...body }),
   });
+  await running.deliver();
+  return response;
+};
 
 const hook = (body: Record<string, unknown>, token = TOKEN): Promise<Response> =>
   fetch(`${running.baseUrl}/v1/hook/vitec/webhook/${token}`, {
@@ -318,6 +322,23 @@ describe('the Vitec adapter', () => {
     );
     const since = new Date(listing?.query.get('criteria.changedAtMinValue') ?? 0).getTime();
     expect(since).toBe(new Date(until).getTime() - 3_600_000);
+  });
+
+  it('keeps vitec.catch_up red from a start until the catch-up and its fetches are done (AC 41)', async () => {
+    seed(fake);
+    fake.delayMs = 150;
+    running = await harness({
+      adapters: [vitecAdapter],
+      connections: [{ id: CONNECTION, provider: 'vitec', credentials, licensedOffices: [OFFICE] }],
+    });
+    expect((await health())['vitec.catch_up']).toMatchObject({
+      ok: false,
+      detail: expect.stringContaining('since the worker started'),
+    });
+
+    await runSchedules();
+    expect((await health())['vitec.catch_up']).toEqual({ ok: true });
+    expect(await item('office', OFFICE)).toBeDefined();
   });
 
   it('turns vitec.catch_up red when the last catch-up is older than 13 hours', async () => {

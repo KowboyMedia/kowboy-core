@@ -368,17 +368,18 @@ const ageMs = (iso: string | null): number =>
   iso ? Date.now() - new Date(iso).getTime() : Number.POSITIVE_INFINITY;
 
 /**
- * The two schedules, checked every minute. The first tick after a start runs both whatever their
- * age, so a restart, and a database restored to an earlier point, are caught up within minutes
- * (strategy §7.2); later ticks run what is due.
+ * The two schedules, checked every minute. After a start, both run whatever their age, and the
+ * fetch list is drained, before the adapter counts as caught up: a restart, and a database
+ * restored to an earlier point, are made good within minutes and `vitec.catch_up` is red until
+ * then (strategy §7.2). Later ticks run what is due.
  */
-let firstTick = true;
+let startPending = true;
 
 async function tickOnce(): Promise<void> {
   const current = engine;
   if (!current) return;
-  const startup = firstTick;
-  firstTick = false;
+  const startup = startPending;
+  let failed = false;
   for (const target of await live(current)) {
     try {
       const catchUpAge = ageMs(await store.getState(target.connection.id, 'catch_up_at'));
@@ -386,6 +387,7 @@ async function tickOnce(): Promise<void> {
       const compareAge = ageMs(await store.getState(target.connection.id, 'compare_at'));
       if (startup || compareAge >= COMPARE_EVERY_MS) await compare(target);
     } catch (error) {
+      failed = true;
       await current.logEvent('schedule.failed', {
         connection_id: target.connection.id,
         detail: String(error),
@@ -393,12 +395,16 @@ async function tickOnce(): Promise<void> {
       current.report(error, { where: 'vitec schedule', connection_id: target.connection.id });
     }
   }
+  if (startup && !failed) {
+    await scheduleDrain();
+    startPending = false;
+  }
 }
 
 // ---- Health -----------------------------------------------------------------------------------
 
 async function catchUpHealth(current: AdapterApi): Promise<{ ok: boolean; detail?: string }> {
-  const problems: string[] = [];
+  const problems: string[] = startPending ? ['catching up since the worker started'] : [];
   for (const connection of await current.connections()) {
     if (!connection.active) continue;
     if (!credentialsOf(connection)) {
@@ -468,7 +474,7 @@ export const vitecAdapter: Adapter = {
     drainTimer = null;
     scheduleTimer = null;
     engine = null;
-    firstTick = true;
+    startPending = true;
     await draining;
     await scheduling;
     await store.close();

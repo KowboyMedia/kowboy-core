@@ -59,6 +59,7 @@ describe('admin', () => {
     crm.put('property', 'OBJ-1', property('OBJ-1'));
 
     const response = await admin('event', { connection_id: CONNECTION, event: 'connection_added' });
+    await running.deliver();
     expect(response.status).toBe(202);
 
     await until(async () => {
@@ -73,6 +74,7 @@ describe('admin', () => {
     crm.put('property', 'OBJ-1', property('OBJ-1', '100'));
     crm.put('property', 'OBJ-2', property('OBJ-2', '200'));
     await admin('event', { connection_id: CONNECTION, event: 'connection_added' });
+    await running.deliver();
     await until(async () => {
       await drainFetchList();
       return (await pull(running.baseUrl, 'property')).items.length === 2;
@@ -83,6 +85,7 @@ describe('admin', () => {
       event: 'offices_removed',
       office_ids: ['100'],
     });
+    await running.deliver();
 
     const page = await pull(running.baseUrl, 'property');
     const tombstoned = page.items.filter((item) => item['deleted'] === true);
@@ -94,6 +97,7 @@ describe('admin', () => {
     crm.put('office', '200', { ref: '200', title: 'Nacka', updatedUtc: '2026-08-30T09:00:00Z' });
     crm.put('property', 'OBJ-100', property('OBJ-100', '100'));
     await admin('event', { connection_id: CONNECTION, event: 'connection_added' });
+    await running.deliver();
     await until(async () => {
       await drainFetchList();
       return (await pull(running.baseUrl, 'property')).items.length === 1;
@@ -109,6 +113,7 @@ describe('admin', () => {
       event: 'offices_added',
       office_ids: ['200'],
     });
+    await running.deliver();
     await until(async () => {
       await drainFetchList();
       return (await pull(running.baseUrl, 'property')).items.length === 2;
@@ -123,6 +128,7 @@ describe('admin', () => {
   it('previews a recompute without writing anything (AC 36)', async () => {
     crm.put('property', 'OBJ-1', property('OBJ-1'));
     await admin('event', { connection_id: CONNECTION, event: 'connection_added' });
+    await running.deliver();
     await until(async () => {
       await drainFetchList();
       return (await pull(running.baseUrl, 'property')).items.length === 1;
@@ -153,6 +159,7 @@ describe('admin', () => {
   it('recomputes from stored raw with no CRM traffic, and gives a new seq (AC 13)', async () => {
     crm.put('property', 'OBJ-1', property('OBJ-1'));
     await admin('event', { connection_id: CONNECTION, event: 'connection_added' });
+    await running.deliver();
     await until(async () => {
       await drainFetchList();
       return (await pull(running.baseUrl, 'property')).items.length === 1;
@@ -186,6 +193,7 @@ describe('admin', () => {
   it('answers the event timeline query', async () => {
     crm.put('property', 'OBJ-1', property('OBJ-1'));
     await admin('event', { connection_id: CONNECTION, event: 'connection_added' });
+    await running.deliver();
     await until(async () => {
       await drainFetchList();
       return (await pull(running.baseUrl, 'property')).items.length === 1;

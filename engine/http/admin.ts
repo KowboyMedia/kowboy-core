@@ -1,5 +1,5 @@
 import { sameSecret } from '../storage/crypto.js';
-import { sendLifecycle } from '../lifecycle.js';
+import { queueLifecycle } from '../lifecycle.js';
 import { recompute, type Scope } from '../recompute.js';
 import { queryEvents, type EventQuery } from '../events.js';
 import { ring, type BellKind } from '../bells.js';
@@ -42,11 +42,13 @@ export function adminRoutes(
         if (!body.connection_id || !body.event) {
           return jsonResponse(400, { error: 'connection_id and event are required' });
         }
-        await sendLifecycle(body.connection_id, body.event, {
+        const queued = await queueLifecycle(body.connection_id, body.event, {
           officeIds: body.office_ids,
           datatype: body.datatype,
         });
-        return jsonResponse(202, { ok: true });
+        if (queued === null)
+          return jsonResponse(404, { error: `no connection ${body.connection_id}` });
+        return jsonResponse(202, { ok: true, queued });
       }),
     },
     {

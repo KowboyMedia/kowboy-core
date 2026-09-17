@@ -63,24 +63,3 @@ returns for an estate withdrawn from the website (404 tombstones, 200 keeps the 
 status); and whether a `Remove` notification's record is still fetchable. Needs Vitec test
 credentials: `scripts/vitec-probe.ts` answers the first two the moment they exist (next-steps
 item 5).
-
-## 21. `[core]` The admin "load this connection" call does nothing on the real platform
-
-On App Platform, Core runs as two separate programs: `web` answers HTTP (client pulls, admin
-calls, Vitec's webhooks) and `worker` does the background fetching, where the adapters live. An
-admin call such as `POST /v1/admin/event` with `connection_added` or `resync` arrives at `web`,
-which hands it to the adapter in its own program; the adapter is in `worker`, a different
-program, which never hears it. The tests pass because they run both in one program. Suggested
-fix: `web` writes the event into a small table, `worker` reads that table every few seconds and
-runs the adapter's handler. Engine-internal, about forty lines. Needs approval because it adds an
-engine table and a worker loop. Until then a new connection is loaded at the next worker restart,
-because the worker starts with a catch-up, but `resync` and `offices_added` reach nobody.
-
-## 23. `[core]` Should Core block full rebuilds in the minutes after a restore?
-
-A site does a full rebuild on `forcerefresh`: pull everything, then delete what it did not see.
-In the minutes after a database restore Core is still re-fetching the newest records, so a full
-rebuild in that window would delete them on the site. Option a: no code; the runbook says send no
-`forcerefresh` until `/v1/health` is green (suggested, and what is written today). Option b: Core
-refuses full-rebuild pulls for fifteen minutes after every worker start; safer, but it also delays
-a legitimate rebuild after every deploy. a or b?

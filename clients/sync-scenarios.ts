@@ -202,23 +202,47 @@ export function syncScenarios(name: string, client: ClientSetup): void {
     );
 
     it(
-      "keeps its copy and carries on when Core's sequence jumps ahead, as after a restore (AC 41)",
+      'keeps its copy through a database restore and converges again without deleting or rewriting anything (AC 41)',
       async () => {
-        await seed('P-1');
-        const first = await sync();
-        const stored = await item('property', 'P-1');
+        const byId = (items: ClientItem[]): ClientItem[] =>
+          [...items].sort((a, b) => a.remote_id.localeCompare(b.remote_id));
 
-        // What every engine start does (strategy §7.2), here by hand.
-        await db().query("select setval('item_seq', last_value + 1000000000) from item_seq");
-        await seed('P-2');
-        const second = await sync();
-
-        expect(await remoteIds('property')).toEqual(['P-1', 'P-2']);
-        expect(second.after['property']).toBeGreaterThan(
-          (first.after['property'] ?? 0) + 1_000_000_000,
+        // Day 29.
+        await seed('P-1', 'P-2', 'P-3');
+        await sync();
+        await db().query('drop table if exists items_backup');
+        await db().query('create table items_backup as select * from items');
+        const snapshotSeq = Number(
+          (await db().query<{ last_value: string }>('select last_value from item_seq')).rows[0]
+            ?.last_value,
         );
-        expect((await item('property', 'P-1'))?.synced_at).toBe(stored?.synced_at);
-        expect(second.last_error).toBeNull();
+
+        // Day 30: one change, one new record, one delete, all on the site.
+        crm.put('property', 'P-2', { ...fakeProperty('P-2'), street: 'Nygatan 2' });
+        crm.put('property', 'P-4', fakeProperty('P-4'));
+        crm.remove('property', 'P-3');
+        await poll();
+        await sync();
+        const before = byId(await site.items('property'));
+        expect(before.map((stored) => stored.remote_id)).toEqual(['P-1', 'P-2', 'P-4']);
+
+        // The platform restores the database to day 29 and starts Core again.
+        await db().query('truncate items');
+        await db().query('insert into items select * from items_backup');
+        await db().query("select setval('item_seq', $1)", [snapshotSeq]);
+        await core.restart();
+
+        // Nothing arrives, nothing is lost, nothing is deleted.
+        const paused = await sync();
+        expect(paused.last_error).toBeNull();
+        expect(byId(await site.items('property'))).toEqual(before);
+
+        // The adapter's next pass brings Core back; the site rewrites nothing it already holds.
+        await poll();
+        await sync();
+        expect(byId(await site.items('property'))).toEqual(before);
+        expect((await item('property', 'P-2'))?.data?.['fake_label']).toBe('Nygatan 2');
+        await db().query('drop table items_backup');
       },
       SCENARIO_TIMEOUT_MS,
     );

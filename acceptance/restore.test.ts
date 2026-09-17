@@ -1,14 +1,13 @@
-// AC 41: Core's database restored to an earlier point, then the app restarted. No subscriber
+// AC 41: Core's database restored to an earlier point, then the app started again. No subscriber
 // skips a change, none deletes or rewrites what it should keep, every seq served afterwards is
-// above every cursor handed out before, and Core converges to the CRM again, deletions included.
-import type { AddressInfo } from 'node:net';
+// above every cursor handed out before, Core converges to the CRM again, deletions included, and
+// health says so until then.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { harness, pull, TOKEN, type Harness } from './harness.js';
 import { fakeSubscriber, type FakeSubscriber } from './fake-subscriber.js';
 import { fakePollingAdapter, poll } from '../adapters/fake-polling/index.js';
 import * as crm from '../adapters/fake-polling/crm.js';
-import { startAdapter } from '../engine/adapter-api/index.js';
-import { startEngine, SEQUENCE_JUMP, type Engine } from '../engine/index.js';
+import { SEQUENCE_JUMP } from '../engine/index.js';
 import { db } from '../engine/storage/db.js';
 
 const CONNECTION = 'polling-acme';
@@ -26,7 +25,6 @@ const property = (id: string, street: string): Record<string, unknown> => ({
 });
 
 let running: Harness;
-let restarted: Engine | null = null;
 let site: FakeSubscriber;
 
 beforeEach(async () => {
@@ -39,29 +37,24 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  // The adapter's timer stops before any pool closes, or a poll in flight finds no database.
-  await fakePollingAdapter.stop?.();
   await db().query('drop table if exists items_backup');
-  await restarted?.stop();
-  restarted = null;
   await running.stop();
 });
 
+/** A snapshot of Core's items, the way a backup holds them. */
+async function snapshot(): Promise<number> {
+  await db().query('drop table if exists items_backup');
+  await db().query('create table items_backup as select * from items');
+  const { rows } = await db().query<{ last_value: string }>('select last_value from item_seq');
+  return Number(rows[0]?.last_value);
+}
+
 /** What the platform does: the database as it was at the snapshot, then the app starts again. */
-async function restoreAndRestart(snapshotSeq: number): Promise<string> {
-  await fakePollingAdapter.stop?.();
-  await running.engine.stop();
-  restarted = await startEngine({ port: 0 });
+async function restoreAndRestart(snapshotSeq: number): Promise<void> {
   await db().query('truncate items');
   await db().query('insert into items select * from items_backup');
   await db().query("select setval('item_seq', $1)", [snapshotSeq]);
-  // The jump happens at start, before anything is written; the restore itself moved the sequence
-  // back, so put it where the restored database has it, then start as the platform would.
-  await restarted.stop();
-  restarted = await startEngine({ port: 0 });
-  const server = restarted.listen();
-  await startAdapter(fakePollingAdapter);
-  return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  await running.restart();
 }
 
 describe('restore (AC 41)', () => {
@@ -72,12 +65,7 @@ describe('restore (AC 41)', () => {
     crm.put('property', 'P-3', property('P-3', 'Kungsgatan 3'));
     await poll();
     await site.sync();
-    await db().query('drop table if exists items_backup');
-    await db().query('create table items_backup as select * from items');
-    const snapshotSeq = Number(
-      (await db().query<{ last_value: string }>('select last_value from item_seq')).rows[0]
-        ?.last_value,
-    );
+    const snapshotSeq = await snapshot();
 
     // Day 30: one change, one new record, one delete. The subscriber sees all of it.
     crm.put('property', 'P-2', property('P-2', 'Nygatan 2'));
@@ -93,9 +81,9 @@ describe('restore (AC 41)', () => {
       `${CONNECTION}/P-4`,
     ]);
 
-    // The database goes back to day 29, the app restarts.
-    const url = await restoreAndRestart(snapshotSeq);
-    site.retarget(url);
+    // The database goes back to day 29, the app starts again.
+    await restoreAndRestart(snapshotSeq);
+    const url = running.baseUrl;
     expect((await pull(url, 'property')).items.map((item) => item['remote_id']).sort()).toEqual([
       'P-1',
       'P-2',
@@ -133,22 +121,72 @@ describe('restore (AC 41)', () => {
   });
 
   it('reports when the database is ahead of the app', async () => {
-    const health = async (): Promise<{ ok: boolean; detail?: string }> => {
-      const response = await fetch(`${running.baseUrl}/v1/health`);
+    const schema = async (): Promise<{ ok: boolean; detail?: string }> => {
+      const response = await fetch(`${running.baseUrl}/v1/ready`);
       const body = (await response.json()) as {
         checks: Record<string, { ok: boolean; detail?: string }>;
       };
       return body.checks['schema'] ?? { ok: false, detail: 'no schema check' };
     };
-    expect(await health()).toEqual({ ok: true });
+    expect(await schema()).toEqual({ ok: true });
 
     await db().query("insert into migrations (name) values ('999_from_a_newer_app.sql')");
-    expect(await health()).toMatchObject({
+    expect(await schema()).toMatchObject({
       ok: false,
       detail: expect.stringContaining('999_from_a_newer_app.sql'),
     });
+    expect((await fetch(`${running.baseUrl}/v1/ready`)).status).toBe(500);
 
     await db().query("delete from migrations where name = '999_from_a_newer_app.sql'");
-    expect(await health()).toEqual({ ok: true });
+    expect(await schema()).toEqual({ ok: true });
+  });
+
+  it("turns health red while the worker's last report is stale, and keeps readiness green", async () => {
+    // What a restored database holds: the worker's checks as it recorded them long ago.
+    await db().query(
+      `insert into health_results (name, ok, detail, at)
+       values ('someone.catch_up', true, null, now() - interval '10 minutes')`,
+    );
+    const health = (await (await fetch(`${running.baseUrl}/v1/health`)).json()) as {
+      ok: boolean;
+      checks: Record<string, { ok: boolean; detail?: string }>;
+    };
+    expect(health.ok).toBe(false);
+    expect(health.checks['someone.catch_up']).toMatchObject({
+      ok: false,
+      detail: expect.stringContaining('no report for'),
+    });
+    expect((await fetch(`${running.baseUrl}/v1/ready`)).status).toBe(200);
+  });
+
+  it('delivers a lifecycle event queued by the admin endpoint, and counts one nobody takes', async () => {
+    crm.put('property', 'P-1', property('P-1', 'Kungsgatan 1'));
+    const response = await fetch(`${running.baseUrl}/v1/admin/event`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-admin-secret': 'test-admin-secret' },
+      body: JSON.stringify({ connection_id: CONNECTION, event: 'resync' }),
+    });
+    expect(response.status).toBe(202);
+    expect((await pull(running.baseUrl, 'property')).items).toHaveLength(0);
+
+    await running.deliver();
+    expect((await pull(running.baseUrl, 'property')).items).toHaveLength(1);
+
+    const unknown = await fetch(`${running.baseUrl}/v1/admin/event`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-admin-secret': 'test-admin-secret' },
+      body: JSON.stringify({ connection_id: 'nobody', event: 'resync' }),
+    });
+    expect(unknown.status).toBe(404);
+
+    await db().query(
+      `insert into lifecycle_events (connection_id, event, created_at)
+       values ($1, 'resync', now() - interval '6 minutes')`,
+      [CONNECTION],
+    );
+    const health = (await (await fetch(`${running.baseUrl}/v1/health`)).json()) as {
+      checks: Record<string, { ok: boolean; detail?: string }>;
+    };
+    expect(health.checks['lifecycle']).toMatchObject({ ok: false });
   });
 });

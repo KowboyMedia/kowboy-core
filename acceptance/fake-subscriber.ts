@@ -17,12 +17,9 @@ export type FakeSubscriber = {
   syncs: number;
   sync(kind?: 'delta' | 'forcerefresh'): Promise<void>;
   items(datatype: Datatype): StoredItem[];
-  /** Point at a restarted Core, keeping the local copy and the cursors. */
-  retarget(baseUrl: string): void;
 };
 
-export function fakeSubscriber(initialUrl: string, token: string): FakeSubscriber {
-  let baseUrl = initialUrl;
+export function fakeSubscriber(baseUrl: string, token: string): FakeSubscriber {
   const store = new Map<string, StoredItem>();
   const cursors = new Map<Datatype, number>();
   const datatypeOf = new Map<string, Datatype>();
@@ -61,10 +58,6 @@ export function fakeSubscriber(initialUrl: string, token: string): FakeSubscribe
       return [...store.entries()]
         .filter(([key]) => datatypeOf.get(key) === datatype)
         .map(([, item]) => item);
-    },
-
-    retarget(url: string): void {
-      baseUrl = url;
     },
   };
 

@@ -39,8 +39,10 @@ vitec.test.ts   the adapter against the real engine and the stand-in
 - **Resync** (`event: resync`, optionally with a datatype) reloads and reports the listed ids as
   present, so the engine tombstones whatever Vitec no longer lists.
 - **Health.** `vitec.webhook_lag` (a webhook waiting more than 5 min), `vitec.retries` (a record
-  that failed three fetches in a row), `vitec.catch_up` (a connection whose last catch-up is older
-  than 13 h, whose credentials cannot be read, or which has no offices).
+  that failed three fetches in a row), `vitec.catch_up` (red from a worker start until the
+  catch-up, the comparison and their fetches are done; then a connection whose last catch-up is
+  older than 13 h, whose credentials cannot be read, or which has no offices). The checks run in
+  the worker and are recorded for the web process every 30 s.
 
 ## Mappers: the spine only
 

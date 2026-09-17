@@ -151,6 +151,7 @@ describe('two adapters, one engine', () => {
       headers: { 'content-type': 'application/json', 'x-admin-secret': ADMIN_SECRET },
       body: JSON.stringify({ connection_id: POLLING, event: 'resync' }),
     });
+    await running.deliver();
     await until(
       async () => (await pull(running.baseUrl, 'property')).items.length === 1,
       'the resync',

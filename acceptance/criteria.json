@@ -131,9 +131,10 @@
         "admin loads only the added office, and gives other offices no new seq (AC 14)",
         "two adapters, one engine resyncs a connection on request (AC 14)",
         "the Vitec adapter loads an added office without a new seq for the others (AC 14)",
-        "the Vitec adapter tombstones what Vitec no longer lists on a resync (AC 14)"
+        "the Vitec adapter tombstones what Vitec no longer lists on a resync (AC 14)",
+        "restore (AC 41) delivers a lifecycle event queued by the admin endpoint, and counts one nobody takes"
       ],
-      "note": "The adapter loads the added office's records plus the tenant-wide entities they reference; other offices get no new seq."
+      "note": "The adapter loads the added office's records plus the tenant-wide entities they reference; other offices get no new seq. Admin events reach the worker through the lifecycle_events table."
     },
     {
       "ac": 15,
@@ -399,11 +400,13 @@
       "tests": [
         "restore (AC 41) recovers a restored database without a subscriber deleting or rewriting anything",
         "restore (AC 41) reports when the database is ahead of the app",
+        "restore (AC 41) turns health red while the worker's last report is stale, and keeps readiness green",
         "the Vitec adapter starts with a catch-up since the last window, fetching only records whose change date moved (AC 35, AC 41)",
-        "the Lovable kit against Core keeps its copy and carries on when Core's sequence jumps ahead, as after a restore (AC 41)",
-        "the WordPress client against Core keeps its copy and carries on when Core's sequence jumps ahead, as after a restore (AC 41)"
+        "the Vitec adapter keeps vitec.catch_up red from a start until the catch-up and its fetches are done (AC 41)",
+        "the Lovable kit against Core keeps its copy through a database restore and converges again without deleting or rewriting anything (AC 41)",
+        "the WordPress client against Core keeps its copy through a database restore and converges again without deleting or rewriting anything (AC 41)"
       ],
-      "note": "Proved with the fake polling adapter and the fake subscriber against a database put back to a snapshot and an engine started again; both real clients prove they follow a jumped sequence. Vitec's live behaviour waits for a test account (open question 18)."
+      "note": "Proved end to end: the database put back to a snapshot and Core started again, with the fake subscriber and with both real clients, whose copies are byte for byte the same before, during and after the recovery. Health is red until the worker has caught up and readiness stays green. Vitec's live behaviour waits for a test account (open question 18)."
     }
   ]
 }

@@ -5,7 +5,8 @@ import { closeDb, db } from './storage/db.js';
 import { migrate } from './storage/migrate.js';
 import { configureCredentials } from './storage/connections.js';
 import { configureBells, flushPendingBells } from './bells.js';
-import { heartbeat, healthReport } from './health.js';
+import { heartbeat, healthReport, readiness, recordHealth } from './health.js';
+import { deliverLifecycleEvents } from './lifecycle.js';
 import { deleteExpiredEvents, logEvent } from './events.js';
 import { purgeTombstones } from './storage/items.js';
 import { changes } from './http/changes.js';
@@ -25,6 +26,9 @@ const TOMBSTONE_RETENTION_DAYS = 90;
 const HEARTBEAT_MS = 30_000;
 const BELL_FLUSH_MS = 1_000;
 const HOUSEKEEPING_MS = 60 * 60_000;
+/** How often the worker takes queued lifecycle events, and records the adapters' health checks. */
+const LIFECYCLE_MS = 2_000;
+const HEALTH_RECORD_MS = 30_000;
 
 export type Engine = {
   config: Config;
@@ -70,6 +74,14 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
         return jsonResponse(health.ok ? 200 : 500, { ...health, version: VERSION });
       },
     },
+    {
+      method: 'GET',
+      path: '/v1/ready',
+      handler: async () => {
+        const ready = await readiness();
+        return jsonResponse(ready.ok ? 200 : 500, { ...ready, version: VERSION });
+      },
+    },
     ...adminRoutes(config.adminSecret),
   ];
 
@@ -92,6 +104,8 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
       };
       tick(() => heartbeat(), HEARTBEAT_MS);
       tick(() => flushPendingBells(), BELL_FLUSH_MS);
+      tick(() => deliverLifecycleEvents(), LIFECYCLE_MS);
+      tick(() => recordHealth(), HEALTH_RECORD_MS);
       tick(async () => {
         await deleteExpiredEvents(config.eventRetentionDays);
         await purgeTombstones(TOMBSTONE_RETENTION_DAYS);

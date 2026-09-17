@@ -5,6 +5,7 @@ import { startAdapter } from '../engine/adapter-api/index.js';
 import { adapterRoutes } from '../engine/http/server.js';
 import { db } from '../engine/storage/db.js';
 import { addSubscriber, upsertConnection, upsertTenant } from '../engine/storage/connections.js';
+import { deliverLifecycleEvents } from '../engine/lifecycle.js';
 import { clearRegistry } from '../engine/registry.js';
 import type { Adapter } from '../engine/adapter-api/types.js';
 
@@ -28,6 +29,10 @@ export type Harness = {
   bells: Bell[];
   /** Add or change a connection of the test tenant. */
   connection(input: ConnectionInput): Promise<void>;
+  /** Deliver queued lifecycle events, as the worker's tick would. */
+  deliver(): Promise<void>;
+  /** Stop and start Core again on the same port, as the platform does after a deploy or a restore. */
+  restart(): Promise<void>;
   stop(): Promise<void>;
 };
 
@@ -38,8 +43,9 @@ export async function harness(options: {
   subscriber?: boolean;
 }): Promise<Harness> {
   clearRegistry();
+  const adapters = options.adapters ?? [];
 
-  const engine = await startEngine({ port: 0 });
+  let engine = await startEngine({ port: 0 });
   await truncate();
 
   const bells: Bell[] = [];
@@ -71,30 +77,43 @@ export async function harness(options: {
     });
   }
 
-  const routes = (options.adapters ?? []).flatMap((adapter) =>
+  const routes = adapters.flatMap((adapter) =>
     adapterRoutes(adapter.manifest.provider, adapter.routes ?? []),
   );
-  const server = engine.listen(routes);
+  let server = engine.listen(routes);
   const port = (server.address() as AddressInfo).port;
 
-  for (const adapter of options.adapters ?? []) await startAdapter(adapter);
+  for (const adapter of adapters) await startAdapter(adapter);
 
-  return {
+  const running: Harness = {
     engine,
     baseUrl: `http://127.0.0.1:${port}`,
     bells,
     connection,
+    deliver: async () => {
+      await deliverLifecycleEvents();
+    },
+    async restart() {
+      for (const adapter of adapters) await adapter.stop?.();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await engine.stop();
+      engine = await startEngine({ port });
+      running.engine = engine;
+      server = engine.listen(routes);
+      for (const adapter of adapters) await startAdapter(adapter);
+    },
     async stop() {
-      for (const adapter of options.adapters ?? []) await adapter.stop?.();
+      for (const adapter of adapters) await adapter.stop?.();
       await new Promise<void>((resolve) => bellServer.close(() => resolve()));
       await engine.stop();
     },
   };
+  return running;
 }
 
 async function truncate(): Promise<void> {
   await db().query(
-    'truncate tenants, connections, subscribers, items, heartbeats, events restart identity cascade',
+    'truncate tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results restart identity cascade',
   );
   await db().query("select setval('item_seq', 1, false)");
 }
