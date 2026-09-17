@@ -12,7 +12,7 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import * as connect from './api.js';
 import * as store from './store.js';
-import { mappers, referencedIds } from './mappers.js';
+import { changedAtOf, isoDate, mappers, referencedIds } from './mappers.js';
 import type {
   Adapter,
   AdapterApi,
@@ -208,7 +208,7 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
         correlationId: entry.correlationId,
       });
     }
-    await store.remember(entry.officeId, entry.datatype, entry.remoteId);
+    await store.remember(entry.officeId, entry.datatype, entry.remoteId, changedAtOf(payload));
     await queueReferences(entry, payload);
   } catch (error) {
     // A failed fetch is retried, never treated as a delete (strategy §5.3).
@@ -246,7 +246,8 @@ async function queueReferences(entry: store.Entry, payload: unknown): Promise<vo
 
 // ---- Listing: initial load, resync, catch-up and the daily comparison --------------------------
 
-type Listed = Map<Datatype, Map<string, Set<string>>>;
+/** What Vitec lists, per datatype and office: each id with its change date. */
+type Listed = Map<Datatype, Map<string, Map<string, string | null>>>;
 
 /** Every id Vitec lists for the given offices, per datatype and office. */
 async function listAll(
@@ -257,11 +258,11 @@ async function listAll(
 ): Promise<Listed> {
   const listed: Listed = new Map();
   for (const datatype of datatypes) {
-    const perOffice = new Map<string, Set<string>>();
+    const perOffice = new Map<string, Map<string, string | null>>();
     for (const officeId of offices) {
-      const ids = new Set<string>();
+      const ids = new Map<string, string | null>();
       for await (const row of connect.list(live.credentials, datatype, officeId, changedSince)) {
-        ids.add(row.id);
+        ids.set(row.id, isoDate(row.changedAt));
       }
       perOffice.set(officeId, ids);
     }
@@ -270,12 +271,26 @@ async function listAll(
   return listed;
 }
 
-async function enqueueListed(listed: Listed, reason: store.Reason): Promise<void> {
+/**
+ * Put what was listed on the fetch list. A catch-up skips a record whose change date is the one
+ * seen at its last fetch (Patric, 2026-09-17); a load or resync fetches everything listed.
+ */
+async function enqueueListed(
+  listed: Listed,
+  reason: store.Reason,
+  onlyChanged: boolean,
+): Promise<void> {
   const correlationId = randomUUID();
   for (const [datatype, perOffice] of listed) {
     for (const [officeId, ids] of perOffice) {
+      const seen = onlyChanged
+        ? await store.known(officeId, datatype)
+        : new Map<string, string | null>();
+      const wanted = [...ids].filter(
+        ([id, changedAt]) => changedAt === null || seen.get(id) !== changedAt,
+      );
       await store.enqueue(
-        [...ids].map((remoteId) => ({ officeId, datatype, remoteId, reason, correlationId })),
+        wanted.map(([remoteId]) => ({ officeId, datatype, remoteId, reason, correlationId })),
       );
     }
   }
@@ -286,7 +301,9 @@ async function enqueueMissing(listed: Listed): Promise<void> {
   const correlationId = randomUUID();
   for (const [datatype, perOffice] of listed) {
     for (const [officeId, ids] of perOffice) {
-      const missing = (await store.known(officeId, datatype)).filter((id) => !ids.has(id));
+      const missing = [...(await store.known(officeId, datatype)).keys()].filter(
+        (id) => !ids.has(id),
+      );
       await store.enqueue(
         missing.map((remoteId) => ({
           officeId,
@@ -307,7 +324,7 @@ const listable = (datatype?: Datatype): readonly Datatype[] =>
 async function load(live: Live, offices: readonly string[], datatype?: Datatype): Promise<Listed> {
   const startedAt = new Date();
   const listed = await listAll(live, offices, listable(datatype));
-  await enqueueListed(listed, 'load');
+  await enqueueListed(listed, 'load', false);
   await enqueueMissing(listed);
   await markCatchUp(live.connection.id, startedAt);
   await store.setState(live.connection.id, 'compare_at', startedAt.toISOString());
@@ -318,7 +335,7 @@ async function load(live: Live, offices: readonly string[], datatype?: Datatype)
 async function resync(live: Live, current: AdapterApi, datatype?: Datatype): Promise<void> {
   const listed = await load(live, live.connection.licensedOffices, datatype);
   for (const [listedDatatype, perOffice] of listed) {
-    const ids = [...perOffice.values()].flatMap((set) => [...set]);
+    const ids = [...perOffice.values()].flatMap((office) => [...office.keys()]);
     await current.presentIds(live.connection, listedDatatype, { officeId: null }, ids);
   }
 }
@@ -328,13 +345,16 @@ async function markCatchUp(connectionId: string, startedAt: Date): Promise<void>
   await store.setState(connectionId, 'catch_up_at', new Date().toISOString());
 }
 
-/** What changed since the last catch-up, less one hour of overlap (strategy §5.3, §13). */
+/**
+ * What changed since the last catch-up, less one hour of overlap (strategy §5.3, §13), fetching
+ * only records whose change date moved.
+ */
 async function catchUp(live: Live): Promise<void> {
   const startedAt = new Date();
   const until = await store.getState(live.connection.id, 'catch_up_until');
   const since = until ? new Date(new Date(until).getTime() - CATCH_UP_OVERLAP_MS) : undefined;
   const listed = await listAll(live, live.connection.licensedOffices, connect.LISTABLE, since);
-  await enqueueListed(listed, 'catch_up');
+  await enqueueListed(listed, 'catch_up', true);
   await markCatchUp(live.connection.id, startedAt);
 }
 
@@ -347,18 +367,24 @@ async function compare(live: Live): Promise<void> {
 const ageMs = (iso: string | null): number =>
   iso ? Date.now() - new Date(iso).getTime() : Number.POSITIVE_INFINITY;
 
-/** The two schedules, checked every minute so a restart never skips an overdue run. */
+/**
+ * The two schedules, checked every minute. The first tick after a start runs both whatever their
+ * age, so a restart, and a database restored to an earlier point, are caught up within minutes
+ * (strategy §7.2); later ticks run what is due.
+ */
+let firstTick = true;
+
 async function tickOnce(): Promise<void> {
   const current = engine;
   if (!current) return;
+  const startup = firstTick;
+  firstTick = false;
   for (const target of await live(current)) {
     try {
-      if (ageMs(await store.getState(target.connection.id, 'catch_up_at')) >= CATCH_UP_EVERY_MS) {
-        await catchUp(target);
-      }
-      if (ageMs(await store.getState(target.connection.id, 'compare_at')) >= COMPARE_EVERY_MS) {
-        await compare(target);
-      }
+      const catchUpAge = ageMs(await store.getState(target.connection.id, 'catch_up_at'));
+      if (startup || catchUpAge >= CATCH_UP_EVERY_MS) await catchUp(target);
+      const compareAge = ageMs(await store.getState(target.connection.id, 'compare_at'));
+      if (startup || compareAge >= COMPARE_EVERY_MS) await compare(target);
     } catch (error) {
       await current.logEvent('schedule.failed', {
         connection_id: target.connection.id,
@@ -442,6 +468,7 @@ export const vitecAdapter: Adapter = {
     drainTimer = null;
     scheduleTimer = null;
     engine = null;
+    firstTick = true;
     await draining;
     await scheduling;
     await store.close();

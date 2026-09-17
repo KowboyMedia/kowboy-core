@@ -6,7 +6,7 @@ import { migrate } from './storage/migrate.js';
 import { configureCredentials } from './storage/connections.js';
 import { configureBells, flushPendingBells } from './bells.js';
 import { heartbeat, healthReport } from './health.js';
-import { deleteExpiredEvents } from './events.js';
+import { deleteExpiredEvents, logEvent } from './events.js';
 import { purgeTombstones } from './storage/items.js';
 import { changes } from './http/changes.js';
 import { adminRoutes } from './http/admin.js';
@@ -14,6 +14,12 @@ import { configureCompression, jsonResponse, startServer, type RouteTable } from
 
 export const VERSION = '0.1.0';
 
+/**
+ * Every start moves the item sequence this far ahead (strategy §7.2). A database restored to an
+ * earlier point then never hands out a seq a subscriber has already seen: nothing is skipped, and
+ * nothing below a subscriber's cursor is served except what is written after the restore.
+ */
+export const SEQUENCE_JUMP = 1_000_000_000;
 /** Tombstones are hard-deleted after 90 days (AC 26). */
 const TOMBSTONE_RETENTION_DAYS = 90;
 const HEARTBEAT_MS = 30_000;
@@ -30,12 +36,26 @@ export type Engine = {
   stop(): Promise<void>;
 };
 
+/** The jump described above, logged so a restore's recovery can be followed in the event log. */
+async function advanceSequence(): Promise<void> {
+  const { rows } = await db().query<{ last_value: string }>(
+    `select setval('item_seq', last_value + $1) as last_value from item_seq`,
+    [SEQUENCE_JUMP],
+  );
+  const to = Number(rows[0]?.last_value ?? 0);
+  await logEvent({
+    type: 'engine.started',
+    fields: { version: VERSION, seq_from: to - SEQUENCE_JUMP, seq_to: to },
+  });
+}
+
 /** Start the engine: config, database, migrations, routes. No CRM knowledge anywhere in here. */
 export async function startEngine(overrides: Partial<Config> = {}): Promise<Engine> {
   const config = { ...loadConfig(), ...overrides };
   initErrorReporting(config.sentryDsn);
   db(config.databaseUrl);
   await migrate();
+  await advanceSequence();
   configureCredentials(config.credentialsKey);
   configureBells(config.bellThrottleMs);
   configureCompression(config.gzipLevel);

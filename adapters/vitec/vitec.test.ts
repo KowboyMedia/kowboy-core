@@ -155,7 +155,8 @@ describe('the Vitec adapter', () => {
       ),
     );
     expect(responses.every((response) => response.status === 202)).toBe(true);
-    expect(await store.depth()).toBe(1);
+    // One row, or none if the drain has just claimed it: never a hundred.
+    expect(await store.depth()).toBeLessThanOrEqual(1);
 
     await drainFetchList();
     // One fetch in flight when the burst began, at most one more for what arrived meanwhile.
@@ -292,6 +293,31 @@ describe('the Vitec adapter', () => {
     const since = new Date(listing?.query.get('criteria.changedAtMinValue') ?? 0).getTime();
     expect(new Date(until!).getTime() - since).toBe(3_600_000);
     expect((await health())['vitec.catch_up']).toEqual({ ok: true });
+  });
+
+  it('starts with a catch-up since the last window, fetching only records whose change date moved (AC 35, AC 41)', async () => {
+    const ago = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
+    const until = ago(120);
+    seed(fake);
+    const unchanged = ago(30);
+    fake.put(OFFICE, 'property', estate('OBJ1', OFFICE, { changedAt: unchanged }));
+    fake.put(OFFICE, 'property', estate('OBJ2', OFFICE, { changedAt: ago(20) }));
+    // As the worker finds things: the last catch-up ended two hours ago, OBJ1 was fetched as it is now.
+    await store.setState(CONNECTION, 'catch_up_until', until);
+    await store.setState(CONNECTION, 'catch_up_at', until);
+    await store.setState(CONNECTION, 'compare_at', ago(1));
+    await store.remember(OFFICE, 'property', 'OBJ1', unchanged);
+
+    await start();
+    await drainFetchList();
+
+    expect(fetchesOf('OBJ1')).toBe(0);
+    expect(await item('property', 'OBJ2')).toBeDefined();
+    const listing = fake.requests.find((request) =>
+      request.query.has('criteria.changedAtMinValue'),
+    );
+    const since = new Date(listing?.query.get('criteria.changedAtMinValue') ?? 0).getTime();
+    expect(since).toBe(new Date(until).getTime() - 3_600_000);
   });
 
   it('turns vitec.catch_up red when the last catch-up is older than 13 hours', async () => {

@@ -53,6 +53,9 @@ Later changes are edits to `.do/app.yaml` followed by `doctl apps update <app-id
 (strategy §4); staging is the same spec with another name, `deploy_on_push: true` and its own
 cluster. Vitec is given the webhook URL `https://<app domain>/v1/hook/vitec/webhook/<token>`.
 
+**Restoring the database:** restore it in DigitalOcean, restart the app, nothing else (strategy
+§7.2). Send no `forcerefresh` to a site until `/v1/health` is green again.
+
 ## Checking it
 
 ```bash

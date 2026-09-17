@@ -202,6 +202,28 @@ export function syncScenarios(name: string, client: ClientSetup): void {
     );
 
     it(
+      "keeps its copy and carries on when Core's sequence jumps ahead, as after a restore (AC 41)",
+      async () => {
+        await seed('P-1');
+        const first = await sync();
+        const stored = await item('property', 'P-1');
+
+        // What every engine start does (strategy §7.2), here by hand.
+        await db().query("select setval('item_seq', last_value + 1000000000) from item_seq");
+        await seed('P-2');
+        const second = await sync();
+
+        expect(await remoteIds('property')).toEqual(['P-1', 'P-2']);
+        expect(second.after['property']).toBeGreaterThan(
+          (first.after['property'] ?? 0) + 1_000_000_000,
+        );
+        expect((await item('property', 'P-1'))?.synced_at).toBe(stored?.synced_at);
+        expect(second.last_error).toBeNull();
+      },
+      SCENARIO_TIMEOUT_MS,
+    );
+
+    it(
       'drops an item locally when Core tombstones it (AC 3)',
       async () => {
         await seed('P-1', 'P-2');

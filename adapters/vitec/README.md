@@ -30,11 +30,12 @@ vitec.test.ts   the adapter against the real engine and the stand-in
 - **Initial load.** `connection_added` lists everything the connection's offices publish, in
   reference order (offices, agents, areas, projects, properties), and puts it on the list;
   `offices_added` does the same for the added offices only. Associations have no list endpoint: they are fetched when a property names one.
-- **Catch-up.** Every 12 h per connection: what changed since the previous window, less one hour
-  of overlap. A connection the worker has never caught up (for example one that existed before the
-  worker started) is listed in full.
-- **Comparison.** Once a day per connection: Vitec's full id list against the ids seen. A missing
-  id is fetched to confirm; the 404 tombstones it. Nothing is tombstoned blind.
+- **Catch-up.** Every 12 h per connection, and at every worker start: what changed since the
+  previous window, less one hour of overlap, fetching only records whose change date moved since
+  their last fetch. A connection the worker has never caught up is listed in full.
+- **Comparison.** Once a day per connection, and at every worker start: Vitec's full id list
+  against the ids seen. A missing id is fetched to confirm; the 404 tombstones it. Nothing is
+  tombstoned blind.
 - **Resync** (`event: resync`, optionally with a datatype) reloads and reports the listed ids as
   present, so the engine tombstones whatever Vitec no longer lists.
 - **Health.** `vitec.webhook_lag` (a webhook waiting more than 5 min), `vitec.retries` (a record

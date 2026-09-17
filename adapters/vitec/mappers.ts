@@ -15,7 +15,7 @@ const text = (value: unknown): string | null =>
   typeof value === 'string' && value !== '' ? value : null;
 
 /** Vitec's change dates carry seven fractional digits and an offset; the envelope wants ISO 8601. */
-const isoDate = (value: unknown): string | null => {
+export const isoDate = (value: unknown): string | null => {
   const given = text(value);
   if (!given) return null;
   const parsed = new Date(given);
@@ -28,6 +28,9 @@ const isoDate = (value: unknown): string | null => {
  */
 const officeIdOf = (reference: unknown): string | null =>
   text(record(reference)['customerId']) ?? text(record(reference)['id']);
+
+/** A record's own change date, the way a list row states it: what the catch-up compares. */
+export const changedAtOf = (input: unknown): string | null => isoDate(record(input)['changedAt']);
 
 const requireId = (raw: Raw): string => {
   const id = text(raw['id']);

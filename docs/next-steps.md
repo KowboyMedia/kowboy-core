@@ -63,6 +63,8 @@ the first item that is not done, and keep the file current. Decisions and open q
 ## Standing rules for every session
 
 - Raise problems as a numbered list with an optional suggested solution; Patric decides by number.
+  The numbers are the register `docs/open-questions.md`: next free number there, never reused,
+  answered ones move to `docs/decisions.md`.
   Tag each item with its part: `[core]`, `[crm]`, `[crm-vitec]`, `[crm-mspecs]`, `[client-wordpress]`,
   `[client-lovable]`.
 - A closed gate is not a note: build only what does not depend on it and leave the gap empty.

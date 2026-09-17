@@ -1,5 +1,6 @@
 import { db } from './storage/db.js';
 import { registeredHealthChecks } from './registry.js';
+import { unknownMigrations } from './storage/migrate.js';
 import { report } from './errors.js';
 import type { HealthResult } from './adapter-api/types.js';
 
@@ -29,6 +30,13 @@ export async function healthReport(): Promise<HealthReport> {
   checks['database'] = await run(async () => {
     await db().query('select 1');
     return { ok: true };
+  });
+
+  checks['schema'] = await run(async () => {
+    const unknown = await unknownMigrations();
+    return unknown.length === 0
+      ? { ok: true }
+      : { ok: false, detail: `the database is ahead of this app: ${unknown.join(', ')}` };
   });
 
   checks['worker'] = await run(async () => {

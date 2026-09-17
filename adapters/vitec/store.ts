@@ -49,11 +49,13 @@ create table if not exists vitec_fetch_list (
 );
 create index if not exists vitec_fetch_list_due on vitec_fetch_list (next_at, queued_at);
 create table if not exists vitec_known (
-  office_id text not null,
-  datatype    text not null,
-  remote_id   text not null,
+  office_id  text not null,
+  datatype   text not null,
+  remote_id  text not null,
+  changed_at text,
   primary key (office_id, datatype, remote_id)
 );
+alter table vitec_known add column if not exists changed_at text;
 create table if not exists vitec_state (
   connection_id text not null,
   name          text not null,
@@ -195,17 +197,19 @@ export async function requeue(entry: Entry, error: string): Promise<'retrying' |
   return givenUp ? 'given_up' : 'retrying';
 }
 
+/** The record was fetched: remember it, with the change date Vitec gave it. */
 export async function remember(
   officeId: string,
   datatype: Datatype,
   remoteId: string,
+  changedAt: string | null,
 ): Promise<void> {
   await (
     await db()
   ).query(
-    `insert into vitec_known (office_id, datatype, remote_id) values ($1, $2, $3)
-     on conflict do nothing`,
-    [officeId, datatype, remoteId],
+    `insert into vitec_known (office_id, datatype, remote_id, changed_at) values ($1, $2, $3, $4)
+     on conflict (office_id, datatype, remote_id) do update set changed_at = excluded.changed_at`,
+    [officeId, datatype, remoteId, changedAt],
   );
 }
 
@@ -223,14 +227,18 @@ export async function forget(
   ]);
 }
 
-export async function known(officeId: string, datatype: Datatype): Promise<string[]> {
+/** Every id seen for an office and datatype, with the change date at its last fetch. */
+export async function known(
+  officeId: string,
+  datatype: Datatype,
+): Promise<Map<string, string | null>> {
   const { rows } = await (
     await db()
-  ).query<{ remote_id: string }>(
-    'select remote_id from vitec_known where office_id = $1 and datatype = $2',
+  ).query<{ remote_id: string; changed_at: string | null }>(
+    'select remote_id, changed_at from vitec_known where office_id = $1 and datatype = $2',
     [officeId, datatype],
   );
-  return rows.map((row) => row.remote_id);
+  return new Map(rows.map((row) => [row.remote_id, row.changed_at]));
 }
 
 export async function isKnown(

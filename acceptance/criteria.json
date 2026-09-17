@@ -243,7 +243,8 @@
       "ac": 24,
       "title": "Restore drill ends with subscribers converged",
       "phase": "deploy",
-      "tests": []
+      "tests": [],
+      "note": "The engine half of the drill is proved as AC 41; the scripted drill on staging waits for the platform."
     },
     {
       "ac": 25,
@@ -343,7 +344,8 @@
       "tests": [
         "two adapters, one engine tombstones through presentIds when a polled record disappears (AC 35)",
         "the Vitec adapter catches up on what changed since the last window, less one hour of overlap (AC 35)",
-        "the Vitec adapter confirms a missing id with a fetch before tombstoning it, once a day (AC 35)"
+        "the Vitec adapter confirms a missing id with a fetch before tombstoning it, once a day (AC 35)",
+        "the Vitec adapter starts with a catch-up since the last window, fetching only records whose change date moved (AC 35, AC 41)"
       ],
       "note": "The 12 h catch-up with its 1 h overlap and the daily id comparison are proved against a stand-in Connect; the schedule itself runs on the worker's minute tick. Vitec's live behaviour waits for a test account (open question 18)."
     },
@@ -389,6 +391,19 @@
       "phase": "engine",
       "tests": ["GET /v1/changes gzips a full page and stays readable without gzip (AC 40)"],
       "note": "Ratio and plain-JSON fallback are asserted. The under-10 ms figure needs staging."
+    },
+    {
+      "ac": 41,
+      "title": "A restored database recovers without a subscriber skipping, deleting or rewriting anything",
+      "phase": "engine",
+      "tests": [
+        "restore (AC 41) recovers a restored database without a subscriber deleting or rewriting anything",
+        "restore (AC 41) reports when the database is ahead of the app",
+        "the Vitec adapter starts with a catch-up since the last window, fetching only records whose change date moved (AC 35, AC 41)",
+        "the Lovable kit against Core keeps its copy and carries on when Core's sequence jumps ahead, as after a restore (AC 41)",
+        "the WordPress client against Core keeps its copy and carries on when Core's sequence jumps ahead, as after a restore (AC 41)"
+      ],
+      "note": "Proved with the fake polling adapter and the fake subscriber against a database put back to a snapshot and an engine started again; both real clients prove they follow a jumped sequence. Vitec's live behaviour waits for a test account (open question 18)."
     }
   ]
 }

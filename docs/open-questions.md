@@ -1,27 +1,15 @@
 # Open questions
 
-Everything an agent could not settle from the Concept, the SRS, the strategy or the rules ledger.
-Each one names what is blocked and what the smaller option would be, so answering is quick.
-Answered questions move to `decisions.md` and are deleted from here.
+The register of everything asked of Patric. A question gets the next number here before it is
+asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
+Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
+file. Each one is tagged with its part and names what is blocked and the smaller option, so
+answering is quick. Next number: 25.
 
 ## 2. Protected paths created by an agent
 
 `schemas/`, `acceptance/` and `golden/fake/` did not exist before. CODEOWNERS now protects the
 first two, so this is the one time they are created without a prior review. They need your read.
-
-## 4. Where an adapter keeps its own tables
-
-The strategy says an adapter owns its queue, dedupe and retries "in its own tables", and that
-adapters know nothing about engine storage. The adapter API offers no database handle, so a real
-adapter would open its own connection pool to the same Postgres. The fake adapters keep their
-fetch list in memory, so nothing was decided by accident. Two options when Vitec is built:
-
-- **a.** The adapter opens its own pool from `DATABASE_URL` and owns its migrations. No change to
-  the adapter API.
-- **b.** The adapter API gains a scoped SQL handle for adapter-owned tables. That is an adapter API
-  change, which needs approval.
-
-Option a is smaller and needs no approval, so that is the default unless you say otherwise.
 
 ## 5. There are no business rules, and none can be written yet
 
@@ -75,3 +63,42 @@ returns for an estate withdrawn from the website (404 tombstones, 200 keeps the 
 status); and whether a `Remove` notification's record is still fetchable. Needs Vitec test
 credentials: `scripts/vitec-probe.ts` answers the first two the moment they exist (next-steps
 item 5).
+
+## 20. `[core]` The restore design, built as AC 41
+
+Every engine start moves the item sequence 1,000,000,000 ahead; every worker start runs the
+adapters' catch-up and id comparison. A restored database therefore serves nothing below a
+subscriber's cursor except what is written after the restore, and Core converges within minutes.
+Built with the criterion and its tests on 2026-09-17 at your request; the protected paths touched
+are `acceptance/` and strategy §7.2, §10 and §13. Approve, or amend.
+
+## 21. `[core]` Lifecycle events never reach the worker when web and worker are separate processes
+
+`POST /v1/admin/event` runs in the web process and calls the lifecycle handlers registered in that
+process; adapters start only in the worker, so in production `connection_added`, `offices_added`
+and `resync` reach nobody. The tests pass because they run both roles in one process. Suggested:
+the admin endpoint writes the event to a small `lifecycle_events` table and the worker's tick
+drains it and calls the handlers; engine-internal signalling between the engine's own processes,
+not a CRM queue. Needs approval; blocks onboarding on the platform.
+
+## 22. `[core]` Bells during a bulk load
+
+Bells are already batched per subscriber: the first change after a quiet period rings at once,
+further changes within 10 s collapse into one bell (`BELL_THROTTLE_MS`, strategy §5.2). A 10,000
+record load rings about once per 10 s while it runs, and the client pulls pages of 100 either
+way. Is that the batching you meant, or should the window be longer?
+
+## 23. `[core]` A rebuild guard after a restore
+
+A `forcerefresh` sent in the minutes between a restore and the adapters' convergence would delete
+what Core has not re-fetched yet. The runbook says do not send one until the checks are green. The
+alternative is Core refusing `after=0` pulls for some minutes after every worker start, which is
+a pause after every deploy. Suggested: the runbook, no guard.
+
+## 24. `[core]` Blue/green for the database
+
+A standby node on the managed cluster gives automatic failover on the same sequence, at about twice
+the database price; that is the blue/green that helps, and only against infrastructure failure. A
+second Core kept in sync from the CRM does not help: a bad mapping or a bug reaches both copies at
+once, and the remedies for bad data are recompute from `raw` (§7.3) and purge-and-resync from the
+CRM (§7.2), which need no restore at all. Yes or no on the standby node.
