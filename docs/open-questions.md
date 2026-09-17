@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 26.
+answering is quick. Next number: 27.
 
 ## 2. Protected paths created by an agent
 
@@ -67,10 +67,20 @@ listed estate. Needed: an estate in the test account that is actually unpublishe
 item 5). Smaller option if that cannot be arranged: keep the design as built, where only a 404
 tombstones.
 
-## 25. `[core]` Staging: its own cluster, or a second database on the production cluster
+## 26. `[crm-vitec]` Vitec's preview flow, and what happens to an estate taken off the website
 
-Strategy §4 and the README give staging its own cluster, which is a second managed Postgres
-cluster, priced like the production one. Blocked without it: the staging half of the pipeline (AC 18), the
-restore drill (AC 24) and the load test (AC 27). Smaller option: a database `core_staging` on
-`kowboy-core-production` and a staging app that deploys on push; the strategy line changes to say
-so. Either is one line in `.do/`; your call on the cost.
+Two things Vitec can call at Kowboy, both documented in `docs/inputs/vitec/`:
+
+- **Notifications** (webhooks): the URL is ours to choose, and it is
+  `https://<app domain>/v1/hook/vitec/webhook/<token>` per app. Nothing to decide.
+- **Preview** (`advertising-preview.md`): a broker previews an estate on the website before it is
+  advertised. Vitec calls two GET endpoints we provide (`init` and `verify`, with `customerId` and
+  `estateId`) and expects back the URL of the estate's page on the site. That needs Core to carry
+  estates that are not published for the website, and to know each estate's page URL on a site.
+  None of it is built.
+
+Decide whether the preview flow is wanted. If not, the smaller option settles question 18 as well:
+an estate Vitec does not publish for the website is gone for Core, so a fetch that answers 200 with
+`marketing.isPublished` false is treated like a 404 and the sites drop it. If yes, unpublished
+estates are carried with their `marketing` flags, the sites decide what to show, and the two
+endpoints plus the page URL become a design proposal of their own.

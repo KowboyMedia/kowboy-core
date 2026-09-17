@@ -51,16 +51,17 @@ the first item that is not done, and keep the file current. Decisions and open q
    Status 2026-09-17: run with the test credentials. Paging and the 404 are settled and the lister
    simplified (`docs/decisions.md`). The estate named as withdrawn is still published according to
    Connect (`marketing.isPublished` true, status `Sold`), so question 18 is narrowed to that one
-   part. Run the probe again once `VITEC_ESTATE_ID` names an estate that is actually unpublished.
+   part, and question 26 (Vitec's preview flow) may settle it without another run.
 
 ## Later, when Patric supplies them
 
-- The platform → Phase 1b. Status 2026-09-17: the cluster exists (`kowboy-core-production`,
-  Frankfurt), and the build, `.do/app.yaml`, `scripts/start.sh` and `.github/workflows/deploy.yml`
-  are ready for it. Left, for Patric or a session allowed to write to the DigitalOcean account
-  (this one was not): create the app from the spec and commit it back, create the GitHub
+- The platform → Phase 1b. Status 2026-09-17: the cluster exists (Frankfurt) with the staging
+  database `core_staging` on it, the `staging` branch is pushed, and `.do/app.yaml`,
+  `.do/app.staging.yaml`, `scripts/start.sh` and `.github/workflows/deploy.yml` are ready. Left,
+  for Patric or a session allowed to write to the DigitalOcean account (this one was allowed one
+  write and denied the rest): create the two apps and commit their specs back, create the GitHub
   environment `production` with required reviewers and its secret `DIGITALOCEAN_ACCESS_TOKEN`,
-  then give Vitec the webhook URL (README "Deploying"). Staging is open question 25.
+  then give Vitec each app's notification URL (README "Deploying").
 - Sentry DSN → replace the placeholder in `engine/errors.ts`.
 - The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
 - Vitec test credentials and a staging deploy → open question 18.

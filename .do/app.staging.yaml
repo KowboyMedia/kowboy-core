@@ -1,15 +1,7 @@
-# DigitalOcean App Platform app spec: the infrastructure as code strategy §2 asks for.
-#
-#   create   doctl apps create --spec <local copy with the secrets filled in>
-#   read     doctl apps spec get <app-id> > .do/app.yaml      (secrets come back encrypted, safe to commit)
-#   update   doctl apps update <app-id> --spec .do/app.yaml
-#
-# The managed Postgres cluster is the one Kowboy created (Frankfurt, 2026-09-17), so the app runs
-# in fra too and binds the cluster's own database and user. The platform hands the cluster's CA
-# over as DATABASE_CA_CERT and scripts/start.sh gives it to Node. Production never deploys on push
-# (strategy §4: a human approves, .github/workflows/deploy.yml). Staging is app.staging.yaml: the
-# same cluster with its own database, deploying the `staging` branch on push.
-name: kowboy-core
+# The staging app (Patric, 2026-09-17): app.yaml with another name, the `staging` branch deploying
+# on push, and its own database `core_staging` on the same cluster. Created, read back and updated
+# the same way as app.yaml, with secrets of its own.
+name: kowboy-core-staging
 region: fra
 
 alerts:
@@ -20,15 +12,15 @@ databases:
     engine: PG
     production: true
     cluster_name: kowboy-core-production
-    db_name: defaultdb
+    db_name: core_staging
     db_user: doadmin
 
 services:
   - name: web
     github:
       repo: KowboyMedia/kowboy-core
-      branch: main
-      deploy_on_push: false
+      branch: staging
+      deploy_on_push: true
     source_dir: /
     environment_slug: node-js
     build_command: npm run build
@@ -66,8 +58,8 @@ workers:
   - name: worker
     github:
       repo: KowboyMedia/kowboy-core
-      branch: main
-      deploy_on_push: false
+      branch: staging
+      deploy_on_push: true
     source_dir: /
     environment_slug: node-js
     build_command: npm run build

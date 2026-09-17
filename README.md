@@ -36,27 +36,32 @@ The Vitec adapter's connection format, webhook URL and settings (`VITEC_WEBHOOK_
 
 ## Deploying
 
-Core runs on DigitalOcean App Platform with a managed Postgres cluster in the same EU region
-(strategy §2). The cluster exists: `kowboy-core-production` in Frankfurt (2026-09-17).
-[`.do/app.yaml`](.do/app.yaml) is the app: a `web` service with its readiness probe on `/v1/ready`,
-a `worker`, and the cluster bound as `DATABASE_URL` with its CA as `DATABASE_CA_CERT`, which
-`scripts/start.sh` hands to Node. Once, to create it:
+Core runs on DigitalOcean App Platform with one managed Postgres cluster in Frankfurt (strategy
+§2; it exists since 2026-09-17). Two apps share it, each with a database of its own:
 
-1. Copy `.do/app.yaml` to `.do/app.local.yaml` (ignored by git), fill in the three secrets
+| App                   | Spec                   | Branch    | Deploys                                     | Database       |
+| --------------------- | ---------------------- | --------- | ------------------------------------------- | -------------- |
+| `kowboy-core`         | `.do/app.yaml`         | `main`    | on approval, `.github/workflows/deploy.yml` | `defaultdb`    |
+| `kowboy-core-staging` | `.do/app.staging.yaml` | `staging` | on every push                               | `core_staging` |
+
+Each app is a `web` service with its readiness probe on `/v1/ready` and a `worker`; the cluster is
+bound as `DATABASE_URL` with its CA as `DATABASE_CA_CERT`, which `scripts/start.sh` hands to Node.
+Once, to create the apps (DigitalOcean's GitHub app needs access to this repository first; if the
+cluster is renamed in the control panel, the API cannot, set `cluster_name` in both specs first):
+
+1. Copy a spec to `.do/app.local.yaml` (ignored by git), fill in the three secrets
    (`ADMIN_SECRET`, `CREDENTIALS_KEY` as 32 random bytes in base64, `VITEC_WEBHOOK_TOKEN`) and run
-   `doctl apps create --spec .do/app.local.yaml`. DigitalOcean's GitHub app needs access to this
-   repository first.
+   `doctl apps create --spec .do/app.local.yaml`. Once per app, each with secrets of its own.
 2. Commit back what DigitalOcean returns, secrets encrypted:
-   `doctl apps spec get <app-id> > .do/app.yaml`.
+   `doctl apps spec get <app-id> > .do/app.yaml`, and the same for `.do/app.staging.yaml`.
 3. In GitHub, create the environment `production` with required reviewers and give it the secret
    `DIGITALOCEAN_ACCESS_TOKEN`. From then on `.github/workflows/deploy.yml` deploys `main` once CI
-   is green and a reviewer has approved.
+   is green and a reviewer has approved. Staging needs nothing: it deploys every push to `staging`.
 
-Later changes are edits to `.do/app.yaml` followed by `doctl apps update <app-id> --spec
-.do/app.yaml`. Production never deploys on push, because a human approves each release
-(strategy §4); staging is the same spec with another name, `deploy_on_push: true` and its own
-cluster (open question 25). Vitec is given the webhook URL
-`https://<app domain>/v1/hook/vitec/webhook/<token>`.
+Later changes are edits to a spec followed by `doctl apps update <app-id> --spec <spec>`.
+Production never deploys on push, because a human approves each release (strategy §4). Vitec is
+given each app's notification URL, `https://<app domain>/v1/hook/vitec/webhook/<token>`, with that
+app's `VITEC_WEBHOOK_TOKEN`; the domain is the one DigitalOcean assigns at creation.
 
 **Restoring the database:** restore it in DigitalOcean, restart the app, nothing else (strategy
 §7.2). `/v1/health` stays red until every adapter has caught up; send no `forcerefresh` to a site
