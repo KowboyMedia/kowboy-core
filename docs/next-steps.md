@@ -50,13 +50,13 @@ the first item that is not done, and keep the file current. Decisions and open q
 
 ## Later, when Patric supplies them
 
-- The platform → Phase 1b. Status 2026-09-17: the cluster exists (Frankfurt) with the staging
-  database `core_staging` on it, the `staging` branch is pushed, and `.do/app.yaml`,
-  `.do/app.staging.yaml`, `scripts/start.sh` and `.github/workflows/deploy.yml` are ready. Left,
-  for Patric or a session allowed to write to the DigitalOcean account (this one was allowed one
-  write and denied the rest): create the two apps and commit their specs back, create the GitHub
-  environment `production` with required reviewers and its secret `DIGITALOCEAN_ACCESS_TOKEN`,
-  then give Vitec each app's notification URL (README "Deploying").
+- The platform → Phase 1b. Status 2026-09-17: the staging app `kowboy-core-staging` is live on
+  the cluster (its own database `core_staging`, the `staging` branch on push, web and worker
+  started, spec committed back). The production app is one API call from `.do/app.yaml`, which
+  the session's permission classifier refused as a production deploy: an allow rule for the
+  agent's DigitalOcean API calls, or a session with wider permissions, and an agent creates it,
+  commits the spec back and hands Patric both notification URLs for Vitec. Nothing for Patric to
+  click otherwise.
 - Sentry DSN → replace the placeholder in `engine/errors.ts`.
 - The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
 - Vitec test credentials and a staging deploy → open question 18.
