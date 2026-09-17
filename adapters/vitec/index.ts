@@ -1,9 +1,16 @@
 // The Vitec Connect adapter (strategy §5.3): two independent paths, both inside the adapter.
 //
 //   Vitec webhook ──► token check ──► fetch list ──► 202
-//   worker ──► fetch, five at a time ──► found: ingest · gone: notFound · failed: retry later
+//   worker ──► Update: fetch, five at a time ──► found: ingest · gone: notFound · failed: retry later
+//          ──► Remove: notFound, no fetch
 //   every 12 h ──► "what changed since the last catch-up, less one hour" ──► fetch list
-//   every 24 h ──► Vitec's full id list against the ids seen ──► missing ones fetched to confirm
+//   every 24 h ──► Vitec's full id list against the ids seen ──► missing ones removed
+//
+// Core syncs what Vitec lists for the sites, the marketed estates, and nothing else (Patric,
+// 2026-09-17): in the list means on the sites; a Remove notification, or an id gone from the list,
+// means removed. Nothing here reads a field's value; the list and the notifications define what
+// exists. Vitec's estate subscription is limited to estates advertised on the website, so Update
+// means marketed and Remove means not any more.
 //
 // A connection's credentials are a JSON document, `{"username", "password"}`: the Connect key
 // pair. Its licensed offices are the office ids, which are what Connect calls customer ids
@@ -97,7 +104,12 @@ async function live(current: AdapterApi): Promise<Live[]> {
 
 // ---- Path 1: webhooks -------------------------------------------------------------------------
 
-type Notification = { officeId: string; id: string; datatype: Datatype | null };
+type Notification = {
+  officeId: string;
+  id: string;
+  datatype: Datatype | null;
+  reason: 'webhook' | 'remove';
+};
 
 /** Vitec sends the parameters as JSON and as query parameters (notifications.md); JSON first. */
 function parseNotification(
@@ -120,11 +132,12 @@ function parseNotification(
   const type = field('type');
   if (!type) return { error: 'type is required' };
   const datatype = NOTIFIED[type.toLowerCase()] ?? null;
-  if (!datatype) return { officeId: '', id: '', datatype: null };
+  if (!datatype) return { officeId: '', id: '', datatype: null, reason: 'webhook' };
   const officeId = field('customerId');
   const id = field('id');
   if (!officeId || !id) return { error: 'customerId and id are required' };
-  return { officeId, id, datatype };
+  const reason = field('event')?.toLowerCase() === 'remove' ? 'remove' : 'webhook';
+  return { officeId, id, datatype, reason };
 }
 
 const tokenMatches = (given: string | undefined, expected: string): boolean =>
@@ -153,7 +166,7 @@ const routes: Route[] = [
           officeId: notification.officeId,
           datatype: notification.datatype,
           remoteId: notification.id,
-          reason: 'webhook',
+          reason: notification.reason,
           correlationId,
         },
       ]);
@@ -176,9 +189,19 @@ async function drainOnce(): Promise<void> {
   }
 }
 
-/** One record: fetched once, ingested into every connection that licenses its office. */
+/**
+ * One record: fetched once and ingested into every connection that licenses its office, or, on a
+ * removal, tombstoned in each of them without a fetch: the record left the sites' scope.
+ */
 async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi): Promise<void> {
   const owners = targets.filter((live) => live.connection.licensedOffices.includes(entry.officeId));
+  if (entry.reason === 'remove') {
+    for (const { connection } of owners) {
+      await current.notFound(connection, entry.datatype, entry.remoteId);
+    }
+    await store.forget(entry.officeId, entry.datatype, entry.remoteId);
+    return;
+  }
   const first = owners[0];
   if (!first) {
     await current.logEvent('fetch.orphan', {
@@ -296,7 +319,7 @@ async function enqueueListed(
   }
 }
 
-/** The ids seen before that Vitec no longer lists: fetched to confirm, never tombstoned blind. */
+/** The ids seen before that Vitec no longer lists: they left the sites' scope, so they are removed. */
 async function enqueueMissing(listed: Listed): Promise<void> {
   const correlationId = randomUUID();
   for (const [datatype, perOffice] of listed) {
@@ -309,7 +332,7 @@ async function enqueueMissing(listed: Listed): Promise<void> {
           officeId,
           datatype,
           remoteId,
-          reason: 'compare',
+          reason: 'remove',
           correlationId,
         })),
       );
@@ -330,11 +353,7 @@ async function load(live: Live, offices: readonly string[], datatype?: Datatype)
   await store.setState(live.connection.id, 'compare_at', startedAt.toISOString());
 }
 
-/**
- * Resync (strategy §7.2): reload everything listed, and confirm every id no longer listed with a
- * fetch. Never a sweep by the list: Vitec lists marketed estates only, so an estate missing from
- * it may well exist, and only Vitec answering 404 says it is gone (Core funnels, never judges).
- */
+/** Resync (strategy §7.2): reload everything listed, and remove every id no longer listed. */
 async function resync(live: Live, datatype?: Datatype): Promise<void> {
   await load(live, live.connection.licensedOffices, datatype);
 }

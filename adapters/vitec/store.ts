@@ -7,8 +7,11 @@
 import pg from 'pg';
 import type { Datatype } from '../../engine/adapter-api/index.js';
 
-/** Why a record is on the list. Webhooks are fetched before anything else (strategy §5.3). */
-export type Reason = 'webhook' | 'load' | 'catch_up' | 'compare' | 'reference';
+/**
+ * Why a record is on the list. A signal from Vitec, a webhook or a removal, goes before loads and
+ * catch-ups (strategy §5.3). A 'remove' entry is not fetched: the record left the sites' scope.
+ */
+export type Reason = 'webhook' | 'remove' | 'load' | 'catch_up' | 'reference';
 
 export type Entry = {
   officeId: string;
@@ -103,8 +106,9 @@ const toEntry = (row: Row): Entry => ({
 });
 
 /**
- * Put records on the list. A record already listed is kept once: a webhook for it counts from now
- * and goes first; any signal wakes a record an operator was left with.
+ * Put records on the list. A record already listed is kept once: a signal from Vitec (a webhook or
+ * a removal) for it counts from now, goes first and decides what happens, the last signal
+ * winning; any signal wakes a record an operator was left with.
  */
 export async function enqueue(
   entries: Pick<Entry, 'officeId' | 'datatype' | 'remoteId' | 'reason' | 'correlationId'>[],
@@ -120,12 +124,14 @@ export async function enqueue(
      on conflict (office_id, datatype, remote_id) do update set
        next_at = now(),
        attempts = case when vitec_fetch_list.next_at is null then 0 else vitec_fetch_list.attempts end,
-       reason = case when excluded.reason = 'webhook' then 'webhook' else vitec_fetch_list.reason end,
+       reason = case
+         when excluded.reason in ('webhook', 'remove') then excluded.reason
+         else vitec_fetch_list.reason end,
        queued_at = case
-         when excluded.reason = 'webhook' and vitec_fetch_list.reason <> 'webhook' then now()
+         when excluded.reason in ('webhook', 'remove') and vitec_fetch_list.reason not in ('webhook', 'remove') then now()
          else vitec_fetch_list.queued_at end,
        correlation_id = case
-         when excluded.reason = 'webhook' then excluded.correlation_id
+         when excluded.reason in ('webhook', 'remove') then excluded.correlation_id
          else vitec_fetch_list.correlation_id end`,
     [
       entries.map((entry) => entry.officeId),
@@ -138,7 +144,7 @@ export async function enqueue(
 }
 
 /**
- * Take up to `limit` due records off the list, webhooks first, oldest first. Taking is deleting:
+ * Take up to `limit` due records off the list, signals first, oldest first. Taking is deleting:
  * a record signalled again while its fetch runs gets its own later fetch.
  */
 export async function claim(limit: number): Promise<Entry[]> {
@@ -149,7 +155,7 @@ export async function claim(limit: number): Promise<Entry[]> {
      where (office_id, datatype, remote_id) in (
        select office_id, datatype, remote_id from vitec_fetch_list
        where next_at is not null and next_at <= now()
-       order by (reason = 'webhook') desc, queued_at
+       order by (reason in ('webhook', 'remove')) desc, queued_at
        limit $1
        for update skip locked)
      returning *`,
@@ -256,13 +262,13 @@ export async function isKnown(
   return (rowCount ?? 0) > 0;
 }
 
-/** How long the oldest webhook still waiting has waited, in milliseconds, or null when none waits. */
+/** How long the oldest signal still waiting has waited, in milliseconds, or null when none waits. */
 export async function oldestWebhookWaitMs(): Promise<number | null> {
   const { rows } = await (
     await db()
   ).query<{ wait_ms: string | null }>(
     `select extract(epoch from (now() - min(queued_at))) * 1000 as wait_ms
-     from vitec_fetch_list where reason = 'webhook' and next_at is not null`,
+     from vitec_fetch_list where reason in ('webhook', 'remove') and next_at is not null`,
   );
   const wait = rows[0]?.wait_ms;
   return wait === undefined || wait === null ? null : Number(wait);

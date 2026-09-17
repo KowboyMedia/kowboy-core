@@ -22,6 +22,8 @@ export type FakeConnect = {
   url: string;
   put(officeId: string, datatype: string, record: Record_): void;
   remove(officeId: string, datatype: string, id: string): void;
+  /** Take a record off the list (no longer marketed) while it still answers by id. */
+  unlist(officeId: string, datatype: string, id: string): void;
   /** Answer the next `times` requests with HTTP 500. */
   failNext(times: number): void;
   /** Hold every request this long, so concurrency can be observed. */
@@ -43,12 +45,17 @@ export function startFakeConnect(): Promise<FakeConnect> {
   };
 
   const expectedAuth = `Basic ${Buffer.from(`${USERNAME}:${PASSWORD}`).toString('base64')}`;
+  const unlisted = new Set<string>();
   let failures = 0;
   let inFlight = 0;
   const fake: FakeConnect = {
     url: '',
-    put: (officeId, datatype, record) => bucket(officeId, datatype).set(record.id, record),
+    put: (officeId, datatype, record) => {
+      unlisted.delete(`${officeId}/${datatype}/${record.id}`);
+      bucket(officeId, datatype).set(record.id, record);
+    },
     remove: (officeId, datatype, id) => bucket(officeId, datatype).delete(id),
+    unlist: (officeId, datatype, id) => unlisted.add(`${officeId}/${datatype}/${id}`),
     failNext: (times) => (failures = times),
     delayMs: 0,
     requests: [],
@@ -84,6 +91,7 @@ export function startFakeConnect(): Promise<FakeConnect> {
       const pageSize = Number(url.searchParams.get('paging.pageSize') ?? 100);
       const pageIndex = Number(url.searchParams.get('paging.pageIndex') ?? 0);
       const rows = [...records.values()]
+        .filter((record) => !unlisted.has(`${officeId}/${datatype}/${record.id}`))
         .filter((record) => !since || new Date(record.changedAt ?? 0) >= new Date(since))
         .sort((a, b) => a.id.localeCompare(b.id))
         .map((record) => ({

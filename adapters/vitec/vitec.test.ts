@@ -191,17 +191,43 @@ describe('the Vitec adapter', () => {
     expect(await store.depth()).toBe(0);
   });
 
-  it('tombstones after a Remove notification once Vitec answers 404 (AC 3)', async () => {
+  it('tombstones after a Remove notification, without a fetch (AC 3)', async () => {
     seed(fake);
     await start();
     await drainFetchList();
     expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
 
-    fake.remove(OFFICE, 'property', 'OBJ1');
+    // Taken off the website: it still answers by id, but it left the marketed set.
+    fake.unlist(OFFICE, 'property', 'OBJ1');
+    fake.requests.length = 0;
     await hook({ type: 'Estate', event: 'Remove', customerId: OFFICE, id: 'OBJ1' });
     await drainFetchList();
 
     expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
+    expect(fetchesOf('OBJ1')).toBe(0);
+    expect(await store.isKnown(OFFICE, 'property', 'OBJ1')).toBe(false);
+  });
+
+  it('brings a record back on an Update after a Remove, and removes it on a Remove after an Update (AC 33)', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+
+    // Marketed again: the last signal wins.
+    await hook({ type: 'Estate', event: 'Remove', customerId: OFFICE, id: 'OBJ1' });
+    await drainFetchList();
+    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
+    await hook({ type: 'Estate', event: 'Update', customerId: OFFICE, id: 'OBJ1' });
+    await drainFetchList();
+    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
+
+    // Update then Remove before any fetch ran: removed, and the Update was never fetched.
+    fake.requests.length = 0;
+    await hook({ type: 'Estate', event: 'Update', customerId: OFFICE, id: 'OBJ1' });
+    await hook({ type: 'Estate', event: 'Remove', customerId: OFFICE, id: 'OBJ1' });
+    await drainFetchList();
+    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
+    expect(fetchesOf('OBJ1')).toBe(0);
   });
 
   it('retries a failed fetch with backoff, turns vitec.retries red after three, and recovers (AC 39)', async () => {
@@ -352,12 +378,13 @@ describe('the Vitec adapter', () => {
     expect((await health())['vitec.catch_up']).toMatchObject({ ok: false });
   });
 
-  it('confirms a missing id with a fetch before tombstoning it, once a day (AC 35)', async () => {
+  it('tombstones an id the list no longer holds, once a day, without a fetch (AC 35)', async () => {
     seed(fake);
     await start();
     await drainFetchList();
 
-    fake.remove(OFFICE, 'property', 'OBJ1');
+    // Off the list but still answering by id: the list defines what exists for the sites.
+    fake.unlist(OFFICE, 'property', 'OBJ1');
     await store.setState(
       CONNECTION,
       'compare_at',
@@ -365,10 +392,9 @@ describe('the Vitec adapter', () => {
     );
     fake.requests.length = 0;
     await runSchedules();
-    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
-
     await drainFetchList();
-    expect(fetchesOf('OBJ1')).toBe(1);
+
+    expect(fetchesOf('OBJ1')).toBe(0);
     expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
   });
 
@@ -377,37 +403,11 @@ describe('the Vitec adapter', () => {
     await start();
     await drainFetchList();
 
-    fake.remove(OFFICE, 'property', 'OBJ1');
+    fake.unlist(OFFICE, 'property', 'OBJ1');
     await event({ event: 'resync' });
-    // Not listed is not gone: nothing is tombstoned until Vitec answers 404 for it.
-    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
     await drainFetchList();
     expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
     expect((await item('office', OFFICE))?.['deleted']).toBe(false);
-  });
-
-  it('keeps a record live while Vitec still answers it, whatever the record says: Core funnels, never judges', async () => {
-    seed(fake);
-    await start();
-    await drainFetchList();
-    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
-
-    // Taken off the website: Vitec sends a Remove, no longer lists it, but still answers it by id.
-    fake.put(
-      OFFICE,
-      'property',
-      estate('OBJ1', OFFICE, { marketing: { isPublished: false }, status: { id: 'NoAssignment' } }),
-    );
-    fake.requests.length = 0;
-    await hook({ type: 'Estate', event: 'Remove', customerId: OFFICE, id: 'OBJ1' });
-    await drainFetchList();
-    expect(fetchesOf('OBJ1')).toBe(1);
-    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
-
-    // Nor does a resync judge it: absent from the list, confirmed present by the fetch, it stays.
-    await event({ event: 'resync' });
-    await drainFetchList();
-    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
   });
 
   it('lists page by page and stops after the page Connect names as the last', async () => {
