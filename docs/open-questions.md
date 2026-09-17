@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 25.
+answering is quick. Next number: 26.
 
 ## 2. Protected paths created by an agent
 
@@ -75,3 +75,18 @@ Needed: the id of an estate whose website publishing is switched off in Express 
 says. Suggested, should Vitec answer 200: an estate that is not in the published list, or whose
 record says `isPublished: false`, is gone, which the daily comparison and a `Remove` fetch would
 then apply. Needs approval: it decides what a tombstone means for Vitec.
+
+## 25. `[core]` The app cannot verify the managed database's certificate as built
+
+The connection string App Platform binds as `DATABASE_URL` carries `sslmode=require`. Under that
+mode node-postgres (`pg-connection-string` 2.14) opens TLS and verifies the server certificate
+against Node's trust store; a Standard Edition cluster is signed by DigitalOcean's own CA, the one
+the panel offers as "Download CA certificate", so the first connection from `web` or `worker`
+fails verification and the app never comes up. Not tested against a cluster, read from the
+DigitalOcean documentation and the library.
+
+Blocked: Phase 1b, the deploy. Suggested, the smaller change that keeps verification: a variable
+`DATABASE_CA_CERT`, bound to `${db.CA_CERT}` in the spec, read by the engine's pool and the Vitec
+adapter's own pool as `ssl: { ca }`. Alternative with no code: `uselibpqcompat=true` appended to
+the URL makes `require` mean what it means in libpq, encrypted but unverified. Needs approval: it
+touches the engine's configuration and the adapter's store.
