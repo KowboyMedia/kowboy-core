@@ -48,6 +48,13 @@ the first item that is not done, and keep the file current. Decisions and open q
    `npm run build && node dist/scripts/vitec-probe.js` (with `NODE_USE_ENV_PROXY=1` in a cloud
    session), settle open question 18, adjust the adapter if Vitec differs from its documentation,
    and delete the question.
+   Status 2026-09-17: the credentials are in the environment and the probe ran, read-only. Settled
+   and built in: paging from 0 with an empty page ending a list, a made-up id is 404, dates are
+   Swedish wall-clock time without an offset, and an office record's id is not the customer id
+   (`docs/decisions.md`, 2026-09-17). Not settled: the estate given as withdrawn is one Vitec still
+   publishes, so question 18 is restated to what Vitec answers for an estate it no longer publishes
+   and waits for such an estate's id in `VITEC_ESTATE_ID`. Then run the probe again, adjust the
+   adapter, and delete the question.
 
 ## Later, when Patric supplies them
 
@@ -56,7 +63,8 @@ the first item that is not done, and keep the file current. Decisions and open q
   a DigitalOcean API token so an agent can.
 - Sentry DSN → replace the placeholder in `engine/errors.ts`.
 - The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
-- Vitec test credentials and a staging deploy → open question 18.
+- An estate Vitec no longer publishes, and a staging deploy → open question 18 (the test
+  credentials are in the environment since 2026-09-17).
 - Mspecs documentation → second adapter.
 - Rules ledger, parity inventory, real golden masters → Phase 5.
 

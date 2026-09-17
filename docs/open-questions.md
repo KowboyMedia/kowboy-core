@@ -55,11 +55,23 @@ Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPre
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
 
-## 18. `[crm-vitec]` What a test account settles
+## 18. `[crm-vitec]` What Vitec answers for an estate it no longer publishes
 
-Built from the documentation alone (`docs/inputs/vitec/`), three things are unverified: whether
-list paging starts at 0 or 1 (the lister tolerates both); what `GET .../Estate/{customerId}/{id}`
-returns for an estate withdrawn from the website (404 tombstones, 200 keeps the record with its
-status); and whether a `Remove` notification's record is still fetchable. Needs Vitec test
-credentials: `scripts/vitec-probe.ts` answers the first two the moment they exist (next-steps
-item 5).
+The read-only probe of 2026-09-17 (`scripts/vitec-probe.ts`, with the test account) settled
+paging, ids and dates (`decisions.md`, 2026-09-17). It could not settle this: the estate given as
+withdrawn from the website, `obj31529_2059181530`, is one Vitec still publishes. It is in the
+published list (`GET Advertising/Estate/M31529`, 648 rows), and its record says
+`marketing.isPublished: true` with status `Sold`, changed 2026-09-10. Of the 648 listed estates,
+420 are `Sold` and 189 `AssignmentWithdrawn`; a sample of 41 records had none unpublished.
+
+Why it matters: the adapter tombstones a record only when Vitec answers 404 by id, and a `Remove`
+notification and the daily comparison both end in that fetch. If Vitec answers 200 for an estate it
+no longer publishes, that estate would stay live in Core and on every site. Until this is settled
+the adapter keeps the 404 rule and nothing is built on a guess.
+
+Needed: the id of an estate whose website publishing is switched off in Express (Vitec's
+`marketing.isPublished` false), or the id from a `Remove` notification, in `VITEC_ESTATE_ID`; then
+`npm run build && node dist/scripts/vitec-probe.js` prints whether it is listed and what its record
+says. Suggested, should Vitec answer 200: an estate that is not in the published list, or whose
+record says `isPublished: false`, is gone, which the daily comparison and a `Remove` fetch would
+then apply. Needs approval: it decides what a tombstone means for Vitec.

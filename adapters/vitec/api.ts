@@ -9,6 +9,8 @@ export type Auth = { username: string; password: string };
 /**
  * One row of a list endpoint: identity and change date only, named as Connect names them. The
  * `customerId` (M30011 and the like) is the office id: one office, one customer id (Patric).
+ * `changedAt` is kept as the string Connect sent: a record by id carries the same string, so the
+ * catch-up compares the two verbatim (verified against Connect 2026-09-17).
  */
 export type ListRow = { id: string; customerId: string; changedAt: string | null };
 
@@ -67,7 +69,11 @@ export class VitecError extends Error {
   }
 }
 
-/** One page of a list endpoint, as Connect returns it. */
+/**
+ * One page of a list endpoint, as Connect returns it: `index` is the page asked for, `count` the
+ * number of pages, `totalRowCount` the number of rows. Pages count from 0, and a page past the end
+ * is HTTP 200 with no rows (verified against Connect 2026-09-17).
+ */
 export type Page = {
   index?: number;
   count?: number;
@@ -130,33 +136,23 @@ export function page(
   ) as Promise<Page | null>;
 }
 
-/**
- * Every list row for an office, page by page. Paging stops on an empty page, or when two pages in
- * a row bring nothing new, so it is right whether the server counts pages from 0 or from 1 (the
- * documentation names the parameters, not the first index).
- */
+/** Every list row for an office, page by page, from page 0 until a page comes back empty. */
 export async function* list(
   auth: Auth,
   datatype: Datatype,
   officeId: string,
   changedSince?: Date,
 ): AsyncGenerator<ListRow> {
-  const seen = new Set<string>();
-  let idle = 0;
-  for (let pageIndex = 0; idle < 2; pageIndex += 1) {
+  for (let pageIndex = 0; ; pageIndex += 1) {
     const rows = (await page(auth, datatype, officeId, pageIndex, changedSince))?.rows ?? [];
     if (rows.length === 0) return;
-    let fresh = 0;
     for (const row of rows) {
-      if (!row.id || seen.has(row.id)) continue;
-      seen.add(row.id);
-      fresh += 1;
+      if (!row.id) continue;
       yield {
         id: row.id,
         customerId: row.customerId ?? officeId,
         changedAt: row.changedAt ?? null,
       };
     }
-    idle = fresh === 0 ? idle + 1 : 0;
   }
 }

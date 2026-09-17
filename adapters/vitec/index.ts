@@ -12,7 +12,7 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import * as connect from './api.js';
 import * as store from './store.js';
-import { changedAtOf, isoDate, mappers, referencedIds } from './mappers.js';
+import { changedAtOf, mappers, referencedIds } from './mappers.js';
 import type {
   Adapter,
   AdapterApi,
@@ -262,7 +262,7 @@ async function listAll(
     for (const officeId of offices) {
       const ids = new Map<string, string | null>();
       for await (const row of connect.list(live.credentials, datatype, officeId, changedSince)) {
-        ids.set(row.id, isoDate(row.changedAt));
+        ids.set(row.id, row.changedAt);
       }
       perOffice.set(officeId, ids);
     }
@@ -272,8 +272,9 @@ async function listAll(
 }
 
 /**
- * Put what was listed on the fetch list. A catch-up skips a record whose change date is the one
- * seen at its last fetch (Patric, 2026-09-17); a load or resync fetches everything listed.
+ * Put what was listed on the fetch list. A catch-up skips a record whose change date, as Vitec
+ * writes it, is the one seen at its last fetch (Patric, 2026-09-17); a load or resync fetches
+ * everything listed.
  */
 async function enqueueListed(
   listed: Listed,

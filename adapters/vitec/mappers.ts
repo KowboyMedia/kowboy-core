@@ -14,23 +14,62 @@ const record = (value: unknown): Raw =>
 const text = (value: unknown): string | null =>
   typeof value === 'string' && value !== '' ? value : null;
 
-/** Vitec's change dates carry seven fractional digits and an offset; the envelope wants ISO 8601. */
+const STOCKHOLM = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Europe/Stockholm',
+  hourCycle: 'h23',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});
+
+/** How far the Swedish wall clock is ahead of UTC at `instant`, in milliseconds: one or two hours. */
+function stockholmOffsetMs(instant: Date): number {
+  const parts = STOCKHOLM.formatToParts(instant);
+  const at = (type: Intl.DateTimeFormatPartTypes): number =>
+    Number(parts.find((part) => part.type === type)?.value);
+  const wallClock = Date.UTC(
+    at('year'),
+    at('month') - 1,
+    at('day'),
+    at('hour'),
+    at('minute'),
+    at('second'),
+  );
+  return wallClock - Math.floor(instant.getTime() / 1000) * 1000;
+}
+
+/**
+ * Vitec's dates are Swedish wall-clock time with no offset, `2026-09-10T10:31:42.29` (verified
+ * against Connect 2026-09-17; the documentation's samples carry an offset, and one is honoured
+ * when present). The envelope wants an ISO 8601 instant, so a bare value is read as
+ * Europe/Stockholm: the digits read as UTC land within two hours of the instant, the offset there
+ * is Sweden's except across a daylight-saving switch, and the second pass settles that.
+ */
 export const isoDate = (value: unknown): string | null => {
   const given = text(value);
   if (!given) return null;
-  const parsed = new Date(given);
-  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  const bare = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?$/.test(given);
+  const guess = new Date(bare ? `${given}Z` : given);
+  if (Number.isNaN(guess.getTime())) return null;
+  if (!bare) return guess.toISOString();
+  const once = new Date(guess.getTime() - stockholmOffsetMs(guess));
+  return new Date(guess.getTime() - stockholmOffsetMs(once)).toISOString();
 };
 
 /**
  * The office id: what Connect calls the customer id (`M30011`), which every URL and notification
- * carries; `Office.Id` is an alias of it (Patric, 2026-09-16).
+ * carries (Patric, 2026-09-16). An office reference names the same office twice, as
+ * `{ id: "FIR30011", customerId: "M30011" }`, and an office record is fetched by the former
+ * (verified against Connect 2026-09-17).
  */
 const officeIdOf = (reference: unknown): string | null =>
   text(record(reference)['customerId']) ?? text(record(reference)['id']);
 
-/** A record's own change date, the way a list row states it: what the catch-up compares. */
-export const changedAtOf = (input: unknown): string | null => isoDate(record(input)['changedAt']);
+/** A record's own change date, the string a list row carries too: what the catch-up compares. */
+export const changedAtOf = (input: unknown): string | null => text(record(input)['changedAt']);
 
 const requireId = (raw: Raw): string => {
   const id = text(raw['id']);

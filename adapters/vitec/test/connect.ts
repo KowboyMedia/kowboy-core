@@ -1,11 +1,32 @@
 // A stand-in for Vitec Connect's advertising endpoints, in the shapes the documentation gives
-// (docs/inputs/vitec/api/): basic authentication, paged id lists with a change-date filter, and
-// records by id. Tests put records in, and read what was requested.
+// (docs/inputs/vitec/api/) and Connect was seen to use (2026-09-17): basic authentication, paged
+// id lists from page 0 with a change-date filter, `count` as the number of pages, an empty page
+// past the end, and records by id. Tests put records in, and read what was requested.
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
 export const USERNAME = 'partner';
 export const PASSWORD = 'connect-key';
+
+const SWEDISH = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'Europe/Stockholm',
+  hourCycle: 'h23',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  fractionalSecondDigits: 3,
+});
+
+/** A moment as Connect writes every date: Swedish wall-clock time, no offset. */
+export function stockholm(at: Date): string {
+  const parts = SWEDISH.formatToParts(at);
+  const of = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((part) => part.type === type)?.value ?? '';
+  return `${of('year')}-${of('month')}-${of('day')}T${of('hour')}:${of('minute')}:${of('second')}.${of('fractionalSecond')}`;
+}
 
 type Record_ = Record<string, unknown> & { id: string; changedAt?: string };
 
@@ -80,11 +101,13 @@ export function startFakeConnect(): Promise<FakeConnect> {
         const record = records.get(id);
         return record ? reply(200, record) : reply(404, { message: 'not found' });
       }
+      // Connect reads the filter with its offset, turns it into Swedish time and compares clocks.
       const since = url.searchParams.get('criteria.changedAtMinValue');
+      const floor = since ? stockholm(new Date(since)) : '';
       const pageSize = Number(url.searchParams.get('paging.pageSize') ?? 100);
       const pageIndex = Number(url.searchParams.get('paging.pageIndex') ?? 0);
       const rows = [...records.values()]
-        .filter((record) => !since || new Date(record.changedAt ?? 0) >= new Date(since))
+        .filter((record) => (record.changedAt ?? '') >= floor)
         .sort((a, b) => a.id.localeCompare(b.id))
         .map((record) => ({
           id: record.id,

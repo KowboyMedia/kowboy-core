@@ -1,22 +1,35 @@
 // The Vitec adapter against the real engine and a stand-in Connect (test/connect.ts): webhooks,
-// the fetch list, both schedules, licensing by office and the health checks. Vitec's behaviour
-// beyond its documentation waits for a test account on staging (strategy §9, Phase 6).
+// the fetch list, both schedules, licensing by office and the health checks. The stand-in follows
+// what a read-only probe of Connect showed on 2026-09-17 (scripts/vitec-probe.ts); what an estate
+// Vitec no longer publishes answers is still open (docs/open-questions.md, 18).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { harness, pull, ADMIN_SECRET, type Harness } from '../../acceptance/harness.js';
 import { drainFetchList, runSchedules, vitecAdapter } from './index.js';
+import { isoDate } from './mappers.js';
 import * as store from './store.js';
-import { PASSWORD, USERNAME, startFakeConnect, type FakeConnect } from './test/connect.js';
+import {
+  PASSWORD,
+  USERNAME,
+  startFakeConnect,
+  stockholm,
+  type FakeConnect,
+} from './test/connect.js';
 
 const CONNECTION = 'vitec-acme';
+/** The office id: Connect's customer id. Its office record has an id of its own. */
 const OFFICE = 'M1';
+const OFFICE_RECORD = 'FIR1';
 const TOKEN = 'hook-token';
-const CHANGED = '2026-09-10T08:00:00.1234567+02:00';
+/** Swedish wall-clock time, the way Connect writes every date. */
+const CHANGED = '2026-09-10T08:00:00.123';
 
 const credentials = JSON.stringify({ username: USERNAME, password: PASSWORD });
 
+const minutesAgo = (minutes: number): Date => new Date(Date.now() - minutes * 60_000);
+
 const estate = (id: string, officeId = OFFICE, extra: Record<string, unknown> = {}) => ({
   id,
-  office: { id: officeId, customerId: officeId },
+  office: { id: officeId.replace('M', 'FIR'), customerId: officeId },
   primaryAgentId: 'U1',
   secondaryAgentId: null,
   projectId: 'PR1',
@@ -29,7 +42,7 @@ const estate = (id: string, officeId = OFFICE, extra: Record<string, unknown> = 
 /** One office with one of everything, the way Connect would publish it. */
 function seed(fake: FakeConnect): void {
   fake.put(OFFICE, 'office', {
-    id: OFFICE,
+    id: OFFICE_RECORD,
     customerId: OFFICE,
     name: 'Kontor 1',
     changedAt: CHANGED,
@@ -37,13 +50,15 @@ function seed(fake: FakeConnect): void {
   fake.put(OFFICE, 'agent', {
     id: 'U1',
     name: 'Anna',
-    offices: [{ id: OFFICE, customerId: OFFICE, orderNumber: 1 }],
+    offices: [
+      { id: OFFICE_RECORD, customerId: OFFICE, orderNumber: 1, isVisibleInStaffList: true },
+    ],
     changedAt: CHANGED,
   });
   fake.put(OFFICE, 'area', { id: 'A1', name: 'Centrum', changedAt: CHANGED });
   fake.put(OFFICE, 'project', {
     id: 'PR1',
-    office: { id: OFFICE, customerId: OFFICE },
+    office: { id: OFFICE_RECORD, customerId: OFFICE },
     primaryAgentId: 'U1',
     address: { area: { id: 'A1' } },
     changedAt: CHANGED,
@@ -130,6 +145,7 @@ describe('the Vitec adapter', () => {
       provider_extras: {},
     });
     expect(property?.['office_id']).toBe(OFFICE);
+    // Swedish summer time is two hours ahead of UTC.
     expect(property?.['remote_updated_at']).toBe('2026-09-10T06:00:00.123Z');
 
     expect((await item('agent', 'U1'))?.['data']).toMatchObject({ office_ids: [OFFICE] });
@@ -138,7 +154,10 @@ describe('the Vitec adapter', () => {
       agent_ids: ['U1'],
       area_ids: ['A1'],
     });
-    expect(await item('office', OFFICE)).toBeDefined();
+    // An office is fetched by its own id; the item carries the customer id, which licensing uses.
+    const office = await item('office', OFFICE_RECORD);
+    expect(office?.['data']).toMatchObject({ id: OFFICE });
+    expect(office?.['office_id']).toBe(OFFICE);
     expect(await item('area', 'A1')).toBeDefined();
     // No list endpoint for associations: reached through the estate that names it.
     expect(await item('association', 'F1')).toBeDefined();
@@ -280,7 +299,7 @@ describe('the Vitec adapter', () => {
     const until = await store.getState(CONNECTION, 'catch_up_until');
     expect(until).not.toBeNull();
 
-    fake.put(OFFICE, 'property', estate('OBJ2', OFFICE, { changedAt: new Date().toISOString() }));
+    fake.put(OFFICE, 'property', estate('OBJ2', OFFICE, { changedAt: stockholm(new Date()) }));
     await store.setState(
       CONNECTION,
       'catch_up_at',
@@ -300,16 +319,15 @@ describe('the Vitec adapter', () => {
   });
 
   it('starts with a catch-up since the last window, fetching only records whose change date moved (AC 35, AC 41)', async () => {
-    const ago = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
-    const until = ago(120);
+    const until = minutesAgo(120).toISOString();
     seed(fake);
-    const unchanged = ago(30);
+    const unchanged = stockholm(minutesAgo(30));
     fake.put(OFFICE, 'property', estate('OBJ1', OFFICE, { changedAt: unchanged }));
-    fake.put(OFFICE, 'property', estate('OBJ2', OFFICE, { changedAt: ago(20) }));
+    fake.put(OFFICE, 'property', estate('OBJ2', OFFICE, { changedAt: stockholm(minutesAgo(20)) }));
     // As the worker finds things: the last catch-up ended two hours ago, OBJ1 was fetched as it is now.
     await store.setState(CONNECTION, 'catch_up_until', until);
     await store.setState(CONNECTION, 'catch_up_at', until);
-    await store.setState(CONNECTION, 'compare_at', ago(1));
+    await store.setState(CONNECTION, 'compare_at', minutesAgo(1).toISOString());
     await store.remember(OFFICE, 'property', 'OBJ1', unchanged);
 
     await start();
@@ -338,7 +356,7 @@ describe('the Vitec adapter', () => {
 
     await runSchedules();
     expect((await health())['vitec.catch_up']).toEqual({ ok: true });
-    expect(await item('office', OFFICE)).toBeDefined();
+    expect(await item('office', OFFICE_RECORD)).toBeDefined();
   });
 
   it('turns vitec.catch_up red when the last catch-up is older than 13 hours', async () => {
@@ -381,7 +399,7 @@ describe('the Vitec adapter', () => {
     await event({ event: 'resync' });
     expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
     await drainFetchList();
-    expect((await item('office', OFFICE))?.['deleted']).toBe(false);
+    expect((await item('office', OFFICE_RECORD))?.['deleted']).toBe(false);
   });
 
   it('fetches at most five records at once (proposal point 10)', async () => {
@@ -419,5 +437,51 @@ describe('the Vitec adapter', () => {
     expect((await item('property', 'OBJ1'))?.['seq']).toBe(first?.['seq']);
     // Only the added office was listed and fetched.
     expect(fake.requests.every((request) => request.path.includes('/M2'))).toBe(true);
+  });
+
+  it('lists page by page from page 0 and stops at the first empty page', async () => {
+    seed(fake);
+    for (let n = 2; n <= 250; n += 1) fake.put(OFFICE, 'property', estate(`OBJ${n}`));
+    await start();
+    await drainFetchList();
+
+    let stored = 0;
+    for (let after = 0, more = true; more;) {
+      const pulled = await pull(running.baseUrl, 'property', after);
+      stored += pulled.items.length;
+      after = pulled.next_after;
+      more = pulled.has_more;
+    }
+    expect(stored).toBe(250);
+    const pages = fake.requests
+      .filter((request) => request.path.endsWith(`/Estate/${OFFICE}`))
+      .map((request) => Number(request.query.get('paging.pageIndex')));
+    // 250 rows at 100 a page: pages 0, 1 and 2, then page 3 comes back empty. Listed twice: once
+    // by the catch-up and once by the comparison the first tick runs.
+    expect(pages).toEqual([0, 1, 2, 3, 0, 1, 2, 3]);
+  });
+});
+
+describe('Vitec dates', () => {
+  it('reads a bare value as Swedish wall-clock time, summer and winter', () => {
+    expect(isoDate('2026-09-10T10:31:42.29')).toBe('2026-09-10T08:31:42.290Z');
+    expect(isoDate('2026-01-09T11:56:22')).toBe('2026-01-09T10:56:22.000Z');
+  });
+
+  it('settles the hours around a daylight-saving switch', () => {
+    // Clocks go forward at 02:00 on 2026-03-29: 01:30 is still CET, 03:30 already CEST.
+    expect(isoDate('2026-03-29T01:30:00')).toBe('2026-03-29T00:30:00.000Z');
+    expect(isoDate('2026-03-29T03:30:00')).toBe('2026-03-29T01:30:00.000Z');
+    // Clocks go back at 03:00 on 2026-10-25: 00:30 is CEST, 03:30 CET.
+    expect(isoDate('2026-10-25T00:30:00')).toBe('2026-10-24T22:30:00.000Z');
+    expect(isoDate('2026-10-25T03:30:00')).toBe('2026-10-25T02:30:00.000Z');
+  });
+
+  it('honours an offset when one is given, and refuses what is not a date', () => {
+    expect(isoDate('2026-09-16T05:56:31.3256156+02:00')).toBe('2026-09-16T03:56:31.325Z');
+    expect(isoDate('2026-09-16T05:56:31Z')).toBe('2026-09-16T05:56:31.000Z');
+    expect(isoDate('soon')).toBeNull();
+    expect(isoDate('')).toBeNull();
+    expect(isoDate(null)).toBeNull();
   });
 });

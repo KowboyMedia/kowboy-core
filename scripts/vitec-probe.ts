@@ -1,14 +1,14 @@
-// Runs the Vitec adapter's HTTP client against the real Connect, read-only, to settle what the
-// documentation leaves open (docs/open-questions.md, 18): where page numbering starts, what a
-// record by id returns for an estate withdrawn from the website, and whether a made-up id is a 404.
+// Runs the Vitec adapter's HTTP client against the real Connect, read-only, and prints what the
+// documentation leaves open (docs/open-questions.md, 18): how Connect writes its dates and ids,
+// and what it answers for one estate by id, whether that estate is published or not.
 //
 //   VITEC_USERNAME, VITEC_PASSWORD   the Connect key pair
 //   VITEC_OFFICE_ID                  one office (customer id, M30011 and the like)
-//   VITEC_ESTATE_ID                  optional: an estate withdrawn from the website
+//   VITEC_ESTATE_ID                  optional: an estate to look at, one Vitec no longer publishes
 //   NODE_USE_ENV_PROXY=1             in a cloud session, so fetch goes through the proxy
 //
 //   npm run build && node dist/scripts/vitec-probe.js
-import { getOne, page, VitecError, type Page } from '../adapters/vitec/api.js';
+import { getOne, list, page, VitecError } from '../adapters/vitec/api.js';
 
 const env = (name: string): string => {
   const value = process.env[name];
@@ -19,29 +19,32 @@ const env = (name: string): string => {
 const auth = { username: env('VITEC_USERNAME'), password: env('VITEC_PASSWORD') };
 const office = env('VITEC_OFFICE_ID');
 
-const ids = (result: Page | null): string[] => (result?.rows ?? []).map((row) => row.id ?? '?');
-const describe = (label: string, result: Page | null): void =>
-  console.log(
-    `${label}: index ${result?.index}, count ${result?.count}, total ${result?.totalRowCount}, ids ${ids(result).join(', ') || '(none)'}`,
-  );
+type Estate = {
+  status?: { id?: string };
+  marketing?: { isPublished?: boolean };
+  changedAt?: string;
+};
 
-const first = await page(auth, 'property', office, 0, undefined, 2);
-const second = await page(auth, 'property', office, 1, undefined, 2);
-describe('page 0', first);
-describe('page 1', second);
-const same = ids(first).length > 0 && ids(first).join() === ids(second).join();
+const first = await page(auth, 'property', office, 0, undefined, 1);
 console.log(
-  same
-    ? 'paging: page 0 and page 1 are the same, so numbering starts at 1'
-    : 'paging: page 0 and page 1 differ, so numbering starts at 0',
+  `estate list: index ${first?.index}, count ${first?.count} (pages), total ${first?.totalRowCount}, first changedAt ${first?.rows?.[0]?.changedAt}`,
 );
+for await (const row of list(auth, 'office', office)) {
+  console.log(`office record ${row.id} for customer id ${row.customerId}`);
+}
 
-async function status(label: string, id: string): Promise<void> {
+async function describe(label: string, id: string): Promise<void> {
+  let listed = false;
+  for await (const row of list(auth, 'property', office)) {
+    if (row.id.toLowerCase() === id.toLowerCase()) listed = true;
+  }
   try {
-    const record = await getOne(auth, 'property', office, id);
-    console.log(
-      `${label}: ${record === null ? 'HTTP 404, gone' : `HTTP 200, ${JSON.stringify(record).length} bytes`}`,
-    );
+    const estate = (await getOne(auth, 'property', office, id)) as Estate | null;
+    const answer =
+      estate === null
+        ? 'HTTP 404, gone'
+        : `HTTP 200, status ${estate.status?.id}, isPublished ${estate.marketing?.isPublished}, changedAt ${estate.changedAt}`;
+    console.log(`${label}: ${listed ? 'in' : 'not in'} the published list; by id: ${answer}`);
   } catch (error) {
     console.log(
       `${label}: ${error instanceof VitecError ? `HTTP ${error.status}` : String(error)}`,
@@ -49,8 +52,6 @@ async function status(label: string, id: string): Promise<void> {
   }
 }
 
-const listed = ids(first)[0];
-if (listed) await status(`listed estate ${listed}`, listed);
-await status('made-up estate id', 'OBJ0_0');
-const withdrawn = process.env['VITEC_ESTATE_ID'];
-if (withdrawn) await status(`estate ${withdrawn}, withdrawn from the website`, withdrawn);
+await describe('made-up estate id', 'OBJ0_0');
+const given = process.env['VITEC_ESTATE_ID'];
+if (given) await describe(`estate ${given}`, given);

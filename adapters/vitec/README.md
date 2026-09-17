@@ -32,7 +32,8 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   `offices_added` does the same for the added offices only. Associations have no list endpoint: they are fetched when a property names one.
 - **Catch-up.** Every 12 h per connection, and at every worker start: what changed since the
   previous window, less one hour of overlap, fetching only records whose change date moved since
-  their last fetch. A connection the worker has never caught up is listed in full.
+  their last fetch (Vitec's `changedAt` string, compared verbatim). A connection the worker has
+  never caught up is listed in full.
 - **Comparison.** Once a day per connection, and at every worker start: Vitec's full id list
   against the ids seen. A missing id is fetched to confirm; the 404 tombstones it. Nothing is
   tombstoned blind.
@@ -49,9 +50,12 @@ vitec.test.ts   the adapter against the real engine and the stand-in
 `data` holds identity, the references and nothing else today: `id`, `office_id`, `agent_ids`,
 `area_ids`, `association_id`, `project_id` on a property; `office_ids` on an agent; `office_id`,
 `agent_ids`, `area_ids` on a project. The descriptive fields wait for the field specification
-(docs/next-steps.md item 2). `remote_updated_at` is Vitec's `changedAt`. The office id is what
-Connect calls the customer id (`M30011`): one office, one customer id, and `Office.Id` is an alias
-of it (Patric, 2026-09-16). Licensing filters on it.
+(docs/next-steps.md item 2). `remote_updated_at` is Vitec's `changedAt`, which Connect writes as
+Swedish wall-clock time without an offset and the mapper reads as Europe/Stockholm. The office id
+is what Connect calls the customer id (`M30011`): one office, one customer id (Patric,
+2026-09-16), and licensing filters on it. The office record has an id of its own (`FIR30011`),
+which every office reference carries beside the customer id and which the record is fetched by:
+an office item's `remote_id` is that id, its `data.id` the customer id.
 
 ## Setting up a connection
 
@@ -80,13 +84,15 @@ ids; only those are loaded. Then ask Vitec for subscriptions (docs/inputs/vitec/
 | `VITEC_FETCH_CONCURRENCY` | Connect requests at once, default 5.                                                    |
 | `DATABASE_URL`            | Where the adapter's own tables live (`vitec_fetch_list`, `vitec_known`, `vitec_state`). |
 
-## Not verified against Vitec yet (open question 18)
+## Verified against Connect, and what is not (open question 18)
 
-`scripts/vitec-probe.ts` settles the first two with real credentials, read-only.
+`scripts/vitec-probe.ts` runs this client read-only against the test account. On 2026-09-17 it
+settled: list pages count from 0, `count` is the number of pages, a page past the end is HTTP 200
+with no rows, a made-up id is HTTP 404, ids are case-insensitive in URLs, dates are Swedish
+wall-clock time without an offset, and an office record's `id` (`FIR31529`) is not its
+`customerId` (`M31529`). The stand-in in `test/connect.ts` follows all of it.
 
-- Whether page numbering starts at 0 or 1: the lister stops on an empty page or two pages without
-  new ids, so either works.
-- What a record by id returns once an estate is withdrawn from the website: a 404 tombstones it, a
-  200 keeps it with whatever status it carries.
-- A webhook accepted and then lost to a crash before its fetch ran is picked up by the next
-  catch-up, not sooner.
+Still open: what a record by id answers for an estate Vitec no longer publishes. The estate given
+as withdrawn from the website turned out to be one Vitec still publishes. Until that is settled,
+only Vitec answering 404 tombstones a record, and a webhook accepted and then lost to a crash
+before its fetch ran is picked up by the next catch-up, not sooner.
