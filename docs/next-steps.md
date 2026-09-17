@@ -49,19 +49,22 @@ the first item that is not done, and keep the file current. Decisions and open q
    (paging from 0, Swedish wall-clock dates, the office record's own id); Patric closed 18: Core
    carries every estate, marketed or not, and the clients check the marketing flags. The probe
    stays as a diagnostic.
-6. **Phase 1b, delegated (Patric, 2026-09-17).** With `DIGITALOCEAN_ACCESS_TOKEN`, `ADMIN_SECRET`,
-   `CREDENTIALS_KEY` and `VITEC_WEBHOOK_TOKEN` in the environment, an agent lists what already
-   exists in Frankfurt and reports it before touching anything, creates the managed cluster
-   (PostgreSQL 16, Frankfurt, `kowboy-core-db`, database `core`, user `core`) and the app from
-   `.do/app.yaml` with the secrets filled in, commits the spec DigitalOcean returns, and checks
-   `/v1/health`; then staging the same way; then Patric orders Vitec's subscriptions on the webhook
-   URL (`adapters/vitec/README.md`). Blocked until the token is there.
+6. **Phase 1b, delegated (Patric, 2026-09-17).** With `DIGITALOCEAN_ACCESS_TOKEN` in the
+   environment, an agent lists what already exists in Frankfurt and reports it before touching
+   anything, creates the managed cluster (PostgreSQL 16, Frankfurt, `kowboy-core-db`, database
+   `core`, user `core`) and the app from `.do/app.yaml`, generating `ADMIN_SECRET`,
+   `CREDENTIALS_KEY` and `VITEC_WEBHOOK_TOKEN` itself (`openssl rand -base64 32` each) and storing
+   them encrypted in the app, commits the spec DigitalOcean returns, and checks `/v1/health`. It
+   hands Patric `ADMIN_SECRET` and `VITEC_WEBHOOK_TOKEN` once in the chat, for his password manager
+   and the environment: agents need the first for admin calls, Vitec's subscriptions the second in
+   the webhook URL (`adapters/vitec/README.md`). Then staging the same way. Blocked until the token
+   is there.
 7. **Preview (AC 42), after the model (item 2):** the clients' preview link with the pull before
    rendering, and the Vitec preview landing page in the adapter once question 27 is answered.
 
 ## Later, when Patric supplies them
 
-- A DigitalOcean token and the three secrets in the environment → item 6.
+- A DigitalOcean token in the environment → item 6.
 - Sentry DSN → replace the placeholder in `engine/errors.ts`.
 - The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
 - Mspecs documentation → second adapter.

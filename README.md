@@ -40,8 +40,8 @@ Core runs on DigitalOcean App Platform with a managed Postgres cluster in the sa
 Frankfurt (strategy §2). [`.do/app.yaml`](.do/app.yaml) is the app: a `web` service with its
 readiness probe on `/v1/ready`, a `worker`, the cluster bound as `DATABASE_URL` and its CA as
 `DATABASE_CA_CERT`, which the app verifies the cluster against. An agent creates it once
-`DIGITALOCEAN_ACCESS_TOKEN`, `ADMIN_SECRET`, `CREDENTIALS_KEY` and `VITEC_WEBHOOK_TOKEN` are in the
-environment (docs/next-steps.md item 6):
+`DIGITALOCEAN_ACCESS_TOKEN` is in the environment, generating the three secrets itself
+(docs/next-steps.md item 6):
 
 1. Create the managed Postgres cluster in the region of the spec, named as its `cluster_name`,
    with a database `core` and a user `core`.

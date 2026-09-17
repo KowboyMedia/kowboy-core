@@ -55,43 +55,19 @@ Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPre
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
 
-## 26. `[crm-vitec]` Embed the agents in estates and projects?
+## 27. `[core]` `[crm-vitec]` `[client-wordpress]` `[client-lovable]` Previews: where does the agent get the link?
 
-Confirmed against Connect on 2026-09-17: the adapter asks for every estate extension except
-`primaryAgent` and `secondaryAgent`, which embed the agent's own `AdvertisingUser` record, and a
-project's only extensions are those two; `$estate` adds nothing. Point 7 of the proposal, approved,
-keeps the agents out: they are their own items, referenced by `agent_ids`, so a change to an agent
-does not rewrite every estate of theirs and ring every site. Nothing is missing from Core; only the
-duplicate is left out. Say if you want them embedded anyway, and the mirror carries
-`extensions.primary_agent` and `extensions.secondary_agent` on estates and projects at that cost.
+A preview is a property page the seller can see before the property is public. The property is
+on the website but hidden, and a secret link opens it. When the link is opened, the website first
+fetches the latest data from Core, then shows the page, so the seller always sees the newest
+version. There are two ways for the agent to get that link:
 
-## 27. `[core]` `[crm-vitec]` `[client-wordpress]` `[client-lovable]` How previews work end to end
+- **A. From the website.** The agent copies the link from the website's admin. Nothing in Core
+  changes. This can be built with the templates once the data model is in.
+- **B. From Vitec Express.** The agent clicks "Förhandsgranska" in Express, Vitec asks Core to
+  fetch the property, waits until the website has it, and opens the page. Nothing to copy. For
+  this Core must know each customer's website address, which is a small addition to Core, and
+  Vitec must be told Core's address.
 
-Facts, from `docs/inputs/vitec/advertising-preview.md` and the estate model. An estate has
-`marketing.isPreview` and `marketing.isPublished`. Vitec's estate list holds marketed estates only,
-so an estate in preview reaches Core through its webhook or through a fetch the preview triggers.
-Vitec offers a preview landing page: when the agent clicks preview in Express, Vitec calls two GET
-endpoints at the partner, `init?customerId=&estateId=` answered with `{url, state}` and
-`verify?customerId=&estateId=&state=` answered with `{isReady, url, errorMessage}`, polls `verify`
-until ready, then shows `url`. Vitec's own validation: show a preview only while the status is
-AssignmentAttempt, AssignmentAccepted, SoonForSale, Coming or ForSale; a marketed estate shows its
-normal page.
-
-Proposed, smallest first:
-
-1. Core carries the estate like any other, done by the answer to 18; its status and marketing
-   flags reach `data` with the model (next-steps item 2).
-2. The site's preview link. The item exists on the site as a draft. `?preview=<token>` shows it
-   when its status is one of Vitec's five and it is not marketed. Before rendering, the site pulls
-   `/v1/changes` from its cursor, one request and usually empty, so the page shows what Core holds
-   now: the "update before showing" you asked for, with no new Core capability. The token: an
-   HMAC of the remote id with the site's bell secret, so the site checks it with no round trip and
-   the link is unguessable. Needs nothing in Core.
-3. Vitec's landing page, later. The adapter answers `init` by putting the estate on the fetch list
-   with webhook priority and returning the site's preview URL, and `verify` with `isReady` once the
-   record is fetched and every subscriber of the tenant has pulled past its `seq`. Needs a preview
-   URL template per subscriber (`preview_url`, say `https://site/fastighet/{remote_id}/?preview={token}`),
-   a contract addition, and Vitec pointed at Core's adapter endpoints.
-
-Questions: start with 2 now and add 3 after, or both together? Is the HMAC token the unique link
-you mean? Needs approval: 2 sets a client rule and 3 adds to the contract.
+Suggested: A first, B after. Say yes, or say B only. The first, technical wording of this question
+(the endpoints, the token) is settled by the suggestion and needs no answer.
