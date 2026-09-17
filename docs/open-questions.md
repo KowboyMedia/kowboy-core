@@ -64,41 +64,23 @@ status); and whether a `Remove` notification's record is still fetchable. Needs 
 credentials: `scripts/vitec-probe.ts` answers the first two the moment they exist (next-steps
 item 5).
 
-## 20. `[core]` The restore design, built as AC 41
+## 21. `[core]` The admin "load this connection" call does nothing on the real platform
 
-Every engine start moves the item sequence 1,000,000,000 ahead; every worker start runs the
-adapters' catch-up and id comparison. A restored database therefore serves nothing below a
-subscriber's cursor except what is written after the restore, and Core converges within minutes.
-Built with the criterion and its tests on 2026-09-17 at your request; the protected paths touched
-are `acceptance/` and strategy §7.2, §10 and §13. Approve, or amend.
+On App Platform, Core runs as two separate programs: `web` answers HTTP (client pulls, admin
+calls, Vitec's webhooks) and `worker` does the background fetching, where the adapters live. An
+admin call such as `POST /v1/admin/event` with `connection_added` or `resync` arrives at `web`,
+which hands it to the adapter in its own program; the adapter is in `worker`, a different
+program, which never hears it. The tests pass because they run both in one program. Suggested
+fix: `web` writes the event into a small table, `worker` reads that table every few seconds and
+runs the adapter's handler. Engine-internal, about forty lines. Needs approval because it adds an
+engine table and a worker loop. Until then a new connection is loaded at the next worker restart,
+because the worker starts with a catch-up, but `resync` and `offices_added` reach nobody.
 
-## 21. `[core]` Lifecycle events never reach the worker when web and worker are separate processes
+## 23. `[core]` Should Core block full rebuilds in the minutes after a restore?
 
-`POST /v1/admin/event` runs in the web process and calls the lifecycle handlers registered in that
-process; adapters start only in the worker, so in production `connection_added`, `offices_added`
-and `resync` reach nobody. The tests pass because they run both roles in one process. Suggested:
-the admin endpoint writes the event to a small `lifecycle_events` table and the worker's tick
-drains it and calls the handlers; engine-internal signalling between the engine's own processes,
-not a CRM queue. Needs approval; blocks onboarding on the platform.
-
-## 22. `[core]` Bells during a bulk load
-
-Bells are already batched per subscriber: the first change after a quiet period rings at once,
-further changes within 10 s collapse into one bell (`BELL_THROTTLE_MS`, strategy §5.2). A 10,000
-record load rings about once per 10 s while it runs, and the client pulls pages of 100 either
-way. Is that the batching you meant, or should the window be longer?
-
-## 23. `[core]` A rebuild guard after a restore
-
-A `forcerefresh` sent in the minutes between a restore and the adapters' convergence would delete
-what Core has not re-fetched yet. The runbook says do not send one until the checks are green. The
-alternative is Core refusing `after=0` pulls for some minutes after every worker start, which is
-a pause after every deploy. Suggested: the runbook, no guard.
-
-## 24. `[core]` Blue/green for the database
-
-A standby node on the managed cluster gives automatic failover on the same sequence, at about twice
-the database price; that is the blue/green that helps, and only against infrastructure failure. A
-second Core kept in sync from the CRM does not help: a bad mapping or a bug reaches both copies at
-once, and the remedies for bad data are recompute from `raw` (§7.3) and purge-and-resync from the
-CRM (§7.2), which need no restore at all. Yes or no on the standby node.
+A site does a full rebuild on `forcerefresh`: pull everything, then delete what it did not see.
+In the minutes after a database restore Core is still re-fetching the newest records, so a full
+rebuild in that window would delete them on the site. Option a: no code; the runbook says send no
+`forcerefresh` until `/v1/health` is green (suggested, and what is written today). Option b: Core
+refuses full-rebuild pulls for fifteen minutes after every worker start; safer, but it also delays
+a legitimate rebuild after every deploy. a or b?

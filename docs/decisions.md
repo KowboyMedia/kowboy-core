@@ -86,3 +86,6 @@ One line per structural decision: date, decision, reference. Append only. Detail
 - 2026-09-17 · `/v1/health` gains `schema`: red when the database holds a migration the app does not ship, the bound for rolling the app back · engine/health.ts
 - 2026-09-17 · Adapters keep their own tables in the same database, opened on `DATABASE_URL`, with their own idempotent migrations (open question 4, option a, as built in the Vitec adapter) · adapters/vitec/store.ts
 - 2026-09-17 · Questions to Patric carry one number for good in `docs/open-questions.md`, the register across conversations (Patric) · AGENTS.md
+- 2026-09-17 · The restore design of AC 41 is approved (Patric, question 20) · strategy §7.2
+- 2026-09-17 · Bells stay batched at one per subscriber per 10 s window (Patric, question 22) · engine/bells.ts
+- 2026-09-17 · No standby database node for now: the CRM is the truth, restore safety is AC 41, and the managed cluster's daily backups with point-in-time recovery cover loss; a standby node buys availability only, to revisit at go-live (question 24) · docs/strategy.md
