@@ -1,12 +1,30 @@
 import pg from 'pg';
 
+/**
+ * Connections per process. Writes are serialised by the write lock and reads are short, so five
+ * are plenty; with an adapter's own pool of three, two processes fit the smallest managed cluster.
+ */
+const POOL_MAX = 5;
+
 let pool: pg.Pool | null = null;
 
+/**
+ * How to open `url`. A managed cluster signs its certificate with its own CA, which the platform
+ * hands over as `DATABASE_CA_CERT`; the server is then verified against that CA. The URL's own
+ * `sslmode` is dropped, because `pg` lets it override an explicit `ssl` setting.
+ */
+export function connectionOptions(url: string, caCert: string | null): pg.PoolConfig {
+  if (!caCert) return { connectionString: url };
+  const parsed = new URL(url);
+  parsed.searchParams.delete('sslmode');
+  return { connectionString: parsed.toString(), ssl: { ca: caCert } };
+}
+
 /** The one connection pool. Call `closeDb` on shutdown. */
-export function db(databaseUrl?: string): pg.Pool {
+export function db(databaseUrl?: string, caCert: string | null = null): pg.Pool {
   if (!pool) {
     if (!databaseUrl) throw new Error('the database pool is not open yet');
-    pool = new pg.Pool({ connectionString: databaseUrl, max: 10 });
+    pool = new pg.Pool({ ...connectionOptions(databaseUrl, caCert), max: POOL_MAX });
     pool.on('error', (error) => console.error('idle database client error', error));
   }
   return pool;

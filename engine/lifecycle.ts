@@ -137,8 +137,7 @@ function buildEvent(
 async function tombstoneScope(connectionId: string, officeIds?: string[]): Promise<void> {
   const connection = await connectionById(connectionId);
   if (!connection) return;
-  const items = await itemsForScope({ connectionId });
-  for (const item of items) {
+  for await (const item of itemsForScope({ connectionId })) {
     if (officeIds && !(item.office_id && officeIds.includes(item.office_id))) continue;
     await notFound(connection, item.datatype, item.remote_id);
   }

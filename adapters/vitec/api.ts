@@ -30,7 +30,11 @@ const RESOURCE: Record<Datatype, string> = {
  */
 export const LISTABLE: readonly Datatype[] = ['office', 'agent', 'area', 'project', 'property'];
 
-/** Every estate extension except the two agents: agents are their own items (proposal point 7). */
+/**
+ * Every estate extension except the two agents: agents are their own items (proposal point 7).
+ * Projects extend by the two agents only, so they are fetched bare; `$estate` adds nothing to this
+ * list (verified against Connect 2026-09-17).
+ */
 const ESTATE_EXTEND =
   'housingCooperative+condominium+foreignProperty+farm+commercialProperty+premises';
 

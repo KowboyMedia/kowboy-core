@@ -14,7 +14,7 @@ Needs Node 22 and a Postgres 16 database.
 
 ```bash
 npm install
-cp .env.example .env          # set DATABASE_URL, ADMIN_SECRET, CREDENTIALS_KEY
+export DATABASE_URL=… ADMIN_SECRET=… CREDENTIALS_KEY=…   # the key: openssl rand -base64 32
 npm run build
 npm run start:web             # subscriber API, admin, health, adapter endpoints
 npm run start:worker          # adapter background work, bells, housekeeping
@@ -36,9 +36,12 @@ The Vitec adapter's connection format, webhook URL and settings (`VITEC_WEBHOOK_
 
 ## Deploying
 
-Core runs on DigitalOcean App Platform with a managed Postgres cluster in the same EU region
-(strategy §2). [`.do/app.yaml`](.do/app.yaml) is the app: a `web` service with its health check on
-`/v1/health`, a `worker`, and the cluster bound as `DATABASE_URL`. Once, to create it:
+Core runs on DigitalOcean App Platform with a managed Postgres cluster in the same EU region,
+Frankfurt (strategy §2). [`.do/app.yaml`](.do/app.yaml) is the app: a `web` service with its
+readiness probe on `/v1/ready`, a `worker`, the cluster bound as `DATABASE_URL` and its CA as
+`DATABASE_CA_CERT`, which the app verifies the cluster against. An agent creates it once
+`DIGITALOCEAN_ACCESS_TOKEN`, `ADMIN_SECRET`, `CREDENTIALS_KEY` and `VITEC_WEBHOOK_TOKEN` are in the
+environment (docs/next-steps.md item 6):
 
 1. Create the managed Postgres cluster in the region of the spec, named as its `cluster_name`,
    with a database `core` and a user `core`.

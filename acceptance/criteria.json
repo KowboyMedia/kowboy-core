@@ -348,7 +348,7 @@
         "the Vitec adapter confirms a missing id with a fetch before tombstoning it, once a day (AC 35)",
         "the Vitec adapter starts with a catch-up since the last window, fetching only records whose change date moved (AC 35, AC 41)"
       ],
-      "note": "The 12 h catch-up with its 1 h overlap and the daily id comparison are proved against a stand-in Connect; the schedule itself runs on the worker's minute tick. Vitec's live behaviour waits for a test account (open question 18)."
+      "note": "The 12 h catch-up with its 1 h overlap and the daily id comparison are proved against a stand-in Connect; the schedule itself runs on the worker's minute tick. Vitec's live behaviour waits for the staging deploy."
     },
     {
       "ac": 36,
@@ -406,7 +406,14 @@
         "the Lovable kit against Core keeps its copy through a database restore and converges again without deleting or rewriting anything (AC 41)",
         "the WordPress client against Core keeps its copy through a database restore and converges again without deleting or rewriting anything (AC 41)"
       ],
-      "note": "Proved end to end: the database put back to a snapshot and Core started again, with the fake subscriber and with both real clients, whose copies are byte for byte the same before, during and after the recovery. Health is red until the worker has caught up and readiness stays green. Vitec's live behaviour waits for a test account (open question 18)."
+      "note": "Proved end to end: the database put back to a snapshot and Core started again, with the fake subscriber and with both real clients, whose copies are byte for byte the same before, during and after the recovery. Health is red until the worker has caught up and readiness stays green. Vitec's live behaviour waits for the staging deploy."
+    },
+    {
+      "ac": 42,
+      "title": "Preview (Vitec)",
+      "phase": "clients",
+      "tests": [],
+      "note": "Requirement added 2026-09-17 (Patric). Waits on the data model for the status and marketing flags, then the clients' preview link and the pull before rendering; Vitec's preview landing page is open question 27."
     }
   ]
 }

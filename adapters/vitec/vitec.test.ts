@@ -1,7 +1,7 @@
 // The Vitec adapter against the real engine and a stand-in Connect (test/connect.ts): webhooks,
 // the fetch list, both schedules, licensing by office and the health checks. The stand-in follows
-// what a read-only probe of Connect showed on 2026-09-17 (scripts/vitec-probe.ts); what an estate
-// Vitec no longer publishes answers is still open (docs/open-questions.md, 18).
+// what a read-only probe of Connect showed on 2026-09-17 (scripts/vitec-probe.ts). Core carries
+// every estate Vitec answers 200 for, marketed or not (Patric); only a 404 tombstones.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { harness, pull, ADMIN_SECRET, type Harness } from '../../acceptance/harness.js';
 import { drainFetchList, runSchedules, vitecAdapter } from './index.js';

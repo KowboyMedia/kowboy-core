@@ -50,7 +50,7 @@ export async function recompute(
     examples: [],
   };
 
-  const items = await itemsForScope({
+  const items = itemsForScope({
     tenantId: scope.tenantId,
     connectionId: scope.connectionId,
     datatype: scope.datatype,
@@ -58,7 +58,7 @@ export async function recompute(
   });
   const touchedTenants = new Set<string>();
 
-  for (const item of items) {
+  for await (const item of items) {
     report.examined += 1;
     const outcome = await redo(item);
 

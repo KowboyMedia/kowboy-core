@@ -42,29 +42,28 @@ the first item that is not done, and keep the file current. Decisions and open q
    routing, the example Lovable site and the search/filter half of AC 20 wait for the model
    (item 3).
 
-5. **Standing request (Patric, 2026-09-16), not done until fulfilled:** as soon as Vitec test
-   credentials are in the environment (`VITEC_USERNAME`, `VITEC_PASSWORD`, `VITEC_OFFICE_ID`, and
-   `VITEC_ESTATE_ID` for an estate withdrawn from the website), run
-   `npm run build && node dist/scripts/vitec-probe.js` (with `NODE_USE_ENV_PROXY=1` in a cloud
-   session), settle open question 18, adjust the adapter if Vitec differs from its documentation,
-   and delete the question.
-   Status 2026-09-17: the credentials are in the environment and the probe ran, read-only. Settled
-   and built in: paging from 0 with an empty page ending a list, a made-up id is 404, dates are
-   Swedish wall-clock time without an offset, and an office record's id is not the customer id
-   (`docs/decisions.md`, 2026-09-17). Not settled: the estate given as withdrawn is one Vitec still
-   publishes, so question 18 is restated to what Vitec answers for an estate it no longer publishes
-   and waits for such an estate's id in `VITEC_ESTATE_ID`. Then run the probe again, adjust the
-   adapter, and delete the question.
+5. ~~**Standing request (Patric, 2026-09-16):** as soon as Vitec test credentials are in the
+   environment, run `npm run build && node dist/scripts/vitec-probe.js`, settle open question 18,
+   adjust the adapter if Vitec differs from its documentation, and delete the question.~~ Done
+   2026-09-17: the probe ran read-only against Connect and the adapter follows what it found
+   (paging from 0, Swedish wall-clock dates, the office record's own id); Patric closed 18: Core
+   carries every estate, marketed or not, and the clients check the marketing flags. The probe
+   stays as a diagnostic.
+6. **Phase 1b, delegated (Patric, 2026-09-17).** With `DIGITALOCEAN_ACCESS_TOKEN`, `ADMIN_SECRET`,
+   `CREDENTIALS_KEY` and `VITEC_WEBHOOK_TOKEN` in the environment, an agent lists what already
+   exists in Frankfurt and reports it before touching anything, creates the managed cluster
+   (PostgreSQL 16, Frankfurt, `kowboy-core-db`, database `core`, user `core`) and the app from
+   `.do/app.yaml` with the secrets filled in, commits the spec DigitalOcean returns, and checks
+   `/v1/health`; then staging the same way; then Patric orders Vitec's subscriptions on the webhook
+   URL (`adapters/vitec/README.md`). Blocked until the token is there.
+7. **Preview (AC 42), after the model (item 2):** the clients' preview link with the pull before
+   rendering, and the Vitec preview landing page in the adapter once question 27 is answered.
 
 ## Later, when Patric supplies them
 
-- The platform → Phase 1b. The app spec is in `.do/app.yaml` (2026-09-16); Patric creates the
-  managed Postgres cluster and either runs the three steps in the README or gives this environment
-  a DigitalOcean API token so an agent can.
+- A DigitalOcean token and the three secrets in the environment → item 6.
 - Sentry DSN → replace the placeholder in `engine/errors.ts`.
 - The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
-- An estate Vitec no longer publishes, and a staging deploy → open question 18 (the test
-  credentials are in the environment since 2026-09-17).
 - Mspecs documentation → second adapter.
 - Rules ledger, parity inventory, real golden masters → Phase 5.
 

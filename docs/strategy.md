@@ -199,6 +199,8 @@ adapter worker ──► fetch X from Vitec ──► found: ingest · gone: not
 - **Records that didn't actually change** are recognised by the engine (same hash), so they get no new `seq`, no bell and reach no site.
 - **Missed deletes:** once a day the adapter sends Vitec's full id list to `presentIds`. Before tombstoning, the missing ids are confirmed gone with a fetch.
 - **Need it sooner?** An operator can trigger a `resync` event.
+- **Every estate, marketed or not.** Vitec's estate list holds the marketed estates only, so Core is fed by both paths: an unmarketed estate reaches Core through its webhook (the subscription is ordered without the "advertised on the website" restriction) or through a preview, and stays as long as Vitec answers it. Whether an estate is marketed is the clients' check on its marketing flags, never a filter in Core.
+- **Previews (AC 42).** An estate the agent previews before marketing it is carried like any other and shown only through a site's preview link, brought up to date before it is shown. Vitec's preview landing page, which calls the partner's `init` and `verify` endpoints, is answered by the adapter once its design is approved (docs/open-questions.md, 27).
 
 ### 5.4 Adapter health checks (registered through the API)
 
@@ -392,6 +394,7 @@ golden/<provider>/<datatype>/<case>/
 | 39  | **Repeated retries (Vitec).** A record failing 3 fetches in a row turns `vitec.retries` red. It turns green after a successful fetch or when an operator discards the record.                                                                                                                                                                                                                                                                                                                                                                                       |
 | 40  | **Compression.** A 100-item `/v1/changes` page is served gzip-encoded with `Content-Encoding: gzip`, at least 4x smaller than the same body uncompressed, and adds under 10 ms p95 per page. A client that does not accept gzip still gets valid plain JSON.                                                                                                                                                                                                                                                                                                        |
 | 41  | **Restore.** After Core's database is restored to an earlier point and the app restarted: no subscriber skips a change, no subscriber deletes or rewrites an item it should keep, every `seq` served afterwards is above every cursor handed out before, Core converges to the CRM's current state including deletions made after the restore point, and only records whose change date moved are fetched. `/v1/health` is red from the restart until every adapter has caught up and says when the database is ahead of the app; `/v1/ready` stays 200 throughout. |
+| 42  | **Preview (Vitec).** An estate Vitec has not marketed reaches Core and is served like any other, with its status and marketing flags. A site shows it only through its preview link, never in a listing or a search, and only while its status is one Vitec previews (AssignmentAttempt, AssignmentAccepted, SoonForSale, Coming, ForSale); a marketed estate shows its normal page. Opening the link shows the estate as Core holds it at that moment: the site pulls its changes before rendering.                                                                |
 
 ## 11. Rules ledger: what Kowboy supplies
 
@@ -445,7 +448,8 @@ Examples: golden/vitec/property/price-on-request
 17. Webhook listeners, schedules and timers are adapter concerns. `main.ts` starts the engine, mounts adapter endpoints and starts the adapters.
 18. A sixth datatype, `project` (approved 2026-09-16): a new-build project that groups properties. It has its own office, agents and areas; a property names its project by `project_id`.
 19. Every engine start advances the item sequence by 1,000,000,000 and every worker start runs the adapters' catch-up and id comparison, so a database restore needs no other step (§7.2, AC 41).
-20. `web` and `worker` share two tables: lifecycle events queued by the admin API and delivered by the worker, and the adapters' health results recorded by the worker and reported by `web`; `GET /v1/ready` is the platform's readiness probe (§5.1, §8.1).
+20. Every estate Vitec answers is carried, marketed or not, and previews are shown through a site's preview link, brought up to date before rendering (§5.3, AC 42).
+21. `web` and `worker` share two tables: lifecycle events queued by the admin API and delivered by the worker, and the adapters' health results recorded by the worker and reported by `web`; `GET /v1/ready` is the platform's readiness probe (§5.1, §8.1).
 
 ## 13. Defaults (changeable without a gate)
 

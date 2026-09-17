@@ -93,10 +93,27 @@ export type ChangesQuery = {
   limit: number;
 };
 
+/** What `/v1/changes` serves: every column but `raw`, which no subscriber ever sees. */
+export type ServedItem = Pick<
+  ItemRow,
+  | 'datatype'
+  | 'connection_id'
+  | 'remote_id'
+  | 'office_id'
+  | 'seq'
+  | 'deleted'
+  | 'schema_version'
+  | 'content_hash'
+  | 'remote_updated_at'
+  | 'data'
+>;
+
 /** The subscriber read (SRS §8): everything for this tenant and datatype after `seq`. */
-export async function changesPage(query: ChangesQuery): Promise<ItemRow[]> {
-  const { rows } = await db().query<ItemRow>(
-    `select * from items
+export async function changesPage(query: ChangesQuery): Promise<ServedItem[]> {
+  const { rows } = await db().query<ServedItem>(
+    `select datatype, connection_id, remote_id, office_id, seq, deleted, schema_version,
+            content_hash, remote_updated_at, data
+     from items
      where tenant_id = $1 and datatype = $2 and seq > $3
      order by seq
      limit $4`,
@@ -120,13 +137,20 @@ export async function liveRemoteIds(
   return rows.map((row) => row.remote_id);
 }
 
-/** Every stored item for a scope, for replay and recompute. */
-export async function itemsForScope(scope: {
+const SCOPE_PAGE = 200;
+
+/**
+ * Every live item in a scope, for replay, recompute and tombstoning, read in pages of 200 by
+ * `seq` so a scope of 300,000 items never sits in memory at once (strategy §7.3). Only rows up
+ * to the highest `seq` at the start are read: a row rewritten meanwhile gets a higher one and is
+ * not read twice.
+ */
+export async function* itemsForScope(scope: {
   tenantId?: string;
   connectionId?: string;
   datatype?: Datatype;
   rulesVersionBefore?: string;
-}): Promise<ItemRow[]> {
+}): AsyncGenerator<ItemRow> {
   const where: string[] = ['deleted = false'];
   const values: unknown[] = [];
   const add = (clause: string, value: unknown) => {
@@ -137,11 +161,19 @@ export async function itemsForScope(scope: {
   if (scope.connectionId) add('connection_id = ?', scope.connectionId);
   if (scope.datatype) add('datatype = ?', scope.datatype);
   if (scope.rulesVersionBefore) add('rules_version <> ?', scope.rulesVersionBefore);
-  const { rows } = await db().query<ItemRow>(
-    `select * from items where ${where.join(' and ')} order by seq`,
-    values,
-  );
-  return rows;
+
+  const top = await db().query<{ seq: string | null }>('select max(seq) as seq from items');
+  add('seq <= ?', Number(top.rows[0]?.seq ?? 0));
+  const cursor = values.length + 1;
+  const sql = `select * from items where ${where.join(' and ')} and seq > $${cursor}
+               order by seq limit ${SCOPE_PAGE}`;
+  for (let after = 0; ;) {
+    const { rows } = await db().query<ItemRow>(sql, [...values, after]);
+    for (const row of rows) yield row;
+    const last = rows[rows.length - 1];
+    if (!last || rows.length < SCOPE_PAGE) return;
+    after = Number(last.seq);
+  }
 }
 
 /**

@@ -8,7 +8,7 @@
 # never deploys on push (strategy §4: a human approves); a staging app is this spec with another
 # name, deploy_on_push true and its own cluster.
 name: kowboy-core
-region: ams
+region: fra
 
 databases:
   - name: db
@@ -41,6 +41,9 @@ services:
       - key: DATABASE_URL
         scope: RUN_TIME
         value: ${db.DATABASE_URL}
+      - key: DATABASE_CA_CERT # the cluster's CA, so the app verifies it
+        scope: RUN_TIME
+        value: ${db.CA_CERT}
       - key: ADMIN_SECRET
         scope: RUN_TIME
         type: SECRET
@@ -70,6 +73,9 @@ workers:
       - key: DATABASE_URL
         scope: RUN_TIME
         value: ${db.DATABASE_URL}
+      - key: DATABASE_CA_CERT
+        scope: RUN_TIME
+        value: ${db.CA_CERT}
       - key: ADMIN_SECRET
         scope: RUN_TIME
         type: SECRET

@@ -19,7 +19,9 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   `/v1/hook/vitec/webhook/<VITEC_WEBHOOK_TOKEN>`. The record goes on the fetch list and the answer
   is 202 at once; nothing is fetched inside the request. Types carried: `Estate`, `Project`,
   `User` (also `Agent`), `Office`, `Area`; any other type is answered 202 and ignored. A `Remove`
-  is a fetch like any other: only Vitec answering 404 tombstones a record.
+  is a fetch like any other: only Vitec answering 404 tombstones a record. Core carries every
+  estate Vitec still answers, marketed or not (Patric, 2026-09-17); whether an estate is marketed
+  is the clients' check on its marketing flags.
 - **The fetch list** is the table `vitec_fetch_list`, shared by the web process, which accepts
   webhooks, and the worker, which fetches. A record listed twice is kept once; webhooks are fetched
   before loads and catch-ups. Up to five Connect requests run at once (`VITEC_FETCH_CONCURRENCY`),
@@ -29,14 +31,21 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   fetched once and ingested into every connection that licenses its office.
 - **Initial load.** `connection_added` lists everything the connection's offices publish, in
   reference order (offices, agents, areas, projects, properties), and puts it on the list;
-  `offices_added` does the same for the added offices only. Associations have no list endpoint: they are fetched when a property names one.
+  `offices_added` does the same for the added offices only. Associations have no list endpoint:
+  they are fetched when a property names one. Vitec's estate list holds the marketed estates
+  only, so an unmarketed estate enters Core through its webhook or a preview, and the daily
+  comparison keeps it fresh: an id seen but no longer listed is fetched, and kept while Vitec
+  answers it.
 - **Catch-up.** Every 12 h per connection, and at every worker start: what changed since the
   previous window, less one hour of overlap, fetching only records whose change date moved since
   their last fetch (Vitec's `changedAt` string, compared verbatim). A connection the worker has
   never caught up is listed in full.
 - **Comparison.** Once a day per connection, and at every worker start: Vitec's full id list
-  against the ids seen. A missing id is fetched to confirm; the 404 tombstones it. Nothing is
-  tombstoned blind.
+  against the ids seen. A missing id is fetched to confirm; a 404 tombstones it, a 200 keeps it.
+  Nothing is tombstoned blind.
+- **Extensions.** An estate is fetched with every extension but the two agents, who are their
+  own items (proposal point 7; question 26 asks whether to embed them anyway); a project's only
+  extensions are those two, so projects are fetched bare. `$estate` adds nothing.
 - **Resync** (`event: resync`, optionally with a datatype) reloads and reports the listed ids as
   present, so the engine tombstones whatever Vitec no longer lists.
 - **Health.** `vitec.webhook_lag` (a webhook waiting more than 5 min), `vitec.retries` (a record
@@ -71,9 +80,11 @@ curl -X POST https://core.example/v1/admin/event -H 'x-admin-secret: …' \
 ```
 
 Adding an office later: set the connection's offices, then `event: offices_added` with the new
-ids; only those are loaded. Then ask Vitec for subscriptions (docs/inputs/vitec/notifications.md) on `Estate` (published for the website,
-`Update` and `Remove`), `Project`, `User`, `Office` and `Area`, pointing at
-`https://<core>/v1/hook/vitec/webhook/<VITEC_WEBHOOK_TOKEN>`.
+ids; only those are loaded. Then ask Vitec for subscriptions (docs/inputs/vitec/notifications.md)
+on `Estate` for every estate, not only those advertised on the website, with `Update` and
+`Remove`, and on `Project`, `User`, `Office` and `Area`, pointing at
+`https://<core>/v1/hook/vitec/webhook/<VITEC_WEBHOOK_TOKEN>`. The restriction matters: an estate
+Vitec does not market is not in its list, so its webhook is the only way it reaches Core.
 
 ## Environment
 
@@ -84,15 +95,21 @@ ids; only those are loaded. Then ask Vitec for subscriptions (docs/inputs/vitec/
 | `VITEC_FETCH_CONCURRENCY` | Connect requests at once, default 5.                                                    |
 | `DATABASE_URL`            | Where the adapter's own tables live (`vitec_fetch_list`, `vitec_known`, `vitec_state`). |
 
-## Verified against Connect, and what is not (open question 18)
+## Verified against Connect
 
 `scripts/vitec-probe.ts` runs this client read-only against the test account. On 2026-09-17 it
 settled: list pages count from 0, `count` is the number of pages, a page past the end is HTTP 200
 with no rows, a made-up id is HTTP 404, ids are case-insensitive in URLs, dates are Swedish
-wall-clock time without an offset, and an office record's `id` (`FIR31529`) is not its
-`customerId` (`M31529`). The stand-in in `test/connect.ts` follows all of it.
+wall-clock time without an offset, an office record's `id` (`FIR31529`) is not its `customerId`
+(`M31529`), the extensions above, and that the estate list holds marketed estates only: a sold
+estate still marketed is listed and answered 200. The stand-in in `test/connect.ts` follows all of
+it. A webhook accepted and then lost to a crash before its fetch ran is picked up by the next
+catch-up or comparison, not sooner.
 
-Still open: what a record by id answers for an estate Vitec no longer publishes. The estate given
-as withdrawn from the website turned out to be one Vitec still publishes. Until that is settled,
-only Vitec answering 404 tombstones a record, and a webhook accepted and then lost to a crash
-before its fetch ran is picked up by the next catch-up, not sooner.
+## Previews
+
+An estate the agent previews before marketing it (`marketing.isPreview`) is carried like any
+other and shown only through a site's preview link (strategy §5.3, AC 42). Vitec also offers a
+preview landing page that calls two GET endpoints at the partner, `init` and `verify`
+(docs/inputs/vitec/advertising-preview.md); whether the adapter answers them, and with which
+site's URL, is open question 27.

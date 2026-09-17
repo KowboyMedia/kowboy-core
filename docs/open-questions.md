@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 26.
+answering is quick. Next number: 28.
 
 ## 2. Protected paths created by an agent
 
@@ -55,38 +55,43 @@ Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPre
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
 
-## 18. `[crm-vitec]` What Vitec answers for an estate it no longer publishes
+## 26. `[crm-vitec]` Embed the agents in estates and projects?
 
-The read-only probe of 2026-09-17 (`scripts/vitec-probe.ts`, with the test account) settled
-paging, ids and dates (`decisions.md`, 2026-09-17). It could not settle this: the estate given as
-withdrawn from the website, `obj31529_2059181530`, is one Vitec still publishes. It is in the
-published list (`GET Advertising/Estate/M31529`, 648 rows), and its record says
-`marketing.isPublished: true` with status `Sold`, changed 2026-09-10. Of the 648 listed estates,
-420 are `Sold` and 189 `AssignmentWithdrawn`; a sample of 41 records had none unpublished.
+Confirmed against Connect on 2026-09-17: the adapter asks for every estate extension except
+`primaryAgent` and `secondaryAgent`, which embed the agent's own `AdvertisingUser` record, and a
+project's only extensions are those two; `$estate` adds nothing. Point 7 of the proposal, approved,
+keeps the agents out: they are their own items, referenced by `agent_ids`, so a change to an agent
+does not rewrite every estate of theirs and ring every site. Nothing is missing from Core; only the
+duplicate is left out. Say if you want them embedded anyway, and the mirror carries
+`extensions.primary_agent` and `extensions.secondary_agent` on estates and projects at that cost.
 
-Why it matters: the adapter tombstones a record only when Vitec answers 404 by id, and a `Remove`
-notification and the daily comparison both end in that fetch. If Vitec answers 200 for an estate it
-no longer publishes, that estate would stay live in Core and on every site. Until this is settled
-the adapter keeps the 404 rule and nothing is built on a guess.
+## 27. `[core]` `[crm-vitec]` `[client-wordpress]` `[client-lovable]` How previews work end to end
 
-Needed: the id of an estate whose website publishing is switched off in Express (Vitec's
-`marketing.isPublished` false), or the id from a `Remove` notification, in `VITEC_ESTATE_ID`; then
-`npm run build && node dist/scripts/vitec-probe.js` prints whether it is listed and what its record
-says. Suggested, should Vitec answer 200: an estate that is not in the published list, or whose
-record says `isPublished: false`, is gone, which the daily comparison and a `Remove` fetch would
-then apply. Needs approval: it decides what a tombstone means for Vitec.
+Facts, from `docs/inputs/vitec/advertising-preview.md` and the estate model. An estate has
+`marketing.isPreview` and `marketing.isPublished`. Vitec's estate list holds marketed estates only,
+so an estate in preview reaches Core through its webhook or through a fetch the preview triggers.
+Vitec offers a preview landing page: when the agent clicks preview in Express, Vitec calls two GET
+endpoints at the partner, `init?customerId=&estateId=` answered with `{url, state}` and
+`verify?customerId=&estateId=&state=` answered with `{isReady, url, errorMessage}`, polls `verify`
+until ready, then shows `url`. Vitec's own validation: show a preview only while the status is
+AssignmentAttempt, AssignmentAccepted, SoonForSale, Coming or ForSale; a marketed estate shows its
+normal page.
 
-## 25. `[core]` The app cannot verify the managed database's certificate as built
+Proposed, smallest first:
 
-The connection string App Platform binds as `DATABASE_URL` carries `sslmode=require`. Under that
-mode node-postgres (`pg-connection-string` 2.14) opens TLS and verifies the server certificate
-against Node's trust store; a Standard Edition cluster is signed by DigitalOcean's own CA, the one
-the panel offers as "Download CA certificate", so the first connection from `web` or `worker`
-fails verification and the app never comes up. Not tested against a cluster, read from the
-DigitalOcean documentation and the library.
+1. Core carries the estate like any other, done by the answer to 18; its status and marketing
+   flags reach `data` with the model (next-steps item 2).
+2. The site's preview link. The item exists on the site as a draft. `?preview=<token>` shows it
+   when its status is one of Vitec's five and it is not marketed. Before rendering, the site pulls
+   `/v1/changes` from its cursor, one request and usually empty, so the page shows what Core holds
+   now: the "update before showing" you asked for, with no new Core capability. The token: an
+   HMAC of the remote id with the site's bell secret, so the site checks it with no round trip and
+   the link is unguessable. Needs nothing in Core.
+3. Vitec's landing page, later. The adapter answers `init` by putting the estate on the fetch list
+   with webhook priority and returning the site's preview URL, and `verify` with `isReady` once the
+   record is fetched and every subscriber of the tenant has pulled past its `seq`. Needs a preview
+   URL template per subscriber (`preview_url`, say `https://site/fastighet/{remote_id}/?preview={token}`),
+   a contract addition, and Vitec pointed at Core's adapter endpoints.
 
-Blocked: Phase 1b, the deploy. Suggested, the smaller change that keeps verification: a variable
-`DATABASE_CA_CERT`, bound to `${db.CA_CERT}` in the spec, read by the engine's pool and the Vitec
-adapter's own pool as `ssl: { ca }`. Alternative with no code: `uselibpqcompat=true` appended to
-the URL makes `require` mean what it means in libpq, encrypted but unverified. Needs approval: it
-touches the engine's configuration and the adapter's store.
+Questions: start with 2 now and add 3 after, or both together? Is the HMAC token the unique link
+you mean? Needs approval: 2 sets a client rule and 3 adds to the contract.

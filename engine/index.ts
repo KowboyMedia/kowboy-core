@@ -57,7 +57,7 @@ async function advanceSequence(): Promise<void> {
 export async function startEngine(overrides: Partial<Config> = {}): Promise<Engine> {
   const config = { ...loadConfig(), ...overrides };
   initErrorReporting(config.sentryDsn);
-  db(config.databaseUrl);
+  db(config.databaseUrl, config.databaseCaCert);
   await migrate();
   await advanceSequence();
   configureCredentials(config.credentialsKey);

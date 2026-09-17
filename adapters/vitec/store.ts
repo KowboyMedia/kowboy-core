@@ -66,12 +66,27 @@ create table if not exists vitec_state (
 let pool: pg.Pool | null = null;
 let ready: Promise<pg.Pool> | null = null;
 
+/**
+ * How to open the database: the same four lines as the engine's `connectionOptions`, which an
+ * adapter may not import. A managed cluster signs with its own CA, handed over as
+ * `DATABASE_CA_CERT`; the URL's `sslmode` is dropped so the explicit setting is not overridden.
+ */
+function connectionOptions(url: string, caCert: string | null): pg.PoolConfig {
+  if (!caCert) return { connectionString: url };
+  const parsed = new URL(url);
+  parsed.searchParams.delete('sslmode');
+  return { connectionString: parsed.toString(), ssl: { ca: caCert } };
+}
+
 /** The pool, opened on first use so the web process and the worker each get their own. */
 function db(): Promise<pg.Pool> {
   if (!ready) {
     const url = process.env['DATABASE_URL'];
     if (!url) throw new Error('DATABASE_URL is not set');
-    pool = new pg.Pool({ connectionString: url, max: 3 });
+    pool = new pg.Pool({
+      ...connectionOptions(url, process.env['DATABASE_CA_CERT'] || null),
+      max: 3,
+    });
     pool.on('error', (error) => console.error('vitec: idle database client error', error));
     const opened = pool;
     ready = opened

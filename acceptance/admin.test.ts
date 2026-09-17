@@ -183,6 +183,32 @@ describe('admin', () => {
     expect(Number(after.items[0]?.['seq'])).toBeGreaterThan(Number(before.items[0]?.['seq']));
   });
 
+  it('recomputes a scope larger than one page, reading each row once', async () => {
+    for (let n = 1; n <= 250; n += 1) crm.put('property', `OBJ-${n}`, property(`OBJ-${n}`));
+    await admin('event', { connection_id: CONNECTION, event: 'connection_added' });
+    await running.deliver();
+    const stored = async (): Promise<number> => {
+      const { rows } = await db().query<{ n: string }>('select count(*) as n from items');
+      return Number(rows[0]?.n);
+    };
+    await until(async () => {
+      await drainFetchList();
+      return (await stored()) === 250;
+    }, 'all 250 properties');
+    await db().query(`update items set content_hash = 'stale'`);
+
+    // Rows are read in pages of 200; a rewritten row gets a higher seq and must not come round again.
+    const report = (await (
+      await admin('replay', { connection_id: CONNECTION })
+    ).json()) as ImpactReport;
+    expect(report.examined).toBe(250);
+    expect(report.changed).toBe(250);
+    const { rows } = await db().query<{ n: string }>(
+      `select count(*) as n from items where content_hash = 'stale'`,
+    );
+    expect(Number(rows[0]?.n)).toBe(0);
+  });
+
   it('fires a bell on demand', async () => {
     const response = await admin('bell', { tenant_id: TENANT, kind: 'forcerefresh' });
     expect(response.status).toBe(202);
