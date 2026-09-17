@@ -39,6 +39,8 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  // The adapter's timer stops before any pool closes, or a poll in flight finds no database.
+  await fakePollingAdapter.stop?.();
   await db().query('drop table if exists items_backup');
   await restarted?.stop();
   restarted = null;
