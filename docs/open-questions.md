@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 27.
+answering is quick. Next number: 28.
 
 ## 2. Protected paths created by an agent
 
@@ -54,3 +54,13 @@ That is an adapter API change, so it needs approval (E3). It is additive and bre
 Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPress plugins normally
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
+
+## 27. `[core]` One release flow for agents and human devs
+
+Today `staging` deploys on every push, and production deploys when an agent asks App Platform to,
+on Patric's word in chat (README "Deploying"). Human devs and contractors would use the same: push
+or merge to `staging` to test, confirm there, then ask for the production deploy. Leaner, if
+wanted: `main` deploys production on every merge, so the merge itself is the release, for agents
+(on Patric's word) and for devs (the merge button) alike, and the separate deploy step goes away.
+Trade-off: every merge to `main` goes live at once, health-gated, with nothing between merge and
+production. Pick one: keep the explicit deploy step, or merge-is-release.

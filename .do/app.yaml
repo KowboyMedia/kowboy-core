@@ -10,12 +10,71 @@
 # a release is Patric saying so in chat, and an agent asks App Platform for a deployment of main
 # (strategy §4). Staging is app.staging.yaml: the same cluster with its own database, deploying the
 # `staging` branch on every push.
+# App id c322d2df-5ba1-4cdd-82b5-407dbe429310, created 2026-09-17 through the API; secrets are encrypted by DigitalOcean.
 name: kowboy-core
-region: fra
-
-alerts:
-  - rule: DEPLOYMENT_FAILED
-
+services:
+  - name: web
+    github:
+      repo: KowboyMedia/kowboy-core
+      branch: main
+    build_command: npm run build
+    run_command: sh scripts/start.sh web
+    source_dir: /
+    environment_slug: node-js
+    envs:
+      - key: DATABASE_URL
+        value: ${db.DATABASE_URL}
+        scope: RUN_TIME
+      - key: DATABASE_CA_CERT
+        value: ${db.CA_CERT}
+        scope: RUN_TIME
+      - key: ADMIN_SECRET
+        value: EV[1:XHT5pk361HHDg2Nn0Dw5xBKWW2iCV652:VKxYO123nW6fUA7bkwADI5NtQT6vY1T36BHs0IVQUe/7uSBuTNnOBkswVJrHGaP2dhYZug0Ryi9FjII=]
+        scope: RUN_TIME
+        type: SECRET
+      - key: CREDENTIALS_KEY
+        value: EV[1:N71KfGweIKlzf42ES3sufrtrqQJ013Mh:I0ZD7+OARrP/BbYy68T9PHSqYa4n1BluG/nbSgXQdNQNG7W0/lWyQfH4WVTve0F4Fh1EBKRdvGN92ytY]
+        scope: RUN_TIME
+        type: SECRET
+      - key: VITEC_WEBHOOK_TOKEN
+        value: EV[1:OxipdqTDafYFVf8FXX6NLaV/2tYmkqJk:ZOz9q8aPrzrNiV526Q/l3Nhl9bg4JKi4LmOkmi6BoN1yKVxnDZaApOGJHAMdZf46]
+        scope: RUN_TIME
+        type: SECRET
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+    http_port: 8080
+    health_check:
+      initial_delay_seconds: 15
+      period_seconds: 30
+      timeout_seconds: 5
+      failure_threshold: 3
+      http_path: /v1/ready
+workers:
+  - name: worker
+    github:
+      repo: KowboyMedia/kowboy-core
+      branch: main
+    build_command: npm run build
+    run_command: sh scripts/start.sh worker
+    source_dir: /
+    environment_slug: node-js
+    envs:
+      - key: DATABASE_URL
+        value: ${db.DATABASE_URL}
+        scope: RUN_TIME
+      - key: DATABASE_CA_CERT
+        value: ${db.CA_CERT}
+        scope: RUN_TIME
+      - key: ADMIN_SECRET
+        value: EV[1:2qxa1s46zTh9VTuAO3kVmkd/zwIwM2Ep:e73kiq7+ipkjW6J+qGGxsLvAUGeMFR0fYs3v5DSTTTYK7wUjha4BnNjrwylGxAbw6EHAv2FIo7vB37o=]
+        scope: RUN_TIME
+        type: SECRET
+      - key: CREDENTIALS_KEY
+        value: EV[1:Fs09bNlwO8Kshl+BvprjOX4Hkyvvn6Jg:kGwyaD5tsXpsADO0jWaTrLIINdPTMpjXQn6Y/hcqe0UDT6NdTsmV0CoQDM5RPi9wGJP2DrrHTmHuL1+r]
+        scope: RUN_TIME
+        type: SECRET
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
 databases:
   - name: db
     engine: PG
@@ -23,70 +82,15 @@ databases:
     cluster_name: kowboy-core-production
     db_name: defaultdb
     db_user: doadmin
-
-services:
-  - name: web
-    github:
-      repo: KowboyMedia/kowboy-core
-      branch: main
-      deploy_on_push: false
-    source_dir: /
-    environment_slug: node-js
-    build_command: npm run build
-    run_command: sh scripts/start.sh web
-    http_port: 8080
-    instance_count: 1
-    instance_size_slug: apps-s-1vcpu-0.5gb
-    health_check:
-      http_path: /v1/ready
-      initial_delay_seconds: 15
-      period_seconds: 30
-      timeout_seconds: 5
-      failure_threshold: 3
-    envs:
-      - key: DATABASE_URL
-        scope: RUN_TIME
-        value: ${db.DATABASE_URL}
-      - key: DATABASE_CA_CERT
-        scope: RUN_TIME
-        value: ${db.CA_CERT}
-      - key: ADMIN_SECRET
-        scope: RUN_TIME
-        type: SECRET
-        value: ''
-      - key: CREDENTIALS_KEY # 32 random bytes, base64
-        scope: RUN_TIME
-        type: SECRET
-        value: ''
-      - key: VITEC_WEBHOOK_TOKEN # the secret in the webhook URL Vitec is given
-        scope: RUN_TIME
-        type: SECRET
-        value: ''
-
-workers:
-  - name: worker
-    github:
-      repo: KowboyMedia/kowboy-core
-      branch: main
-      deploy_on_push: false
-    source_dir: /
-    environment_slug: node-js
-    build_command: npm run build
-    run_command: sh scripts/start.sh worker
-    instance_count: 1
-    instance_size_slug: apps-s-1vcpu-0.5gb
-    envs:
-      - key: DATABASE_URL
-        scope: RUN_TIME
-        value: ${db.DATABASE_URL}
-      - key: DATABASE_CA_CERT
-        scope: RUN_TIME
-        value: ${db.CA_CERT}
-      - key: ADMIN_SECRET
-        scope: RUN_TIME
-        type: SECRET
-        value: ''
-      - key: CREDENTIALS_KEY
-        scope: RUN_TIME
-        type: SECRET
-        value: ''
+region: fra
+alerts:
+  - rule: DEPLOYMENT_FAILED
+ingress:
+  rules:
+    - match:
+        path:
+          prefix: /
+      component:
+        name: web
+features:
+  - buildpack-stack=ubuntu-22

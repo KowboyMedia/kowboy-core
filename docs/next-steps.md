@@ -48,6 +48,16 @@ the first item that is not done, and keep the file current. Decisions and open q
    Core funnels everything Vitec returns and interprets nothing, the sites read
    `marketing.isPublished` and `status` (`docs/decisions.md`).
 
+6. **Confirm Vitec's behaviour for a listing taken off the website** (Patric, 2026-09-17), on
+   staging: Vitec lists only marketed listings, so the expectation is that taking one off the
+   website sends a notification like any change, Core fetches it and stores it with
+   `marketing.isPublished` false, the sites hide it, and it stops appearing in the list, which the
+   daily comparison then re-fetches and keeps. To confirm it: Vitec's subscription for the test
+   account points at the staging app, a listing is taken off the website in the test account, and
+   the staging event log shows the notification, the fetch result (200 or 404) and what was stored.
+   Needs: the subscription at Vitec (Patric gives them the staging URL), a Vitec connection on
+   staging (an agent sets it up), and someone taking a listing off the website in Vitec.
+
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. Status 2026-09-17: the staging app `kowboy-core-staging` is live on
