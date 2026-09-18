@@ -78,17 +78,25 @@ function core_client_pull(string $datatype, bool $rewrite_all): string
         if ($page === null) {
             return 'resync_required';
         }
+        $results = [];
         $wpdb->query('START TRANSACTION');
         try {
             foreach ($page->items as $item) {
-                core_client_write($datatype, $item, $rewrite_all);
+                $results[] = core_client_write($datatype, $item, $rewrite_all);
             }
             core_client_put_state("after.$datatype", (string) $page->next_after);
             $wpdb->query('COMMIT');
         } catch (Throwable $error) {
             $wpdb->query('ROLLBACK');
+            // The page was rolled back: every record on it failed here, and Core is told so.
+            $failed = [];
+            foreach ($page->items as $item) {
+                $failed[] = core_client_outcome($datatype, $item, 'failed', $error->getMessage());
+            }
+            core_client_report_applied($failed);
             throw $error;
         }
+        core_client_report_applied($results);
         $after = (int) $page->next_after;
         if (!$page->has_more) {
             return 'ok';
@@ -131,8 +139,13 @@ function core_client_fetch_page(string $datatype, int $after): ?object
     return $page;
 }
 
-/** One item from a page: a tombstone deletes, anything else is upserted unless its hash is stored. */
-function core_client_write(string $datatype, mixed $item, bool $rewrite_all): void
+/**
+ * One item from a page: a tombstone deletes, anything else is upserted unless its hash is stored.
+ * Returns what to tell Core about it (question 37), or null for an item too broken to name.
+ *
+ * @return array<string, mixed>|null
+ */
+function core_client_write(string $datatype, mixed $item, bool $rewrite_all): ?array
 {
     if (!core_client_usable($item)) {
         // Skipped and reported, and the loop goes on (SRS §8 resilience).
@@ -142,18 +155,75 @@ function core_client_write(string $datatype, mixed $item, bool $rewrite_all): vo
             'remote_id' => is_object($item) ? ($item->remote_id ?? null) : null,
             'seq' => is_object($item) ? ($item->seq ?? null) : null,
         ]);
-        return;
+        return core_client_outcome($datatype, $item, 'failed', 'this client cannot use the item');
     }
     if ($item->deleted === true) {
         core_client_delete_item($datatype, $item->connection_id, $item->remote_id);
-        return;
+        return core_client_outcome($datatype, $item, 'applied');
     }
     $existing = core_client_index_row($datatype, $item->connection_id, $item->remote_id);
     // The hash is the skip test: an item that has not changed is not rewritten (SRS §8).
-    if (!$rewrite_all && $existing !== null && $existing->content_hash === $item->content_hash) {
+    if ($rewrite_all || $existing === null || $existing->content_hash !== $item->content_hash) {
+        core_client_upsert_item($datatype, $item, $existing);
+    }
+    return core_client_outcome($datatype, $item, 'applied');
+}
+
+/**
+ * One line of the report to Core: which record, and whether this site applied it.
+ *
+ * @return array<string, mixed>|null
+ */
+function core_client_outcome(string $datatype, mixed $item, string $result, ?string $detail = null): ?array
+{
+    if (
+        !is_object($item)
+        || !is_string($item->connection_id ?? null) || $item->connection_id === ''
+        || !is_string($item->remote_id ?? null) || $item->remote_id === ''
+        || !is_int($item->seq ?? null)
+    ) {
+        return null;
+    }
+    $outcome = [
+        'datatype' => $datatype,
+        'connection_id' => $item->connection_id,
+        'remote_id' => $item->remote_id,
+        'seq' => $item->seq,
+        'result' => $result,
+    ];
+    if ($detail !== null) {
+        $outcome['detail'] = mb_substr($detail, 0, 1000);
+    }
+    return $outcome;
+}
+
+/**
+ * Tell Core what this site applied and what it could not (POST /v1/applied, question 37), so a
+ * record's timeline in Core runs to the site. A report that cannot be delivered is logged and
+ * never stops a sync.
+ *
+ * @param array<int, array<string, mixed>|null> $outcomes
+ */
+function core_client_report_applied(array $outcomes): void
+{
+    $items = array_values(array_filter($outcomes, static fn ($outcome) => $outcome !== null));
+    if ($items === []) {
         return;
     }
-    core_client_upsert_item($datatype, $item, $existing);
+    $settings = core_client_settings();
+    $response = wp_remote_post($settings['url'] . '/v1/applied', [
+        'timeout' => 10,
+        'headers' => [
+            'Authorization' => 'Bearer ' . $settings['token'],
+            'X-Core-Client' => 'wordpress/' . CORE_CLIENT_VERSION,
+            'Content-Type' => 'application/json',
+        ],
+        'body' => wp_json_encode(['items' => $items]),
+    ]);
+    $status = is_wp_error($response) ? $response->get_error_message() : wp_remote_retrieve_response_code($response);
+    if ($status !== 202) {
+        core_client_report('the applied report was not taken', ['status' => $status, 'items' => count($items)]);
+    }
 }
 
 function core_client_usable(mixed $item): bool

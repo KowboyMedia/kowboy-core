@@ -304,6 +304,7 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
 | `entity.written`                                    | engine     | entity, `seq`, old and new hash, **changed fields with before/after values**, `rules_version`; or `unchanged` / `dropped` (reason) / `tombstoned` |
 | `bell.sent`                                         | engine     | subscriber, sent or throttled, status, duration                                                                                                   |
 | `pull`                                              | engine     | subscriber, client version, datatype, `after`, items returned, duration                                                                           |
+| `site.applied` / `site.failed`                      | engine     | what a site reported after a page (question 37): entity, `seq`, client version, and the reason when it could not apply the record                 |
 | `admin.call` / `lifecycle.sent`                     | engine     | endpoint or event, parameters                                                                                                                     |
 
 **Query:** `GET /v1/admin/events?entity=…|connection=…|subscriber=…|correlation=…|type=…&from=…&to=…` returns a timeline, for example:
@@ -463,6 +464,7 @@ Examples: golden/vitec/property/price-on-request
 19. Every engine start advances the item sequence by 1,000,000,000 and every worker start runs the adapters' catch-up and id comparison, so a database restore needs no other step (§7.2, AC 41).
 20. `web` and `worker` share two tables: lifecycle events queued by the admin API and delivered by the worker, and the adapters' health results recorded by the worker and reported by `web`; `GET /v1/ready` is the platform's readiness probe (§5.1, §8.1).
 21. The entire CRM payload reaches the sites (Patric, 2026-09-18): the item envelope carries `raw`, the payload untouched, next to `data`, and `data` mirrors the whole payload mechanically (snake_case names, the CRM's nesting kept) with the spine on top; `display` is computed by Core.
+22. Sites report back what they applied (Patric, 2026-09-18, question 37): after each page a site pulled, it posts to `POST /v1/applied` which records it applied and which it could not (`schemas/applied.v1.json`), with the tenant's token; Core puts `site.applied` and `site.failed` events on each record's timeline, so the timeline runs from the CRM's notification to the site. A report that cannot be delivered never stops a sync.
 
 ## 13. Defaults (changeable without a gate)
 

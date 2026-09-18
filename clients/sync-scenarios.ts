@@ -7,6 +7,7 @@ import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { harness, until, TENANT, TOKEN, type Harness } from '../acceptance/harness.js';
 import { addSubscriber } from '../engine/storage/connections.js';
+import { queryEvents } from '../engine/events.js';
 import { db } from '../engine/storage/db.js';
 import { purgeTombstones } from '../engine/storage/items.js';
 import { fakePollingAdapter, poll } from '../adapters/fake-polling/index.js';
@@ -322,6 +323,33 @@ export function syncScenarios(name: string, client: ClientSetup): void {
 
         const { rows } = await db().query<{ seq: string }>('select max(seq) as seq from items');
         expect(status.after['property']).toBe(Number(rows[0]?.seq));
+
+        // And Core was told: the broken record failed at this site, the others were applied.
+        const failed = await queryEvents({ tenantId: TENANT, type: 'site.failed', limit: 10 });
+        expect(failed.map((event) => event.remote_id)).toEqual(['P-2']);
+        const applied = await queryEvents({ tenantId: TENANT, type: 'site.applied', limit: 10 });
+        expect(applied.map((event) => event.remote_id).sort()).toEqual(['P-1', 'P-3']);
+      },
+      SCENARIO_TIMEOUT_MS,
+    );
+
+    it(
+      'reports back what it applied, on each record\u2019s timeline in Core (AC 16)',
+      async () => {
+        await seed('P-1', 'P-2');
+        await sync();
+        const applied = await queryEvents({ tenantId: TENANT, type: 'site.applied', limit: 10 });
+        expect(applied.map((event) => event.remote_id).sort()).toEqual(['P-1', 'P-2']);
+        for (const event of applied) {
+          expect(event.connection_id).toBe(CONNECTION);
+          expect(typeof event.fields['client']).toBe('string');
+          expect(typeof event.fields['seq']).toBe('number');
+        }
+        // Nothing changed: the next sync has nothing to report.
+        await sync();
+        expect(
+          (await queryEvents({ tenantId: TENANT, type: 'site.applied', limit: 10 })).length,
+        ).toBe(2);
       },
       SCENARIO_TIMEOUT_MS,
     );

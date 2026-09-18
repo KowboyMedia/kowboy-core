@@ -82,3 +82,10 @@ The updater never loads plugin code, so a broken release is replaced by the next
 `npm run test:wordpress` runs the shared scenario suite against a real WordPress install plus the
 updater and WP-CLI tests; see [../README.md](../README.md) for the one-time setup. PHPStan runs in
 CI's warnings job: `composer install` and `vendor/bin/phpstan analyse`, both in this directory.
+
+## What the site tells Core
+
+After each page it pulled, the plugin posts to `POST /v1/applied` which records it applied and which
+it could not use, with the tenant's token (question 37, 2026-09-18). Core puts that on each
+record's timeline, so an operator sees a change travel from the CRM to this site. A report that
+cannot be delivered is logged and never stops a sync.
