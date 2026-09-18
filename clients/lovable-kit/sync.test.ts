@@ -24,7 +24,10 @@ import {
 const KIT = import.meta.dirname;
 const FUNCTION = join(KIT, 'supabase/functions/core-sync/index.ts');
 const CONFIG = join(KIT, 'supabase/functions/core-sync/deno.json');
-const MIGRATION = join(KIT, 'supabase/migrations/0001_core_client.sql');
+/** The site's tables and their additions; 0002 is the pg_cron backstop, which the test drives by hand. */
+const MIGRATIONS = ['0001_core_client.sql', '0003_raw.sql'].map((file) =>
+  join(KIT, 'supabase/migrations', file),
+);
 const DENO = join(KIT, '../../node_modules/.bin/deno');
 
 const TABLES: Record<string, string> = {
@@ -41,7 +44,7 @@ const site = new pg.Pool({ connectionString: process.env['DATABASE_URL'] });
 let deno: ChildProcess | null = null;
 
 beforeAll(async () => {
-  await site.query(readFileSync(MIGRATION, 'utf8'));
+  for (const migration of MIGRATIONS) await site.query(readFileSync(migration, 'utf8'));
 });
 
 afterAll(async () => {
@@ -101,7 +104,7 @@ async function start(
     },
     async items(datatype: string): Promise<ClientItem[]> {
       const { rows } = await site.query<ClientItem & { synced_at: Date }>(
-        `select connection_id, remote_id, content_hash, synced_at, data
+        `select connection_id, remote_id, content_hash, synced_at, data, raw
          from ${TABLES[datatype]} order by remote_id`,
       );
       return rows.map((row) => ({ ...row, synced_at: row.synced_at.toISOString() }));

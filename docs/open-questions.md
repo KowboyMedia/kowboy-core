@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 29.
+answering is quick. Next number: 30.
 
 ## 2. Protected paths created by an agent
 
@@ -55,18 +55,10 @@ Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPre
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
 
-## 27. `[core]` The release flow, one path for agents and humans
+## 29. `[core]` The admin panel MVP
 
-Every change, from an agent or a human: pull request → the checks must pass → merge into
-`staging` → staging updates itself → confirm on staging → pull request into `main` → the checks
-again → merge → production updates itself, health-gated. Needs GitHub's branch protection on
-`staging` and `main` (one-time, by someone with admin rights on the repository; an agent cannot
-set it) and production set to deploy on merge (one "allow" from Patric). Answer: yes, or what
-differs.
-
-## 28. `[core]` Which fields reach the sites
-
-Today the sites receive only an item's id and its links to other items. Everything else waits for
-the plugin's field list Patric named on 2026-09-16. Answer A or B. A: pass every Vitec field
-through now, mechanically, and rename to the plugin's names when the list arrives. B: wait for the
-list.
+`docs/admin-panel.md` describes it: eight panels (overview, tenants and sites, connections,
+adapter panels, items, events, a test panel that runs requests, settings), server-rendered inside
+the `web` process behind the admin secret, adapter panels living in each adapter's own folder and
+reaching the shell through one additive field on the adapter API. Answer: yes to build it as
+described, or say what to change. The adapter API field is the one protected change.

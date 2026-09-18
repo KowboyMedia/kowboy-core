@@ -44,6 +44,8 @@ or `wp action-scheduler run`.
   `core_agent`, `core_office`, `core_area`, `core_association`, `core_project`. Public, so sitemaps, permalinks and
   cache plugins see them.
 - The item, exactly as Core served it, in the post meta `core_data`. `core_client_item($post_id)`
+- The CRM payload, exactly as Core served it, in the post meta `core_raw`; `core_client_item_raw($post_id)`
+  reads it (Patric, 2026-09-18): whatever `data` does not name yet.
   returns it as an array; `display.*` are the strings to show.
 - `post_date` and `post_modified` are the CRM's `remote_updated_at`, never the local write time
   (SRS §7.1), so sitemaps and "updated" dates are right without any template logic.

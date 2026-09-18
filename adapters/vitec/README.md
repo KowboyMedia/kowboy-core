@@ -49,14 +49,17 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   older than 13 h, whose credentials cannot be read, or which has no offices). The checks run in
   the worker and are recorded for the web process every 30 s.
 
-## Mappers: the spine only
+## Mappers: the whole payload, the spine on top
 
-`data` holds identity, the references and nothing else today: `id`, `office_id`, `agent_ids`,
-`area_ids`, `association_id`, `project_id` on a property; `office_ids` on an agent; `office_id`,
-`agent_ids`, `area_ids` on a project. The descriptive fields wait for the field specification
-(docs/next-steps.md item 2). `remote_updated_at` is Vitec's `changedAt`. The office id is what
-Connect calls the customer id (`M30011`): one office, one customer id, and `Office.Id` is an alias
-of it (Patric, 2026-09-16). Licensing filters on it.
+The entire payload reaches the sites (Patric, 2026-09-18): `data` mirrors everything Connect
+returns, every field under its snake_case name with the nesting kept (`docs/data-model-reference.md`
+lists every path), and the spine sits on top: `id`, `office_id`, `agent_ids`, `area_ids`,
+`association_id`, `project_id` on a property; `office_ids` on an agent; `office_id`, `agent_ids`,
+`area_ids` on a project. `raw` travels next to `data`, untouched. `remote_updated_at` is Vitec's
+`changedAt`. The office id is what Connect calls the customer id (`M30011`): one office, one
+customer id, and `Office.Id` is an alias of it (Patric, 2026-09-16); licensing filters on it, and
+Vitec's own office id stays in `raw`. Nothing is chosen and nothing is judged; the plugin's own field
+names, once supplied, are laid on top as renames, and `display` waits for the rules ledger.
 
 ## Setting up a connection
 

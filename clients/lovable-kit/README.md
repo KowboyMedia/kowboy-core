@@ -93,3 +93,9 @@ curl -X POST https://<project-ref>.supabase.co/functions/v1/core-sync \
 > This project is a Kowboy Core site. Follow `clients/lovable-kit/README.md` from the Kowboy Core
 > repository to install the sync function and migrations, with these values: Core URL `…`, tenant
 > token `…`, bell secret `…`. Then build the pages from the Supabase tables it describes.
+
+## The raw payload
+
+Every row also keeps `raw`, the CRM payload exactly as Core served it, next to `data`
+(`0003_raw.sql`; Patric, 2026-09-18). Templates read `data`; `raw` is there for whatever `data`
+does not name yet.

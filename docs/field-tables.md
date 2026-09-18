@@ -1,8 +1,11 @@
 # Field tables
 
-**The universal data model is not defined yet, and this document is the record of that.** A
-proposal exists, traced field by field to Vitec's models and the SRS:
-[data-model-proposal.md](data-model-proposal.md), waiting on Gate 2.
+**The entire CRM payload reaches the sites: raw, unified and display (Patric, 2026-09-18).**
+`raw` is the payload as received. `data` (unified) mirrors the whole payload mechanically, every
+field under its snake_case name with the CRM's nesting kept, the spine on top, plus `display` and
+`provider_extras`; [data-model-reference.md](data-model-reference.md) lists every path. The
+plugin's own field names, once supplied, are laid on top as renames. `display` stays empty until
+the rules ledger exists.
 
 An earlier version of this file listed a full model: addresses, prices, living space, rooms, phone
 numbers, agent portraits. None of it came from a CRM. It was assembled from the SRS's data-contract
@@ -20,16 +23,17 @@ comes from. `schemas/` is a protected path: nothing is added to it without appro
 The envelope is machinery, not description: the cursor, identity, the tombstone flag, the hash and
 the licensing filter. It comes from SRS §3 and §6 and is unchanged.
 
-| Field                                    | Source                                                   |
-| ---------------------------------------- | -------------------------------------------------------- |
-| `datatype`, `connection_id`, `remote_id` | SRS §3, item identity                                    |
-| `office_id`                              | SRS §3, licensing filter; null for tenant-wide datatypes |
-| `seq`                                    | SRS §3, the only cursor                                  |
-| `deleted`                                | SRS §3, tombstone flag                                   |
-| `schema_version`                         | SRS §6                                                   |
-| `content_hash`                           | SRS §3, change detection and the subscriber's skip test  |
-| `remote_updated_at`                      | SRS §3, the CRM's own last-change time                   |
-| `data`                                   | SRS §6, the canonical object served to subscribers       |
+| Field                                    | Source                                                                           |
+| ---------------------------------------- | -------------------------------------------------------------------------------- |
+| `datatype`, `connection_id`, `remote_id` | SRS §3, item identity                                                            |
+| `office_id`                              | SRS §3, licensing filter; null for tenant-wide datatypes                         |
+| `seq`                                    | SRS §3, the only cursor                                                          |
+| `deleted`                                | SRS §3, tombstone flag                                                           |
+| `schema_version`                         | SRS §6                                                                           |
+| `content_hash`                           | SRS §3, change detection and the subscriber's skip test                          |
+| `remote_updated_at`                      | SRS §3, the CRM's own last-change time                                           |
+| `raw`                                    | The CRM payload as received, untouched; null on a tombstone (Patric, 2026-09-18) |
+| `data`                                   | SRS §6, the unified object: the payload mirrored mechanically, the spine on top  |
 
 ### `data`, every datatype
 

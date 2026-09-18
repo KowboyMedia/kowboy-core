@@ -46,6 +46,7 @@ type Item = {
   deleted: boolean;
   content_hash: string;
   remote_updated_at: string | null;
+  raw: postgres.JSONValue | null;
   data: postgres.JSONValue | null;
 };
 
@@ -231,17 +232,20 @@ async function write(sql: Sql, datatype: Datatype, item: Item, rewriteAll: boole
   }
 
   // The hash is the skip test: a row that already holds this content is left alone, unless
-  // everything is being rewritten. `synced_at` is bookkeeping for the rebuild sweep only.
+  // everything is being rewritten. `raw` is the CRM payload as Core served it, kept verbatim next
+  // to `data` (Patric, 2026-09-18). `synced_at` is bookkeeping for the rebuild sweep only.
   await sql`insert into ${table}
-              (connection_id, remote_id, office_id, seq, content_hash, remote_updated_at, data, synced_at)
+              (connection_id, remote_id, office_id, seq, content_hash, remote_updated_at, data, raw, synced_at)
             values (${item.connection_id}, ${item.remote_id}, ${item.office_id}, ${item.seq},
-                    ${item.content_hash}, ${item.remote_updated_at}, ${sql.json(item.data)}, now())
+                    ${item.content_hash}, ${item.remote_updated_at}, ${sql.json(item.data)},
+                    ${sql.json(item.raw ?? null)}, now())
             on conflict (connection_id, remote_id) do update set
               office_id = excluded.office_id,
               seq = excluded.seq,
               content_hash = excluded.content_hash,
               remote_updated_at = excluded.remote_updated_at,
               data = excluded.data,
+              raw = excluded.raw,
               synced_at = excluded.synced_at
             where ${rewriteAll}::boolean or ${table}.content_hash <> excluded.content_hash`;
 }

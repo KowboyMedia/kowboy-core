@@ -54,6 +54,14 @@ is changed by editing it and updating the app through the API; what DigitalOcean
 committed back, secrets encrypted. Vitec is given each app's notification URL,
 `https://<app domain>/v1/hook/vitec/webhook/<that app's VITEC_WEBHOOK_TOKEN>`.
 
+**One gate for everyone (branch protection, one-time, by a repository admin):** GitHub → this
+repository → Settings → Rules → Rulesets → New ruleset → New branch ruleset. Name it
+`checks before merge`, set Enforcement to Active, add `main` and `staging` under Target branches,
+tick Restrict deletions, Require a pull request before merging, Require status checks to pass
+(add `Enforced checks (block merge)` and `WordPress client tests (block merge)`) and Block force
+pushes, then Create. From then on nobody, agent or human, gets code into `staging` or `main`
+except through a pull request with green checks.
+
 **Restoring the database:** restore it in DigitalOcean, restart the app, nothing else (strategy
 §7.2). `/v1/health` stays red until every adapter has caught up; send no `forcerefresh` to a site
 while it is red. The platform's own probe is `/v1/ready`, which only asks whether the process can

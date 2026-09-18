@@ -9,7 +9,8 @@ export const PAGE_SIZE = 100;
 
 /**
  * `GET /v1/changes` (SRS §8): everything for this tenant and datatype after `seq`, tombstones
- * included. The tenant comes from the token; a `tenant_id` parameter is rejected.
+ * included. Each item carries `raw`, the CRM payload untouched, next to `data` (Patric,
+ * 2026-09-18). The tenant comes from the token; a `tenant_id` parameter is rejected.
  */
 export async function changes(request: Request): Promise<Response> {
   const parsed = await parseRequest(request);
@@ -28,6 +29,7 @@ export async function changes(request: Request): Promise<Response> {
     schema_version: row.schema_version,
     content_hash: row.content_hash,
     remote_updated_at: row.remote_updated_at?.toISOString() ?? null,
+    raw: row.deleted ? null : row.raw,
     data: row.data,
   }));
 
