@@ -6,7 +6,15 @@ let pool: pg.Pool | null = null;
 export function db(databaseUrl?: string): pg.Pool {
   if (!pool) {
     if (!databaseUrl) throw new Error('the database pool is not open yet');
-    pool = new pg.Pool({ connectionString: databaseUrl, max: 10 });
+    pool = new pg.Pool({
+      connectionString: databaseUrl,
+      max: 10,
+      // A connection the network silently dropped (a firewall change, a failover) must not hang a
+      // query for good: it fails after a minute, and the pool discards the client it ran on.
+      query_timeout: 60_000,
+      connectionTimeoutMillis: 10_000,
+      keepAlive: true,
+    });
     pool.on('error', (error) => console.error('idle database client error', error));
   }
   return pool;
@@ -20,16 +28,19 @@ export async function closeDb(): Promise<void> {
 /** Run `body` inside one transaction. */
 export async function transaction<T>(body: (client: pg.PoolClient) => Promise<T>): Promise<T> {
   const client = await db().connect();
+  let failure: Error | undefined;
   try {
     await client.query('begin');
     const result = await body(client);
     await client.query('commit');
     return result;
   } catch (error) {
-    await client.query('rollback');
+    failure = error instanceof Error ? error : new Error(String(error));
+    await client.query('rollback').catch(() => undefined);
     throw error;
   } finally {
-    client.release();
+    // Released with its error, a client that failed is discarded instead of handed out again.
+    client.release(failure);
   }
 }
 

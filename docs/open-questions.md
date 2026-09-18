@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 34.
+answering is quick. Next number: 35.
 
 ## 2. Protected paths created by an agent
 
@@ -55,21 +55,8 @@ Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPre
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
 
-## 31. [core] The login mail needs a sender: Postmark, unless you say otherwise
+## 34. [core] The fake adapters run in staging and production
 
-Elastic Email is out (your domain is locked to another account there). The platform blocks plain
-SMTP, so Google's own mail servers cannot be used either, and every other way needs an account
-somewhere. Postmark is the smallest: free for 100 mails a month (enough for login links), no DNS
-change, and it delivers to kowboy.se addresses before their account review. Steps: sign up at
-postmarkapp.com with your kowboy.se address, confirm that address when their mail arrives (it
-becomes the sender), open the server they create for you and copy its Server API token, then paste
-the token here; an agent sets it on staging at once and on production with the release. Say which
-address you confirmed if it is not your own. Alternatives if you prefer them: Brevo (free, 300 a
-day, a longer signup) or Resend (needs three DNS records).
-
-## 33. [core] The database accepts connections from anywhere with its password
-
-The production cluster has no trusted-source rules: anyone on the internet who has the password can
-connect (over TLS). That is also how agents could read it directly today, through the platform's
-connection details. Pick: restrict it to the two apps (an agent does it; safer, the smaller
-change), with agents reading through the admin API and the changes API instead, or leave it open.
+They exist for the tests (AC 12). In every running app they also poll a fake CRM ten times a
+second, and their two checks sit in `/v1/health`; the stall of 2026-09-18 was one of them. Pick:
+take them out of the running apps (smaller; the tests keep them), or leave them in.
