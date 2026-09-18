@@ -53,7 +53,7 @@ type Item = {
 type Page = { items: Item[]; next_after: number; has_more: boolean };
 
 /** One line of the report to Core: which record, and whether this site applied it (question 37). */
-type Outcome = {
+type Applied = {
   datatype: Datatype;
   connection_id: string;
   remote_id: string;
@@ -209,7 +209,7 @@ async function pull(
     if (!response.ok) throw new Error(`pull ${datatype} after ${after}: http ${response.status}`);
 
     const page = (await response.json()) as Page;
-    const outcomes: (Outcome | null)[] = [];
+    const outcomes: (Applied | null)[] = [];
     try {
       await sql.begin(async (tx) => {
         for (const item of page.items) outcomes.push(await write(tx, datatype, item, rewriteAll));
@@ -239,7 +239,7 @@ async function write(
   datatype: Datatype,
   item: Item,
   rewriteAll: boolean,
-): Promise<Outcome | null> {
+): Promise<Applied | null> {
   const table = sql(TABLE[datatype]);
 
   if (!usable(item)) {
@@ -282,9 +282,9 @@ async function write(
 function outcome(
   datatype: Datatype,
   item: Item,
-  result: Outcome['result'],
+  result: Applied['result'],
   detail?: string,
-): Outcome | null {
+): Applied | null {
   if (
     typeof item !== 'object' ||
     item === null ||
@@ -296,7 +296,7 @@ function outcome(
   ) {
     return null;
   }
-  const line: Outcome = {
+  const line: Applied = {
     datatype,
     connection_id: item.connection_id,
     remote_id: item.remote_id,
@@ -312,8 +312,8 @@ function outcome(
  * record's timeline in Core runs to the site. A report that cannot be delivered is logged and
  * never stops a sync.
  */
-async function reportApplied(outcomes: (Outcome | null)[]): Promise<void> {
-  const items = outcomes.filter((line): line is Outcome => line !== null);
+async function reportApplied(outcomes: (Applied | null)[]): Promise<void> {
+  const items = outcomes.filter((line): line is Applied => line !== null);
   if (items.length === 0) return;
   try {
     const response = await fetch(`${env('CORE_URL')}/v1/applied`, {
