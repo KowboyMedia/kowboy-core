@@ -128,6 +128,16 @@ export async function recordHealth(): Promise<HealthReport['checks']> {
   return checks;
 }
 
+/**
+ * Drop the reports of checks this process does not run any more: a check that left with its
+ * adapter would otherwise stay red for ever as "no report". The worker's tick, after recording.
+ */
+export async function pruneHealth(): Promise<void> {
+  await db().query('delete from health_results where name <> all($1::text[])', [
+    [...registeredHealthChecks().keys()],
+  ]);
+}
+
 async function run(check: () => Promise<HealthResult> | HealthResult): Promise<HealthResult> {
   try {
     return await check();

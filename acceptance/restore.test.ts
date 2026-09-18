@@ -9,6 +9,7 @@ import { fakePollingAdapter, poll } from '../adapters/fake-polling/index.js';
 import * as crm from '../adapters/fake-polling/crm.js';
 import { SEQUENCE_JUMP } from '../engine/index.js';
 import { db } from '../engine/storage/db.js';
+import { pruneHealth } from '../engine/health.js';
 
 const CONNECTION = 'polling-acme';
 
@@ -158,6 +159,20 @@ describe('restore (AC 41)', () => {
       detail: expect.stringContaining('no report for'),
     });
     expect((await fetch(`${running.baseUrl}/v1/ready`)).status).toBe(200);
+  });
+
+  it("forgets, at the worker's next round, a check nobody runs any more", async () => {
+    // An adapter that left the app: its last report would otherwise stay red as "no report".
+    await db().query(
+      `insert into health_results (name, ok, detail, at)
+       values ('someone.catch_up', true, null, now() - interval '10 minutes')`,
+    );
+    await pruneHealth();
+    const health = (await (await fetch(`${running.baseUrl}/v1/health`)).json()) as {
+      checks: Record<string, { ok: boolean }>;
+    };
+    expect(health.checks['someone.catch_up']).toBeUndefined();
+    expect(health.checks['fake-polling.poll']).toBeDefined();
   });
 
   it('delivers a lifecycle event queued by the admin endpoint, and counts one nobody takes', async () => {

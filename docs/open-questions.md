@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 39.
+answering is quick. Next number: 41.
 
 ## 2. Protected paths created by an agent
 
@@ -38,3 +38,25 @@ on you).
 Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPress plugins normally
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
+
+## 39. Link a site from its tenant's page by domain
+
+`[core]` `[client-wordpress]` Your journey of 2026-09-18: make the tenant, add its CRM connection
+on the tenant's page, have the client install and activate the plugin, then click "Link site" on
+the tenant's page and type the site's domain. Proposed mechanics: Core calls the plugin at that
+domain over HTTPS with a one-time code, the plugin fetches its token from Core (Core's address is
+built into the plugin, never taken from a request) with that code, and nothing is typed on the
+client side. Before linking, Core shows what answered at the domain (site name, plugin version,
+linked already or not) and the link is made on a second click, so a mistyped domain links
+nothing. "Relink" issues a new token and retires the old one; "Unlink" revokes it, and the site
+keeps its content but stops updating. Only `https://` domains, never private addresses. Needs
+approval: the contract gains one endpoint (the site fetching its token with its code), the plugin
+ships Core's address, and sites and connections are made from the tenant's page while the global
+lists stay as read-only overviews. Smaller option: keep today's token paste, but make sites from
+the tenant's page.
+
+## 40. Lovable sites: the same link, or the token as a setting
+
+`[client-lovable]` Lovable sites are Kowboy's own. Smaller: the token stays a setting of the
+Supabase project (nothing to build). Or: the same link flow through a function endpoint, so a
+Lovable site is linked from the tenant's page like a WordPress site. Say which.

@@ -66,6 +66,13 @@ connections, lifecycle events, health, the event log) becomes a panel.
 
 Order of building: 1, 3 with the Vitec fragment, 5, 7, 6, 2, 8.
 
+## Times
+
+Every time on the panel is shown in Swedish time (Europe/Stockholm) as `2026-09-18 22:14:05`, and
+the footer says so; hovering a time shows the exact moment in UTC. Core itself stores and sends
+only moments (UTC with an offset), never wall-clock times; the zone is a display choice made in
+one place (`engine/admin/html.ts`).
+
 ## Not in the MVP
 
 Users and roles (whoever reads mail at an allowed domain is an operator; roles come when they are

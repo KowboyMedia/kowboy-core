@@ -611,6 +611,14 @@ async function compare(live: Live): Promise<void> {
 const ageMs = (iso: string | null): number =>
   iso ? Date.now() - new Date(iso).getTime() : Number.POSITIVE_INFINITY;
 
+/** A length of time for a health line: `40 s`, `12 min`, `3 h`. */
+const span = (ms: number): string => {
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  if (seconds < 60) return `${seconds} s`;
+  if (seconds < 3_600) return `${Math.round(seconds / 60)} min`;
+  return `${Math.round(seconds / 3_600)} h`;
+};
+
 /**
  * The two schedules, checked every minute. After a start, both run whatever their age, and the
  * fetch list is drained, before the adapter counts as caught up: a restart, and a database
@@ -727,7 +735,7 @@ export const vitecAdapter: Adapter = {
             detail: blocked
               .map(
                 (office) =>
-                  `${office.officeId}: refused since ${office.blockedAt.toISOString()}, next probe ${office.blockedUntil.toISOString()}`,
+                  `${office.officeId}: refused ${span(Date.now() - office.blockedAt.getTime())} ago, next probe ${office.blockedUntil.getTime() <= Date.now() ? 'due' : `in ${span(office.blockedUntil.getTime() - Date.now())}`}`,
               )
               .join('; '),
           };
@@ -738,7 +746,7 @@ export const vitecAdapter: Adapter = {
         const pause = await pauseOf(connection.id);
         if (paused(pause)) {
           problems.push(
-            `${connection.id}: paused until ${new Date(pause.pausedUntil ?? 0).toISOString()} after ${PAUSE_AFTER} failures in a row`,
+            `${connection.id}: paused for another ${span((pause.pausedUntil ?? 0) - Date.now())} after ${PAUSE_AFTER} failures in a row`,
           );
         }
       }
