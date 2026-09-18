@@ -14,11 +14,13 @@ connections, lifecycle events, health, the event log) becomes a panel.
   for the browser session, or for 30 days with "Remember this device" ticked. A CSRF token on
   every form. The mail goes through Postmark (`POSTMARK_SERVER_TOKEN`, `MAIL_FROM`), at most one link per
   address per minute and ten a day in all. Users and roles come later.
-- **How it is built.** Server-rendered HTML from TypeScript template functions, one stylesheet, a
-  few lines of JavaScript (copy buttons, auto-refresh of the overview). No framework, no new
-  runtime dependency, nothing to build. Every panel reads the same tables the engine and adapters
-  use, and writes through the same functions the scripts and the admin API use: one code path per
-  concern.
+- **How it is built.** Server-rendered HTML from TypeScript template functions on top of Tabler,
+  the open-source admin UI kit on Bootstrap 5 (Patric, 2026-09-18: a market-leading component
+  library, a professional and responsive look). Core serves Tabler's stylesheet and script itself,
+  so the panel depends on no outside host; nothing to build. Every page is a title, one line on what
+  it is for, and cards that each say what they show or do, with a line of help under every field,
+  so a cold reader can follow. Every panel reads the same tables the engine and adapters use, and
+  writes through the same functions the scripts and the admin API use: one code path per concern.
 - **Where the code lives.** `engine/admin/` holds the shell (login, navigation, layout, the panel
   registry) and the Core panels. `adapters/<provider>/admin/` holds that adapter's settings and
   panels, which the adapter hands to the engine through the adapter API; the shell renders them

@@ -13,6 +13,7 @@ import {
   type Panel,
 } from './context.js';
 import { adapterPanels } from './adapters.js';
+import { assetRoutes } from './html.js';
 import { overviewPanels } from './overview.js';
 import { tenantPanels } from './tenants.js';
 import { connectionPanels } from './connections.js';
@@ -76,6 +77,7 @@ export function adminPanelRoutes(options: {
   };
 
   return [
+    ...assetRoutes(),
     { method: 'GET', path: '/admin', handler: dispatch },
     { method: 'GET', path: '/admin/*', handler: dispatch },
     { method: 'POST', path: '/admin/*', handler: dispatch },

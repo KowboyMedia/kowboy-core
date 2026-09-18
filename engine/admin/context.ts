@@ -55,7 +55,11 @@ export function nav(adapters: AdminAdapter[]): NavItem[] {
     ...CORE_NAV,
     ...adapters
       .filter((adapter) => adapter.admin)
-      .map((adapter) => ({ href: `/admin/${adapter.provider}`, label: adapter.provider })),
+      .map((adapter) => ({
+        href: `/admin/${adapter.provider}`,
+        label: adapter.provider,
+        group: 'CRM adapters',
+      })),
   ];
 }
 

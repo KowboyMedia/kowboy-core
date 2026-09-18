@@ -9,7 +9,7 @@ import { recompute } from '../recompute.js';
 import { ring, type BellKind } from '../bells.js';
 import { logEvent } from '../events.js';
 import { DATATYPES, type Datatype, type LifecycleEvent } from '../adapter-api/types.js';
-import { escape, field, form, link, pre, select } from './html.js';
+import { card, escape, field, form, grid, intro, link, pre, select } from './html.js';
 import { officesOf, type Ctx, type Panel } from './context.js';
 
 const datatypeOf = (value: string | undefined): Datatype | undefined =>
@@ -24,67 +24,94 @@ async function page(
   const connectionChoices = connectionRows.map((row) => ({ value: row.id }));
   const datatypes = DATATYPES.map((d) => ({ value: d }));
   const anyDatatype = [{ value: '', label: 'all' }, ...datatypes];
-  const shown = result ? `<h2>${escape(result.title)}</h2>${result.html}` : '';
+  const shown = result
+    ? card(result.title, 'The answer to the request just made.', result.html)
+    : '';
   const adapters = ctx.adapters
     .filter((adapter) => adapter.admin)
     .map((adapter) => link(`/admin/${adapter.provider}`, adapter.provider))
     .join(', ');
   const body =
+    intro(
+      'Run a request against Core from here, exactly as a site or an operator would, and see the answer. Nothing here touches a CRM.',
+    ) +
     shown +
-    '<div class="columns"><div><h2>As a site: GET /v1/changes</h2>' +
-    form(
-      '/admin/test/changes',
-      ctx.csrf,
-      select('tenant', 'Tenant', tenantChoices) +
-        select('datatype', 'Datatype', datatypes) +
-        field('after', 'After seq', { type: 'number', value: '0' }) +
-        field('limit', 'Limit', { type: 'number', value: String(ctx.config.pageSize) }),
-      { submit: 'Pull' },
-    ) +
-    '</div><div><h2>Ring a bell</h2>' +
-    form(
-      '/admin/test/bell',
-      ctx.csrf,
-      select('tenant', 'Tenant', tenantChoices) +
-        select('kind', 'Kind', [{ value: 'delta' }, { value: 'forcerefresh' }]),
-      { submit: 'Ring' },
-    ) +
-    '</div><div><h2>Lifecycle event</h2>' +
-    form(
-      '/admin/test/event',
-      ctx.csrf,
-      select('connection', 'Connection', connectionChoices) +
-        select(
-          'event',
-          'Event',
-          [
-            'connection_added',
-            'offices_added',
-            'offices_removed',
-            'resync',
-            'connection_removed',
-          ].map((value) => ({ value })),
-        ) +
-        field('office_ids', 'Office ids (for offices added or removed)') +
-        select('datatype', 'Datatype (for resync)', anyDatatype),
-      { submit: 'Queue' },
-    ) +
-    '</div><div><h2>Recompute, or preview one</h2>' +
-    form(
-      '/admin/test/recompute',
-      ctx.csrf,
-      select('tenant', 'Tenant', [{ value: '', label: 'any' }, ...tenantChoices]) +
-        select('connection', 'Connection', [{ value: '', label: 'any' }, ...connectionChoices]) +
-        select('datatype', 'Datatype', anyDatatype) +
-        select('mode', 'Mode', [
-          { value: 'preview', label: 'preview (writes nothing)' },
-          { value: 'write', label: 'recompute and write' },
-        ]),
-      { submit: 'Run' },
-    ) +
-    '</div></div>' +
+    grid([
+      card(
+        'Pull as a site',
+        'What a site gets from GET /v1/changes: the tenant’s records of one datatype after a sequence number, with the size plain and gzipped.',
+        form(
+          '/admin/test/changes',
+          ctx.csrf,
+          select('tenant', 'Tenant', tenantChoices) +
+            select('datatype', 'Datatype', datatypes) +
+            field('after', 'After seq', {
+              type: 'number',
+              value: '0',
+              help: '0 is the very beginning; a site remembers where it got to.',
+            }) +
+            field('limit', 'Limit', { type: 'number', value: String(ctx.config.pageSize) }),
+          { submit: 'Pull' },
+        ),
+      ),
+      card(
+        'Ring a bell',
+        'Tells the tenant’s sites to pull now: "delta" for what changed, "forcerefresh" for everything again.',
+        form(
+          '/admin/test/bell',
+          ctx.csrf,
+          select('tenant', 'Tenant', tenantChoices) +
+            select('kind', 'Kind', [{ value: 'delta' }, { value: 'forcerefresh' }]),
+          { submit: 'Ring' },
+        ),
+      ),
+      card(
+        'Queue a lifecycle event',
+        'The same actions as on a connection’s page, handed to the worker: load, add or remove offices, resync, remove.',
+        form(
+          '/admin/test/event',
+          ctx.csrf,
+          select('connection', 'Connection', connectionChoices) +
+            select(
+              'event',
+              'Event',
+              [
+                'connection_added',
+                'offices_added',
+                'offices_removed',
+                'resync',
+                'connection_removed',
+              ].map((value) => ({ value })),
+            ) +
+            field('office_ids', 'Office ids', {
+              help: 'For offices added or removed; comma-separated.',
+            }) +
+            select('datatype', 'Datatype', anyDatatype, undefined, 'For a resync.'),
+          { submit: 'Queue' },
+        ),
+      ),
+      card(
+        'Recompute, or preview one',
+        'Runs the mapping and the rules again over stored raw records. A preview writes nothing and reports what would change.',
+        form(
+          '/admin/test/recompute',
+          ctx.csrf,
+          select('tenant', 'Tenant', [{ value: '', label: 'any' }, ...tenantChoices]) +
+            select('connection', 'Connection', [
+              { value: '', label: 'any' },
+              ...connectionChoices,
+            ]) +
+            select('datatype', 'Datatype', anyDatatype) +
+            select('mode', 'Mode', [
+              { value: 'preview', label: 'preview (writes nothing)' },
+              { value: 'write', label: 'recompute and write' },
+            ]),
+          { submit: 'Run' },
+        ),
+      ),
+    ]) +
     (adapters
-      ? `<p class="muted">Requests against a CRM live on its own panel: ${adapters}.</p>`
+      ? `<p class="muted">Requests against a CRM live on its own page: ${adapters}.</p>`
       : '');
   return ctx.render('Test', body);
 }

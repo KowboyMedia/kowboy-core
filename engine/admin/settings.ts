@@ -5,7 +5,7 @@ import { purgeTombstones } from '../storage/items.js';
 import { migrationsApplied } from '../storage/migrate.js';
 import { tenants } from '../storage/connections.js';
 import { mailConfigured } from '../mail.js';
-import { escape, form, table } from './html.js';
+import { card, escape, form, intro, table, yesNo } from './html.js';
 import type { Panel } from './context.js';
 
 export const settingsPanels: Panel[] = [
@@ -16,47 +16,85 @@ export const settingsPanels: Panel[] = [
       const [migrations, tenantRows] = await Promise.all([migrationsApplied(), tenants()]);
       const config = ctx.config;
       const body =
-        '<h2>Configuration (from the environment, read-only)</h2>' +
-        table(
-          ['Setting', 'Value'],
-          [
-            ['Version', escape(config.version)],
-            ['Page size of /v1/changes', escape(config.pageSize)],
-            ['Bell window (ms)', escape(config.bellThrottleMs)],
-            ['Event retention (days)', escape(config.eventRetentionDays)],
-            ['Tombstone retention (days)', escape(config.tombstoneRetentionDays)],
-            ['Gzip level', escape(config.gzipLevel)],
-            ['Migrations applied', escape(migrations.join(', '))],
-            [
-              'Who may log in',
-              escape(
-                config.loginDomains.length > 0
-                  ? `addresses at ${config.loginDomains.join(', ')}`
-                  : 'nobody: ADMIN_EMAIL_DOMAINS is empty',
-              ),
-            ],
-            [
-              'Login mail',
-              escape(
-                mailConfigured()
-                  ? `sent from ${config.mailFrom}`
-                  : 'no sender: set POSTMARK_SERVER_TOKEN and MAIL_FROM',
-              ),
-            ],
-          ],
+        intro(
+          'How this Core is set up. The values come from the environment the app runs in, so they are read-only here; an agent changes them.',
         ) +
-        '<h2>Purge watermark per tenant</h2>' +
-        table(
-          ['Tenant', 'Watermark', 'Active'],
-          tenantRows.map((tenant) => [
-            escape(tenant.id),
-            escape(tenant.purge_watermark),
-            escape(tenant.active ? 'yes' : 'no'),
-          ]),
-          'No tenants yet.',
+        card(
+          'Configuration',
+          'Every setting, its value, and what it does.',
+          table(
+            ['Setting', 'Value', 'What it does'],
+            [
+              ['Version', escape(config.version), 'The release this app runs.'],
+              [
+                'Page size',
+                escape(config.pageSize),
+                'How many records a site gets per request when it pulls changes.',
+              ],
+              [
+                'Bell window (ms)',
+                escape(config.bellThrottleMs),
+                'A site is rung at most once per window, however many changes arrive.',
+              ],
+              [
+                'Event retention (days)',
+                escape(config.eventRetentionDays),
+                'How long the event log keeps an event.',
+              ],
+              [
+                'Tombstone retention (days)',
+                escape(config.tombstoneRetentionDays),
+                'How long a removed record stays, so that every site can delete it too.',
+              ],
+              [
+                'Gzip level',
+                escape(config.gzipLevel),
+                'How hard answers are compressed: 1 is fastest, 9 smallest.',
+              ],
+              [
+                'Migrations applied',
+                escape(migrations.join(', ')),
+                'The database changes this version has made.',
+              ],
+              [
+                'Who may log in',
+                escape(
+                  config.loginDomains.length > 0
+                    ? `addresses at ${config.loginDomains.join(', ')}`
+                    : 'nobody: ADMIN_EMAIL_DOMAINS is empty',
+                ),
+                'The mail domains whose addresses get a login link.',
+              ],
+              [
+                'Login mail',
+                escape(
+                  mailConfigured()
+                    ? `sent from ${config.mailFrom ?? 'the configured sender'}`
+                    : 'no sender: set POSTMARK_SERVER_TOKEN and MAIL_FROM',
+                ),
+                'Where the login links come from.',
+              ],
+            ],
+          ),
         ) +
-        '<h2>Housekeeping</h2><p class="muted">Deletes events outside the retention window and tombstones older than their retention, as the worker does every hour.</p>' +
-        form('/admin/settings/housekeeping', ctx.csrf, '', { submit: 'Run housekeeping now' });
+        card(
+          'Purge watermark per tenant',
+          'A site whose position is below its tenant’s watermark is told to start over from the beginning. The watermark moves when a tenant is purged and loaded again.',
+          table(
+            ['Tenant', 'Watermark', 'Active'],
+            tenantRows.map((tenant) => [
+              `<code>${escape(tenant.id)}</code>`,
+              escape(tenant.purge_watermark),
+              yesNo(tenant.active),
+            ]),
+            'No tenants yet.',
+          ),
+        ) +
+        card(
+          'Housekeeping',
+          'Deletes events past their retention and removed records past theirs. The worker does this every hour; this runs it now.',
+          form('/admin/settings/housekeeping', ctx.csrf, '', { submit: 'Run housekeeping now' }),
+        );
       return ctx.render('Settings', body);
     },
   },

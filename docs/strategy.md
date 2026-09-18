@@ -326,8 +326,8 @@ One place in the `web` process, under `/admin`, behind a login by email link to 
 (no shared password): overview (health, counts, latest events), tenants and sites (tokens and bell secrets shown once, ring now), connections (the
 credentials form the adapter declares, offices, lifecycle actions), the adapters' own panels,
 items (raw, unified, display, the timeline, recompute), events, a test panel that runs requests as
-a site or an operator, and settings. Server-rendered, no new dependency; an adapter's panels come
-through `Adapter.admin` and the engine never looks inside them. docs/admin-panel.md is the design
+a site or an operator, and settings. Server-rendered on Tabler (Bootstrap 5), served by Core itself;
+an adapter's panels come through `Adapter.admin` and the engine never looks inside them. docs/admin-panel.md is the design
 (approved 2026-09-18, AC 42).
 
 ## 9. Phases and approval gates

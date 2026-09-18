@@ -12,12 +12,17 @@ import {
 } from '../storage/connections.js';
 import { newSecret } from '../storage/crypto.js';
 import { ring, type BellKind } from '../bells.js';
-import { escape, field, form, pre, select, table, when } from './html.js';
+import { card, escape, field, form, intro, pre, select, table, when, yesNo } from './html.js';
 import type { Ctx, Panel } from './context.js';
 
 type Shown = { label: string; value: string };
 
 const ID = /^[a-z0-9_-]{1,64}$/;
+
+const ACTIVE = [
+  { value: 'yes', label: 'yes' },
+  { value: 'no', label: 'no' },
+];
 
 function tenantRows(ctx: Ctx, rows: TenantRow[], sites: SubscriberRow[]): string {
   return table(
@@ -25,24 +30,27 @@ function tenantRows(ctx: Ctx, rows: TenantRow[], sites: SubscriberRow[]): string
     rows.map((tenant) => [
       `<code>${escape(tenant.id)}</code>`,
       escape(tenant.display_name),
-      escape(tenant.active ? 'yes' : 'no'),
+      yesNo(tenant.active),
       escape(sites.filter((site) => site.tenant_id === tenant.id).length),
-      form(
-        `/admin/tenants/${encodeURIComponent(tenant.id)}`,
-        ctx.csrf,
-        field('name', 'Name', { value: tenant.display_name }) +
-          select(
-            'active',
-            'Active',
-            [{ value: 'yes' }, { value: 'no' }],
-            tenant.active ? 'yes' : 'no',
-          ),
-        { submit: 'Save' },
-      ) +
-        form(`/admin/tenants/${encodeURIComponent(tenant.id)}/token`, ctx.csrf, '', {
-          submit: 'New token',
-          inline: true,
-        }),
+      form(`/admin/tenants/${encodeURIComponent(tenant.id)}/token`, ctx.csrf, '', {
+        submit: 'New token',
+        inline: true,
+      }) +
+        `<details><summary>Edit</summary>` +
+        form(
+          `/admin/tenants/${encodeURIComponent(tenant.id)}`,
+          ctx.csrf,
+          field('name', 'Name', { value: tenant.display_name }) +
+            select(
+              'active',
+              'Active',
+              ACTIVE,
+              tenant.active ? 'yes' : 'no',
+              'An inactive tenant cannot pull, and its sites are not rung.',
+            ),
+          { submit: 'Save' },
+        ) +
+        '</details>',
     ]),
     'No tenants yet.',
   );
@@ -51,7 +59,7 @@ function tenantRows(ctx: Ctx, rows: TenantRow[], sites: SubscriberRow[]): string
 function siteRows(ctx: Ctx, sites: SubscriberRow[]): string {
   const bell = (site: SubscriberRow, kind: BellKind): string =>
     form(`/admin/sites/${site.id}/ring`, ctx.csrf, '', {
-      submit: `Ring ${kind}`,
+      submit: kind === 'delta' ? 'Ring: pull changes' : 'Ring: pull everything',
       inline: true,
       hidden: { tenant: site.tenant_id, kind },
     });
@@ -61,7 +69,7 @@ function siteRows(ctx: Ctx, sites: SubscriberRow[]): string {
       escape(site.label),
       `<code>${escape(site.tenant_id)}</code>`,
       escape(site.bell_url),
-      escape(site.active ? 'yes' : 'no'),
+      yesNo(site.active),
       `${when(site.last_pull_at)} <span class="muted">${escape(site.last_client ?? '')}</span>`,
       `${when(site.last_bell_at)} <span class="muted">${escape(site.last_bell_status ?? '')}</span>`,
       bell(site, 'delta') +
@@ -70,6 +78,7 @@ function siteRows(ctx: Ctx, sites: SubscriberRow[]): string {
           submit: 'New bell secret',
           inline: true,
         }) +
+        `<details><summary>Edit</summary>` +
         form(
           `/admin/sites/${site.id}`,
           ctx.csrf,
@@ -78,11 +87,13 @@ function siteRows(ctx: Ctx, sites: SubscriberRow[]): string {
             select(
               'active',
               'Active',
-              [{ value: 'yes' }, { value: 'no' }],
+              ACTIVE,
               site.active ? 'yes' : 'no',
+              'An inactive site is not rung.',
             ),
           { submit: 'Save' },
-        ),
+        ) +
+        '</details>',
     ]),
     'No sites yet.',
   );
@@ -95,35 +106,65 @@ async function render(
 ): Promise<ReturnType<Ctx['render']>> {
   const [rows, sites] = await Promise.all([tenants(), subscribers()]);
   const once = shown
-    ? `<div class="flash"><strong>${escape(shown.label)}</strong>: this is shown once.${pre(shown.value)}</div>`
+    ? `<div class="alert alert-important alert-success" role="alert"><strong>${escape(shown.label)}</strong>: copy it now, it is shown once and never again.${pre(shown.value)}</div>`
     : '';
   const body =
-    once +
-    '<h2>Tenants</h2>' +
-    tenantRows(ctx, rows, sites) +
-    form(
-      '/admin/tenants',
-      ctx.csrf,
-      field('id', 'New tenant id (letters, digits, - and _)', { required: true }) +
-        field('name', 'Name', { required: true }),
-      { submit: 'Add tenant' },
+    intro(
+      'A tenant is one customer of Kowboy. Its sites (a WordPress site, a Lovable site) pull that tenant’s records from Core with the tenant’s token, and Core rings each site’s bell when something changed.',
     ) +
-    '<h2>Sites</h2>' +
-    siteRows(ctx, sites) +
-    form(
-      '/admin/sites',
-      ctx.csrf,
-      select(
-        'tenant',
-        'Tenant',
-        rows.map((tenant) => ({ value: tenant.id })),
-      ) +
-        field('label', 'Label', { required: true }) +
-        field('url', 'Bell URL', {
+    once +
+    card(
+      'Tenants',
+      'Every tenant has one token, shown once when it is made; its sites pull with it. A new token retires the old one at once.',
+      tenantRows(ctx, rows, sites),
+    ) +
+    card(
+      'Add a tenant',
+      'Makes the tenant and shows its token once. Sites and connections come next.',
+      form(
+        '/admin/tenants',
+        ctx.csrf,
+        field('id', 'Tenant id', {
           required: true,
-          placeholder: 'https://site.example/wp-json/core/v1/bell',
-        }),
-      { submit: 'Add site' },
+          placeholder: 'acme',
+          help: 'Short, lowercase and permanent: letters, digits, - and _. It appears in URLs and in the event log.',
+        }) +
+          field('name', 'Name', {
+            required: true,
+            help: 'The customer’s name as people say it.',
+          }),
+        { submit: 'Add tenant' },
+      ),
+    ) +
+    card(
+      'Sites',
+      'Where the bell rings: Core calls a site’s bell URL when its tenant has something new, and the site pulls. The bell secret proves it was Core that called. "Pull changes" makes the site fetch what changed since its last pull; "pull everything" makes it rewrite all it has.',
+      siteRows(ctx, sites),
+    ) +
+    card(
+      'Add a site',
+      'Registers a site and shows its bell secret once; both go into the site’s own settings together with the tenant’s token.',
+      form(
+        '/admin/sites',
+        ctx.csrf,
+        select(
+          'tenant',
+          'Tenant',
+          rows.map((tenant) => ({ value: tenant.id })),
+          undefined,
+          'Whose records this site shows.',
+        ) +
+          field('label', 'Label', {
+            required: true,
+            help: 'What you call this site, for these pages only.',
+          }) +
+          field('url', 'Bell URL', {
+            required: true,
+            placeholder: 'https://site.example/wp-json/core/v1/bell',
+            help: 'The address Core calls when there is something new. A WordPress site with the plugin answers at /wp-json/core/v1/bell.',
+          }),
+        { submit: 'Add site' },
+      ),
     );
   return ctx.render('Tenants and sites', body, flash);
 }

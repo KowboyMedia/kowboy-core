@@ -10,7 +10,7 @@ import { logEvent } from '../events.js';
 import { report } from '../errors.js';
 import { sendMail } from '../mail.js';
 import { sameSecret } from '../storage/crypto.js';
-import { escape, field } from './html.js';
+import { field, standalone } from './html.js';
 import type { Request, Response } from '../http/server.js';
 
 const COOKIE = 'core_admin';
@@ -67,8 +67,15 @@ export const csrfOk = (request: Request, form: Record<string, string>): boolean 
   sameSecret(form['csrf'] ?? '', csrfOf(request));
 
 export function loginPage(notice?: string, bad = false): string {
-  const flash = notice ? `<div class="flash${bad ? ' bad' : ''}">${escape(notice)}</div>` : '';
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Log in · Core admin</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font:15px system-ui,sans-serif;max-width:24rem;margin:4rem auto;padding:0 1rem}label{display:block;margin:.6rem 0 .2rem}input{width:100%;padding:.4rem}.check{display:flex;gap:.5rem;align-items:center;margin-top:.8rem}.check input{width:auto}button{margin-top:.8rem;padding:.4rem .9rem}.flash{border:1px solid #15803d;background:#f0fdf4;padding:.5rem}.flash.bad{border-color:#b91c1c;background:#fef2f2}</style></head><body><h1>Core admin</h1>${flash}<form method="post" action="/admin/login">${field('email', 'Your email address', { type: 'email', required: true })}<label class="check"><input type="checkbox" name="remember" value="yes"> Remember this device</label><button>Send me a link</button></form></body></html>`;
+  return standalone({
+    title: 'Log in',
+    flash: notice ? `${bad ? '!' : ''}${notice}` : null,
+    body:
+      `<p class="text-secondary mb-4">Enter your work address. If it may log in, a link arrives by mail and works for ${LINK_MINUTES} minutes.</p>` +
+      `<form method="post" action="/admin/login">${field('email', 'Your email address', { type: 'email', required: true })}` +
+      `<label class="form-check mb-3"><input class="form-check-input" type="checkbox" name="remember" value="yes"><span class="form-check-label">Remember this device</span><span class="form-check-description">Stay logged in here for ${REMEMBER_DAYS} days instead of until the browser closes.</span></label>` +
+      `<button class="btn btn-primary w-100">Send me a link</button></form>`,
+  });
 }
 
 const asked = new Map<string, number>();

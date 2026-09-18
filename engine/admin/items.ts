@@ -3,7 +3,21 @@ import { findItems, type ItemRow } from '../storage/items.js';
 import { queryEvents } from '../events.js';
 import { recompute } from '../recompute.js';
 import { DATATYPES, type Datatype } from '../adapter-api/types.js';
-import { escape, field, form, link, pre, select, table, when } from './html.js';
+import {
+  card,
+  escape,
+  field,
+  form,
+  grid,
+  intro,
+  kv,
+  link,
+  pre,
+  select,
+  table,
+  when,
+  yesNo,
+} from './html.js';
 import { eventsTable } from './timeline.js';
 import type { Ctx, Panel } from './context.js';
 
@@ -16,14 +30,14 @@ const datatypeOf = (value: string | undefined): Datatype | undefined =>
 
 function resultsTable(rows: ItemRow[]): string {
   return table(
-    ['Datatype', 'Connection', 'Remote id', 'Office', 'Seq', 'Deleted', 'Updated'],
+    ['Datatype', 'Connection', 'Record id', 'Office', 'Seq', 'Removed', 'Written'],
     rows.map((row) => [
       escape(row.datatype),
       escape(row.connection_id),
       link(itemHref(row), row.remote_id),
       escape(row.office_id ?? ''),
       escape(row.seq),
-      escape(row.deleted ? 'yes' : 'no'),
+      yesNo(row.deleted),
       when(row.updated_at),
     ]),
     'Nothing matches.',
@@ -33,25 +47,41 @@ function resultsTable(rows: ItemRow[]): string {
 function itemPage(ctx: Ctx, row: ItemRow, events: Awaited<ReturnType<typeof queryEvents>>): string {
   const data = (row.data ?? {}) as Record<string, unknown>;
   const { display, ...unified } = data;
-  const envelope = table(
-    ['Field', 'Value'],
-    [
-      ['Tenant', escape(row.tenant_id)],
+  const about = card(
+    'About this record',
+    'Where it comes from, its place in the change sequence, and when it was last written.',
+    kv([
+      ['Tenant', `<code>${escape(row.tenant_id)}</code>`],
       ['Connection', escape(row.connection_id)],
       ['Office', escape(row.office_id ?? '')],
       ['Seq', escape(row.seq)],
-      ['Deleted', escape(row.deleted ? 'yes' : 'no')],
+      ['Removed', yesNo(row.deleted)],
       ['Content hash', `<code>${escape(row.content_hash)}</code>`],
-      ['Remote updated', when(row.remote_updated_at)],
-      ['Written', when(row.updated_at)],
+      ['Changed in the CRM', when(row.remote_updated_at)],
+      ['Written in Core', when(row.updated_at)],
       ['Rules version', escape(row.rules_version)],
-    ],
+    ]),
   );
-  const faces = `<div class="columns"><div><h2>Raw</h2>${pre(row.raw)}</div><div><h2>Unified</h2>${pre(unified)}</div><div><h2>Display</h2>${pre(display ?? {})}</div></div>`;
-  const actions = form(`${itemHref(row)}/recompute`, ctx.csrf, '', {
-    submit: 'Recompute this item (no CRM traffic)',
-  });
-  return envelope + faces + actions + '<h2>Timeline</h2>' + eventsTable(events);
+  const faces = grid([
+    card('Raw', 'The record exactly as the CRM sent it.', pre(row.raw)),
+    card('Unified', 'The same record in Core’s one shape, whatever the CRM.', pre(unified)),
+    card('Display', 'The values the sites show, computed by the rules.', pre(display ?? {})),
+  ]);
+  const actions = card(
+    'Recompute',
+    'Runs the mapping and the rules again over the stored raw record. Nothing is asked of the CRM.',
+    form(`${itemHref(row)}/recompute`, ctx.csrf, '', { submit: 'Recompute this record' }),
+  );
+  return (
+    about +
+    faces +
+    actions +
+    card(
+      'Timeline',
+      'Everything that happened to this record, newest first: notifications, fetches, writes, bells.',
+      eventsTable(events),
+    )
+  );
 }
 
 export const itemPanels: Panel[] = [
@@ -70,8 +100,27 @@ export const itemPanels: Panel[] = [
             connectionId: value('connection'),
           })
         : [];
-      const search = `<form method="get" action="/admin/items"><div class="columns">${select('datatype', 'Datatype', [{ value: '', label: 'any' }, ...DATATYPES.map((d) => ({ value: d }))], query.get('datatype') ?? '')}${field('id', 'Remote id', { value: query.get('id') ?? '' })}${field('office', 'Office', { value: query.get('office') ?? '' })}${field('connection', 'Connection', { value: query.get('connection') ?? '' })}</div><button>Find</button></form>`;
-      return ctx.render('Items', search + (searched ? resultsTable(rows) : ''));
+      const search = `<form method="get" action="/admin/items">${select(
+        'datatype',
+        'Datatype',
+        [{ value: '', label: 'any' }, ...DATATYPES.map((d) => ({ value: d }))],
+        query.get('datatype') ?? '',
+      )}${field('id', 'Record id', {
+        value: query.get('id') ?? '',
+        help: 'The id the CRM uses for the record.',
+      })}${field('office', 'Office', {
+        value: query.get('office') ?? '',
+        help: 'An office id, to see one office’s records.',
+      })}${field('connection', 'Connection', {
+        value: query.get('connection') ?? '',
+      })}<button>Find</button></form>`;
+      const body =
+        intro(
+          'Find one record and see it as the CRM sent it, as Core unified it, and as the sites show it, with everything that happened to it.',
+        ) +
+        card('Find records', 'Any field narrows the search; leave the rest empty.', search) +
+        (searched ? card('Results', 'The newest 100 at most.', resultsTable(rows)) : '');
+      return ctx.render('Items', body);
     },
   },
   {
@@ -108,7 +157,11 @@ export const itemPanels: Panel[] = [
       const back = itemHref({ connection_id: connectionId, datatype: kind, remote_id: remoteId });
       return ctx.render(
         `Recomputed ${kind} ${remoteId}`,
-        pre(report) + `<p>${link(back, 'Back to the item')}</p>`,
+        card(
+          'Result',
+          'How many records were examined and changed, and any failures.',
+          pre(report) + `<p>${link(back, 'Back to the record')}</p>`,
+        ),
       );
     },
   },

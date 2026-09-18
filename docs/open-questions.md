@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 36.
+answering is quick. Next number: 37.
 
 ## 2. Protected paths created by an agent
 
@@ -61,9 +61,14 @@ They exist for the tests (AC 12). In every running app they also poll a fake CRM
 second, and their two checks sit in `/v1/health`; the stall of 2026-09-18 was one of them. Pick:
 take them out of the running apps (smaller; the tests keep them), or leave them in.
 
-## 35. [core] One click so pull requests merge themselves
+## 36. [core] Sentry: an account in the EU, a project key, and the Sentry library
 
-GitHub refuses auto-merge until the repository allows it, and that switch has no API. The click:
-GitHub → the repository's Settings → General → Pull Requests → tick "Allow auto-merge", then
-"35 done". With it, a change lands the moment its checks pass instead of when an agent next
-looks, about a minute sooner per change. Smaller: skip it, and agents keep looking.
+Core reports errors nowhere today: `engine/errors.ts` is the placeholder from Phase 1, and nothing
+alerts when production's health goes red. Four steps, the first three yours: (1) at sentry.io,
+create an organisation and pick the EU as its data storage location; (2) in it, create a project of
+platform Node.js named kowboy-core and paste its DSN here (the DSN is a key that only sends
+reports, safe to paste); (3) say yes to the Sentry library, `@sentry/node`, as a dependency of
+Core (smaller: yes, it is the official client); (4) an agent then wires it into both apps, and
+adds an uptime alert on production's `/v1/health` every minute if you give it an auth token with
+alert rights, or you click Alerts → Uptime Monitor there yourself. The sites get their own
+projects later.
