@@ -1,7 +1,7 @@
 // Mail the engine sends: today only the admin panel's login links. One sender, configured at
 // start from the environment; the tests replace it with one that keeps the mail. The sender is
-// Elastic Email's HTTP API, which Kowboy's domain already lists as a sender (its SPF record), so
-// no new vendor and no DNS change; SMTP is not an option, as the platform blocks its ports.
+// Postmark's HTTP API (question 31): the platform blocks SMTP ports, so no mail server can be
+// spoken to directly, and Kowboy's own domain is locked to a stranger's Elastic Email account.
 export type Mail = { to: string; subject: string; text: string };
 export type Sender = (mail: Mail) => Promise<void>;
 
@@ -15,24 +15,27 @@ export const mailConfigured = (): boolean => sender !== null;
 
 /** Send one mail, or throw when no sender is configured. */
 export async function sendMail(mail: Mail): Promise<void> {
-  if (!sender) throw new Error('no mail sender is configured: ELASTIC_EMAIL_API_KEY and MAIL_FROM');
+  if (!sender) throw new Error('no mail sender is configured: POSTMARK_SERVER_TOKEN and MAIL_FROM');
   await sender(mail);
 }
 
-/** Elastic Email's transactional endpoint, plain text only. */
-export const elasticEmail =
-  (apiKey: string, from: string): Sender =>
+/** Postmark's single-email endpoint, plain text only. */
+export const postmark =
+  (serverToken: string, from: string): Sender =>
   async (mail) => {
-    const response = await fetch('https://api.elasticemail.com/v4/emails/transactional', {
+    const response = await fetch('https://api.postmarkapp.com/email', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-elasticemail-apikey': apiKey },
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json',
+        'x-postmark-server-token': serverToken,
+      },
       body: JSON.stringify({
-        Recipients: { To: [mail.to] },
-        Content: {
-          From: from,
-          Subject: mail.subject,
-          Body: [{ ContentType: 'PlainText', Content: mail.text, Charset: 'utf-8' }],
-        },
+        From: from,
+        To: mail.to,
+        Subject: mail.subject,
+        TextBody: mail.text,
+        MessageStream: 'outbound',
       }),
     });
     if (!response.ok) {

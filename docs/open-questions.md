@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 33.
+answering is quick. Next number: 34.
 
 ## 2. Protected paths created by an agent
 
@@ -55,19 +55,21 @@ Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPre
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
 
-## 31. [core] The login mail needs Elastic Email's key, and a sender address
+## 31. [core] The login mail needs a sender: Postmark, unless you say otherwise
 
-Your domain's mail settings already list Elastic Email as a sender, so the panel's login links go
-out through it: no new vendor, no DNS change, and the platform blocks plain SMTP anyway. Needed:
-an API key from Kowboy's Elastic Email account (Settings → Manage API keys → Create, with
-permission to send). Paste it here and an agent sets it on staging at once and on production with
-the release (smaller), or put it in this environment as `ELASTIC_EMAIL_API_KEY` as you did with the
-Vitec credentials. The mail is sent from `core@kowboy.se` unless you name another address. Until
-then nobody can log in to the panel on staging.
+Elastic Email is out (your domain is locked to another account there). The platform blocks plain
+SMTP, so Google's own mail servers cannot be used either, and every other way needs an account
+somewhere. Postmark is the smallest: free for 100 mails a month (enough for login links), no DNS
+change, and it delivers to kowboy.se addresses before their account review. Steps: sign up at
+postmarkapp.com with your kowboy.se address, confirm that address when their mail arrives (it
+becomes the sender), open the server they create for you and copy its Server API token, then paste
+the token here; an agent sets it on staging at once and on production with the release. Say which
+address you confirmed if it is not your own. Alternatives if you prefer them: Brevo (free, 300 a
+day, a longer signup) or Resend (needs three DNS records).
 
-## 32. [core] Agents no longer have a way into the panel
+## 33. [core] The database accepts connections from anywhere with its password
 
-The panel is people-only now: an agent has no mailbox at kowboy.se. Agents keep the admin API
-(`/v1/admin/*`: bells, lifecycle events, replay, recompute) but cannot add tenants, sites or
-connections on staging or production any more; a person does that at the panel. Pick: leave it
-(smaller), or extend the admin API so an agent can set up tenants and connections too.
+The production cluster has no trusted-source rules: anyone on the internet who has the password can
+connect (over TLS). That is also how agents could read it directly today, through the platform's
+connection details. Pick: restrict it to the two apps (an agent does it; safer, the smaller
+change), with agents reading through the admin API and the changes API instead, or leave it open.

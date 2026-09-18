@@ -96,6 +96,15 @@ describe('the admin panel', () => {
     expect((await post('/admin/tenants', { id: 'x', name: 'X' }, false)).status).toBe(403);
   });
 
+  it('mails at most ten links a day, whatever the form is fed', async () => {
+    // The login before the test was the first of the day.
+    for (let i = 0; i < 11; i += 1) {
+      await post('/admin/login', { email: `cap-${i}@example.test` }, false);
+    }
+    expect(running.mails.length).toBe(10);
+    expect(running.mails.at(-1)?.to).toBe('cap-8@example.test');
+  });
+
   it('remembers the device for 30 days when asked, and for the browser session otherwise', async () => {
     const short = await login('short@example.test');
     expect(short.headers.get('set-cookie')).toContain('HttpOnly');

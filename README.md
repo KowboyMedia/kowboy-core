@@ -22,7 +22,7 @@ npm run start:worker          # adapter background work, bells, housekeeping
 
 Migrations run at startup. The admin panel is at `/admin` on the web process: log in with a link
 mailed to an address at an allowed domain (`ADMIN_EMAIL_DOMAINS`; the mail needs `MAIL_FROM` and
-`ELASTIC_EMAIL_API_KEY`), then tenants, sites, connections, the adapters' own panels, items,
+`POSTMARK_SERVER_TOKEN`), then tenants, sites, connections, the adapters' own panels, items,
 events, a test panel and settings ([docs/admin-panel.md](docs/admin-panel.md)).
 
 Tenants, connections and subscribers are also added with one script, through the same functions
