@@ -40,6 +40,11 @@ or `wp action-scheduler run`.
 
 ## What the site gets
 
+- Permalinks are the site's, never Core's (strategy §12.23): property
+  `<status>-<area name>-<street address>-<id>`, agent `<first name>-<last name>-<id>`, area
+  `<municipality>-<area name>-<id>`; every entity ends in `-<id>`, and a request by id alone
+  (`/objekt/<id>`) answers 301 to the current permalink (question 41). Until the field names
+  arrive (next-steps item 2) the placeholder is connection plus id.
 - One post type per datatype: `core_property` (archive and permalinks under `/objekt/`),
   `core_agent`, `core_office`, `core_area`, `core_association`, `core_project`. Public, so sitemaps, permalinks and
   cache plugins see them.

@@ -91,8 +91,8 @@ and templates are per client, later.
 ## Left to the rules-ledger phase
 
 The SRS's closed enumerations (`status`, `listing_type`), the §9 search scalars (`price`,
-`rooms`, `living_space`, `lat`, `lng`, `published_at`, `sold_at`), `slug`, and every `display.*`
-string. Until then the CRM's raw values for these are in `data` under their mirrored names
+`rooms`, `living_space`, `lat`, `lng`, `published_at`, `sold_at`) and every `display.*` string
+(question 44); `slug` is the site's (strategy §12.23). Until then the CRM's raw values for these are in `data` under their mirrored names
 (`status`, `type`, `subtype`, `tenure`, `price.starting_price`, `buildings[].area.living`, …), so
 nothing is lost. Vitec's enumeration values are in `docs/inputs/vitec/enumerations/` for when the
 ledger is written. Before go-live, adding the spine fields then is a plain additive change.

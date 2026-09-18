@@ -108,3 +108,5 @@ the first item that is not done, and keep the file current. Decisions and open q
   says "allow" in chat; the agent then adds `Bash(python3 *)` and `Bash(curl *)` to
   `.claude/settings.local.json` (gitignored), does the work, and removes them again.
 - Never invent a contract field or a business rule.
+- Core parses no CRM data (AGENTS.md): every tag, slug, status, flag or formatted string is the
+  site's, from the payload it stores. Never propose otherwise, in code or in chat.

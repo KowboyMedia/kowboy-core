@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 44.
+answering is quick. Next number: 46.
 
 ## 2. Protected paths created by an agent
 
@@ -85,3 +85,19 @@ page without the CRM changing the record (a rules change, a recompute): then the
 still while the page changed. Proposed: the visible "updated" date stays the CRM's time, and the
 sitemap's `lastmod` becomes the time the site wrote the page, which happens only when its content
 changed. Yes amends SRS §7.1 (strategy §12); no keeps `lastmod` at the CRM's time.
+
+## 44. Who fills `display`
+
+`[core]` `[client-wordpress]` `[client-lovable]` The SRS has Core computing every `display.*`
+string (prices, areas, address lines) from human-written ledger entries, once for every site, and
+the envelope carries `display` today, empty. "Core parses no CRM data" reads as: the site computes
+`display` at sync time from the payload, in each client, so WordPress and Lovable hold the same
+formatting twice. Say which: (a) Core, from ledger entries; (b) the site, at sync time. (b) follows
+the rule; (a) is less code.
+
+## 45. Slugs for office, project and association
+
+`[client-wordpress]` Given 2026-09-18: property `<status>-<area name>-<street address>-<id>`,
+agent `<first name>-<last name>-<id>`, area `<municipality>-<area name>-<id>`, every entity ending
+in `-<id>`, set by WordPress. Office, project and association are not given. Smaller: `<name>-<id>`
+for all three.
