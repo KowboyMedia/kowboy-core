@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 41.
+answering is quick. Next number: 44.
 
 ## 2. Protected paths created by an agent
 
@@ -60,3 +60,28 @@ the tenant's page.
 `[client-lovable]` Lovable sites are Kowboy's own. Smaller: the token stays a setting of the
 Supabase project (nothing to build). Or: the same link flow through a function endpoint, so a
 Lovable site is linked from the tenant's page like a WordPress site. Say which.
+
+## 41. Which id the `/objekt/<id>` links carry
+
+`[client-wordpress]` The stable link `/objekt/<id>` resolves the property by id and answers 301 to
+its current permalink (`/objekt/<slug>-<id>/`, SRS Appendix A). Core's id for a Vitec estate is
+Vitec's own (`OBJ31529_1738853171`); Vitec's payload also carries a `referenceId`. Say which one
+the links out there use (advertisements, e-mails, the old sites). Smaller: Vitec's id, which Core
+already keys on.
+
+## 42. A removed listing's `/objekt/<id>` link
+
+`[client-wordpress]` A listing gone from the CRM's list has no page. Its old links can answer 410
+Gone (search engines drop it, visitors see the site's not-found page) or 301 to the listings
+archive (visitors land on what is for sale, search engines treat it as a soft not-found). Smaller
+and cleaner for search engines: 410.
+
+## 43. The sitemap's change date
+
+`[client-wordpress]` `[client-lovable]` The SRS (§7.1) says the sitemap's `lastmod` and any
+"updated" date come from the CRM's change time only, never from a site's write time; the plugin
+does that today. You now want a new date on every update. The two agree except when Core changes a
+page without the CRM changing the record (a rules change, a recompute): then the CRM's time stands
+still while the page changed. Proposed: the visible "updated" date stays the CRM's time, and the
+sitemap's `lastmod` becomes the time the site wrote the page, which happens only when its content
+changed. Yes amends SRS §7.1 (strategy §12); no keeps `lastmod` at the CRM's time.
