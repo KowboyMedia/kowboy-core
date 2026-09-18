@@ -1,6 +1,6 @@
 # Admin panel: the MVP
 
-Proposed 2026-09-18 for Patric's approval (open question 29). One place, in a browser, to
+Approved and built 2026-09-18 (question 29): `engine/admin/` and `adapters/vitec/admin/`, tested as AC 42. One place, in a browser, to
 configure Core and its adapters and to see what is happening, so that nothing needs a database
 client, a script or a console. Everything an agent does for an operator today (tenants,
 connections, lifecycle events, health, the event log) becomes a panel.
@@ -65,7 +65,7 @@ Users and roles (one admin secret; a login with users comes when more than one p
 it), editing data by hand, charts, more than one language, anything a site does (templates,
 search).
 
-## What it needs from the adapter API (needs approval)
+## What it takes from the adapter API (approved)
 
 One additive field on `Adapter`:
 

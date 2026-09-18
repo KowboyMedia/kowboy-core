@@ -22,7 +22,7 @@ export const VERSION = '0.1.0';
  */
 export const SEQUENCE_JUMP = 1_000_000_000;
 /** Tombstones are hard-deleted after 90 days (AC 26). */
-const TOMBSTONE_RETENTION_DAYS = 90;
+export const TOMBSTONE_RETENTION_DAYS = 90;
 const HEARTBEAT_MS = 30_000;
 const BELL_FLUSH_MS = 1_000;
 const HOUSEKEEPING_MS = 60 * 60_000;

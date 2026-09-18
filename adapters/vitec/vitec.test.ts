@@ -437,6 +437,70 @@ describe('the Vitec adapter', () => {
     expect([...new Set(pages)].sort()).toEqual(['0', '1', '2']);
   });
 
+  it('has its own admin panel: the fetch list, the schedules, and one record looked at or queued (AC 42)', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    const login = await fetch(`${running.baseUrl}/admin/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: `secret=${ADMIN_SECRET}`,
+      redirect: 'manual',
+    });
+    const cookie = (login.headers.get('set-cookie') ?? '').split(';')[0] ?? '';
+    const csrf = cookie.split('=')[1] ?? '';
+    const post = (path: string, fields: Record<string, string>): Promise<Response> =>
+      fetch(`${running.baseUrl}${path}`, {
+        method: 'POST',
+        headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ csrf, ...fields }).toString(),
+        redirect: 'manual',
+      });
+
+    const front = await fetch(`${running.baseUrl}/admin/vitec`, { headers: { cookie } });
+    expect(front.status).toBe(200);
+    const html = await front.text();
+    expect(html).toContain(`/v1/hook/vitec/webhook/${TOKEN}`);
+    expect(html).toContain(CONNECTION);
+
+    // Look: fetched and mapped, nothing written.
+    fake.put(OFFICE, 'property', estate('OBJ9'));
+    const looked = await post('/admin/vitec/fetch', {
+      connection: CONNECTION,
+      datatype: 'property',
+      office: OFFICE,
+      id: 'OBJ9',
+      action: 'look',
+    });
+    const seen = await looked.text();
+    expect(seen).toContain('street_address');
+    expect(seen).toContain('Nothing was written');
+    expect(await item('property', 'OBJ9')).toBeUndefined();
+
+    // Queue: the worker fetches and stores it.
+    await post('/admin/vitec/fetch', {
+      connection: CONNECTION,
+      datatype: 'property',
+      office: OFFICE,
+      id: 'OBJ9',
+      action: 'queue',
+    });
+    await drainFetchList();
+    expect(await item('property', 'OBJ9')).toBeDefined();
+
+    // "Catch up now" makes the next tick run it; the connection page shows what the adapter knows.
+    expect(
+      (await post('/admin/vitec', { action: 'catch_up', connection: CONNECTION })).status,
+    ).toBe(303);
+    expect(await store.getState(CONNECTION, 'catch_up_at')).toBe('1970-01-01T00:00:00.000Z');
+    const page = await fetch(`${running.baseUrl}/admin/connections/${CONNECTION}`, {
+      headers: { cookie },
+    });
+    const shown = await page.text();
+    expect(shown).toContain('Connect username');
+    expect(shown).toContain('fetch list');
+  });
+
   it('fetches at most five records at once (proposal point 10)', async () => {
     seed(fake);
     for (let n = 2; n <= 20; n += 1) fake.put(OFFICE, 'property', estate(`OBJ${n}`));

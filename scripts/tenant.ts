@@ -4,10 +4,10 @@
 //   node dist/scripts/tenant.js add-tenant <id> <display name>          prints the tenant token once
 //   node dist/scripts/tenant.js add-connection <id> <tenant> <provider> [credentials] [office,office]
 //   node dist/scripts/tenant.js add-subscriber <tenant> <label> <bell url>   prints the bell secret once
-import { randomBytes } from 'node:crypto';
 import { loadConfig } from '../engine/config.js';
 import { closeDb, db } from '../engine/storage/db.js';
 import { migrate } from '../engine/storage/migrate.js';
+import { newSecret as secret } from '../engine/storage/crypto.js';
 import {
   addSubscriber,
   configureCredentials,
@@ -20,8 +20,6 @@ const config = loadConfig();
 db(config.databaseUrl);
 await migrate();
 configureCredentials(config.credentialsKey);
-
-const secret = (): string => randomBytes(32).toString('base64url');
 
 switch (command) {
   case 'add-tenant': {

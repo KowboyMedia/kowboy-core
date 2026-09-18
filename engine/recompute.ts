@@ -14,6 +14,8 @@ export type Scope = {
   tenantId?: string;
   connectionId?: string;
   datatype?: Datatype;
+  /** One item, from the admin panel. */
+  remoteId?: string;
   /** Only rows produced by an older rules version (SRS §3). */
   staleRulesOnly?: boolean;
 };
@@ -54,6 +56,7 @@ export async function recompute(
     tenantId: scope.tenantId,
     connectionId: scope.connectionId,
     datatype: scope.datatype,
+    remoteId: scope.remoteId,
     rulesVersionBefore: scope.staleRulesOnly ? RULES_VERSION : undefined,
   });
   const touchedTenants = new Set<string>();

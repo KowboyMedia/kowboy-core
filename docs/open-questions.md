@@ -54,11 +54,3 @@ That is an adapter API change, so it needs approval (E3). It is additive and bre
 Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPress plugins normally
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
-
-## 29. `[core]` The admin panel MVP
-
-`docs/admin-panel.md` describes it: eight panels (overview, tenants and sites, connections,
-adapter panels, items, events, a test panel that runs requests, settings), server-rendered inside
-the `web` process behind the admin secret, adapter panels living in each adapter's own folder and
-reaching the shell through one additive field on the adapter API. Answer: yes to build it as
-described, or say what to change. The adapter API field is the one protected change.

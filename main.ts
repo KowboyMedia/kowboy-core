@@ -1,11 +1,12 @@
 // The entrypoint, and the only file that imports both the engine and the adapters
 // (strategy §3.1 E2, §5.1).
 //
-//   node dist/main.js web      subscriber API, admin, health, and the adapters' own endpoints
+//   node dist/main.js web      subscriber API, admin API and panel, health, and the adapters' own endpoints
 //   node dist/main.js worker   the adapters' background work, bells, housekeeping
 import { startEngine } from './engine/index.js';
 import { startAdapter } from './engine/adapter-api/index.js';
 import { adapterRoutes } from './engine/http/server.js';
+import { adminRoutesFor } from './engine/admin/index.js';
 import { report } from './engine/errors.js';
 import type { Adapter } from './engine/adapter-api/types.js';
 import { fakeWebhookAdapter } from './adapters/fake-webhook/index.js';
@@ -22,7 +23,8 @@ if (role === 'web') {
   const routes = adapters.flatMap((adapter) =>
     adapterRoutes(adapter.manifest.provider, adapter.routes ?? []),
   );
-  engine.listen(routes);
+  // The admin panel (docs/admin-panel.md) lives in the web process, with the adapters' own panels.
+  engine.listen([...routes, ...adminRoutesFor(engine, adapters)]);
   console.log(`web listening on ${engine.config.port}`);
 } else if (role === 'worker') {
   engine.startWorker();

@@ -26,7 +26,7 @@ Get from the Concept and SRS to a production deploy of a simple, lean and reliab
 | Contract             | One JSON Schema per datatype describing the current shape. TS types are generated from it at build time. Breaking changes use expand-contract (§6).                                                                                               | Schema and code can't drift                                                                             |
 | Tests                | Vitest against real Postgres in CI                                                                                                                                                                                                                |                                                                                                         |
 | Checks               | Few blocking checks; the rest are warnings (§3)                                                                                                                                                                                                   |                                                                                                         |
-| CI/CD                | GitHub Actions for the checks; App Platform deploys the `staging` branch on push, and production only when an agent asks it to, on Patric's word in chat                                                                                          | Production approval is one sentence in chat, no console                                                 |
+| CI/CD                | GitHub Actions for the checks, enforced by branch protection on `staging` and `main`; App Platform deploys `staging` and `main` on every merge                                                                                                    | One path for agents and humans: a pull request with green checks is the only way in                     |
 | Monitoring           | `/v1/health`: 200 when every check passes, 500 when any fails, same payload (§8.1). Watched by Sentry Uptime.                                                                                                                                     | Works with any monitoring tool                                                                          |
 | Errors               | Sentry (EU) in Core and both clients. Until the account exists, error reporting is a **placeholder**: one small module, active only when `SENTRY_DSN` is set, a no-op otherwise.                                                                  | One error surface, and no waiting on an account                                                         |
 | WP client            | PHP 8.3, PHPStan, and the shared sync scenario suite run against a real WordPress install (no PHPUnit, no wp-env)                                                                                                                                 | One suite proves both clients against the real Core                                                     |
@@ -108,7 +108,7 @@ Formatting is applied by the formatter. Line endings are fixed by `.gitattribute
 PR ──► CI: E1–E4 block · warnings reported
 push staging ──► auto-deploy STAGING (Core + staging WP site + staging Lovable site) ──► smoke suite
              ──► release report
-merge main ──► Patric checks staging sites ──► says "release" in chat ──► an agent asks App Platform to deploy main ──► PRODUCTION (health-gated; old version stays live on failure)
+confirm on staging ──► pull request into main ──► CI ──► merge ──► PRODUCTION (health-gated; old version stays live on failure)
 ```
 
 **The release report** (plain language) contains:
@@ -121,9 +121,9 @@ merge main ──► Patric checks staging sites ──► says "release" in cha
 One approval promotes Core, the WP plugin channel and the Lovable kit. Every deploy tags a Sentry release.
 
 Staging is its own app deploying the `staging` branch on every push, on the production cluster with
-a database of its own. Production never deploys by itself: a release is Patric saying so in chat,
-after which an agent asks App Platform for a deployment of `main`. Humans never touch git or a
-console (Patric, 2026-09-17).
+a database of its own; production deploys `main` on every merge. Branch protection on both
+branches makes a pull request with green checks the only way in, for agents and humans alike; an
+agent merges on Patric's word, a dev with the merge button (Patric, 2026-09-18).
 
 ## 5. Engine and adapters
 
@@ -320,6 +320,16 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
 - **Retention:** 30 days, deleted by the worker once an hour.
 - **Access:** admin auth only, because bodies can contain personal data.
 
+### 8.3 Admin panel
+
+One place in the `web` process, under `/admin`, behind the admin secret: overview (health, counts,
+latest events), tenants and sites (tokens and bell secrets shown once, ring now), connections (the
+credentials form the adapter declares, offices, lifecycle actions), the adapters' own panels,
+items (raw, unified, display, the timeline, recompute), events, a test panel that runs requests as
+a site or an operator, and settings. Server-rendered, no new dependency; an adapter's panels come
+through `Adapter.admin` and the engine never looks inside them. docs/admin-panel.md is the design
+(approved 2026-09-18, AC 42).
+
 ## 9. Phases and approval gates
 
 | Phase                                                                                                                                           | Output                                                                                                                              | Exit                                                                                          |
@@ -397,6 +407,7 @@ golden/<provider>/<datatype>/<case>/
 | 39  | **Repeated retries (Vitec).** A record failing 3 fetches in a row turns `vitec.retries` red. It turns green after a successful fetch or when an operator discards the record.                                                                                                                                                                                                                                                                                                                                                                                       |
 | 40  | **Compression.** A 100-item `/v1/changes` page is served gzip-encoded with `Content-Encoding: gzip`, at least 4x smaller than the same body uncompressed, and adds under 10 ms p95 per page. A client that does not accept gzip still gets valid plain JSON.                                                                                                                                                                                                                                                                                                        |
 | 41  | **Restore.** After Core's database is restored to an earlier point and the app restarted: no subscriber skips a change, no subscriber deletes or rewrites an item it should keep, every `seq` served afterwards is above every cursor handed out before, Core converges to the CRM's current state including deletions made after the restore point, and only records whose change date moved are fetched. `/v1/health` is red from the restart until every adapter has caught up and says when the database is ahead of the app; `/v1/ready` stays 200 throughout. |
+| 42  | **Admin panel.** One place in the `web` process, behind the admin secret: overview, tenants and sites, connections, adapter panels, items (raw, unified, display, timeline), events, a test panel that runs requests, settings. Every panel is driven through HTTP in the tests; an adapter's panels come through `Adapter.admin` and the engine never looks inside them (docs/admin-panel.md, approved 2026-09-18).                                                                                                                                                |
 
 ## 11. Rules ledger: what Kowboy supplies
 

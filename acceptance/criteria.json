@@ -407,6 +407,23 @@
         "the WordPress client against Core keeps its copy through a database restore and converges again without deleting or rewriting anything (AC 41)"
       ],
       "note": "Proved end to end: the database put back to a snapshot and Core started again, with the fake subscriber and with both real clients, whose copies are byte for byte the same before, during and after the recovery. Health is red until the worker has caught up and readiness stays green. Vitec's live behaviour waits for a test account (open question 18)."
+    },
+    {
+      "ac": 42,
+      "title": "Admin panel: every panel works through HTTP, and an adapter brings its own",
+      "phase": "engine",
+      "tests": [
+        "the admin panel asks for the admin secret, refuses a wrong one, and refuses a form without its token",
+        "the admin panel shows the overview with every health check, the adapter ones included",
+        "the admin panel adds a tenant, shows its token once, and the token pulls changes (AC 42)",
+        "the admin panel adds a site with a bell secret shown once, and rings it",
+        "the admin panel creates a connection, saves it, and queues a lifecycle event the worker delivers",
+        "the admin panel finds an item, shows raw, unified and display with its timeline, and recomputes it",
+        "the admin panel pulls as a site from the test panel and shows the sizes",
+        "the admin panel runs housekeeping from the settings page",
+        "the Vitec adapter has its own admin panel: the fetch list, the schedules, and one record looked at or queued (AC 42)"
+      ],
+      "note": "docs/admin-panel.md, approved by Patric 2026-09-18 (question 29)."
     }
   ]
 }

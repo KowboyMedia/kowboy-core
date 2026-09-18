@@ -1,0 +1,232 @@
+// Connections: a tenant's link to one CRM. The credentials form comes from the adapter and its
+// values are never shown back; the lifecycle actions go through the same queue the admin API uses.
+import {
+  connections,
+  setConnectionActive,
+  setLicensedOffices,
+  tenants,
+  upsertConnection,
+  type ConnectionListRow,
+} from '../storage/connections.js';
+import { queueLifecycle } from '../lifecycle.js';
+import { queryEvents } from '../events.js';
+import { DATATYPES, type Datatype, type LifecycleEvent } from '../adapter-api/types.js';
+import { connectionStatus, credentialFields } from './adapters.js';
+import { escape, field, form, link, select, table, textarea, when } from './html.js';
+import { eventsTable } from './timeline.js';
+import { officesOf, type Ctx, type Panel } from './context.js';
+
+const ID = /^[a-z0-9_-]{1,64}$/;
+const EVENTS: LifecycleEvent['type'][] = [
+  'connection_added',
+  'offices_added',
+  'offices_removed',
+  'resync',
+  'connection_removed',
+];
+
+const href = (id: string): string => `/admin/connections/${encodeURIComponent(id)}`;
+
+function listPage(ctx: Ctx, rows: ConnectionListRow[], tenantIds: string[]): string {
+  const providers = ctx.adapters.map((adapter) => ({ value: adapter.provider }));
+  return (
+    table(
+      [
+        'Connection',
+        'Tenant',
+        'CRM',
+        'Offices',
+        'Active',
+        'Credentials',
+        'Last ingest',
+        'Last error',
+      ],
+      rows.map((row) => [
+        link(href(row.id), row.id),
+        `<code>${escape(row.tenant_id)}</code>`,
+        escape(row.provider),
+        escape(row.licensed_offices.join(', ')),
+        escape(row.active ? 'yes' : 'no'),
+        escape(row.has_credentials ? 'set' : 'missing'),
+        when(row.last_ingest_at),
+        escape(row.last_error ?? ''),
+      ]),
+      'No connections yet.',
+    ) +
+    '<h2>Add a connection</h2>' +
+    form(
+      '/admin/connections',
+      ctx.csrf,
+      field('id', 'Connection id (letters, digits, - and _)', { required: true }) +
+        select(
+          'tenant',
+          'Tenant',
+          tenantIds.map((id) => ({ value: id })),
+        ) +
+        select('provider', 'CRM', providers) +
+        textarea('offices', 'Licensed offices (one per line or comma-separated)'),
+      { submit: 'Add connection' },
+    )
+  );
+}
+
+async function detailPage(ctx: Ctx, row: ConnectionListRow): Promise<string> {
+  const fields = credentialFields(ctx.adapters, row.provider);
+  const credentials =
+    fields.length === 0
+      ? '<p class="muted">This CRM declares no credentials form.</p>'
+      : fields
+          .map((f) =>
+            field(`credential_${f.key}`, f.label, { type: f.secret ? 'password' : 'text' }),
+          )
+          .join('') +
+        `<p class="muted">Credentials are ${row.has_credentials ? 'set' : 'missing'}; leave the fields empty to keep them.</p>`;
+  const save = form(
+    href(row.id),
+    ctx.csrf,
+    credentials +
+      textarea('offices', 'Licensed offices', row.licensed_offices.join('\n')) +
+      select('active', 'Active', [{ value: 'yes' }, { value: 'no' }], row.active ? 'yes' : 'no'),
+    { submit: 'Save' },
+  );
+  const action = (event: LifecycleEvent['type'], inner: string, submit: string): string =>
+    form(`${href(row.id)}/event`, ctx.csrf, inner, { submit, hidden: { event } });
+  const actions =
+    action('connection_added', '', 'Load everything (connection added)') +
+    action('offices_added', field('office_ids', 'Office ids'), 'Load added offices') +
+    action('offices_removed', field('office_ids', 'Office ids'), 'Remove offices') +
+    action(
+      'resync',
+      select('datatype', 'Datatype', [
+        { value: '', label: 'all' },
+        ...DATATYPES.map((d) => ({ value: d })),
+      ]),
+      'Resync',
+    ) +
+    action('connection_removed', '', 'Remove everything (connection removed)');
+  const status = await connectionStatus(ctx.adapters, row.provider, row.id);
+  const events = await queryEvents({ connectionId: row.id, limit: 20, newestFirst: true });
+  return (
+    `<p>Tenant <code>${escape(row.tenant_id)}</code> · CRM ${escape(row.provider)} · last ingest ${when(row.last_ingest_at)}${row.last_error ? ` · <span class="bad">${escape(row.last_error)}</span>` : ''}</p>` +
+    '<h2>Settings</h2>' +
+    save +
+    '<h2>Actions</h2><div class="columns">' +
+    actions +
+    '</div>' +
+    (status ? `<h2>What the adapter knows</h2>${status}` : '') +
+    '<h2>Latest events</h2>' +
+    eventsTable(events)
+  );
+}
+
+const rowOf = async (id: string): Promise<ConnectionListRow | undefined> =>
+  (await connections()).find((row) => row.id === id);
+
+async function saveConnection(ctx: Ctx, row: ConnectionListRow): Promise<string | null> {
+  const fields = credentialFields(ctx.adapters, row.provider);
+  const values = fields.map((f) => [f.key, ctx.form[`credential_${f.key}`] ?? ''] as const);
+  const given = values.filter(([, value]) => value !== '');
+  if (given.length > 0 && given.length < values.length) {
+    return `!Fill in every credential field (${fields.map((f) => f.label).join(', ')}) or none.`;
+  }
+  await upsertConnection({
+    id: row.id,
+    tenantId: row.tenant_id,
+    provider: row.provider,
+    credentials: given.length > 0 ? JSON.stringify(Object.fromEntries(values)) : null,
+    licensedOffices: officesOf(ctx.form['offices'] ?? ''),
+    active: ctx.form['active'] === 'yes',
+  });
+  return null;
+}
+
+export const connectionPanels: Panel[] = [
+  {
+    method: 'GET',
+    pattern: /^\/admin\/connections$/,
+    handle: async (ctx) => {
+      const [rows, tenantRows] = await Promise.all([connections(), tenants()]);
+      return ctx.render(
+        'Connections',
+        listPage(
+          ctx,
+          rows,
+          tenantRows.map((t) => t.id),
+        ),
+      );
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/admin\/connections$/,
+    handle: async (ctx) => {
+      const id = ctx.form['id'] ?? '';
+      const tenantId = ctx.form['tenant'] ?? '';
+      const provider = ctx.form['provider'] ?? '';
+      if (!ID.test(id) || !tenantId || !ctx.adapters.some((a) => a.provider === provider)) {
+        return ctx.redirect(
+          '/admin/connections',
+          '!A connection needs an id like acme-1, a tenant and a CRM.',
+        );
+      }
+      if (await rowOf(id))
+        return ctx.redirect('/admin/connections', `!There is already a connection ${id}.`);
+      await upsertConnection({
+        id,
+        tenantId,
+        provider,
+        licensedOffices: officesOf(ctx.form['offices'] ?? ''),
+      });
+      return ctx.redirect(
+        href(id),
+        'Connection created. Now its credentials, then "Load everything".',
+      );
+    },
+  },
+  {
+    method: 'GET',
+    pattern: /^\/admin\/connections\/([^/]+)$/,
+    handle: async (ctx) => {
+      const row = await rowOf(ctx.params[0] ?? '');
+      if (!row) return { ...ctx.render('Not found', '<p>No such connection.</p>'), status: 404 };
+      return ctx.render(`Connection ${row.id}`, await detailPage(ctx, row));
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/admin\/connections\/([^/]+)$/,
+    handle: async (ctx) => {
+      const row = await rowOf(ctx.params[0] ?? '');
+      if (!row) return ctx.redirect('/admin/connections', '!No such connection.');
+      const problem = await saveConnection(ctx, row);
+      return ctx.redirect(href(row.id), problem ?? 'Saved.');
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/admin\/connections\/([^/]+)\/event$/,
+    handle: async (ctx) => {
+      const id = ctx.params[0] ?? '';
+      const event = EVENTS.find((candidate) => candidate === ctx.form['event']);
+      if (!event) return ctx.redirect(href(id), '!Unknown action.');
+      const datatype = DATATYPES.find((candidate) => candidate === ctx.form['datatype']) as
+        Datatype | undefined;
+      const queued = await queueLifecycle(id, event, {
+        officeIds: officesOf(ctx.form['office_ids'] ?? ''),
+        datatype,
+      });
+      if (queued === null) return ctx.redirect('/admin/connections', '!No such connection.');
+      if (event === 'connection_removed' || event === 'offices_removed') {
+        if (event === 'connection_removed') await setConnectionActive(id, false);
+        else
+          await setLicensedOffices(
+            id,
+            (await rowOf(id))?.licensed_offices.filter(
+              (o) => !officesOf(ctx.form['office_ids'] ?? '').includes(o),
+            ) ?? [],
+          );
+      }
+      return ctx.redirect(href(id), `Queued ${event}; the worker delivers it within seconds.`);
+    },
+  },
+];

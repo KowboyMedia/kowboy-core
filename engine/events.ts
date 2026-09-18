@@ -73,6 +73,8 @@ export type EventQuery = {
   from?: string;
   to?: string;
   limit?: number;
+  /** The admin panel reads the latest first. */
+  newestFirst?: boolean;
 };
 
 /** The admin timeline query (SRS §11, AC 16). */
@@ -98,7 +100,8 @@ export async function queryEvents(query: EventQuery): Promise<EventRow[]> {
   if (query.to) add('at <= ?', query.to);
 
   const limit = Math.min(query.limit ?? 500, 5000);
-  const sql = `select * from events ${where.length ? `where ${where.join(' and ')}` : ''} order by at, ctid limit ${limit}`;
+  const order = query.newestFirst ? 'at desc, ctid desc' : 'at, ctid';
+  const sql = `select * from events ${where.length ? `where ${where.join(' and ')}` : ''} order by ${order} limit ${limit}`;
   return (await db().query<EventRow>(sql, values)).rows;
 }
 

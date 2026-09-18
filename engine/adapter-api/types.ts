@@ -108,12 +108,46 @@ export type AdapterApi = {
   report(error: unknown, context?: Record<string, unknown>): void;
 };
 
+/** A field of the credentials form an adapter asks for in the admin panel (docs/admin-panel.md). */
+export type AdminField = { key: string; label: string; secret?: boolean };
+
+/** A panel request: the route request, the parsed form of a POST, and this provider's connections. */
+export type AdminRequest = RouteRequest & {
+  /** The fields of a POST form, or empty. */
+  form: Record<string, string>;
+  /** Goes into every form the panel renders (`adminHtml.form` does it). */
+  csrf: string;
+  /** This provider's connections, credentials decrypted, as `AdapterApi.connections()` gives them. */
+  connections(): Promise<Connection[]>;
+};
+
+/** What a panel renders: an HTML fragment the shell wraps, or a redirect after a POST. */
+export type AdminResult = { html: string } | { redirect: string };
+
+export type AdminPanel = {
+  /** Under /admin/<provider>/; "" is the adapter's front page. */
+  path: string;
+  title: string;
+  handle(request: AdminRequest): Promise<AdminResult> | AdminResult;
+};
+
+/** What an adapter shows and asks for in the admin panel (docs/admin-panel.md, approved 2026-09-18). */
+export type AdapterAdmin = {
+  /** The credentials form of a connection; the values become one JSON document and are never shown back. */
+  credentials: AdminField[];
+  panels: AdminPanel[];
+  /** An HTML fragment under a connection: what the adapter knows about it. */
+  connectionStatus?(connection: Connection): Promise<string>;
+};
+
 /** What an adapter directory exports. */
 export type Adapter = {
   manifest: Manifest;
   mappers: Mappers;
   /** Endpoints the entrypoint mounts. The engine never sees the requests. */
   routes?: Route[];
+  /** Its settings and panels in the admin panel, rendered inside the engine's shell. */
+  admin?: AdapterAdmin;
   /** Sets up the adapter's own timers, loops and queues. */
   start(api: AdapterApi): Promise<void> | void;
   /** Called on shutdown, so timers stop cleanly. */
