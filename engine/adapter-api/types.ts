@@ -65,7 +65,8 @@ export type Route = {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   /** Mounted under /v1/hook/<provider>/, e.g. "webhook" or "webhook/:connection". */
   path: string;
-  handler: (request: RouteRequest) => Promise<RouteResponse> | RouteResponse;
+  /** The adapter's API comes along, so a handler can log events and read its connections. */
+  handler: (request: RouteRequest, api: AdapterApi) => Promise<RouteResponse> | RouteResponse;
 };
 
 export type RouteRequest = {
@@ -80,6 +81,14 @@ export type RouteResponse = {
   status: number;
   body?: string | Record<string, unknown>;
   headers?: Record<string, string>;
+};
+
+/** Where an adapter's event belongs: a record's timeline, and the chain one notification started. */
+export type EventContext = {
+  correlationId?: string | null;
+  connectionId?: string | null;
+  datatype?: Datatype | null;
+  remoteId?: string | null;
 };
 
 /** Everything the engine offers an adapter. Every call is idempotent (strategy §5.1). */
@@ -100,7 +109,11 @@ export type AdapterApi = {
     ids: string[],
   ): Promise<{ tombstoned: string[] }>;
   onLifecycle(handler: LifecycleHandler): void;
-  logEvent(type: string, fields: Record<string, unknown>): Promise<void>;
+  /**
+   * Record an adapter's own event. With a context it lands on that record's timeline and in the
+   * chain the notification started (AC 16; question 9, approved 2026-09-18).
+   */
+  logEvent(type: string, fields: Record<string, unknown>, context?: EventContext): Promise<void>;
   healthCheck(name: string, check: () => Promise<HealthResult> | HealthResult): void;
   /** The connections this provider owns, so an adapter can resume its own work at startup. */
   connections(): Promise<Connection[]>;

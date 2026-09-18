@@ -154,9 +154,10 @@
         "admin answers the event timeline query",
         "ingest links a webhook to the write it caused by correlation id (AC 16)",
         "the event log keeps every event when many writers log at once",
-        "the event log deletes events outside the retention window (AC 16)"
+        "the event log deletes events outside the retention window (AC 16)",
+        "the Vitec adapter puts the notification, the Vitec call and the write on one timeline (AC 16)"
       ],
-      "note": "Causes covered: written, unchanged, dropped (unlicensed, malformed, inactive, unknown datatype), tombstoned, bell, pull. A correlation id links a webhook to the write it caused; an adapter cannot yet stamp its own events with one (open question 9)."
+      "note": "Causes covered: written, unchanged, dropped (unlicensed, malformed, inactive, unknown datatype), tombstoned, bell, pull. A correlation id links a webhook to the write it caused, and since 2026-09-18 (question 9) an adapter stamps its own events with it: the notification's arrival and every CRM call, with status and duration, sit on the record's timeline."
     },
     {
       "ac": 17,
