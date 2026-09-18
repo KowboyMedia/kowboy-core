@@ -33,16 +33,21 @@ connections, lifecycle events, health, the event log) becomes a panel.
 1. **Overview.** The health checks as `/v1/health` reports them, live; items per tenant and
    datatype (live and tombstoned); the worker's last heartbeat; the version and the migrations
    applied; the last 20 events. The first page after login.
-2. **Tenants and sites.** Tenants: list, add, rename. Per tenant its sites (subscribers): label,
-   bell URL, active, last pull, last bell and its status; add one; rotate its bell secret; show a
-   tenant token once, rotate it; ring a site now (delta or forcerefresh). An inactive tenant is a
-   disabled licence (Patric, 2026-09-18): its sites get no bell and no page, and keep showing
-   what they have; their administrators see one notice saying so.
-3. **Connections.** Per tenant: the CRM (adapter), the credentials as a write-only form the
-   adapter declares (never displayed), the licensed offices, active or not. Actions: add (runs the
-   initial load), add or remove offices, resync, deactivate. Below the form, the adapter's own
-   status fragment for this connection (for Vitec: last catch-up and comparison, what is waiting
-   on the fetch list, records that keep failing).
+2. **Tenants.** The list, with each tenant's connections and sites counted; add one. A tenant's
+   page holds everything about that customer (Patric, 2026-09-18, question 39): name and licence
+   (active or not), the token shown once and rotated, its connections (add one here; open one for
+   its login, offices and loads), and its sites (label, bell URL, active, last pull, last bell and
+   its status; add one and get its bell secret once; rotate the secret; ring it now, delta or
+   forcerefresh). The token and the bell secret go into the site's own settings by hand. An
+   inactive tenant is a disabled licence (2026-09-18): its sites get no bell and no page, and keep
+   showing what they have; their administrators see one notice saying so.
+3. **Connections.** The overview of every connection across tenants: the CRM (adapter), the
+   licensed offices, active or not, login set or missing, last ingest and last error, each linked
+   to its page and its tenant. A connection is made on its tenant's page. Its own page: the
+   credentials as a write-only form the adapter declares (never displayed), the offices, active or
+   not, the actions (load everything, load added offices, resync, remove) and, below, the adapter's
+   own status fragment (for Vitec: last catch-up and comparison, what is waiting on the fetch list,
+   records that keep failing).
 4. **Adapter panels.** One per adapter, from `adapters/<provider>/admin/`. Every adapter page
    opens with its setup directions ("Set up Vitec"): the steps in order, built from what the
    adapter reads, and kept true by a test in the adapter that fails when a setting, a lifecycle
