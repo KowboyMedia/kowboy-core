@@ -118,3 +118,25 @@ rejected) and the office, datatype and id it named; a queued one carries the cor
 the fetch and the write then share, so the record's timeline runs from Vitec's call to the bell.
 Every call to Connect is an event too, `crm.call`: endpoint, query, status, duration, answer size,
 and the start of the answer when it was an error or broken JSON (question 9, 2026-09-18).
+
+## When Vitec misbehaves
+
+Vitec has had timeouts, broken answers, and offices that close without notice, whose every request
+then answers 403 and whose hammering got Core blocked (Patric, 2026-09-18). The adapter guards
+itself, all of it inside the adapter:
+
+- **A refused office (401 or 403)** is blocked at the first refusal: nothing more is asked for it,
+  its waiting records are parked, and one probe per cool-down (an hour, doubling to a day) checks
+  whether it is back. Back means unblocked and loaded in full, so nothing that happened meanwhile is
+  missed. Its records stay on the sites as they are until a person removes the office at the panel
+  (question 38). `vitec.offices` is red while an office is blocked; the panel has "Probe now" and
+  "Forget".
+- **Vitec down, busy or unreachable** (timeouts, 5xx, 429, network errors) and **broken answers**
+  count per connection: after five in a row the connection pauses, two minutes doubling to thirty,
+  and shows red in `vitec.connect`. When the pause runs out the next fetches go through as a probe;
+  one more failure pauses again, a success ends it. Each record is still retried with growing waits
+  and given up after six attempts, for the panel's Retry or Drop.
+- **A broken answer** keeps the start of what Vitec sent in the `crm.call` event, so the cause can
+  be read afterwards; nothing half-parsed is ever written, and the last good version stays.
+- **A speed limit** of ten requests a second (`VITEC_REQUESTS_PER_SECOND`), five at once
+  (`VITEC_FETCH_CONCURRENCY`), and Vitec's own `Retry-After` honoured for up to five minutes.

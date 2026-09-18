@@ -12,6 +12,12 @@
 // exists. Vitec's estate subscription is limited to estates advertised on the website, so Update
 // means marketed and Remove means not any more.
 //
+// Vitec misbehaves at times (Patric, 2026-09-18), and the adapter guards itself: after five
+// failures in a row a connection pauses and probes its way back with growing waits; a 403 blocks
+// the office at once, its records wait, and one probe per cool-down brings it back with a full
+// load; a broken answer is kept in the event and retried; requests are capped per second and
+// Vitec's own Retry-After is honoured (api.ts).
+//
 // A connection's credentials are a JSON document, `{"username", "password"}`: the Connect key
 // pair. Its licensed offices are the office ids, which are what Connect calls customer ids
 // (M30011 and the like): every URL and notification carries one. They are also the fetch scope,
@@ -39,6 +45,13 @@ const CATCH_UP_LIMIT_MS = 13 * 3_600_000;
 const COMPARE_EVERY_MS = 24 * 3_600_000;
 const LAG_LIMIT_MS = 5 * 60_000;
 const RETRIES_RED = 3;
+/** A connection pauses after this many failures in a row on Vitec's side. */
+const PAUSE_AFTER = 5;
+const PAUSE_BASE_MS = 2 * 60_000;
+const PAUSE_MAX_MS = 30 * 60_000;
+/** An office Vitec refuses is probed after this long, doubling per failed probe. */
+const BLOCK_BASE_MS = 3_600_000;
+const BLOCK_MAX_MS = 24 * 3_600_000;
 
 type Credentials = { username: string; password: string };
 type Live = { connection: Connection; credentials: Credentials };
@@ -102,6 +115,137 @@ async function live(current: AdapterApi): Promise<Live[]> {
     if (credentials) result.push({ connection, credentials });
   }
   return result;
+}
+
+// ---- The guards: a paused connection, a blocked office ----------------------------------------
+
+type Pause = { failures: number; pausedUntil: number | null; pauseMs: number; probing: boolean };
+
+async function pauseOf(connectionId: string): Promise<Pause> {
+  const [failures, until, pauseMs, probing] = await Promise.all([
+    store.getState(connectionId, 'failures'),
+    store.getState(connectionId, 'paused_until'),
+    store.getState(connectionId, 'pause_ms'),
+    store.getState(connectionId, 'probing'),
+  ]);
+  return {
+    failures: Number(failures ?? 0),
+    pausedUntil: until ? new Date(until).getTime() : null,
+    pauseMs: Number(pauseMs ?? PAUSE_BASE_MS),
+    probing: probing === '1',
+  };
+}
+
+const paused = (pause: Pause): boolean =>
+  pause.pausedUntil !== null && pause.pausedUntil > Date.now();
+
+/** A call failed on Vitec's side: count it, and pause the connection at PAUSE_AFTER in a row. */
+async function noteFailure(current: AdapterApi, live: Live, detail: string): Promise<void> {
+  const id = live.connection.id;
+  // Fetches fail side by side, so the count and the pause are both settled in the database.
+  const failures = await store.increment(id, 'failures');
+  if (failures < PAUSE_AFTER) return;
+  const pause = await pauseOf(id);
+  if (paused(pause)) return;
+  const until = new Date(Date.now() + pause.pauseMs);
+  if (!(await store.setIfEmpty(id, 'paused_until', until.toISOString()))) return;
+  await store.setState(id, 'pause_ms', String(Math.min(pause.pauseMs * 2, PAUSE_MAX_MS)));
+  await store.setState(id, 'probing', '');
+  await current.logEvent(
+    'connect.paused',
+    { connection_id: id, failures, until: until.toISOString(), detail },
+    { connectionId: id },
+  );
+  current.report(new Error('vitec connection paused'), { connection_id: id, failures, detail });
+}
+
+/** Vitec answered: the run of failures ends, and a probing connection is back for good. */
+async function noteSuccess(current: AdapterApi, live: Live): Promise<void> {
+  const id = live.connection.id;
+  const pause = await pauseOf(id);
+  if (pause.failures === 0 && !pause.probing) return;
+  await store.setState(id, 'failures', '0');
+  await store.setState(id, 'pause_ms', String(PAUSE_BASE_MS));
+  await store.setState(id, 'probing', '');
+  if (pause.probing) {
+    await current.logEvent('connect.resumed', { connection_id: id }, { connectionId: id });
+  }
+}
+
+/** A pause that has run out lets the next fetches through as a probe: one more failure pauses again. */
+async function resumeDue(targets: Live[]): Promise<void> {
+  for (const target of targets) {
+    const pause = await pauseOf(target.connection.id);
+    if (pause.pausedUntil === null || pause.pausedUntil > Date.now()) continue;
+    await store.setState(target.connection.id, 'paused_until', '');
+    await store.setState(target.connection.id, 'failures', String(PAUSE_AFTER - 1));
+    await store.setState(target.connection.id, 'probing', '1');
+  }
+}
+
+/** Vitec refused an office: block it at once, once. */
+async function blockOffice(
+  current: AdapterApi,
+  live: Live,
+  officeId: string,
+  detail: string,
+): Promise<void> {
+  const fresh = await store.blockOffice(officeId, detail, BLOCK_BASE_MS, BLOCK_MAX_MS);
+  if (!fresh) return;
+  await current.logEvent(
+    'office.blocked',
+    { office_id: officeId, connection_id: live.connection.id, detail },
+    { connectionId: live.connection.id },
+  );
+  current.report(new Error('vitec office blocked'), {
+    office_id: officeId,
+    connection_id: live.connection.id,
+    detail,
+  });
+}
+
+/** Offices the drain leaves alone: blocked ones, and every office of a paused connection. */
+async function skippedOffices(targets: Live[]): Promise<string[]> {
+  const skipped = new Set((await store.blockedOffices()).map((office) => office.officeId));
+  for (const target of targets) {
+    if (paused(await pauseOf(target.connection.id))) {
+      for (const officeId of target.connection.licensedOffices) skipped.add(officeId);
+    }
+  }
+  return [...skipped];
+}
+
+/**
+ * One probe per blocked office whose cool-down has passed: a single list request. Back means
+ * unblocked and loaded in full, so nothing that happened while it was refused is missed; refused
+ * again means a longer cool-down.
+ */
+async function probeOffices(current: AdapterApi, targets: Live[]): Promise<void> {
+  for (const office of await store.probesDue()) {
+    const owner = targets.find((t) => t.connection.licensedOffices.includes(office.officeId));
+    if (!owner) {
+      await store.unblockOffice(office.officeId);
+      continue;
+    }
+    if (paused(await pauseOf(owner.connection.id))) continue;
+    const trace: EventContext = { connectionId: owner.connection.id };
+    try {
+      await connect.page(owner.credentials, 'office', office.officeId, 0, undefined, 1, trace);
+      await store.unblockOffice(office.officeId);
+      await current.logEvent(
+        'office.unblocked',
+        { office_id: office.officeId, probes: office.probes + 1 },
+        trace,
+      );
+      await load(owner, [office.officeId]);
+    } catch (error) {
+      if (connect.kindOf(error) === 'forbidden') {
+        await store.blockOffice(office.officeId, String(error), BLOCK_BASE_MS, BLOCK_MAX_MS);
+      } else {
+        await noteFailure(current, owner, String(error));
+      }
+    }
+  }
 }
 
 // ---- Path 1: webhooks -------------------------------------------------------------------------
@@ -215,7 +359,7 @@ async function drainOnce(): Promise<void> {
   const targets = await live(current);
   for (;;) {
     if (!engine) return;
-    const claimed = await store.claim(connect.concurrency());
+    const claimed = await store.claim(connect.concurrency(), await skippedOffices(targets));
     if (claimed.length === 0) return;
     await Promise.all(claimed.map((entry) => fetchOne(entry, targets, current)));
   }
@@ -262,6 +406,7 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
       entry.remoteId,
       trace,
     );
+    await noteSuccess(current, first);
     if (payload === null) {
       for (const { connection } of owners) {
         await current.notFound(connection, entry.datatype, entry.remoteId);
@@ -277,19 +422,36 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
     await store.remember(entry.officeId, entry.datatype, entry.remoteId, changedAtOf(payload));
     await queueReferences(entry, payload);
   } catch (error) {
-    // A failed fetch is retried, never treated as a delete (strategy §5.3).
-    const outcome = await store.requeue(entry, String(error));
-    if (outcome === 'given_up') {
-      const fields = {
-        office_id: entry.officeId,
-        datatype: entry.datatype,
-        remote_id: entry.remoteId,
-        attempts: entry.attempts + 1,
-        detail: String(error),
-      };
-      await current.logEvent('fetch.failed', fields, trace);
-      current.report(new Error('vitec fetch given up'), fields);
-    }
+    await failed(entry, first, error, current, trace);
+  }
+}
+
+/** A fetch failed: what happens next depends on why. Never a delete (strategy §5.3). */
+async function failed(
+  entry: store.Entry,
+  live: Live,
+  error: unknown,
+  current: AdapterApi,
+  trace: EventContext,
+): Promise<void> {
+  const kind = connect.kindOf(error);
+  if (kind === 'forbidden') {
+    await store.park(entry);
+    await blockOffice(current, live, entry.officeId, String(error));
+    return;
+  }
+  if (kind !== 'other') await noteFailure(current, live, String(error));
+  const outcome = await store.requeue(entry, String(error));
+  if (outcome === 'given_up') {
+    const fields = {
+      office_id: entry.officeId,
+      datatype: entry.datatype,
+      remote_id: entry.remoteId,
+      attempts: entry.attempts + 1,
+      detail: String(error),
+    };
+    await current.logEvent('fetch.failed', fields, trace);
+    current.report(new Error('vitec fetch given up'), fields);
   }
 }
 
@@ -323,19 +485,29 @@ async function listAll(
   changedSince?: Date,
 ): Promise<Listed> {
   const listed: Listed = new Map();
+  const blocked = new Set((await store.blockedOffices()).map((office) => office.officeId));
   for (const datatype of datatypes) {
     const perOffice = new Map<string, Map<string, string | null>>();
     for (const officeId of offices) {
+      if (blocked.has(officeId)) continue;
       const ids = new Map<string, string | null>();
       const trace: EventContext = { connectionId: live.connection.id };
-      for await (const row of connect.list(
-        live.credentials,
-        datatype,
-        officeId,
-        changedSince,
-        trace,
-      )) {
-        ids.set(row.id, isoDate(row.changedAt));
+      try {
+        for await (const row of connect.list(
+          live.credentials,
+          datatype,
+          officeId,
+          changedSince,
+          trace,
+        )) {
+          ids.set(row.id, isoDate(row.changedAt));
+        }
+      } catch (error) {
+        // A refused office stops here, the others go on; anything else fails the schedule.
+        if (connect.kindOf(error) !== 'forbidden' || !engine) throw error;
+        blocked.add(officeId);
+        await blockOffice(engine, live, officeId, String(error));
+        continue;
       }
       perOffice.set(officeId, ids);
     }
@@ -399,8 +571,12 @@ async function load(live: Live, offices: readonly string[], datatype?: Datatype)
   const listed = await listAll(live, offices, listable(datatype));
   await enqueueListed(listed, 'load', false);
   await enqueueMissing(listed);
-  await markCatchUp(live.connection.id, startedAt);
-  await store.setState(live.connection.id, 'compare_at', startedAt.toISOString());
+  // Only a load of every office is a catch-up and a comparison of the whole connection.
+  const whole = live.connection.licensedOffices.every((officeId) => offices.includes(officeId));
+  if (whole && !datatype) {
+    await markCatchUp(live.connection.id, startedAt);
+    await store.setState(live.connection.id, 'compare_at', startedAt.toISOString());
+  }
 }
 
 /** Resync (strategy §7.2): reload everything listed, and remove every id no longer listed. */
@@ -448,7 +624,10 @@ async function tickOnce(): Promise<void> {
   if (!current) return;
   const startup = startPending;
   let failed = false;
-  for (const target of await live(current)) {
+  const targets = await live(current);
+  await resumeDue(targets);
+  await probeOffices(current, targets);
+  for (const target of targets) {
     try {
       const catchUpAge = ageMs(await store.getState(target.connection.id, 'catch_up_at'));
       if (startup || catchUpAge >= CATCH_UP_EVERY_MS) await catchUp(target);
@@ -539,6 +718,32 @@ export const vitecAdapter: Adapter = {
         : { ok: false, detail: `${count} record(s) failed ${RETRIES_RED} fetches in a row` };
     });
     given.healthCheck(`${PROVIDER}.catch_up`, () => catchUpHealth(given));
+    given.healthCheck(`${PROVIDER}.offices`, async () => {
+      const blocked = await store.blockedOffices();
+      return blocked.length === 0
+        ? { ok: true }
+        : {
+            ok: false,
+            detail: blocked
+              .map(
+                (office) =>
+                  `${office.officeId}: refused since ${office.blockedAt.toISOString()}, next probe ${office.blockedUntil.toISOString()}`,
+              )
+              .join('; '),
+          };
+    });
+    given.healthCheck(`${PROVIDER}.connect`, async () => {
+      const problems: string[] = [];
+      for (const connection of await given.connections()) {
+        const pause = await pauseOf(connection.id);
+        if (paused(pause)) {
+          problems.push(
+            `${connection.id}: paused until ${new Date(pause.pausedUntil ?? 0).toISOString()} after ${PAUSE_AFTER} failures in a row`,
+          );
+        }
+      }
+      return problems.length === 0 ? { ok: true } : { ok: false, detail: problems.join('; ') };
+    });
 
     drainTimer = setInterval(() => void scheduleDrain(), DRAIN_MS);
     drainTimer.unref?.();
