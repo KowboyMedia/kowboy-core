@@ -87,7 +87,7 @@ the first item that is not done, and keep the file current. Decisions and open q
   handed over in chat), a Vitec connection on production (staging has one since 2026-09-18, item
   6), and Sentry. The database cluster accepts connections only from the two apps (question 33,
   2026-09-18).
-- Sentry: wired into Core 2026-09-18 (question 36); the DSN is on staging, production gets it with the release. The throttle fits the 5,000-a-month plan (one report per repeating error an hour, twenty per process a day). Left: an uptime alert on production's `/v1/health` (an auth token for an agent, or a click in Sentry), and projects for the two clients.
+- Sentry: wired into Core 2026-09-18 (question 36); the DSN is on staging, production gets it with the release. The same error leaves once a day whichever process hits it, and at most twenty distinct errors a day per app, for the 5,000-a-month plan; the sites' errors through the same gate is question 46. Left: an uptime alert on production's `/v1/health` (an auth token for an agent, or a click in Sentry), and projects for the two clients.
 - The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
 - Vitec test credentials and a staging deploy → open question 18.
 - Mspecs documentation → second adapter.
