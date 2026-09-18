@@ -86,6 +86,10 @@ the first item that is not done, and keep the file current. Decisions and open q
 
 ## Standing rules for every session
 
+- Before a push, one full run: typecheck, seam, secrets and build, then `npm run report` (both
+  suites once, and the report with them). Not `npm test`, the WordPress suite and the report as
+  three runs.
+
 - Raise problems as a numbered list with an optional suggested solution; Patric decides by number.
   The numbers are the register `docs/open-questions.md`: next free number there, never reused,
   answered ones move to `docs/decisions.md`.
