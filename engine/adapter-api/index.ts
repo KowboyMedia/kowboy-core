@@ -84,4 +84,20 @@ export async function startAdapter(adapter: Adapter): Promise<void> {
 
 // The HTML helpers an adapter's admin panels render with (docs/admin-panel.md), so escaping and
 // forms have one code path. Nothing else of the panel shell is reachable from an adapter.
-export { escape, field, form, link, pre, select, table, textarea, when } from '../admin/html.js';
+export {
+  card,
+  escape,
+  field,
+  form,
+  grid,
+  intro,
+  kv,
+  link,
+  pill,
+  pre,
+  select,
+  table,
+  textarea,
+  when,
+  yesNo,
+} from '../admin/html.js';

@@ -1,5 +1,12 @@
-// The admin panel's HTML: a handful of template functions and one stylesheet, no framework
-// (docs/admin-panel.md). Everything that came from data goes through `escape`.
+// The admin panel's HTML: a handful of template functions on top of Tabler, the open-source admin
+// UI kit built on Bootstrap 5 (Patric, 2026-09-18: a market-leading component library, a
+// professional look). Core serves Tabler's stylesheet and script itself, so the panel depends on
+// no outside host. Everything that came from data goes through `escape`. Every page is a title,
+// one line on what it is for, and cards that each say what they show or do.
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import type { RouteTable } from '../http/server.js';
 
 export const escape = (value: unknown): string =>
   String(value ?? '').replace(
@@ -8,39 +15,90 @@ export const escape = (value: unknown): string =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char,
   );
 
-export type NavItem = { href: string; label: string };
+export type NavItem = { href: string; label: string; group?: string };
 
+// ---- Tabler's files, served under a versioned path so browsers may cache them for good --------
+
+const tabler = ((): { root: string; version: string } => {
+  const manifest = createRequire(import.meta.url).resolve('@tabler/core/package.json');
+  const { version } = JSON.parse(readFileSync(manifest, 'utf8')) as { version: string };
+  return { root: dirname(manifest), version };
+})();
+
+const ASSETS = `/admin/assets/${tabler.version}`;
+const ASSET_FILES: Record<string, { path: string; type: string }> = {
+  'tabler.min.css': { path: 'dist/css/tabler.min.css', type: 'text/css; charset=utf-8' },
+  'tabler.min.js': { path: 'dist/js/tabler.min.js', type: 'text/javascript; charset=utf-8' },
+};
+const loaded = new Map<string, string>();
+
+/** The stylesheet and the script, open to anyone: the login page needs them too. */
+export function assetRoutes(): RouteTable {
+  return [
+    {
+      method: 'GET',
+      path: `${ASSETS}/*`,
+      handler: async (request) => {
+        const name = request.path.slice(ASSETS.length + 1);
+        const file = ASSET_FILES[name];
+        if (!file) return { status: 404, body: { error: 'not found' } };
+        let body = loaded.get(name);
+        if (body === undefined) {
+          body = readFileSync(join(tabler.root, file.path), 'utf8');
+          loaded.set(name, body);
+        }
+        return {
+          status: 200,
+          headers: {
+            'content-type': file.type,
+            'cache-control': 'public, max-age=31536000, immutable',
+          },
+          body,
+        };
+      },
+    },
+  ];
+}
+
+// ---- The shell ---------------------------------------------------------------------------------
+
+/** What Tabler leaves to us: the few names the panels use for state, and long JSON blocks. */
 const STYLE = `
-  :root { color-scheme: light; --line: #d9d9d9; --ink: #1b1b1b; --muted: #666; --accent: #1d4ed8; --bad: #b91c1c; --good: #15803d; }
-  * { box-sizing: border-box; }
-  body { margin: 0; font: 15px/1.45 system-ui, sans-serif; color: var(--ink); background: #fafafa; }
-  header { display: flex; gap: 1.2rem; align-items: baseline; padding: .8rem 1.2rem; border-bottom: 1px solid var(--line); background: #fff; flex-wrap: wrap; }
-  header strong { font-size: 1.05rem; margin-right: .6rem; }
-  header a { color: var(--muted); text-decoration: none; }
-  header a.current { color: var(--accent); font-weight: 600; }
-  main { max-width: 1200px; margin: 0 auto; padding: 1.2rem; }
-  h1 { font-size: 1.4rem; margin: .2rem 0 1rem; }
-  h2 { font-size: 1.1rem; margin: 1.6rem 0 .6rem; }
-  table { border-collapse: collapse; width: 100%; background: #fff; margin-bottom: 1rem; }
-  th, td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { font-weight: 600; color: var(--muted); font-size: .85rem; }
-  pre { background: #fff; border: 1px solid var(--line); padding: .6rem; overflow: auto; max-height: 32rem; font-size: .82rem; margin: 0 0 1rem; }
-  form { margin: 0 0 1rem; }
-  form.inline { display: inline; margin: 0 .2rem 0 0; }
-  label { display: block; margin: .5rem 0 .2rem; font-size: .9rem; color: var(--muted); }
-  input[type=text], input[type=password], input[type=number], select, textarea { width: 100%; max-width: 40rem; padding: .35rem .5rem; border: 1px solid var(--line); border-radius: 3px; font: inherit; }
-  button { padding: .35rem .8rem; border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 3px; font: inherit; cursor: pointer; margin-top: .4rem; }
-  button.quiet { background: #fff; color: var(--accent); }
-  .flash { padding: .6rem .8rem; border: 1px solid var(--good); background: #f0fdf4; margin-bottom: 1rem; }
-  .flash.bad { border-color: var(--bad); background: #fef2f2; }
-  .ok { color: var(--good); } .bad { color: var(--bad); }
-  .columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem; }
-  .muted { color: var(--muted); }
-  .who { margin-left: auto; color: var(--muted); }
-  code { font-size: .85rem; }
+  .muted { color: var(--tblr-secondary); }
+  .ok { color: var(--tblr-green); }
+  .bad { color: var(--tblr-red); }
+  pre { max-height: 34rem; overflow: auto; font-size: .8rem; }
+  details > summary { cursor: pointer; color: var(--tblr-primary); }
+  .datagrid-content { overflow-wrap: anywhere; }
+  td .badge { vertical-align: middle; }
 `;
 
-/** One full page: the header with the navigation, then the body. */
+const head = (title: string): string =>
+  `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escape(title)} · Core admin</title><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="stylesheet" href="${ASSETS}/tabler.min.css"><style>${STYLE}</style></head>`;
+
+const script = `<script src="${ASSETS}/tabler.min.js"></script>`;
+
+const flashOf = (flash: string | null | undefined): string =>
+  flash
+    ? `<div class="alert ${flash.startsWith('!') ? 'alert-danger' : 'alert-success'}" role="alert">${escape(flash.replace(/^!/, ''))}</div>`
+    : '';
+
+/** The navigation links, with a group label wherever the group changes. */
+function navigation(items: NavItem[], current: string): string {
+  let group: string | undefined;
+  return items
+    .map((item) => {
+      const label =
+        item.group && item.group !== group
+          ? `<li class="nav-item mt-3"><span class="nav-link disabled text-uppercase small fw-bold">${escape(item.group)}</span></li>`
+          : '';
+      group = item.group;
+      return `${label}<li class="nav-item${item.href === current ? ' active' : ''}"><a class="nav-link" href="${escape(item.href)}"><span class="nav-link-title">${escape(item.label)}</span></a></li>`;
+    })
+    .join('');
+}
+
+/** One full page: the sidebar with the navigation and who is logged in, then the body. */
 export function page(options: {
   title: string;
   nav: NavItem[];
@@ -50,40 +108,107 @@ export function page(options: {
   body: string;
   flash?: string | null;
 }): string {
-  const nav = options.nav
+  const user = escape(options.user ?? '');
+  return (
+    head(options.title) +
+    `<body><div class="page">` +
+    `<aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark"><div class="container-fluid">` +
+    `<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu" aria-controls="sidebar-menu" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>` +
+    `<div class="navbar-brand navbar-brand-autodark"><a href="/admin" class="text-reset text-decoration-none">Core admin</a></div>` +
+    `<div class="collapse navbar-collapse" id="sidebar-menu"><ul class="navbar-nav pt-lg-3">${navigation(options.nav, options.current)}</ul>` +
+    `<div class="mt-auto pt-4 pb-2 px-2 small text-secondary"><div class="text-truncate" title="${user}">${user}</div><form method="post" action="/admin/logout" class="mt-2"><button class="btn btn-outline-secondary btn-sm">Log out</button></form></div>` +
+    `</div></div></aside>` +
+    `<div class="page-wrapper"><div class="page-header d-print-none"><div class="container-xl"><div class="row g-2 align-items-center"><div class="col"><h2 class="page-title">${escape(options.title)}</h2></div></div></div></div>` +
+    `<div class="page-body"><div class="container-xl">${flashOf(options.flash)}${options.body}</div></div></div></div>${script}</body></html>`
+  );
+}
+
+/** A page outside the shell, one card in the middle: the login. */
+export function standalone(options: {
+  title: string;
+  body: string;
+  flash?: string | null;
+}): string {
+  return (
+    head(options.title) +
+    `<body class="d-flex flex-column"><div class="page page-center"><div class="container container-tight py-4"><div class="text-center mb-4"><a href="/admin" class="navbar-brand navbar-brand-autodark">Core admin</a></div><div class="card card-md"><div class="card-body"><h2 class="h2 text-center mb-3">${escape(options.title)}</h2>${flashOf(options.flash)}${options.body}</div></div></div></div>${script}</body></html>`
+  );
+}
+
+// ---- Blocks ------------------------------------------------------------------------------------
+
+/** The one line under a page title saying what the page is for. */
+export const intro = (text: string): string => `<p class="text-secondary mb-4">${escape(text)}</p>`;
+
+/** A card: a heading, one line on what it shows or does, and its content (HTML already). */
+export function card(title: string, help: string, inner: string): string {
+  return `<div class="card mb-3"><div class="card-header"><div><h3 class="card-title">${escape(title)}</h3>${help ? `<p class="card-subtitle">${escape(help)}</p>` : ''}</div></div><div class="card-body">${inner}</div></div>`;
+}
+
+/** Cards side by side on a wide screen, one under another on a narrow one. */
+export const grid = (items: string[]): string =>
+  `<div class="row row-cards">${items
     .map(
       (item) =>
-        `<a href="${escape(item.href)}"${item.href === options.current ? ' class="current"' : ''}>${escape(item.label)}</a>`,
+        `<div class="col-md-6 col-xl-4 d-flex">${item.replace('class="card mb-3"', 'class="card mb-3 flex-fill"')}</div>`,
     )
-    .join('');
-  const flash = options.flash
-    ? `<div class="flash${options.flash.startsWith('!') ? ' bad' : ''}">${escape(options.flash.replace(/^!/, ''))}</div>`
-    : '';
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escape(options.title)} · Core admin</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>${STYLE}</style></head><body><header><strong>Core admin</strong>${nav}<span class="who">${escape(options.user ?? '')}</span><form class="inline" method="post" action="/admin/logout"><button class="quiet">Log out</button></form></header><main><h1>${escape(options.title)}</h1>${flash}${options.body}</main></body></html>`;
-}
+    .join('')}</div>`;
 
 /** A table; the cells are HTML already, so escape data before putting it in. */
 export function table(headers: string[], rows: string[][], empty = 'Nothing here.'): string {
-  if (rows.length === 0) return `<p class="muted">${escape(empty)}</p>`;
+  if (rows.length === 0) return `<p class="text-secondary mb-0">${escape(empty)}</p>`;
   const head = headers.map((header) => `<th>${escape(header)}</th>`).join('');
   const body = rows
     .map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`)
     .join('');
-  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  return `<div class="table-responsive"><table class="table table-vcenter"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+/** Key and value pairs; the values are HTML already. */
+export function kv(pairs: [string, string][]): string {
+  return `<div class="datagrid">${pairs
+    .map(
+      ([key, value]) =>
+        `<div class="datagrid-item"><div class="datagrid-title">${escape(key)}</div><div class="datagrid-content">${value}</div></div>`,
+    )
+    .join('')}</div>`;
 }
 
 /** A value shown as JSON. */
 export const pre = (value: unknown): string =>
   `<pre>${escape(typeof value === 'string' ? value : JSON.stringify(value, null, 2))}</pre>`;
 
+const BADGE: Record<'ok' | 'bad' | 'muted', string> = {
+  ok: 'bg-green-lt',
+  bad: 'bg-red-lt',
+  muted: 'bg-secondary-lt',
+};
+
+/** A state word in a coloured badge. */
+export const pill = (state: 'ok' | 'bad' | 'muted', text: string): string =>
+  `<span class="badge ${BADGE[state]}">${escape(text)}</span>`;
+
+export const yesNo = (value: boolean): string => pill(value ? 'ok' : 'muted', value ? 'yes' : 'no');
+
+const hint = (help?: string): string =>
+  help ? `<small class="form-hint">${escape(help)}</small>` : '';
+
 export function field(
   name: string,
   label: string,
-  options: { type?: string; value?: string; placeholder?: string; required?: boolean } = {},
+  options: {
+    type?: string;
+    value?: string;
+    placeholder?: string;
+    required?: boolean;
+    /** One line under the field on what goes in it. */
+    help?: string;
+  } = {},
 ): string {
   const type = options.type ?? 'text';
   const attributes = [
     `type="${type}"`,
+    'class="form-control"',
     `name="${escape(name)}"`,
     `id="${escape(name)}"`,
     options.value !== undefined ? `value="${escape(options.value)}"` : '',
@@ -93,11 +218,11 @@ export function field(
   ]
     .filter(Boolean)
     .join(' ');
-  return `<label for="${escape(name)}">${escape(label)}</label><input ${attributes}>`;
+  return `<div class="mb-3"><label class="form-label" for="${escape(name)}">${escape(label)}</label><input ${attributes}>${hint(options.help)}</div>`;
 }
 
-export function textarea(name: string, label: string, value = ''): string {
-  return `<label for="${escape(name)}">${escape(label)}</label><textarea name="${escape(name)}" id="${escape(name)}" rows="3">${escape(value)}</textarea>`;
+export function textarea(name: string, label: string, value = '', help?: string): string {
+  return `<div class="mb-3"><label class="form-label" for="${escape(name)}">${escape(label)}</label><textarea class="form-control" name="${escape(name)}" id="${escape(name)}" rows="3">${escape(value)}</textarea>${hint(help)}</div>`;
 }
 
 export function select(
@@ -105,6 +230,7 @@ export function select(
   label: string,
   choices: { value: string; label?: string }[],
   selected?: string,
+  help?: string,
 ): string {
   const options = choices
     .map(
@@ -112,7 +238,7 @@ export function select(
         `<option value="${escape(choice.value)}"${choice.value === selected ? ' selected' : ''}>${escape(choice.label ?? choice.value)}</option>`,
     )
     .join('');
-  return `<label for="${escape(name)}">${escape(label)}</label><select name="${escape(name)}" id="${escape(name)}">${options}</select>`;
+  return `<div class="mb-3"><label class="form-label" for="${escape(name)}">${escape(label)}</label><select class="form-select" name="${escape(name)}" id="${escape(name)}">${options}</select>${hint(help)}</div>`;
 }
 
 /** A POST form with the CSRF token; `inner` is HTML already. */
@@ -120,12 +246,25 @@ export function form(
   action: string,
   csrf: string,
   inner: string,
-  options: { submit?: string; inline?: boolean; hidden?: Record<string, string> } = {},
+  options: {
+    submit?: string;
+    /** A small button that sits in a table cell next to others. */
+    inline?: boolean;
+    hidden?: Record<string, string>;
+    /** A red button: it removes or replaces something. */
+    danger?: boolean;
+  } = {},
 ): string {
   const hidden = Object.entries(options.hidden ?? {})
     .map(([name, value]) => `<input type="hidden" name="${escape(name)}" value="${escape(value)}">`)
     .join('');
-  return `<form method="post" action="${escape(action)}"${options.inline ? ' class="inline"' : ''}><input type="hidden" name="csrf" value="${escape(csrf)}">${hidden}${inner}<button${options.inline ? ' class="quiet"' : ''}>${escape(options.submit ?? 'Save')}</button></form>`;
+  const button = options.danger
+    ? 'btn btn-outline-danger'
+    : options.inline
+      ? 'btn btn-outline-secondary btn-sm'
+      : 'btn btn-primary';
+  const shape = options.inline ? ' class="d-inline-block me-1 mb-1"' : '';
+  return `<form method="post" action="${escape(action)}"${shape}><input type="hidden" name="csrf" value="${escape(csrf)}">${hidden}${inner}<button class="${button}">${escape(options.submit ?? 'Save')}</button></form>`;
 }
 
 export const link = (href: string, text: string): string =>
@@ -133,8 +272,9 @@ export const link = (href: string, text: string): string =>
 
 export const when = (value: Date | string | null | undefined): string =>
   value
-    ? escape(value instanceof Date ? value.toISOString() : value)
-    : '<span class="muted">–</span>';
+    ? `<span class="text-nowrap">${escape(value instanceof Date ? value.toISOString() : value)}</span>`
+    : '<span class="text-secondary">–</span>';
 
 export const okBad = (ok: boolean, detail?: string | null): string =>
-  `<span class="${ok ? 'ok' : 'bad'}">${ok ? 'ok' : 'failing'}</span>${detail ? ` <span class="muted">${escape(detail)}</span>` : ''}`;
+  pill(ok ? 'ok' : 'bad', ok ? 'ok' : 'failing') +
+  (detail ? ` <span class="text-secondary">${escape(detail)}</span>` : '');

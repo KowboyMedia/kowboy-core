@@ -1,17 +1,17 @@
 // The event log as a page (strategy §8.2): filters, newest first, and a table shared with the
 // overview and the item page.
 import { queryEvents, type EventRow } from '../events.js';
-import { escape, field, link, pre, table, when } from './html.js';
+import { card, escape, field, intro, link, pre, table, when } from './html.js';
 import type { Panel } from './context.js';
 
 const enc = encodeURIComponent;
 
 export function eventsTable(events: EventRow[]): string {
   return table(
-    ['When', 'Type', 'Tenant', 'Connection', 'Entity', 'Correlation', 'Fields'],
+    ['When', 'Type', 'Tenant', 'Connection', 'Record', 'Correlation', 'Details'],
     events.map((event) => [
       when(event.at),
-      escape(event.type),
+      `<code>${escape(event.type)}</code>`,
       escape(event.tenant_id ?? ''),
       escape(event.connection_id ?? ''),
       event.connection_id && event.datatype && event.remote_id
@@ -53,8 +53,38 @@ export const eventPanels: Panel[] = [
         newestFirst: true,
       });
       const current = (name: string): string => query.get(name) ?? '';
-      const filters = `<form method="get" action="/admin/events"><div class="columns">${field('tenant', 'Tenant', { value: current('tenant') })}${field('connection', 'Connection', { value: current('connection') })}${field('type', 'Event type', { value: current('type') })}${field('correlation', 'Correlation id', { value: current('correlation') })}${field('entity', 'Entity (connection/datatype/id)', { value: current('entity') })}${field('from', 'From (ISO time)', { value: current('from') })}${field('to', 'To (ISO time)', { value: current('to') })}${field('limit', 'At most', { type: 'number', value: query.get('limit') ?? '200' })}</div><button>Filter</button></form>`;
-      return ctx.render('Events', filters + eventsTable(events));
+      const filters =
+        `<form method="get" action="/admin/events">` +
+        field('tenant', 'Tenant', { value: current('tenant') }) +
+        field('connection', 'Connection', { value: current('connection') }) +
+        field('type', 'Event type', {
+          value: current('type'),
+          help: 'Such as entity.written, bell.sent, webhook.received or admin.login.',
+        }) +
+        field('correlation', 'Correlation id', {
+          value: current('correlation'),
+          help: 'Every event a single notification or fetch caused shares one correlation id.',
+        }) +
+        field('entity', 'One record', {
+          value: current('entity'),
+          placeholder: 'connection/datatype/record id',
+          help: 'Connection, datatype and record id, separated by slashes.',
+        }) +
+        field('from', 'From', { value: current('from'), placeholder: '2026-09-18T00:00:00Z' }) +
+        field('to', 'To', { value: current('to'), placeholder: '2026-09-19T00:00:00Z' }) +
+        field('limit', 'At most', { type: 'number', value: query.get('limit') ?? '200' }) +
+        `<button>Filter</button></form>`;
+      const body =
+        intro(
+          'Everything Core and its adapters did, newest first: notifications, fetches, writes, bells, pulls and logins. Events are kept for 30 days.',
+        ) +
+        card('Filter', 'Any field narrows the list; leave the rest empty.', filters) +
+        card(
+          'Events',
+          'Open "fields" on a row for everything the event recorded.',
+          eventsTable(events),
+        );
+      return ctx.render('Events', body);
     },
   },
 ];

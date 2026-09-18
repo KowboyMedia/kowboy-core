@@ -7,13 +7,19 @@ import * as store from '../store.js';
 import { mappers } from '../mappers.js';
 import {
   DATATYPES,
+  card,
   escape,
   field,
   form,
+  grid,
+  intro,
+  kv,
+  pill,
   pre,
   select,
   table,
   when,
+  yesNo,
   type AdapterAdmin,
   type AdminRequest,
   type AdminResult,
@@ -58,10 +64,10 @@ async function connectionRows(request: AdminRequest): Promise<string> {
         hidden: { action, connection: connection.id },
       });
     rows.push([
-      escape(connection.id),
+      `<code>${escape(connection.id)}</code>`,
       escape(connection.licensedOffices.join(', ')),
-      escape(connection.active ? 'yes' : 'no'),
-      `${when(catchUpAt)}<br><span class="muted">window until ${when(until)}</span>`,
+      yesNo(connection.active),
+      `${when(catchUpAt)}<br><span class="text-secondary">changes since ${when(until)}</span>`,
       when(compareAt),
       `${counts.waiting} waiting · ${counts.retrying} retrying · ${counts.givenUp} given up`,
       run('catch_up', 'Catch up now') + run('compare', 'Compare now'),
@@ -70,16 +76,17 @@ async function connectionRows(request: AdminRequest): Promise<string> {
   return table(
     ['Connection', 'Offices', 'Active', 'Last catch-up', 'Last comparison', 'Fetch list', 'Run'],
     rows,
-    'No Vitec connections yet.',
+    'No Vitec connections yet: add one under Connections.',
   );
 }
 
 async function fetchListRows(request: AdminRequest): Promise<string> {
   const rows = (await store.entries(50)).map((entry) => {
-    const act = (action: string, label: string): string =>
+    const act = (action: string, label: string, danger = false): string =>
       form('/admin/vitec', request.csrf, '', {
         submit: label,
         inline: true,
+        danger,
         hidden: { action, office: entry.officeId, datatype: entry.datatype, id: entry.remoteId },
       });
     return [
@@ -88,31 +95,47 @@ async function fetchListRows(request: AdminRequest): Promise<string> {
       escape(entry.remoteId),
       escape(entry.reason),
       escape(entry.attempts),
-      entry.nextAt ? when(entry.nextAt) : '<span class="bad">given up</span>',
+      entry.nextAt ? when(entry.nextAt) : pill('bad', 'given up'),
       escape(entry.lastError ?? ''),
-      act('retry', 'Retry now') + act('drop', 'Drop'),
+      act('retry', 'Retry now') + act('drop', 'Drop', true),
     ];
   });
   return table(
     ['Office', 'Datatype', 'Record', 'Reason', 'Attempts', 'Due', 'Last error', 'Actions'],
     rows,
-    'The fetch list is empty.',
+    'The fetch list is empty: nothing is waiting to be fetched.',
   );
 }
 
 async function frontPage(request: AdminRequest): Promise<AdminResult> {
   const token = process.env['VITEC_WEBHOOK_TOKEN'];
   const webhook = token
-    ? `<code>/v1/hook/vitec/webhook/${escape(token)}</code> on this app's domain`
-    : '<span class="bad">VITEC_WEBHOOK_TOKEN is not set; the listener answers 503</span>';
+    ? `<code>/v1/hook/vitec/webhook/${escape(token)}</code> on this app’s domain`
+    : pill('bad', 'VITEC_WEBHOOK_TOKEN is not set; the listener answers 503');
   const html =
-    `<p>Notification URL for Vitec: ${webhook}. Requests at once: ${escape(connect.concurrency())}. ` +
-    `Connect: <code>${escape(connect.baseUrl())}</code>.</p>` +
-    '<h2>Connections and schedules</h2>' +
-    (await connectionRows(request)) +
-    '<h2>Fetch list</h2>' +
-    (await fetchListRows(request)) +
-    '<p><a href="/admin/vitec/fetch">Fetch one record</a></p>';
+    intro(
+      'Everything about the link to Vitec: where Vitec sends its notifications, when each connection last caught up and compared, and the records waiting to be fetched.',
+    ) +
+    card(
+      'Notification URL',
+      'Give this address to Vitec for the subscription. Vitec then calls it for every Update and Remove of an estate advertised on the website, and Core fetches or removes the record.',
+      kv([
+        ['URL', webhook],
+        ['Vitec Connect', `<code>${escape(connect.baseUrl())}</code>`],
+        ['Requests at once', escape(connect.concurrency())],
+      ]),
+    ) +
+    card(
+      'Connections and schedules',
+      'A catch-up fetches everything that changed since the last one, in case a notification was missed; a comparison fetches Vitec’s list and removes what is no longer on it. Both run on their own; the buttons run them at the worker’s next tick.',
+      await connectionRows(request),
+    ) +
+    card(
+      'Fetch list',
+      'Records Core is about to fetch: notifications first, then loads and catch-ups. A retrying record failed and waits for its next attempt; after three failures it is given up, and Retry or Drop is yours.',
+      (await fetchListRows(request)) +
+        `<p class="mt-3 mb-0"><a href="/admin/vitec/fetch">Fetch one record by hand</a></p>`,
+    );
   return { html };
 }
 
@@ -151,36 +174,51 @@ async function frontAction(request: AdminRequest): Promise<AdminResult> {
 
 function fetchForm(request: AdminRequest, connections: Connection[]): string {
   const pick = (name: string): string => request.form[name] ?? '';
-  return form(
-    '/admin/vitec/fetch',
-    request.csrf,
-    select(
-      'connection',
-      'Connection',
-      connections.map((c) => ({ value: c.id })),
-      pick('connection'),
+  return (
+    intro(
+      'Fetch one record from Vitec by hand: look at it without storing anything, or hand it to the worker to fetch and store like any notification.',
     ) +
-      select(
-        'datatype',
-        'Datatype',
-        DATATYPES.map((d) => ({ value: d })),
-        pick('datatype') || 'property',
-      ) +
-      field('office', 'Office (customer id, M30011 and the like)', {
-        value: pick('office'),
-        required: true,
-      }) +
-      field('id', 'Record id', { value: pick('id'), required: true }) +
-      select(
-        'action',
-        'Then',
-        [
-          { value: 'look', label: 'look: fetch and map, write nothing' },
-          { value: 'queue', label: 'queue: the worker fetches and stores it' },
-        ],
-        pick('action') || 'look',
+    card(
+      'One record',
+      'Which record, and what to do with it.',
+      form(
+        '/admin/vitec/fetch',
+        request.csrf,
+        select(
+          'connection',
+          'Connection',
+          connections.map((c) => ({ value: c.id })),
+          pick('connection'),
+          'Whose login to use at Vitec.',
+        ) +
+          select(
+            'datatype',
+            'Datatype',
+            DATATYPES.map((d) => ({ value: d })),
+            pick('datatype') || 'property',
+          ) +
+          field('office', 'Office', {
+            value: pick('office'),
+            required: true,
+            help: 'The customer id Vitec gives the office, M30011 and the like.',
+          }) +
+          field('id', 'Record id', {
+            value: pick('id'),
+            required: true,
+            help: 'The id Vitec uses for the record.',
+          }) +
+          select(
+            'action',
+            'Then',
+            [
+              { value: 'look', label: 'look: fetch and map it, write nothing' },
+              { value: 'queue', label: 'queue: the worker fetches and stores it' },
+            ],
+            pick('action') || 'look',
+          ),
+        { submit: 'Go' },
       ),
-    { submit: 'Go' },
+    )
   );
 }
 
@@ -191,12 +229,20 @@ async function look(
   id: string,
 ): Promise<string> {
   const raw = await connect.getOne(credentials, datatype, office, id);
-  if (raw === null) return '<p class="bad">Vitec answers 404: no such record.</p>';
+  if (raw === null)
+    return card('Answer', '', '<p class="bad mb-0">Vitec answers 404: no such record.</p>');
   const mapper = mappers[datatype];
   const mapped = mapper ? mapper(raw) : null;
   return (
-    `<div class="columns"><div><h2>Raw</h2>${pre(raw)}</div><div><h2>Unified</h2>${pre(mapped?.data ?? {})}</div></div>` +
-    `<p class="muted">office_id ${escape(mapped?.officeId ?? '')} · remote_updated_at ${escape(mapped?.remoteUpdatedAt ?? '')}. Nothing was written.</p>`
+    grid([
+      card('Raw', 'The record as Vitec sent it.', pre(raw)),
+      card(
+        'Unified',
+        'The same record in Core’s shape. Nothing was written.',
+        pre(mapped?.data ?? {}),
+      ),
+    ]) +
+    `<p class="text-secondary">office_id ${escape(mapped?.officeId ?? '')} · remote_updated_at ${escape(mapped?.remoteUpdatedAt ?? '')}.</p>`
   );
 }
 
@@ -210,13 +256,20 @@ async function fetchPage(request: AdminRequest): Promise<AdminResult> {
   const id = request.form['id'] ?? '';
   let result: string;
   if (!credentials || !datatype || !office || !id) {
-    result =
-      '<p class="bad">A connection with readable credentials, a datatype, an office and an id are needed.</p>';
+    result = card(
+      'Answer',
+      '',
+      '<p class="bad mb-0">A connection with a readable login, a datatype, an office and an id are needed.</p>',
+    );
   } else if (request.form['action'] === 'queue') {
     await store.enqueue([
       { officeId: office, datatype, remoteId: id, reason: 'webhook', correlationId: randomUUID() },
     ]);
-    result = `<p>Queued ${escape(datatype)} ${escape(id)} of ${escape(office)}; the worker fetches it within seconds.</p>`;
+    result = card(
+      'Answer',
+      '',
+      `<p class="mb-0">Queued ${escape(datatype)} ${escape(id)} of ${escape(office)}; the worker fetches it within seconds.</p>`,
+    );
   } else {
     result = await look(credentials, datatype, office, id);
   }
@@ -242,6 +295,13 @@ export const vitecAdmin: AdapterAdmin = {
       store.getState(connection.id, 'compare_at'),
       store.summary(connection.licensedOffices),
     ]);
-    return `<p>Last catch-up ${when(catchUpAt)} · last comparison ${when(compareAt)} · fetch list: ${counts.waiting} waiting, ${counts.retrying} retrying, ${counts.givenUp} given up. <a href="/admin/vitec">Vitec panel</a>.</p>`;
+    return kv([
+      ['Last catch-up', when(catchUpAt)],
+      ['Last comparison', when(compareAt)],
+      [
+        'Fetch list',
+        `${counts.waiting} waiting, ${counts.retrying} retrying, ${counts.givenUp} given up · <a href="/admin/vitec">the Vitec page</a>`,
+      ],
+    ]);
   },
 };

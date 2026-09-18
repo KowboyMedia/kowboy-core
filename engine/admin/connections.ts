@@ -12,7 +12,22 @@ import { queueLifecycle } from '../lifecycle.js';
 import { queryEvents } from '../events.js';
 import { DATATYPES, type Datatype, type LifecycleEvent } from '../adapter-api/types.js';
 import { connectionStatus, credentialFields } from './adapters.js';
-import { escape, field, form, link, select, table, textarea, when } from './html.js';
+import {
+  card,
+  escape,
+  field,
+  form,
+  grid,
+  intro,
+  kv,
+  link,
+  pill,
+  select,
+  table,
+  textarea,
+  when,
+  yesNo,
+} from './html.js';
 import { eventsTable } from './timeline.js';
 import { officesOf, type Ctx, type Panel } from './context.js';
 
@@ -27,45 +42,60 @@ const EVENTS: LifecycleEvent['type'][] = [
 
 const href = (id: string): string => `/admin/connections/${encodeURIComponent(id)}`;
 
+const loginPill = (row: ConnectionListRow): string =>
+  row.has_credentials ? pill('ok', 'set') : pill('bad', 'missing');
+
 function listPage(ctx: Ctx, rows: ConnectionListRow[], tenantIds: string[]): string {
   const providers = ctx.adapters.map((adapter) => ({ value: adapter.provider }));
   return (
-    table(
-      [
-        'Connection',
-        'Tenant',
-        'CRM',
-        'Offices',
-        'Active',
-        'Credentials',
-        'Last ingest',
-        'Last error',
-      ],
-      rows.map((row) => [
-        link(href(row.id), row.id),
-        `<code>${escape(row.tenant_id)}</code>`,
-        escape(row.provider),
-        escape(row.licensed_offices.join(', ')),
-        escape(row.active ? 'yes' : 'no'),
-        escape(row.has_credentials ? 'set' : 'missing'),
-        when(row.last_ingest_at),
-        escape(row.last_error ?? ''),
-      ]),
-      'No connections yet.',
+    intro(
+      'A connection is a tenant’s link to one CRM: which offices belong to the tenant, and the login Core uses there. Everything the CRM lists for those offices ends up in Core and on the tenant’s sites.',
     ) +
-    '<h2>Add a connection</h2>' +
-    form(
-      '/admin/connections',
-      ctx.csrf,
-      field('id', 'Connection id (letters, digits, - and _)', { required: true }) +
-        select(
-          'tenant',
-          'Tenant',
-          tenantIds.map((id) => ({ value: id })),
-        ) +
-        select('provider', 'CRM', providers) +
-        textarea('offices', 'Licensed offices (one per line or comma-separated)'),
-      { submit: 'Add connection' },
+    card(
+      'Connections',
+      'Open one to change its login or offices, to load or remove its records, and to see what its adapter knows.',
+      table(
+        ['Connection', 'Tenant', 'CRM', 'Offices', 'Active', 'Login', 'Last ingest', 'Last error'],
+        rows.map((row) => [
+          link(href(row.id), row.id),
+          `<code>${escape(row.tenant_id)}</code>`,
+          escape(row.provider),
+          escape(row.licensed_offices.join(', ')),
+          yesNo(row.active),
+          loginPill(row),
+          when(row.last_ingest_at),
+          row.last_error ? `<span class="bad">${escape(row.last_error)}</span>` : '',
+        ]),
+        'No connections yet.',
+      ),
+    ) +
+    card(
+      'Add a connection',
+      'Makes the connection. Its CRM login and the first load come on the next page.',
+      form(
+        '/admin/connections',
+        ctx.csrf,
+        field('id', 'Connection id', {
+          required: true,
+          placeholder: 'acme-1',
+          help: 'Short, lowercase and permanent: letters, digits, - and _.',
+        }) +
+          select(
+            'tenant',
+            'Tenant',
+            tenantIds.map((id) => ({ value: id })),
+            undefined,
+            'Whose records these are.',
+          ) +
+          select('provider', 'CRM', providers, undefined, 'The adapter that talks to this CRM.') +
+          textarea(
+            'offices',
+            'Licensed offices',
+            '',
+            'The office ids this tenant is licensed for, one per line or comma-separated. Core keeps records of these offices only.',
+          ),
+        { submit: 'Add connection' },
+      ),
     )
   );
 }
@@ -74,48 +104,112 @@ async function detailPage(ctx: Ctx, row: ConnectionListRow): Promise<string> {
   const fields = credentialFields(ctx.adapters, row.provider);
   const credentials =
     fields.length === 0
-      ? '<p class="muted">This CRM declares no credentials form.</p>'
+      ? '<p class="muted">This CRM needs no login.</p>'
       : fields
           .map((f) =>
             field(`credential_${f.key}`, f.label, { type: f.secret ? 'password' : 'text' }),
           )
           .join('') +
-        `<p class="muted">Credentials are ${row.has_credentials ? 'set' : 'missing'}; leave the fields empty to keep them.</p>`;
+        `<p class="muted">The login is ${row.has_credentials ? 'set' : 'missing'}. It is stored encrypted and never shown again; leave the fields empty to keep it.</p>`;
   const save = form(
     href(row.id),
     ctx.csrf,
     credentials +
-      textarea('offices', 'Licensed offices', row.licensed_offices.join('\n')) +
-      select('active', 'Active', [{ value: 'yes' }, { value: 'no' }], row.active ? 'yes' : 'no'),
+      textarea(
+        'offices',
+        'Licensed offices',
+        row.licensed_offices.join('\n'),
+        'One office id per line. Adding an office here does not fetch it: use "Load added offices" below.',
+      ) +
+      select(
+        'active',
+        'Active',
+        [{ value: 'yes' }, { value: 'no' }],
+        row.active ? 'yes' : 'no',
+        'An inactive connection is left alone: nothing is fetched, and its records stay as they are.',
+      ),
     { submit: 'Save' },
   );
-  const action = (event: LifecycleEvent['type'], inner: string, submit: string): string =>
-    form(`${href(row.id)}/event`, ctx.csrf, inner, { submit, hidden: { event } });
-  const actions =
-    action('connection_added', '', 'Load everything (connection added)') +
-    action('offices_added', field('office_ids', 'Office ids'), 'Load added offices') +
-    action('offices_removed', field('office_ids', 'Office ids'), 'Remove offices') +
-    action(
-      'resync',
-      select('datatype', 'Datatype', [
-        { value: '', label: 'all' },
-        ...DATATYPES.map((d) => ({ value: d })),
-      ]),
+  const action = (
+    event: LifecycleEvent['type'],
+    inner: string,
+    submit: string,
+    danger = false,
+  ): string =>
+    form(`${href(row.id)}/event`, ctx.csrf, inner, { submit, hidden: { event }, danger });
+  const actions = grid([
+    card(
+      'Load everything',
+      'Fetches every record of the licensed offices, and whatever they refer to. Use it after adding the connection, or when in doubt.',
+      action('connection_added', '', 'Load everything'),
+    ),
+    card(
+      'Load added offices',
+      'Fetches the records of offices you just added to the licence, and nothing else.',
+      action(
+        'offices_added',
+        field('office_ids', 'Office ids', { help: 'Comma-separated.' }),
+        'Load these offices',
+      ),
+    ),
+    card(
+      'Remove offices',
+      'Takes these offices off the licence and their records off the sites.',
+      action(
+        'offices_removed',
+        field('office_ids', 'Office ids', { help: 'Comma-separated.' }),
+        'Remove these offices',
+        true,
+      ),
+    ),
+    card(
       'Resync',
-    ) +
-    action('connection_removed', '', 'Remove everything (connection removed)');
+      'Fetches the CRM’s list again and removes from the sites what is no longer on it. One datatype, or all.',
+      action(
+        'resync',
+        select('datatype', 'Datatype', [
+          { value: '', label: 'all' },
+          ...DATATYPES.map((d) => ({ value: d })),
+        ]),
+        'Resync',
+      ),
+    ),
+    card(
+      'Remove everything',
+      'Takes every record of this connection off the sites and switches the connection off. The records stay for 90 days as tombstones.',
+      action('connection_removed', '', 'Remove everything', true),
+    ),
+  ]);
   const status = await connectionStatus(ctx.adapters, row.provider, row.id);
   const events = await queryEvents({ connectionId: row.id, limit: 20, newestFirst: true });
   return (
-    `<p>Tenant <code>${escape(row.tenant_id)}</code> · CRM ${escape(row.provider)} · last ingest ${when(row.last_ingest_at)}${row.last_error ? ` · <span class="bad">${escape(row.last_error)}</span>` : ''}</p>` +
-    '<h2>Settings</h2>' +
-    save +
-    '<h2>Actions</h2><div class="columns">' +
+    card(
+      'About this connection',
+      'What it links, and when it last brought something in.',
+      kv([
+        ['Tenant', `<code>${escape(row.tenant_id)}</code>`],
+        ['CRM', escape(row.provider)],
+        ['Active', yesNo(row.active)],
+        ['Login', loginPill(row)],
+        ['Last ingest', when(row.last_ingest_at)],
+        [
+          'Last error',
+          row.last_error
+            ? `<span class="bad">${escape(row.last_error)}</span>`
+            : '<span class="muted">none</span>',
+        ],
+      ]),
+    ) +
+    card('Login and offices', 'How Core reaches this CRM, and which offices it keeps.', save) +
     actions +
-    '</div>' +
-    (status ? `<h2>What the adapter knows</h2>${status}` : '') +
-    '<h2>Latest events</h2>' +
-    eventsTable(events)
+    (status
+      ? card(
+          'What the adapter knows',
+          'Schedules and the fetch list for this connection, as its adapter reports them.',
+          status,
+        )
+      : '') +
+    card('Latest events', 'The 20 newest events of this connection.', eventsTable(events))
   );
 }
 
@@ -177,10 +271,7 @@ export const connectionPanels: Panel[] = [
         provider,
         licensedOffices: officesOf(ctx.form['offices'] ?? ''),
       });
-      return ctx.redirect(
-        href(id),
-        'Connection created. Now its credentials, then "Load everything".',
-      );
+      return ctx.redirect(href(id), 'Connection created. Now its login, then "Load everything".');
     },
   },
   {
