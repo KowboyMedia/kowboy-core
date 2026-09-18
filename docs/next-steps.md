@@ -55,9 +55,13 @@ the first item that is not done, and keep the file current. Decisions and open q
    (Patric, 2026-09-17). Core removes the listing on that notification; if none came, the daily
    comparison against the list would remove it within a day. Needs: Vitec's subscription for the
    test account pointing at the staging app (estates advertised on the website only, `Update` and
-   `Remove`), a Vitec connection on staging (an agent sets it up; needs a way in from chat first),
-   and someone taking a listing off the website in the Vitec test account. The staging event log
-   then shows the notification and the removal.
+   `Remove`) and someone taking a listing off the website in the Vitec test account. The staging
+   event log then shows the notification and the removal. Done 2026-09-18: the test account runs
+   on staging, set up through the admin panel as tenant `kowboy-test`, connection `vitec-test`,
+   office `M31529`; the full load finished within two minutes with 646 properties, 427
+   associations, 56 areas, 6 agents, 5 projects and 1 office live, health green and the fetch list
+   empty. Still needed: Vitec's subscription for the test account pointing at the staging app's
+   webhook URL (it is on the panel's Vitec page), and the listing taken off the website.
 
 7. ~~**Admin panel** (question 29, yes 2026-09-18).~~ Built 2026-09-18: `/admin` on the web
    process with the eight panels of `docs/admin-panel.md`, the Vitec panel in
@@ -67,10 +71,10 @@ the first item that is not done, and keep the file current. Decisions and open q
 
 - The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health
   check is green, `kowboy-core-staging` (the `staging` branch on every push, database
-  `core_staging`) and `kowboy-core` (`main`, deployed when an agent asks on Patric's word,
-  database `defaultdb`); both specs are committed back. Left: Vitec's subscriptions pointing at
-  each app (Patric gives Vitec the URLs, handed over in chat), a Vitec connection on each app
-  (item 6), Sentry, and question 27 on the release flow.
+  `core_staging`) and `kowboy-core` (`main` on every merge, database `defaultdb`); both specs are
+  committed back. Left: Vitec's subscriptions pointing at each app (Patric gives Vitec the URLs,
+  handed over in chat), a Vitec connection on production (staging has one since 2026-09-18, item
+  6), and Sentry.
 - Sentry DSN → replace the placeholder in `engine/errors.ts`.
 - The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
 - Vitec test credentials and a staging deploy → open question 18.
