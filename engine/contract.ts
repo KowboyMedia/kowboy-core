@@ -38,3 +38,6 @@ export const validateData = (datatype: Datatype, data: Canonical): ValidationRes
 
 /** Validate a full item envelope as a subscriber receives it. */
 export const validateItem = (item: unknown): ValidationResult => check('item.v1.json', item);
+
+/** Validate what a site reports it applied (POST /v1/applied, question 37). */
+export const validateApplied = (body: unknown): ValidationResult => check('applied.v1.json', body);

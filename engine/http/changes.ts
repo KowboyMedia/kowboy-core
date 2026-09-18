@@ -75,7 +75,7 @@ async function parseRequest(request: Request): Promise<ParsedRequest> {
 }
 
 /** The tenant comes from the token, never from a parameter (SRS §8). */
-async function authenticate(
+export async function authenticate(
   request: Request,
 ): Promise<{ tenantId: string; purgeWatermark: number } | Failure> {
   const token = (request.headers['authorization'] ?? '').replace(/^Bearer\s+/i, '');

@@ -47,7 +47,7 @@ connections, lifecycle events, health, the event log) becomes a panel.
    "fetch this id now" and "list this office now" for one record or one office.
 5. **Items.** Find an item by datatype and id, or browse an office. Show its envelope (seq, hash,
    deleted, dates) and its three faces side by side: raw, unified (`data`) and display. Its
-   timeline from the event log. Actions: recompute this item; refetch it through the adapter.
+   timeline from the event log, down to what each site applied (question 37). Actions: recompute this item; refetch it through the adapter.
    Never a hand edit of data.
 6. **Events.** The timeline query of strategy §8.2: filter by tenant, connection, datatype, id,
    type and time; follow a correlation id from a webhook to the writes, bells and pulls it caused.

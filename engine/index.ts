@@ -11,6 +11,7 @@ import { deliverLifecycleEvents } from './lifecycle.js';
 import { deleteExpiredEvents, logEvent } from './events.js';
 import { purgeTombstones } from './storage/items.js';
 import { changes } from './http/changes.js';
+import { applied } from './http/applied.js';
 import { adminRoutes } from './http/admin.js';
 import { configureCompression, jsonResponse, startServer, type RouteTable } from './http/server.js';
 
@@ -72,6 +73,7 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
 
   const routes: RouteTable = [
     { method: 'GET', path: '/v1/changes', handler: changes },
+    { method: 'POST', path: '/v1/applied', handler: applied },
     {
       method: 'GET',
       path: '/v1/health',
