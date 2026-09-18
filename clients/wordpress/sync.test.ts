@@ -229,5 +229,11 @@ describe('the WordPress client', () => {
       code: 1,
       stderr: expect.stringContaining('pull failed'),
     });
+    // The notice every administrator sees (Patric, 2026-09-18): the failure, and an unlinked site.
+    const failed = JSON.parse((await wp('core-client', 'status')).stdout) as ClientStatus;
+    expect(failed.notice).toContain('failed');
+    await wp('option', 'update', 'core_client_token', '');
+    const unlinked = JSON.parse((await wp('core-client', 'status')).stdout) as ClientStatus;
+    expect(unlinked.notice).toContain('not linked');
   });
 });

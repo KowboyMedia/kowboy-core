@@ -39,6 +39,8 @@ export type ClientStatus = {
   running_since: string | null;
   last_success_at: string | null;
   last_error: string | null;
+  /** What the site's own administrator is told while it is not syncing (WordPress). */
+  notice?: string | null;
   after: Record<string, number>;
 };
 
@@ -156,6 +158,35 @@ export function syncScenarios(name: string, client: ClientSetup): void {
           'select last_bell_status from subscribers',
         );
         expect(rows[0]?.last_bell_status).toBe('ok');
+      },
+      SCENARIO_TIMEOUT_MS,
+    );
+
+    it(
+      'a disabled licence stops bells and pulls, and the site keeps what it shows (Patric, 2026-09-18)',
+      async () => {
+        await seed('P-1');
+        await sync();
+        expect(await remoteIds('property')).toEqual(['P-1']);
+
+        const bellAt = async (): Promise<number | null> => {
+          const { rows } = await db().query<{ last_bell_at: Date | null }>(
+            'select last_bell_at from subscribers',
+          );
+          return rows[0]?.last_bell_at?.getTime() ?? null;
+        };
+        await db().query('update tenants set active = false where id = $1', [TENANT]);
+        const rungBefore = await bellAt();
+        await seed('P-2'); // Core writes it, and rings no site whose licence is off
+        expect(await bellAt()).toBe(rungBefore);
+
+        const status = await sync(); // the site's own backstop: refused, and nothing removed
+        expect(status.last_error).toMatch(/licence/);
+        expect(await remoteIds('property')).toEqual(['P-1']);
+
+        await db().query('update tenants set active = true where id = $1', [TENANT]);
+        await sync();
+        expect(await remoteIds('property')).toEqual(['P-1', 'P-2']);
       },
       SCENARIO_TIMEOUT_MS,
     );

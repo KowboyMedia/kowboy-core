@@ -83,6 +83,11 @@ The updater never loads plugin code, so a broken release is replaced by the next
 updater and WP-CLI tests; see [../README.md](../README.md) for the one-time setup. PHPStan runs in
 CI's warnings job: `composer install` and `vendor/bin/phpstan analyse`, both in this directory.
 
+On the site itself, an administrator sees one notice on every admin page while the plugin cannot
+sync (Patric, 2026-09-18): the site is not linked (no Core URL or token), its licence is not
+active (Core refuses the token), or the last sync failed. In every case the site keeps showing
+what it has; only the updates stop. `wp core-client status` carries the same text as `notice`.
+
 ## What the site tells Core
 
 After each page it pulled, the plugin posts to `POST /v1/applied` which records it applied and which
