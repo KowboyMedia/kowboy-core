@@ -154,8 +154,10 @@ describe('the admin panel', () => {
     const html = await page.text();
     expect(html).toContain('Bell secret for site');
     expect(shownAfter(html, 'Bell secret for site').length).toBeGreaterThan(20);
-    const listed = await (await get('/admin/tenants')).text();
+    const listed = await (await get(`/admin/tenants/${TENANT}`)).text();
     expect(listed).toContain('acme.se');
+    const overview = await (await get('/admin/tenants')).text();
+    expect(overview).toContain(`/admin/tenants/${TENANT}`);
     const id = /\/admin\/sites\/(\d+)\/ring/.exec(listed)?.[1] ?? '';
     const rang = await post(`/admin/sites/${id}/ring`, { tenant: TENANT, kind: 'delta' });
     expect(rang.status).toBe(303);

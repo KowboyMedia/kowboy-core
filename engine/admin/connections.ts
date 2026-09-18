@@ -4,7 +4,6 @@ import {
   connections,
   setConnectionActive,
   setLicensedOffices,
-  tenants,
   upsertConnection,
   type ConnectionListRow,
 } from '../storage/connections.js';
@@ -45,57 +44,66 @@ const href = (id: string): string => `/admin/connections/${encodeURIComponent(id
 const loginPill = (row: ConnectionListRow): string =>
   row.has_credentials ? pill('ok', 'set') : pill('bad', 'missing');
 
-function listPage(ctx: Ctx, rows: ConnectionListRow[], tenantIds: string[]): string {
+/** The connections as a table; on a tenant's page the tenant column is left out. */
+export function connectionTable(rows: ConnectionListRow[], withTenant: boolean): string {
+  return table(
+    [
+      'Connection',
+      ...(withTenant ? ['Tenant'] : []),
+      'CRM',
+      'Offices',
+      'Active',
+      'Login',
+      'Last ingest',
+      'Last error',
+    ],
+    rows.map((row) => [
+      link(href(row.id), row.id),
+      ...(withTenant
+        ? [link(`/admin/tenants/${encodeURIComponent(row.tenant_id)}`, row.tenant_id)]
+        : []),
+      escape(row.provider),
+      escape(row.licensed_offices.join(', ')),
+      yesNo(row.active),
+      loginPill(row),
+      when(row.last_ingest_at),
+      row.last_error ? `<span class="bad">${escape(row.last_error)}</span>` : '',
+    ]),
+    'No connections yet.',
+  );
+}
+
+/** The form that makes a connection for one tenant, on the tenant's page. */
+export function addConnectionForm(ctx: Ctx, tenantId: string): string {
   const providers = ctx.adapters.map((adapter) => ({ value: adapter.provider }));
+  return form(
+    '/admin/connections',
+    ctx.csrf,
+    field('id', 'Connection id', {
+      required: true,
+      placeholder: 'acme-1',
+      help: 'Short, lowercase and permanent: letters, digits, - and _.',
+    }) +
+      select('provider', 'CRM', providers, undefined, 'The adapter that talks to this CRM.') +
+      textarea(
+        'offices',
+        'Licensed offices',
+        '',
+        'The office ids this tenant is licensed for, one per line or comma-separated. Core keeps records of these offices only.',
+      ),
+    { submit: 'Add connection', hidden: { tenant: tenantId } },
+  );
+}
+
+function listPage(rows: ConnectionListRow[]): string {
   return (
     intro(
-      'A connection is a tenant’s link to one CRM: which offices belong to the tenant, and the login Core uses there. Everything the CRM lists for those offices ends up in Core and on the tenant’s sites.',
+      'Every connection across all tenants: a tenant’s link to one CRM, which offices belong to the tenant, and the login Core uses there. Everything the CRM lists for those offices ends up in Core and on the tenant’s sites. Connections are made on the tenant’s page.',
     ) +
     card(
       'Connections',
       'Open one to change its login or offices, to load or remove its records, and to see what its adapter knows.',
-      table(
-        ['Connection', 'Tenant', 'CRM', 'Offices', 'Active', 'Login', 'Last ingest', 'Last error'],
-        rows.map((row) => [
-          link(href(row.id), row.id),
-          `<code>${escape(row.tenant_id)}</code>`,
-          escape(row.provider),
-          escape(row.licensed_offices.join(', ')),
-          yesNo(row.active),
-          loginPill(row),
-          when(row.last_ingest_at),
-          row.last_error ? `<span class="bad">${escape(row.last_error)}</span>` : '',
-        ]),
-        'No connections yet.',
-      ),
-    ) +
-    card(
-      'Add a connection',
-      'Makes the connection. Its CRM login and the first load come on the next page.',
-      form(
-        '/admin/connections',
-        ctx.csrf,
-        field('id', 'Connection id', {
-          required: true,
-          placeholder: 'acme-1',
-          help: 'Short, lowercase and permanent: letters, digits, - and _.',
-        }) +
-          select(
-            'tenant',
-            'Tenant',
-            tenantIds.map((id) => ({ value: id })),
-            undefined,
-            'Whose records these are.',
-          ) +
-          select('provider', 'CRM', providers, undefined, 'The adapter that talks to this CRM.') +
-          textarea(
-            'offices',
-            'Licensed offices',
-            '',
-            'The office ids this tenant is licensed for, one per line or comma-separated. Core keeps records of these offices only.',
-          ),
-        { submit: 'Add connection' },
-      ),
+      connectionTable(rows, true),
     )
   );
 }
@@ -238,17 +246,7 @@ export const connectionPanels: Panel[] = [
   {
     method: 'GET',
     pattern: /^\/admin\/connections$/,
-    handle: async (ctx) => {
-      const [rows, tenantRows] = await Promise.all([connections(), tenants()]);
-      return ctx.render(
-        'Connections',
-        listPage(
-          ctx,
-          rows,
-          tenantRows.map((t) => t.id),
-        ),
-      );
-    },
+    handle: async (ctx) => ctx.render('Connections', listPage(await connections())),
   },
   {
     method: 'POST',
@@ -257,14 +255,11 @@ export const connectionPanels: Panel[] = [
       const id = ctx.form['id'] ?? '';
       const tenantId = ctx.form['tenant'] ?? '';
       const provider = ctx.form['provider'] ?? '';
+      const back = tenantId ? `/admin/tenants/${encodeURIComponent(tenantId)}` : '/admin/tenants';
       if (!ID.test(id) || !tenantId || !ctx.adapters.some((a) => a.provider === provider)) {
-        return ctx.redirect(
-          '/admin/connections',
-          '!A connection needs an id like acme-1, a tenant and a CRM.',
-        );
+        return ctx.redirect(back, '!A connection needs an id like acme-1, a tenant and a CRM.');
       }
-      if (await rowOf(id))
-        return ctx.redirect('/admin/connections', `!There is already a connection ${id}.`);
+      if (await rowOf(id)) return ctx.redirect(back, `!There is already a connection ${id}.`);
       await upsertConnection({
         id,
         tenantId,

@@ -1,32 +1,35 @@
 // Error reporting (strategy §2; question 36, Patric 2026-09-18): every unexpected error goes to
 // stderr as one line of JSON and, when a DSN is set, to Sentry. A throttle in front of Sentry
-// keeps a repeating error to one report per window and the whole process to a cap per hour, so a
+// keeps a repeating error to one report per window and the whole process to a cap per day, so a
 // busy site or a broken loop never turns into a bill; Sentry's own duplicate filter runs on top.
-// No performance tracing. Nothing here reads credentials, and callers never pass them.
+// The plan holds 5,000 events a month for everything (Patric): four processes at the daily cap
+// come to 2,400 at worst, leaving room for the sites' own reports later. No performance tracing.
+// Nothing here reads credentials, and callers never pass them.
 import * as Sentry from '@sentry/node';
 
-/** A repeating error leaves once per window, and at most this many reports leave per hour. */
-export const REPEAT_WINDOW_MS = 10 * 60_000;
-export const HOURLY_CAP = 100;
+/** A repeating error leaves once per window, and at most this many reports leave per process a day. */
+export const REPEAT_WINDOW_MS = 60 * 60_000;
+export const DAILY_CAP = 20;
+const DAY_MS = 24 * 60 * 60_000;
 
 export type Gate = (fingerprint: string, now?: number) => boolean;
 
 /** The throttle on its own, so the tests can drive the clock. */
 export function throttle(): Gate {
   const lastSent = new Map<string, number>();
-  let hourStart = 0;
-  let sentThisHour = 0;
+  let dayStart = Number.NEGATIVE_INFINITY;
+  let sentToday = 0;
   return (fingerprint, now = Date.now()) => {
-    if (now - hourStart >= 3_600_000) {
-      hourStart = now;
-      sentThisHour = 0;
+    if (now - dayStart >= DAY_MS) {
+      dayStart = now;
+      sentToday = 0;
       for (const [key, at] of lastSent) if (now - at >= REPEAT_WINDOW_MS) lastSent.delete(key);
     }
     const last = lastSent.get(fingerprint);
     if (last !== undefined && now - last < REPEAT_WINDOW_MS) return false;
-    if (sentThisHour >= HOURLY_CAP) return false;
+    if (sentToday >= DAILY_CAP) return false;
     lastSent.set(fingerprint, now);
-    sentThisHour += 1;
+    sentToday += 1;
     return true;
   };
 }
