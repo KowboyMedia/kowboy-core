@@ -195,7 +195,7 @@ adapter worker ──► fetch X from Vitec ──► found: ingest · gone: not
 - **The listener is entirely Vitec adapter code:** the endpoint, its route, the signature check and Vitec's payload format. The engine never sees a webhook request.
 - **Why a fetch list instead of fetching inside the webhook request:** if Vitec sends thousands of webhooks at once (it has happened during bugs), the list absorbs them without crashing, and the worker fetches at the rate Vitec allows.
 - **Duplicates:** the same record listed twice is kept once.
-- **Retries:** a failed fetch is retried with backoff and reported to Sentry after the last attempt. It is never treated as a delete.
+- **Retries:** a failed fetch is retried with backoff and reported to Sentry after the last attempt. It is never treated as a delete. The adapter also guards itself against a flaky Vitec (2026-09-18): a connection pauses after five failures in a row and probes its way back with growing waits, an office Vitec refuses (403) is blocked at once and probed once per cool-down, then loaded in full when it is back, a broken answer is kept in the event and retried, and requests are capped per second with Vitec's own Retry-After honoured. A blocked office's records stay on the sites until a person removes the office (question 38).
 
 **Path 2 - Catch-up (rare safety net, separate schedule):**
 

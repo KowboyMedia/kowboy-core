@@ -51,10 +51,11 @@ const LONG_AGO = '1970-01-01T00:00:00.000Z';
 async function connectionRows(request: AdminRequest): Promise<string> {
   const rows: string[][] = [];
   for (const connection of await request.connections()) {
-    const [catchUpAt, compareAt, until, counts] = await Promise.all([
+    const [catchUpAt, compareAt, until, pausedUntil, counts] = await Promise.all([
       store.getState(connection.id, 'catch_up_at'),
       store.getState(connection.id, 'compare_at'),
       store.getState(connection.id, 'catch_up_until'),
+      store.getState(connection.id, 'paused_until'),
       store.summary(connection.licensedOffices),
     ]);
     const run = (action: string, label: string): string =>
@@ -63,20 +64,60 @@ async function connectionRows(request: AdminRequest): Promise<string> {
         inline: true,
         hidden: { action, connection: connection.id },
       });
+    const isPaused = Boolean(pausedUntil) && new Date(pausedUntil ?? 0).getTime() > Date.now();
     rows.push([
       `<code>${escape(connection.id)}</code>`,
       escape(connection.licensedOffices.join(', ')),
       yesNo(connection.active),
+      isPaused
+        ? `${pill('bad', 'paused')} <span class="text-secondary">until ${when(pausedUntil)}</span>`
+        : pill('ok', 'fetching'),
       `${when(catchUpAt)}<br><span class="text-secondary">changes since ${when(until)}</span>`,
       when(compareAt),
       `${counts.waiting} waiting · ${counts.retrying} retrying · ${counts.givenUp} given up`,
-      run('catch_up', 'Catch up now') + run('compare', 'Compare now'),
+      run('catch_up', 'Catch up now') +
+        run('compare', 'Compare now') +
+        (isPaused ? run('resume', 'Resume now') : ''),
     ]);
   }
   return table(
-    ['Connection', 'Offices', 'Active', 'Last catch-up', 'Last comparison', 'Fetch list', 'Run'],
+    [
+      'Connection',
+      'Offices',
+      'Active',
+      'State',
+      'Last catch-up',
+      'Last comparison',
+      'Fetch list',
+      'Run',
+    ],
     rows,
     'No Vitec connections yet: add one under Connections.',
+  );
+}
+
+async function blockedRows(request: AdminRequest): Promise<string> {
+  const rows = (await store.blockedOffices()).map((office) => {
+    const act = (action: string, label: string, danger = false): string =>
+      form('/admin/vitec', request.csrf, '', {
+        submit: label,
+        inline: true,
+        danger,
+        hidden: { action, office: office.officeId },
+      });
+    return [
+      escape(office.officeId),
+      when(office.blockedAt),
+      escape(office.reason),
+      escape(office.probes),
+      when(office.blockedUntil),
+      act('probe', 'Probe now') + act('forget', 'Forget', true),
+    ];
+  });
+  return table(
+    ['Office', 'Refused since', 'What Vitec said', 'Failed probes', 'Next probe', 'Actions'],
+    rows,
+    'No office is refused: Vitec answers for every licensed office.',
   );
 }
 
@@ -131,8 +172,13 @@ async function frontPage(request: AdminRequest): Promise<AdminResult> {
       await connectionRows(request),
     ) +
     card(
+      'Refused offices',
+      'An office Vitec answers 403 for is blocked at the first refusal: nothing is asked for it, its waiting records stay parked, and one probe per cool-down (an hour, doubling to a day) checks whether it is back; back means loaded again in full. "Probe now" asks at the worker\u2019s next tick; "Forget" drops the block without a probe, for an office that left the licence.',
+      await blockedRows(request),
+    ) +
+    card(
       'Fetch list',
-      'Records Core is about to fetch: notifications first, then loads and catch-ups. A retrying record failed and waits for its next attempt; after three failures it is given up, and Retry or Drop is yours.',
+      'Records Core is about to fetch: notifications first, then loads and catch-ups. A retrying record failed and waits for its next attempt; after six failures it is given up, and Retry or Drop is yours. A connection that fails five times in a row pauses, two minutes doubling to thirty, and probes its way back.',
       (await fetchListRows(request)) +
         `<p class="mt-3 mb-0"><a href="/admin/vitec/fetch">Fetch one record by hand</a></p>`,
     );
@@ -162,6 +208,18 @@ const ACTIONS: Record<string, (form: Record<string, string>) => Promise<void>> =
   drop: async (form) => {
     const record = target(form);
     if (record) await store.drop(...record);
+  },
+  probe: async (form) => {
+    if (form['office']) await store.expediteProbe(form['office']);
+  },
+  forget: async (form) => {
+    if (form['office']) await store.unblockOffice(form['office']);
+  },
+  resume: async (form) => {
+    const id = form['connection'];
+    if (!id) return;
+    await store.setState(id, 'paused_until', '');
+    await store.setState(id, 'failures', '0');
   },
 };
 

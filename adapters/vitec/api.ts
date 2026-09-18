@@ -39,14 +39,43 @@ const REQUEST_TIMEOUT_MS = 30_000;
 export const concurrency = (): number =>
   Math.max(1, Number(process.env['VITEC_FETCH_CONCURRENCY'] ?? 5));
 
+/** Requests per second at most, lists included, so a load never looks like an attack. */
+export const requestsPerSecond = (): number =>
+  Math.max(1, Number(process.env['VITEC_REQUESTS_PER_SECOND'] ?? 10));
+
+/** How long a Retry-After is honoured at most. */
+const HOLD_MAX_MS = 5 * 60_000;
+
 let inFlight = 0;
 const waiting: (() => void)[] = [];
+let nextStartAt = 0;
+let holdUntil = 0;
 
-/** Run `send` once a slot is free. */
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Wait for the speed limit, and for any Retry-After Vitec asked for. */
+async function pace(): Promise<void> {
+  const interval = 1000 / requestsPerSecond();
+  const now = Date.now();
+  const at = Math.max(now, nextStartAt, holdUntil);
+  nextStartAt = at + interval;
+  if (at > now) await sleep(at - now);
+}
+
+/** Honour a Retry-After header (seconds, or a date), for at most HOLD_MAX_MS. */
+function hold(header: string | null): void {
+  if (!header) return;
+  const seconds = Number(header);
+  const ms = Number.isFinite(seconds) ? seconds * 1000 : new Date(header).getTime() - Date.now();
+  if (ms > 0) holdUntil = Date.now() + Math.min(ms, HOLD_MAX_MS);
+}
+
+/** Run `send` once a slot is free and the speed limit allows. */
 async function slot<T>(send: () => Promise<T>): Promise<T> {
   if (inFlight >= concurrency()) await new Promise<void>((resolve) => waiting.push(resolve));
   inFlight += 1;
   try {
+    await pace();
     return await send();
   } finally {
     inFlight -= 1;
@@ -85,6 +114,26 @@ export class VitecError extends Error {
     super(message);
     this.name = 'VitecError';
   }
+}
+
+/**
+ * What a failed call means for the adapter's guards: `forbidden` is 401 or 403 (a closed office,
+ * a licence gone), `unavailable` is Vitec down, busy or unreachable, `broken` is an answer that is
+ * not JSON, and `other` is anything else.
+ */
+export type FailureKind = 'forbidden' | 'unavailable' | 'broken' | 'other';
+
+export function kindOf(error: unknown): FailureKind {
+  if (error instanceof VitecError) {
+    if (error.status === 401 || error.status === 403) return 'forbidden';
+    if (error.message.includes('broken JSON')) return 'broken';
+    if (error.status === 429 || error.status >= 500) return 'unavailable';
+    return 'other';
+  }
+  const name = error instanceof Error ? error.name : '';
+  return name === 'TimeoutError' || name === 'AbortError' || name === 'TypeError'
+    ? 'unavailable'
+    : 'other';
 }
 
 /**
@@ -130,6 +179,8 @@ async function get(
       }),
     );
     call.status = response.status;
+    if (response.status === 429 || response.status === 503)
+      hold(response.headers.get('retry-after'));
     const text = await response.text();
     call.response_bytes = Buffer.byteLength(text);
     if (response.status === 404) return null;
