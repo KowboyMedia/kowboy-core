@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 46.
+answering is quick. Next number: 47.
 
 ## 2. Protected paths created by an agent
 
@@ -25,13 +25,6 @@ should be. `rules-ledger/` is protected and empty, so nothing can be written unt
 Kowboy serves images through a separate CDN app. The SRS says images are CRM CDN URLs with a sort
 order (§6.6), but there is no image field in the contract today and none will be added on a guess.
 When the model is defined, say whether Core carries image URLs at all or leaves them out entirely.
-
-## 8. Phase 1 cannot exit without the platform
-
-Phase 1's exit is a real PR → staging → production deploy, and AC 18, 24, 27 need a live
-environment. The app is built to run on DigitalOcean App Platform with managed Postgres, but
-nothing is deployed. Phase 1 is split in the strategy into Foundation (done) and Deploy (waiting
-on you).
 
 ## 16. The plugin's license, now that Action Scheduler is bundled
 
@@ -79,3 +72,14 @@ the rule; (a) is less code.
 agent `<first name>-<last name>-<id>`, area `<municipality>-<area name>-<id>`, every entity ending
 in `-<id>`, set by WordPress. Office, project and association are not given. Smaller: `<name>-<id>`
 for all three.
+
+## 46. The sites' errors through Core, so one bug is one report
+
+`[core]` `[client-wordpress]` `[client-lovable]` You want the same error reported once a day
+regardless of client or install. Core now does that for its own two processes. For the sites it
+takes one of two designs. (a) Each site gets its own Sentry key: the same bug on fifty sites is
+fifty reports a day, and every site holds a key. (b) A site sends its errors to Core (one new
+contract endpoint, with the tenant's token, like the reports of what it applied), Core keeps one
+row per distinct error across every site and forwards one report a day to Sentry with the number
+of sites affected; no site holds a key. (b) is the one that meets the rule and the budget; it
+needs your approval because it adds a contract endpoint. Smaller in code: (a).

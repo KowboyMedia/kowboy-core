@@ -138,7 +138,7 @@ export async function harness(options: {
 
 async function truncate(): Promise<void> {
   await db().query(
-    'truncate tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results restart identity cascade',
+    'truncate tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results, error_reports restart identity cascade',
   );
   await db().query("select setval('item_seq', 1, false)");
 }
