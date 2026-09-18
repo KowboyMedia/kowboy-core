@@ -38,29 +38,3 @@ on you).
 Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPress plugins normally
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
-
-## 34. [core] The fake adapters run in staging and production
-
-They exist for the tests (AC 12). In every running app they also poll a fake CRM ten times a
-second, and their two checks sit in `/v1/health`; the stall of 2026-09-18 was one of them. Pick:
-take them out of the running apps (smaller; the tests keep them), or leave them in.
-
-## 36. [core] Sentry: an account in the EU, a project key, and the Sentry library
-
-Core reports errors nowhere today: `engine/errors.ts` is the placeholder from Phase 1, and nothing
-alerts when production's health goes red. Four steps, the first three yours: (1) at sentry.io,
-create an organisation and pick the EU as its data storage location; (2) in it, create a project of
-platform Node.js named kowboy-core and paste its DSN here (the DSN is a key that only sends
-reports, safe to paste); (3) say yes to the Sentry library, `@sentry/node`, as a dependency of
-Core (smaller: yes, it is the official client); (4) an agent then wires it into both apps, and
-adds an uptime alert on production's `/v1/health` every minute if you give it an auth token with
-alert rights, or you click Alerts → Uptime Monitor there yourself. The sites get their own
-projects later.
-
-## 38. [crm-vitec] A closed office's records on the sites
-
-When Vitec answers 403 for an office, the office is gone or the licence ended, and Core cannot
-tell which. The adapter now blocks the office at once, probes it once per cool-down, and leaves
-its records on the sites as they are; a person removes the office at the panel when it is really
-gone. Pick: keep it so (smaller, built), or remove the office's records by themselves after a
-number of days of 403 that you name.

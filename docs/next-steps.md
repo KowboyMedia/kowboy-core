@@ -78,7 +78,7 @@ the first item that is not done, and keep the file current. Decisions and open q
   handed over in chat), a Vitec connection on production (staging has one since 2026-09-18, item
   6), and Sentry. The database cluster accepts connections only from the two apps (question 33,
   2026-09-18).
-- Sentry DSN → replace the placeholder in `engine/errors.ts`.
+- Sentry: wired into Core 2026-09-18 (question 36); the DSN is on staging, production gets it with the release. Left: an uptime alert on production's `/v1/health` (an auth token for an agent, or a click in Sentry), and projects for the two clients.
 - The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
 - Vitec test credentials and a staging deploy → open question 18.
 - Mspecs documentation → second adapter.
