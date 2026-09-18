@@ -10,6 +10,8 @@ export type Config = {
   postmarkServerToken: string | null;
   credentialsKey: string;
   sentryDsn: string | null;
+  /** What Core reports itself as to Sentry: staging, production, local. */
+  sentryEnvironment: string | null;
   bellThrottleMs: number;
   eventRetentionDays: number;
   gzipLevel: number;
@@ -34,6 +36,7 @@ export function loadConfig(): Config {
     postmarkServerToken: process.env.POSTMARK_SERVER_TOKEN || null,
     credentialsKey: required('CREDENTIALS_KEY'),
     sentryDsn: process.env.SENTRY_DSN || null,
+    sentryEnvironment: process.env.SENTRY_ENVIRONMENT || null,
     bellThrottleMs: Number(process.env.BELL_THROTTLE_MS ?? 10_000),
     eventRetentionDays: Number(process.env.EVENT_RETENTION_DAYS ?? 30),
     gzipLevel: Number(process.env.GZIP_LEVEL ?? 3),

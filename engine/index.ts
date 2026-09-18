@@ -58,7 +58,10 @@ async function advanceSequence(): Promise<void> {
 /** Start the engine: config, database, migrations, routes. No CRM knowledge anywhere in here. */
 export async function startEngine(overrides: Partial<Config> = {}): Promise<Engine> {
   const config = { ...loadConfig(), ...overrides };
-  initErrorReporting(config.sentryDsn);
+  initErrorReporting(config.sentryDsn, {
+    environment: config.sentryEnvironment ?? undefined,
+    release: VERSION,
+  });
   db(config.databaseUrl);
   await migrate();
   await advanceSequence();

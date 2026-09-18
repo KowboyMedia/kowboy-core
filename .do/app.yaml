@@ -39,6 +39,9 @@ services:
       - key: MAIL_FROM
         value: patric@kowboy.se
         scope: RUN_TIME
+      - key: SENTRY_ENVIRONMENT
+        value: production
+        scope: RUN_TIME
       - key: CREDENTIALS_KEY
         value: EV[1:N71KfGweIKlzf42ES3sufrtrqQJ013Mh:I0ZD7+OARrP/BbYy68T9PHSqYa4n1BluG/nbSgXQdNQNG7W0/lWyQfH4WVTve0F4Fh1EBKRdvGN92ytY]
         scope: RUN_TIME
@@ -77,6 +80,9 @@ workers:
         value: EV[1:2qxa1s46zTh9VTuAO3kVmkd/zwIwM2Ep:e73kiq7+ipkjW6J+qGGxsLvAUGeMFR0fYs3v5DSTTTYK7wUjha4BnNjrwylGxAbw6EHAv2FIo7vB37o=]
         scope: RUN_TIME
         type: SECRET
+      - key: SENTRY_ENVIRONMENT
+        value: production
+        scope: RUN_TIME
       - key: CREDENTIALS_KEY
         value: EV[1:Fs09bNlwO8Kshl+BvprjOX4Hkyvvn6Jg:kGwyaD5tsXpsADO0jWaTrLIINdPTMpjXQn6Y/hcqe0UDT6NdTsmV0CoQDM5RPi9wGJP2DrrHTmHuL1+r]
         scope: RUN_TIME

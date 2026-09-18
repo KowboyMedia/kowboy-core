@@ -264,14 +264,16 @@ describe('the Vitec adapter', () => {
     fake.failNext(3);
     await hook({ type: 'Estate', event: 'Update', customerId: OFFICE, id: 'OBJ1' });
     for (let attempt = 1; attempt <= 3; attempt += 1) {
+      if (attempt > 1) await store.expedite();
       await drainFetchList();
       expect(await store.depth()).toBe(1);
-      await store.expedite();
     }
+    // The record now waits out its third backoff, where the adapter's own drain timer leaves it.
     expect((await health())['vitec.retries']).toMatchObject({ ok: false });
     // Three failures did not tombstone anything.
     expect((await item('property', 'OBJ1'))?.['seq']).toBe(before);
 
+    await store.expedite();
     await drainFetchList();
     expect(await store.depth()).toBe(0);
     const after = await item('property', 'OBJ1');

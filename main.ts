@@ -7,14 +7,15 @@ import { startEngine } from './engine/index.js';
 import { startAdapter } from './engine/adapter-api/index.js';
 import { adapterRoutes } from './engine/http/server.js';
 import { adminRoutesFor } from './engine/admin/index.js';
-import { report } from './engine/errors.js';
+import { closeErrorReporting, report } from './engine/errors.js';
 import type { Adapter } from './engine/adapter-api/types.js';
-import { fakeWebhookAdapter } from './adapters/fake-webhook/index.js';
-import { fakePollingAdapter } from './adapters/fake-polling/index.js';
 import { vitecAdapter } from './adapters/vitec/index.js';
 
-/** Every adapter Core ships. Adding a CRM is adding a directory and one line here. */
-const adapters: Adapter[] = [fakeWebhookAdapter, fakePollingAdapter, vitecAdapter];
+/**
+ * Every adapter Core ships. Adding a CRM is adding a directory and one line here. The two fake
+ * adapters live in the tests and local runs only (question 34, 2026-09-18).
+ */
+const adapters: Adapter[] = [vitecAdapter];
 
 const role = process.argv[2] ?? 'web';
 const engine = await startEngine();
@@ -40,6 +41,7 @@ const shutdown = (signal: string): void => {
   void Promise.all(adapters.map((adapter) => adapter.stop?.()))
     .then(() => engine.stop())
     .catch((error: unknown) => report(error, { where: 'shutdown' }))
+    .then(() => closeErrorReporting())
     .finally(() => process.exit(0));
 };
 process.on('SIGTERM', () => shutdown('SIGTERM'));
