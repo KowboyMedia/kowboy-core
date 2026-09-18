@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 31.
+answering is quick. Next number: 33.
 
 ## 2. Protected paths created by an agent
 
@@ -55,11 +55,19 @@ Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPre
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
 
-## 30. [core] A password for the admin panel
+## 31. [core] The login mail needs Elastic Email's key, and a sender address
 
-The panel is live on staging at `https://kowboy-core-staging-t7ig3.ondigitalocean.app/admin`
-(production follows with the release). It opens with one password, `ADMIN_SECRET`, which today
-exists only inside the apps' settings: nobody can read it back, and an agent never writes a secret
-into chat. Pick one: send a password of your choice in chat and an agent sets it on staging at once
-and on production with the release (smaller), or say "generate" and an agent makes one and emails
-it to you.
+Your domain's mail settings already list Elastic Email as a sender, so the panel's login links go
+out through it: no new vendor, no DNS change, and the platform blocks plain SMTP anyway. Needed:
+an API key from Kowboy's Elastic Email account (Settings → Manage API keys → Create, with
+permission to send). Paste it here and an agent sets it on staging at once and on production with
+the release (smaller), or put it in this environment as `ELASTIC_EMAIL_API_KEY` as you did with the
+Vitec credentials. The mail is sent from `core@kowboy.se` unless you name another address. Until
+then nobody can log in to the panel on staging.
+
+## 32. [core] Agents no longer have a way into the panel
+
+The panel is people-only now: an agent has no mailbox at kowboy.se. Agents keep the admin API
+(`/v1/admin/*`: bells, lifecycle events, replay, recompute) but cannot add tenants, sites or
+connections on staging or production any more; a person does that at the panel. Pick: leave it
+(smaller), or extend the admin API so an agent can set up tenants and connections too.

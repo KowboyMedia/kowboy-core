@@ -14,15 +14,16 @@ Needs Node 22 and a Postgres 16 database.
 
 ```bash
 npm install
-cp .env.example .env          # set DATABASE_URL, ADMIN_SECRET, CREDENTIALS_KEY
+cp .env.example .env          # set DATABASE_URL, ADMIN_SECRET, ADMIN_EMAIL_DOMAINS, CREDENTIALS_KEY
 npm run build
 npm run start:web             # subscriber API, admin, health, adapter endpoints
 npm run start:worker          # adapter background work, bells, housekeeping
 ```
 
-Migrations run at startup. The admin panel is at `/admin` on the web process: log in with
-`ADMIN_SECRET`, then tenants, sites, connections, the adapters' own panels, items, events, a test
-panel and settings ([docs/admin-panel.md](docs/admin-panel.md)).
+Migrations run at startup. The admin panel is at `/admin` on the web process: log in with a link
+mailed to an address at an allowed domain (`ADMIN_EMAIL_DOMAINS`; the mail needs `MAIL_FROM` and
+`ELASTIC_EMAIL_API_KEY`), then tenants, sites, connections, the adapters' own panels, items,
+events, a test panel and settings ([docs/admin-panel.md](docs/admin-panel.md)).
 
 Tenants, connections and subscribers are also added with one script, through the same functions
 the panel uses, so tokens are hashed and CRM credentials encrypted the way the engine expects:

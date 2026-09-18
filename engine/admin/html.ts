@@ -36,6 +36,7 @@ const STYLE = `
   .ok { color: var(--good); } .bad { color: var(--bad); }
   .columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem; }
   .muted { color: var(--muted); }
+  .who { margin-left: auto; color: var(--muted); }
   code { font-size: .85rem; }
 `;
 
@@ -44,6 +45,8 @@ export function page(options: {
   title: string;
   nav: NavItem[];
   current: string;
+  /** The address logged in, shown next to the logout button. */
+  user?: string;
   body: string;
   flash?: string | null;
 }): string {
@@ -56,7 +59,7 @@ export function page(options: {
   const flash = options.flash
     ? `<div class="flash${options.flash.startsWith('!') ? ' bad' : ''}">${escape(options.flash.replace(/^!/, ''))}</div>`
     : '';
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escape(options.title)} · Core admin</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>${STYLE}</style></head><body><header><strong>Core admin</strong>${nav}<form class="inline" method="post" action="/admin/logout" style="margin-left:auto"><button class="quiet">Log out</button></form></header><main><h1>${escape(options.title)}</h1>${flash}${options.body}</main></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escape(options.title)} · Core admin</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>${STYLE}</style></head><body><header><strong>Core admin</strong>${nav}<span class="who">${escape(options.user ?? '')}</span><form class="inline" method="post" action="/admin/logout"><button class="quiet">Log out</button></form></header><main><h1>${escape(options.title)}</h1>${flash}${options.body}</main></body></html>`;
 }
 
 /** A table; the cells are HTML already, so escape data before putting it in. */

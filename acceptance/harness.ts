@@ -4,6 +4,8 @@ import { startEngine, type Engine } from '../engine/index.js';
 import { startAdapter } from '../engine/adapter-api/index.js';
 import { adapterRoutes } from '../engine/http/server.js';
 import { adminRoutesFor } from '../engine/admin/index.js';
+import { forgetLoginRequests } from '../engine/admin/auth.js';
+import { configureMail, type Mail } from '../engine/mail.js';
 import { db } from '../engine/storage/db.js';
 import { addSubscriber, upsertConnection, upsertTenant } from '../engine/storage/connections.js';
 import { deliverLifecycleEvents } from '../engine/lifecycle.js';
@@ -13,6 +15,8 @@ import type { Adapter } from '../engine/adapter-api/types.js';
 export const TENANT = 't_test';
 export const TOKEN = 'test-tenant-token';
 export const ADMIN_SECRET = 'test-admin-secret';
+/** An address at the domain the tests allow into the admin panel (ADMIN_EMAIL_DOMAINS). */
+export const ADMIN_EMAIL = 'operator@example.test';
 
 export type Bell = { kind: string; tenant_id: string; secret: string | undefined };
 
@@ -28,6 +32,8 @@ export type Harness = {
   engine: Engine;
   baseUrl: string;
   bells: Bell[];
+  /** Every mail Core sent, instead of sending it. */
+  mails: Mail[];
   /** Add or change a connection of the test tenant. */
   connection(input: ConnectionInput): Promise<void>;
   /** Deliver queued lifecycle events, as the worker's tick would. */
@@ -52,6 +58,14 @@ export async function harness(options: {
 
   let engine = await startEngine({ port: 0 });
   await truncate();
+  const mails: Mail[] = [];
+  const keepMail = (): void => {
+    configureMail(async (mail) => {
+      mails.push(mail);
+    });
+    forgetLoginRequests();
+  };
+  keepMail();
 
   const bells: Bell[] = [];
   const bellServer = await listen((request, respond) => {
@@ -97,6 +111,7 @@ export async function harness(options: {
     engine,
     baseUrl: `http://127.0.0.1:${port}`,
     bells,
+    mails,
     connection,
     deliver: async () => {
       await deliverLifecycleEvents();
@@ -107,6 +122,7 @@ export async function harness(options: {
       await during?.();
       await engine.stop();
       engine = await startEngine({ port });
+      keepMail();
       running.engine = engine;
       server = engine.listen(routes);
       for (const adapter of adapters) await startAdapter(adapter);
@@ -175,3 +191,21 @@ export const pull = async (
     has_more: boolean;
   };
 };
+
+/** Log in to the admin panel: ask for a link at the form, open the link the mail carries. */
+export async function adminLogin(
+  running: Harness,
+  email = ADMIN_EMAIL,
+  remember = false,
+): Promise<{ cookie: string; csrf: string; response: Response }> {
+  await fetch(`${running.baseUrl}/admin/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ email, ...(remember ? { remember: 'yes' } : {}) }).toString(),
+  });
+  const link = running.mails.at(-1)?.text.match(/https?:\/\/\S+/)?.[0];
+  if (!link) throw new Error(`no login link was mailed to ${email}`);
+  const response = await fetch(link, { redirect: 'manual' });
+  const cookie = (response.headers.get('set-cookie') ?? '').split(';')[0] ?? '';
+  return { cookie, csrf: cookie.slice(cookie.indexOf('=') + 1), response };
+}

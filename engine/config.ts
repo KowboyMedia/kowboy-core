@@ -3,6 +3,11 @@ export type Config = {
   databaseUrl: string;
   port: number;
   adminSecret: string;
+  /** Email domains whose addresses may log in to the admin panel; empty means nobody. */
+  adminEmailDomains: string[];
+  /** The login mail's sender and the key of the service that sends it; unset means no mail. */
+  mailFrom: string | null;
+  elasticEmailApiKey: string | null;
   credentialsKey: string;
   sentryDsn: string | null;
   bellThrottleMs: number;
@@ -21,6 +26,12 @@ export function loadConfig(): Config {
     databaseUrl: required('DATABASE_URL'),
     port: Number(process.env.PORT ?? 3000),
     adminSecret: required('ADMIN_SECRET'),
+    adminEmailDomains: (process.env.ADMIN_EMAIL_DOMAINS ?? '')
+      .split(',')
+      .map((domain) => domain.trim().toLowerCase())
+      .filter(Boolean),
+    mailFrom: process.env.MAIL_FROM || null,
+    elasticEmailApiKey: process.env.ELASTIC_EMAIL_API_KEY || null,
     credentialsKey: required('CREDENTIALS_KEY'),
     sentryDsn: process.env.SENTRY_DSN || null,
     bellThrottleMs: Number(process.env.BELL_THROTTLE_MS ?? 10_000),
