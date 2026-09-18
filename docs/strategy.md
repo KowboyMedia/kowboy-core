@@ -226,6 +226,7 @@ Core serves one shape: the current one. No versions, no converters, no automated
   3. **Contract:** remove the old field in a later release. The release report flags the removal and lists client versions currently pulling; the approver decides.
 - **Safety net** (SRS §8): a client that receives an item it can't use reports it to Sentry, skips it and keeps serving its local data.
 - **Client version header.** Clients send `X-Core-Client: <client>/<version>` on every pull. It is logged and shown in the release report.
+- **Time is one clock per comparison.** Every timestamp in the contract and in storage is a moment (UTC with an explicit offset, `date-time`), never a wall-clock time: hosts, databases, PHP and CRMs each keep their own zone. Nothing is compared across two clocks: sync keys on `seq`, and each client's rebuild sweep uses its own database clock on both sides. The one place two clocks meet, the catch-up window an adapter sends to its CRM (§5.3), carries an explicit offset, overlaps by an hour and is verified once per CRM. Which zone a time is shown in is decided where it is shown (the panel: Swedish time).
 
 ## 7. Onboarding, deletes, patching, purge and resync
 

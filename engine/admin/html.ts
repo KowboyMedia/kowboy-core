@@ -119,7 +119,8 @@ export function page(options: {
     `<div class="mt-auto pt-4 pb-2 px-2 small text-secondary"><div class="text-truncate" title="${user}">${user}</div><form method="post" action="/admin/logout" class="mt-2"><button class="btn btn-outline-secondary btn-sm">Log out</button></form></div>` +
     `</div></div></aside>` +
     `<div class="page-wrapper"><div class="page-header d-print-none"><div class="container-xl"><div class="row g-2 align-items-center"><div class="col"><h2 class="page-title">${escape(options.title)}</h2></div></div></div></div>` +
-    `<div class="page-body"><div class="container-xl">${flashOf(options.flash)}${options.body}</div></div></div></div>${script}</body></html>`
+    `<div class="page-body"><div class="container-xl">${flashOf(options.flash)}${options.body}</div></div>` +
+    `<footer class="footer footer-transparent d-print-none"><div class="container-xl"><p class="text-secondary small mb-0">Times are Swedish time (${TIME_ZONE}); hover a time for the exact moment in UTC.</p></div></footer></div></div>${script}</body></html>`
   );
 }
 
@@ -270,10 +271,34 @@ export function form(
 export const link = (href: string, text: string): string =>
   `<a href="${escape(href)}">${escape(text)}</a>`;
 
-export const when = (value: Date | string | null | undefined): string =>
-  value
-    ? `<span class="text-nowrap">${escape(value instanceof Date ? value.toISOString() : value)}</span>`
-    : '<span class="text-secondary">–</span>';
+/** Every time on the panel is shown in Swedish time; the exact moment in UTC sits in the tooltip. */
+export const TIME_ZONE = 'Europe/Stockholm';
+
+const clock = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
+
+/** A moment as `2026-09-18 22:14:05` in Swedish time; a value that is not a date stays as it is. */
+export const stamp = (value: Date | string): string => {
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : clock.format(date);
+};
+
+export const when = (value: Date | string | null | undefined): string => {
+  if (!value) return '<span class="text-secondary">–</span>';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime()))
+    return `<span class="text-nowrap">${escape(String(value))}</span>`;
+  const iso = date.toISOString();
+  return `<time class="text-nowrap" datetime="${iso}" title="${iso}">${stamp(date)}</time>`;
+};
 
 export const okBad = (ok: boolean, detail?: string | null): string =>
   pill(ok ? 'ok' : 'bad', ok ? 'ok' : 'failing') +

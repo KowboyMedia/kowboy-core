@@ -69,6 +69,13 @@ the first item that is not done, and keep the file current. Decisions and open q
    The login is by email link since the same day (question 30: no shared password), mailed
    through Postmark (question 31); staging has the token, production gets it with the release.
 
+8. **Setup directions on each adapter's panel, and a licence notice in the plugin** (Patric,
+   2026-09-18): each adapter's page shows how to set it up, built from the running configuration
+   (the webhook address, the credential fields, the offices, the subscriptions to ask for) and kept
+   true by a test; a site running the plugin without a licence shows an error in its own admin; a
+   disabled licence stops bells and pulls but leaves what the site already shows.
+9. **Link a site from its tenant's page** (questions 39 and 40): built when Patric answers.
+
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health

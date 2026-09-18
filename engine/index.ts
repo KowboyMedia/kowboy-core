@@ -6,7 +6,7 @@ import { migrate } from './storage/migrate.js';
 import { configureCredentials } from './storage/connections.js';
 import { configureBells, flushPendingBells } from './bells.js';
 import { configureMail, postmark } from './mail.js';
-import { heartbeat, healthReport, readiness, recordHealth } from './health.js';
+import { heartbeat, healthReport, pruneHealth, readiness, recordHealth } from './health.js';
 import { deliverLifecycleEvents } from './lifecycle.js';
 import { deleteExpiredEvents, logEvent } from './events.js';
 import { purgeTombstones } from './storage/items.js';
@@ -116,7 +116,10 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
       tick(() => heartbeat(), HEARTBEAT_MS);
       tick(() => flushPendingBells(), BELL_FLUSH_MS);
       tick(() => deliverLifecycleEvents(), LIFECYCLE_MS);
-      tick(() => recordHealth(), HEALTH_RECORD_MS);
+      tick(async () => {
+        await recordHealth();
+        await pruneHealth();
+      }, HEALTH_RECORD_MS);
       tick(async () => {
         await deleteExpiredEvents(config.eventRetentionDays);
         await purgeTombstones(TOMBSTONE_RETENTION_DAYS);

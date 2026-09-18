@@ -34,11 +34,54 @@ function mirror(value: unknown): unknown {
   return value;
 }
 
-/** Vitec's change dates carry seven fractional digits and an offset; the envelope wants ISO 8601. */
+/**
+ * Vitec writes a change date as Swedish wall-clock time with no offset and up to seven fractional
+ * digits (`2026-08-31T11:46:09.65`, verified against Connect 2026-09-18, README). The envelope
+ * wants a moment in ISO 8601, so a bare value is read in Vitec's zone; an offset, when one is
+ * given, is honoured as it stands.
+ */
+const VITEC_ZONE = 'Europe/Stockholm';
+const HAS_OFFSET = /(Z|[+-]\d{2}:?\d{2})$/i;
+
+const wallClock = new Intl.DateTimeFormat('en-US', {
+  timeZone: VITEC_ZONE,
+  hourCycle: 'h23',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});
+
+/** The zone's offset from UTC at a moment, in milliseconds. */
+const offsetAt = (moment: number): number => {
+  const part = Object.fromEntries(
+    wallClock.formatToParts(new Date(moment)).map((piece) => [piece.type, piece.value]),
+  );
+  const local = Date.UTC(
+    Number(part['year']),
+    Number(part['month']) - 1,
+    Number(part['day']),
+    Number(part['hour']),
+    Number(part['minute']),
+    Number(part['second']),
+  );
+  return local - Math.floor(moment / 1000) * 1000;
+};
+
+/** A wall-clock time in Vitec's zone as a moment; two passes settle the offset across a DST change. */
+const fromVitecZone = (bare: string): Date => {
+  const asUtc = Date.parse(`${bare.includes('T') ? bare : `${bare}T00:00:00`}Z`);
+  if (Number.isNaN(asUtc)) return new Date(Number.NaN);
+  const first = asUtc - offsetAt(asUtc);
+  return new Date(asUtc - offsetAt(first));
+};
+
 export const isoDate = (value: unknown): string | null => {
   const given = text(value);
   if (!given) return null;
-  const parsed = new Date(given);
+  const parsed = HAS_OFFSET.test(given) ? new Date(given) : fromVitecZone(given);
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 };
 

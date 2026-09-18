@@ -106,6 +106,13 @@ on `Estate` limited to estates advertised on the website (`Update` and `Remove`)
   (Patric, 2026-09-16), so an office item's `remote_id` is Vitec's office id and its `data.id` the
   customer id. Agent list rows carry no customer id, only their offices.
 
+Verified 2026-09-18 (read-only, the test account): `changedAt` is Swedish wall-clock time with no
+offset (`2026-08-31T11:46:09.65`), UTC+1 in winter and UTC+2 in summer. A `changedAtMinValue`
+with an explicit offset is honoured (`…Z` and the same moment as `…+02:00` return the same rows),
+and a bare one is read as Swedish time. The mappers therefore read a bare `changedAt` in
+`Europe/Stockholm` and send the catch-up window with its offset, so no clock is compared with
+another (strategy §6).
+
 Not verified: what an `Office` notification carries as `id`, the office id or the customer id. A
 customer id would fetch a 404 and change nothing; the next catch-up carries the change. A webhook
 accepted and then lost to a crash before its fetch ran is picked up by the next catch-up, not

@@ -300,7 +300,7 @@ async function look(
         pre(mapped?.data ?? {}),
       ),
     ]) +
-    `<p class="text-secondary">office_id ${escape(mapped?.officeId ?? '')} · remote_updated_at ${escape(mapped?.remoteUpdatedAt ?? '')}.</p>`
+    `<p class="text-secondary">Office ${escape(mapped?.officeId ?? '')} · changed in Vitec ${when(mapped?.remoteUpdatedAt)}.</p>`
   );
 }
 
