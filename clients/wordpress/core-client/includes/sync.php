@@ -128,6 +128,9 @@ function core_client_fetch_page(string $datatype, int $after): ?object
     if ($status === 409) {
         return null;
     }
+    if ($status === 401) {
+        throw new RuntimeException('the licence is not active: Core refused the token (http 401)');
+    }
     if ($status !== 200) {
         throw new RuntimeException("pull failed: http $status");
     }
@@ -317,6 +320,7 @@ function core_client_status(): array
         'last_success_at' => core_client_state('last_success_at'),
         'last_finished_at' => core_client_state('last_finished_at'),
         'last_error' => core_client_state('last_error'),
+        'notice' => core_client_notice(),
         'after' => [],
         'items' => [],
     ];

@@ -64,9 +64,11 @@ names, once supplied, are laid on top as renames, and `display` waits for the ru
 
 ## Setting up a connection
 
-Credentials are one JSON document, the Connect key pair from the partner portal. The licensed
-offices are the office ids (`M30011` and the like), and they are also what the adapter fetches: a
-connection without offices fetches nothing and `vitec.catch_up` says so.
+The directions live on the adapter's panel (`/admin/vitec`, "Set up Vitec"), built from what the
+adapter reads and kept true by `admin/directions.test.ts`: the tenant, the connection with the
+Connect key pair and the offices (customer ids, `M30011` and the like), the notification URL and
+the subscriptions to ask Vitec for, and the health checks to watch. A connection without offices
+fetches nothing and `vitec.catch_up` says so. Without the panel, the same through the admin API:
 
 ```bash
 node dist/scripts/tenant.js add-connection acme-vitec t_acme vitec \
@@ -76,19 +78,17 @@ curl -X POST https://core.example/v1/admin/event -H 'x-admin-secret: …' \
 ```
 
 Adding an office later: set the connection's offices, then `event: offices_added` with the new
-ids; only those are loaded. Then ask Vitec for subscriptions (docs/inputs/vitec/notifications.md)
-on `Estate` limited to estates advertised on the website (`Update` and `Remove`), and on
-`Project`, `User`, `Office` and `Area`, pointing at
-`https://<core>/v1/hook/vitec/webhook/<VITEC_WEBHOOK_TOKEN>`.
+ids; only those are loaded.
 
 ## Environment
 
-| Variable                  | Meaning                                                                                 |
-| ------------------------- | --------------------------------------------------------------------------------------- |
-| `VITEC_WEBHOOK_TOKEN`     | The secret in the webhook URL. Without it the listener answers 503.                     |
-| `VITEC_BASE_URL`          | `https://connect.maklare.vitec.net` unless the tests point it at the stand-in.          |
-| `VITEC_FETCH_CONCURRENCY` | Connect requests at once, default 5.                                                    |
-| `DATABASE_URL`            | Where the adapter's own tables live (`vitec_fetch_list`, `vitec_known`, `vitec_state`). |
+| Variable                    | Meaning                                                                                 |
+| --------------------------- | --------------------------------------------------------------------------------------- |
+| `VITEC_WEBHOOK_TOKEN`       | The secret in the webhook URL. Without it the listener answers 503.                     |
+| `VITEC_BASE_URL`            | `https://connect.maklare.vitec.net` unless the tests point it at the stand-in.          |
+| `VITEC_FETCH_CONCURRENCY`   | Connect requests at once, default 5.                                                    |
+| `VITEC_REQUESTS_PER_SECOND` | The speed limit towards Connect, default 10; the tests raise it.                        |
+| `DATABASE_URL`              | Where the adapter's own tables live (`vitec_fetch_list`, `vitec_known`, `vitec_state`). |
 
 ## Verified against Connect (2026-09-17)
 

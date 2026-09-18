@@ -206,6 +206,9 @@ async function pull(
       },
     );
     if (response.status === 409) return 'resync_required';
+    if (response.status === 401) {
+      throw new Error('the licence is not active: Core refused the token (http 401)');
+    }
     if (!response.ok) throw new Error(`pull ${datatype} after ${after}: http ${response.status}`);
 
     const page = (await response.json()) as Page;

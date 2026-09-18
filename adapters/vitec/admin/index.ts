@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import * as connect from '../api.js';
 import * as store from '../store.js';
 import { mappers } from '../mappers.js';
+import { directions } from './directions.js';
 import {
   DATATYPES,
   card,
@@ -155,8 +156,9 @@ async function frontPage(request: AdminRequest): Promise<AdminResult> {
     : pill('bad', 'VITEC_WEBHOOK_TOKEN is not set; the listener answers 503');
   const html =
     intro(
-      'Everything about the link to Vitec: where Vitec sends its notifications, when each connection last caught up and compared, and the records waiting to be fetched.',
+      'Everything about the link to Vitec: how to set it up, where Vitec sends its notifications, when each connection last caught up and compared, and the records waiting to be fetched.',
     ) +
+    directions() +
     card(
       'Notification URL',
       'Give this address to Vitec for the subscription. Vitec then calls it for every Update and Remove of an estate advertised on the website, and Core fetches or removes the record.',

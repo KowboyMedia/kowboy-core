@@ -35,16 +35,22 @@ connections, lifecycle events, health, the event log) becomes a panel.
    applied; the last 20 events. The first page after login.
 2. **Tenants and sites.** Tenants: list, add, rename. Per tenant its sites (subscribers): label,
    bell URL, active, last pull, last bell and its status; add one; rotate its bell secret; show a
-   tenant token once, rotate it; ring a site now (delta or forcerefresh).
+   tenant token once, rotate it; ring a site now (delta or forcerefresh). An inactive tenant is a
+   disabled licence (Patric, 2026-09-18): its sites get no bell and no page, and keep showing
+   what they have; their administrators see one notice saying so.
 3. **Connections.** Per tenant: the CRM (adapter), the credentials as a write-only form the
    adapter declares (never displayed), the licensed offices, active or not. Actions: add (runs the
    initial load), add or remove offices, resync, deactivate. Below the form, the adapter's own
    status fragment for this connection (for Vitec: last catch-up and comparison, what is waiting
    on the fetch list, records that keep failing).
-4. **Adapter panels.** One per adapter, from `adapters/<provider>/admin/`. For Vitec: the webhook
-   URL to give Vitec (with its token), the fetch concurrency; the fetch list (waiting, retrying,
-   given up, with "retry now" and "drop"); catch-up and comparison per connection with "run now";
-   "fetch this id now" and "list this office now" for one record or one office.
+4. **Adapter panels.** One per adapter, from `adapters/<provider>/admin/`. Every adapter page
+   opens with its setup directions ("Set up Vitec"): the steps in order, built from what the
+   adapter reads, and kept true by a test in the adapter that fails when a setting, a lifecycle
+   event, a health check or a credential field exists in the code without a line in the
+   directions (Patric, 2026-09-18). For Vitec, then: the webhook URL to give Vitec (with its
+   token), the fetch concurrency; the fetch list (waiting, retrying, given up, with "retry now"
+   and "drop"); catch-up and comparison per connection with "run now"; "fetch this id now" and
+   "list this office now" for one record or one office.
 5. **Items.** Find an item by datatype and id, or browse an office. Show its envelope (seq, hash,
    deleted, dates) and its three faces side by side: raw, unified (`data`) and display. Its
    timeline from the event log, down to what each site applied (question 37). Actions: recompute this item; refetch it through the adapter.
