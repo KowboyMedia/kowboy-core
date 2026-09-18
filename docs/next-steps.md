@@ -59,6 +59,10 @@ the first item that is not done, and keep the file current. Decisions and open q
    and someone taking a listing off the website in the Vitec test account. The staging event log
    then shows the notification and the removal.
 
+7. ~~**Admin panel** (question 29, yes 2026-09-18).~~ Built 2026-09-18: `/admin` on the web
+   process with the eight panels of `docs/admin-panel.md`, the Vitec panel in
+   `adapters/vitec/admin/`, tested as AC 42. Users and roles, and anything a site does, stay out.
+
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health
@@ -67,10 +71,6 @@ the first item that is not done, and keep the file current. Decisions and open q
   database `defaultdb`); both specs are committed back. Left: Vitec's subscriptions pointing at
   each app (Patric gives Vitec the URLs, handed over in chat), a Vitec connection on each app
   (item 6), Sentry, and question 27 on the release flow.
-- GitHub branch protection on `staging` and `main` → the release flow is enforced for humans too
-  (question 27 answered 2026-09-18; the exact clicks are in README "Deploying"). A repository
-  admin does it once; agents cannot. Then Patric says "allow" and an agent switches production to
-  deploy on merge.
 - Sentry DSN → replace the placeholder in `engine/errors.ts`.
 - The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
 - Vitec test credentials and a staging deploy → open question 18.

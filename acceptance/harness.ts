@@ -3,6 +3,7 @@ import type { AddressInfo } from 'node:net';
 import { startEngine, type Engine } from '../engine/index.js';
 import { startAdapter } from '../engine/adapter-api/index.js';
 import { adapterRoutes } from '../engine/http/server.js';
+import { adminRoutesFor } from '../engine/admin/index.js';
 import { db } from '../engine/storage/db.js';
 import { addSubscriber, upsertConnection, upsertTenant } from '../engine/storage/connections.js';
 import { deliverLifecycleEvents } from '../engine/lifecycle.js';
@@ -81,9 +82,12 @@ export async function harness(options: {
     });
   }
 
-  const routes = adapters.flatMap((adapter) =>
-    adapterRoutes(adapter.manifest.provider, adapter.routes ?? []),
-  );
+  const routes = [
+    ...adapters.flatMap((adapter) =>
+      adapterRoutes(adapter.manifest.provider, adapter.routes ?? []),
+    ),
+    ...adminRoutesFor(engine, adapters),
+  ];
   let server = engine.listen(routes);
   const port = (server.address() as AddressInfo).port;
 

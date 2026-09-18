@@ -6,10 +6,10 @@
 #
 # The managed Postgres cluster is the one Kowboy created (Frankfurt, 2026-09-17), so the app runs
 # in fra too and binds the cluster's own database and user. The platform hands the cluster's CA
-# over as DATABASE_CA_CERT and scripts/start.sh gives it to Node. Production never deploys on push:
-# a release is Patric saying so in chat, and an agent asks App Platform for a deployment of main
-# (strategy §4). Staging is app.staging.yaml: the same cluster with its own database, deploying the
-# `staging` branch on every push.
+# over as DATABASE_CA_CERT and scripts/start.sh gives it to Node. Production deploys `main` on
+# every merge, and nothing reaches `main` except a pull request with green checks (strategy §4).
+# Staging is app.staging.yaml: the same cluster with its own database, deploying the `staging`
+# branch on every push.
 # App id c322d2df-5ba1-4cdd-82b5-407dbe429310, created 2026-09-17 through the API; secrets are encrypted by DigitalOcean.
 name: kowboy-core
 services:
@@ -17,6 +17,7 @@ services:
     github:
       repo: KowboyMedia/kowboy-core
       branch: main
+      deploy_on_push: true
     build_command: npm run build
     run_command: sh scripts/start.sh web
     source_dir: /
@@ -54,6 +55,7 @@ workers:
     github:
       repo: KowboyMedia/kowboy-core
       branch: main
+      deploy_on_push: true
     build_command: npm run build
     run_command: sh scripts/start.sh worker
     source_dir: /

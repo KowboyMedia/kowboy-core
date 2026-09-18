@@ -142,3 +142,82 @@ export async function subscribers(): Promise<SubscriberRow[]> {
   );
   return rows;
 }
+
+// ---- What the admin panel lists and changes (docs/admin-panel.md) --------------------------------
+
+export type TenantRow = {
+  id: string;
+  display_name: string;
+  active: boolean;
+  purge_watermark: string;
+  created_at: Date;
+};
+
+export async function tenants(): Promise<TenantRow[]> {
+  const { rows } = await db().query<TenantRow>(
+    'select id, display_name, active, purge_watermark, created_at from tenants order by id',
+  );
+  return rows;
+}
+
+/** Rename a tenant, give it a new token (hashed like the script does), or switch it off. */
+export async function updateTenant(
+  id: string,
+  changes: { displayName?: string; token?: string; active?: boolean },
+): Promise<void> {
+  const sets: string[] = [];
+  const values: unknown[] = [id];
+  const set = (column: string, value: unknown) => {
+    values.push(value);
+    sets.push(`${column} = $${values.length}`);
+  };
+  if (changes.displayName !== undefined) set('display_name', changes.displayName);
+  if (changes.token !== undefined) set('token_hmac', tokenHmac(changes.token, credentialsKey));
+  if (changes.active !== undefined) set('active', changes.active);
+  if (sets.length === 0) return;
+  await db().query(`update tenants set ${sets.join(', ')} where id = $1`, values);
+}
+
+export type ConnectionListRow = {
+  id: string;
+  tenant_id: string;
+  provider: string;
+  licensed_offices: string[];
+  active: boolean;
+  has_credentials: boolean;
+  last_ingest_at: Date | null;
+  last_error: string | null;
+};
+
+/** Every connection, without its credentials. */
+export async function connections(): Promise<ConnectionListRow[]> {
+  const { rows } = await db().query<ConnectionListRow>(
+    `select id, tenant_id, provider, licensed_offices, active, credentials is not null as has_credentials,
+            last_ingest_at, last_error
+     from connections order by tenant_id, id`,
+  );
+  return rows;
+}
+
+export async function setConnectionActive(id: string, active: boolean): Promise<void> {
+  await db().query('update connections set active = $2 where id = $1', [id, active]);
+}
+
+/** Change a site's label, bell URL or secret, or switch it off. */
+export async function updateSubscriber(
+  id: number,
+  changes: { label?: string; bellUrl?: string; bellSecret?: string; active?: boolean },
+): Promise<void> {
+  const sets: string[] = [];
+  const values: unknown[] = [id];
+  const set = (column: string, value: unknown) => {
+    values.push(value);
+    sets.push(`${column} = $${values.length}`);
+  };
+  if (changes.label !== undefined) set('label', changes.label);
+  if (changes.bellUrl !== undefined) set('bell_url', changes.bellUrl);
+  if (changes.bellSecret !== undefined) set('bell_secret', changes.bellSecret);
+  if (changes.active !== undefined) set('active', changes.active);
+  if (sets.length === 0) return;
+  await db().query(`update subscribers set ${sets.join(', ')} where id = $1`, values);
+}

@@ -10,6 +10,7 @@ api.ts          Connect over HTTP: basic authentication, list paging, records by
 store.ts        the adapter's own tables: the fetch list, the ids seen per customer, state per connection
 mappers.ts      Connect payloads → the universal model (the technical spine only, see below)
 test/connect.ts a stand-in Connect for the tests
+admin/index.ts  its panels in the admin panel: webhook URL, schedules, the fetch list, one record looked at or queued
 vitec.test.ts   the adapter against the real engine and the stand-in
 ```
 

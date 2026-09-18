@@ -20,6 +20,7 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import * as connect from './api.js';
 import * as store from './store.js';
 import { changedAtOf, isoDate, mappers, referencedIds } from './mappers.js';
+import { vitecAdmin } from './admin/index.js';
 import type {
   Adapter,
   AdapterApi,
@@ -452,6 +453,7 @@ export const vitecAdapter: Adapter = {
   },
   mappers,
   routes,
+  admin: vitecAdmin,
 
   start(given: AdapterApi): void {
     engine = given;

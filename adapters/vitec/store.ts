@@ -330,3 +330,63 @@ export async function backdate(ms: number): Promise<void> {
 export async function reset(): Promise<void> {
   await (await db()).query('truncate vitec_fetch_list, vitec_known, vitec_state');
 }
+
+// ---- What the adapter's admin panel shows and touches (adapters/vitec/admin) ------------------
+
+export type EntryView = Entry & { nextAt: Date | null; lastError: string | null };
+
+/** The fetch list as it stands: due first, then retrying, then what an operator was left with. */
+export async function entries(limit = 50): Promise<EntryView[]> {
+  const { rows } = await (
+    await db()
+  ).query<Row & { next_at: Date | null; last_error: string | null }>(
+    'select * from vitec_fetch_list order by next_at nulls last, queued_at limit $1',
+    [limit],
+  );
+  return rows.map((row) => ({ ...toEntry(row), nextAt: row.next_at, lastError: row.last_error }));
+}
+
+export type Summary = { waiting: number; retrying: number; givenUp: number };
+
+/** How many records of these offices wait, retry, or were given up on. */
+export async function summary(officeIds: readonly string[]): Promise<Summary> {
+  const { rows } = await (
+    await db()
+  ).query<{ waiting: string; retrying: string; given_up: string }>(
+    `select count(*) filter (where next_at is not null and attempts = 0) as waiting,
+            count(*) filter (where next_at is not null and attempts > 0) as retrying,
+            count(*) filter (where next_at is null) as given_up
+     from vitec_fetch_list where office_id = any($1::text[])`,
+    [officeIds],
+  );
+  const row = rows[0];
+  return {
+    waiting: Number(row?.waiting ?? 0),
+    retrying: Number(row?.retrying ?? 0),
+    givenUp: Number(row?.given_up ?? 0),
+  };
+}
+
+/** An operator's "try again now": due at once, attempts back to zero. */
+export async function expediteOne(
+  officeId: string,
+  datatype: Datatype,
+  remoteId: string,
+): Promise<void> {
+  await (
+    await db()
+  ).query(
+    'update vitec_fetch_list set next_at = now(), attempts = 0 where office_id = $1 and datatype = $2 and remote_id = $3',
+    [officeId, datatype, remoteId],
+  );
+}
+
+/** An operator's "drop it": off the list, nothing else changes. */
+export async function drop(officeId: string, datatype: Datatype, remoteId: string): Promise<void> {
+  await (
+    await db()
+  ).query(
+    'delete from vitec_fetch_list where office_id = $1 and datatype = $2 and remote_id = $3',
+    [officeId, datatype, remoteId],
+  );
+}

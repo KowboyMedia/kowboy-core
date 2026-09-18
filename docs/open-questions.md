@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 30.
+answering is quick. Next number: 31.
 
 ## 2. Protected paths created by an agent
 
@@ -55,10 +55,11 @@ Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPre
 are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
 `clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
 
-## 29. `[core]` The admin panel MVP
+## 30. [core] A password for the admin panel
 
-`docs/admin-panel.md` describes it: eight panels (overview, tenants and sites, connections,
-adapter panels, items, events, a test panel that runs requests, settings), server-rendered inside
-the `web` process behind the admin secret, adapter panels living in each adapter's own folder and
-reaching the shell through one additive field on the adapter API. Answer: yes to build it as
-described, or say what to change. The adapter API field is the one protected change.
+The panel is live on staging at `https://kowboy-core-staging-t7ig3.ondigitalocean.app/admin`
+(production follows with the release). It opens with one password, `ADMIN_SECRET`, which today
+exists only inside the apps' settings: nobody can read it back, and an agent never writes a secret
+into chat. Pick one: send a password of your choice in chat and an agent sets it on staging at once
+and on production with the release (smaller), or say "generate" and an agent makes one and emails
+it to you.

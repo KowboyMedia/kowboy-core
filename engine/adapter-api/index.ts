@@ -19,7 +19,12 @@ import type {
 
 export type {
   Adapter,
+  AdapterAdmin,
   AdapterApi,
+  AdminField,
+  AdminPanel,
+  AdminRequest,
+  AdminResult,
   Canonical,
   Connection,
   Datatype,
@@ -76,3 +81,7 @@ export async function startAdapter(adapter: Adapter): Promise<void> {
   api.register(adapter.manifest, adapter.mappers);
   await adapter.start(api);
 }
+
+// The HTML helpers an adapter's admin panels render with (docs/admin-panel.md), so escaping and
+// forms have one code path. Nothing else of the panel shell is reachable from an adapter.
+export { escape, field, form, link, pre, select, table, textarea, when } from '../admin/html.js';

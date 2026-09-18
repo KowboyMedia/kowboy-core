@@ -125,6 +125,7 @@ export async function itemsForScope(scope: {
   tenantId?: string;
   connectionId?: string;
   datatype?: Datatype;
+  remoteId?: string;
   rulesVersionBefore?: string;
 }): Promise<ItemRow[]> {
   const where: string[] = ['deleted = false'];
@@ -136,6 +137,7 @@ export async function itemsForScope(scope: {
   if (scope.tenantId) add('tenant_id = ?', scope.tenantId);
   if (scope.connectionId) add('connection_id = ?', scope.connectionId);
   if (scope.datatype) add('datatype = ?', scope.datatype);
+  if (scope.remoteId) add('remote_id = ?', scope.remoteId);
   if (scope.rulesVersionBefore) add('rules_version <> ?', scope.rulesVersionBefore);
   const { rows } = await db().query<ItemRow>(
     `select * from items where ${where.join(' and ')} order by seq`,
@@ -166,4 +168,45 @@ export async function purgeTombstones(days: number): Promise<number> {
     );
   }
   return rows.length;
+}
+
+// ---- What the admin panel looks at (docs/admin-panel.md) ----------------------------------------
+
+/** Items by remote id, or the first ones of an office or a connection, tombstones included. */
+export async function findItems(query: {
+  datatype?: Datatype;
+  remoteId?: string;
+  officeId?: string;
+  connectionId?: string;
+  limit?: number;
+}): Promise<ItemRow[]> {
+  const where: string[] = ['true'];
+  const values: unknown[] = [];
+  const add = (clause: string, value: unknown) => {
+    values.push(value);
+    where.push(clause.replace('?', `$${values.length}`));
+  };
+  if (query.datatype) add('datatype = ?', query.datatype);
+  if (query.remoteId) add('remote_id = ?', query.remoteId);
+  if (query.officeId) add('office_id = ?', query.officeId);
+  if (query.connectionId) add('connection_id = ?', query.connectionId);
+  values.push(Math.min(query.limit ?? 50, 500));
+  const { rows } = await db().query<ItemRow>(
+    `select * from items where ${where.join(' and ')} order by seq desc limit $${values.length}`,
+    values,
+  );
+  return rows;
+}
+
+export type ItemCount = { tenant_id: string; datatype: string; live: string; tombstoned: string };
+
+/** Live and tombstoned items per tenant and datatype. */
+export async function itemCounts(): Promise<ItemCount[]> {
+  const { rows } = await db().query<ItemCount>(
+    `select tenant_id, datatype,
+            count(*) filter (where not deleted) as live,
+            count(*) filter (where deleted) as tombstoned
+     from items group by tenant_id, datatype order by tenant_id, datatype`,
+  );
+  return rows;
 }
