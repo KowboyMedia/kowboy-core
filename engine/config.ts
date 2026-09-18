@@ -5,9 +5,9 @@ export type Config = {
   adminSecret: string;
   /** Email domains whose addresses may log in to the admin panel; empty means nobody. */
   adminEmailDomains: string[];
-  /** The login mail's sender and the key of the service that sends it; unset means no mail. */
+  /** The login mail's sender and the token of the service that sends it; unset means no mail. */
   mailFrom: string | null;
-  elasticEmailApiKey: string | null;
+  postmarkServerToken: string | null;
   credentialsKey: string;
   sentryDsn: string | null;
   bellThrottleMs: number;
@@ -31,7 +31,7 @@ export function loadConfig(): Config {
       .map((domain) => domain.trim().toLowerCase())
       .filter(Boolean),
     mailFrom: process.env.MAIL_FROM || null,
-    elasticEmailApiKey: process.env.ELASTIC_EMAIL_API_KEY || null,
+    postmarkServerToken: process.env.POSTMARK_SERVER_TOKEN || null,
     credentialsKey: required('CREDENTIALS_KEY'),
     sentryDsn: process.env.SENTRY_DSN || null,
     bellThrottleMs: Number(process.env.BELL_THROTTLE_MS ?? 10_000),

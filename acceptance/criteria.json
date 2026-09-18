@@ -414,6 +414,7 @@
       "phase": "engine",
       "tests": [
         "the admin panel mails a login link to an allowed address only, answers every address the same, and refuses a form without its token",
+        "the admin panel mails at most ten links a day, whatever the form is fed",
         "the admin panel remembers the device for 30 days when asked, and for the browser session otherwise",
         "the admin panel shows the overview with every health check, the adapter ones included",
         "the admin panel adds a tenant, shows its token once, and the token pulls changes (AC 42)",

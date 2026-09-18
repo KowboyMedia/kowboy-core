@@ -40,7 +40,7 @@ export const settingsPanels: Panel[] = [
               escape(
                 mailConfigured()
                   ? `sent from ${config.mailFrom}`
-                  : 'no sender: set ELASTIC_EMAIL_API_KEY and MAIL_FROM',
+                  : 'no sender: set POSTMARK_SERVER_TOKEN and MAIL_FROM',
               ),
             ],
           ],

@@ -17,8 +17,9 @@ const COOKIE = 'core_admin';
 const LINK_MINUTES = 15;
 const SESSION_HOURS = 12;
 const REMEMBER_DAYS = 30;
-/** One link per address per minute, whatever the form is fed. */
+/** One link per address per minute, and ten a day in all, whatever the form is fed. */
 const AGAIN_MS = 60_000;
+const DAY_CAP = 10;
 const SENT = `If that address may log in, a link is on its way. It works for ${LINK_MINUTES} minutes.`;
 
 export const HTML: Record<string, string> = { 'content-type': 'text/html; charset=utf-8' };
@@ -71,10 +72,13 @@ export function loginPage(notice?: string, bad = false): string {
 }
 
 const asked = new Map<string, number>();
+let today = '';
+let sentToday = 0;
 
 /** Test helper: forget who asked for a link recently. */
 export function forgetLoginRequests(): void {
   asked.clear();
+  sentToday = 0;
 }
 
 /** Where the link points: this request's host, which the platform's router vouches for. */
@@ -87,6 +91,12 @@ function refusal(email: string, domains: string[]): string | null {
   if (at < 1 || !domains.includes(email.slice(at + 1))) return 'not an allowed address';
   const last = asked.get(email);
   if (last !== undefined && Date.now() - last < AGAIN_MS) return 'asked again within a minute';
+  const day = new Date().toISOString().slice(0, 10);
+  if (day !== today) {
+    today = day;
+    sentToday = 0;
+  }
+  if (sentToday >= DAY_CAP) return `already ${DAY_CAP} links today`;
   for (const [address, when] of asked) if (Date.now() - when >= AGAIN_MS) asked.delete(address);
   return null;
 }
@@ -105,6 +115,7 @@ export async function requestLink(
     return page;
   }
   asked.set(email, Date.now());
+  sentToday += 1;
   const expires = Date.now() + LINK_MINUTES * 60_000;
   const link = `${origin(request)}/admin/login/${seal(options.secret, 'link', { email, expires, remember })}`;
   try {

@@ -12,8 +12,8 @@ connections, lifecycle events, health, the event log) becomes a panel.
   allowed list (`ADMIN_EMAIL_DOMAINS`) a link goes there by mail; the page answers the same way
   whatever the address, so the list stays private. The link lasts 15 minutes and opens a session
   for the browser session, or for 30 days with "Remember this device" ticked. A CSRF token on
-  every form. The mail goes through Elastic Email, the sender Kowboy's domain already lists
-  (`ELASTIC_EMAIL_API_KEY`, `MAIL_FROM`). Users and roles come later.
+  every form. The mail goes through Postmark (`POSTMARK_SERVER_TOKEN`, `MAIL_FROM`), at most one link per
+  address per minute and ten a day in all. Users and roles come later.
 - **How it is built.** Server-rendered HTML from TypeScript template functions, one stylesheet, a
   few lines of JavaScript (copy buttons, auto-refresh of the overview). No framework, no new
   runtime dependency, nothing to build. Every panel reads the same tables the engine and adapters

@@ -5,7 +5,7 @@ import { closeDb, db } from './storage/db.js';
 import { migrate } from './storage/migrate.js';
 import { configureCredentials } from './storage/connections.js';
 import { configureBells, flushPendingBells } from './bells.js';
-import { configureMail, elasticEmail } from './mail.js';
+import { configureMail, postmark } from './mail.js';
 import { heartbeat, healthReport, readiness, recordHealth } from './health.js';
 import { deliverLifecycleEvents } from './lifecycle.js';
 import { deleteExpiredEvents, logEvent } from './events.js';
@@ -65,8 +65,8 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
   configureBells(config.bellThrottleMs);
   configureCompression(config.gzipLevel);
   configureMail(
-    config.elasticEmailApiKey && config.mailFrom
-      ? elasticEmail(config.elasticEmailApiKey, config.mailFrom)
+    config.postmarkServerToken && config.mailFrom
+      ? postmark(config.postmarkServerToken, config.mailFrom)
       : null,
   );
 
