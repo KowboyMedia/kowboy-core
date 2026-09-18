@@ -4,6 +4,7 @@ import { deleteExpiredEvents } from '../events.js';
 import { purgeTombstones } from '../storage/items.js';
 import { migrationsApplied } from '../storage/migrate.js';
 import { tenants } from '../storage/connections.js';
+import { mailConfigured } from '../mail.js';
 import { escape, form, table } from './html.js';
 import type { Panel } from './context.js';
 
@@ -26,6 +27,22 @@ export const settingsPanels: Panel[] = [
             ['Tombstone retention (days)', escape(config.tombstoneRetentionDays)],
             ['Gzip level', escape(config.gzipLevel)],
             ['Migrations applied', escape(migrations.join(', '))],
+            [
+              'Who may log in',
+              escape(
+                config.loginDomains.length > 0
+                  ? `addresses at ${config.loginDomains.join(', ')}`
+                  : 'nobody: ADMIN_EMAIL_DOMAINS is empty',
+              ),
+            ],
+            [
+              'Login mail',
+              escape(
+                mailConfigured()
+                  ? `sent from ${config.mailFrom}`
+                  : 'no sender: set ELASTIC_EMAIL_API_KEY and MAIL_FROM',
+              ),
+            ],
           ],
         ) +
         '<h2>Purge watermark per tenant</h2>' +

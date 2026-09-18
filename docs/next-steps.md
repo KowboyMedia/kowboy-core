@@ -66,6 +66,8 @@ the first item that is not done, and keep the file current. Decisions and open q
 7. ~~**Admin panel** (question 29, yes 2026-09-18).~~ Built 2026-09-18: `/admin` on the web
    process with the eight panels of `docs/admin-panel.md`, the Vitec panel in
    `adapters/vitec/admin/`, tested as AC 42. Users and roles, and anything a site does, stay out.
+   The login is by email link since the same day (question 30: no shared password); the mail
+   waits on question 31, so nobody can enter the panel on staging until then.
 
 ## Later, when Patric supplies them
 

@@ -1,8 +1,8 @@
 // The admin panel (docs/admin-panel.md, AC 42) driven through HTTP against the real engine and
-// the fake polling adapter: the login, every Core panel, and the seam (an adapter's panel is
+// the fake polling adapter: the login by email link, every Core panel, and the seam (an adapter's panel is
 // mounted, the engine never looks inside it).
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { harness, ADMIN_SECRET, TENANT, type Harness } from './harness.js';
+import { adminLogin, harness, ADMIN_EMAIL, TENANT, type Harness } from './harness.js';
 import { fakePollingAdapter, poll } from '../adapters/fake-polling/index.js';
 import * as crm from '../adapters/fake-polling/crm.js';
 
@@ -24,18 +24,14 @@ const post = (path: string, fields: Record<string, string>, withCsrf = true): Pr
     redirect: 'manual',
   });
 
-async function login(secret = ADMIN_SECRET): Promise<Response> {
-  const response = await fetch(`${running.baseUrl}/admin/login`, {
-    method: 'POST',
-    headers: FORM,
-    body: new URLSearchParams({ secret }).toString(),
-    redirect: 'manual',
-  });
-  const set = response.headers.get('set-cookie') ?? '';
-  cookie = set.split(';')[0] ?? '';
-  csrf = cookie.split('=')[1] ?? '';
-  return response;
+async function login(email = ADMIN_EMAIL, remember = false): Promise<Response> {
+  const session = await adminLogin(running, email, remember);
+  cookie = session.cookie;
+  csrf = session.csrf;
+  return session.response;
 }
+
+const linkIn = (text: string | undefined): string => text?.match(/https?:\/\/\S+/)?.[0] ?? '';
 
 /** The value inside the first <pre> after a marker, as the page shows a secret once. */
 const shownAfter = (html: string, marker: string): string => {
@@ -58,14 +54,58 @@ afterEach(async () => {
 });
 
 describe('the admin panel', () => {
-  it('asks for the admin secret, refuses a wrong one, and refuses a form without its token', async () => {
+  it('mails a login link to an allowed address only, answers every address the same, and refuses a form without its token', async () => {
     cookie = '';
     expect((await get('/admin')).status).toBe(303);
     expect((await get('/admin')).headers.get('location')).toBe('/admin/login');
-    expect((await login('nope')).status).toBe(401);
-    expect((await login()).status).toBe(303);
-    expect((await get('/admin')).status).toBe(200);
+    expect(await (await get('/admin/login')).text()).toContain('Send me a link');
+
+    // An address at another domain: the same answer, no mail, and no word about the rule.
+    const sent = running.mails.length;
+    const refused = await post('/admin/login', { email: 'someone@elsewhere.test' }, false);
+    expect(refused.status).toBe(200);
+    const answer = await refused.text();
+    expect(answer).toContain('If that address may log in, a link is on its way');
+    expect(answer).not.toContain('example.test');
+    expect(running.mails.length).toBe(sent);
+
+    // An allowed address: the same answer, and a mail with the link.
+    const allowed = await post('/admin/login', { email: 'Second@Example.test' }, false);
+    expect(await allowed.text()).toBe(answer);
+    const mail = running.mails.at(-1);
+    expect(mail?.to).toBe('second@example.test');
+    const link = linkIn(mail?.text);
+    expect(link).toContain(`${running.baseUrl}/admin/login/`);
+
+    // Asking again within a minute mails nothing.
+    await post('/admin/login', { email: 'second@example.test' }, false);
+    expect(running.mails.length).toBe(sent + 1);
+
+    // A tampered link is refused; the real one logs in, and the shell shows who.
+    const tampered = await fetch(`${link.slice(0, -1)}${link.endsWith('0') ? '1' : '0'}`, {
+      redirect: 'manual',
+    });
+    expect(tampered.status).toBe(401);
+    const opened = await fetch(link, { redirect: 'manual' });
+    expect(opened.status).toBe(303);
+    expect(opened.headers.get('location')).toBe('/admin');
+    cookie = (opened.headers.get('set-cookie') ?? '').split(';')[0] ?? '';
+    const overview = await get('/admin');
+    expect(overview.status).toBe(200);
+    expect(await overview.text()).toContain('second@example.test');
     expect((await post('/admin/tenants', { id: 'x', name: 'X' }, false)).status).toBe(403);
+  });
+
+  it('remembers the device for 30 days when asked, and for the browser session otherwise', async () => {
+    const short = await login('short@example.test');
+    expect(short.headers.get('set-cookie')).toContain('HttpOnly');
+    expect(short.headers.get('set-cookie')).not.toContain('Max-Age');
+    const long = await login('long@example.test', true);
+    expect(long.headers.get('set-cookie')).toContain('Max-Age=2592000');
+    expect((await get('/admin')).status).toBe(200);
+    const out = await post('/admin/logout', {}, false);
+    expect(out.status).toBe(303);
+    expect(out.headers.get('set-cookie')).toContain('Max-Age=0');
   });
 
   it('shows the overview with every health check, the adapter ones included', async () => {

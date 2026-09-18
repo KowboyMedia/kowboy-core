@@ -10,6 +10,9 @@ export type AdminAdapter = { provider: string; admin?: AdapterAdmin };
 
 export type AdminConfig = {
   version: string;
+  /** Email domains whose addresses may log in, and the login mail's sender. */
+  loginDomains: string[];
+  mailFrom: string | null;
   pageSize: number;
   bellThrottleMs: number;
   eventRetentionDays: number;
@@ -23,6 +26,8 @@ export type Ctx = {
   /** The captures of the panel's pattern, decoded. */
   params: string[];
   csrf: string;
+  /** The address logged in. */
+  user: string;
   adapters: AdminAdapter[];
   config: AdminConfig;
   render(title: string, body: string, flash?: string | null): Response;
@@ -66,6 +71,7 @@ function current(path: string, items: NavItem[]): string {
 export function renderer(
   request: Request,
   adapters: AdminAdapter[],
+  user: string,
 ): (title: string, body: string, flash?: string | null) => Response {
   const items = nav(adapters);
   return (title, body, flash) => ({
@@ -75,6 +81,7 @@ export function renderer(
       title,
       nav: items,
       current: current(request.path, items),
+      user,
       body,
       flash: flash ?? request.query.get('flash'),
     }),

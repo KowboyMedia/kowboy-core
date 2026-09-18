@@ -2,7 +2,7 @@
 // the fetch list, both schedules, licensing by office and the health checks. Vitec's behaviour
 // beyond its documentation waits for a test account on staging (strategy §9, Phase 6).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { harness, pull, ADMIN_SECRET, type Harness } from '../../acceptance/harness.js';
+import { adminLogin, harness, pull, ADMIN_SECRET, type Harness } from '../../acceptance/harness.js';
 import { drainFetchList, runSchedules, vitecAdapter } from './index.js';
 import * as store from './store.js';
 import { PASSWORD, USERNAME, startFakeConnect, type FakeConnect } from './test/connect.js';
@@ -441,14 +441,7 @@ describe('the Vitec adapter', () => {
     seed(fake);
     await start();
     await drainFetchList();
-    const login = await fetch(`${running.baseUrl}/admin/login`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: `secret=${ADMIN_SECRET}`,
-      redirect: 'manual',
-    });
-    const cookie = (login.headers.get('set-cookie') ?? '').split(';')[0] ?? '';
-    const csrf = cookie.split('=')[1] ?? '';
+    const { cookie, csrf } = await adminLogin(running);
     const post = (path: string, fields: Record<string, string>): Promise<Response> =>
       fetch(`${running.baseUrl}${path}`, {
         method: 'POST',

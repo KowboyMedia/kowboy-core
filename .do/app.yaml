@@ -33,6 +33,12 @@ services:
         value: EV[1:XHT5pk361HHDg2Nn0Dw5xBKWW2iCV652:VKxYO123nW6fUA7bkwADI5NtQT6vY1T36BHs0IVQUe/7uSBuTNnOBkswVJrHGaP2dhYZug0Ryi9FjII=]
         scope: RUN_TIME
         type: SECRET
+      - key: ADMIN_EMAIL_DOMAINS
+        value: kowboy.se
+        scope: RUN_TIME
+      - key: MAIL_FROM
+        value: core@kowboy.se
+        scope: RUN_TIME
       - key: CREDENTIALS_KEY
         value: EV[1:N71KfGweIKlzf42ES3sufrtrqQJ013Mh:I0ZD7+OARrP/BbYy68T9PHSqYa4n1BluG/nbSgXQdNQNG7W0/lWyQfH4WVTve0F4Fh1EBKRdvGN92ytY]
         scope: RUN_TIME

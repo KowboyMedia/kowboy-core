@@ -7,8 +7,13 @@ connections, lifecycle events, health, the event log) becomes a panel.
 
 ## Shape
 
-- **Where it runs.** Inside the `web` process, under `/admin`, behind the admin secret at first
-  (one login form, a session cookie, a CSRF token on every form). Users and roles come later.
+- **Where it runs.** Inside the `web` process, under `/admin`, behind a login by email link (no
+  shared password, Patric 2026-09-18): the form takes an address, and when its domain is on the
+  allowed list (`ADMIN_EMAIL_DOMAINS`) a link goes there by mail; the page answers the same way
+  whatever the address, so the list stays private. The link lasts 15 minutes and opens a session
+  for the browser session, or for 30 days with "Remember this device" ticked. A CSRF token on
+  every form. The mail goes through Elastic Email, the sender Kowboy's domain already lists
+  (`ELASTIC_EMAIL_API_KEY`, `MAIL_FROM`). Users and roles come later.
 - **How it is built.** Server-rendered HTML from TypeScript template functions, one stylesheet, a
   few lines of JavaScript (copy buttons, auto-refresh of the overview). No framework, no new
   runtime dependency, nothing to build. Every panel reads the same tables the engine and adapters
@@ -19,7 +24,7 @@ connections, lifecycle events, health, the event log) becomes a panel.
   panels, which the adapter hands to the engine through the adapter API; the shell renders them
   in place without knowing what they show. The seam holds: no CRM name in `engine/`.
 - **Tests.** Every panel is driven through HTTP in the acceptance harness like the API is, and
-  one acceptance criterion (AC 42, to be added) names those tests.
+  one acceptance criterion (AC 42) names those tests.
 
 ## Panels
 
@@ -61,8 +66,8 @@ Order of building: 1, 3 with the Vitec fragment, 5, 7, 6, 2, 8.
 
 ## Not in the MVP
 
-Users and roles (one admin secret; a login with users comes when more than one person operates
-it), editing data by hand, charts, more than one language, anything a site does (templates,
+Users and roles (whoever reads mail at an allowed domain is an operator; roles come when they are
+needed), editing data by hand, charts, more than one language, anything a site does (templates,
 search).
 
 ## What it takes from the adapter API (approved)
