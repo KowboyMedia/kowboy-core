@@ -1,6 +1,6 @@
 <?php
 // The local copy (SRS Appendix A): one post type per datatype carries each item, the full `data`
-// sits in one JSON meta key, and one index table answers "which post holds this item" and the hash
+// sits in one JSON meta key, the raw CRM payload in another, and one index table answers "which post holds this item" and the hash
 // test. Templates read from here and never from Core. Columns for the search filters, routing and
 // templates come with the data model (docs/field-tables.md).
 
@@ -137,6 +137,8 @@ function core_client_upsert_item(string $datatype, object $item, ?object $existi
     }
 
     update_post_meta($post_id, 'core_data', wp_slash((string) wp_json_encode($item->data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)));
+    // The CRM payload exactly as Core served it, next to the data (Patric, 2026-09-18).
+    update_post_meta($post_id, 'core_raw', wp_slash((string) wp_json_encode($item->raw ?? null, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)));
     $wpdb->update($wpdb->posts, ['post_modified_gmt' => $when, 'post_modified' => get_date_from_gmt($when)], ['ID' => $post_id]);
 
     // `synced_at` is bookkeeping for the rebuild sweep only; nothing else may key on it.
@@ -190,4 +192,16 @@ function core_client_item(int $post_id): ?array
     $json = get_post_meta($post_id, 'core_data', true);
     $data = is_string($json) ? json_decode($json, true) : null;
     return is_array($data) ? $data : null;
+}
+
+/**
+ * The CRM payload the post carries, exactly as Core served it: whatever `data` does not name yet.
+ *
+ * @return array<string, mixed>|null
+ */
+function core_client_item_raw(int $post_id): ?array
+{
+    $json = get_post_meta($post_id, 'core_raw', true);
+    $raw = is_string($json) ? json_decode($json, true) : null;
+    return is_array($raw) ? $raw : null;
 }

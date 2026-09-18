@@ -115,12 +115,14 @@ function core_driver_items(string $datatype): array
         $post = get_post((int) $row->post_id);
         // The meta as stored, decoded to objects so `{}` stays `{}` on the way out.
         $stored = get_post_meta((int) $row->post_id, 'core_data', true);
+        $raw = get_post_meta((int) $row->post_id, 'core_raw', true);
         $items[] = [
             'connection_id' => $row->connection_id,
             'remote_id' => $row->remote_id,
             'content_hash' => $row->content_hash,
             'synced_at' => $row->synced_at,
             'data' => is_string($stored) ? json_decode($stored) : null,
+            'raw' => is_string($raw) ? json_decode($raw) : null,
             'post_status' => $post?->post_status,
             'post_modified_gmt' => $post?->post_modified_gmt,
         ];

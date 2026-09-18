@@ -1,10 +1,12 @@
 // Vitec's advertising payloads, mapped to the universal model.
 //
-// **Only the technical spine is mapped today**: identity, the references between the datatypes,
-// and the change date (docs/data-model-proposal.md point 5, approved). The descriptive fields wait
-// for the field specification Patric supplies (docs/next-steps.md item 2); until then `data` holds
-// nothing beyond the spine, and nothing here pretends otherwise. Payload keys are camelCase, as
-// Connect's JSON serialises them (docs/inputs/vitec/advertising.openapi.json).
+// The entire payload reaches the sites (Patric, 2026-09-18): `data` mirrors everything Connect
+// returns, every field under its snake_case name with the CRM's nesting kept, and the spine sits
+// on top: identity, the references between the datatypes and the change date. Nothing is chosen
+// and nothing is judged; `docs/data-model-reference.md` lists every path. The plugin's own field
+// names, once supplied, are laid on top as renames. `display` stays empty until the rules ledger
+// exists. Payload keys are camelCase, as Connect's JSON serialises them
+// (docs/inputs/vitec/advertising.openapi.json).
 import type { Datatype, MappedRecord, Mappers } from '../../engine/adapter-api/index.js';
 
 type Raw = Record<string, unknown>;
@@ -13,6 +15,24 @@ const record = (value: unknown): Raw =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Raw) : {};
 const text = (value: unknown): string | null =>
   typeof value === 'string' && value !== '' ? value : null;
+
+/** `StreetAddress` and `streetAddress` become `street_address`: the rule of docs/data-model-reference.md. */
+const snake = (name: string): string =>
+  name
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+    .toLowerCase();
+
+/** The payload as it is, keys renamed to snake_case at every level, arrays and values untouched. */
+function mirror(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(mirror);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Raw).map(([key, inner]) => [snake(key), mirror(inner)]),
+    );
+  }
+  return value;
+}
 
 /** Vitec's change dates carry seven fractional digits and an offset; the envelope wants ISO 8601. */
 export const isoDate = (value: unknown): string | null => {
@@ -46,6 +66,14 @@ const areaIds = (raw: Raw): string[] => {
   return area ? [area] : [];
 };
 
+/** The mirror with the spine on top; the spine wins where a name is shared (`id`, `project_id`). */
+const unified = (raw: Raw, spine: Raw): Raw => ({
+  ...record(mirror(raw)),
+  ...spine,
+  display: {},
+  provider_extras: {},
+});
+
 const property = (input: unknown): MappedRecord => {
   const raw = record(input);
   const id = requireId(raw);
@@ -56,16 +84,14 @@ const property = (input: unknown): MappedRecord => {
   return {
     officeId,
     remoteUpdatedAt: isoDate(raw['changedAt']),
-    data: {
+    data: unified(raw, {
       id,
       office_id: officeId,
       agent_ids: agentIds(raw),
       area_ids: areaIds(raw),
       association_id: text(association['id']),
       project_id: text(raw['projectId']),
-      display: {},
-      provider_extras: {},
-    },
+    }),
   };
 };
 
@@ -76,24 +102,23 @@ const project = (input: unknown): MappedRecord => {
   return {
     officeId,
     remoteUpdatedAt: isoDate(raw['changedAt']),
-    data: {
+    data: unified(raw, {
       id,
       office_id: officeId,
       agent_ids: agentIds(raw),
       area_ids: areaIds(raw),
-      display: {},
-      provider_extras: {},
-    },
+    }),
   };
 };
 
+/** An office's `id` in Core is its customer id; Vitec's own office id stays in `raw` and under `customer_id`'s sibling. */
 const office = (input: unknown): MappedRecord => {
   const raw = record(input);
   const id = officeIdOf(raw) ?? requireId(raw);
   return {
     officeId: id,
     remoteUpdatedAt: isoDate(raw['changedAt']),
-    data: { id, display: {}, provider_extras: {} },
+    data: unified(raw, { id }),
   };
 };
 
@@ -105,12 +130,10 @@ const agent = (input: unknown): MappedRecord => {
   return {
     officeId: null,
     remoteUpdatedAt: isoDate(raw['changedAt']),
-    data: {
+    data: unified(raw, {
       id,
       office_ids: offices.map(officeIdOf).filter((x): x is string => !!x),
-      display: {},
-      provider_extras: {},
-    },
+    }),
   };
 };
 
@@ -120,7 +143,7 @@ const tenantWide = (input: unknown): MappedRecord => {
   return {
     officeId: null,
     remoteUpdatedAt: isoDate(raw['changedAt']),
-    data: { id, display: {}, provider_extras: {} },
+    data: unified(raw, { id }),
   };
 };
 

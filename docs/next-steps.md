@@ -24,13 +24,16 @@ the first item that is not done, and keep the file current. Decisions and open q
    Later on 2026-09-16 Patric chose the WordPress plugin's universal model over the mirror and
    approved `project` as the sixth datatype. The plugin's field specification was not attached, so
    the model waits for it; the sixth datatype is in.
+   2026-09-18: the entire payload reaches the sites (question 28): `raw` in the envelope, `data`
+   the mechanical mirror with the spine on top, both clients keep `raw`. The plugin's field names
+   are laid on top as renames when the list arrives; `display` waits for the rules ledger.
 3. **After Gate 2:** update `schemas/`, then build the Vitec adapter: mappers against golden
    masters first, then the fetch layer (bulk sync via the marketing endpoints, webhooks, catch-up)
    per strategy §5.3. Images and documents are ignored; a separate app serves the CDN.
-   Status 2026-09-16: the fetch layer is built ahead of the mappers (`adapters/vitec/`: webhooks,
-   fetch list, catch-up, comparison, health), and the mappers map the spine only. The descriptive
-   mapping and `schemas/` wait for the field specification (item 2); golden masters for Vitec wait
-   for Gate 3.
+   Status 2026-09-18: the fetch layer is built (`adapters/vitec/`: webhooks, fetch list, catch-up,
+   comparison, health; the list defines what exists), and the mappers mirror the whole payload
+   with the spine on top. `schemas/` stays permissive until the plugin's field names arrive;
+   golden masters for Vitec wait for Gate 3.
 4. ~~**In parallel, approved:** the client sync loops in `clients/wordpress/` and
    `clients/lovable-kit/` per SRS §8 and Appendices A and B.~~ Done 2026-09-15: both loops, both
    bell endpoints, both backstops, the WordPress updater and WP-CLI, and one scenario suite that
@@ -64,6 +67,10 @@ the first item that is not done, and keep the file current. Decisions and open q
   database `defaultdb`); both specs are committed back. Left: Vitec's subscriptions pointing at
   each app (Patric gives Vitec the URLs, handed over in chat), a Vitec connection on each app
   (item 6), Sentry, and question 27 on the release flow.
+- GitHub branch protection on `staging` and `main` → the release flow is enforced for humans too
+  (question 27 answered 2026-09-18; the exact clicks are in README "Deploying"). A repository
+  admin does it once; agents cannot. Then Patric says "allow" and an agent switches production to
+  deploy on merge.
 - Sentry DSN → replace the placeholder in `engine/errors.ts`.
 - The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
 - Vitec test credentials and a staging deploy → open question 18.

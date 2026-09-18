@@ -28,6 +28,8 @@ export type ClientItem = {
   /** The client's own write time: bookkeeping these tests read, and nothing else may. */
   synced_at: string;
   data: Record<string, unknown> | null;
+  /** The CRM payload as Core served it, kept next to data (Patric, 2026-09-18). */
+  raw?: Record<string, unknown> | null;
 };
 
 export type ClientStatus = {
@@ -176,6 +178,8 @@ export function syncScenarios(name: string, client: ClientSetup): void {
         expect(stored?.connection_id).toBe(CONNECTION);
         expect(stored?.data?.['fake_label']).toBe('Kungsgatan P-1');
         expect(stored?.data?.['display']).toEqual({});
+        // So is raw: the CRM payload exactly as Core served it.
+        expect(stored?.raw).toMatchObject(fakeProperty('P-1'));
       },
       SCENARIO_TIMEOUT_MS,
     );

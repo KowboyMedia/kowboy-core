@@ -119,7 +119,7 @@ describe('the Vitec adapter', () => {
     await drainFetchList();
 
     const property = await item('property', 'OBJ1');
-    expect(property?.['data']).toEqual({
+    expect(property?.['data']).toMatchObject({
       id: 'OBJ1',
       office_id: OFFICE,
       agent_ids: ['U1'],
@@ -128,7 +128,14 @@ describe('the Vitec adapter', () => {
       project_id: 'PR1',
       display: {},
       provider_extras: {},
+      // The whole payload, mirrored under snake_case names with the nesting kept.
+      primary_agent_id: 'U1',
+      address: { street_address: 'Storgatan 1', area: { id: 'A1', name: 'Centrum' } },
+      extensions: { housing_cooperative: { association: { id: 'F1' } } },
+      changed_at: CHANGED,
     });
+    // And the payload itself, untouched, next to it.
+    expect(property?.['raw']).toEqual(estate('OBJ1'));
     expect(property?.['office_id']).toBe(OFFICE);
     expect(property?.['remote_updated_at']).toBe('2026-09-10T06:00:00.123Z');
 
