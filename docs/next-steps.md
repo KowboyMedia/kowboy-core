@@ -66,8 +66,8 @@ the first item that is not done, and keep the file current. Decisions and open q
 7. ~~**Admin panel** (question 29, yes 2026-09-18).~~ Built 2026-09-18: `/admin` on the web
    process with the eight panels of `docs/admin-panel.md`, the Vitec panel in
    `adapters/vitec/admin/`, tested as AC 42. Users and roles, and anything a site does, stay out.
-   The login is by email link since the same day (question 30: no shared password); the mail
-   waits on question 31, so nobody can enter the panel on staging until then.
+   The login is by email link since the same day (question 30: no shared password), mailed
+   through Postmark (question 31); staging has the token, production gets it with the release.
 
 ## Later, when Patric supplies them
 
@@ -76,7 +76,8 @@ the first item that is not done, and keep the file current. Decisions and open q
   `core_staging`) and `kowboy-core` (`main` on every merge, database `defaultdb`); both specs are
   committed back. Left: Vitec's subscriptions pointing at each app (Patric gives Vitec the URLs,
   handed over in chat), a Vitec connection on production (staging has one since 2026-09-18, item
-  6), and Sentry.
+  6), and Sentry. The database cluster accepts connections only from the two apps (question 33,
+  2026-09-18).
 - Sentry DSN → replace the placeholder in `engine/errors.ts`.
 - The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
 - Vitec test credentials and a staging deploy → open question 18.
