@@ -437,6 +437,45 @@ describe('the Vitec adapter', () => {
     expect([...new Set(pages)].sort()).toEqual(['0', '1', '2']);
   });
 
+  it('puts the notification, the Vitec call and the write on one timeline (AC 16)', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    fake.put(OFFICE, 'property', estate('OBJ2'));
+    const response = await hook({
+      type: 'Estate',
+      event: 'Update',
+      customerId: OFFICE,
+      id: 'OBJ2',
+    });
+    const { correlation_id } = (await response.json()) as { correlation_id: string };
+    await drainFetchList();
+
+    const timeline = await fetch(
+      `${running.baseUrl}/v1/admin/events?entity=${CONNECTION}/property/OBJ2`,
+      { headers: { 'x-admin-secret': ADMIN_SECRET } },
+    );
+    const { events } = (await timeline.json()) as {
+      events: { type: string; correlation_id: string | null; fields: Record<string, unknown> }[];
+    };
+    expect(events.map((event) => event.type)).toEqual(
+      expect.arrayContaining(['webhook.received', 'crm.call', 'entity.written']),
+    );
+    for (const event of events) expect(event.correlation_id).toBe(correlation_id);
+    const call = events.find((event) => event.type === 'crm.call');
+    expect(call?.fields).toMatchObject({
+      method: 'GET',
+      endpoint: `/Advertising/Estate/${OFFICE}/OBJ2`,
+      status: 200,
+    });
+    expect(typeof call?.fields['duration_ms']).toBe('number');
+    expect(events.find((event) => event.type === 'webhook.received')?.fields).toMatchObject({
+      outcome: 'queued',
+      event: 'webhook',
+      response: 202,
+    });
+  });
+
   it('has its own admin panel: the fetch list, the schedules, and one record looked at or queued (AC 42)', async () => {
     seed(fake);
     await start();

@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 37.
+answering is quick. Next number: 39.
 
 ## 2. Protected paths created by an agent
 
@@ -33,22 +33,6 @@ environment. The app is built to run on DigitalOcean App Platform with managed P
 nothing is deployed. Phase 1 is split in the strategy into Foundation (done) and Deploy (waiting
 on you).
 
-## 9. The adapter API cannot stamp an adapter's own events
-
-`logEvent(type, fields)` writes a row with no correlation id and no entity reference, so an
-adapter's own events (a webhook arriving, a CRM call and its timing) cannot be linked to the write
-they caused. `ingest` does take a correlation id, so the chain works from the fetch onwards, and
-the fake adapter proves it.
-
-AC 16 asks for one query returning the whole timeline **across webhook, fetch, CRM call, write,
-bell and pull**. Meeting it fully needs one added argument:
-
-```ts
-logEvent(type, fields, context?: { correlationId?, connectionId?, datatype?, remoteId? })
-```
-
-That is an adapter API change, so it needs approval (E3). It is additive and breaks no caller.
-
 ## 16. The plugin's license, now that Action Scheduler is bundled
 
 Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPress plugins normally
@@ -72,3 +56,11 @@ Core (smaller: yes, it is the official client); (4) an agent then wires it into 
 adds an uptime alert on production's `/v1/health` every minute if you give it an auth token with
 alert rights, or you click Alerts → Uptime Monitor there yourself. The sites get their own
 projects later.
+
+## 38. [crm-vitec] A closed office's records on the sites
+
+When Vitec answers 403 for an office, the office is gone or the licence ended, and Core cannot
+tell which. The adapter now blocks the office at once, probes it once per cool-down, and leaves
+its records on the sites as they are; a person removes the office at the panel when it is really
+gone. Pick: keep it so (smaller, built), or remove the office's records by themselves after a
+number of days of 403 that you name.

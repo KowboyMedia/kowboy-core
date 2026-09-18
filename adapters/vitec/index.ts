@@ -26,6 +26,7 @@ import type {
   AdapterApi,
   Connection,
   Datatype,
+  EventContext,
   Route,
 } from '../../engine/adapter-api/index.js';
 
@@ -150,18 +151,48 @@ const routes: Route[] = [
   {
     method: 'POST',
     path: 'webhook/*',
-    handler: async (request) => {
+    handler: async (request, api) => {
       const expected = process.env['VITEC_WEBHOOK_TOKEN'];
       if (!expected) return { status: 503, body: { error: 'VITEC_WEBHOOK_TOKEN is not set' } };
+      // Every arrival goes in the event log, and a queued one onto its record's timeline (AC 16).
+      const arrived = (fields: Record<string, unknown>, context?: EventContext): Promise<void> =>
+        api.logEvent('webhook.received', { path: '/v1/hook/vitec/webhook', ...fields }, context);
       const [path, query] = request.url.split('?');
       if (!tokenMatches(path?.split('/').pop(), expected)) {
+        await arrived({ outcome: 'rejected', detail: 'bad token', response: 401 });
         return { status: 401, body: { error: 'bad token' } };
       }
       const notification = parseNotification(request.body, query);
-      if ('error' in notification) return { status: 400, body: { error: notification.error } };
-      if (!notification.datatype) return { status: 202, body: { ignored: true } };
+      if ('error' in notification) {
+        await arrived({ outcome: 'rejected', detail: notification.error, response: 400 });
+        return { status: 400, body: { error: notification.error } };
+      }
+      if (!notification.datatype) {
+        await arrived({ outcome: 'ignored', detail: 'a type Core does not sync', response: 202 });
+        return { status: 202, body: { ignored: true } };
+      }
       // Never fetch inside the request: a burst must not become a burst of Connect calls.
       const correlationId = randomUUID();
+      const owner = (await api.connections()).find(
+        (candidate) =>
+          candidate.active && candidate.licensedOffices.includes(notification.officeId),
+      );
+      await arrived(
+        {
+          outcome: 'queued',
+          office_id: notification.officeId,
+          datatype: notification.datatype,
+          remote_id: notification.id,
+          event: notification.reason,
+          response: 202,
+        },
+        {
+          correlationId,
+          connectionId: owner?.id ?? null,
+          datatype: notification.datatype,
+          remoteId: notification.id,
+        },
+      );
       await store.enqueue([
         {
           officeId: notification.officeId,
@@ -205,20 +236,31 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
   }
   const first = owners[0];
   if (!first) {
-    await current.logEvent('fetch.orphan', {
-      office_id: entry.officeId,
-      datatype: entry.datatype,
-      remote_id: entry.remoteId,
-      detail: 'no active connection licenses this office',
-    });
+    await current.logEvent(
+      'fetch.orphan',
+      {
+        office_id: entry.officeId,
+        datatype: entry.datatype,
+        remote_id: entry.remoteId,
+        detail: 'no active connection licenses this office',
+      },
+      { correlationId: entry.correlationId, datatype: entry.datatype, remoteId: entry.remoteId },
+    );
     return;
   }
+  const trace: EventContext = {
+    correlationId: entry.correlationId,
+    connectionId: first.connection.id,
+    datatype: entry.datatype,
+    remoteId: entry.remoteId,
+  };
   try {
     const payload = await connect.getOne(
       first.credentials,
       entry.datatype,
       entry.officeId,
       entry.remoteId,
+      trace,
     );
     if (payload === null) {
       for (const { connection } of owners) {
@@ -245,7 +287,7 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
         attempts: entry.attempts + 1,
         detail: String(error),
       };
-      await current.logEvent('fetch.failed', fields);
+      await current.logEvent('fetch.failed', fields, trace);
       current.report(new Error('vitec fetch given up'), fields);
     }
   }
@@ -285,7 +327,14 @@ async function listAll(
     const perOffice = new Map<string, Map<string, string | null>>();
     for (const officeId of offices) {
       const ids = new Map<string, string | null>();
-      for await (const row of connect.list(live.credentials, datatype, officeId, changedSince)) {
+      const trace: EventContext = { connectionId: live.connection.id };
+      for await (const row of connect.list(
+        live.credentials,
+        datatype,
+        officeId,
+        changedSince,
+        trace,
+      )) {
         ids.set(row.id, isoDate(row.changedAt));
       }
       perOffice.set(officeId, ids);
@@ -407,10 +456,11 @@ async function tickOnce(): Promise<void> {
       if (startup || compareAge >= COMPARE_EVERY_MS) await compare(target);
     } catch (error) {
       failed = true;
-      await current.logEvent('schedule.failed', {
-        connection_id: target.connection.id,
-        detail: String(error),
-      });
+      await current.logEvent(
+        'schedule.failed',
+        { connection_id: target.connection.id, detail: String(error) },
+        { connectionId: target.connection.id },
+      );
       current.report(error, { where: 'vitec schedule', connection_id: target.connection.id });
     }
   }
@@ -457,6 +507,15 @@ export const vitecAdapter: Adapter = {
 
   start(given: AdapterApi): void {
     engine = given;
+    // Every call to Vitec goes in the event log, on the record's timeline when it was for one.
+    connect.onCall((call) => {
+      const api = engine;
+      if (!api) return;
+      const { trace, ...fields } = call;
+      void api
+        .logEvent('crm.call', fields, trace)
+        .catch((error: unknown) => api.report(error, { where: 'vitec crm.call event' }));
+    });
 
     given.onLifecycle(async (event) => {
       const credentials = credentialsOf(event.connection);
@@ -493,6 +552,7 @@ export const vitecAdapter: Adapter = {
     if (scheduleTimer) clearInterval(scheduleTimer);
     drainTimer = null;
     scheduleTimer = null;
+    connect.onCall(null);
     engine = null;
     startPending = true;
     await draining;

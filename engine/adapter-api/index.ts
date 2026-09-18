@@ -11,6 +11,7 @@ import type {
   AdapterApi,
   Connection,
   Datatype,
+  EventContext,
   HealthResult,
   LifecycleHandler,
   Manifest,
@@ -28,6 +29,7 @@ export type {
   Canonical,
   Connection,
   Datatype,
+  EventContext,
   HealthResult,
   IngestResult,
   LifecycleEvent,
@@ -60,8 +62,15 @@ export function adapterApi(provider: string): AdapterApi {
     onLifecycle(handler: LifecycleHandler): void {
       registry.addLifecycleHandler(provider, handler);
     },
-    logEvent(type: string, fields: Record<string, unknown>) {
-      return logEvent({ type, fields, connectionId: null });
+    logEvent(type: string, fields: Record<string, unknown>, context: EventContext = {}) {
+      return logEvent({
+        type,
+        fields,
+        correlationId: context.correlationId ?? null,
+        connectionId: context.connectionId ?? null,
+        datatype: context.datatype ?? null,
+        remoteId: context.remoteId ?? null,
+      });
     },
     healthCheck(name: string, check: () => Promise<HealthResult> | HealthResult): void {
       registry.addHealthCheck(name, check);

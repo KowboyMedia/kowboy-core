@@ -110,3 +110,11 @@ Not verified: what an `Office` notification carries as `id`, the office id or th
 customer id would fetch a 404 and change nothing; the next catch-up carries the change. A webhook
 accepted and then lost to a crash before its fetch ran is picked up by the next catch-up, not
 sooner.
+
+## Events on a record's timeline
+
+Every notification's arrival is an event, `webhook.received`, with its outcome (queued, ignored,
+rejected) and the office, datatype and id it named; a queued one carries the correlation id that
+the fetch and the write then share, so the record's timeline runs from Vitec's call to the bell.
+Every call to Connect is an event too, `crm.call`: endpoint, query, status, duration, answer size,
+and the start of the answer when it was an error or broken JSON (question 9, 2026-09-18).
