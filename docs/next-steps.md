@@ -87,8 +87,8 @@ the first item that is not done, and keep the file current. Decisions and open q
   handed over in chat), a Vitec connection on production (staging has one since 2026-09-18, item
   6), and Sentry. The database cluster accepts connections only from the two apps (question 33,
   2026-09-18).
-- Sentry: wired into Core 2026-09-18 (question 36); the DSN is on staging, production gets it with the release. The same error leaves once a day whichever process hits it, and at most twenty distinct errors a day per app, for the 5,000-a-month plan; the sites' errors through the same gate is question 46. Left: an uptime alert on production's `/v1/health` (an auth token for an agent, or a click in Sentry), and projects for the two clients.
-- The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
+- Sentry: wired into Core 2026-09-18 (question 36); the DSN is on staging, production gets it with the release. The same error leaves once a day whichever process hits it, and at most twenty distinct errors a day per app, for the 5,000-a-month plan; the sites' errors go through the same gate since 2026-09-19 (question 46). Left: an uptime alert on production's `/v1/health` (an auth token for an agent, or a click in Sentry), and projects for the two clients.
+- The universal field names (question 51: drafted for Patric's correction, or sent by him) → item 2, then the Vitec mappers and `schemas/`.
 - Vitec test credentials and a staging deploy → open question 18.
 - Mspecs documentation → second adapter.
 - Rules ledger, parity inventory, real golden masters → Phase 5.

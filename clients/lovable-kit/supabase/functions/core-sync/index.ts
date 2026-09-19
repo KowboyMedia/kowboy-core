@@ -70,9 +70,31 @@ const env = (name: string): string => {
   return value;
 };
 
-/** Error reporting placeholder, the same shape as Core's: JSON on stderr until a Sentry DSN exists. */
+/**
+ * Error reporting through Core (question 46, Patric 2026-09-19): JSON on stderr, and the same to
+ * Core's POST /v1/errors, where the same bug on many sites becomes one report a day and no site
+ * holds a key of its own. A report that cannot be delivered never stops the sync.
+ */
 function report(message: string, context: Record<string, unknown> = {}): void {
   console.error(JSON.stringify({ level: 'error', source: 'core-sync', message, ...context }));
+  // Never throw from here: a report is the last thing a failing sync does.
+  const url = Deno.env.get('CORE_URL');
+  const token = Deno.env.get('CORE_TENANT_TOKEN');
+  if (!url || !token) return;
+  const { where, ...detail } = context;
+  fetch(`${url}/v1/errors`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+      'x-core-client': `lovable/${VERSION}`,
+    },
+    body: JSON.stringify({
+      message,
+      where: String(where ?? ''),
+      detail: JSON.stringify(detail).slice(0, 4000),
+    }),
+  }).catch(() => undefined);
 }
 
 Deno.serve({ port: Number(Deno.env.get('PORT') ?? 8000) }, async (request) => {

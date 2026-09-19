@@ -152,6 +152,37 @@ describe('the WordPress client', () => {
     }
   });
 
+  it('answers /objekt/<id> with 301 to the property, and an unknown or removed id with 301 to the archive (41, 42)', async () => {
+    crm.reset();
+    const core = await harness({
+      adapters: [fakePollingAdapter],
+      connections: [{ id: CONNECTION, provider: 'fake-polling' }],
+      subscriber: false,
+    });
+    const site = await start({ url: core.baseUrl, token: TOKEN, bellSecret: BELL_SECRET });
+    try {
+      crm.put('property', 'P-1', fakeProperty('P-1'));
+      await poll();
+      await driver('sync', 'delta');
+      const origin = new URL(site.bellUrl).origin;
+      const at = (name: string): Promise<globalThis.Response> =>
+        fetch(`${origin}/?core_property=${encodeURIComponent(name)}`, { redirect: 'manual' });
+
+      const byId = await at('P-1');
+      expect(byId.status).toBe(301);
+      expect(byId.headers.get('location')).toContain('polling-acme-p-1');
+      const oldSlug = await at('storgatan-1-P-1');
+      expect(oldSlug.status).toBe(301);
+      expect(oldSlug.headers.get('location')).toContain('polling-acme-p-1');
+      const gone = await at('P-9');
+      expect(gone.status).toBe(301);
+      expect(gone.headers.get('location')).toContain('post_type=core_property');
+    } finally {
+      await stop();
+      await core.stop();
+    }
+  });
+
   it('packages a release WordPress can install, with the version from the plugin header', async () => {
     const out = mkdtempSync(join(tmpdir(), 'core-client-release-'));
     await run('php', [

@@ -16,6 +16,9 @@ describe('the error fingerprint', () => {
       'Error: site # gone | ',
     );
     expect(fingerprintOf('plain text', 'x')).toBe('plain text | x');
+    expect(fingerprintOf(new Error('pull failed: http 401'), 'sync')).not.toBe(
+      fingerprintOf(new Error('pull failed: http 503'), 'sync'),
+    );
   });
 });
 
