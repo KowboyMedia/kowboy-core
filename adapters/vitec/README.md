@@ -8,7 +8,7 @@ sees only the adapter API. The documentation it is built from is `docs/inputs/vi
 index.ts        the adapter: webhook route, fetch loop, schedules, lifecycle, health
 api.ts          Connect over HTTP: basic authentication, list paging, records by id, one request budget
 store.ts        the adapter's own tables: the fetch list, the ids seen per customer, state per connection
-mappers.ts      Connect payloads → the universal model (the technical spine only, see below)
+mappers.ts      Connect payloads → the universal model: the universal names, the spine, the rest mirrored (see below)
 test/connect.ts a stand-in Connect for the tests
 admin/index.ts  its panels in the admin panel: webhook URL, schedules, the fetch list, one record looked at or queued
 vitec.test.ts   the adapter against the real engine and the stand-in
@@ -50,17 +50,21 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   older than 13 h, whose credentials cannot be read, or which has no offices). The checks run in
   the worker and are recorded for the web process every 30 s.
 
-## Mappers: the whole payload, the spine on top
+## Mappers: the universal names, the spine on top, the rest mirrored
 
-The entire payload reaches the sites (Patric, 2026-09-18): `data` mirrors everything Connect
-returns, every field under its snake_case name with the nesting kept (`docs/data-model-reference.md`
-lists every path), and the spine sits on top: `id`, `office_id`, `agent_ids`, `area_ids`,
-`association_id`, `project_id` on a property; `office_ids` on an agent; `office_id`, `agent_ids`,
-`area_ids` on a project. `raw` travels next to `data`, untouched. `remote_updated_at` is Vitec's
-`changedAt`. The office id is what Connect calls the customer id (`M30011`): one office, one
-customer id, and `Office.Id` is an alias of it (Patric, 2026-09-16); licensing filters on it, and
-Vitec's own office id stays in `raw`. Nothing is chosen and nothing is judged; the plugin's own field
-names, once supplied, are laid on top as renames, and `display` waits for the rules ledger.
+`data` is the universal record (`docs/field-tables.md`, approved by Patric on 2026-09-19): Connect's
+fields copied and renamed onto the universal names, with the spine on top: `id`, `office_id`,
+`agent_ids`, `area_ids`, `association_id`, `project_id` on a property; `office_ids` on an agent;
+`office_id`, `agent_ids`, `area_ids` on a project. Everything the tables do not name stays next to
+them under its mechanical snake_case name (`docs/data-model-reference.md` lists every path), and
+`raw` travels next to `data`, untouched. `remote_updated_at` is Vitec's `changedAt`. The office id
+is what Connect calls the customer id (`M30011`): one office, one customer id, and `Office.Id` is
+an alias of it (Patric, 2026-09-16); licensing filters on it, and Vitec's own office id stays in
+`raw`. Nothing is chosen and nothing is judged: an enumeration is copied as `{id, name}`, a bare
+Swedish wall-clock time becomes a UTC moment, an image's address is built on Kowboy's CDN from the
+ids Vitec gives (strategy §12.28), the first building's sizes are lifted onto the property and
+every building is carried, and `display` is the engine's, computed from the universal record by
+the rules ledger. `mappers.test.ts` holds one Connect-shaped fixture per datatype.
 
 ## Setting up a connection
 

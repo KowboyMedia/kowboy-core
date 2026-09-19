@@ -143,13 +143,12 @@ describe('the Vitec adapter', () => {
       area_ids: ['A1'],
       association_id: 'F1',
       project_id: 'PR1',
-      display: {},
       provider_extras: {},
-      // The whole payload, mirrored under snake_case names with the nesting kept.
-      primary_agent_id: 'U1',
-      address: { street_address: 'Storgatan 1', area: { id: 'A1', name: 'Centrum' } },
+      // The universal names (docs/field-tables.md), and the strings the engine prepared from them.
+      address: { street: 'Storgatan 1', area_id: 'A1', area_name: 'Centrum' },
+      display: { address_line: 'Storgatan 1' },
+      // What the tables do not name stays under its mechanical snake_case name, nesting kept.
       extensions: { housing_cooperative: { association: { id: 'F1' } } },
-      changed_at: CHANGED,
     });
     // And the payload itself, untouched, next to it.
     expect(property?.['raw']).toEqual(estate('OBJ1'));
@@ -646,7 +645,7 @@ describe('the Vitec adapter', () => {
       action: 'look',
     });
     const seen = await looked.text();
-    expect(seen).toContain('street_address');
+    expect(seen).toContain('agent_ids');
     expect(seen).toContain('Nothing was written');
     expect(await item('property', 'OBJ9')).toBeUndefined();
 

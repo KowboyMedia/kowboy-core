@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kowboy.se/schemas/association.v1.json",
   "title": "association.data",
-  "description": "INCOMPLETE. Only identity is defined, because the CRM data models have not been read yet. The descriptive model is added in one piece once they have (docs/field-tables.md). `additionalProperties` is true until then, so this schema does not yet reject an unknown field.",
+  "description": "A housing cooperative on the universal names (docs/field-tables.md); reached from the properties that name it. Fields the field tables do not name stay under their mechanical snake_case names (docs/data-model-reference.md), so `additionalProperties` stays true.",
   "type": "object",
   "properties": {
     "id": {
@@ -13,8 +13,60 @@
     },
     "provider_extras": {
       "$ref": "_shared.v1.json#/$defs/providerExtras"
+    },
+    "name": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "corporate_number": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "organizational_form": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "email": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "home_page": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "genuine_association": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "number_of_apartments": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "number_of_rental_apartments": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "number_of_premises": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "descriptions": {
+      "type": ["object", "null"]
+    },
+    "economy": {
+      "type": ["object", "null"]
+    },
+    "contact": {
+      "type": ["object", "null"],
+      "properties": {
+        "name": {
+          "$ref": "_shared.v1.json#/$defs/nullableString"
+        },
+        "mobile": {
+          "$ref": "_shared.v1.json#/$defs/nullableString"
+        },
+        "phone": {
+          "$ref": "_shared.v1.json#/$defs/nullableString"
+        },
+        "email": {
+          "$ref": "_shared.v1.json#/$defs/nullableString"
+        }
+      },
+      "required": ["name", "mobile", "phone", "email"],
+      "additionalProperties": false
     }
   },
-  "required": ["id", "display", "provider_extras"],
+  "required": ["id", "name", "contact", "display", "provider_extras"],
   "additionalProperties": true
 }

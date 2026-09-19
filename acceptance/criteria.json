@@ -13,7 +13,7 @@
         "golden masters (fake provider) area/basic",
         "golden masters (fake provider) association/basic"
       ],
-      "note": "Proved on golden/fake, whose cases now cover identity, references and dummy fake_* fields only. display is empty in every case because no business rule exists. Real per-CRM golden masters arrive at Gate 3."
+      "note": "Proved on golden/fake, whose cases cover identity, references and the universal names on dummy data. Since 2026-09-19 display carries the strings and sections the ledger entries R-001 to R-014 give, so a fake property shows a price line, an address line and one section. Real per-CRM golden masters arrive at Gate 3."
     },
     {
       "ac": 2,
@@ -239,7 +239,7 @@
         "ingest turns a webhook into a served item (AC 2, AC 3)",
         "admin previews a recompute without writing anything (AC 36)"
       ],
-      "note": "The write path refuses an item that fails its schema, and the release preview reports failures. The schemas themselves are the structural spine and permissive until the data model is defined, so today this proves the mechanism, not the model."
+      "note": "The write path refuses an item that fails its schema, and the release preview reports failures. Since 2026-09-19 the schemas carry the universal names of docs/field-tables.md (Gate 2, approved that day) and allow the mirrored tail next to them; every record of the Vitec test account on staging validated against them that day."
     },
     {
       "ac": 24,
@@ -281,7 +281,8 @@
       "ac": 28,
       "title": "Functional parity with the parity inventory",
       "phase": "real-data",
-      "tests": []
+      "tests": [],
+      "note": "Phase 5. The rules ledger opens with R-001 to R-014 and their tests (engine/rules/rules.test.ts, 2026-09-19); the parity inventory and the comparison against the old sites wait for the pairs of question 52."
     },
     {
       "ac": 29,
@@ -302,8 +303,8 @@
         "the WordPress client against Core stores a field it has never seen, verbatim (AC 10, AC 30)",
         "the Lovable kit against Core skips an item it cannot use, and keeps going (AC 30)",
         "the WordPress client against Core skips an item it cannot use, and keeps going (AC 30)",
-        "the Lovable kit against Core reports back what it applied, on each record\u2019s timeline in Core (AC 16)",
-        "the WordPress client against Core reports back what it applied, on each record\u2019s timeline in Core (AC 16)"
+        "the Lovable kit against Core reports back what it applied, on each record’s timeline in Core (AC 16)",
+        "the WordPress client against Core reports back what it applied, on each record’s timeline in Core (AC 16)"
       ],
       "note": "Additive fields and unusable items on both real clients. Reporting goes to the same placeholder as Core’s until a Sentry DSN exists. The release report’s flags wait on the pipeline."
     },

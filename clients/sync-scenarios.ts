@@ -208,8 +208,14 @@ export function syncScenarios(name: string, client: ClientSetup): void {
         // data is stored verbatim, and identity is connection plus remote id (AC 6).
         const stored = await item('property', 'P-1');
         expect(stored?.connection_id).toBe(CONNECTION);
-        expect(stored?.data?.['fake_label']).toBe('Kungsgatan P-1');
-        expect(stored?.data?.['display']).toEqual({});
+        expect((stored?.data?.['address'] as Record<string, unknown>)['street']).toBe(
+          'Kungsgatan P-1',
+        );
+        // So is display, the strings Core prepared (rules-ledger/).
+        expect(stored?.data?.['display']).toMatchObject({
+          price: '7\u00a0250\u00a0000\u00a0kr',
+          address_line: 'Kungsgatan P-1',
+        });
         // So is raw: the CRM payload exactly as Core served it.
         expect(stored?.raw).toMatchObject(fakeProperty('P-1'));
       },
@@ -278,7 +284,9 @@ export function syncScenarios(name: string, client: ClientSetup): void {
         await poll();
         await sync();
         expect(byId(await site.items('property'))).toEqual(before);
-        expect((await item('property', 'P-2'))?.data?.['fake_label']).toBe('Nygatan 2');
+        expect(
+          ((await item('property', 'P-2'))?.data?.['address'] as Record<string, unknown>)['street'],
+        ).toBe('Nygatan 2');
         await db().query('drop table items_backup');
       },
       SCENARIO_TIMEOUT_MS,
@@ -309,7 +317,9 @@ export function syncScenarios(name: string, client: ClientSetup): void {
         expect((await item('property', 'P-1'))?.data).toEqual({ damaged: true });
 
         await sync('forcerefresh');
-        expect((await item('property', 'P-1'))?.data?.['fake_label']).toBe('Kungsgatan P-1');
+        expect(
+          ((await item('property', 'P-1'))?.data?.['address'] as Record<string, unknown>)['street'],
+        ).toBe('Kungsgatan P-1');
       },
       SCENARIO_TIMEOUT_MS,
     );

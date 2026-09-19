@@ -6,6 +6,12 @@ no longer apply. What stands: the spine (point 5), scope (6), what the adapter f
 not carried (8), `project` as the sixth datatype (9, approved and built), the fetch pace (10), and
 decision 2 answered as keep (a tenant has connections, each with credentials and office ids).
 
+**Status 2026-09-19:** Gate 2 passed. The universal names are in
+[field-tables.md](field-tables.md) (Patric approved the thin model that day, closing question 51),
+`schemas/` carries them, and the Vitec mappers copy and rename onto them; the mirror of point 1
+remains as the tail of `data` for everything the tables do not name, and `display` comes from the
+rules ledger.
+
 ## What Gate 2 decides, and what it does not
 
 Gate 2 decides the **technical shape** only: identity, the relations between the datatypes, the

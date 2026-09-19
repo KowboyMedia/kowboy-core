@@ -1,5 +1,23 @@
 {
+  "email": null,
   "id": "AG-12",
-  "fake_label": "Anna",
-  "provider_extras": {}
+  "image": null,
+  "name": "Anna",
+  "office_ids": [
+    "100"
+  ],
+  "offices": [
+    {
+      "is_visible_in_staff_list": null,
+      "office_id": "100",
+      "order": null,
+      "phone": null
+    }
+  ],
+  "phones": {
+    "mobile": null,
+    "public": null
+  },
+  "provider_extras": {},
+  "title": null
 }

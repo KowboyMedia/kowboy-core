@@ -1,6 +1,13 @@
 {
-  "id": "OBJ-19203",
-  "office_id": "100",
+  "additional_space": null,
+  "address": {
+    "area_name": null,
+    "city": null,
+    "country_code": null,
+    "municipality": null,
+    "postal_code": null,
+    "street": "Storgatan 12"
+  },
   "agent_ids": [
     "AG-12"
   ],
@@ -8,12 +15,35 @@
     "area-77"
   ],
   "association_id": "BRF-311",
-  "fake_state": "FOR_SALE",
-  "fake_label": "Storgatan 12",
-  "fake_amount": 4950000,
+  "bidding": {
+    "bids": [],
+    "is_active": null,
+    "is_verified": null
+  },
+  "buildings": [],
+  "currency": "SEK",
+  "fee": null,
+  "final_price": null,
+  "id": "OBJ-19203",
+  "images": [],
+  "lat": null,
+  "living_space": null,
+  "lng": null,
+  "office_id": "100",
+  "price": 4950000,
+  "project_id": null,
   "provider_extras": {
     "fake-webhook": {
       "internal_code": 4711
     }
-  }
+  },
+  "rooms": null,
+  "status": {
+    "id": "FOR_SALE",
+    "name": "FOR_SALE"
+  },
+  "subtype": null,
+  "tenure": null,
+  "type": null,
+  "viewings": []
 }
