@@ -15,13 +15,6 @@ invented from the SRS's illustrative example and has been removed.
 A rule needs two things first: a field to compute over, and a ledger entry saying what the output
 should be. `rules-ledger/` is protected and empty, so nothing can be written until an entry exists.
 
-## 49. The paths for agent and area pages
-
-`[client-wordpress]` Properties live under `objekt/`, projects under `projekt/`, offices under
-`kontor/`, associations under `forening/` (question 45). Agents and areas have no Swedish path yet
-and sit under `agent/` and `area/`. Say the two words. Smaller: `maklare/` and `omrade/`, spelled
-without diacritics as paths usually are.
-
 ## 50. The CDN's URL scheme for images
 
 `[core]` `[crm]` The universal model carries image URLs as Kowboy CDN URLs, rewritten from the

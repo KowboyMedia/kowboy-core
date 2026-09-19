@@ -21,10 +21,10 @@ function core_client_post_type(string $datatype): string
     return 'core_' . $datatype;
 }
 
-/** The path a datatype's pages live under (Patric, 2026-09-18 and 2026-09-19, question 45). */
+/** The path a datatype's pages live under (Patric, 2026-09-18 and 2026-09-19, questions 45 and 49). */
 function core_client_path(string $datatype): string
 {
-    return ['property' => 'objekt', 'office' => 'kontor', 'project' => 'projekt', 'association' => 'forening'][$datatype] ?? $datatype;
+    return ['property' => 'objekt', 'office' => 'kontor', 'project' => 'projekt', 'association' => 'forening', 'agent' => 'maklare', 'area' => 'omrade'][$datatype] ?? $datatype;
 }
 
 function core_client_index_table(): string

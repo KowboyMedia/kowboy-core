@@ -42,9 +42,8 @@ or `wp action-scheduler run`.
 
 - Permalinks are the site's, never Core's (strategy §12.23 and §12.26), under Swedish paths:
   `objekt/<status>-<area name>-<street address>-<id>` for properties and `projekt/` the same for
-  projects, `kontor/<office name>-<id>`, `forening/<association name>-<id>`, agents
-  `<first name>-<last name>-<id>` and areas `<municipality>-<area name>-<id>` (their paths:
-  question 49). Every entity ends in `-<id>`. A request by id alone (`/objekt/<id>`) or by an old
+  projects, `kontor/<office name>-<id>`, `forening/<association name>-<id>`, `maklare/<first name>-<last name>-<id>`
+  and `omrade/<municipality>-<area name>-<id>`. Every entity ends in `-<id>`. A request by id alone (`/objekt/<id>`) or by an old
   slug (`/objekt/<old slug>-<id>`) answers 301 to the current permalink, and a removed or unknown
   id answers 301 to the property archive (`includes/routing.php`). Until the universal field
   names arrive (question 51) the placeholder slug is connection plus id.
