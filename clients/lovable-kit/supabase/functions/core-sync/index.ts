@@ -77,11 +77,15 @@ const env = (name: string): string => {
  */
 function report(message: string, context: Record<string, unknown> = {}): void {
   console.error(JSON.stringify({ level: 'error', source: 'core-sync', message, ...context }));
+  // Never throw from here: a report is the last thing a failing sync does.
+  const url = Deno.env.get('CORE_URL');
+  const token = Deno.env.get('CORE_TENANT_TOKEN');
+  if (!url || !token) return;
   const { where, ...detail } = context;
-  fetch(`${env('CORE_URL')}/v1/errors`, {
+  fetch(`${url}/v1/errors`, {
     method: 'POST',
     headers: {
-      authorization: `Bearer ${env('CORE_TOKEN')}`,
+      authorization: `Bearer ${token}`,
       'content-type': 'application/json',
       'x-core-client': `lovable/${VERSION}`,
     },
