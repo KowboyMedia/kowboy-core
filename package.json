@@ -26,6 +26,8 @@
     "report": "node scripts/acceptance-report.mjs"
   },
   "dependencies": {
+    "@sentry/node": "^10.75.0",
+    "@tabler/core": "^1.5.1",
     "pg": "^8.13.1"
   },
   "devDependencies": {

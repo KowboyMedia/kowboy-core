@@ -26,6 +26,13 @@ export type FakeConnect = {
   unlist(officeId: string, datatype: string, id: string): void;
   /** Answer the next `times` requests with HTTP 500. */
   failNext(times: number): void;
+  /** Answer 403 for this office from now on, as Connect does for a closed one. */
+  forbid(officeId: string): void;
+  allow(officeId: string): void;
+  /** Answer the next `times` requests with 200 and a body that is not JSON. */
+  brokenNext(times: number): void;
+  /** Answer the next request with 503 and a Retry-After of this many seconds. */
+  retryAfterNext(seconds: number): void;
   /** Hold every request this long, so concurrency can be observed. */
   delayMs: number;
   requests: { path: string; query: URLSearchParams }[];
@@ -46,7 +53,10 @@ export function startFakeConnect(): Promise<FakeConnect> {
 
   const expectedAuth = `Basic ${Buffer.from(`${USERNAME}:${PASSWORD}`).toString('base64')}`;
   const unlisted = new Set<string>();
+  const forbidden = new Set<string>();
   let failures = 0;
+  let broken = 0;
+  let retryAfter = 0;
   let inFlight = 0;
   const fake: FakeConnect = {
     url: '',
@@ -57,10 +67,40 @@ export function startFakeConnect(): Promise<FakeConnect> {
     remove: (officeId, datatype, id) => bucket(officeId, datatype).delete(id),
     unlist: (officeId, datatype, id) => unlisted.add(`${officeId}/${datatype}/${id}`),
     failNext: (times) => (failures = times),
+    forbid: (officeId) => forbidden.add(officeId),
+    allow: (officeId) => forbidden.delete(officeId),
+    brokenNext: (times) => (broken = times),
+    retryAfterNext: (seconds) => (retryAfter = seconds),
     delayMs: 0,
     requests: [],
     maxInFlight: 0,
     close: () => Promise.resolve(),
+  };
+
+  /** The trouble a test asked for, one request at a time: a 500, a Retry-After, a broken body. */
+  const misbehave = (): {
+    status: number;
+    headers: Record<string, string>;
+    body: string;
+  } | null => {
+    if (failures > 0) {
+      failures -= 1;
+      return { status: 500, headers: {}, body: '{"message":"broken"}' };
+    }
+    if (retryAfter > 0) {
+      const seconds = retryAfter;
+      retryAfter = 0;
+      return {
+        status: 503,
+        headers: { 'retry-after': String(seconds) },
+        body: '{"message":"busy"}',
+      };
+    }
+    if (broken > 0) {
+      broken -= 1;
+      return { status: 200, headers: {}, body: '{"rows": [{"id": "OBJ1", "custo' };
+    }
+    return null;
   };
 
   const server: Server = createServer((request, response) => {
@@ -75,13 +115,19 @@ export function startFakeConnect(): Promise<FakeConnect> {
     };
     setTimeout(() => {
       if (request.headers['authorization'] !== expectedAuth) return reply(401, { message: 'no' });
-      if (failures > 0) {
-        failures -= 1;
-        return reply(500, { message: 'broken' });
+      const trouble = misbehave();
+      if (trouble) {
+        inFlight -= 1;
+        response.writeHead(trouble.status, {
+          'content-type': 'application/json',
+          ...trouble.headers,
+        });
+        return response.end(trouble.body);
       }
       const [, advertising, resource, officeId, id] = url.pathname.split('/');
       const datatype = resource ? RESOURCES[resource] : undefined;
       if (advertising !== 'Advertising' || !datatype || !officeId) return reply(404, {});
+      if (forbidden.has(officeId)) return reply(403, { message: 'forbidden' });
       const records = bucket(officeId, datatype);
       if (id) {
         const record = records.get(id);

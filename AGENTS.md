@@ -44,7 +44,8 @@ Lint findings (including function complexity), duplicate code, dead code (unused
   - No CRM-specific branches, flags, config keys, workarounds or hacks in the engine.
   - If an adapter needs something `engine/adapter-api/` doesn't offer, propose a _generic_ engine capability any adapter could use. That needs approval.
 - **All data logic lives in Core.** Clients are templates plus a sync loop.
-- **The CRM's list defines what exists.** Core syncs what a CRM lists for the sites (Vitec: the marketed estates) and nothing else. In the list: on the sites. A Remove notification, or gone from the list: deleted, without a fetch. Core and its adapters decide nothing from a field's value: no publish, status or visibility logic anywhere in Core (Patric, 2026-09-17).
+- **The CRM's list defines what exists.** Core syncs what a CRM lists for the sites (Vitec: the marketed estates) and nothing else. In the list: on the sites. A Remove notification, or gone from the list: deleted, without a fetch.
+- **Core applies no logic to CRM data.** Three faces per record: `raw` (the payload untouched), `universal` (`data`: the CRM's fields copied and renamed onto the universal names, plus the ids that link records) and `display` (prepared strings). The CRM-to-universal mapping lives in the CRM's adapter. The engine computes `display` from `universal` by human-written ledger entries, one interpreter for every CRM, and never reads a CRM field. Nowhere in Core is there a decision drawn from a value: no tag, no status, no visibility, no publish, no flag. Tags and slugs are the site's, from what it stores. This holds in code and in discussion alike: never propose "Core delivers a flag" or "the slug comes from Core", and never assume the SRS where it says otherwise (strategy §12 amends it). WordPress sets its own slugs under Swedish paths: property `objekt/<status>-<area name>-<street address>-<id>`, project `projekt/` the same, agent `maklare/<first name>-<last name>-<id>`, area `omrade/<municipality>-<area name>-<id>`, office `kontor/<office name>-<id>`, association `forening/<association name>-<id>`; every entity ends in `-<id>` (Patric, 2026-09-17 to 2026-09-19, made permanent after six repeats).
 - **Tests are the acceptance.** If something can't be tested automatically, raise it as a design problem. Never add a manual step.
 - **Anything derived must be patchable** from stored raw data without CRM traffic.
 - **No legacy access, and nothing from the old plugins.** Never read, request or search old plugin repos, other repositories, legacy code or other conversations. **Under no circumstances take code or concepts from the WordPress plugins v1, v2 or v3** unless Patric explicitly asks for it or approves it, item by item; this is a hard rule, not a guideline (Patric, 2026-09-19). Anything needed from the past arrives as human-written specs, ledger entries or golden masters.
@@ -109,7 +110,11 @@ instructions instead of results.
   makes every update that follows. "Let me know and I'll make all updates", never "then update the
   config files".
 - **Write for the product owner.** Plain words, short, what it means for the product. No git,
-  infrastructure or configuration vocabulary unless he asked for it.
+  infrastructure or configuration vocabulary unless he asked for it. Patric does not work with
+  git and does not know its words: to him never "branch", "merge", "commit", "push", "pull
+  request", "rebase" or "conflict"; say "saved", "combined with the other session's work", "in
+  staging" or "live" (Patric, 2026-09-19). Another person chatting with an agent may get the
+  technical words.
 - **One number per question, the register's.** A question to Patric carries its
   `docs/open-questions.md` number in chat too, never a fresh "1."; numbers keep counting across
   sessions. Each question is phrased so that a yes, a no or a pick answers it, with the smaller

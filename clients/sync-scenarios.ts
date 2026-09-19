@@ -7,6 +7,7 @@ import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { harness, until, TENANT, TOKEN, type Harness } from '../acceptance/harness.js';
 import { addSubscriber } from '../engine/storage/connections.js';
+import { queryEvents } from '../engine/events.js';
 import { db } from '../engine/storage/db.js';
 import { purgeTombstones } from '../engine/storage/items.js';
 import { fakePollingAdapter, poll } from '../adapters/fake-polling/index.js';
@@ -38,6 +39,8 @@ export type ClientStatus = {
   running_since: string | null;
   last_success_at: string | null;
   last_error: string | null;
+  /** What the site's own administrator is told while it is not syncing (WordPress). */
+  notice?: string | null;
   after: Record<string, number>;
 };
 
@@ -155,6 +158,35 @@ export function syncScenarios(name: string, client: ClientSetup): void {
           'select last_bell_status from subscribers',
         );
         expect(rows[0]?.last_bell_status).toBe('ok');
+      },
+      SCENARIO_TIMEOUT_MS,
+    );
+
+    it(
+      'a disabled licence stops bells and pulls, and the site keeps what it shows (Patric, 2026-09-18)',
+      async () => {
+        await seed('P-1');
+        await sync();
+        expect(await remoteIds('property')).toEqual(['P-1']);
+
+        const bellAt = async (): Promise<number | null> => {
+          const { rows } = await db().query<{ last_bell_at: Date | null }>(
+            'select last_bell_at from subscribers',
+          );
+          return rows[0]?.last_bell_at?.getTime() ?? null;
+        };
+        await db().query('update tenants set active = false where id = $1', [TENANT]);
+        const rungBefore = await bellAt();
+        await seed('P-2'); // Core writes it, and rings no site whose licence is off
+        expect(await bellAt()).toBe(rungBefore);
+
+        const status = await sync(); // the site's own backstop: refused, and nothing removed
+        expect(status.last_error).toMatch(/licence/);
+        expect(await remoteIds('property')).toEqual(['P-1']);
+
+        await db().query('update tenants set active = true where id = $1', [TENANT]);
+        await sync();
+        expect(await remoteIds('property')).toEqual(['P-1', 'P-2']);
       },
       SCENARIO_TIMEOUT_MS,
     );
@@ -322,6 +354,44 @@ export function syncScenarios(name: string, client: ClientSetup): void {
 
         const { rows } = await db().query<{ seq: string }>('select max(seq) as seq from items');
         expect(status.after['property']).toBe(Number(rows[0]?.seq));
+
+        // And Core was told: the broken record failed at this site, the others were applied.
+        const failed = await queryEvents({ tenantId: TENANT, type: 'site.failed', limit: 10 });
+        expect(failed.map((event) => event.remote_id)).toEqual(['P-2']);
+        const applied = await queryEvents({ tenantId: TENANT, type: 'site.applied', limit: 10 });
+        expect(applied.map((event) => event.remote_id).sort()).toEqual(['P-1', 'P-3']);
+        // And the skip reached Core's error gate as one bug (question 46), whichever client.
+        await until(
+          async () =>
+            (
+              await db().query<{ fingerprint: string }>(
+                "select fingerprint from error_reports where fingerprint like '%skipped an item%'",
+              )
+            ).rows.length === 1,
+          "the site's error report to reach Core",
+          PATIENCE_MS,
+        );
+      },
+      SCENARIO_TIMEOUT_MS,
+    );
+
+    it(
+      'reports back what it applied, on each record\u2019s timeline in Core (AC 16)',
+      async () => {
+        await seed('P-1', 'P-2');
+        await sync();
+        const applied = await queryEvents({ tenantId: TENANT, type: 'site.applied', limit: 10 });
+        expect(applied.map((event) => event.remote_id).sort()).toEqual(['P-1', 'P-2']);
+        for (const event of applied) {
+          expect(event.connection_id).toBe(CONNECTION);
+          expect(typeof event.fields['client']).toBe('string');
+          expect(typeof event.fields['seq']).toBe('number');
+        }
+        // Nothing changed: the next sync has nothing to report.
+        await sync();
+        expect(
+          (await queryEvents({ tenantId: TENANT, type: 'site.applied', limit: 10 })).length,
+        ).toBe(2);
       },
       SCENARIO_TIMEOUT_MS,
     );

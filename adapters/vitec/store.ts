@@ -64,6 +64,13 @@ create table if not exists vitec_state (
   name          text not null,
   value         text not null,
   primary key (connection_id, name)
+);
+create table if not exists vitec_office_state (
+  office_id     text primary key,
+  blocked_at    timestamptz not null default now(),
+  blocked_until timestamptz not null,
+  reason        text not null,
+  probes        int not null default 0
 );`;
 
 let pool: pg.Pool | null = null;
@@ -147,21 +154,42 @@ export async function enqueue(
  * Take up to `limit` due records off the list, signals first, oldest first. Taking is deleting:
  * a record signalled again while its fetch runs gets its own later fetch.
  */
-export async function claim(limit: number): Promise<Entry[]> {
+export async function claim(limit: number, skipOffices: readonly string[] = []): Promise<Entry[]> {
   const { rows } = await (
     await db()
   ).query<Row>(
     `delete from vitec_fetch_list
      where (office_id, datatype, remote_id) in (
        select office_id, datatype, remote_id from vitec_fetch_list
-       where next_at is not null and next_at <= now()
+       where next_at is not null and next_at <= now() and office_id <> all($2::text[])
        order by (reason in ('webhook', 'remove')) desc, queued_at
        limit $1
        for update skip locked)
      returning *`,
-    [limit],
+    [limit, skipOffices],
   );
   return rows.map(toEntry);
+}
+
+/** Put a claimed record back as it was, to wait for its office or connection to come back. */
+export async function park(entry: Entry): Promise<void> {
+  await (
+    await db()
+  ).query(
+    `insert into vitec_fetch_list
+       (office_id, datatype, remote_id, reason, correlation_id, queued_at, next_at, attempts)
+     values ($1, $2, $3, $4, $5, $6, now(), $7)
+     on conflict (office_id, datatype, remote_id) do nothing`,
+    [
+      entry.officeId,
+      entry.datatype,
+      entry.remoteId,
+      entry.reason,
+      entry.correlationId,
+      entry.queuedAt,
+      entry.attempts,
+    ],
+  );
 }
 
 /**
@@ -304,6 +332,37 @@ export async function setState(connectionId: string, name: string, value: string
   );
 }
 
+/** Add one to a counter kept in the state, atomically, and return the new count. */
+export async function increment(connectionId: string, name: string): Promise<number> {
+  const { rows } = await (
+    await db()
+  ).query<{ value: string }>(
+    `insert into vitec_state (connection_id, name, value) values ($1, $2, '1')
+     on conflict (connection_id, name) do update
+       set value = (coalesce(nullif(vitec_state.value, ''), '0')::int + 1)::text
+     returning value`,
+    [connectionId, name],
+  );
+  return Number(rows[0]?.value ?? 0);
+}
+
+/** Set a state value only when it is unset or empty: true when this call set it. */
+export async function setIfEmpty(
+  connectionId: string,
+  name: string,
+  value: string,
+): Promise<boolean> {
+  const { rowCount } = await (
+    await db()
+  ).query(
+    `insert into vitec_state (connection_id, name, value) values ($1, $2, $3)
+     on conflict (connection_id, name) do update set value = excluded.value
+     where vitec_state.value = ''`,
+    [connectionId, name, value],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 // Test and local use.
 
 export async function depth(): Promise<number> {
@@ -328,5 +387,149 @@ export async function backdate(ms: number): Promise<void> {
 }
 
 export async function reset(): Promise<void> {
-  await (await db()).query('truncate vitec_fetch_list, vitec_known, vitec_state');
+  await (
+    await db()
+  ).query('truncate vitec_fetch_list, vitec_known, vitec_state, vitec_office_state');
+}
+
+// ---- What the adapter's admin panel shows and touches (adapters/vitec/admin) ------------------
+
+export type EntryView = Entry & { nextAt: Date | null; lastError: string | null };
+
+/** The fetch list as it stands: due first, then retrying, then what an operator was left with. */
+export async function entries(limit = 50): Promise<EntryView[]> {
+  const { rows } = await (
+    await db()
+  ).query<Row & { next_at: Date | null; last_error: string | null }>(
+    'select * from vitec_fetch_list order by next_at nulls last, queued_at limit $1',
+    [limit],
+  );
+  return rows.map((row) => ({ ...toEntry(row), nextAt: row.next_at, lastError: row.last_error }));
+}
+
+export type Summary = { waiting: number; retrying: number; givenUp: number };
+
+/** How many records of these offices wait, retry, or were given up on. */
+export async function summary(officeIds: readonly string[]): Promise<Summary> {
+  const { rows } = await (
+    await db()
+  ).query<{ waiting: string; retrying: string; given_up: string }>(
+    `select count(*) filter (where next_at is not null and attempts = 0) as waiting,
+            count(*) filter (where next_at is not null and attempts > 0) as retrying,
+            count(*) filter (where next_at is null) as given_up
+     from vitec_fetch_list where office_id = any($1::text[])`,
+    [officeIds],
+  );
+  const row = rows[0];
+  return {
+    waiting: Number(row?.waiting ?? 0),
+    retrying: Number(row?.retrying ?? 0),
+    givenUp: Number(row?.given_up ?? 0),
+  };
+}
+
+/** An operator's "try again now": due at once, attempts back to zero. */
+export async function expediteOne(
+  officeId: string,
+  datatype: Datatype,
+  remoteId: string,
+): Promise<void> {
+  await (
+    await db()
+  ).query(
+    'update vitec_fetch_list set next_at = now(), attempts = 0 where office_id = $1 and datatype = $2 and remote_id = $3',
+    [officeId, datatype, remoteId],
+  );
+}
+
+/** An operator's "drop it": off the list, nothing else changes. */
+export async function drop(officeId: string, datatype: Datatype, remoteId: string): Promise<void> {
+  await (
+    await db()
+  ).query(
+    'delete from vitec_fetch_list where office_id = $1 and datatype = $2 and remote_id = $3',
+    [officeId, datatype, remoteId],
+  );
+}
+
+// ---- Offices Vitec refuses (403): blocked at once, probed once per cool-down --------------------
+
+export type BlockedOffice = {
+  officeId: string;
+  blockedAt: Date;
+  blockedUntil: Date;
+  reason: string;
+  probes: number;
+};
+
+type OfficeRow = {
+  office_id: string;
+  blocked_at: Date;
+  blocked_until: Date;
+  reason: string;
+  probes: number;
+};
+
+const toBlocked = (row: OfficeRow): BlockedOffice => ({
+  officeId: row.office_id,
+  blockedAt: row.blocked_at,
+  blockedUntil: row.blocked_until,
+  reason: row.reason,
+  probes: row.probes,
+});
+
+/**
+ * Stop all traffic to an office. The first block waits `baseMs` before a probe; every failed
+ * probe doubles the wait up to `maxMs`. Returns true when the office was not blocked before.
+ */
+export async function blockOffice(
+  officeId: string,
+  reason: string,
+  baseMs: number,
+  maxMs: number,
+): Promise<boolean> {
+  const { rows } = await (
+    await db()
+  ).query<{ fresh: boolean }>(
+    `insert into vitec_office_state (office_id, blocked_until, reason)
+     values ($1, now() + ($2 || ' milliseconds')::interval, $3)
+     on conflict (office_id) do update set
+       reason = excluded.reason,
+       probes = case when vitec_office_state.blocked_until <= now()
+         then vitec_office_state.probes + 1 else vitec_office_state.probes end,
+       blocked_until = case when vitec_office_state.blocked_until <= now()
+         then now() + (least($2::numeric * power(2, vitec_office_state.probes + 1), $4::numeric)::bigint || ' milliseconds')::interval
+         else vitec_office_state.blocked_until end
+     returning (xmax = 0) as fresh`,
+    [officeId, String(baseMs), reason.slice(0, 1000), String(maxMs)],
+  );
+  return rows[0]?.fresh ?? false;
+}
+
+export async function unblockOffice(officeId: string): Promise<void> {
+  await (await db()).query('delete from vitec_office_state where office_id = $1', [officeId]);
+}
+
+export async function blockedOffices(): Promise<BlockedOffice[]> {
+  const { rows } = await (
+    await db()
+  ).query<OfficeRow>('select * from vitec_office_state order by blocked_at');
+  return rows.map(toBlocked);
+}
+
+/** Blocked offices whose cool-down has passed: due for one probe each. */
+export async function probesDue(): Promise<BlockedOffice[]> {
+  const { rows } = await (
+    await db()
+  ).query<OfficeRow>(
+    'select * from vitec_office_state where blocked_until <= now() order by blocked_at',
+  );
+  return rows.map(toBlocked);
+}
+
+/** An operator's "probe now": the office is due at the worker's next tick. */
+export async function expediteProbe(officeId: string): Promise<void> {
+  await (
+    await db()
+  ).query('update vitec_office_state set blocked_until = now() where office_id = $1', [officeId]);
 }

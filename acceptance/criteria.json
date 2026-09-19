@@ -154,9 +154,10 @@
         "admin answers the event timeline query",
         "ingest links a webhook to the write it caused by correlation id (AC 16)",
         "the event log keeps every event when many writers log at once",
-        "the event log deletes events outside the retention window (AC 16)"
+        "the event log deletes events outside the retention window (AC 16)",
+        "the Vitec adapter puts the notification, the Vitec call and the write on one timeline (AC 16)"
       ],
-      "note": "Causes covered: written, unchanged, dropped (unlicensed, malformed, inactive, unknown datatype), tombstoned, bell, pull. A correlation id links a webhook to the write it caused; an adapter cannot yet stamp its own events with one (open question 9)."
+      "note": "Causes covered: written, unchanged, dropped (unlicensed, malformed, inactive, unknown datatype), tombstoned, bell, pull. A correlation id links a webhook to the write it caused, and since 2026-09-18 (question 9) an adapter stamps its own events with it: the notification's arrival and every CRM call, with status and duration, sit on the record's timeline. Since the same day (question 37) each site reports what it applied and what it could not, so the timeline runs to the site."
     },
     {
       "ac": 17,
@@ -300,7 +301,9 @@
         "the Lovable kit against Core stores a field it has never seen, verbatim (AC 10, AC 30)",
         "the WordPress client against Core stores a field it has never seen, verbatim (AC 10, AC 30)",
         "the Lovable kit against Core skips an item it cannot use, and keeps going (AC 30)",
-        "the WordPress client against Core skips an item it cannot use, and keeps going (AC 30)"
+        "the WordPress client against Core skips an item it cannot use, and keeps going (AC 30)",
+        "the Lovable kit against Core reports back what it applied, on each record\u2019s timeline in Core (AC 16)",
+        "the WordPress client against Core reports back what it applied, on each record\u2019s timeline in Core (AC 16)"
       ],
       "note": "Additive fields and unusable items on both real clients. Reporting goes to the same placeholder as Core’s until a Sentry DSN exists. The release report’s flags wait on the pipeline."
     },
@@ -407,6 +410,25 @@
         "the WordPress client against Core keeps its copy through a database restore and converges again without deleting or rewriting anything (AC 41)"
       ],
       "note": "Proved end to end: the database put back to a snapshot and Core started again, with the fake subscriber and with both real clients, whose copies are byte for byte the same before, during and after the recovery. Health is red until the worker has caught up and readiness stays green. Vitec's live behaviour waits for a test account (open question 18)."
+    },
+    {
+      "ac": 42,
+      "title": "Admin panel: every panel works through HTTP, and an adapter brings its own",
+      "phase": "engine",
+      "tests": [
+        "the admin panel mails a login link to an allowed address only, answers every address the same, and refuses a form without its token",
+        "the admin panel mails at most ten links a day, whatever the form is fed",
+        "the admin panel remembers the device for 30 days when asked, and for the browser session otherwise",
+        "the admin panel shows the overview with every health check, the adapter ones included",
+        "the admin panel adds a tenant, shows its token once, and the token pulls changes (AC 42)",
+        "the admin panel adds a site with a bell secret shown once, and rings it",
+        "the admin panel creates a connection, saves it, and queues a lifecycle event the worker delivers",
+        "the admin panel finds an item, shows raw, unified and display with its timeline, and recomputes it",
+        "the admin panel pulls as a site from the test panel and shows the sizes",
+        "the admin panel runs housekeeping from the settings page",
+        "the Vitec adapter has its own admin panel: the fetch list, the schedules, and one record looked at or queued (AC 42)"
+      ],
+      "note": "docs/admin-panel.md, approved by Patric 2026-09-18 (question 29). Login by email link, no shared password (Patric, 2026-09-18, question 30)."
     }
   ]
 }

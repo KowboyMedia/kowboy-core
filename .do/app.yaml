@@ -6,10 +6,10 @@
 #
 # The managed Postgres cluster is the one Kowboy created (Frankfurt, 2026-09-17), so the app runs
 # in fra too and binds the cluster's own database and user. The platform hands the cluster's CA
-# over as DATABASE_CA_CERT and scripts/start.sh gives it to Node. Production never deploys on push:
-# a release is Patric saying so in chat, and an agent asks App Platform for a deployment of main
-# (strategy §4). Staging is app.staging.yaml: the same cluster with its own database, deploying the
-# `staging` branch on every push.
+# over as DATABASE_CA_CERT and scripts/start.sh gives it to Node. Production deploys `main` on
+# every merge, and nothing reaches `main` except a pull request with green checks (strategy §4).
+# Staging is app.staging.yaml: the same cluster with its own database, deploying the `staging`
+# branch on every push.
 # App id c322d2df-5ba1-4cdd-82b5-407dbe429310, created 2026-09-17 through the API; secrets are encrypted by DigitalOcean.
 name: kowboy-core
 services:
@@ -17,6 +17,7 @@ services:
     github:
       repo: KowboyMedia/kowboy-core
       branch: main
+      deploy_on_push: true
     build_command: npm run build
     run_command: sh scripts/start.sh web
     source_dir: /
@@ -32,6 +33,15 @@ services:
         value: EV[1:XHT5pk361HHDg2Nn0Dw5xBKWW2iCV652:VKxYO123nW6fUA7bkwADI5NtQT6vY1T36BHs0IVQUe/7uSBuTNnOBkswVJrHGaP2dhYZug0Ryi9FjII=]
         scope: RUN_TIME
         type: SECRET
+      - key: ADMIN_EMAIL_DOMAINS
+        value: kowboy.se
+        scope: RUN_TIME
+      - key: MAIL_FROM
+        value: patric@kowboy.se
+        scope: RUN_TIME
+      - key: SENTRY_ENVIRONMENT
+        value: production
+        scope: RUN_TIME
       - key: CREDENTIALS_KEY
         value: EV[1:N71KfGweIKlzf42ES3sufrtrqQJ013Mh:I0ZD7+OARrP/BbYy68T9PHSqYa4n1BluG/nbSgXQdNQNG7W0/lWyQfH4WVTve0F4Fh1EBKRdvGN92ytY]
         scope: RUN_TIME
@@ -44,8 +54,8 @@ services:
     instance_count: 1
     http_port: 8080
     health_check:
-      initial_delay_seconds: 15
-      period_seconds: 30
+      initial_delay_seconds: 5
+      period_seconds: 10
       timeout_seconds: 5
       failure_threshold: 3
       http_path: /v1/ready
@@ -54,6 +64,7 @@ workers:
     github:
       repo: KowboyMedia/kowboy-core
       branch: main
+      deploy_on_push: true
     build_command: npm run build
     run_command: sh scripts/start.sh worker
     source_dir: /
@@ -69,6 +80,9 @@ workers:
         value: EV[1:2qxa1s46zTh9VTuAO3kVmkd/zwIwM2Ep:e73kiq7+ipkjW6J+qGGxsLvAUGeMFR0fYs3v5DSTTTYK7wUjha4BnNjrwylGxAbw6EHAv2FIo7vB37o=]
         scope: RUN_TIME
         type: SECRET
+      - key: SENTRY_ENVIRONMENT
+        value: production
+        scope: RUN_TIME
       - key: CREDENTIALS_KEY
         value: EV[1:Fs09bNlwO8Kshl+BvprjOX4Hkyvvn6Jg:kGwyaD5tsXpsADO0jWaTrLIINdPTMpjXQn6Y/hcqe0UDT6NdTsmV0CoQDM5RPi9wGJP2DrrHTmHuL1+r]
         scope: RUN_TIME

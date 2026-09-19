@@ -1,46 +1,64 @@
 # Admin panel: the MVP
 
-Proposed 2026-09-18 for Patric's approval (open question 29). One place, in a browser, to
+Approved and built 2026-09-18 (question 29): `engine/admin/` and `adapters/vitec/admin/`, tested as AC 42. One place, in a browser, to
 configure Core and its adapters and to see what is happening, so that nothing needs a database
 client, a script or a console. Everything an agent does for an operator today (tenants,
 connections, lifecycle events, health, the event log) becomes a panel.
 
 ## Shape
 
-- **Where it runs.** Inside the `web` process, under `/admin`, behind the admin secret at first
-  (one login form, a session cookie, a CSRF token on every form). Users and roles come later.
-- **How it is built.** Server-rendered HTML from TypeScript template functions, one stylesheet, a
-  few lines of JavaScript (copy buttons, auto-refresh of the overview). No framework, no new
-  runtime dependency, nothing to build. Every panel reads the same tables the engine and adapters
-  use, and writes through the same functions the scripts and the admin API use: one code path per
-  concern.
+- **Where it runs.** Inside the `web` process, under `/admin`, behind a login by email link (no
+  shared password, Patric 2026-09-18): the form takes an address, and when its domain is on the
+  allowed list (`ADMIN_EMAIL_DOMAINS`) a link goes there by mail; the page answers the same way
+  whatever the address, so the list stays private. The link lasts 15 minutes and opens a session
+  for the browser session, or for 30 days with "Remember this device" ticked. A CSRF token on
+  every form. The mail goes through Postmark (`POSTMARK_SERVER_TOKEN`, `MAIL_FROM`), at most one link per
+  address per minute and ten a day in all. Users and roles come later.
+- **How it is built.** Server-rendered HTML from TypeScript template functions on top of Tabler,
+  the open-source admin UI kit on Bootstrap 5 (Patric, 2026-09-18: a market-leading component
+  library, a professional and responsive look). Core serves Tabler's stylesheet and script itself,
+  so the panel depends on no outside host; nothing to build. Every page is a title, one line on what
+  it is for, and cards that each say what they show or do, with a line of help under every field,
+  so a cold reader can follow. Every panel reads the same tables the engine and adapters use, and
+  writes through the same functions the scripts and the admin API use: one code path per concern.
 - **Where the code lives.** `engine/admin/` holds the shell (login, navigation, layout, the panel
   registry) and the Core panels. `adapters/<provider>/admin/` holds that adapter's settings and
   panels, which the adapter hands to the engine through the adapter API; the shell renders them
   in place without knowing what they show. The seam holds: no CRM name in `engine/`.
 - **Tests.** Every panel is driven through HTTP in the acceptance harness like the API is, and
-  one acceptance criterion (AC 42, to be added) names those tests.
+  one acceptance criterion (AC 42) names those tests.
 
 ## Panels
 
 1. **Overview.** The health checks as `/v1/health` reports them, live; items per tenant and
    datatype (live and tombstoned); the worker's last heartbeat; the version and the migrations
    applied; the last 20 events. The first page after login.
-2. **Tenants and sites.** Tenants: list, add, rename. Per tenant its sites (subscribers): label,
-   bell URL, active, last pull, last bell and its status; add one; rotate its bell secret; show a
-   tenant token once, rotate it; ring a site now (delta or forcerefresh).
-3. **Connections.** Per tenant: the CRM (adapter), the credentials as a write-only form the
-   adapter declares (never displayed), the licensed offices, active or not. Actions: add (runs the
-   initial load), add or remove offices, resync, deactivate. Below the form, the adapter's own
-   status fragment for this connection (for Vitec: last catch-up and comparison, what is waiting
-   on the fetch list, records that keep failing).
-4. **Adapter panels.** One per adapter, from `adapters/<provider>/admin/`. For Vitec: the webhook
-   URL to give Vitec (with its token), the fetch concurrency; the fetch list (waiting, retrying,
-   given up, with "retry now" and "drop"); catch-up and comparison per connection with "run now";
-   "fetch this id now" and "list this office now" for one record or one office.
+2. **Tenants.** The list, with each tenant's number, name, licence, connections and sites; add one by name, Core assigns the number. A
+   tenant's page holds everything about that customer (Patric, 2026-09-18 and 2026-09-19): the
+   licence and the token (shown once, rotated), the name, its connections (a table, and "Add a
+   connection" folded under it; open one for its login, offices and loads) and its sites (a
+   table with one actions menu per row: ring it now, delta or forcerefresh, a new bell secret
+   shown once, and an edit page for its label, bell URL and active flag; "Add a site" folded
+   under the table). The token and the bell secret go into the site's own settings by hand. A
+   disabled licence stops the bells and the pulls; the sites keep showing what they have, and
+   their administrators see one notice saying so.
+3. **Connections.** A connection exists only inside its tenant (Patric, 2026-09-19): there is no
+   global list. Its own page, reached from the tenant's page: the credentials as a write-only
+   form the adapter declares (never displayed), the offices, active or not, the actions (load
+   everything, load added offices, resync, remove) and, below, the adapter's own status fragment
+   (for Vitec: last catch-up and comparison, what is waiting on the fetch list, records that keep
+   failing).
+4. **Adapter panels.** One per adapter, from `adapters/<provider>/admin/`. Every adapter page
+   opens with its setup directions ("Set up Vitec"): the steps in order, built from what the
+   adapter reads, and kept true by a test in the adapter that fails when a setting, a lifecycle
+   event, a health check or a credential field exists in the code without a line in the
+   directions (Patric, 2026-09-18). For Vitec, then: the webhook URL to give Vitec (with its
+   token), the fetch concurrency; the fetch list (waiting, retrying, given up, with "retry now"
+   and "drop"); catch-up and comparison per connection with "run now"; "fetch this id now" and
+   "list this office now" for one record or one office.
 5. **Items.** Find an item by datatype and id, or browse an office. Show its envelope (seq, hash,
    deleted, dates) and its three faces side by side: raw, unified (`data`) and display. Its
-   timeline from the event log. Actions: recompute this item; refetch it through the adapter.
+   timeline from the event log, down to what each site applied (question 37). Actions: recompute this item; refetch it through the adapter.
    Never a hand edit of data.
 6. **Events.** The timeline query of strategy §8.2: filter by tenant, connection, datatype, id,
    type and time; follow a correlation id from a webhook to the writes, bells and pulls it caused.
@@ -54,18 +72,31 @@ connections, lifecycle events, health, the event log) becomes a panel.
      mapper makes of it (unified and display), a dry run that writes nothing.
      Every run is logged as an event with who ran it.
 8. **Settings.** Core's configuration as read from the environment, shown read-only (page size,
-   bell throttle, event retention, gzip level); the purge watermark per tenant; run housekeeping
-   now (tombstone purge, event retention).
+   bell throttle, event retention, gzip level); the start-over point per tenant, explained in
+   plain words (the position up to which deletion markers are gone, so a site that pulled before
+   it is told to pull everything again); run housekeeping now (tombstone purge, event retention).
+
+One rule for every button (Patric, 2026-09-19): a card's own action is a blue button, a secondary
+action next to other things is a small outlined one, a removal is a red outlined one, and a row's
+actions sit in one menu. Filters and forms offer tenants, connections and datatypes as dropdowns,
+never as free text.
 
 Order of building: 1, 3 with the Vitec fragment, 5, 7, 6, 2, 8.
 
+## Times
+
+Every time on the panel is shown in Swedish time (Europe/Stockholm) as `2026-09-18 22:14:05`, and
+the footer says so; hovering a time shows the exact moment in UTC. Core itself stores and sends
+only moments (UTC with an offset), never wall-clock times; the zone is a display choice made in
+one place (`engine/admin/html.ts`).
+
 ## Not in the MVP
 
-Users and roles (one admin secret; a login with users comes when more than one person operates
-it), editing data by hand, charts, more than one language, anything a site does (templates,
+Users and roles (whoever reads mail at an allowed domain is an operator; roles come when they are
+needed), editing data by hand, charts, more than one language, anything a site does (templates,
 search).
 
-## What it needs from the adapter API (needs approval)
+## What it takes from the adapter API (approved)
 
 One additive field on `Adapter`:
 

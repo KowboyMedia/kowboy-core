@@ -11,6 +11,7 @@ import type {
   AdapterApi,
   Connection,
   Datatype,
+  EventContext,
   HealthResult,
   LifecycleHandler,
   Manifest,
@@ -19,10 +20,16 @@ import type {
 
 export type {
   Adapter,
+  AdapterAdmin,
   AdapterApi,
+  AdminField,
+  AdminPanel,
+  AdminRequest,
+  AdminResult,
   Canonical,
   Connection,
   Datatype,
+  EventContext,
   HealthResult,
   IngestResult,
   LifecycleEvent,
@@ -55,8 +62,15 @@ export function adapterApi(provider: string): AdapterApi {
     onLifecycle(handler: LifecycleHandler): void {
       registry.addLifecycleHandler(provider, handler);
     },
-    logEvent(type: string, fields: Record<string, unknown>) {
-      return logEvent({ type, fields, connectionId: null });
+    logEvent(type: string, fields: Record<string, unknown>, context: EventContext = {}) {
+      return logEvent({
+        type,
+        fields,
+        correlationId: context.correlationId ?? null,
+        connectionId: context.connectionId ?? null,
+        datatype: context.datatype ?? null,
+        remoteId: context.remoteId ?? null,
+      });
     },
     healthCheck(name: string, check: () => Promise<HealthResult> | HealthResult): void {
       registry.addHealthCheck(name, check);
@@ -76,3 +90,23 @@ export async function startAdapter(adapter: Adapter): Promise<void> {
   api.register(adapter.manifest, adapter.mappers);
   await adapter.start(api);
 }
+
+// The HTML helpers an adapter's admin panels render with (docs/admin-panel.md), so escaping and
+// forms have one code path. Nothing else of the panel shell is reachable from an adapter.
+export {
+  card,
+  escape,
+  field,
+  form,
+  grid,
+  intro,
+  kv,
+  link,
+  pill,
+  pre,
+  select,
+  table,
+  textarea,
+  when,
+  yesNo,
+} from '../admin/html.js';

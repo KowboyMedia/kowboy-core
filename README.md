@@ -14,21 +14,24 @@ Needs Node 22 and a Postgres 16 database.
 
 ```bash
 npm install
-cp .env.example .env          # set DATABASE_URL, ADMIN_SECRET, CREDENTIALS_KEY
+cp .env.example .env          # set DATABASE_URL, ADMIN_SECRET, ADMIN_EMAIL_DOMAINS, CREDENTIALS_KEY
 npm run build
 npm run start:web             # subscriber API, admin, health, adapter endpoints
 npm run start:worker          # adapter background work, bells, housekeeping
 ```
 
-Migrations run at startup.
+Migrations run at startup. The admin panel is at `/admin` on the web process: log in with a link
+mailed to an address at an allowed domain (`ADMIN_EMAIL_DOMAINS`; the mail needs `MAIL_FROM` and
+`POSTMARK_SERVER_TOKEN`), then tenants, sites, connections, the adapters' own panels, items,
+events, a test panel and settings ([docs/admin-panel.md](docs/admin-panel.md)).
 
-Tenants, connections and subscribers are added with one script, so tokens are hashed and CRM
-credentials encrypted the way the engine expects:
+Tenants, connections and subscribers are also added with one script, through the same functions
+the panel uses, so tokens are hashed and CRM credentials encrypted the way the engine expects:
 
 ```bash
-node dist/scripts/tenant.js add-tenant t_acme "Acme Mäkleri"        # prints the tenant token once
-node dist/scripts/tenant.js add-connection acme-1 t_acme <provider> '<credentials>' 100,205
-node dist/scripts/tenant.js add-subscriber t_acme "acme.se" https://acme.se/wp-json/core/v1/bell
+node dist/scripts/tenant.js add-tenant "Acme Mäkleri"               # prints the tenant's number and token once
+node dist/scripts/tenant.js add-connection acme-1 1 <provider> '<credentials>' 100,205
+node dist/scripts/tenant.js add-subscriber 1 "acme.se" https://acme.se/wp-json/core/v1/bell
 ```
 
 The Vitec adapter's connection format, webhook URL and settings (`VITEC_WEBHOOK_TOKEN`,
@@ -44,10 +47,12 @@ Core runs on DigitalOcean App Platform with one managed Postgres cluster in Fran
 | `kowboy-core-staging` | `.do/app.staging.yaml` | `staging` | on every push                        | `core_staging` |
 | `kowboy-core`         | `.do/app.yaml`         | `main`    | when an agent asks, on Patric's word | `defaultdb`    |
 
-Agents move `staging` whenever something is worth trying out. A release is Patric saying so in
-chat: an agent asks App Platform for a deployment of `main` (`POST /v2/apps/<id>/deployments`;
-`.github/workflows/deploy.yml` is the same as a manual GitHub button), which is health-gated and
-keeps the old version live if the new one fails. Each app is a `web`
+A change, from an agent or a human, goes: pull request → the checks must pass → merge into
+`staging` → staging updates itself → confirm on staging → pull request into `main` → the checks
+again → merge → production updates itself, health-gated, keeping the old version live if the new
+one fails. GitHub's branch protection (below) makes the checks the only way in, for everyone. An
+agent merges on Patric's word, a dev with the merge button. `.github/workflows/deploy.yml` is a
+manual button that deploys `main` again without a merge, for a retry. Each app is a `web`
 service with its readiness probe on `/v1/ready` and a `worker`; the cluster is bound as
 `DATABASE_URL` with its CA as `DATABASE_CA_CERT`, which `scripts/start.sh` hands to Node. A spec
 is changed by editing it and updating the app through the API; what DigitalOcean returns is

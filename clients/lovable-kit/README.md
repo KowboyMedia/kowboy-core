@@ -99,3 +99,10 @@ curl -X POST https://<project-ref>.supabase.co/functions/v1/core-sync \
 Every row also keeps `raw`, the CRM payload exactly as Core served it, next to `data`
 (`0003_raw.sql`; Patric, 2026-09-18). Templates read `data`; `raw` is there for whatever `data`
 does not name yet.
+
+## What the site tells Core
+
+After each page it pulled, the kit posts to `POST /v1/applied` which records it applied and which
+it could not use, with the tenant's token (question 37, 2026-09-18). Core puts that on each
+record's timeline, so an operator sees a change travel from the CRM to this site. A report that
+cannot be delivered is logged and never stops a sync.

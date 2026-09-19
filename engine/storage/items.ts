@@ -3,7 +3,7 @@ import type { PoolClient } from 'pg';
 import type { Canonical, Datatype } from '../adapter-api/types.js';
 
 export type ItemRow = {
-  tenant_id: string;
+  tenant_id: number;
   connection_id: string;
   datatype: Datatype;
   remote_id: string;
@@ -21,7 +21,7 @@ export type ItemRow = {
 };
 
 export type ItemKey = {
-  tenantId: string;
+  tenantId: number;
   connectionId: string;
   datatype: Datatype;
   remoteId: string;
@@ -87,7 +87,7 @@ export async function writeItem(client: PoolClient, item: WriteItem): Promise<nu
 }
 
 export type ChangesQuery = {
-  tenantId: string;
+  tenantId: number;
   datatype: Datatype;
   after: number;
   limit: number;
@@ -122,9 +122,10 @@ export async function liveRemoteIds(
 
 /** Every stored item for a scope, for replay and recompute. */
 export async function itemsForScope(scope: {
-  tenantId?: string;
+  tenantId?: number;
   connectionId?: string;
   datatype?: Datatype;
+  remoteId?: string;
   rulesVersionBefore?: string;
 }): Promise<ItemRow[]> {
   const where: string[] = ['deleted = false'];
@@ -136,6 +137,7 @@ export async function itemsForScope(scope: {
   if (scope.tenantId) add('tenant_id = ?', scope.tenantId);
   if (scope.connectionId) add('connection_id = ?', scope.connectionId);
   if (scope.datatype) add('datatype = ?', scope.datatype);
+  if (scope.remoteId) add('remote_id = ?', scope.remoteId);
   if (scope.rulesVersionBefore) add('rules_version <> ?', scope.rulesVersionBefore);
   const { rows } = await db().query<ItemRow>(
     `select * from items where ${where.join(' and ')} order by seq`,
@@ -150,12 +152,12 @@ export async function itemsForScope(scope: {
  * have missed a delete and is told to resync.
  */
 export async function purgeTombstones(days: number): Promise<number> {
-  const { rows } = await db().query<{ tenant_id: string; seq: string }>(
+  const { rows } = await db().query<{ tenant_id: number; seq: string }>(
     `delete from items where deleted = true and tombstoned_at < now() - ($1 || ' days')::interval
      returning tenant_id, seq`,
     [days],
   );
-  const highest = new Map<string, number>();
+  const highest = new Map<number, number>();
   for (const row of rows) {
     highest.set(row.tenant_id, Math.max(highest.get(row.tenant_id) ?? 0, Number(row.seq)));
   }
@@ -166,4 +168,45 @@ export async function purgeTombstones(days: number): Promise<number> {
     );
   }
   return rows.length;
+}
+
+// ---- What the admin panel looks at (docs/admin-panel.md) ----------------------------------------
+
+/** Items by remote id, or the first ones of an office or a connection, tombstones included. */
+export async function findItems(query: {
+  datatype?: Datatype;
+  remoteId?: string;
+  officeId?: string;
+  connectionId?: string;
+  limit?: number;
+}): Promise<ItemRow[]> {
+  const where: string[] = ['true'];
+  const values: unknown[] = [];
+  const add = (clause: string, value: unknown) => {
+    values.push(value);
+    where.push(clause.replace('?', `$${values.length}`));
+  };
+  if (query.datatype) add('datatype = ?', query.datatype);
+  if (query.remoteId) add('remote_id = ?', query.remoteId);
+  if (query.officeId) add('office_id = ?', query.officeId);
+  if (query.connectionId) add('connection_id = ?', query.connectionId);
+  values.push(Math.min(query.limit ?? 50, 500));
+  const { rows } = await db().query<ItemRow>(
+    `select * from items where ${where.join(' and ')} order by seq desc limit $${values.length}`,
+    values,
+  );
+  return rows;
+}
+
+export type ItemCount = { tenant_id: number; datatype: string; live: string; tombstoned: string };
+
+/** Live and tombstoned items per tenant and datatype. */
+export async function itemCounts(): Promise<ItemCount[]> {
+  const { rows } = await db().query<ItemCount>(
+    `select tenant_id, datatype,
+            count(*) filter (where not deleted) as live,
+            count(*) filter (where deleted) as tombstoned
+     from items group by tenant_id, datatype order by tenant_id, datatype`,
+  );
+  return rows;
 }

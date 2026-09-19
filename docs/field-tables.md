@@ -37,11 +37,11 @@ the licensing filter. It comes from SRS §3 and §6 and is unchanged.
 
 ### `data`, every datatype
 
-| Field             | Source                                                       |
-| ----------------- | ------------------------------------------------------------ |
-| `id`              | SRS §6.9, references are by id                               |
-| `display`         | SRS §6, strings computed by Core. Empty: no rule exists yet  |
-| `provider_extras` | SRS §6.4, provider-only fields, excluded from `content_hash` |
+| Field             | Source                                                                                                          |
+| ----------------- | --------------------------------------------------------------------------------------------------------------- |
+| `id`              | SRS §6.9, references are by id                                                                                  |
+| `display`         | SRS §6 strings, the engine from `universal` by ledger entries; empty until one exists (question 44, 2026-09-19) |
+| `provider_extras` | SRS §6.4, provider-only fields, excluded from `content_hash`                                                    |
 
 ### `data`, property only
 
@@ -80,8 +80,8 @@ none of which an agent can supply:
 
 Statements the SRS makes that will feed that work, once there is a data model to apply them to:
 closed enums for `status` and `listing_type` (§6.5), images as CDN URLs with a sort order (§6.6),
-`slug` derived from address and city (§6.7), `lat`/`lng` on property and office and a GeoJSON
-`polygon` on area (§6.8). These are recorded here rather than implemented, because the SRS
+`lat`/`lng` on property and office and a GeoJSON `polygon` on area (§6.8); `slug` (§6.7) is
+superseded, the site sets its slugs (strategy §12.23). These are recorded here rather than implemented, because the SRS
 describes how a field behaves without establishing that the CRM supplies it.
 
 ## What this costs right now

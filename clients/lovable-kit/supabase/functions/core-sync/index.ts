@@ -52,6 +52,16 @@ type Item = {
 
 type Page = { items: Item[]; next_after: number; has_more: boolean };
 
+/** One line of the report to Core: which record, and whether this site applied it (question 37). */
+type Applied = {
+  datatype: Datatype;
+  connection_id: string;
+  remote_id: string;
+  seq: number;
+  result: 'applied' | 'failed';
+  detail?: string;
+};
+
 type Sql = ReturnType<typeof postgres>;
 
 const env = (name: string): string => {
@@ -60,9 +70,31 @@ const env = (name: string): string => {
   return value;
 };
 
-/** Error reporting placeholder, the same shape as Core's: JSON on stderr until a Sentry DSN exists. */
+/**
+ * Error reporting through Core (question 46, Patric 2026-09-19): JSON on stderr, and the same to
+ * Core's POST /v1/errors, where the same bug on many sites becomes one report a day and no site
+ * holds a key of its own. A report that cannot be delivered never stops the sync.
+ */
 function report(message: string, context: Record<string, unknown> = {}): void {
   console.error(JSON.stringify({ level: 'error', source: 'core-sync', message, ...context }));
+  // Never throw from here: a report is the last thing a failing sync does.
+  const url = Deno.env.get('CORE_URL');
+  const token = Deno.env.get('CORE_TENANT_TOKEN');
+  if (!url || !token) return;
+  const { where, ...detail } = context;
+  fetch(`${url}/v1/errors`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+      'x-core-client': `lovable/${VERSION}`,
+    },
+    body: JSON.stringify({
+      message,
+      where: String(where ?? ''),
+      detail: JSON.stringify(detail).slice(0, 4000),
+    }),
+  }).catch(() => undefined);
 }
 
 Deno.serve({ port: Number(Deno.env.get('PORT') ?? 8000) }, async (request) => {
@@ -196,13 +228,26 @@ async function pull(
       },
     );
     if (response.status === 409) return 'resync_required';
+    if (response.status === 401) {
+      throw new Error('the licence is not active: Core refused the token (http 401)');
+    }
     if (!response.ok) throw new Error(`pull ${datatype} after ${after}: http ${response.status}`);
 
     const page = (await response.json()) as Page;
-    await sql.begin(async (tx) => {
-      for (const item of page.items) await write(tx, datatype, item, rewriteAll);
-      await writeState(tx, `after.${datatype}`, String(page.next_after));
-    });
+    const outcomes: (Applied | null)[] = [];
+    try {
+      await sql.begin(async (tx) => {
+        for (const item of page.items) outcomes.push(await write(tx, datatype, item, rewriteAll));
+        await writeState(tx, `after.${datatype}`, String(page.next_after));
+      });
+    } catch (error) {
+      // The page was rolled back: every record on it failed here, and Core is told so.
+      await reportApplied(
+        page.items.map((item) => outcome(datatype, item, 'failed', String(error))),
+      );
+      throw error;
+    }
+    await reportApplied(outcomes);
 
     after = page.next_after;
     if (!page.has_more) return 'ok';
@@ -210,8 +255,16 @@ async function pull(
   }
 }
 
-/** One item from a page: a tombstone deletes, anything else is upserted unless its hash is stored. */
-async function write(sql: Sql, datatype: Datatype, item: Item, rewriteAll: boolean): Promise<void> {
+/**
+ * One item from a page: a tombstone deletes, anything else is upserted unless its hash is stored.
+ * Returns what to tell Core about it, or null for an item too broken to name.
+ */
+async function write(
+  sql: Sql,
+  datatype: Datatype,
+  item: Item,
+  rewriteAll: boolean,
+): Promise<Applied | null> {
   const table = sql(TABLE[datatype]);
 
   if (!usable(item)) {
@@ -222,13 +275,13 @@ async function write(sql: Sql, datatype: Datatype, item: Item, rewriteAll: boole
       remote_id: item?.remote_id,
       seq: item?.seq,
     });
-    return;
+    return outcome(datatype, item, 'failed', 'this client cannot use the item');
   }
 
   if (item.deleted) {
     await sql`delete from ${table}
               where connection_id = ${item.connection_id} and remote_id = ${item.remote_id}`;
-    return;
+    return outcome(datatype, item, 'applied');
   }
 
   // The hash is the skip test: a row that already holds this content is left alone, unless
@@ -248,6 +301,61 @@ async function write(sql: Sql, datatype: Datatype, item: Item, rewriteAll: boole
               raw = excluded.raw,
               synced_at = excluded.synced_at
             where ${rewriteAll}::boolean or ${table}.content_hash <> excluded.content_hash`;
+  return outcome(datatype, item, 'applied');
+}
+
+function outcome(
+  datatype: Datatype,
+  item: Item,
+  result: Applied['result'],
+  detail?: string,
+): Applied | null {
+  if (
+    typeof item !== 'object' ||
+    item === null ||
+    typeof item.connection_id !== 'string' ||
+    item.connection_id === '' ||
+    typeof item.remote_id !== 'string' ||
+    item.remote_id === '' ||
+    !Number.isInteger(item.seq)
+  ) {
+    return null;
+  }
+  const line: Applied = {
+    datatype,
+    connection_id: item.connection_id,
+    remote_id: item.remote_id,
+    seq: item.seq,
+    result,
+  };
+  if (detail !== undefined) line.detail = detail.slice(0, 1000);
+  return line;
+}
+
+/**
+ * Tell Core what this site applied and what it could not (POST /v1/applied, question 37), so a
+ * record's timeline in Core runs to the site. A report that cannot be delivered is logged and
+ * never stops a sync.
+ */
+async function reportApplied(outcomes: (Applied | null)[]): Promise<void> {
+  const items = outcomes.filter((line): line is Applied => line !== null);
+  if (items.length === 0) return;
+  try {
+    const response = await fetch(`${env('CORE_URL')}/v1/applied`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${env('CORE_TENANT_TOKEN')}`,
+        'x-core-client': `lovable-kit/${VERSION}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ items }),
+    });
+    if (response.status !== 202) {
+      report('the applied report was not taken', { status: response.status, items: items.length });
+    }
+  } catch (error) {
+    report('the applied report was not taken', { detail: String(error), items: items.length });
+  }
 }
 
 const usable = (item: Item): boolean =>

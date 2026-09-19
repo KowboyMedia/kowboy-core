@@ -4,7 +4,7 @@ import type { Connection } from '../adapter-api/types.js';
 
 type ConnectionRow = {
   id: string;
-  tenant_id: string;
+  tenant_id: number;
   provider: string;
   credentials: string | null;
   licensed_offices: string[];
@@ -40,22 +40,19 @@ export async function connectionById(id: string): Promise<Connection | null> {
   return rows[0] ? toConnection(rows[0]) : null;
 }
 
-export async function upsertTenant(input: {
-  id: string;
-  displayName: string;
-  token: string;
-}): Promise<void> {
-  await db().query(
-    `insert into tenants (id, display_name, token_hmac) values ($1,$2,$3)
-     on conflict (id) do update set display_name = excluded.display_name, token_hmac = excluded.token_hmac`,
-    [input.id, input.displayName, tokenHmac(input.token, credentialsKey)],
+/** A new tenant: Core assigns the number, the name is the only thing a person types. */
+export async function createTenant(input: { displayName: string; token: string }): Promise<number> {
+  const { rows } = await db().query<{ id: number }>(
+    'insert into tenants (display_name, token_hmac) values ($1, $2) returning id',
+    [input.displayName, tokenHmac(input.token, credentialsKey)],
   );
+  return Number(rows[0]?.id);
 }
 
 export async function tenantForToken(
   token: string,
-): Promise<{ id: string; purgeWatermark: number } | null> {
-  const { rows } = await db().query<{ id: string; purge_watermark: string }>(
+): Promise<{ id: number; purgeWatermark: number } | null> {
+  const { rows } = await db().query<{ id: number; purge_watermark: string }>(
     'select id, purge_watermark from tenants where token_hmac = $1 and active = true',
     [tokenHmac(token, credentialsKey)],
   );
@@ -64,7 +61,7 @@ export async function tenantForToken(
 
 export async function upsertConnection(input: {
   id: string;
-  tenantId: string;
+  tenantId: number;
   provider: string;
   credentials?: string | null;
   licensedOffices?: string[];
@@ -106,7 +103,7 @@ export async function recordIngest(connectionId: string, error?: string): Promis
 
 export type SubscriberRow = {
   id: string;
-  tenant_id: string;
+  tenant_id: number;
   label: string;
   bell_url: string;
   active: boolean;
@@ -117,7 +114,7 @@ export type SubscriberRow = {
 };
 
 export async function addSubscriber(input: {
-  tenantId: string;
+  tenantId: number;
   label: string;
   bellUrl: string;
   bellSecret: string;
@@ -129,7 +126,7 @@ export async function addSubscriber(input: {
   return Number(rows[0]?.id);
 }
 
-export async function recordPull(tenantId: string, client: string | null): Promise<void> {
+export async function recordPull(tenantId: number, client: string | null): Promise<void> {
   await db().query(
     'update subscribers set last_pull_at = now(), last_client = coalesce($2, last_client) where tenant_id = $1',
     [tenantId, client],
@@ -141,4 +138,83 @@ export async function subscribers(): Promise<SubscriberRow[]> {
     'select id, tenant_id, label, bell_url, active, last_bell_at, last_bell_status, last_pull_at, last_client from subscribers order by id',
   );
   return rows;
+}
+
+// ---- What the admin panel lists and changes (docs/admin-panel.md) --------------------------------
+
+export type TenantRow = {
+  id: number;
+  display_name: string;
+  active: boolean;
+  purge_watermark: string;
+  created_at: Date;
+};
+
+export async function tenants(): Promise<TenantRow[]> {
+  const { rows } = await db().query<TenantRow>(
+    'select id, display_name, active, purge_watermark, created_at from tenants order by id',
+  );
+  return rows;
+}
+
+/** Rename a tenant, give it a new token (hashed like the script does), or switch it off. */
+export async function updateTenant(
+  id: number,
+  changes: { displayName?: string; token?: string; active?: boolean },
+): Promise<void> {
+  const sets: string[] = [];
+  const values: unknown[] = [id];
+  const set = (column: string, value: unknown) => {
+    values.push(value);
+    sets.push(`${column} = $${values.length}`);
+  };
+  if (changes.displayName !== undefined) set('display_name', changes.displayName);
+  if (changes.token !== undefined) set('token_hmac', tokenHmac(changes.token, credentialsKey));
+  if (changes.active !== undefined) set('active', changes.active);
+  if (sets.length === 0) return;
+  await db().query(`update tenants set ${sets.join(', ')} where id = $1`, values);
+}
+
+export type ConnectionListRow = {
+  id: string;
+  tenant_id: number;
+  provider: string;
+  licensed_offices: string[];
+  active: boolean;
+  has_credentials: boolean;
+  last_ingest_at: Date | null;
+  last_error: string | null;
+};
+
+/** Every connection, without its credentials. */
+export async function connections(): Promise<ConnectionListRow[]> {
+  const { rows } = await db().query<ConnectionListRow>(
+    `select id, tenant_id, provider, licensed_offices, active, credentials is not null as has_credentials,
+            last_ingest_at, last_error
+     from connections order by tenant_id, id`,
+  );
+  return rows;
+}
+
+export async function setConnectionActive(id: string, active: boolean): Promise<void> {
+  await db().query('update connections set active = $2 where id = $1', [id, active]);
+}
+
+/** Change a site's label, bell URL or secret, or switch it off. */
+export async function updateSubscriber(
+  id: number,
+  changes: { label?: string; bellUrl?: string; bellSecret?: string; active?: boolean },
+): Promise<void> {
+  const sets: string[] = [];
+  const values: unknown[] = [id];
+  const set = (column: string, value: unknown) => {
+    values.push(value);
+    sets.push(`${column} = $${values.length}`);
+  };
+  if (changes.label !== undefined) set('label', changes.label);
+  if (changes.bellUrl !== undefined) set('bell_url', changes.bellUrl);
+  if (changes.bellSecret !== undefined) set('bell_secret', changes.bellSecret);
+  if (changes.active !== undefined) set('active', changes.active);
+  if (sets.length === 0) return;
+  await db().query(`update subscribers set ${sets.join(', ')} where id = $1`, values);
 }

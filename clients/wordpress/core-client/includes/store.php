@@ -21,6 +21,12 @@ function core_client_post_type(string $datatype): string
     return 'core_' . $datatype;
 }
 
+/** The path a datatype's pages live under (Patric, 2026-09-18 and 2026-09-19, questions 45 and 49). */
+function core_client_path(string $datatype): string
+{
+    return ['property' => 'objekt', 'office' => 'kontor', 'project' => 'projekt', 'association' => 'forening', 'agent' => 'maklare', 'area' => 'omrade'][$datatype] ?? $datatype;
+}
+
 function core_client_index_table(): string
 {
     global $wpdb;
@@ -39,7 +45,7 @@ add_action('init', function (): void {
             'label' => ucfirst($datatype),
             'public' => true,
             'has_archive' => true,
-            'rewrite' => ['slug' => $datatype === 'property' ? 'objekt' : $datatype],
+            'rewrite' => ['slug' => core_client_path($datatype)],
             'supports' => ['title'],
             'show_in_rest' => false,
         ]);
@@ -115,18 +121,17 @@ function core_client_upsert_item(string $datatype, object $item, ?object $existi
 {
     global $wpdb;
 
-    // "Updated" is the CRM's own time, never this write (SRS §7.1): sitemaps read post_modified.
-    // A time in the future would make WordPress schedule the post instead of publishing it.
+    // WordPress keeps the post's dates itself (question 43, Patric 2026-09-19): the modified time
+    // moves with every write, and a write happens only when the content changed, so the sitemap's
+    // change date is right without a line of code. The CRM's own change time is in the index and
+    // in the JSON, for the templates.
     $remote = is_string($item->remote_updated_at) ? strtotime($item->remote_updated_at) : false;
-    $when = gmdate('Y-m-d H:i:s', $remote === false ? time() : min($remote, time()));
 
     $post = [
         'post_type' => core_client_post_type($datatype),
         'post_status' => 'publish',
         'post_title' => (string) ($item->data->id ?? $item->remote_id),
         'post_name' => sanitize_title($item->connection_id . '-' . $item->remote_id),
-        'post_date_gmt' => $when,
-        'post_date' => get_date_from_gmt($when),
     ];
     if ($existing !== null) {
         $post['ID'] = (int) $existing->post_id;
@@ -139,7 +144,6 @@ function core_client_upsert_item(string $datatype, object $item, ?object $existi
     update_post_meta($post_id, 'core_data', wp_slash((string) wp_json_encode($item->data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)));
     // The CRM payload exactly as Core served it, next to the data (Patric, 2026-09-18).
     update_post_meta($post_id, 'core_raw', wp_slash((string) wp_json_encode($item->raw ?? null, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)));
-    $wpdb->update($wpdb->posts, ['post_modified_gmt' => $when, 'post_modified' => get_date_from_gmt($when)], ['ID' => $post_id]);
 
     // `synced_at` is bookkeeping for the rebuild sweep only; nothing else may key on it.
     $index = core_client_index_table();

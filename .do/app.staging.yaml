@@ -24,6 +24,19 @@ services:
         value: EV[1:qeNsuORKwpu1hbMP+q1jKmdJs7lmdSFC:Q63rWWTMW0czEt0JMxuqLOjYVV+XdXE9NSSG0JrFIF1lu6vpPAXbzAOaIDKaPDd/SUuOCcB9ERloons=]
         scope: RUN_TIME
         type: SECRET
+      - key: ADMIN_EMAIL_DOMAINS
+        value: kowboy.se
+        scope: RUN_TIME
+      - key: MAIL_FROM
+        value: patric@kowboy.se
+        scope: RUN_TIME
+      - key: SENTRY_DSN
+        value: EV[1:TC95QipSafbeZ7bRSp0ego7jH3veGtTo:ZDpqKlVH+M7+HlgX3et+HuV67WZ28xaaD/m+rUloNZOD7QpU0XpNZ5M8I5Pp6B5CWwqggvSjOaL0pq1Zto4FGviKcDNT6XlSriMYi1PC5f+ZwHUSgPv5M8XayIzyTH0MWAKWvuSnmL+GDaRpZeqB]
+        scope: RUN_TIME
+        type: SECRET
+      - key: SENTRY_ENVIRONMENT
+        value: staging
+        scope: RUN_TIME
       - key: CREDENTIALS_KEY
         value: EV[1:bgk8XOdGy1VfzAIfz1stxfXc3RiUEyAh:E4vFHMxNaQPOrWRs3ojYRW4SlmsBY8WYGMIsgZ/Il3XJHHsgNUa//7P0DJmN9QvLmOA80tkc/oC/lqqi]
         scope: RUN_TIME
@@ -36,8 +49,8 @@ services:
     instance_count: 1
     http_port: 8080
     health_check:
-      initial_delay_seconds: 15
-      period_seconds: 30
+      initial_delay_seconds: 5
+      period_seconds: 10
       timeout_seconds: 5
       failure_threshold: 3
       http_path: /v1/ready
@@ -62,6 +75,13 @@ workers:
         value: EV[1:LrbZO5XdGEiMHZigOKnaDlBPaVmxP5+q:lxGnApkeCgHPs+oJwlA7enBxBs6pQqsAiadwOikECrPg1npCbE66F2SEIHE/q8qcWXiBB8lqvCkf/wo=]
         scope: RUN_TIME
         type: SECRET
+      - key: SENTRY_DSN
+        value: EV[1:nks+6vHH7J3hHQ3b3nQGRP2K8pTqKXFw:QOyJsScJaFg2f/dGmf1WWbrZQIoPxF+IDg3SupLMBIwyoLVao5M4xK9Y8LwW8X0VOJwnkofaiuC8HsXgNVYu6N/dDV9SxVwQNnF4PD1MPpXuQRkPg7DzsZaAuqW6vWilJCYuvBmf3sAi+8NQsK2Y]
+        scope: RUN_TIME
+        type: SECRET
+      - key: SENTRY_ENVIRONMENT
+        value: staging
+        scope: RUN_TIME
       - key: CREDENTIALS_KEY
         value: EV[1:bXCPiQ3i5oZD5/Fpa0u5wNdS+/myat0p:QkNWjoD35n9Rr27BQMbnrndq/yyVbSTvhgkvhS3MCgl5XY2Vz+DCiYoz1VHoRXKDra/3pGqjxmmDQXTA]
         scope: RUN_TIME

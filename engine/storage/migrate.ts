@@ -29,6 +29,11 @@ export async function unknownMigrations(): Promise<string[]> {
   return [...(await appliedMigrations())].filter((name) => !files.has(name)).sort();
 }
 
+/** The migrations the database holds, for the admin panel. */
+export async function migrationsApplied(): Promise<string[]> {
+  return [...(await appliedMigrations())].sort();
+}
+
 /** Apply every migration that hasn't run yet, in filename order. Runs at startup. */
 export async function migrate(): Promise<string[]> {
   const pool = db();

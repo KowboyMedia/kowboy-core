@@ -4,12 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 30.
-
-## 2. Protected paths created by an agent
-
-`schemas/`, `acceptance/` and `golden/fake/` did not exist before. CODEOWNERS now protects the
-first two, so this is the one time they are created without a prior review. They need your read.
+answering is quick. Next number: 53 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and are not assigned).
 
 ## 5. There are no business rules, and none can be written yet
 
@@ -20,45 +15,20 @@ invented from the SRS's illustrative example and has been removed.
 A rule needs two things first: a field to compute over, and a ledger entry saying what the output
 should be. `rules-ledger/` is protected and empty, so nothing can be written until an entry exists.
 
-## 6. Images, when the model is defined
+## 51. The universal field names: drafted for your correction, or sent by you
 
-Kowboy serves images through a separate CDN app. The SRS says images are CRM CDN URLs with a sort
-order (§6.6), but there is no image field in the contract today and none will be added on a guess.
-When the model is defined, say whether Core carries image URLs at all or leaves them out entirely.
+`[core]` `[crm-vitec]` `[client-wordpress]` `[client-lovable]` The adapter maps the CRM's fields
+onto universal names, so templates and the search table use the same names for every CRM; today
+`data` still carries Vitec's names (`price.starting_price`, `buildings[].area.living`). The earlier
+ask for "the plugin's field list" was for those universal names. Smaller: I draft one table per
+entity from the SRS and Vitec's payload (name, type, meaning, the Vitec field behind it, whether
+the search table indexes it), and you strike and rename in the table. Or you send the names.
 
-## 8. Phase 1 cannot exit without the platform
+## 52. The pairs for the Vitec mapping: a read endpoint on a client site, plus its Vitec key pair
 
-Phase 1's exit is a real PR → staging → production deploy, and AC 18, 24, 27 need a live
-environment. The app is built to run on DigitalOcean App Platform with managed Postgres, but
-nothing is deployed. Phase 1 is split in the strategy into Foundation (done) and Deploy (waiting
-on you).
-
-## 9. The adapter API cannot stamp an adapter's own events
-
-`logEvent(type, fields)` writes a row with no correlation id and no entity reference, so an
-adapter's own events (a webhook arriving, a CRM call and its timing) cannot be linked to the write
-they caused. `ingest` does take a correlation id, so the chain works from the fetch onwards, and
-the fake adapter proves it.
-
-AC 16 asks for one query returning the whole timeline **across webhook, fetch, CRM call, write,
-bell and pull**. Meeting it fully needs one added argument:
-
-```ts
-logEvent(type, fields, context?: { correlationId?, connectionId?, datatype?, remoteId? })
-```
-
-That is an adapter API change, so it needs approval (E3). It is additive and breaks no caller.
-
-## 16. The plugin's license, now that Action Scheduler is bundled
-
-Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPress plugins normally
-are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
-`clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
-
-## 29. `[core]` The admin panel MVP
-
-`docs/admin-panel.md` describes it: eight panels (overview, tenants and sites, connections,
-adapter panels, items, events, a test panel that runs requests, settings), server-rendered inside
-the `web` process behind the admin secret, adapter panels living in each adapter's own folder and
-reaching the shell through one additive field on the adapter API. Answer: yes to build it as
-described, or say what to change. The adapter API field is the one protected change.
+`[crm-vitec]` Patric's plan (2026-09-19): a small snippet on a client site running the old plugin
+answers, behind a secret header and read-only, (a) the ids per datatype and (b) the mapped record
+by id, and where the plugin keeps it, the raw API answer it stored for that record; the client's
+Vitec Connect key pair goes onto staging as a connection. An agent then fetches each pair at the
+same moment, maps by evidence, keeps a representative set as golden masters and flags only what the
+evidence cannot settle. Closes when the endpoint's address, its secret and the key pair arrive.

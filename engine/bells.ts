@@ -14,7 +14,7 @@ export type BellKind = 'delta' | 'forcerefresh';
 
 type Subscriber = {
   id: string;
-  tenant_id: string;
+  tenant_id: number;
   bell_url: string;
   bell_secret: string;
 };
@@ -27,12 +27,15 @@ export function configureBells(windowMs: number): void {
 
 const window = (): string => `${throttleMs} milliseconds`;
 
+/** A site is rung only while its tenant's licence is active (Patric, 2026-09-18): otherwise it keeps what it shows. */
+const LICENSED = 'exists (select 1 from tenants where id = subscribers.tenant_id and active)';
+
 /** Ring every active subscriber of a tenant: at once if outside the window, otherwise queued. */
-export async function ring(tenantId: string, kind: BellKind = 'delta'): Promise<void> {
+export async function ring(tenantId: number, kind: BellKind = 'delta'): Promise<void> {
   // The update is the claim: only one process wins the leading edge for a subscriber.
   const { rows: due } = await db().query<Subscriber>(
     `update subscribers set last_bell_at = now()
-     where tenant_id = $1 and active = true
+     where tenant_id = $1 and active = true and ${LICENSED}
        and (last_bell_at is null or last_bell_at < now() - $2::interval)
      returning id, tenant_id, bell_url, bell_secret`,
     [tenantId, window()],
@@ -41,7 +44,7 @@ export async function ring(tenantId: string, kind: BellKind = 'delta'): Promise<
   await db().query(
     `update subscribers
      set bell_pending = case when bell_pending = 'forcerefresh' then bell_pending else $2 end
-     where tenant_id = $1 and active = true and last_bell_at >= now() - $3::interval
+     where tenant_id = $1 and active = true and ${LICENSED} and last_bell_at >= now() - $3::interval
        and id <> all($4::bigint[])`,
     [tenantId, kind, window(), due.map((row) => row.id)],
   );
@@ -52,7 +55,7 @@ export async function ring(tenantId: string, kind: BellKind = 'delta'): Promise<
 export async function flushPendingBells(): Promise<void> {
   const { rows } = await db().query<Subscriber & { kind: BellKind }>(
     `update subscribers set last_bell_at = now(), bell_pending = null
-     where bell_pending is not null and active = true
+     where bell_pending is not null and active = true and ${LICENSED}
        and last_bell_at < now() - $1::interval
      returning id, tenant_id, bell_url, bell_secret, bell_pending as kind`,
     [window()],

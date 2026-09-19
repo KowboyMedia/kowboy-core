@@ -5,11 +5,14 @@ import { closeDb, db } from './storage/db.js';
 import { migrate } from './storage/migrate.js';
 import { configureCredentials } from './storage/connections.js';
 import { configureBells, flushPendingBells } from './bells.js';
-import { heartbeat, healthReport, readiness, recordHealth } from './health.js';
+import { configureMail, postmark } from './mail.js';
+import { heartbeat, healthReport, pruneHealth, readiness, recordHealth } from './health.js';
 import { deliverLifecycleEvents } from './lifecycle.js';
 import { deleteExpiredEvents, logEvent } from './events.js';
 import { purgeTombstones } from './storage/items.js';
 import { changes } from './http/changes.js';
+import { applied } from './http/applied.js';
+import { siteError } from './http/errors.js';
 import { adminRoutes } from './http/admin.js';
 import { configureCompression, jsonResponse, startServer, type RouteTable } from './http/server.js';
 
@@ -22,7 +25,7 @@ export const VERSION = '0.1.0';
  */
 export const SEQUENCE_JUMP = 1_000_000_000;
 /** Tombstones are hard-deleted after 90 days (AC 26). */
-const TOMBSTONE_RETENTION_DAYS = 90;
+export const TOMBSTONE_RETENTION_DAYS = 90;
 const HEARTBEAT_MS = 30_000;
 const BELL_FLUSH_MS = 1_000;
 const HOUSEKEEPING_MS = 60 * 60_000;
@@ -56,16 +59,26 @@ async function advanceSequence(): Promise<void> {
 /** Start the engine: config, database, migrations, routes. No CRM knowledge anywhere in here. */
 export async function startEngine(overrides: Partial<Config> = {}): Promise<Engine> {
   const config = { ...loadConfig(), ...overrides };
-  initErrorReporting(config.sentryDsn);
+  initErrorReporting(config.sentryDsn, {
+    environment: config.sentryEnvironment ?? undefined,
+    release: VERSION,
+  });
   db(config.databaseUrl);
   await migrate();
   await advanceSequence();
   configureCredentials(config.credentialsKey);
   configureBells(config.bellThrottleMs);
   configureCompression(config.gzipLevel);
+  configureMail(
+    config.postmarkServerToken && config.mailFrom
+      ? postmark(config.postmarkServerToken, config.mailFrom)
+      : null,
+  );
 
   const routes: RouteTable = [
     { method: 'GET', path: '/v1/changes', handler: changes },
+    { method: 'POST', path: '/v1/applied', handler: applied },
+    { method: 'POST', path: '/v1/errors', handler: siteError },
     {
       method: 'GET',
       path: '/v1/health',
@@ -105,7 +118,10 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
       tick(() => heartbeat(), HEARTBEAT_MS);
       tick(() => flushPendingBells(), BELL_FLUSH_MS);
       tick(() => deliverLifecycleEvents(), LIFECYCLE_MS);
-      tick(() => recordHealth(), HEALTH_RECORD_MS);
+      tick(async () => {
+        await recordHealth();
+        await pruneHealth();
+      }, HEALTH_RECORD_MS);
       tick(async () => {
         await deleteExpiredEvents(config.eventRetentionDays);
         await purgeTombstones(TOMBSTONE_RETENTION_DAYS);

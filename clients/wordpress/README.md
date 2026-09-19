@@ -40,6 +40,19 @@ or `wp action-scheduler run`.
 
 ## What the site gets
 
+- Permalinks are the site's, never Core's (strategy §12.23 and §12.26), under Swedish paths:
+  `objekt/<status>-<area name>-<street address>-<id>` for properties and `projekt/` the same for
+  projects, `kontor/<office name>-<id>`, `forening/<association name>-<id>`, `maklare/<first name>-<last name>-<id>`
+  and `omrade/<municipality>-<area name>-<id>`. Every entity ends in `-<id>`. A request by id alone (`/objekt/<id>`) or by an old
+  slug (`/objekt/<old slug>-<id>`) answers 301 to the current permalink, and a removed or unknown
+  id answers 301 to the property archive (`includes/routing.php`). Until the universal field
+  names arrive (question 51) the placeholder slug is connection plus id.
+- The sitemap's change date is the post's modified time, which WordPress sets on every write; a
+  write happens only when the content changed (question 43). The CRM's own change time is in the
+  record for the templates.
+- Errors go through Core (question 46): every report, a fatal error in the plugin's own files
+  included, is posted to Core's `/v1/errors` with the tenant's token, where the same bug on many
+  sites is one report a day. No Sentry key on the site.
 - One post type per datatype: `core_property` (archive and permalinks under `/objekt/`),
   `core_agent`, `core_office`, `core_area`, `core_association`, `core_project`. Public, so sitemaps, permalinks and
   cache plugins see them.
@@ -82,3 +95,15 @@ The updater never loads plugin code, so a broken release is replaced by the next
 `npm run test:wordpress` runs the shared scenario suite against a real WordPress install plus the
 updater and WP-CLI tests; see [../README.md](../README.md) for the one-time setup. PHPStan runs in
 CI's warnings job: `composer install` and `vendor/bin/phpstan analyse`, both in this directory.
+
+On the site itself, an administrator sees one notice on every admin page while the plugin cannot
+sync (Patric, 2026-09-18): the site is not linked (no Core URL or token), its licence is not
+active (Core refuses the token), or the last sync failed. In every case the site keeps showing
+what it has; only the updates stop. `wp core-client status` carries the same text as `notice`.
+
+## What the site tells Core
+
+After each page it pulled, the plugin posts to `POST /v1/applied` which records it applied and which
+it could not use, with the tenant's token (question 37, 2026-09-18). Core puts that on each
+record's timeline, so an operator sees a change travel from the CRM to this site. A report that
+cannot be delivered is logged and never stops a sync.

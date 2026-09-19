@@ -6,7 +6,7 @@ export type EventRow = {
   at: Date;
   type: string;
   correlation_id: string | null;
-  tenant_id: string | null;
+  tenant_id: number | null;
   connection_id: string | null;
   datatype: string | null;
   remote_id: string | null;
@@ -17,7 +17,7 @@ export type EventRow = {
 export type EventInput = {
   type: string;
   correlationId?: string | null;
-  tenantId?: string | null;
+  tenantId?: number | null;
   connectionId?: string | null;
   datatype?: string | null;
   remoteId?: string | null;
@@ -66,13 +66,15 @@ export async function logEvent(event: EventInput): Promise<void> {
 export type EventQuery = {
   entity?: { connectionId: string; datatype: string; remoteId: string };
   connectionId?: string;
-  tenantId?: string;
+  tenantId?: number;
   subscriberId?: number;
   correlationId?: string;
   type?: string;
   from?: string;
   to?: string;
   limit?: number;
+  /** The admin panel reads the latest first. */
+  newestFirst?: boolean;
 };
 
 /** The admin timeline query (SRS §11, AC 16). */
@@ -98,7 +100,8 @@ export async function queryEvents(query: EventQuery): Promise<EventRow[]> {
   if (query.to) add('at <= ?', query.to);
 
   const limit = Math.min(query.limit ?? 500, 5000);
-  const sql = `select * from events ${where.length ? `where ${where.join(' and ')}` : ''} order by at, ctid limit ${limit}`;
+  const order = query.newestFirst ? 'at desc, ctid desc' : 'at, ctid';
+  const sql = `select * from events ${where.length ? `where ${where.join(' and ')}` : ''} order by ${order} limit ${limit}`;
   return (await db().query<EventRow>(sql, values)).rows;
 }
 

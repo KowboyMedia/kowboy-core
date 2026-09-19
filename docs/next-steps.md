@@ -40,8 +40,13 @@ the first item that is not done, and keep the file current. Decisions and open q
    runs each real client against the real Core (`clients/README.md`). 2026-09-16: bells are
    answered inside the WordPress request, the backstop is a bundled Action Scheduler action, the
    Lovable function chains itself, a `v*` tag publishes the plugin to a DigitalOcean Space, and
-   the client criteria are in the acceptance report. Patric adds the Space variables and secrets
-   to the repository before the first tag (`.github/workflows/release.yml`). Templates, search,
+   the client criteria are in the acceptance report. Before the first tag the Space must exist with an
+   access key pair and the repository's settings must hold them (`.github/workflows/release.yml`:
+   variables `DO_SPACES_BUCKET` and `DO_SPACES_REGION`, secrets `DO_SPACES_KEY` and
+   `DO_SPACES_SECRET`); on 2026-09-19 neither the Space nor a Spaces key exists. An agent creates
+   both with the DigitalOcean token when the first plugin release is near; storing the four values
+   in the repository's settings is the one step for a repository admin, since the session's GitHub
+   token cannot. Templates, search,
    routing, the example Lovable site and the search/filter half of AC 20 wait for the model
    (item 3).
 
@@ -55,29 +60,49 @@ the first item that is not done, and keep the file current. Decisions and open q
    (Patric, 2026-09-17). Core removes the listing on that notification; if none came, the daily
    comparison against the list would remove it within a day. Needs: Vitec's subscription for the
    test account pointing at the staging app (estates advertised on the website only, `Update` and
-   `Remove`), a Vitec connection on staging (an agent sets it up; needs a way in from chat first),
-   and someone taking a listing off the website in the Vitec test account. The staging event log
-   then shows the notification and the removal.
+   `Remove`) and someone taking a listing off the website in the Vitec test account. The staging
+   event log then shows the notification and the removal. Done 2026-09-18: the test account runs
+   on staging, set up through the admin panel as tenant `kowboy-test`, connection `vitec-test`,
+   office `M31529`; the full load finished within two minutes with 646 properties, 427
+   associations, 56 areas, 6 agents, 5 projects and 1 office live, health green and the fetch list
+   empty. Still needed: Vitec's subscription for the test account pointing at the staging app's
+   webhook URL (it is on the panel's Vitec page), and the listing taken off the website.
+
+7. ~~**Admin panel** (question 29, yes 2026-09-18).~~ Built 2026-09-18: `/admin` on the web
+   process with the eight panels of `docs/admin-panel.md`, the Vitec panel in
+   `adapters/vitec/admin/`, tested as AC 42. Users and roles, and anything a site does, stay out.
+   The login is by email link since the same day (question 30: no shared password), mailed
+   through Postmark (question 31); staging has the token, production gets it with the release.
+
+8. ~~**Setup directions on each adapter's panel, and a licence notice in the plugin** (Patric,
+   2026-09-18).~~ Done 2026-09-18: the Vitec panel opens with "Set up Vitec", kept true by
+   `adapters/vitec/admin/directions.test.ts`; the plugin shows one notice in the site's admin
+   while it is unlinked, its licence is off or its last sync failed; an inactive tenant gets no
+   bell and no page, and every client keeps what it shows (scenario suite).
+9. ~~**Link a site from its tenant's page** (questions 39 and 40).~~ Settled 2026-09-18: the
+   token paste stays; a tenant's page holds its licence, token, connections and sites, and the
+   global lists are overviews.
 
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health
   check is green, `kowboy-core-staging` (the `staging` branch on every push, database
-  `core_staging`) and `kowboy-core` (`main`, deployed when an agent asks on Patric's word,
-  database `defaultdb`); both specs are committed back. Left: Vitec's subscriptions pointing at
-  each app (Patric gives Vitec the URLs, handed over in chat), a Vitec connection on each app
-  (item 6), Sentry, and question 27 on the release flow.
-- GitHub branch protection on `staging` and `main` → the release flow is enforced for humans too
-  (question 27 answered 2026-09-18; the exact clicks are in README "Deploying"). A repository
-  admin does it once; agents cannot. Then Patric says "allow" and an agent switches production to
-  deploy on merge.
-- Sentry DSN → replace the placeholder in `engine/errors.ts`.
-- The WordPress plugin's field specification → item 2, then the Vitec mappers and `schemas/`.
+  `core_staging`) and `kowboy-core` (`main` on every merge, database `defaultdb`); both specs are
+  committed back. Left: Vitec's subscriptions pointing at each app (Patric gives Vitec the URLs,
+  handed over in chat), a Vitec connection on production (staging has one since 2026-09-18, item
+  6), and Sentry. The database cluster accepts connections only from the two apps (question 33,
+  2026-09-18).
+- Sentry: wired into Core 2026-09-18 (question 36); the DSN is on staging, production gets it with the release. The same error leaves once a day whichever process hits it, and at most twenty distinct errors a day per app, for the 5,000-a-month plan; the sites' errors go through the same gate since 2026-09-19 (question 46). Left: an uptime alert on production's `/v1/health` (an auth token for an agent, or a click in Sentry), and projects for the two clients.
+- The universal field names (question 51: drafted for Patric's correction, or sent by him) → item 2, then the Vitec mappers and `schemas/`.
 - Vitec test credentials and a staging deploy → open question 18.
 - Mspecs documentation → second adapter.
 - Rules ledger, parity inventory, real golden masters → Phase 5.
 
 ## Standing rules for every session
+
+- Before a push, one full run: `npm run typecheck` (TypeScript and Deno, not `tsc` alone), seam,
+  secrets and build, then `npm run report` (both suites once, and the report with them). Not
+  `npm test`, the WordPress suite and the report as three runs.
 
 - Raise problems as a numbered list with an optional suggested solution; Patric decides by number.
   The numbers are the register `docs/open-questions.md`: next free number there, never reused,
@@ -89,4 +114,18 @@ the first item that is not done, and keep the file current. Decisions and open q
   app, asking for a deployment) are refused by the session's permission classifier until Patric
   says "allow" in chat; the agent then adds `Bash(python3 *)` and `Bash(curl *)` to
   `.claude/settings.local.json` (gitignored), does the work, and removes them again.
+- The session environment carries API access as environment variables, and agents use it
+  themselves instead of asking Patric for a console (verified 2026-09-19): `DIGITALOCEAN_ACCESS_TOKEN`
+  (the account with both apps; their addresses come from `GET /v2/apps`; production writes wait
+  for "allow" as above), `VITEC_USERNAME`, `VITEC_PASSWORD`, `VITEC_OFFICE_ID` and
+  `VITEC_ESTATE_ID` (the Vitec test account, `scripts/vitec-probe.ts`) and `GITHUB_TOKEN` (the
+  repository, but not its settings: variables and secrets answer 403). There is no Sentry token.
+  Values are never printed, logged or committed.
+- A new session's branch starts from `main`, which is production and far behind `staging`
+  (2026-09-19: a side session started 53 changes back and had to be combined afterwards). Before
+  any work, a fresh branch is moved onto staging's latest and pushed
+  (`git fetch origin staging && git reset --hard origin/staging`); a branch that already carries
+  work merges `origin/staging` into itself instead. AGENTS.md and this file are read from there.
 - Never invent a contract field or a business rule.
+- Core parses no CRM data (AGENTS.md): every tag, slug, status, flag or formatted string is the
+  site's, from the payload it stores. Never propose otherwise, in code or in chat.
