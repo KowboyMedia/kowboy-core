@@ -41,3 +41,6 @@ export const validateItem = (item: unknown): ValidationResult => check('item.v1.
 
 /** Validate what a site reports it applied (POST /v1/applied, question 37). */
 export const validateApplied = (body: unknown): ValidationResult => check('applied.v1.json', body);
+
+/** Validate an error a site reports (POST /v1/errors, question 46). */
+export const validateSiteError = (body: unknown): ValidationResult => check('errors.v1.json', body);

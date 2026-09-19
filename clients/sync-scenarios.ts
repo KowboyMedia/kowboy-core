@@ -360,6 +360,17 @@ export function syncScenarios(name: string, client: ClientSetup): void {
         expect(failed.map((event) => event.remote_id)).toEqual(['P-2']);
         const applied = await queryEvents({ tenantId: TENANT, type: 'site.applied', limit: 10 });
         expect(applied.map((event) => event.remote_id).sort()).toEqual(['P-1', 'P-3']);
+        // And the skip reached Core's error gate as one bug (question 46), whichever client.
+        await until(
+          async () =>
+            (
+              await db().query<{ fingerprint: string }>(
+                "select fingerprint from error_reports where fingerprint like '%skipped an item%'",
+              )
+            ).rows.length === 1,
+          "the site's error report to reach Core",
+          PATIENCE_MS,
+        );
       },
       SCENARIO_TIMEOUT_MS,
     );

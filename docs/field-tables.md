@@ -37,11 +37,11 @@ the licensing filter. It comes from SRS §3 and §6 and is unchanged.
 
 ### `data`, every datatype
 
-| Field             | Source                                                       |
-| ----------------- | ------------------------------------------------------------ |
-| `id`              | SRS §6.9, references are by id                               |
-| `display`         | SRS §6 strings; empty. Who fills it is question 44           |
-| `provider_extras` | SRS §6.4, provider-only fields, excluded from `content_hash` |
+| Field             | Source                                                                                                          |
+| ----------------- | --------------------------------------------------------------------------------------------------------------- |
+| `id`              | SRS §6.9, references are by id                                                                                  |
+| `display`         | SRS §6 strings, the engine from `universal` by ledger entries; empty until one exists (question 44, 2026-09-19) |
+| `provider_extras` | SRS §6.4, provider-only fields, excluded from `content_hash`                                                    |
 
 ### `data`, property only
 

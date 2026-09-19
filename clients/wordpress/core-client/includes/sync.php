@@ -53,7 +53,7 @@ function core_client_run_once(string $kind): void
     } catch (Throwable $error) {
         // The cursor moved with every page that succeeded; the next run carries on from there.
         core_client_put_state('last_error', $error->getMessage());
-        core_client_report('sync failed', ['kind' => $kind, 'detail' => $error->getMessage()]);
+        core_client_report('sync failed: ' . $error->getMessage(), ['where' => 'sync', 'kind' => $kind]);
     } finally {
         // One transaction, so "not running" and the run count are never seen half-written.
         global $wpdb;

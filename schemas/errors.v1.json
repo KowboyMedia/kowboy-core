@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kowboy.se/schemas/errors.v1.json",
+  "title": "An error a site reports: the body of POST /v1/errors (question 46, Patric 2026-09-19)",
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "where": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "detail": {
+      "type": "string",
+      "maxLength": 4000
+    }
+  },
+  "required": ["message", "where"],
+  "additionalProperties": false
+}

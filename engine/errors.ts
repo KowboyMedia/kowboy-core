@@ -13,13 +13,16 @@ export const REPEAT_WINDOW_MS = 24 * 60 * 60_000;
 export const DAILY_CAP = 20;
 
 /**
- * What makes two errors the same: the name, the message with numbers and ids blanked (so
- * "record 4711 failed" and "record 4712 failed" are one error), and where it happened.
+ * What makes two errors the same: the name, the message with ids blanked (so "record 4711
+ * failed" and "record 4712 failed" are one error, while "http 401" and "http 503" stay two), and
+ * where it happened.
  */
+const blank = (text: string): string =>
+  text.replace(/[0-9a-f]{8}-[0-9a-f-]{27,}|\d{4,}/gi, '#').slice(0, 300);
+
 export const fingerprintOf = (error: unknown, where: string): string => {
   const what = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-  const blanked = what.replace(/[0-9a-f]{8}-[0-9a-f-]{27,}|\d+/gi, '#').slice(0, 300);
-  return `${blanked} | ${where}`;
+  return `${blank(what)} | ${where}`;
 };
 
 export type Gate = (fingerprint: string, now?: number) => boolean;
@@ -105,6 +108,31 @@ export function report(error: unknown, context: Record<string, unknown> = {}): v
       fingerprint: [fingerprint],
     });
   });
+}
+
+/**
+ * An error a site reports (POST /v1/errors, question 46): through the same gate, keyed by the
+ * client and its version, where it happened and the message, so one bug on many sites is one
+ * report a day. The row is kept whether or not a DSN is set; the answer says if it left for Sentry.
+ */
+export async function reportFromSite(input: {
+  tenantId: string;
+  client: string;
+  message: string;
+  where: string;
+  detail?: string;
+}): Promise<boolean> {
+  console.error(JSON.stringify({ level: 'error', source: 'site', ...input }));
+  const fingerprint = `${input.client} | ${input.where} | ${blank(input.message)}`;
+  const due = await allow(fingerprint);
+  if (!sending || !due) return false;
+  Sentry.captureMessage(`${input.client}: ${input.message}`, {
+    level: 'error',
+    fingerprint: [fingerprint],
+    tags: { client: input.client, tenant: input.tenantId, where: input.where },
+    extra: { detail: input.detail ?? null },
+  });
+  return true;
 }
 
 /** Give Sentry a moment to deliver what is queued, at shutdown. */
