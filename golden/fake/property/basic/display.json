@@ -1,1 +1,15 @@
-{}
+{
+  "address_line": "Storgatan 12",
+  "price": "4 950 000 kr",
+  "sections": [
+    {
+      "header": "Bostaden",
+      "items": [
+        {
+          "label": "Adress",
+          "value": "Storgatan 12"
+        }
+      ]
+    }
+  ]
+}

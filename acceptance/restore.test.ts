@@ -100,9 +100,11 @@ describe('restore (AC 41)', () => {
     await poll();
     await site.sync();
     expect(new Map(site.store)).toEqual(before);
-    expect(site.items('property').map((item) => item.data?.['fake_label'])).toEqual(
-      expect.arrayContaining(['Nygatan 2', 'Kungsgatan 4']),
-    );
+    expect(
+      site
+        .items('property')
+        .map((item) => (item.data?.['address'] as Record<string, unknown> | undefined)?.['street']),
+    ).toEqual(expect.arrayContaining(['Nygatan 2', 'Kungsgatan 4']));
 
     // Everything served after the restart sits above the cursor from before it.
     const served = (await pull(url, 'property', cursor)).items;

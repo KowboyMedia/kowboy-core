@@ -74,8 +74,8 @@ describe('ingest', () => {
     const data = item['data'] as Record<string, unknown>;
     expect(data['id']).toBe('OBJ-1');
     expect(data['office_id']).toBe('100');
-    // No rules exist yet, so display is empty rather than invented (engine/rules/run.ts).
-    expect(data['display']).toEqual({});
+    // display holds the strings the ledger entries give (engine/rules/), nothing invented.
+    expect(data['display']).toMatchObject({ price: '4\u00a0950\u00a0000\u00a0kr' });
   });
 
   it('gives an unchanged record no new seq and no bell (AC 15)', async () => {
@@ -129,7 +129,7 @@ describe('ingest', () => {
     const changed = (
       latest?.fields as Record<string, Record<string, { from: unknown; to: unknown }>>
     )['changed'];
-    expect(changed?.['fake_amount']).toEqual({ from: 4950000, to: 4750000 });
+    expect(changed?.['price']).toEqual({ from: 4950000, to: 4750000 });
   });
 
   it('drops a record from an unlicensed office and says why (AC 9)', async () => {

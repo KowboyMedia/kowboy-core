@@ -2,22 +2,118 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kowboy.se/schemas/agent.v1.json",
   "title": "agent.data",
-  "description": "INCOMPLETE. Only identity and the office relation are defined; the descriptive model is added in one piece when the universal model is approved (docs/field-tables.md). `additionalProperties` is true until then, so this schema does not yet reject an unknown field.",
+  "description": "An agent on the universal names (docs/field-tables.md): name, title, contact details, portrait with its CDN address, the offices the agent belongs to with the CRM's order, reviews. Fields the field tables do not name stay under their mechanical snake_case names (docs/data-model-reference.md), so `additionalProperties` stays true.",
   "type": "object",
   "properties": {
     "id": {
       "$ref": "_shared.v1.json#/$defs/id"
-    },
-    "office_ids": {
-      "$ref": "_shared.v1.json#/$defs/references"
     },
     "display": {
       "$ref": "_shared.v1.json#/$defs/display"
     },
     "provider_extras": {
       "$ref": "_shared.v1.json#/$defs/providerExtras"
+    },
+    "office_ids": {
+      "$ref": "_shared.v1.json#/$defs/references"
+    },
+    "name": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "title": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "category": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "description": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "email": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "languages": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "phones": {
+      "type": "object",
+      "properties": {
+        "mobile": {
+          "$ref": "_shared.v1.json#/$defs/phone"
+        },
+        "public": {
+          "$ref": "_shared.v1.json#/$defs/phone"
+        }
+      },
+      "required": ["mobile", "public"],
+      "additionalProperties": false
+    },
+    "image": {
+      "anyOf": [
+        {
+          "$ref": "_shared.v1.json#/$defs/image"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "is_visible_in_staff_list": {
+      "$ref": "_shared.v1.json#/$defs/nullableBoolean"
+    },
+    "offices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "office_id": {
+            "$ref": "_shared.v1.json#/$defs/nullableString"
+          },
+          "order": {
+            "$ref": "_shared.v1.json#/$defs/nullableNumber"
+          },
+          "is_visible_in_staff_list": {
+            "$ref": "_shared.v1.json#/$defs/nullableBoolean"
+          },
+          "phone": {
+            "$ref": "_shared.v1.json#/$defs/phone"
+          }
+        },
+        "required": ["office_id", "order", "is_visible_in_staff_list", "phone"],
+        "additionalProperties": false
+      }
+    },
+    "reviews": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "$ref": "_shared.v1.json#/$defs/nullableString"
+          },
+          "author": {
+            "$ref": "_shared.v1.json#/$defs/nullableString"
+          }
+        },
+        "required": ["text", "author"],
+        "additionalProperties": false
+      }
     }
   },
-  "required": ["id", "display", "provider_extras"],
+  "required": [
+    "id",
+    "office_ids",
+    "name",
+    "title",
+    "email",
+    "phones",
+    "image",
+    "offices",
+    "display",
+    "provider_extras"
+  ],
   "additionalProperties": true
 }

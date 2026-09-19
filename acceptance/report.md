@@ -53,7 +53,7 @@ The authoritative wording of each criterion is strategy §10, which amends SRS �
 
 ## Notes
 
-- **AC 1.** Proved on golden/fake, whose cases now cover identity, references and dummy fake_* fields only. display is empty in every case because no business rule exists. Real per-CRM golden masters arrive at Gate 3.
+- **AC 1.** Proved on golden/fake, whose cases cover identity, references and the universal names on dummy data. Since 2026-09-19 display carries the strings and sections the ledger entries R-001 to R-014 give, so a fake property shows a price line, an address line and one section. Real per-CRM golden masters arrive at Gate 3.
 - **AC 7.** Cross-tenant reads are blocked by the token-to-tenant lookup; a second tenant fixture would make that explicit.
 - **AC 8.** The sync half, on both real clients: the local copy stays and the failure is reported. Page rendering through a 24 h outage needs templates and a staging site.
 - **AC 10.** Both real clients store an item with a field they have never seen, verbatim, and keep going. The engine half is that data is stored and served verbatim.
@@ -66,11 +66,12 @@ The authoritative wording of each criterion is strategy §10, which amends SRS �
 - **AC 20.** The sync scenario suite (clients/sync-scenarios.ts), run as each real client against the real Core. The search/filter half needs the data model.
 - **AC 21.** WordPress: the must-use updater and the release package are proved; WordPress itself swaps the plugin. Lovable: the function and the site deploy separately by construction, which no test can add to.
 - **AC 22.** Proved with the fake subscriber and with both real clients’ own backstops. The 15 minute figure is a client setting.
-- **AC 23.** The write path refuses an item that fails its schema, and the release preview reports failures. The schemas themselves are the structural spine and permissive until the data model is defined, so today this proves the mechanism, not the model.
+- **AC 23.** The write path refuses an item that fails its schema, and the release preview reports failures. Since 2026-09-19 the schemas carry the universal names of docs/field-tables.md (Gate 2, approved that day) and allow the mirrored tail next to them; every record of the Vitec test account on staging validated against them that day.
 - **AC 24.** The engine half of the drill is proved as AC 41; the scripted drill on staging waits for the platform.
 - **AC 25.** Credentials are encrypted at rest and tokens are stored as an HMAC; the event log redacts secret-shaped keys. EU hosting is Kowboy's to provision.
 - **AC 26.** The 90 day window is proved by ageing a tombstone; the worker runs the same purge hourly.
 - **AC 27.** Needs staging.
+- **AC 28.** Phase 5. The rules ledger opens with R-001 to R-014 and their tests (engine/rules/rules.test.ts, 2026-09-19); the parity inventory and the comparison against the old sites wait for the pairs of question 52.
 - **AC 29.** The fake adapter and the Vitec adapter both show the shape: a burst of webhooks for one record collapses into one queued fetch, answered 202 in the request. The real figures (50,000 webhooks, p99 under 1 s) need staging.
 - **AC 30.** Additive fields and unusable items on both real clients. Reporting goes to the same placeholder as Core’s until a Sentry DSN exists. The release report’s flags wait on the pipeline.
 - **AC 31.** Watermark and resync-required are built and proved; the rebuild swaps in only after a complete pull. Purge-and-resync as an operator action has no endpoint yet (raised as an issue).
