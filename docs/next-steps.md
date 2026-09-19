@@ -40,8 +40,13 @@ the first item that is not done, and keep the file current. Decisions and open q
    runs each real client against the real Core (`clients/README.md`). 2026-09-16: bells are
    answered inside the WordPress request, the backstop is a bundled Action Scheduler action, the
    Lovable function chains itself, a `v*` tag publishes the plugin to a DigitalOcean Space, and
-   the client criteria are in the acceptance report. Patric adds the Space variables and secrets
-   to the repository before the first tag (`.github/workflows/release.yml`). Templates, search,
+   the client criteria are in the acceptance report. Before the first tag the Space must exist with an
+   access key pair and the repository's settings must hold them (`.github/workflows/release.yml`:
+   variables `DO_SPACES_BUCKET` and `DO_SPACES_REGION`, secrets `DO_SPACES_KEY` and
+   `DO_SPACES_SECRET`); on 2026-09-19 neither the Space nor a Spaces key exists. An agent creates
+   both with the DigitalOcean token when the first plugin release is near; storing the four values
+   in the repository's settings is the one step for a repository admin, since the session's GitHub
+   token cannot. Templates, search,
    routing, the example Lovable site and the search/filter half of AC 20 wait for the model
    (item 3).
 
@@ -109,6 +114,13 @@ the first item that is not done, and keep the file current. Decisions and open q
   app, asking for a deployment) are refused by the session's permission classifier until Patric
   says "allow" in chat; the agent then adds `Bash(python3 *)` and `Bash(curl *)` to
   `.claude/settings.local.json` (gitignored), does the work, and removes them again.
+- The session environment carries API access as environment variables, and agents use it
+  themselves instead of asking Patric for a console (verified 2026-09-19): `DIGITALOCEAN_ACCESS_TOKEN`
+  (the account with both apps; their addresses come from `GET /v2/apps`; production writes wait
+  for "allow" as above), `VITEC_USERNAME`, `VITEC_PASSWORD`, `VITEC_OFFICE_ID` and
+  `VITEC_ESTATE_ID` (the Vitec test account, `scripts/vitec-probe.ts`) and `GITHUB_TOKEN` (the
+  repository, but not its settings: variables and secrets answer 403). There is no Sentry token.
+  Values are never printed, logged or committed.
 - Never invent a contract field or a business rule.
 - Core parses no CRM data (AGENTS.md): every tag, slug, status, flag or formatted string is the
   site's, from the payload it stores. Never propose otherwise, in code or in chat.
