@@ -4,7 +4,7 @@
 //   node dist/main.js web      subscriber API, admin API and panel, health, and the adapters' own endpoints
 //   node dist/main.js worker   the adapters' background work, bells, housekeeping
 import { startEngine } from './engine/index.js';
-import { startAdapter } from './engine/adapter-api/index.js';
+import { adapterApi, startAdapter } from './engine/adapter-api/index.js';
 import { adapterRoutes } from './engine/http/server.js';
 import { adminRoutesFor } from './engine/admin/index.js';
 import { closeErrorReporting, report } from './engine/errors.js';
@@ -19,6 +19,13 @@ const adapters: Adapter[] = [vitecAdapter];
 
 const role = process.argv[2] ?? 'web';
 const engine = await startEngine();
+
+// Both roles need the adapters' mappers in the registry: the worker to ingest, the web process to
+// recompute a record and to render an adapter's raw-vs-mapped preview on its panel. Registering is
+// separate from starting: only the worker runs the adapters' timers, loops and endpoints.
+for (const adapter of adapters) {
+  adapterApi(adapter.manifest.provider).register(adapter.manifest, adapter.mappers);
+}
 
 if (role === 'web') {
   const routes = adapters.flatMap((adapter) =>

@@ -1,8 +1,8 @@
 // Tenants, each with its connections and its sites (subscribers): the same writes scripts/tenant.ts
 // does, from a page. A connection or a site exists only inside its tenant (Patric, 2026-09-18 and
 // 2026-09-19): both are made and listed on the tenant's page, and there is no global list of
-// either. A token or a bell secret is shown once, on the page that created it, never stored in
-// the clear.
+// either. A tenant's token is shown on its page (kept recoverable, encrypted); a site's bell
+// secret is shown once, when it is made, and never stored in the clear.
 import {
   addSubscriber,
   connections,
@@ -38,6 +38,7 @@ import {
 } from './html.js';
 import { numberOf, type Ctx, type Panel } from './context.js';
 
+/** A secret shown once, on the page that made it (a site's bell secret). */
 type Shown = { label: string; value: string };
 
 const ACTIVE = [
@@ -108,12 +109,12 @@ async function listPage(ctx: Ctx, flash?: string | null): Promise<ReturnType<Ctx
     ) +
     card(
       'Tenants',
-      'Every tenant has one token, shown once when it is made; its sites pull with it.',
+      'Every tenant has one token, shown on its page; its sites pull with it.',
       tenantRows(rows, links, sites),
     ) +
     card(
       'Add a tenant',
-      'Makes the tenant, gives it a number and shows its token once. Its connections and sites come next, on its page.',
+      'Makes the tenant, gives it a number and shows its token on its page. Its connections and sites come next, there too.',
       form(
         '/admin/tenants',
         ctx.csrf,
@@ -139,6 +140,9 @@ async function tenantPage(
   const once = shown
     ? `<div class="alert alert-important alert-success" role="alert"><strong>${escape(shown.label)}</strong>: copy it now, it is shown once and never again.${pre(shown.value)}</div>`
     : '';
+  const token = tenant.token
+    ? `<code class="user-select-all">${escape(tenant.token)}</code>`
+    : '<span class="text-secondary">Set before tokens were shown here; use “New token” to set and reveal one.</span>';
   const body =
     intro(
       `Everything about ${escape(tenant.display_name)}: the licence and the token its sites pull with, the CRM connections its records come from, and the sites that show them.`,
@@ -151,6 +155,7 @@ async function tenantPage(
         kv([
           ['Tenant number', `<code>${escape(tenant.id)}</code>`],
           ['Licence', licence(tenant)],
+          ['Token', token],
           ['Connections', escape(own.length)],
           ['Sites', escape(ownSites.length)],
         ]) +
@@ -244,10 +249,7 @@ export const tenantPanels: Panel[] = [
       const id = await createTenant({ displayName: name, token });
       const tenant = await tenantById(id);
       if (!tenant) return listPage(ctx, `!Tenant ${id} could not be read back.`);
-      return tenantPage(ctx, tenant, `Tenant #${id} ${name} created.`, {
-        label: `Token for ${name}`,
-        value: token,
-      });
+      return tenantPage(ctx, tenant, `Tenant #${id} ${name} created. Its token is shown below.`);
     },
   },
   {
@@ -267,14 +269,11 @@ export const tenantPanels: Panel[] = [
       if (!tenant) return ctx.redirect('/admin/tenants', '!No such tenant.');
       const token = newSecret();
       await updateTenant(tenant.id, { token });
+      const updated = (await tenantById(tenant.id)) ?? tenant;
       return tenantPage(
         ctx,
-        tenant,
-        `New token for ${tenant.display_name}; the old one stops working now.`,
-        {
-          label: `Token for ${tenant.display_name}`,
-          value: token,
-        },
+        updated,
+        `New token for ${tenant.display_name}; the old one stops working now. The new one is shown below.`,
       );
     },
   },

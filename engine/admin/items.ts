@@ -11,9 +11,9 @@ import {
   form,
   grid,
   intro,
+  json,
   kv,
   link,
-  pre,
   select,
   table,
   when,
@@ -64,9 +64,9 @@ function itemPage(ctx: Ctx, row: ItemRow, events: Awaited<ReturnType<typeof quer
     ]),
   );
   const faces = grid([
-    card('Raw', 'The record exactly as the CRM sent it.', pre(row.raw)),
-    card('Unified', 'The same record in Core’s one shape, whatever the CRM.', pre(unified)),
-    card('Display', 'The values the sites show, computed by the rules.', pre(display ?? {})),
+    card('Raw', 'The record exactly as the CRM sent it.', json(row.raw)),
+    card('Unified', 'The same record in Core’s one shape, whatever the CRM.', json(unified)),
+    card('Display', 'The values the sites show, computed by the rules.', json(display ?? {})),
   ]);
   const actions = card(
     'Recompute',
@@ -170,7 +170,7 @@ export const itemPanels: Panel[] = [
         card(
           'Result',
           'How many records were examined and changed, and any failures.',
-          pre(report) + `<p>${link(back, 'Back to the record')}</p>`,
+          json(report) + `<p>${link(back, 'Back to the record')}</p>`,
         ),
       );
     },

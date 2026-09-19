@@ -9,7 +9,7 @@ import { recompute } from '../recompute.js';
 import { ring, type BellKind } from '../bells.js';
 import { logEvent } from '../events.js';
 import { DATATYPES, type Datatype, type LifecycleEvent } from '../adapter-api/types.js';
-import { card, escape, field, form, grid, intro, link, pre, select } from './html.js';
+import { card, escape, field, form, grid, intro, json, link, select } from './html.js';
 import { numberOf, officesOf, type Ctx, type Panel } from './context.js';
 
 const datatypeOf = (value: string | undefined): Datatype | undefined =>
@@ -158,7 +158,7 @@ export const testPanels: Panel[] = [
       });
       return page(ctx, {
         title: `GET /v1/changes?datatype=${datatype}&after=${after}&limit=${limit} as ${tenantId}`,
-        html: `<p>${items.length} item(s) · ${escape(size.plain)} bytes plain, ${escape(size.gzip)} bytes gzipped</p>${pre(body)}`,
+        html: `<p>${items.length} item(s) · ${escape(size.plain)} bytes plain, ${escape(size.gzip)} bytes gzipped</p>${json(body)}`,
       });
     },
   },
@@ -227,7 +227,7 @@ export const testPanels: Panel[] = [
       });
       return page(ctx, {
         title: dryRun ? 'Preview (nothing written)' : 'Recompute',
-        html: pre(report),
+        html: json(report),
       });
     },
   },
