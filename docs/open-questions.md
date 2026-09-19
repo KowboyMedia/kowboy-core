@@ -39,7 +39,9 @@ the search table indexes it), and you strike and rename in the table. Or you sen
 
 `[crm-vitec]` Patric's plan (2026-09-19): a small snippet on a client site running the old plugin
 answers, behind a secret header and read-only, (a) the ids per datatype and (b) the mapped record
-by id, and where the plugin keeps it, the raw API answer it stored for that record; the client's
-Vitec Connect key pair goes onto staging as a connection. An agent then fetches each pair at the
-same moment, maps by evidence, keeps a representative set as golden masters and flags only what the
-evidence cannot settle. Closes when the endpoint's address, its secret and the key pair arrive.
+by id together with the two raw answers its mapper merged (the old API and the new one, since
+the old plugin read both); the client's Vitec Connect key pair goes onto staging as a connection.
+An agent then fetches each pair at the same moment and maps by evidence: a field from the new API
+matches a path in the Connect payload; a field from the old API gets its name from the raw answer
+and is found in the extended Connect model by name and value; what is left is a short list for
+Patric. A representative set stays as golden masters. Closes when the endpoint's address, its secret and the key pair arrive.
