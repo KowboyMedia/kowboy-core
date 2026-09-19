@@ -178,7 +178,7 @@ describe('the admin panel', () => {
 
     const saved = await post('/admin/connections/acme-fake', { offices: 'B-1', active: 'yes' });
     expect(saved.status).toBe(303);
-    const list = await (await get('/admin/connections')).text();
+    const list = await (await get(`/admin/tenants/${TENANT}`)).text();
     expect(list).toContain('B-1');
     expect(list).not.toContain('B-2');
 

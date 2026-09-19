@@ -78,10 +78,10 @@ export const settingsPanels: Panel[] = [
           ),
         ) +
         card(
-          'Purge watermark per tenant',
-          'A site whose position is below its tenant’s watermark is told to start over from the beginning. The watermark moves when a tenant is purged and loaded again.',
+          'Start-over point per tenant',
+          'When a record is deleted, Core keeps a marker for 90 days so that every site hears about the deletion at its next pull; then the marker is removed for good. The number here is the position up to which markers are gone. A site whose last pull lies before that point would miss deletions, so Core tells it to pull everything again: it rewrites all it has and drops the rest. The point moves only when housekeeping removes old markers, so it affects only a site that has not pulled for 90 days.',
           table(
-            ['Tenant', 'Watermark', 'Active'],
+            ['Tenant', 'Start-over point', 'Licence'],
             tenantRows.map((tenant) => [
               `<code>${escape(tenant.id)}</code>`,
               escape(tenant.purge_watermark),

@@ -33,21 +33,21 @@ connections, lifecycle events, health, the event log) becomes a panel.
 1. **Overview.** The health checks as `/v1/health` reports them, live; items per tenant and
    datatype (live and tombstoned); the worker's last heartbeat; the version and the migrations
    applied; the last 20 events. The first page after login.
-2. **Tenants.** The list, with each tenant's connections and sites counted; add one. A tenant's
-   page holds everything about that customer (Patric, 2026-09-18, question 39): name and licence
-   (active or not), the token shown once and rotated, its connections (add one here; open one for
-   its login, offices and loads), and its sites (label, bell URL, active, last pull, last bell and
-   its status; add one and get its bell secret once; rotate the secret; ring it now, delta or
-   forcerefresh). The token and the bell secret go into the site's own settings by hand. An
-   inactive tenant is a disabled licence (2026-09-18): its sites get no bell and no page, and keep
-   showing what they have; their administrators see one notice saying so.
-3. **Connections.** The overview of every connection across tenants: the CRM (adapter), the
-   licensed offices, active or not, login set or missing, last ingest and last error, each linked
-   to its page and its tenant. A connection is made on its tenant's page. Its own page: the
-   credentials as a write-only form the adapter declares (never displayed), the offices, active or
-   not, the actions (load everything, load added offices, resync, remove) and, below, the adapter's
-   own status fragment (for Vitec: last catch-up and comparison, what is waiting on the fetch list,
-   records that keep failing).
+2. **Tenants.** The list, with each tenant's licence, connections and sites counted; add one. A
+   tenant's page holds everything about that customer (Patric, 2026-09-18 and 2026-09-19): the
+   licence and the token (shown once, rotated), the name, its connections (a table, and "Add a
+   connection" folded under it; open one for its login, offices and loads) and its sites (a
+   table with one actions menu per row: ring it now, delta or forcerefresh, a new bell secret
+   shown once, and an edit page for its label, bell URL and active flag; "Add a site" folded
+   under the table). The token and the bell secret go into the site's own settings by hand. A
+   disabled licence stops the bells and the pulls; the sites keep showing what they have, and
+   their administrators see one notice saying so.
+3. **Connections.** A connection exists only inside its tenant (Patric, 2026-09-19): there is no
+   global list. Its own page, reached from the tenant's page: the credentials as a write-only
+   form the adapter declares (never displayed), the offices, active or not, the actions (load
+   everything, load added offices, resync, remove) and, below, the adapter's own status fragment
+   (for Vitec: last catch-up and comparison, what is waiting on the fetch list, records that keep
+   failing).
 4. **Adapter panels.** One per adapter, from `adapters/<provider>/admin/`. Every adapter page
    opens with its setup directions ("Set up Vitec"): the steps in order, built from what the
    adapter reads, and kept true by a test in the adapter that fails when a setting, a lifecycle
@@ -72,8 +72,14 @@ connections, lifecycle events, health, the event log) becomes a panel.
      mapper makes of it (unified and display), a dry run that writes nothing.
      Every run is logged as an event with who ran it.
 8. **Settings.** Core's configuration as read from the environment, shown read-only (page size,
-   bell throttle, event retention, gzip level); the purge watermark per tenant; run housekeeping
-   now (tombstone purge, event retention).
+   bell throttle, event retention, gzip level); the start-over point per tenant, explained in
+   plain words (the position up to which deletion markers are gone, so a site that pulled before
+   it is told to pull everything again); run housekeeping now (tombstone purge, event retention).
+
+One rule for every button (Patric, 2026-09-19): a card's own action is a blue button, a secondary
+action next to other things is a small outlined one, a removal is a red outlined one, and a row's
+actions sit in one menu. Filters and forms offer tenants, connections and datatypes as dropdowns,
+never as free text.
 
 Order of building: 1, 3 with the Vitec fragment, 5, 7, 6, 2, 8.
 
