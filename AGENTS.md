@@ -47,7 +47,7 @@ Lint findings (including function complexity), duplicate code, dead code (unused
 - **The CRM's list defines what exists.** Core syncs what a CRM lists for the sites (Vitec: the marketed estates) and nothing else. In the list: on the sites. A Remove notification, or gone from the list: deleted, without a fetch. Core and its adapters decide nothing from a field's value: no publish, status or visibility logic anywhere in Core (Patric, 2026-09-17).
 - **Tests are the acceptance.** If something can't be tested automatically, raise it as a design problem. Never add a manual step.
 - **Anything derived must be patchable** from stored raw data without CRM traffic.
-- **No legacy access.** Never read, request or search old plugin repos, other repositories, legacy code or other conversations. Anything needed from the past arrives as human-written specs, ledger entries or golden masters.
+- **No legacy access, and nothing from the old plugins.** Never read, request or search old plugin repos, other repositories, legacy code or other conversations. **Under no circumstances take code or concepts from the WordPress plugins v1, v2 or v3** unless Patric explicitly asks for it or approves it, item by item; this is a hard rule, not a guideline (Patric, 2026-09-19). Anything needed from the past arrives as human-written specs, ledger entries or golden masters.
 
 ### Code
 

@@ -81,7 +81,7 @@ Formatting is applied by the formatter. Line endings are fixed by `.gitattribute
 2. **The adapter bends to the engine.**
    - No CRM-specific branches, flags, config keys or workarounds in the engine, ever.
    - If an adapter needs something the adapter API doesn't offer, the engine gets a new _generic_ capability that any adapter could use. That needs approval (E3).
-3. **No legacy access.**
+3. **No legacy access.** Under no circumstances are code or concepts taken from the WordPress plugins v1, v2 or v3 unless Patric explicitly asks or approves, item by item (2026-09-19).
 4. **One code path per concern.** No options or flags for cases that don't exist.
 5. **Readable code.** Understandable from a few files. Avoid framework-style layers.
 6. **Leave files you touch free of warnings.**
