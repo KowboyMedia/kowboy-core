@@ -74,6 +74,15 @@ export const settingsPanels: Panel[] = [
                 ),
                 'Where the login links come from.',
               ],
+              [
+                'Email login',
+                escape(
+                  config.loginWithoutEmail
+                    ? 'PAUSED for maintenance: an allowed address logs in from the form, no mailed link'
+                    : 'normal: a link is mailed',
+                ),
+                'Whether the mailed login link is temporarily bypassed (ADMIN_LOGIN_WITHOUT_EMAIL).',
+              ],
             ],
           ),
         ) +

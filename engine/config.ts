@@ -5,6 +5,10 @@ export type Config = {
   adminSecret: string;
   /** Email domains whose addresses may log in to the admin panel; empty means nobody. */
   adminEmailDomains: string[];
+  /** Maintenance switch (Patric, 2026-09-19): while the mailbox is down, an allowed-domain address
+   * logs in straight from the form, with no mailed link. Off unless ADMIN_LOGIN_WITHOUT_EMAIL is
+   * exactly "true"; turn it off again by unsetting it. */
+  adminLoginWithoutEmail: boolean;
   /** The login mail's sender and the token of the service that sends it; unset means no mail. */
   mailFrom: string | null;
   postmarkServerToken: string | null;
@@ -32,6 +36,7 @@ export function loadConfig(): Config {
       .split(',')
       .map((domain) => domain.trim().toLowerCase())
       .filter(Boolean),
+    adminLoginWithoutEmail: process.env.ADMIN_LOGIN_WITHOUT_EMAIL === 'true',
     mailFrom: process.env.MAIL_FROM || null,
     postmarkServerToken: process.env.POSTMARK_SERVER_TOKEN || null,
     credentialsKey: required('CREDENTIALS_KEY'),
