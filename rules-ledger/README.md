@@ -5,7 +5,7 @@ One entry per rule, in plain language, no code (strategy §11). Each entry becom
 (docs/field-tables.md) and decides nothing from a value (AGENTS.md): every entry here formats
 what the CRM sent, or lays it out; none classifies it.
 
-Drafted by an agent from Patric's decisions of 2026-09-19 (questions 41 to 45 in chat, register 51) for Patric's review through the pull request; this folder is protected.
+Drafted by an agent from Patric's decisions of 2026-09-19 (questions 41 to 45 in chat, register 51) and approved by Patric the same day (register 53, "yes"); this folder is protected.
 
 | Id    | Rule                                   |
 | ----- | -------------------------------------- |
