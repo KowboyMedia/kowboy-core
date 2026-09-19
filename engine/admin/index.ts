@@ -36,6 +36,8 @@ export function adminPanelRoutes(options: {
   secret: string;
   /** Email domains whose addresses may log in. */
   domains: string[];
+  /** Maintenance mode: an allowed-domain address logs in from the form, with no mailed link. */
+  directLogin: boolean;
   adapters: AdminAdapter[];
   config: AdminConfig;
 }): RouteTable {
@@ -89,6 +91,7 @@ export function adminRoutesFor(engine: Engine, adapters: Adapter[]): RouteTable 
   return adminPanelRoutes({
     secret: engine.config.adminSecret,
     domains: engine.config.adminEmailDomains,
+    directLogin: engine.config.adminLoginWithoutEmail,
     adapters: adapters.map((adapter) => ({
       provider: adapter.manifest.provider,
       admin: adapter.admin,
@@ -97,6 +100,7 @@ export function adminRoutesFor(engine: Engine, adapters: Adapter[]): RouteTable 
       version: VERSION,
       loginDomains: engine.config.adminEmailDomains,
       mailFrom: engine.config.mailFrom,
+      loginWithoutEmail: engine.config.adminLoginWithoutEmail,
       pageSize: PAGE_SIZE,
       bellThrottleMs: engine.config.bellThrottleMs,
       eventRetentionDays: engine.config.eventRetentionDays,
@@ -106,7 +110,7 @@ export function adminRoutesFor(engine: Engine, adapters: Adapter[]): RouteTable 
   });
 }
 
-type Entrance = { secret: string; domains: string[] };
+type Entrance = { secret: string; domains: string[]; directLogin: boolean };
 type Gate = { response: Response } | { user: string };
 
 /** The pages anyone may open: the login form, its POST, and the link from the mail. */
@@ -118,7 +122,7 @@ async function entrance(
   if (request.path === '/admin/login') {
     return request.method === 'POST'
       ? requestLink(request, { ...options, form })
-      : { status: 200, headers: HTML, body: loginPage() };
+      : { status: 200, headers: HTML, body: loginPage(undefined, false, options.directLogin) };
   }
   const token = /^\/admin\/login\/([^/]+)$/.exec(request.path)?.[1];
   return token && request.method === 'GET' ? openLink(request, options.secret, token) : null;

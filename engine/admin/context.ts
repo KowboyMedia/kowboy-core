@@ -13,6 +13,8 @@ export type AdminConfig = {
   /** Email domains whose addresses may log in, and the login mail's sender. */
   loginDomains: string[];
   mailFrom: string | null;
+  /** Maintenance switch: the mailed login link is bypassed for allowed addresses. */
+  loginWithoutEmail: boolean;
   pageSize: number;
   bellThrottleMs: number;
   eventRetentionDays: number;
