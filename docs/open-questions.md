@@ -15,12 +15,16 @@ invented from the SRS's illustrative example and has been removed.
 A rule needs two things first: a field to compute over, and a ledger entry saying what the output
 should be. `rules-ledger/` is protected and empty, so nothing can be written until an entry exists.
 
-## 50. The CDN's URL scheme for images
+## 50. Images: the widths the CDN serves, and what a record carries per image
 
-`[core]` `[crm]` The universal model carries image URLs as Kowboy CDN URLs, rewritten from the
-CRM's URLs in the adapter's mapping (question 6, 2026-09-19). The rewrite needs the CDN's rule:
-how a CRM image's address becomes its CDN address (a prefix in front of the CRM's URL, an id, or a
-hash). Give the rule or the CDN app's documentation; nothing can be mapped until then.
+`[core]` `[crm-vitec]` Seen on norbanmakleri.se (2026-09-19, your pointer): an image address is
+`https://cdn-realestate.kowboy.se/r2/<customer id>/<record id>/<image id>_<width>.<extension>`,
+with the same ids Vitec Connect gives Core (`M31529`, `OBJ31529_…` or `HAN…`, `MED…`) and the
+extension from the payload; property pages use width 1920, agent pictures 1024. Two things the
+site cannot tell: (a) which widths the CDN serves, only those two or any; (b) what a record
+carries per image. Smaller: per image its id, order, category, extension and one address at width
+1920, with the pattern documented so a template can ask for another width. Say the widths, and
+yes or no to the smaller shape.
 
 ## 51. The universal field names: drafted for your correction, or sent by you
 
