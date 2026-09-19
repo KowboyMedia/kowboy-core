@@ -3,7 +3,7 @@
 import { connections, tenants } from '../storage/connections.js';
 import { queryEvents, type EventRow } from '../events.js';
 import { card, escape, field, intro, link, pre, select, table, when } from './html.js';
-import type { Panel } from './context.js';
+import { numberOf, type Panel } from './context.js';
 
 const enc = encodeURIComponent;
 
@@ -42,7 +42,7 @@ export const eventPanels: Panel[] = [
       const value = (name: string): string | undefined => query.get(name) || undefined;
       const [connectionId, datatype, remoteId] = (query.get('entity') ?? '').split('/');
       const events = await queryEvents({
-        tenantId: value('tenant'),
+        tenantId: numberOf(value('tenant')),
         connectionId: value('connection'),
         correlationId: value('correlation'),
         type: value('type'),
@@ -61,7 +61,13 @@ export const eventPanels: Panel[] = [
         select(
           'tenant',
           'Tenant',
-          [any, ...tenantRows.map((row) => ({ value: row.id }))],
+          [
+            any,
+            ...tenantRows.map((row) => ({
+              value: String(row.id),
+              label: `#${row.id} ${row.display_name}`,
+            })),
+          ],
           current('tenant'),
         ) +
         select(

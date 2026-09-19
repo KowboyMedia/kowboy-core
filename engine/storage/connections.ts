@@ -4,7 +4,7 @@ import type { Connection } from '../adapter-api/types.js';
 
 type ConnectionRow = {
   id: string;
-  tenant_id: string;
+  tenant_id: number;
   provider: string;
   credentials: string | null;
   licensed_offices: string[];
@@ -40,22 +40,19 @@ export async function connectionById(id: string): Promise<Connection | null> {
   return rows[0] ? toConnection(rows[0]) : null;
 }
 
-export async function upsertTenant(input: {
-  id: string;
-  displayName: string;
-  token: string;
-}): Promise<void> {
-  await db().query(
-    `insert into tenants (id, display_name, token_hmac) values ($1,$2,$3)
-     on conflict (id) do update set display_name = excluded.display_name, token_hmac = excluded.token_hmac`,
-    [input.id, input.displayName, tokenHmac(input.token, credentialsKey)],
+/** A new tenant: Core assigns the number, the name is the only thing a person types. */
+export async function createTenant(input: { displayName: string; token: string }): Promise<number> {
+  const { rows } = await db().query<{ id: number }>(
+    'insert into tenants (display_name, token_hmac) values ($1, $2) returning id',
+    [input.displayName, tokenHmac(input.token, credentialsKey)],
   );
+  return Number(rows[0]?.id);
 }
 
 export async function tenantForToken(
   token: string,
-): Promise<{ id: string; purgeWatermark: number } | null> {
-  const { rows } = await db().query<{ id: string; purge_watermark: string }>(
+): Promise<{ id: number; purgeWatermark: number } | null> {
+  const { rows } = await db().query<{ id: number; purge_watermark: string }>(
     'select id, purge_watermark from tenants where token_hmac = $1 and active = true',
     [tokenHmac(token, credentialsKey)],
   );
@@ -64,7 +61,7 @@ export async function tenantForToken(
 
 export async function upsertConnection(input: {
   id: string;
-  tenantId: string;
+  tenantId: number;
   provider: string;
   credentials?: string | null;
   licensedOffices?: string[];
@@ -106,7 +103,7 @@ export async function recordIngest(connectionId: string, error?: string): Promis
 
 export type SubscriberRow = {
   id: string;
-  tenant_id: string;
+  tenant_id: number;
   label: string;
   bell_url: string;
   active: boolean;
@@ -117,7 +114,7 @@ export type SubscriberRow = {
 };
 
 export async function addSubscriber(input: {
-  tenantId: string;
+  tenantId: number;
   label: string;
   bellUrl: string;
   bellSecret: string;
@@ -129,7 +126,7 @@ export async function addSubscriber(input: {
   return Number(rows[0]?.id);
 }
 
-export async function recordPull(tenantId: string, client: string | null): Promise<void> {
+export async function recordPull(tenantId: number, client: string | null): Promise<void> {
   await db().query(
     'update subscribers set last_pull_at = now(), last_client = coalesce($2, last_client) where tenant_id = $1',
     [tenantId, client],
@@ -146,7 +143,7 @@ export async function subscribers(): Promise<SubscriberRow[]> {
 // ---- What the admin panel lists and changes (docs/admin-panel.md) --------------------------------
 
 export type TenantRow = {
-  id: string;
+  id: number;
   display_name: string;
   active: boolean;
   purge_watermark: string;
@@ -162,7 +159,7 @@ export async function tenants(): Promise<TenantRow[]> {
 
 /** Rename a tenant, give it a new token (hashed like the script does), or switch it off. */
 export async function updateTenant(
-  id: string,
+  id: number,
   changes: { displayName?: string; token?: string; active?: boolean },
 ): Promise<void> {
   const sets: string[] = [];
@@ -180,7 +177,7 @@ export async function updateTenant(
 
 export type ConnectionListRow = {
   id: string;
-  tenant_id: string;
+  tenant_id: number;
   provider: string;
   licensed_offices: string[];
   active: boolean;

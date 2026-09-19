@@ -7,18 +7,19 @@ import { adminRoutesFor } from '../engine/admin/index.js';
 import { forgetLoginRequests } from '../engine/admin/auth.js';
 import { configureMail, type Mail } from '../engine/mail.js';
 import { db } from '../engine/storage/db.js';
-import { addSubscriber, upsertConnection, upsertTenant } from '../engine/storage/connections.js';
+import { addSubscriber, createTenant, upsertConnection } from '../engine/storage/connections.js';
 import { deliverLifecycleEvents } from '../engine/lifecycle.js';
 import { clearRegistry } from '../engine/registry.js';
 import type { Adapter } from '../engine/adapter-api/types.js';
 
-export const TENANT = 't_test';
+/** The test tenant's number: the first one made after every reset. */
+export const TENANT = 1;
 export const TOKEN = 'test-tenant-token';
 export const ADMIN_SECRET = 'test-admin-secret';
 /** An address at the domain the tests allow into the admin panel (ADMIN_EMAIL_DOMAINS). */
 export const ADMIN_EMAIL = 'operator@example.test';
 
-export type Bell = { kind: string; tenant_id: string; secret: string | undefined };
+export type Bell = { kind: string; tenant_id: number; secret: string | undefined };
 
 export type ConnectionInput = {
   id: string;
@@ -77,7 +78,8 @@ export async function harness(options: {
     respond(200);
   });
 
-  await upsertTenant({ id: TENANT, displayName: 'Test tenant', token: TOKEN });
+  const tenantId = await createTenant({ displayName: 'Test tenant', token: TOKEN });
+  if (tenantId !== TENANT) throw new Error(`the test tenant got number ${tenantId}, not ${TENANT}`);
   const connection = (input: ConnectionInput): Promise<void> =>
     upsertConnection({
       id: input.id,

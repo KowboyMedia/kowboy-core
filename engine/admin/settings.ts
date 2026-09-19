@@ -83,7 +83,7 @@ export const settingsPanels: Panel[] = [
           table(
             ['Tenant', 'Start-over point', 'Licence'],
             tenantRows.map((tenant) => [
-              `<code>${escape(tenant.id)}</code>`,
+              `<code>#${escape(tenant.id)}</code> ${escape(tenant.display_name)}`,
               escape(tenant.purge_watermark),
               yesNo(tenant.active),
             ]),

@@ -33,7 +33,7 @@ connections, lifecycle events, health, the event log) becomes a panel.
 1. **Overview.** The health checks as `/v1/health` reports them, live; items per tenant and
    datatype (live and tombstoned); the worker's last heartbeat; the version and the migrations
    applied; the last 20 events. The first page after login.
-2. **Tenants.** The list, with each tenant's licence, connections and sites counted; add one. A
+2. **Tenants.** The list, with each tenant's number, name, licence, connections and sites; add one by name, Core assigns the number. A
    tenant's page holds everything about that customer (Patric, 2026-09-18 and 2026-09-19): the
    licence and the token (shown once, rotated), the name, its connections (a table, and "Add a
    connection" folded under it; open one for its login, offices and loads) and its sites (a

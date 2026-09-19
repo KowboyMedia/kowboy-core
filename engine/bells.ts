@@ -14,7 +14,7 @@ export type BellKind = 'delta' | 'forcerefresh';
 
 type Subscriber = {
   id: string;
-  tenant_id: string;
+  tenant_id: number;
   bell_url: string;
   bell_secret: string;
 };
@@ -31,7 +31,7 @@ const window = (): string => `${throttleMs} milliseconds`;
 const LICENSED = 'exists (select 1 from tenants where id = subscribers.tenant_id and active)';
 
 /** Ring every active subscriber of a tenant: at once if outside the window, otherwise queued. */
-export async function ring(tenantId: string, kind: BellKind = 'delta'): Promise<void> {
+export async function ring(tenantId: number, kind: BellKind = 'delta'): Promise<void> {
   // The update is the claim: only one process wins the leading edge for a subscriber.
   const { rows: due } = await db().query<Subscriber>(
     `update subscribers set last_bell_at = now()

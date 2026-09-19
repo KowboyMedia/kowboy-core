@@ -23,9 +23,11 @@ export function adminRoutes(
       method: 'POST',
       path: '/v1/admin/bell',
       handler: guard(async (request) => {
-        const body = request.json<{ tenant_id?: string; kind?: BellKind }>();
-        if (!body.tenant_id) return jsonResponse(400, { error: 'tenant_id is required' });
-        await ring(body.tenant_id, body.kind ?? 'delta');
+        const body = request.json<{ tenant_id?: number; kind?: BellKind }>();
+        const tenantId = Number(body.tenant_id);
+        if (!Number.isInteger(tenantId) || tenantId <= 0)
+          return jsonResponse(400, { error: 'tenant_id is required' });
+        await ring(tenantId, body.kind ?? 'delta');
         return jsonResponse(202, { ok: true });
       }),
     },
@@ -68,13 +70,13 @@ export function adminRoutes(
       path: '/v1/admin/recompute',
       handler: guard(async (request) => {
         const body = request.json<{
-          tenant_id?: string;
+          tenant_id?: number;
           connection_id?: string;
           datatype?: Datatype;
           dry_run?: boolean;
         }>();
         const scope: Scope = {
-          tenantId: body.tenant_id,
+          tenantId: body.tenant_id === undefined ? undefined : Number(body.tenant_id),
           connectionId: body.connection_id,
           datatype: body.datatype,
         };
@@ -98,7 +100,7 @@ function eventQuery(query: URLSearchParams): EventQuery {
   return {
     entity: connectionId && datatype && remoteId ? { connectionId, datatype, remoteId } : undefined,
     connectionId: value('connection'),
-    tenantId: value('tenant'),
+    tenantId: value('tenant') === undefined ? undefined : Number(value('tenant')),
     correlationId: value('correlation'),
     type: value('type'),
     from: value('from'),

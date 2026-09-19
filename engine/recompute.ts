@@ -11,7 +11,7 @@ import { changedFields } from './ingest.js';
 import type { Canonical, Datatype } from './adapter-api/types.js';
 
 export type Scope = {
-  tenantId?: string;
+  tenantId?: number;
   connectionId?: string;
   datatype?: Datatype;
   /** One item, from the admin panel. */
@@ -59,7 +59,7 @@ export async function recompute(
     remoteId: scope.remoteId,
     rulesVersionBefore: scope.staleRulesOnly ? RULES_VERSION : undefined,
   });
-  const touchedTenants = new Set<string>();
+  const touchedTenants = new Set<number>();
 
   for (const item of items) {
     report.examined += 1;

@@ -29,9 +29,9 @@ Tenants, connections and subscribers are also added with one script, through the
 the panel uses, so tokens are hashed and CRM credentials encrypted the way the engine expects:
 
 ```bash
-node dist/scripts/tenant.js add-tenant t_acme "Acme Mäkleri"        # prints the tenant token once
-node dist/scripts/tenant.js add-connection acme-1 t_acme <provider> '<credentials>' 100,205
-node dist/scripts/tenant.js add-subscriber t_acme "acme.se" https://acme.se/wp-json/core/v1/bell
+node dist/scripts/tenant.js add-tenant "Acme Mäkleri"               # prints the tenant's number and token once
+node dist/scripts/tenant.js add-connection acme-1 1 <provider> '<credentials>' 100,205
+node dist/scripts/tenant.js add-subscriber 1 "acme.se" https://acme.se/wp-json/core/v1/bell
 ```
 
 The Vitec adapter's connection format, webhook URL and settings (`VITEC_WEBHOOK_TOKEN`,
