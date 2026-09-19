@@ -110,7 +110,11 @@ instructions instead of results.
   makes every update that follows. "Let me know and I'll make all updates", never "then update the
   config files".
 - **Write for the product owner.** Plain words, short, what it means for the product. No git,
-  infrastructure or configuration vocabulary unless he asked for it.
+  infrastructure or configuration vocabulary unless he asked for it. Patric does not work with
+  git and does not know its words: to him never "branch", "merge", "commit", "push", "pull
+  request", "rebase" or "conflict"; say "saved", "combined with the other session's work", "in
+  staging" or "live" (Patric, 2026-09-19). Another person chatting with an agent may get the
+  technical words.
 - **One number per question, the register's.** A question to Patric carries its
   `docs/open-questions.md` number in chat too, never a fresh "1."; numbers keep counting across
   sessions. Each question is phrased so that a yes, a no or a pick answers it, with the smaller

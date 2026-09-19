@@ -121,6 +121,11 @@ the first item that is not done, and keep the file current. Decisions and open q
   `VITEC_ESTATE_ID` (the Vitec test account, `scripts/vitec-probe.ts`) and `GITHUB_TOKEN` (the
   repository, but not its settings: variables and secrets answer 403). There is no Sentry token.
   Values are never printed, logged or committed.
+- A new session's branch starts from `main`, which is production and far behind `staging`
+  (2026-09-19: a side session started 53 changes back and had to be combined afterwards). Before
+  any work, a fresh branch is moved onto staging's latest and pushed
+  (`git fetch origin staging && git reset --hard origin/staging`); a branch that already carries
+  work merges `origin/staging` into itself instead. AGENTS.md and this file are read from there.
 - Never invent a contract field or a business rule.
 - Core parses no CRM data (AGENTS.md): every tag, slug, status, flag or formatted string is the
   site's, from the payload it stores. Never propose otherwise, in code or in chat.
