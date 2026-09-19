@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 52 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and are not assigned).
+answering is quick. Next number: 53 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and are not assigned).
 
 ## 5. There are no business rules, and none can be written yet
 
@@ -34,3 +34,14 @@ onto universal names, so templates and the search table use the same names for e
 ask for "the plugin's field list" was for those universal names. Smaller: I draft one table per
 entity from the SRS and Vitec's payload (name, type, meaning, the Vitec field behind it, whether
 the search table indexes it), and you strike and rename in the table. Or you send the names.
+
+## 52. The pairs for the Vitec mapping: a read endpoint on a client site, plus its Vitec key pair
+
+`[crm-vitec]` Patric's plan (2026-09-19): a small snippet on a client site running the old plugin
+answers, behind a secret header and read-only, (a) the ids per datatype and (b) the mapped record
+by id together with the two raw answers its mapper merged (the old API and the new one, since
+the old plugin read both); the client's Vitec Connect key pair goes onto staging as a connection.
+An agent then fetches each pair at the same moment and maps by evidence: a field from the new API
+matches a path in the Connect payload; a field from the old API gets its name from the raw answer
+and is found in the extended Connect model by name and value; what is left is a short list for
+Patric. A representative set stays as golden masters. Closes when the endpoint's address, its secret and the key pair arrive.
