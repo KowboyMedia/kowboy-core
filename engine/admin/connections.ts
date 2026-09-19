@@ -17,7 +17,6 @@ import {
   field,
   form,
   grid,
-  intro,
   kv,
   link,
   pill,
@@ -44,24 +43,12 @@ const href = (id: string): string => `/admin/connections/${encodeURIComponent(id
 const loginPill = (row: ConnectionListRow): string =>
   row.has_credentials ? pill('ok', 'set') : pill('bad', 'missing');
 
-/** The connections as a table; on a tenant's page the tenant column is left out. */
-export function connectionTable(rows: ConnectionListRow[], withTenant: boolean): string {
+/** A tenant's connections as a table, on the tenant's page. */
+export function connectionTable(rows: ConnectionListRow[]): string {
   return table(
-    [
-      'Connection',
-      ...(withTenant ? ['Tenant'] : []),
-      'CRM',
-      'Offices',
-      'Active',
-      'Login',
-      'Last ingest',
-      'Last error',
-    ],
+    ['Connection', 'CRM', 'Offices', 'Active', 'Login', 'Last ingest', 'Last error'],
     rows.map((row) => [
       link(href(row.id), row.id),
-      ...(withTenant
-        ? [link(`/admin/tenants/${encodeURIComponent(row.tenant_id)}`, row.tenant_id)]
-        : []),
       escape(row.provider),
       escape(row.licensed_offices.join(', ')),
       yesNo(row.active),
@@ -92,19 +79,6 @@ export function addConnectionForm(ctx: Ctx, tenantId: string): string {
         'The office ids this tenant is licensed for, one per line or comma-separated. Core keeps records of these offices only.',
       ),
     { submit: 'Add connection', hidden: { tenant: tenantId } },
-  );
-}
-
-function listPage(rows: ConnectionListRow[]): string {
-  return (
-    intro(
-      'Every connection across all tenants: a tenant’s link to one CRM, which offices belong to the tenant, and the login Core uses there. Everything the CRM lists for those offices ends up in Core and on the tenant’s sites. Connections are made on the tenant’s page.',
-    ) +
-    card(
-      'Connections',
-      'Open one to change its login or offices, to load or remove its records, and to see what its adapter knows.',
-      connectionTable(rows, true),
-    )
   );
 }
 
@@ -195,7 +169,7 @@ async function detailPage(ctx: Ctx, row: ConnectionListRow): Promise<string> {
       'About this connection',
       'What it links, and when it last brought something in.',
       kv([
-        ['Tenant', `<code>${escape(row.tenant_id)}</code>`],
+        ['Tenant', link(`/admin/tenants/${encodeURIComponent(row.tenant_id)}`, row.tenant_id)],
         ['CRM', escape(row.provider)],
         ['Active', yesNo(row.active)],
         ['Login', loginPill(row)],
@@ -243,11 +217,6 @@ async function saveConnection(ctx: Ctx, row: ConnectionListRow): Promise<string 
 }
 
 export const connectionPanels: Panel[] = [
-  {
-    method: 'GET',
-    pattern: /^\/admin\/connections$/,
-    handle: async (ctx) => ctx.render('Connections', listPage(await connections())),
-  },
   {
     method: 'POST',
     pattern: /^\/admin\/connections$/,

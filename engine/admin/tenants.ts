@@ -1,8 +1,8 @@
 // Tenants, each with its connections and its sites (subscribers): the same writes scripts/tenant.ts
-// does, from a page. Connections and sites are made on the tenant's page, never from a global list
-// (Patric, 2026-09-18, question 39: the token paste stays, and everything about a customer is in one
-// place). A token or a bell secret is shown once, on the page that created it, never stored in the
-// clear.
+// does, from a page. A connection or a site exists only inside its tenant (Patric, 2026-09-18 and
+// 2026-09-19): both are made and listed on the tenant's page, and there is no global list of
+// either. A token or a bell secret is shown once, on the page that created it, never stored in
+// the clear.
 import {
   addSubscriber,
   connections,
@@ -18,7 +18,24 @@ import {
 import { newSecret } from '../storage/crypto.js';
 import { ring, type BellKind } from '../bells.js';
 import { addConnectionForm, connectionTable } from './connections.js';
-import { card, escape, field, form, intro, link, pre, select, table, when, yesNo } from './html.js';
+import {
+  card,
+  details,
+  escape,
+  field,
+  form,
+  grid,
+  intro,
+  kv,
+  link,
+  menu,
+  pill,
+  pre,
+  select,
+  table,
+  when,
+  yesNo,
+} from './html.js';
 import type { Ctx, Panel } from './context.js';
 
 type Shown = { label: string; value: string };
@@ -35,13 +52,16 @@ const href = (id: string): string => `/admin/tenants/${encodeURIComponent(id)}`;
 const tenantById = async (id: string): Promise<TenantRow | undefined> =>
   (await tenants()).find((tenant) => tenant.id === id);
 
+const siteById = async (id: number): Promise<SubscriberRow | undefined> =>
+  (await subscribers()).find((row) => String(row.id) === String(id));
+
 function tenantRows(rows: TenantRow[], links: ConnectionListRow[], sites: SubscriberRow[]): string {
   return table(
-    ['Tenant', 'Name', 'Active', 'Connections', 'Sites'],
+    ['Tenant', 'Name', 'Licence', 'Connections', 'Sites'],
     rows.map((tenant) => [
       link(href(tenant.id), tenant.id),
       escape(tenant.display_name),
-      yesNo(tenant.active),
+      licence(tenant),
       escape(links.filter((row) => row.tenant_id === tenant.id).length),
       escape(sites.filter((site) => site.tenant_id === tenant.id).length),
     ]),
@@ -49,43 +69,34 @@ function tenantRows(rows: TenantRow[], links: ConnectionListRow[], sites: Subscr
   );
 }
 
+const licence = (tenant: TenantRow): string =>
+  tenant.active ? pill('ok', 'active') : pill('bad', 'disabled');
+
+/** One row per site, with its actions in one menu (Patric, 2026-09-19: one style everywhere). */
 function siteRows(ctx: Ctx, sites: SubscriberRow[]): string {
-  const bell = (site: SubscriberRow, kind: BellKind): string =>
+  const bell = (site: SubscriberRow, kind: BellKind, label: string): string =>
     form(`/admin/sites/${site.id}/ring`, ctx.csrf, '', {
-      submit: kind === 'delta' ? 'Ring: pull changes' : 'Ring: pull everything',
-      inline: true,
+      submit: label,
+      menu: true,
       hidden: { tenant: site.tenant_id, kind },
     });
   return table(
-    ['Site', 'Bell URL', 'Active', 'Last pull', 'Last bell', 'Actions'],
+    ['Site', 'Bell URL', 'Active', 'Last pull', 'Last bell', ''],
     sites.map((site) => [
       escape(site.label),
-      escape(site.bell_url),
+      `<code>${escape(site.bell_url)}</code>`,
       yesNo(site.active),
-      `${when(site.last_pull_at)} <span class="muted">${escape(site.last_client ?? '')}</span>`,
-      `${when(site.last_bell_at)} <span class="muted">${escape(site.last_bell_status ?? '')}</span>`,
-      bell(site, 'delta') +
-        bell(site, 'forcerefresh') +
+      `${when(site.last_pull_at)} <span class="text-secondary">${escape(site.last_client ?? '')}</span>`,
+      `${when(site.last_bell_at)} <span class="text-secondary">${escape(site.last_bell_status ?? '')}</span>`,
+      menu('Actions', [
+        bell(site, 'delta', 'Ring: pull changes'),
+        bell(site, 'forcerefresh', 'Ring: pull everything'),
         form(`/admin/sites/${site.id}/secret`, ctx.csrf, '', {
           submit: 'New bell secret',
-          inline: true,
-        }) +
-        `<details><summary>Edit</summary>` +
-        form(
-          `/admin/sites/${site.id}`,
-          ctx.csrf,
-          field('label', 'Label', { value: site.label }) +
-            field('url', 'Bell URL', { value: site.bell_url }) +
-            select(
-              'active',
-              'Active',
-              ACTIVE,
-              site.active ? 'yes' : 'no',
-              'An inactive site is not rung.',
-            ),
-          { submit: 'Save', hidden: { tenant: site.tenant_id } },
-        ) +
-        '</details>',
+          menu: true,
+        }),
+        `<a class="dropdown-item" href="/admin/sites/${site.id}/edit">Edit</a>`,
+      ]),
     ]),
     'No sites yet.',
   );
@@ -95,7 +106,7 @@ async function listPage(ctx: Ctx, flash?: string | null): Promise<ReturnType<Ctx
   const [rows, links, sites] = await Promise.all([tenants(), connections(), subscribers()]);
   const body =
     intro(
-      'A tenant is one customer of Kowboy. Open one for its connections (its CRM logins and offices), its sites, its token and its licence. An inactive tenant is a disabled licence: its sites get no bell and no page, and keep showing what they have.',
+      'A tenant is one customer of Kowboy. Open one for its licence and token, its connections (the CRM logins and offices its records come from) and its sites. A disabled licence stops the bells and the pulls; the sites keep showing what they have.',
     ) +
     card(
       'Tenants',
@@ -137,61 +148,94 @@ async function tenantPage(
     : '';
   const body =
     intro(
-      `Everything about ${escape(tenant.display_name)}: its licence and token, the CRM connections its records come from, and the sites that show them.`,
+      `Everything about ${escape(tenant.display_name)}: the licence and the token its sites pull with, the CRM connections its records come from, and the sites that show them.`,
     ) +
     once +
+    grid([
+      card(
+        'Licence and token',
+        'The token goes into every site’s settings; a new one retires the old one at once.',
+        kv([
+          ['Tenant id', `<code>${escape(tenant.id)}</code>`],
+          ['Licence', licence(tenant)],
+          ['Connections', escape(own.length)],
+          ['Sites', escape(ownSites.length)],
+        ]) +
+          `<div class="mt-3">${form(`${href(tenant.id)}/token`, ctx.csrf, '', { submit: 'New token', inline: true })}</div>`,
+      ),
+      card(
+        'Name and licence',
+        'A disabled licence stops the bells and the pulls; the sites keep showing what they have.',
+        form(
+          href(tenant.id),
+          ctx.csrf,
+          field('name', 'Name', { value: tenant.display_name }) +
+            select('active', 'Licence', ACTIVE, tenant.active ? 'yes' : 'no'),
+          { submit: 'Save' },
+        ),
+      ),
+    ]) +
     card(
-      `Tenant ${escape(tenant.id)}`,
-      'The name is for people; "Active" is the licence. A new token retires the old one at once and goes into every site’s settings.',
+      'Connections',
+      'A connection is this tenant’s link to one CRM: the offices that belong to it, and the login Core uses there. Open one for its login, its offices and its loads.',
+      connectionTable(own) + details('Add a connection', addConnectionForm(ctx, tenant.id)),
+    ) +
+    card(
+      'Sites',
+      'Core calls a site’s bell URL when this tenant has something new, and the site pulls with the token. The bell secret proves it was Core that called. "Pull changes" fetches what changed since the site’s last pull; "pull everything" makes it rewrite all it has.',
+      siteRows(ctx, ownSites) +
+        details(
+          'Add a site',
+          form(
+            '/admin/sites',
+            ctx.csrf,
+            field('label', 'Label', {
+              required: true,
+              help: 'What you call this site, for these pages only.',
+            }) +
+              field('url', 'Bell URL', {
+                required: true,
+                placeholder: 'https://site.example/wp-json/core/v1/bell',
+                help: 'The address Core calls when there is something new. A WordPress site with the plugin answers at /wp-json/core/v1/bell.',
+              }),
+            { submit: 'Add site', hidden: { tenant: tenant.id } },
+          ),
+        ),
+    );
+  return ctx.render(tenant.display_name, body, flash);
+}
+
+function sitePage(ctx: Ctx, site: SubscriberRow): ReturnType<Ctx['render']> {
+  const body =
+    intro(
+      `The site ${escape(site.label)} of tenant ${escape(site.tenant_id)}. Its token and bell secret are not shown here; make new ones from the tenant’s page.`,
+    ) +
+    card(
+      'Site',
+      'The label is for these pages; the bell URL is where Core calls.',
       form(
-        href(tenant.id),
+        `/admin/sites/${site.id}`,
         ctx.csrf,
-        field('name', 'Name', { value: tenant.display_name }) +
+        field('label', 'Label', { value: site.label, required: true }) +
+          field('url', 'Bell URL', { value: site.bell_url, required: true }) +
           select(
             'active',
             'Active',
             ACTIVE,
-            tenant.active ? 'yes' : 'no',
-            'No means a disabled licence: the sites are not rung and cannot pull, and keep what they show.',
+            site.active ? 'yes' : 'no',
+            'An inactive site is not rung.',
           ),
         { submit: 'Save' },
-      ) + form(`${href(tenant.id)}/token`, ctx.csrf, '', { submit: 'New token', inline: true }),
-    ) +
-    card(
-      'Connections',
-      'A connection is this tenant’s link to one CRM: which offices belong to it, and the login Core uses there. Open one to change its login or offices, to load or remove its records, and to see what its adapter knows.',
-      connectionTable(own, false) +
-        '<h4 class="mt-3">Add a connection</h4>' +
-        addConnectionForm(ctx, tenant.id),
-    ) +
-    card(
-      'Sites',
-      'Where the bell rings: Core calls a site’s bell URL when this tenant has something new, and the site pulls with the tenant’s token. The bell secret proves it was Core that called. "Pull changes" makes the site fetch what changed since its last pull; "pull everything" makes it rewrite all it has.',
-      siteRows(ctx, ownSites) +
-        '<h4 class="mt-3">Add a site</h4>' +
-        form(
-          '/admin/sites',
-          ctx.csrf,
-          field('label', 'Label', {
-            required: true,
-            help: 'What you call this site, for these pages only.',
-          }) +
-            field('url', 'Bell URL', {
-              required: true,
-              placeholder: 'https://site.example/wp-json/core/v1/bell',
-              help: 'The address Core calls when there is something new. A WordPress site with the plugin answers at /wp-json/core/v1/bell.',
-            }),
-          { submit: 'Add site', hidden: { tenant: tenant.id } },
-        ),
+      ) + `<p class="mt-3 mb-0">${link(href(site.tenant_id), 'Back to the tenant')}</p>`,
     );
-  return ctx.render(`Tenant ${tenant.id}`, body, flash);
+  return ctx.render(`Site ${site.label}`, body);
 }
 
 const yes = (value: string | undefined): boolean => value === 'yes';
 
 /** The page a site's action returns to: its tenant's. */
 async function tenantOfSite(id: number): Promise<TenantRow | undefined> {
-  const site = (await subscribers()).find((row) => String(row.id) === String(id));
+  const site = await siteById(id);
   return site ? tenantById(site.tenant_id) : undefined;
 }
 
@@ -269,6 +313,15 @@ export const tenantPanels: Panel[] = [
         label: `Bell secret for site ${id}`,
         value: bellSecret,
       });
+    },
+  },
+  {
+    method: 'GET',
+    pattern: /^\/admin\/sites\/(\d+)\/edit$/,
+    handle: async (ctx) => {
+      const site = await siteById(Number(ctx.params[0]));
+      if (!site) return { ...ctx.render('Not found', '<p>No such site.</p>'), status: 404 };
+      return sitePage(ctx, site);
     },
   },
   {

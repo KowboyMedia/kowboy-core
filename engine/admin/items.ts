@@ -2,6 +2,7 @@
 import { findItems, type ItemRow } from '../storage/items.js';
 import { queryEvents } from '../events.js';
 import { recompute } from '../recompute.js';
+import { connections } from '../storage/connections.js';
 import { DATATYPES, type Datatype } from '../adapter-api/types.js';
 import {
   card,
@@ -91,15 +92,21 @@ export const itemPanels: Panel[] = [
     handle: async (ctx) => {
       const query = ctx.request.query;
       const value = (name: string): string | undefined => query.get(name) || undefined;
-      const searched = ['datatype', 'id', 'office', 'connection'].some((name) => query.get(name));
+      // The form always sends the datatype, "any" included: a submitted form is a search.
+      const searched = query.has('datatype');
       const rows = searched
         ? await findItems({
             datatype: datatypeOf(value('datatype')),
             remoteId: value('id'),
             officeId: value('office'),
             connectionId: value('connection'),
+            limit: 100,
           })
         : [];
+      const connectionChoices = [
+        { value: '', label: 'any' },
+        ...(await connections()).map((row) => ({ value: row.id })),
+      ];
       const search = `<form method="get" action="/admin/items">${select(
         'datatype',
         'Datatype',
@@ -111,9 +118,12 @@ export const itemPanels: Panel[] = [
       })}${field('office', 'Office', {
         value: query.get('office') ?? '',
         help: 'An office id, to see one office’s records.',
-      })}${field('connection', 'Connection', {
-        value: query.get('connection') ?? '',
-      })}<button>Find</button></form>`;
+      })}${select(
+        'connection',
+        'Connection',
+        connectionChoices,
+        query.get('connection') ?? '',
+      )}<button class="btn btn-primary">Find</button></form>`;
       const body =
         intro(
           'Find one record and see it as the CRM sent it, as Core unified it, and as the sites show it, with everything that happened to it.',

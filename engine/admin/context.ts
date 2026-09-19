@@ -43,7 +43,6 @@ export type Panel = {
 const CORE_NAV: NavItem[] = [
   { href: '/admin', label: 'Overview' },
   { href: '/admin/tenants', label: 'Tenants' },
-  { href: '/admin/connections', label: 'Connections' },
   { href: '/admin/items', label: 'Items' },
   { href: '/admin/events', label: 'Events' },
   { href: '/admin/test', label: 'Test' },

@@ -242,15 +242,22 @@ export function select(
   return `<div class="mb-3"><label class="form-label" for="${escape(name)}">${escape(label)}</label><select class="form-select" name="${escape(name)}" id="${escape(name)}">${options}</select>${hint(help)}</div>`;
 }
 
-/** A POST form with the CSRF token; `inner` is HTML already. */
+/**
+ * A POST form with the CSRF token; `inner` is HTML already. One rule for every button on the
+ * panel (Patric, 2026-09-19): a card's own action is a blue button, a secondary action next to
+ * other things is a small outlined one, a removal is a red outlined one, and a row's actions sit
+ * in one menu.
+ */
 export function form(
   action: string,
   csrf: string,
   inner: string,
   options: {
     submit?: string;
-    /** A small button that sits in a table cell next to others. */
+    /** A small outlined button that sits next to others. */
     inline?: boolean;
+    /** An entry in a row's actions menu (see `menu`). */
+    menu?: boolean;
     hidden?: Record<string, string>;
     /** A red button: it removes or replaces something. */
     danger?: boolean;
@@ -259,11 +266,13 @@ export function form(
   const hidden = Object.entries(options.hidden ?? {})
     .map(([name, value]) => `<input type="hidden" name="${escape(name)}" value="${escape(value)}">`)
     .join('');
-  const button = options.danger
-    ? 'btn btn-outline-danger'
-    : options.inline
-      ? 'btn btn-outline-secondary btn-sm'
-      : 'btn btn-primary';
+  const button = options.menu
+    ? 'dropdown-item'
+    : options.danger
+      ? 'btn btn-outline-danger'
+      : options.inline
+        ? 'btn btn-outline-secondary btn-sm'
+        : 'btn btn-primary';
   const shape = options.inline ? ' class="d-inline-block me-1 mb-1"' : '';
   return `<form method="post" action="${escape(action)}"${shape}><input type="hidden" name="csrf" value="${escape(csrf)}">${hidden}${inner}<button class="${button}">${escape(options.submit ?? 'Save')}</button></form>`;
 }
@@ -299,6 +308,14 @@ export const when = (value: Date | string | null | undefined): string => {
   const iso = date.toISOString();
   return `<time class="text-nowrap" datetime="${iso}" title="${iso}">${stamp(date)}</time>`;
 };
+
+/** A row's actions in one small menu; the items are forms with `menu: true`, or links with `dropdown-item`. */
+export const menu = (label: string, items: string[]): string =>
+  `<div class="dropdown"><button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">${escape(label)}</button><div class="dropdown-menu">${items.join('')}</div></div>`;
+
+/** A section folded under its title, for a form that is used now and then. */
+export const details = (summary: string, inner: string): string =>
+  `<details class="mt-3"><summary class="fw-bold">${escape(summary)}</summary><div class="mt-3">${inner}</div></details>`;
 
 export const okBad = (ok: boolean, detail?: string | null): string =>
   pill(ok ? 'ok' : 'bad', ok ? 'ok' : 'failing') +
