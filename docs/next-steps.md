@@ -40,8 +40,8 @@ the first item that is not done, and keep the file current. Decisions and open q
    golden masters for Vitec wait for Gate 3.
    2026-09-19: the mappers copy and rename onto the universal names and keep the rest mirrored
    next to them, `schemas/` carries the names, and `display` comes from the first ledger entries
-   (R-001 to R-014, drafted for Patric's review) with a property's sections as data. Golden masters
-   for Vitec still wait for the pairs of question 52.
+   (R-001 to R-014, approved by Patric the same day, question 53) with a property's sections as
+   data. Golden masters for Vitec wait on question 52.
 4. ~~**In parallel, approved:** the client sync loops in `clients/wordpress/` and
    `clients/lovable-kit/` per SRS §8 and Appendices A and B.~~ Done 2026-09-15: both loops, both
    bell endpoints, both backstops, the WordPress updater and WP-CLI, and one scenario suite that
@@ -97,7 +97,9 @@ the first item that is not done, and keep the file current. Decisions and open q
     regular property lists leave out a project's homes (those with a `project_id`), and the
     project's page lists them through the property-list shortcode filtered on the project id
     (Patric, 2026-09-19). Status and bidding come as sent; what a site shows for them is the
-    site's template, per the register.
+    site's template, per the register. 2026-09-19: the shape is settled (question 55): the shortcode
+    gets a `project_id` attribute, and a list without one leaves out every property that carries a
+    `project_id`.
 
 ## Later, when Patric supplies them
 
@@ -112,7 +114,7 @@ the first item that is not done, and keep the file current. Decisions and open q
 - ~~The universal field names (question 51: drafted for Patric's correction, or sent by him) → item 2, then the Vitec mappers and `schemas/`.~~ Done 2026-09-19 (item 2).
 - Vitec test credentials and a staging deploy → open question 18.
 - Mspecs documentation → second adapter.
-- Rules ledger, parity inventory, real golden masters → Phase 5. The ledger's first fourteen entries are drafted (2026-09-19, for Patric's review); parity and golden masters wait for the pairs of question 52.
+- Rules ledger, parity inventory, real golden masters → Phase 5. The ledger's first fourteen entries are approved (2026-09-19, question 53); parity and golden masters wait on question 52.
 
 ## Standing rules for every session
 
