@@ -97,6 +97,12 @@ export const redirect = (to: string, flash?: string): Response => ({
 });
 
 /** Office ids typed into a form: separated by commas, spaces or newlines. */
+/** A form or query value as a positive whole number, or undefined. */
+export const numberOf = (value: string | undefined): number | undefined => {
+  const n = Number(value);
+  return value && Number.isInteger(n) && n > 0 ? n : undefined;
+};
+
 export const officesOf = (text: string): string[] =>
   text
     .split(/[\s,]+/)

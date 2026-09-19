@@ -18,7 +18,7 @@ export type Canonical = Record<string, unknown>;
 /** What an adapter is told about a connection. Credentials are the adapter's to use, never logged. */
 export type Connection = {
   id: string;
-  tenantId: string;
+  tenantId: number;
   provider: string;
   credentials: string | null;
   /** Empty means every office the credential can see (SRS §3). */

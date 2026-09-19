@@ -125,19 +125,21 @@ describe('the admin panel', () => {
   });
 
   it('adds a tenant, shows its token once, and the token pulls changes (AC 42)', async () => {
-    const page = await post('/admin/tenants', { id: 'acme', name: 'Acme Mäkleri' });
+    const page = await post('/admin/tenants', { name: 'Acme Mäkleri' });
     expect(page.status).toBe(200);
     const html = await page.text();
-    expect(html).toContain('Token for acme');
-    const token = shownAfter(html, 'Token for acme');
+    expect(html).toContain('Token for Acme Mäkleri');
+    const token = shownAfter(html, 'Token for Acme Mäkleri');
+    const acme = /\/admin\/tenants\/(\d+)\/token/.exec(html)?.[1] ?? '';
+    expect(acme).not.toBe('');
     expect(token.length).toBeGreaterThan(20);
     const pull = await fetch(`${running.baseUrl}/v1/changes?datatype=property`, {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(pull.status).toBe(200);
     // A second token retires the first.
-    const rotated = await post('/admin/tenants/acme/token', {});
-    const next = shownAfter(await rotated.text(), 'Token for acme');
+    const rotated = await post(`/admin/tenants/${acme}/token`, {});
+    const next = shownAfter(await rotated.text(), 'Token for Acme Mäkleri');
     expect(next).not.toBe(token);
     const old = await fetch(`${running.baseUrl}/v1/changes?datatype=property`, {
       headers: { authorization: `Bearer ${token}` },
@@ -147,7 +149,7 @@ describe('the admin panel', () => {
 
   it('adds a site with a bell secret shown once, and rings it', async () => {
     const page = await post('/admin/sites', {
-      tenant: TENANT,
+      tenant: String(TENANT),
       label: 'acme.se',
       url: 'http://127.0.0.1:9/bell',
     });
@@ -159,14 +161,14 @@ describe('the admin panel', () => {
     const overview = await (await get('/admin/tenants')).text();
     expect(overview).toContain(`/admin/tenants/${TENANT}`);
     const id = /\/admin\/sites\/(\d+)\/ring/.exec(listed)?.[1] ?? '';
-    const rang = await post(`/admin/sites/${id}/ring`, { tenant: TENANT, kind: 'delta' });
+    const rang = await post(`/admin/sites/${id}/ring`, { tenant: String(TENANT), kind: 'delta' });
     expect(rang.status).toBe(303);
   });
 
   it('creates a connection, saves it, and queues a lifecycle event the worker delivers', async () => {
     const created = await post('/admin/connections', {
       id: 'acme-fake',
-      tenant: TENANT,
+      tenant: String(TENANT),
       provider: 'fake-polling',
       offices: 'B-1, B-2',
     });
@@ -221,7 +223,7 @@ describe('the admin panel', () => {
     });
     await poll();
     const result = await post('/admin/test/changes', {
-      tenant: TENANT,
+      tenant: String(TENANT),
       datatype: 'property',
       after: '0',
       limit: '10',

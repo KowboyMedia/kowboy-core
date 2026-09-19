@@ -27,7 +27,7 @@ import {
   yesNo,
 } from './html.js';
 import { eventsTable } from './timeline.js';
-import { officesOf, type Ctx, type Panel } from './context.js';
+import { numberOf, officesOf, type Ctx, type Panel } from './context.js';
 
 const ID = /^[a-z0-9_-]{1,64}$/;
 const EVENTS: LifecycleEvent['type'][] = [
@@ -61,7 +61,7 @@ export function connectionTable(rows: ConnectionListRow[]): string {
 }
 
 /** The form that makes a connection for one tenant, on the tenant's page. */
-export function addConnectionForm(ctx: Ctx, tenantId: string): string {
+export function addConnectionForm(ctx: Ctx, tenantId: number): string {
   const providers = ctx.adapters.map((adapter) => ({ value: adapter.provider }));
   return form(
     '/admin/connections',
@@ -78,7 +78,7 @@ export function addConnectionForm(ctx: Ctx, tenantId: string): string {
         '',
         'The office ids this tenant is licensed for, one per line or comma-separated. Core keeps records of these offices only.',
       ),
-    { submit: 'Add connection', hidden: { tenant: tenantId } },
+    { submit: 'Add connection', hidden: { tenant: String(tenantId) } },
   );
 }
 
@@ -169,7 +169,7 @@ async function detailPage(ctx: Ctx, row: ConnectionListRow): Promise<string> {
       'About this connection',
       'What it links, and when it last brought something in.',
       kv([
-        ['Tenant', link(`/admin/tenants/${encodeURIComponent(row.tenant_id)}`, row.tenant_id)],
+        ['Tenant', link(`/admin/tenants/${row.tenant_id}`, `#${row.tenant_id}`)],
         ['CRM', escape(row.provider)],
         ['Active', yesNo(row.active)],
         ['Login', loginPill(row)],
@@ -222,10 +222,14 @@ export const connectionPanels: Panel[] = [
     pattern: /^\/admin\/connections$/,
     handle: async (ctx) => {
       const id = ctx.form['id'] ?? '';
-      const tenantId = ctx.form['tenant'] ?? '';
+      const tenantId = numberOf(ctx.form['tenant']);
       const provider = ctx.form['provider'] ?? '';
-      const back = tenantId ? `/admin/tenants/${encodeURIComponent(tenantId)}` : '/admin/tenants';
-      if (!ID.test(id) || !tenantId || !ctx.adapters.some((a) => a.provider === provider)) {
+      const back = tenantId === undefined ? '/admin/tenants' : `/admin/tenants/${tenantId}`;
+      if (
+        !ID.test(id) ||
+        tenantId === undefined ||
+        !ctx.adapters.some((a) => a.provider === provider)
+      ) {
         return ctx.redirect(back, '!A connection needs an id like acme-1, a tenant and a CRM.');
       }
       if (await rowOf(id)) return ctx.redirect(back, `!There is already a connection ${id}.`);

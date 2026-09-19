@@ -472,6 +472,7 @@ Examples: golden/vitec/property/price-on-request
 26. Swedish paths and slugs, set by the site (Patric, 2026-09-18 and 2026-09-19, question 45): property `objekt/<status>-<area name>-<street address>-<id>`, project `projekt/` the same, office `kontor/<office name>-<id>`, association `forening/<association name>-<id>`, agent `maklare/<first name>-<last name>-<id>`, area `omrade/<municipality>-<area name>-<id>` (question 49); every entity ends in `-<id>`.
 27. The sites' errors go through Core (Patric, 2026-09-19, question 46): a site posts an error to `POST /v1/errors` with the tenant's token (`schemas/errors.v1.json`); Core keeps one row per distinct error across every site and process and forwards one report a day to Sentry, keyed by the client and its version, where it happened and the message; no site holds a Sentry key. A fatal error in the WordPress plugin's own files is reported from PHP's shutdown.
 28. Images (Patric, 2026-09-19, closes question 6): the universal model carries image addresses on Kowboy's CDN, built in the adapter's mapping as `https://cdn-realestate.kowboy.se/r2/<customer id>/<record id>/<image id>_<width>.<extension>` from the ids and the extension the CRM gives (seen on a live site, 2026-09-19); the widths the CDN serves and what a record carries per image are question 50.
+29. A tenant is a number (Patric, 2026-09-19): Core assigns it, and the name is the only thing a person types; the SRS's slug (`t_acme`, §3) is superseded. Sites never see it: they hold the token.
 
 ## 13. Defaults (changeable without a gate)
 

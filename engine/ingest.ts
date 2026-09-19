@@ -85,7 +85,7 @@ export async function ingest(
 
 type Context = {
   correlationId: string | null;
-  tenantId: string;
+  tenantId: number;
   connectionId: string;
   datatype: Datatype;
   remoteId: string;

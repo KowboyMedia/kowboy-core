@@ -116,7 +116,7 @@ export function report(error: unknown, context: Record<string, unknown> = {}): v
  * report a day. The row is kept whether or not a DSN is set; the answer says if it left for Sentry.
  */
 export async function reportFromSite(input: {
-  tenantId: string;
+  tenantId: number;
   client: string;
   message: string;
   where: string;
@@ -129,7 +129,7 @@ export async function reportFromSite(input: {
   Sentry.captureMessage(`${input.client}: ${input.message}`, {
     level: 'error',
     fingerprint: [fingerprint],
-    tags: { client: input.client, tenant: input.tenantId, where: input.where },
+    tags: { client: input.client, tenant: String(input.tenantId), where: input.where },
     extra: { detail: input.detail ?? null },
   });
   return true;

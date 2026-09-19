@@ -6,7 +6,7 @@ export type EventRow = {
   at: Date;
   type: string;
   correlation_id: string | null;
-  tenant_id: string | null;
+  tenant_id: number | null;
   connection_id: string | null;
   datatype: string | null;
   remote_id: string | null;
@@ -17,7 +17,7 @@ export type EventRow = {
 export type EventInput = {
   type: string;
   correlationId?: string | null;
-  tenantId?: string | null;
+  tenantId?: number | null;
   connectionId?: string | null;
   datatype?: string | null;
   remoteId?: string | null;
@@ -66,7 +66,7 @@ export async function logEvent(event: EventInput): Promise<void> {
 export type EventQuery = {
   entity?: { connectionId: string; datatype: string; remoteId: string };
   connectionId?: string;
-  tenantId?: string;
+  tenantId?: number;
   subscriberId?: number;
   correlationId?: string;
   type?: string;

@@ -55,7 +55,7 @@ export async function changes(request: Request): Promise<Response> {
 type Failure = { error: string; status: number };
 
 type ParsedRequest =
-  { tenantId: string; datatype: Datatype; after: number; limit: number } | Failure;
+  { tenantId: number; datatype: Datatype; after: number; limit: number } | Failure;
 
 const failed = (parsed: object): parsed is Failure => 'error' in parsed;
 
@@ -77,7 +77,7 @@ async function parseRequest(request: Request): Promise<ParsedRequest> {
 /** The tenant comes from the token, never from a parameter (SRS §8). */
 export async function authenticate(
   request: Request,
-): Promise<{ tenantId: string; purgeWatermark: number } | Failure> {
+): Promise<{ tenantId: number; purgeWatermark: number } | Failure> {
   const token = (request.headers['authorization'] ?? '').replace(/^Bearer\s+/i, '');
   if (!token) return { error: 'a tenant token is required', status: 401 };
 

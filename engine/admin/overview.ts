@@ -43,7 +43,7 @@ export const overviewPanels: Panel[] = [
           table(
             ['Tenant', 'Datatype', 'Live', 'Tombstoned'],
             counts.map((row) => [
-              `<code>${escape(row.tenant_id)}</code>`,
+              `<code>#${escape(row.tenant_id)}</code>`,
               escape(row.datatype),
               escape(row.live),
               escape(row.tombstoned),

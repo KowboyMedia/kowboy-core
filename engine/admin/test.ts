@@ -10,7 +10,7 @@ import { ring, type BellKind } from '../bells.js';
 import { logEvent } from '../events.js';
 import { DATATYPES, type Datatype, type LifecycleEvent } from '../adapter-api/types.js';
 import { card, escape, field, form, grid, intro, link, pre, select } from './html.js';
-import { officesOf, type Ctx, type Panel } from './context.js';
+import { numberOf, officesOf, type Ctx, type Panel } from './context.js';
 
 const datatypeOf = (value: string | undefined): Datatype | undefined =>
   DATATYPES.find((candidate) => candidate === value);
@@ -20,7 +20,10 @@ async function page(
   result?: { title: string; html: string },
 ): Promise<ReturnType<Ctx['render']>> {
   const [tenantRows, connectionRows] = await Promise.all([tenants(), connections()]);
-  const tenantChoices = tenantRows.map((tenant) => ({ value: tenant.id }));
+  const tenantChoices = tenantRows.map((tenant) => ({
+    value: String(tenant.id),
+    label: `#${tenant.id} ${tenant.display_name}`,
+  }));
   const connectionChoices = connectionRows.map((row) => ({ value: row.id }));
   const datatypes = DATATYPES.map((d) => ({ value: d }));
   const anyDatatype = [{ value: '', label: 'all' }, ...datatypes];
@@ -127,9 +130,9 @@ export const testPanels: Panel[] = [
     method: 'POST',
     pattern: /^\/admin\/test\/changes$/,
     handle: async (ctx) => {
-      const tenantId = ctx.form['tenant'] ?? '';
+      const tenantId = numberOf(ctx.form['tenant']);
       const datatype = datatypeOf(ctx.form['datatype']);
-      if (!tenantId || !datatype)
+      if (tenantId === undefined || !datatype)
         return page(ctx, {
           title: 'Pull',
           html: '<p class="bad">A tenant and a datatype are needed.</p>',
@@ -163,13 +166,16 @@ export const testPanels: Panel[] = [
     method: 'POST',
     pattern: /^\/admin\/test\/bell$/,
     handle: async (ctx) => {
-      const tenantId = ctx.form['tenant'] ?? '';
+      const tenantId = numberOf(ctx.form['tenant']);
       const kind: BellKind = ctx.form['kind'] === 'forcerefresh' ? 'forcerefresh' : 'delta';
+      if (tenantId === undefined) {
+        return page(ctx, { title: 'Bell', html: '<p class="bad">A tenant is needed.</p>' });
+      }
       await ring(tenantId, kind);
       await logEvent({ type: 'admin.test', tenantId, fields: { what: 'bell', kind } });
       return page(ctx, {
         title: 'Bell',
-        html: `<p>Rang ${escape(kind)} for ${escape(tenantId)}; the sites' pulls show up under Tenants and sites.</p>`,
+        html: `<p>Rang ${escape(kind)} for tenant #${escape(tenantId)}; the sites' pulls show up on the tenant's page.</p>`,
       });
     },
   },
@@ -203,7 +209,7 @@ export const testPanels: Panel[] = [
     handle: async (ctx) => {
       const dryRun = ctx.form['mode'] !== 'write';
       const scope = {
-        tenantId: ctx.form['tenant'] || undefined,
+        tenantId: numberOf(ctx.form['tenant']),
         connectionId: ctx.form['connection'] || undefined,
         datatype: datatypeOf(ctx.form['datatype']),
       };

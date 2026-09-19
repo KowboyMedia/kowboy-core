@@ -3,7 +3,7 @@ import type { PoolClient } from 'pg';
 import type { Canonical, Datatype } from '../adapter-api/types.js';
 
 export type ItemRow = {
-  tenant_id: string;
+  tenant_id: number;
   connection_id: string;
   datatype: Datatype;
   remote_id: string;
@@ -21,7 +21,7 @@ export type ItemRow = {
 };
 
 export type ItemKey = {
-  tenantId: string;
+  tenantId: number;
   connectionId: string;
   datatype: Datatype;
   remoteId: string;
@@ -87,7 +87,7 @@ export async function writeItem(client: PoolClient, item: WriteItem): Promise<nu
 }
 
 export type ChangesQuery = {
-  tenantId: string;
+  tenantId: number;
   datatype: Datatype;
   after: number;
   limit: number;
@@ -122,7 +122,7 @@ export async function liveRemoteIds(
 
 /** Every stored item for a scope, for replay and recompute. */
 export async function itemsForScope(scope: {
-  tenantId?: string;
+  tenantId?: number;
   connectionId?: string;
   datatype?: Datatype;
   remoteId?: string;
@@ -152,12 +152,12 @@ export async function itemsForScope(scope: {
  * have missed a delete and is told to resync.
  */
 export async function purgeTombstones(days: number): Promise<number> {
-  const { rows } = await db().query<{ tenant_id: string; seq: string }>(
+  const { rows } = await db().query<{ tenant_id: number; seq: string }>(
     `delete from items where deleted = true and tombstoned_at < now() - ($1 || ' days')::interval
      returning tenant_id, seq`,
     [days],
   );
-  const highest = new Map<string, number>();
+  const highest = new Map<number, number>();
   for (const row of rows) {
     highest.set(row.tenant_id, Math.max(highest.get(row.tenant_id) ?? 0, Number(row.seq)));
   }
@@ -198,7 +198,7 @@ export async function findItems(query: {
   return rows;
 }
 
-export type ItemCount = { tenant_id: string; datatype: string; live: string; tombstoned: string };
+export type ItemCount = { tenant_id: number; datatype: string; live: string; tombstoned: string };
 
 /** Live and tombstoned items per tenant and datatype. */
 export async function itemCounts(): Promise<ItemCount[]> {

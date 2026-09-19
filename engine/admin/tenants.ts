@@ -10,7 +10,7 @@ import {
   tenants,
   updateSubscriber,
   updateTenant,
-  upsertTenant,
+  createTenant,
   type ConnectionListRow,
   type SubscriberRow,
   type TenantRow,
@@ -36,21 +36,19 @@ import {
   when,
   yesNo,
 } from './html.js';
-import type { Ctx, Panel } from './context.js';
+import { numberOf, type Ctx, type Panel } from './context.js';
 
 type Shown = { label: string; value: string };
-
-const ID = /^[a-z0-9_-]{1,64}$/;
 
 const ACTIVE = [
   { value: 'yes', label: 'yes' },
   { value: 'no', label: 'no' },
 ];
 
-const href = (id: string): string => `/admin/tenants/${encodeURIComponent(id)}`;
+const href = (id: number): string => `/admin/tenants/${id}`;
 
-const tenantById = async (id: string): Promise<TenantRow | undefined> =>
-  (await tenants()).find((tenant) => tenant.id === id);
+const tenantById = async (id: number | undefined): Promise<TenantRow | undefined> =>
+  id === undefined ? undefined : (await tenants()).find((tenant) => tenant.id === id);
 
 const siteById = async (id: number): Promise<SubscriberRow | undefined> =>
   (await subscribers()).find((row) => String(row.id) === String(id));
@@ -59,7 +57,7 @@ function tenantRows(rows: TenantRow[], links: ConnectionListRow[], sites: Subscr
   return table(
     ['Tenant', 'Name', 'Licence', 'Connections', 'Sites'],
     rows.map((tenant) => [
-      link(href(tenant.id), tenant.id),
+      link(href(tenant.id), `#${tenant.id}`),
       escape(tenant.display_name),
       licence(tenant),
       escape(links.filter((row) => row.tenant_id === tenant.id).length),
@@ -78,7 +76,7 @@ function siteRows(ctx: Ctx, sites: SubscriberRow[]): string {
     form(`/admin/sites/${site.id}/ring`, ctx.csrf, '', {
       submit: label,
       menu: true,
-      hidden: { tenant: site.tenant_id, kind },
+      hidden: { tenant: String(site.tenant_id), kind },
     });
   return table(
     ['Site', 'Bell URL', 'Active', 'Last pull', 'Last bell', ''],
@@ -115,19 +113,14 @@ async function listPage(ctx: Ctx, flash?: string | null): Promise<ReturnType<Ctx
     ) +
     card(
       'Add a tenant',
-      'Makes the tenant and shows its token once. Its connections and sites come next, on its page.',
+      'Makes the tenant, gives it a number and shows its token once. Its connections and sites come next, on its page.',
       form(
         '/admin/tenants',
         ctx.csrf,
-        field('id', 'Tenant id', {
+        field('name', 'Name', {
           required: true,
-          placeholder: 'acme',
-          help: 'Short, lowercase and permanent: letters, digits, - and _. It appears in URLs and in the event log.',
-        }) +
-          field('name', 'Name', {
-            required: true,
-            help: 'The customer’s name as people say it.',
-          }),
+          help: 'The customer’s name as people say it. Core assigns the tenant its number.',
+        }),
         { submit: 'Add tenant' },
       ),
     );
@@ -156,7 +149,7 @@ async function tenantPage(
         'Licence and token',
         'The token goes into every site’s settings; a new one retires the old one at once.',
         kv([
-          ['Tenant id', `<code>${escape(tenant.id)}</code>`],
+          ['Tenant number', `<code>${escape(tenant.id)}</code>`],
           ['Licence', licence(tenant)],
           ['Connections', escape(own.length)],
           ['Sites', escape(ownSites.length)],
@@ -198,7 +191,7 @@ async function tenantPage(
                 placeholder: 'https://site.example/wp-json/core/v1/bell',
                 help: 'The address Core calls when there is something new. A WordPress site with the plugin answers at /wp-json/core/v1/bell.',
               }),
-            { submit: 'Add site', hidden: { tenant: tenant.id } },
+            { submit: 'Add site', hidden: { tenant: String(tenant.id) } },
           ),
         ),
     );
@@ -208,7 +201,7 @@ async function tenantPage(
 function sitePage(ctx: Ctx, site: SubscriberRow): ReturnType<Ctx['render']> {
   const body =
     intro(
-      `The site ${escape(site.label)} of tenant ${escape(site.tenant_id)}. Its token and bell secret are not shown here; make new ones from the tenant’s page.`,
+      `The site ${escape(site.label)} of tenant #${escape(site.tenant_id)}. Its token and bell secret are not shown here; make new ones from the tenant’s page.`,
     ) +
     card(
       'Site',
@@ -245,50 +238,53 @@ export const tenantPanels: Panel[] = [
     method: 'POST',
     pattern: /^\/admin\/tenants$/,
     handle: async (ctx) => {
-      const id = ctx.form['id'] ?? '';
-      const name = ctx.form['name'] ?? '';
-      if (!ID.test(id) || !name)
-        return listPage(ctx, '!A tenant needs an id like acme-1 and a name.');
-      if (await tenantById(id)) return listPage(ctx, `!There is already a tenant ${id}.`);
+      const name = (ctx.form['name'] ?? '').trim();
+      if (!name) return listPage(ctx, '!A tenant needs a name.');
       const token = newSecret();
-      await upsertTenant({ id, displayName: name, token });
+      const id = await createTenant({ displayName: name, token });
       const tenant = await tenantById(id);
       if (!tenant) return listPage(ctx, `!Tenant ${id} could not be read back.`);
-      return tenantPage(ctx, tenant, `Tenant ${id} created.`, {
-        label: `Token for ${id}`,
+      return tenantPage(ctx, tenant, `Tenant #${id} ${name} created.`, {
+        label: `Token for ${name}`,
         value: token,
       });
     },
   },
   {
     method: 'GET',
-    pattern: /^\/admin\/tenants\/([^/]+)$/,
+    pattern: /^\/admin\/tenants\/(\d+)$/,
     handle: async (ctx) => {
-      const tenant = await tenantById(ctx.params[0] ?? '');
+      const tenant = await tenantById(numberOf(ctx.params[0]));
       if (!tenant) return { ...ctx.render('Not found', '<p>No such tenant.</p>'), status: 404 };
       return tenantPage(ctx, tenant);
     },
   },
   {
     method: 'POST',
-    pattern: /^\/admin\/tenants\/([^/]+)\/token$/,
+    pattern: /^\/admin\/tenants\/(\d+)\/token$/,
     handle: async (ctx) => {
-      const tenant = await tenantById(ctx.params[0] ?? '');
+      const tenant = await tenantById(numberOf(ctx.params[0]));
       if (!tenant) return ctx.redirect('/admin/tenants', '!No such tenant.');
       const token = newSecret();
       await updateTenant(tenant.id, { token });
-      return tenantPage(ctx, tenant, `New token for ${tenant.id}; the old one stops working now.`, {
-        label: `Token for ${tenant.id}`,
-        value: token,
-      });
+      return tenantPage(
+        ctx,
+        tenant,
+        `New token for ${tenant.display_name}; the old one stops working now.`,
+        {
+          label: `Token for ${tenant.display_name}`,
+          value: token,
+        },
+      );
     },
   },
   {
     method: 'POST',
-    pattern: /^\/admin\/tenants\/([^/]+)$/,
+    pattern: /^\/admin\/tenants\/(\d+)$/,
     handle: async (ctx) => {
-      const id = ctx.params[0] ?? '';
-      if (!(await tenantById(id))) return ctx.redirect('/admin/tenants', '!No such tenant.');
+      const id = numberOf(ctx.params[0]);
+      if (id === undefined || !(await tenantById(id)))
+        return ctx.redirect('/admin/tenants', '!No such tenant.');
       await updateTenant(id, {
         displayName: ctx.form['name'] || undefined,
         active: yes(ctx.form['active']),
@@ -300,7 +296,7 @@ export const tenantPanels: Panel[] = [
     method: 'POST',
     pattern: /^\/admin\/sites$/,
     handle: async (ctx) => {
-      const tenant = await tenantById(ctx.form['tenant'] ?? '');
+      const tenant = await tenantById(numberOf(ctx.form['tenant']));
       if (!tenant) return ctx.redirect('/admin/tenants', '!A site needs a tenant.');
       const label = ctx.form['label'] ?? '';
       const bellUrl = ctx.form['url'] ?? '';
@@ -329,9 +325,10 @@ export const tenantPanels: Panel[] = [
     pattern: /^\/admin\/sites\/(\d+)\/ring$/,
     handle: async (ctx) => {
       const kind: BellKind = ctx.form['kind'] === 'forcerefresh' ? 'forcerefresh' : 'delta';
-      const tenantId = ctx.form['tenant'] ?? '';
+      const tenantId = numberOf(ctx.form['tenant']);
+      if (tenantId === undefined) return ctx.redirect('/admin/tenants', '!No such tenant.');
       await ring(tenantId, kind);
-      return ctx.redirect(href(tenantId), `Rang ${kind} for tenant ${tenantId}.`);
+      return ctx.redirect(href(tenantId), `Rang ${kind} for tenant #${tenantId}.`);
     },
   },
   {
