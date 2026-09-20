@@ -127,7 +127,7 @@ the first item that is not done, and keep the file current. Decisions and open q
     `project_id`. 2026-09-20: folded into item 12, `docs/default-templates.md`.
 
 11. **The staging site** (Patric, 2026-09-20; strategy §4's staging WordPress site): plan in
-    `docs/staging-site.md`. A WordPress site on Kowboy's Cloudways server (question 74; nothing
+    `docs/staging-site.md`. A WordPress site on Kowboy's Cloudways server (question 66; nothing
     depends on the host), on the `kowboy-test` tenant staging holds, reached through the plugin's
     real update channel (a staging channel on the Space, published and tested by a post-deploy
     job on staging Core), driven over HTTPS through the WordPress API, Core's admin API and a
@@ -161,7 +161,7 @@ the first item that is not done, and keep the file current. Decisions and open q
     study, the information architecture, then a clickable design Patric approves before any
     code; then build it in slices, each a user journey with its browser test, on Refine and
     shadcn/ui (question 64) and the engine's functions (`docs/admin-panel.md`). Not built until
-    Patric says so. Question 74 (sold properties last in a recompute) is open.
+    Patric says so. Sold properties go last in a recompute (question 74, yes, done).
 
 ## Later, when Patric supplies them
 

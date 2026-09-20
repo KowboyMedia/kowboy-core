@@ -85,16 +85,21 @@ export async function recompute(scope: Scope, options: RecomputeOptions = {}): P
     touchedTenants.add(item.tenant_id);
   };
 
-  let afterSeq = 0;
+  // Two passes: the records not sold first, the sold ones last (question 74).
   let goOn = true;
-  while (goOn) {
-    const items = await scopeBatch(filter, afterSeq, BATCH);
-    for (const item of items) {
-      afterSeq = Number(item.seq);
-      await examine(item);
+  for (const sold of [false, true]) {
+    let afterSeq = 0;
+    let more = true;
+    while (goOn && more) {
+      const items = await scopeBatch(filter, sold, afterSeq, BATCH);
+      for (const item of items) {
+        afterSeq = Number(item.seq);
+        await examine(item);
+      }
+      const wanted = items.length > 0 ? await options.onProgress?.(report) : undefined;
+      more = items.length === BATCH;
+      goOn = wanted !== false;
     }
-    const wanted = items.length > 0 ? await options.onProgress?.(report) : undefined;
-    goOn = items.length === BATCH && wanted !== false;
   }
 
   for (const tenantId of touchedTenants) await ring(tenantId);

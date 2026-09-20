@@ -55,6 +55,8 @@ const property = (raw: unknown): MappedRecord => {
       lng: null,
       price: number(record['askingPrice']),
       final_price: null,
+      // The contract date, when the fake CRM has one: what makes a record "sold" for the engine.
+      ...(record['soldUtc'] === undefined ? {} : { sold_at: text(record['soldUtc']) }),
       currency: 'SEK',
       fee: null,
       living_space: null,

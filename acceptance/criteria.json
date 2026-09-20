@@ -122,7 +122,8 @@
       "phase": "engine",
       "tests": [
         "operations recomputes from stored raw with no CRM traffic, and gives a new seq (AC 13)",
-        "the web process as deployed recomputes a stored record with no adapter started (AC 13)"
+        "the web process as deployed recomputes a stored record with no adapter started (AC 13)",
+        "operations recomputes sold properties last, whatever the CRM (question 74)"
       ]
     },
     {
