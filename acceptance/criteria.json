@@ -424,7 +424,7 @@
         "the admin panel mails at most ten links a day, whatever the form is fed",
         "the admin panel remembers the device for 30 days when asked, and for the browser session otherwise",
         "the admin panel shows the overview with every health check, the adapter ones included",
-        "the admin panel adds a tenant, shows its token once, and the token pulls changes (AC 42)",
+        "the admin panel adds a tenant, shows its token on the page at all times, and the token pulls changes (AC 42)",
         "the admin panel adds a site with a bell secret shown once, and rings it",
         "the admin panel creates a connection, saves it, and queues a lifecycle event the worker delivers",
         "the admin panel finds an item, shows raw, unified and display with its timeline, and recomputes it",
