@@ -117,14 +117,16 @@ the first item that is not done, and keep the file current. Decisions and open q
     `project_id`. 2026-09-20: folded into item 12, `docs/default-templates.md`.
 
 11. **The staging site** (Patric, 2026-09-20; strategy §4's staging WordPress site): plan in
-    `docs/staging-site.md`. A WordPress application on Kowboy's Cloudways server (question 62),
-    on the `kowboy-test` tenant staging holds, reached through the plugin's real update channel
-    (a staging channel on the Space, published and tested by a post-deploy job on staging Core),
-    driven by agents through the Cloudways API, Core's admin API and a staging-only driver, with
-    a loop that runs until every client criterion a live site can prove is green. Needs one step
-    from Patric, a Cloudways API key; waits on questions 63, 64 and 68 for the last cases. The
-    parts that need no answer may start: the plugin's updater changes and trash-then-delete, the
-    Space and the staging channel, the driver, the job.
+    `docs/staging-site.md`. A WordPress site on Kowboy's Cloudways server (question 62; nothing
+    depends on the host), on the `kowboy-test` tenant staging holds, reached through the plugin's
+    real update channel (a staging channel on the Space, published and tested by a post-deploy
+    job on staging Core), driven over HTTPS through the WordPress API, Core's admin API and a
+    staging-only driver, with a loop that runs until every client criterion a live site can prove
+    is green; caches proved the WordPress way, one cache plugin at a time, LiteSpeed's on a
+    LiteSpeed server. Needs the site's admin login once (question 69); waits on 63 and 64 for the
+    cache cases. The parts that need no answer may start: the plugin's updater changes,
+    trash-then-delete, the ETag and Last-Modified answers, the Space and the staging channel, the
+    driver, the job.
 12. **The default templates** (Patric, 2026-09-20; item 10 folds in): plan in
     `docs/default-templates.md`. A separate package per template set, `core-client-templates-2026`
     first (question 65 answered); the v3 templates Patric supplies (question 66, not yet) are
@@ -136,6 +138,12 @@ the first item that is not done, and keep the file current. Decisions and open q
     the customer, written for an agent that reads the data as much as for a developer: absence
     means "do not show", what is the site's own decision, the query functions, viewings in the
     past, and the answer to question 68 once it is given. Planned when Patric says so.
+14. **Hidden values in `display`** (question 68, first part, approved 2026-09-20): one ledger
+    entry saying a prepared string is absent when the CRM says hide (price, address, bids, and
+    whatever else a CRM flags), the rule in `engine/rules/` with its test, and AGENTS.md's "no
+    visibility" sentence amended to "only by ledger entries" in the same change, for Patric's
+    review through the protected paths. Waits on question 54 (b), (c) and (e) for how Vitec
+    expresses each flag on the test account. The listing state is the open second part of 68.
 
 ## Later, when Patric supplies them
 

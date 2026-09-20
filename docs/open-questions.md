@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 69 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
+answering is quick. Next number: 70 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
 ## 52. The pairs for the Vitec mapping: no longer needed for the mapping; what remains is Vitec's golden masters
@@ -87,28 +87,29 @@ page, a "check the login" probe, the "look at a record" dry run and the queue of
 One additive field on `Adapter.admin`. Smaller: yes as described; or keep HTML fragments from the
 adapter shown inside the app, which looks and behaves differently from the rest.
 
-## 63. `[client-wordpress]` A WP Rocket licence for the staging site
+## 63. `[client-wordpress]` The caches to support and where each is proved; a WP Rocket licence
 
-Patric, 2026-09-20: caches are invalidated the WordPress way and nothing else, and the staging site
-tests the single market-leading full-page cache. Checked the same day in the caches' own code
-(`docs/staging-site.md`): the plugin's writes and removals fire exactly what WP Rocket, Breeze and
-WP Super Cache purge on. WP Rocket is the market leader on Cloudways' stack (5.5 million sites;
-LiteSpeed Cache is larger but needs a LiteSpeed server, which Cloudways does not run), and it is
-a paid plugin, about $59 a year for one site. Breeze with Varnish comes with every Cloudways site
-and is tested anyway. Smaller: Breeze alone. A licence for WP Rocket, or Breeze alone?
+Re-asked 2026-09-20 after an agent had tied the answer to one host. The plugin invalidates every
+cache the WordPress way, on every host and server; checked in the caches' own code
+(`docs/staging-site.md`): LiteSpeed Cache, WP Rocket, W3 Total Cache, WP Super Cache, WP Fastest
+Cache and Breeze all purge on what the plugin's writes and removals fire. Proof: on the staging
+site, one cache plugin at a time, for every cache that runs on any server; LiteSpeed's page cache
+needs a LiteSpeed server, so it is proved either in CI on OpenLiteSpeed in a container (free) or
+on a LiteSpeed host of Kowboy's with a second test site. WP Rocket is a paid plugin, about $59 a
+year for one site. Three picks: does the list stand; LiteSpeed in CI, or name a LiteSpeed host for
+a second site; and a WP Rocket licence, yes or no. Smaller: the list stands, LiteSpeed in CI, no
+licence yet.
 
-## 64. `[client-wordpress]` A criterion for page cache invalidation on the staging site
+## 64. `[client-wordpress]` A criterion for cache invalidation on the staging site
 
-Reworded 2026-09-20 after Patric's clarification: the live site is the client WordPress install on
-Cloudways, and the criterion is WordPress-specific. `[core]` was only because the criteria file
-lives in this repository; dropped. Proposed AC 43: on the staging site behind a full-page cache
-(Breeze with Varnish, and WP Rocket if 63 says so), a change that reaches the site makes the next
-request for its page and its list pages fresh, a removed record's page is gone from the cache, and
-browser caches follow because HTML answers carry no long-lived cache directive and the templates'
-assets carry a version. With it, the live-site tests of AC 8, 18, 19, 21 and 22 are named in
-`acceptance/criteria.json` next to the CI ones, so the report says what is proved where.
-`acceptance/` is protected. Smaller: fold the cache proof under AC 20 without a new number. Yes to
-AC 43, or fold.
+Re-asked 2026-09-20, free of any host. Proposed AC 43: with each supported cache in turn, a change
+that reaches the site makes the next request for the record's page and its list pages fresh, a
+removed record's page is gone from the cache, the plugin sets no browser cache directive of its
+own on pages, and a browser's check on a record page answers changed (200) or unchanged (304)
+correctly, so an installation that lets browsers keep pages revalidates within its own time. With
+it, the live-site tests of AC 8, 18, 19, 21 and 22 are named in `acceptance/criteria.json` next to
+the CI ones, so the report says what is proved where. `acceptance/` is protected. Smaller: fold the
+cache proof under AC 20 without a new number. Yes to AC 43, or fold.
 
 ## 66. `[client-wordpress]` The v3 template files are the approved items; you supply them
 
@@ -122,33 +123,53 @@ kept open). Smaller: v2's files, if v3's are harder to find (you said they are t
 
 ## 67. `[client-wordpress]` The reference site for parity: its address, its CRM account, its theme
 
-Patric asked on 2026-09-20 for the whole workflow first; it is the access table in
-`docs/staging-site.md` (one step for him: a Cloudways API key; no SFTP; WordPress admin through the
-login the Cloudways API gives, then an application password the agent makes itself). For the
-reference site nothing but its public address is needed: its pages are read over HTTPS, no login.
-What remains: which site is it (its address)? Does it run on the Vitec test account staging
-already holds (`M31529`), or on a customer's account, whose Vitec key pair and office ids then go
-on staging as a second tenant (an agent adds it on the tenant page; a customer's data on staging
-is your call)? And should the staging site run the same theme, so whole pages can be compared, or
-is the comparison scoped to the templates' own markup (the default, needs no theme)? Blocks the
-parity check, not the port.
+The whole workflow Patric asked for on 2026-09-20 is the access table in `docs/staging-site.md`
+and question 69; for the reference site nothing but its public address is needed, its pages are
+read over HTTPS with no login. What remains: which site is it (its address)? Does it run on the
+Vitec test account staging already holds (`M31529`), or on a customer's account, whose Vitec key
+pair and office ids then go on staging as a second tenant (an agent adds it on the tenant page; a
+customer's data on staging is your call)? And should the staging site run the same theme, so whole
+pages can be compared, or is the comparison scoped to the templates' own markup (the default,
+needs no theme)? Blocks the parity check, not the port.
 
-## 68. `[core]` `[crm]` What Core prepares for a site: hidden values and the listing state
+## 68. `[core]` `[crm]` A prepared listing state, so no site has to know a CRM's statuses
 
-Patric, 2026-09-20: what a hidden price or a status shows as should be Core's help, not the
-implementer's thinking, especially for implementers using agents that read the data; `display.price`
-empty when hidden, or a separate flag. Recommended, two parts. (a) **Absence is the signal:**
-`display` already leaves a key out when its inputs are missing (R-001); the ledger gains one entry
-saying that `display` honours the CRM's own hide flags, so `display.price`, `display.address_line`
-and `display.highest_bid` are absent when the CRM says hide, while `data` stays complete for a
-site that wants the value anyway. Absence beats a flag: an implementer shows what is there and
-checks nothing. How Vitec expresses a hidden price, a hidden address and the bid settings is
-question 54 (b), (c) and (e), read off the test account first. (b) **A prepared listing state:**
-`state`, `{id, name}` like every enumeration, on property and project, with a small fixed set of
-ids (for sale, coming, sold, withdrawn, rented, and what else the ledger names) and a Swedish
-name, mapped from the CRM's `status` by a table in the ledger, one table per CRM, applied by the
-adapter; `status` stays next to it as sent. A list is then "`state.id` is `for_sale`" and a badge
-is `state.name`, with nothing to think about. Both change protected things: AGENTS.md's "no
-status, no visibility" sentence becomes "only by ledger entries", the field tables and `schemas/`
-gain `state`, and the ledger gains two entries. Smaller: (a) alone. Yes to both, (a) alone, or a
-flag instead of absence?
+The first part, hidden values, was approved on 2026-09-20 and is in `decisions.md`: a prepared
+string is absent when the CRM says hide. This is the second part, explained in full at Patric's
+request.
+
+**The problem.** Vitec has 23 statuses for a listing (`docs/inputs/vitec/enumerations/Api_EstateStatus.md`):
+Till salu, Såld, Såld/Referensobjekt, Kommande, Snart till salu, Försprång, Bokad, Vilande,
+Återtagen, Ej till salu, Reserverad/Ej till salu, Uthyrd, Uthyrd preliminärt, Hyresledig,
+Tillträdd, Pågående, Slutsålt, and more. A site shows three or four lists: till salu, kommande,
+sålda (referenser), perhaps uthyres. Somebody has to decide which of the 23 goes in which list.
+Today that decision is nowhere: a record carries Vitec's status exactly as sent, so every site's
+developer, or the agent building the site, must learn the 23 values and decide, and every site
+may decide differently. When Mspecs arrives with its own statuses, every site must learn those
+too.
+
+**The proposal.** Core makes that decision once, in a table Patric approves: each CRM status maps
+to one of a handful of Core states, for example "for sale", "coming", "sold", "rented", "not for
+sale". The table lives in the ledger (one entry, one row per CRM), the adapter applies it, and
+every listing gets one small field next to the CRM's own status, which stays as it is:
+`state: { id: "for_sale", name: "Till salu" }`, the same id-and-name shape every enumeration has.
+A site or an agent then filters a list on `state.id` and prints `state.name`, and never needs to
+know any CRM's statuses. Mspecs later gets its own row in the table and no site changes.
+
+**What it changes.** The field tables and `schemas/` gain `state` on property and project, the
+ledger gains the table, and the sentence in AGENTS.md that forbids a status decision in Core
+becomes "only by ledger entries"; all protected, hence this question. Smaller: leave the grouping
+to the sites, each with its own 23-row table. Yes to the state, or leave it to the sites?
+
+## 69. `[client-wordpress]` The test site's first install, without SFTP
+
+Patric asked on 2026-09-20 whether the WordPress API, SFTP and a git deployment cover everything,
+or whether there is a gap. One: SFTP and SSH are unreachable from where agents run (port 22 is
+blocked; verified the same day), so the first install of the plugin and the driver on the test
+site needs one of two things. (a) The site's WordPress admin login, pasted once: the agent uploads
+and activates the plugin over HTTPS, makes itself an application password for the REST API, and
+from then on every change arrives through the plugin's own update channel with nothing more from
+anyone; on Cloudways the site's API key yields that login. (b) The host's git deployment with a
+build branch that holds only the plugin folders, which needs a deploy key added on GitHub by a
+repository admin, and differs from host to host. Everything else, settings, cron, logs, is done
+over HTTPS or through Core. Smaller: (a). The login, or the git route?
