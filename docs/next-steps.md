@@ -114,7 +114,20 @@ the first item that is not done, and keep the file current. Decisions and open q
     (Patric, 2026-09-19). Status and bidding come as sent; what a site shows for them is the
     site's template, per the register. 2026-09-19: the shape is settled (question 55): the shortcode
     gets a `project_id` attribute, and a list without one leaves out every property that carries a
-    `project_id`.
+    `project_id`. 2026-09-20: folded into item 12, `docs/default-templates.md`.
+
+11. **The staging site** (Patric, 2026-09-20; strategy §4's staging WordPress site): plan in
+    `docs/staging-site.md`. A third App Platform app built from the repository like the two Core
+    apps, on the `kowboy-test` tenant staging holds, driven by agents through the API and a
+    staging-only driver, with the smoke suite as a post-deploy job, and a loop that runs until
+    every client criterion a live site can prove is green. Waits on questions 62 to 64; the parts
+    that need no answer (the site image, the driver, the smoke suite against a local site) may
+    start.
+12. **The default templates** (Patric, 2026-09-20; item 10 folds in): plan in
+    `docs/default-templates.md`. Recommended a separate package with theme overrides; the v3
+    templates Patric supplies are ported onto the universal model, gaps raised by the rule in the
+    document, and parity checked against the reference site in the same loop as item 11. Waits on
+    questions 65 to 67, and on the template files.
 
 ## Later, when Patric supplies them
 
