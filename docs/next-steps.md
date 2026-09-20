@@ -94,8 +94,14 @@ the first item that is not done, and keep the file current. Decisions and open q
    with one Save; the tests and the browser walk drive that flow as a person would.
    Later that day Patric judged the panel below a professional product's bar and asked for the
    use cases, a catalogue of what comparable products offer, MoSCoW ratings and a rebuild
-   proposal before anything is built: `docs/admin-panel-rebuild.md`, questions 59 to 61. Nothing
-   of the rebuild is built until he answers.
+   proposal before anything is built: `docs/admin-panel-rebuild.md`, questions 59 to 61. His
+   answer the same day: every Must and Should, from scratch, nothing carried over. Built and in
+   staging on 2026-09-20: the admin API, the browser app under `admin/`, jobs, the live feed,
+   alerts, the Vitec adapter's panel as data, and browser journeys as an enforced check
+   (`docs/admin-panel.md`). Later that day Patric judged it a reskin: the pages, layouts and
+   flows were inherited from the first build. The next rebuild starts from the requirement
+   sheets, with the design approved before any code, and is not built until he says so
+   (`docs/admin-panel-rebuild.md` §7, questions 62 to 65).
 
 8. ~~**Setup directions on each adapter's panel, and a licence notice in the plugin** (Patric,
    2026-09-18).~~ Done 2026-09-18: the Vitec panel opens with "Set up Vitec", kept true by
@@ -117,27 +123,27 @@ the first item that is not done, and keep the file current. Decisions and open q
     `project_id`. 2026-09-20: folded into item 12, `docs/default-templates.md`.
 
 11. **The staging site** (Patric, 2026-09-20; strategy §4's staging WordPress site): plan in
-    `docs/staging-site.md`. A WordPress site on Kowboy's Cloudways server (question 62; nothing
+    `docs/staging-site.md`. A WordPress site on Kowboy's Cloudways server (question 66; nothing
     depends on the host), on the `kowboy-test` tenant staging holds, reached through the plugin's
     real update channel (a staging channel on the Space, published and tested by a post-deploy
     job on staging Core), driven over HTTPS through the WordPress API, Core's admin API and a
     staging-only driver, with a loop that runs until every client criterion a live site can prove
     is green; caches invalidated the WordPress way and proved once with the host's cache plugin
-    (questions 63 and 64 closed). Needs the site's login once (question 69). The parts that need
+    (questions 67 and 68 closed). Needs the site's login once (question 73). The parts that need
     no answer may start: the plugin's updater changes, trash-then-delete, the ETag on record
     pages, the Space and the staging channel, the driver, the job.
 12. **The default templates** (Patric, 2026-09-20; item 10 folds in): plan in
     `docs/default-templates.md`. A separate package per template set, `core-client-templates-2026`
-    first (question 65 answered); the v3 templates Patric supplies (question 66, not yet) are
+    first (question 69 answered); the v3 templates Patric supplies (question 70, not yet) are
     ported onto the universal model, gaps raised by the rule in the document, and parity checked
-    against the reference site (question 67) in the same loop as item 11. The package skeleton,
+    against the reference site (question 71) in the same loop as item 11. The package skeleton,
     the selector, the override rule and the release per set may start now.
 13. **Documentation for implementers, people and agents alike** (Patric, 2026-09-20, recorded and
     not yet discussed): how to build a site on Core, what to keep in mind and what to recommend to
     the customer, written for an agent that reads the data as much as for a developer: absence
     means "do not show", what is the site's own decision, the query functions, viewings in the
-    past, and the answer to question 68 once it is given. Planned when Patric says so.
-14. **Hidden values and the listing state** (question 68, approved 2026-09-20, both parts): one
+    past, and the answer to question 72 once it is given. Planned when Patric says so.
+14. **Hidden values and the listing state** (question 72, approved 2026-09-20, both parts): one
     ledger entry saying a prepared string is absent when the CRM says hide (price, address, bids,
     and whatever else a CRM flags), waiting on question 54 (b), (c) and (e) for how Vitec
     expresses each; and `state` as `{id, name}` on property and project, a few Core states mapped
@@ -190,7 +196,7 @@ the first item that is not done, and keep the file current. Decisions and open q
   (`git fetch origin staging && git reset --hard origin/staging`); a branch that already carries
   work merges `origin/staging` into itself instead. AGENTS.md and this file are read from there.
 - Never invent a contract field or a business rule.
-- An ask to Patric is one line, what is needed and how to answer; technical choices are never
-  asked (AGENTS.md "Working with Patric", 2026-09-20).
+- An ask to Patric is one line, what is needed and how to answer, with the whole reasoning in the
+  register entry; technical choices are never asked (AGENTS.md "Working with Patric", 2026-09-20).
 - Core parses no CRM data (AGENTS.md): every tag, slug, status, flag or formatted string is the
   site's, from the payload it stores. Never propose otherwise, in code or in chat.

@@ -4,7 +4,8 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 70 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
+answering is quick. Next number: 74 (62 to 69 were also used in chat on 2026-09-20 for the WordPress
+plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
 ## 52. The pairs for the Vitec mapping: no longer needed for the mapping; what remains is Vitec's golden masters
@@ -32,19 +33,6 @@ the price is hidden; (c) whether the area name stays when the address is hidden;
 a "till salu, visa som kommande" estate carries; (e) how each of the four bid settings shows in
 `bidding`. Smaller: (a) alone now, the rest when the first client template needs them.
 
-## 57. `[core]` `[crm]` Queued records on the panel, and “Update from CRM” for a selection, need two additive adapter capabilities
-
-The Items page shows what went through the write path and what the sites did with it, but not
-what still waits on an adapter's own fetch list, and it can recompute a selection but not ask the
-CRM for it again: the queue and the fetching are the adapter's (AGENTS.md), and the adapter API is
-protected. Two additive fields would let any adapter hand both to the engine without the engine
-knowing the CRM: `Adapter.admin.queue()` returning the waiting entries (connection, office,
-datatype, id, queued at, reason, attempts, next attempt, last error), and one lifecycle event
-`refetch` carrying a list of records, delivered like the others and answered by the adapter
-putting them on its list. The panel then colours queued rows yellow in the live list, sorted with
-the rest by time, and gets an “Update from CRM” button next to “Recompute selected”. The shapes
-are drafted in docs/admin-panel.md. Smaller: yes to both as drafted; or the queue alone.
-
 ## 58. `[core]` The database cluster's admin password appeared in a session's transcript; rotate it?
 
 On 2026-09-20 an agent asked the DigitalOcean API for the cluster's size, and the answer carried
@@ -56,51 +44,70 @@ restarts for about a minute, production included, so it needs your "allow"). Or 
 strength of the trusted-sources rule. Either way, agents now read only the fields they need from
 that endpoint.
 
-## 59. `[core]` The admin panel rebuild: the function list and its MoSCoW ratings
+## 62. `[core]` The public health check: names in the details, or counts only?
 
-Patric, 2026-09-20: the panel reads as a hobby project and misses core functions; list what
-comparable products offer, rate every function with MoSCoW, and do not build before it is
-discussed. `docs/admin-panel-rebuild.md` holds the use cases, the catalogue and the ratings: 32
-Musts (among them saves in place with a toast, sortable and pageable searches, recompute and
-fetch-again by record, selection, office, tenant, CRM, datatype or everything, with a preview and
-progress), 14 Shoulds, 14 Coulds and 3 Won'ts. Smaller: yes, the ratings stand as drafted; or
-name the rows that move.
+`GET /v1/health` exists, needs no login, answers 200 when every check passes and 500 when any
+fails, and names each check with a detail. Some details name customers: the `subscribers` check
+lists the sites that stopped pulling by name, the Vitec checks name connections and office ids.
+Strategy §8.1 says counts only. Smaller: the public answer says counts and plain words ("2 of 8
+sites have not pulled within the hour", "1 connection is paused after repeated failures") and the
+panel keeps the names; or leave the names in, since only whoever knows the address sees them.
 
-## 60. `[core]` The admin panel rebuild: how it is built
+## 63. `[crm-vitec]` Store every notification Vitec sends?
 
-`docs/admin-panel-rebuild.md` §4. Recommended: a React app on Core's admin API (Refine, headless,
-with shadcn/ui and Tailwind, tables by TanStack, forms by react-hook-form, a command palette),
-built into static files by the same build and served by Core's web process under `/admin`; long
-operations as jobs run by the worker and watched live; every user journey a browser test in the
-checks. It adds a build step and browser-side libraries, all MIT, and Playwright for the tests.
-Smaller: keep today's server-rendered pages and add htmx for in-place updates and sorting, with a
-lower ceiling. Yes to the recommendation, or the smaller one, or Ant Design instead of shadcn/ui
-for speed.
+Today the arrival of a notification is one `webhook.received` event with the outcome, the office,
+the datatype, the record id and the kind (Update or Remove), kept 30 days like every event; the
+body as Vitec sent it is not stored. Smaller: put the body into that event (a few lines, gone
+after 30 days); or an adapter table of its own that keeps every notification for good and lets a
+person replay one from the panel (the Could "replay a notification").
 
-## 61. `[core]` `[crm]` An adapter describes its panel as data (an adapter API change)
+## 64. `[core]` The framework for the new admin panel
 
-`docs/admin-panel-rebuild.md` §4. In the new app an adapter cannot ship pages of its own without
-coupling the app to each CRM, so the adapter hands the engine data that describes its panel:
-sections of key-values, tables with row actions, forms and actions; the app renders them with the
-same components as everything else. The same shape carries the connection status on the tenant
-page, a "check the login" probe, the "look at a record" dry run and the queue of question 57.
-One additive field on `Adapter.admin`. Smaller: yes as described; or keep HTML fragments from the
-adapter shown inside the app, which looks and behaves differently from the rest.
+For the panel rebuilt from the requirement sheets: Refine (MIT, headless: resources, list and
+detail pages, live updates, notifications, access control) with shadcn/ui components,
+recommended; Ant Design Pro (a complete, conventional look, less work on components); or
+React-admin (the most used, MIT core, its live updates and audit log in a paid edition). Pick
+one.
 
-## 66. `[client-wordpress]` Send the v3 template files when you can
+## 65. `[core]` Cut what nothing uses: the old operator endpoints and the setup scripts
 
-The templates folder of v3 and the list wrapper's script and stylesheet, as a zip or files in
-chat. They become `docs/inputs/templates-v3/`, the input of record for step 2; agents open no old
-repository, and nothing else of the old plugin is taken.
+Nothing outside the repository uses `POST /v1/admin/bell`, `event`, `replay` and `recompute`
+with the admin secret, nor `scripts/tenant.ts` (tenants, connections and sites from the command
+line, replaced by the panel), nor `scripts/vitec-probe.ts` (a one-off probe of Vitec Connect from
+2026-09-17, settled). Smaller: cut them and point their tests at the panel's API; or keep them.
 
-## 67. `[client-wordpress]` Paste the reference site's address
+## 70. `[client-wordpress]` Send the v3 template files when you can
 
-For the parity check of step 2. An agent checks by comparing listings whether it runs on the test
-account staging holds; if not, a second ask follows for that customer's Vitec login. The
-comparison is scoped to the templates' own markup, so no theme is needed.
+Step 2 of the WordPress plan (`docs/default-templates.md`) ports Kowboy's default templates onto
+the universal model, and the source for that port is the template files of plugin version 3: the
+templates folder (the cards a list is made of, the single pages of every entity, the list
+wrappers with their filter form) and the list wrapper's script and stylesheet. AGENTS.md forbids
+taking anything from the old plugins unless Patric asks for it item by item, so the files must
+come from Patric, as a zip or as files in chat. An agent then keeps them under
+`docs/inputs/templates-v3/` as the input of record, opens no old repository, and takes nothing
+else of the old plugin: every helper call and field name in the files is replaced on port. Asked
+on 2026-09-20 as 66 in chat; Patric could not send them yet. Nothing in the port starts before the
+files are there.
 
-## 69. `[client-wordpress]` Paste the test site's address and its WordPress admin username and password
+## 71. `[client-wordpress]` Paste the reference site's address
 
-For the first install of the plugin on the test site; after that every change arrives by itself
-through the plugin's update channel and nothing more is needed from anyone. SFTP is not used,
-because it is unreachable from where agents run.
+Step 2 checks the ported templates against the reference site, the site that runs the original
+templates today, record by record and page by page, so that the output is identical
+(`docs/default-templates.md`, "Parity"). For that an agent needs only the site's public address:
+its pages are read over HTTPS with no login. Whether the reference site runs on the Vitec test
+account that staging already holds (office `M31529`) or on a customer's account, an agent finds
+out by comparing the listings; if it is a customer's account, a second ask follows for that
+customer's Vitec login, since both sites must show the same records. The comparison is scoped to
+the templates' own markup, so the staging site needs no particular theme. Asked on 2026-09-20 as
+67 in chat.
+
+## 73. `[client-wordpress]` Paste the test site's address and its WordPress admin username and password
+
+Step 1 of the WordPress plan (`docs/staging-site.md`) puts the plugin on a test site on Kowboy's
+Cloudways server and lets an agent iterate there until every check is green. Agents work over
+HTTPS only: SFTP and SSH, the file-transfer and shell access a host offers, are unreachable from
+where agents run, verified on 2026-09-20. The first install of the plugin and of the staging-only
+driver therefore goes through the site's WordPress admin: the agent logs in once, uploads and
+activates both, and makes itself an application password for the WordPress REST API. After that
+every change reaches the site by itself through the plugin's own update channel, and nothing more
+is needed from anyone. Asked on 2026-09-20 as 69 in chat.

@@ -2,7 +2,7 @@
 
 Step 2 of two. Proposed 2026-09-20 and revised the same day for Patric's answers: a separate
 package it is, named after the client package with `-templates`, and one package per template set
-is the agent's pick within that. Open: questions 66 (the template files) and 67 (the reference site)
+is the agent's pick within that. Open: questions 70 (the template files) and 71 (the reference site)
 (68 is answered: hidden values and the listing state come from Core). It needs step 1's site ([staging-site.md](staging-site.md))
 for the parity check and runs in the same loop. Next-steps item 10 (the templates on the universal
 model, question 55) is done inside this step.
@@ -20,7 +20,7 @@ and `data` everything else under its universal name, with the whole payload next
 
 ## Where they live: decided
 
-Patric's answer (question 65, 2026-09-20): a separate package, named after the WordPress client
+Patric's answer (question 69, 2026-09-20): a separate package, named after the WordPress client
 package with `-templates`. The shape below is the agent's pick within that answer, made for the
 second half of his question: template sets will come and go as the style advances, a site should
 choose among the installed ones, and a custom set for a client should be the same thing under
@@ -92,7 +92,7 @@ the templates folder of v3 and the list wrapper's script and stylesheet, handed 
 kept as `docs/inputs/templates-v3/`, the input of record. Agents open no old repository. Nothing
 else of the old plugin comes along: every helper call, every field name and every condition in
 those files is replaced on port by the plugin's functions, the universal names and `display`
-(question 66).
+(question 70).
 
 1. **Inventory.** From the supplied files: every field, helper and condition each template uses,
    in one table, old reference → universal name, `display` key, "needs a rule" or "not in the
@@ -112,7 +112,7 @@ those files is replaced on port by the plugin's functions, the universal names a
    - **The site's own logic.** Past viewings, wording, tags, what to show where: decided in the
      templates, as AGENTS.md puts it on the site, and noted in the inventory as the site's rules.
      A hidden price, a hidden address, whether bids show, and the lines between "till salu",
-     "kommande" and "referenser" are Core's (question 68, approved 2026-09-20, next-steps item
+     "kommande" and "referenser" are Core's (question 72, approved 2026-09-20, next-steps item
      14): a prepared string is absent when the CRM says hide, and every listing carries a
      prepared `state` next to the CRM's own status. The templates show and group by those.
 3. **Port**, file by file, onto the package with the override rule, on the staging site.
@@ -127,16 +127,16 @@ those files is replaced on port by the plugin's functions, the universal names a
    Both sites must show the same records, so the reference site's CRM account is either the test
    account staging holds or a customer's account added to staging as a second tenant (its Vitec
    key pair and office ids on the tenant page). Whole-page equality needs the same theme on both; a
-   comparison scoped to the templates' markup needs none and is the default (question 67).
+   comparison scoped to the templates' markup needs none and is the default (question 71).
 
 5. **Acceptance.** AC 28 gets the parity check as its tests and AC 20 its search half; both are
    changes to `acceptance/`, reviewed through the change that makes them.
 
 ## What it needs from Patric
 
-- **66** the v3 template files, and the confirmation that they are the approved items (Patric,
+- **70** the v3 template files, and the confirmation that they are the approved items (Patric,
   2026-09-20: not now; the point stays open).
-- **67** the reference site: its address, its CRM account, and whether the staging site gets its
+- **71** the reference site: its address, its CRM account, and whether the staging site gets its
   theme. The access an agent needs for the whole workflow is the table in
   [staging-site.md](staging-site.md); for the reference site it is its public address only.
 - Already open: 54 (a) to (e) as the templates need them; 52 is untouched (golden masters come

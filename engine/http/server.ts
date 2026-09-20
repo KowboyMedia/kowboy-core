@@ -19,11 +19,15 @@ export type Request = {
   json<T>(): T;
 };
 
-export type Response = {
-  status: number;
-  body?: unknown;
-  headers?: Record<string, string>;
-};
+export type Response =
+  | {
+      status: number;
+      /** JSON, a string, or a Buffer sent as is (a file). */
+      body?: unknown;
+      headers?: Record<string, string>;
+    }
+  /** A handler that writes the response itself: a stream that stays open, such as the panel's live feed. */
+  | { raw: (outgoing: ServerResponse) => void };
 
 export type RouteTable = { method: string; path: string; handler: Handler }[];
 
@@ -93,7 +97,9 @@ async function handle(
         return body.length === 0 ? ({} as T) : (JSON.parse(body.toString('utf8')) as T);
       },
     };
-    write(incoming, outgoing, await route.handler(request));
+    const response = await route.handler(request);
+    if ('raw' in response) response.raw(outgoing);
+    else write(incoming, outgoing, response);
   } catch (error) {
     report(error, { where: 'http', path: url.pathname });
     write(incoming, outgoing, { status: 500, body: { error: 'internal error' } });
@@ -115,12 +121,19 @@ function readBody(incoming: IncomingMessage): Promise<Buffer> {
   });
 }
 
-function write(incoming: IncomingMessage, outgoing: ServerResponse, response: Response): void {
+function write(
+  incoming: IncomingMessage,
+  outgoing: ServerResponse,
+  response: Exclude<Response, { raw: unknown }>,
+): void {
   const headers: Record<string, string> = { ...response.headers };
   let payload: Buffer;
 
   if (response.body === undefined) {
     payload = Buffer.alloc(0);
+  } else if (Buffer.isBuffer(response.body)) {
+    payload = response.body;
+    headers['content-type'] ??= 'application/octet-stream';
   } else if (typeof response.body === 'string') {
     payload = Buffer.from(response.body, 'utf8');
     headers['content-type'] ??= 'text/plain; charset=utf-8';

@@ -5,9 +5,9 @@ import { report } from './errors.js';
 import { connectionById } from './storage/connections.js';
 import { itemsForScope } from './storage/items.js';
 import { notFound } from './ingest.js';
-import type { Datatype, LifecycleEvent } from './adapter-api/types.js';
+import type { AdminRecord, Datatype, LifecycleEvent } from './adapter-api/types.js';
 
-type Options = { officeIds?: string[]; datatype?: Datatype };
+type Options = { officeIds?: string[]; datatype?: Datatype; records?: AdminRecord[] };
 
 type QueuedRow = {
   id: string;
@@ -15,6 +15,7 @@ type QueuedRow = {
   event: LifecycleEvent['type'];
   office_ids: string[] | null;
   datatype: Datatype | null;
+  records: AdminRecord[] | null;
 };
 
 /**
@@ -28,9 +29,15 @@ export async function queueLifecycle(
 ): Promise<number | null> {
   if (!(await connectionById(connectionId))) return null;
   const { rows } = await db().query<{ id: string }>(
-    `insert into lifecycle_events (connection_id, event, office_ids, datatype)
-     values ($1, $2, $3, $4) returning id`,
-    [connectionId, event, options.officeIds ?? null, options.datatype ?? null],
+    `insert into lifecycle_events (connection_id, event, office_ids, datatype, records)
+     values ($1, $2, $3, $4, $5) returning id`,
+    [
+      connectionId,
+      event,
+      options.officeIds ?? null,
+      options.datatype ?? null,
+      options.records ? JSON.stringify(options.records) : null,
+    ],
   );
   return Number(rows[0]?.id);
 }
@@ -48,7 +55,7 @@ export async function deliverLifecycleEvents(): Promise<number> {
          select id from lifecycle_events
          where done_at is null and (taken_at is null or taken_at < now() - interval '10 minutes')
          order by id limit 1 for update skip locked)
-       returning id, connection_id, event, office_ids, datatype`,
+       returning id, connection_id, event, office_ids, datatype, records`,
     );
     const row = rows[0];
     if (!row) return delivered;
@@ -57,6 +64,7 @@ export async function deliverLifecycleEvents(): Promise<number> {
       await sendLifecycle(row.connection_id, row.event, {
         officeIds: row.office_ids ?? undefined,
         datatype: row.datatype ?? undefined,
+        records: row.records ?? undefined,
       });
     } catch (caught) {
       error = String(caught);
@@ -96,7 +104,11 @@ async function sendLifecycle(
     type: `lifecycle.${event}`,
     tenantId: connection.tenantId,
     connectionId,
-    fields: { office_ids: options.officeIds ?? null, datatype: options.datatype ?? null },
+    fields: {
+      office_ids: options.officeIds ?? null,
+      datatype: options.datatype ?? null,
+      records: options.records?.length ?? null,
+    },
   });
 
   // Removals are the engine's own work: tombstone what the tenant may no longer receive (§7).
@@ -129,6 +141,8 @@ function buildEvent(
         : { type: 'resync', connection };
     case 'connection_removed':
       return { type: 'connection_removed', connection };
+    case 'refetch':
+      return { type: 'refetch', connection, records: options.records ?? [] };
     default:
       return { type: 'connection_added', connection };
   }

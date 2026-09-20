@@ -2,7 +2,7 @@
 
 Step 1 of two. Proposed 2026-09-20 and revised the same day for Patric's answers. The plugin and
 this loop serve every host; the test site happens to run on Cloudways. Open: the test site's login
-(question 69). Step 2 is [default-templates.md](default-templates.md), and both run in the same
+(question 73). Step 2 is [default-templates.md](default-templates.md), and both run in the same
 loop once this site stands. Strategy §4 already names this site: the staging WordPress site next
 to staging Core.
 
@@ -37,7 +37,7 @@ a customer gets. Nothing here is specific to a host. What the plugin needs from 
 8.3, MySQL or MariaDB, WordPress 6.8 or later, outbound HTTPS to Core and a cron tick, and that is
 all the loop needs too.
 
-1. **Where it runs.** A WordPress application on Kowboy's Cloudways server (Patric, question 62),
+1. **Where it runs.** A WordPress application on Kowboy's Cloudways server (Patric, question 66),
    because that is where Kowboy runs it; the same site could stand on any host. Where a host has
    an API, as Cloudways has, it is a convenience for the agent (the site's login, its cron, a
    Varnish purge), never a dependency.
@@ -79,7 +79,8 @@ all the loop needs too.
    tick it.
 
 5. **How an agent drives it.** Three channels, none needing a shell:
-   - Core's admin API (in the job natively, in a session with the secret): ring the site
+   - Core's admin API, the same JSON API the panel uses, which takes the admin secret for agents
+     (in the job natively, in a session with the secret): ring the site
      (`/v1/admin/bell`, delta or forcerefresh), resync the connection (`/v1/admin/event`), and
      read every bell, pull and applied report on the timeline (`/v1/admin/events`).
    - The site's own HTTPS surface: its pages, sitemaps and the caches' response headers, and the
@@ -117,7 +118,7 @@ all the loop needs too.
 ## Access, the whole workflow
 
 What an agent needs to run this end to end on any host, and the one thing that is Patric's
-(question 69, the site's login):
+(question 73, the site's login):
 
 | What                             | Why                                                                                                                | How the agent gets in                                                   | Patric's part                                                                    |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
@@ -128,12 +129,12 @@ What an agent needs to run this end to end on any host, and the one thing that i
 | The host's git deployment        | an alternative to the login for the first install and for every change                                             | a build branch of plugin folders, pulled by the host                    | a deploy key on GitHub, which only an admin can add; not needed with the login   |
 | SFTP or SSH                      | not used: port 22 is blocked from where agents run (verified 2026-09-20); a person can still use it                | —                                                                       | nothing                                                                          |
 | The host's API, where it has one | convenience: the login, the cron, a Varnish purge, logs                                                            | an API key                                                              | optional                                                                         |
-| The reference site (step 2)      | read its pages for parity                                                                                          | public HTTPS, no login                                                  | its address (question 67)                                                        |
+| The reference site (step 2)      | read its pages for parity                                                                                          | public HTTPS, no login                                                  | its address (question 71)                                                        |
 | Staging Core's admin secret      | ring, resync, read the timeline                                                                                    | set anew by an agent through the DigitalOcean API                       | nothing                                                                          |
 
 ## Cache invalidation: the WordPress way, and nothing else
 
-Decided 2026-09-20 (questions 63 and 64 closed: an agent's decision, not Patric's). The plugin
+Decided 2026-09-20 (questions 67 and 68 closed: an agent's decision, not Patric's). The plugin
 targets no cache plugin and no server. It does what WordPress does, and every cache follows that,
 whatever the host:
 
@@ -176,7 +177,7 @@ made-up records on the site Patric looks at, so it is not proposed.
 
 ## What it needs from Patric
 
-- **69** the test site's address and its WordPress admin login, once, for the first install.
+- **73** the test site's address and its WordPress admin login, once, for the first install.
 - Already open: Vitec's subscription for the test account pointed at staging (item 6), so real
   changes flow; not blocking.
 

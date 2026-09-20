@@ -10,7 +10,7 @@ import { walk } from './lib/walk.mjs';
 import { report } from './lib/report.mjs';
 
 const CRM_NAMES = ['vitec', 'mspecs'];
-const CODE = ['.ts', '.js', '.mjs', '.php', '.tsx'];
+const CODE = ['.ts', '.js', '.mjs', '.php', '.tsx', '.css', '.html'];
 const ADAPTER_API = 'engine/adapter-api/';
 
 const specifiers = (source) =>
@@ -21,8 +21,14 @@ const resolve = (file, specifier) =>
 
 const violations = [];
 
-// 1. No CRM name in the engine or the clients.
-for (const file of [...walk('engine', CODE), ...walk('clients', CODE)]) {
+// 1. No CRM name in the engine, the clients, or the panel's browser app (admin/src), which draws
+// every adapter's pages from what the adapter describes. Its journeys (admin/e2e) drive a real
+// adapter, as the acceptance tests do.
+for (const file of [
+  ...walk('engine', CODE),
+  ...walk('clients', CODE),
+  ...walk('admin/src', CODE),
+]) {
   const lines = readFileSync(file, 'utf8').split('\n');
   lines.forEach((line, index) => {
     for (const name of CRM_NAMES) {

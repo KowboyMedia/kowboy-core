@@ -13,6 +13,32 @@ const CONFIGS = ['vitest.config.ts', 'vitest.wordpress.config.ts'];
 
 const results = new Map();
 const outDir = mkdtempSync(join(tmpdir(), 'core-report-'));
+
+// The panel's user journeys run in a real browser (admin/e2e); each is named "journey: <title>".
+const journeys = join(outDir, 'journeys.json');
+try {
+  execFileSync('npx', ['playwright', 'test', '--config', 'admin/playwright.config.ts'], {
+    stdio: 'inherit',
+    env: { ...process.env, PLAYWRIGHT_JSON: journeys },
+  });
+} catch {
+  console.error('the browser journeys failed; the report below records that');
+}
+const specs = (suite) => [
+  ...(suite.specs ?? []),
+  ...(suite.suites ?? []).flatMap((child) => specs(child)),
+];
+try {
+  for (const suite of JSON.parse(readFileSync(journeys, 'utf8')).suites) {
+    for (const spec of specs(suite)) {
+      const status = spec.tests.every((test) => test.status === 'expected') ? 'passed' : 'failed';
+      results.set(`journey: ${spec.title}`, status);
+    }
+  }
+} catch (error) {
+  console.error(`no journey results: ${String(error)}`);
+}
+
 for (const config of CONFIGS) {
   const resultsFile = join(outDir, `${config}.json`);
   try {

@@ -1,11 +1,13 @@
-# Admin panel: the rebuild (proposal, register questions 59 to 61)
+# Admin panel: the rebuild (register questions 59 to 61, answered 2026-09-20)
 
-Patric, 2026-09-20: the panel as built works but reads as a hobby project: full-page reloads, no
-word after a save, a search that cannot sort, inconsistent panels, journeys that take thought, and
-core functions missing (recompute everything, an office, a tenant, a CRM). Nothing is built until
-this is discussed. This file is the discussion piece: what the panel is for, what comparable
-products offer, every function rated with MoSCoW, and how to build it to the standard of a
-professional product in 2026.
+Patric, 2026-09-20: the panel as first built worked but read as a hobby project: full-page
+reloads, no word after a save, a search that could not sort, inconsistent panels, journeys that
+took thought, and core functions missing (recompute everything, an office, a tenant, a CRM). This
+file was the discussion piece: what the panel is for, what comparable products offer, every
+function rated with MoSCoW, and how to build it to the standard of a professional product in 2026. Patric's answer the same day: **implement every Must and every Should, list the Coulds,
+build from scratch on best practices with nothing carried over (a hard rule), and list any
+significant gap with a suggestion.** Section 6 says what was built and what the gaps are;
+`docs/admin-panel.md` describes the panel as it is.
 
 ## 1. What the panel is for
 
@@ -67,7 +69,7 @@ panel and carries over in the new form.
 | Copy buttons for the token and the bell secrets, with "copied"                                                                                           | Must   | S     |                                                            |
 | "Check the login" before saving: the adapter tries the CRM with the typed login and says yes or no                                                       | Should | M     | Needs a generic adapter capability (a probe); question 61. |
 | First-load progress on the tenant page: records per datatype, done or failed, how long it took                                                           | Should | M     | Comes with jobs (D).                                       |
-| A tenant with two CRMs                                                                                                                                   | Could  | M     | No customer needs it yet.                                  |
+| A tenant with one or several CRMs, of the same or different kinds                                                                                        | Must   | M     | Moved from Could by Patric, 2026-09-20.                    |
 | Archive a tenant (hide it, keep its data 90 days)                                                                                                        | Could  | S     | Today: licence off and "Remove everything".                |
 
 ### B. Health and monitoring (U2, U5)
@@ -216,3 +218,127 @@ tenant page, the "check the login" probe, the "look at a record" dry run and the
 
 Register questions 59 (the ratings), 60 (the way to build) and 61 (the adapter panel
 description). Question 57 (queue and fetch-again for records) stands.
+
+## 6. What was built (2026-09-20), the Coulds, and the gaps
+
+**Built from scratch, every Must and every Should.** The old server-rendered panel (`engine/admin/`,
+the Vitec adapter's HTML pages, their tests) is deleted. In its place: a JSON admin API in the
+engine (`engine/admin-api/`) with a login by mailed link, an audit trail, jobs with progress and
+cancel, a live event stream, alerts by mail and Slack, and adapters that describe their panels as
+data; a browser app (`admin/`, React 19, Vite, Tailwind v4, shadcn/ui, TanStack Query and Table,
+react-hook-form, Recharts) built into static files by `npm run build` and served by the web process
+under `/admin`; the Vitec adapter's admin rebuilt as data with a login probe, a record inspection
+and its queue; and tests at three levels: the API through HTTP, the web process as deployed, and
+every user journey in a real browser (`admin/e2e`, an enforced check). The stack is the one
+recommended in section 4, with one change: no Refine. The engine's own rule against framework-style
+layers (AGENTS.md) won over a data-provider abstraction; TanStack Query and Table on the API do the
+same work in plain code.
+
+| Rated  | Rows | Built           |
+| ------ | ---- | --------------- |
+| Must   | 32   | 32              |
+| Should | 14   | 14              |
+| Could  | 14   | 0, listed below |
+| Won't  | 3    | 0, on purpose   |
+
+Where a Should had a smaller reading, the honest one was built: "first-load progress" is what the
+latest load has written, left unchanged, removed and dropped since it started (the engine cannot
+see inside an adapter's fetch, but it sees every write); "what a site holds versus Core" is what
+the sites reported applied and failed per datatype out of the event log's 30 days, not a count the
+site never sends; the "site setup checklist" proves the secret by a bell answered, the token by a
+pull and the link by a record applied, since a pull cannot name the site (the token is the
+tenant's).
+
+### The Coulds, not built, for later
+
+| Could                                                                  | What it would take                                                                                                                                 |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A tenant with two CRMs                                                 | Allow more than one connection per tenant on the page and in the save; the engine already keys everything by connection.                           |
+| Archive a tenant                                                       | A flag that hides it from the list and stops its bells, keeping the data 90 days; today: licence off and "Remove everything".                      |
+| Usage: CRM calls per connection per day, Sentry budget, event log size | Three queries over the event log and the database, one card on the dashboard.                                                                      |
+| Uptime and answer times of the sites' pulls over 7 days                | The same query as the dashboard's over a week, one chart.                                                                                          |
+| Export a search as CSV or JSON                                         | One endpoint that streams the search's rows, one button.                                                                                           |
+| Saved searches                                                         | The search lives in the address already; saving is a list of names and addresses per person.                                                       |
+| A record's earlier versions and the diff between them                  | Versions are not stored; it needs a history table on every write and a diff view. The largest of these.                                            |
+| Export events                                                          | As for records.                                                                                                                                    |
+| Replay a notification payload                                          | An adapter capability: hand a stored `webhook.received` payload back to its listener.                                                              |
+| Users and roles (operator, viewer), invited by email                   | A users table, an invitation mail, a role on the session, and a check per change.                                                                  |
+| Passkeys or a second factor                                            | WebAuthn on the login page and a credential table.                                                                                                 |
+| Rotate the admin secret from the panel                                 | The secret is the app's environment; rotating it from the panel means Core writing its own configuration on the platform. Better left to an agent. |
+| Dark mode                                                              | The design tokens are in place; a second set of values and a switch.                                                                               |
+| Keyboard shortcuts                                                     | Beyond the palette's ⌘K: a small map of keys to pages.                                                                                             |
+
+### Gaps found while building, with a suggestion each
+
+1. **A pull does not name the site.** Every site of a tenant pulls with the tenant's token, so
+   "last pull" and "first pull" are per tenant, and the checklist proves the token per tenant, not
+   per site. Suggestion: implement later, as a header the clients send (`X-Core-Site`) and Core
+   records per site; a small additive change to both clients. Not blocking.
+2. **What a site holds is inferred, not counted.** Parity is built from the sites' applied and
+   failed reports over the event log's 30 days. Suggestion: implement later, as a periodic
+   `POST /v1/holdings` from the clients with their counts per datatype; then the page can say
+   "the site holds 412 of 415". Not blocking.
+3. **Removing a site deletes it.** A site taken off the tenant's page is deleted with its row; its
+   events stay. Suggestion: do not implement more; "archive a tenant" (a Could) covers the case
+   where history matters.
+4. **The recompute's "everything" is one process at a time.** Jobs run one after another in the
+   worker, in pages of 200 records, so a recompute of everything takes minutes on a large
+   database and blocks the next job. Suggestion: implement only if it hurts: a second worker
+   taking jobs is one line of configuration on the platform, and the queue already locks per job.
+5. **Alerts know Core's health, not the sites'.** A site that stops pulling turns the
+   `subscribers` check red, which alerts; a site that pulls but fails to apply does not.
+   Suggestion: implement later as one more health check, "sites failing to apply in the last
+   hour", registered by the engine; a few lines. Not blocking.
+6. **The old operator endpoints stay.** `POST /v1/admin/bell`, `event`, `replay` and `recompute`
+   with the admin secret are the contract the agents and scripts use (SRS §10); the panel's
+   endpoints sit next to them. Suggestion: leave them; they share the engine's functions with the
+   panel, and removing them is a contract change for nothing.
+
+## 7. Patric's verdict on section 6, and what follows (2026-09-20, later)
+
+The build of section 6 was a reskin: new code and a new stack, but every page, its layout and its
+user flow came from the first build, because the function list was written by walking that
+build. Patric had ruled that out. Nothing of it is inherited into the next design; the requirement
+sheets (sections 1 and 3, with the Must below) and best-practice patterns of market-leading admin
+consoles are the only inputs, the information architecture and the screens are approved before
+any code, and nothing is built until he says so. The strategy is in the chat answer of the same
+day and moves into `docs/admin-panel-design.md` once the design is drafted.
+
+Changes to the sheets:
+
+- A tenant may have one or several CRM connections, of the same or different kinds: a Must.
+- Shelved as a later performance improvement: jobs run one after another in the worker (a second
+  worker takes jobs in parallel; one platform setting).
+- Shelved as a later health check: a site that pulls but fails to apply records turns a check red
+  and alerts.
+- Cut what nothing uses (register question 65): the old operator endpoints with the admin secret
+  and the setup scripts, once the panel's API is the one code path.
+- The public health check keeps its 200 or 500 answer for an uptime monitor and must say what is
+  wrong in words a viewer understands without naming customers (register question 62).
+- Every notification Vitec sends may be stored (register question 63).
+
+The gaps of section 6, explained in full:
+
+1. **A pull does not name the site.** A "site" is one website that shows a tenant's records: one
+   WordPress installation with the Core plugin, or one Lovable site. Every site has a bell URL
+   (where Core rings to say "there is something new") and a bell secret (so the site knows the
+   bell came from Core). A "pull" is the site fetching the changes from Core, page by page, with
+   the tenant's token. Because every site of a tenant pulls with the same token, Core can see
+   that a pull happened for the tenant but not which of its sites made it. So "last pull" and
+   "first pull" are known per tenant, not per site, and the setup checklist can say "a site
+   pulled with the token" but not "acme.se pulled". The fix is small: the plugin and the Lovable
+   kit send their site name in a header with every pull, and Core records it per site.
+2. **What a site holds is inferred, not counted.** After every page a site pulls, it reports to
+   Core which records it applied and which it could not. From those reports Core can say "the
+   sites reported 640 properties applied and 6 failed"; it cannot say "the site holds 646
+   properties" because the site never reports its totals. A small addition to the clients, a
+   report of their counts per datatype now and then, would make the comparison exact.
+3. **Removing a site deletes it.** A site is a row in Core: its name, its bell URL, its bell
+   secret, when it was last rung, what it answered, when the tenant last pulled. Taking the site
+   off the tenant's page deletes that row. The events it produced (bells rung, what it applied)
+   stay in the event log, but nothing points at them any more. What is lost: its secret (adding
+   it again means a new secret pasted into the site), its bell history in one place, and a
+   protection against a slip of the hand. The alternative is to keep the row hidden and inactive
+   ("archive"), which is what "archive a tenant" in the Coulds does for a whole tenant. The
+   suggestion stands: deletion is fine for now; archiving covers the case where the history
+   matters.

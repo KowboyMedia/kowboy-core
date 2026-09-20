@@ -53,7 +53,8 @@ Lint findings (including function complexity), duplicate code, dead code (unused
 ### Code
 
 - **One code path per concern.** The same logic never exists twice. Search for the existing function before writing a new one. No options or flags for cases that don't exist yet.
-- **Readable code.** A reader should understand an endpoint or job from a few files. Avoid framework-style layers: dependency-injection containers, generic repositories, wrappers around libraries.
+- **Market-leading solutions and patterns first** (Patric, 2026-09-20; a production strategy of this project, not a preference). For anything a widely used library, framework or established pattern already does well, use it rather than build it; reinventing is the exception and needs a stated reason. Adding, dropping or swapping a library or framework, and any departure from a proposal Patric approved, is a proposal that names the net value and waits for his answer; never a silent choice.
+- **Readable code.** A reader should understand an endpoint or job from a few files. No home-made layers (dependency-injection containers, generic repositories, wrappers around libraries) where a market-leading library or framework does the job; a framework is used the way its documentation says.
 - **Delete rather than comment out.**
 - **Ask before adding a runtime dependency or vendor.**
 
@@ -73,6 +74,8 @@ Lint findings (including function complexity), duplicate code, dead code (unused
 main.ts               entrypoint: starts engine, mounts adapter endpoints, starts adapters; the only file importing both
 engine/               CRM-agnostic: storage, rules runner, bells, subscriber API, recompute, health, event log
 engine/adapter-api/   the only engine code adapters may import (protected)
+engine/admin-api/     the admin panel's JSON API, used by the browser app and the agents alike
+admin/                the admin panel's browser app (React on Vite), built into admin/dist and served under /admin
 adapters/<provider>/  everything CRM-specific, incl. webhooks, schedules, fetch lists, one folder per CRM
 clients/wordpress/    thin WordPress client
 clients/lovable-kit/  Supabase sync + bell functions for Lovable sites
@@ -89,6 +92,7 @@ Stop and ask the person who gave you the task, and don't improvise, when a task 
 
 - a change to the adapter API, a contract, schema, rules ledger, golden master or acceptance criterion
 - a new runtime dependency, vendor or recurring cost
+- a library or framework added, dropped or swapped, or a departure from a proposal Patric approved (Patric, 2026-09-20): pause, propose with the net value, and wait
 - a decision the Concept doesn't settle. First ask which side of the seam it belongs on, then pick the smaller option. If both still look reasonable, ask.
 - action on a production incident
 
@@ -115,14 +119,18 @@ instructions instead of results.
   request", "rebase" or "conflict"; say "saved", "combined with the other session's work", "in
   staging" or "live" (Patric, 2026-09-19). Another person chatting with an agent may get the
   technical words.
+- **Explain in full** (Patric, 2026-09-20; a rule of this project, not his preference). Complete
+  sentences, every term explained the first time it is used (a site, a pull, a bell, a
+  connection), the whole reasoning behind a gap or a question, and never prose compressed by
+  dropping words. Short is good; cut, not condensed, is not.
 - **One number per question, the register's.** A question to Patric carries its
   `docs/open-questions.md` number in chat too, never a fresh "1."; numbers keep counting across
   sessions. Each question is phrased so that a yes, a no or a pick answers it, with the smaller
   option named.
-- **One line per ask, and never a technical one.** When an agent needs something from Patric,
+- **One line per ask, the reasoning in the register.** When an agent needs something from Patric,
   chat gets one line: what is needed, and how to answer it (a paste, a yes or no, or a pick
-  between two things named in plain words). No background, no alternatives, no reasoning; the
-  register entry may hold those for whoever wants them, and Patric asks if he does. Which tool,
+  between two things named in plain words). The register entry carries the whole reasoning, in
+  the complete sentences the rule above asks for, and chat gives it when Patric asks. Which tool,
   which plugin, where a test runs, how something is built: never asked. The agent decides, writes
   the decision down and moves on (Patric, 2026-09-20, after a round of questions written with
   their reasoning and options was unreadable).

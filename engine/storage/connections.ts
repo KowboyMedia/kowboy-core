@@ -233,3 +233,13 @@ export async function updateSubscriber(
   if (sets.length === 0) return;
   await db().query(`update subscribers set ${sets.join(', ')} where id = $1`, values);
 }
+
+/** One tenant, with its token. */
+export async function tenantById(id: number): Promise<TenantRow | null> {
+  return (await tenants()).find((tenant) => tenant.id === id) ?? null;
+}
+
+/** A site is deleted with its row; its events stay in the log. */
+export async function deleteSubscriber(id: number): Promise<void> {
+  await db().query('delete from subscribers where id = $1', [id]);
+}

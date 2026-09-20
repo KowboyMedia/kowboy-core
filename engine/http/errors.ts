@@ -4,6 +4,7 @@
 import { authenticate } from './changes.js';
 import { validateSiteError } from '../contract.js';
 import { reportFromSite } from '../errors.js';
+import { logEvent } from '../events.js';
 import { jsonResponse, type Request, type Response } from './server.js';
 
 type SiteError = { message: string; where: string; detail?: string };
@@ -23,12 +24,19 @@ export async function siteError(request: Request): Promise<Response> {
     return jsonResponse(400, { error: 'not an error report', detail: checked.errors });
 
   const { message, where, detail } = body as SiteError;
+  const client = request.headers['x-core-client'] ?? 'site';
   const reported = await reportFromSite({
     tenantId: auth.tenantId,
-    client: request.headers['x-core-client'] ?? 'site',
+    client,
     message,
     where,
     ...(detail === undefined ? {} : { detail }),
+  });
+  // On the tenant's page too (the panel shows a site's own errors), not only in Sentry.
+  await logEvent({
+    type: 'site.error',
+    tenantId: auth.tenantId,
+    fields: { client, message, where, detail: detail ?? null, reported },
   });
   return jsonResponse(202, { recorded: true, reported });
 }
