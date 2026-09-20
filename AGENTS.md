@@ -127,10 +127,13 @@ instructions instead of results.
   `docs/open-questions.md` number in chat too, never a fresh "1."; numbers keep counting across
   sessions. Each question is phrased so that a yes, a no or a pick answers it, with the smaller
   option named.
-- **A question carries its whole context** (Patric, 2026-09-20, on question 62). In chat as in
-  the register: what it is about, why it is asked, what each option means for the product, and
-  the smaller option, so he can answer without opening a file or scrolling back. A bare label
-  ("waiting on you: 62") is not a question.
+- **One line per ask, the reasoning in the register.** When an agent needs something from Patric,
+  chat gets one line: what is needed, and how to answer it (a paste, a yes or no, or a pick
+  between two things named in plain words). The register entry carries the whole reasoning, in
+  the complete sentences the rule above asks for, and chat gives it when Patric asks. Which tool,
+  which plugin, where a test runs, how something is built: never asked. The agent decides, writes
+  the decision down and moves on (Patric, 2026-09-20, after a round of questions written with
+  their reasoning and options was unreadable).
 
 ## Raising issues
 

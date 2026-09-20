@@ -299,7 +299,7 @@ Patric's answers of the same day, later (all done, see `docs/admin-panel.md`):
 - Connections are never a standalone concept for the people at the panel: a connection is a
   setting of a tenant, on the tenant's page. Said three times.
 - The colour-coded queue list he described earlier is part of the sheet (section 8).
-- When recomputing, properties already sold go last, whatever the CRM (section 8 and question 66).
+- When recomputing, properties already sold go last, whatever the CRM (section 8 and question 74).
 
 The gaps of section 6, explained in full:
 
@@ -350,7 +350,7 @@ a fresh conversation for the design so that nothing of the old builds sits in th
    what happened, the attempt, and the site's report. Its data is the engine's write path plus
    what each adapter reports through `queue()`.
 4. **Sold properties go last in a recompute**, whatever the CRM. How the engine knows "sold"
-   without deciding anything from a CRM value is question 66; the panel shows the order, it
+   without deciding anything from a CRM value is question 74; the panel shows the order, it
    does not define it.
 5. **A pull names its site**, so a site's page shows its own last pull, not the tenant's.
 6. **Deleting a site deletes its history.** The confirmation says so.
