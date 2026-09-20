@@ -41,16 +41,31 @@ export const eventPanels: Panel[] = [
       const query = ctx.request.query;
       const value = (name: string): string | undefined => query.get(name) || undefined;
       const [connectionId, datatype, remoteId] = (query.get('entity') ?? '').split('/');
+      // A value that is not a date is left out and said so; a limit that is not a whole number
+      // above zero is the default. The page never hands the database something it will refuse.
+      const problems: string[] = [];
+      const moment = (name: string, label: string): string | undefined => {
+        const given = value(name);
+        if (given === undefined) return undefined;
+        const parsed = Date.parse(given);
+        if (Number.isNaN(parsed)) {
+          problems.push(
+            `${label} "${given}" is not a date, so it was left out; write it like 2026-09-18T00:00:00Z.`,
+          );
+          return undefined;
+        }
+        return new Date(parsed).toISOString();
+      };
       const events = await queryEvents({
         tenantId: numberOf(value('tenant')),
         connectionId: value('connection'),
         correlationId: value('correlation'),
         type: value('type'),
-        from: value('from'),
-        to: value('to'),
+        from: moment('from', 'From'),
+        to: moment('to', 'To'),
         entity:
           connectionId && datatype && remoteId ? { connectionId, datatype, remoteId } : undefined,
-        limit: Number(query.get('limit') ?? 200),
+        limit: numberOf(value('limit')) ?? 200,
         newestFirst: true,
       });
       const current = (name: string): string => query.get(name) ?? '';
@@ -103,7 +118,7 @@ export const eventPanels: Panel[] = [
           'Open "fields" on a row for everything the event recorded.',
           eventsTable(events),
         );
-      return ctx.render('Events', body);
+      return ctx.render('Events', body, problems.length ? `!${problems.join(' ')}` : null);
     },
   },
 ];

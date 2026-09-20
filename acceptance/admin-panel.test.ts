@@ -235,6 +235,18 @@ describe('the admin panel', () => {
     expect(events).toContain('admin.test');
   });
 
+  it('keeps the events page up when a filter value is not a date or a number, and says so', async () => {
+    const page = await get('/admin/events?from=notadate&to=yesterday&limit=abc');
+    expect(page.status).toBe(200);
+    const html = await page.text();
+    expect(html).not.toContain('Something went wrong');
+    expect(html).toContain('From &quot;notadate&quot; is not a date');
+    expect(html).toContain('To &quot;yesterday&quot; is not a date');
+    // The filters that could not be used are left out; the rest of the page works.
+    expect(html).toContain('admin.login');
+    expect((await get('/admin/events?limit=-5')).status).toBe(200);
+  });
+
   it('runs housekeeping from the settings page', async () => {
     const done = await post('/admin/settings/housekeeping', {});
     expect(done.status).toBe(303);

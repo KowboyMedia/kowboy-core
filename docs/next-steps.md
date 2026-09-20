@@ -81,6 +81,10 @@ the first item that is not done, and keep the file current. Decisions and open q
    `adapters/vitec/admin/`, tested as AC 42. Users and roles, and anything a site does, stay out.
    The login is by email link since the same day (question 30: no shared password), mailed
    through Postmark (question 31); staging has the token, production gets it with the release.
+   Checked 2026-09-20 on staging as Patric and in a browser against a local copy, every page and
+   every button: two fixes followed, a recompute that failed in the web process (the mappers were
+   not registered there) and event filters that showed a database error for a bad date or
+   number; both are tests now.
 
 8. ~~**Setup directions on each adapter's panel, and a licence notice in the plugin** (Patric,
    2026-09-18).~~ Done 2026-09-18: the Vitec panel opens with "Set up Vitec", kept true by
