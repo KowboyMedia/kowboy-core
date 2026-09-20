@@ -2,8 +2,8 @@
 
 Step 2 of two. Proposed 2026-09-20 and revised the same day for Patric's answers: a separate
 package it is, named after the client package with `-templates`, and one package per template set
-is the agent's pick within that. Open: questions 66 (the template files), 67 (the reference site)
-and 68 (what Core prepares for a site). It needs step 1's site ([staging-site.md](staging-site.md))
+is the agent's pick within that. Open: questions 66 (the template files) and 67 (the reference site)
+(68 is answered: hidden values and the listing state come from Core). It needs step 1's site ([staging-site.md](staging-site.md))
 for the parity check and runs in the same loop. Next-steps item 10 (the templates on the universal
 model, question 55) is done inside this step.
 
@@ -71,8 +71,8 @@ Lovable kit on the same dataset. The templates package holds only how it looks: 
 single pages, the list wrappers with their form, script and stylesheet, and the endpoint that
 renders cards for the wrapper's reloads. It shows what `display` gives and formats nothing (the
 ledger does, AGENTS.md). What stays the site's own decision, past viewings, wording, layout, is
-taken in the templates; a hidden price is Core's (question 68, first part, approved), and the
-lines between "till salu", "kommande" and "referenser" are its open second part.
+taken in the templates; a hidden price and the listing state come prepared from Core (question
+68, approved).
 
 **The override rule.** A template is looked up in the theme first (`<theme>/core/<file>`), then in
 the package. Editing means copying the file into the theme; the package's own folder is never
@@ -111,12 +111,10 @@ those files is replaced on port by the plugin's functions, the universal names a
      become a ledger entry later. This is what "obscure" means here: shown, not formatted.
    - **The site's own logic.** Past viewings, wording, tags, what to show where: decided in the
      templates, as AGENTS.md puts it on the site, and noted in the inventory as the site's rules.
-     A hidden price, a hidden address and whether bids show are Core's (question 68, first part,
-     approved: the prepared string is absent when the CRM says hide, next-steps item 14). The
-     lines between "till salu", "kommande" and "referenser" are the open second part of 68, a
-     prepared listing state; until it is answered the templates decide from the values as the
-     reference site does, and every such decision is a line in the inventory, ready to move into
-     Core.
+     A hidden price, a hidden address, whether bids show, and the lines between "till salu",
+     "kommande" and "referenser" are Core's (question 68, approved 2026-09-20, next-steps item
+     14): a prepared string is absent when the CRM says hide, and every listing carries a
+     prepared `state` next to the CRM's own status. The templates show and group by those.
 3. **Port**, file by file, onto the package with the override rule, on the staging site.
 4. **Parity**, automated, in the smoke job of step 1: for each page type a sample of records (by
    CRM id, never by URL: the Swedish paths are new) is fetched from both sites, the templates' own
@@ -141,7 +139,6 @@ those files is replaced on port by the plugin's functions, the universal names a
 - **67** the reference site: its address, its CRM account, and whether the staging site gets its
   theme. The access an agent needs for the whole workflow is the table in
   [staging-site.md](staging-site.md); for the reference site it is its public address only.
-- **68** what Core prepares for a site: hidden values and the listing state.
 - Already open: 54 (a) to (e) as the templates need them; 52 is untouched (golden masters come
   from the test account).
 

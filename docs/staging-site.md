@@ -1,11 +1,10 @@
 # The staging site: the WordPress client live, driven by agents
 
-Step 1 of two. Proposed 2026-09-20 and revised twice the same day for Patric's answers. The plugin
-and this loop serve every host; the test site happens to run on Cloudways, and nothing below
-depends on that. Open: questions 63, 64 and 69, re-asked after an agent had tied the plan to one
-host, and the second part of 68. Step 2 is [default-templates.md](default-templates.md), and both
-run in the same loop once this site stands. Strategy §4 already names this site: the staging
-WordPress site next to staging Core.
+Step 1 of two. Proposed 2026-09-20 and revised the same day for Patric's answers. The plugin and
+this loop serve every host; the test site happens to run on Cloudways. Open: the test site's login
+(question 69). Step 2 is [default-templates.md](default-templates.md), and both run in the same
+loop once this site stands. Strategy §4 already names this site: the staging WordPress site next
+to staging Core.
 
 ## What it is for
 
@@ -23,7 +22,7 @@ with no human step. Step 2's templates land on the same site and are checked in 
 | ---------------------------------------------------- | ----------------------------------------------------------- |
 | the sync loop end to end, against an in-process Core | bells from the deployed Core, over the internet, over HTTPS |
 | the backstop, run by the test driver                 | the backstop under the site's own cron, across days         |
-| the hooks a cache listens for fire                   | real page caches purge the right pages (AC 43, new)         |
+| the hooks a cache listens for fire                   | a real page cache purges the right pages                    |
 | the updater offers a newer release                   | WordPress applies every build from the Space (AC 21)        |
 | fake records                                         | real Vitec records through real templates, in a browser     |
 | a restore of Core's database (AC 41)                 | the restore drill on staging (AC 24, Phase 7)               |
@@ -117,8 +116,8 @@ all the loop needs too.
 
 ## Access, the whole workflow
 
-What an agent needs to run this end to end on any host, and the one step that is Patric's
-(question 69):
+What an agent needs to run this end to end on any host, and the one thing that is Patric's
+(question 69, the site's login):
 
 | What                             | Why                                                                                                                | How the agent gets in                                                   | Patric's part                                                                    |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
@@ -132,66 +131,38 @@ What an agent needs to run this end to end on any host, and the one step that is
 | The reference site (step 2)      | read its pages for parity                                                                                          | public HTTPS, no login                                                  | its address (question 67)                                                        |
 | Staging Core's admin secret      | ring, resync, read the timeline                                                                                    | set anew by an agent through the DigitalOcean API                       | nothing                                                                          |
 
-## Cache invalidation: the WordPress way, on every host
+## Cache invalidation: the WordPress way, and nothing else
 
-Patric's rule (question 63): the plugin invalidates caches by updating the post types the
-WordPress way and nothing else, and every cache follows those hooks, whatever the server. Checked
-2026-09-20 in WordPress 7.1's source and in each cache's own code:
+Decided 2026-09-20 (questions 63 and 64 closed: an agent's decision, not Patric's). The plugin
+targets no cache plugin and no server. It does what WordPress does, and every cache follows that,
+whatever the host:
 
-- **What the plugin does** (`includes/store.php`): every record is written through
-  `wp_insert_post` or `wp_update_post` and removed through `wp_delete_post`, `clean_post_cache`
-  is called after each write, and `core_item_updated` and `core_item_deleted` fire for anything
-  custom.
-- **What WordPress fires.** On a write: `save_post`, `save_post_<type>`, `edit_post`,
-  `post_updated`, `wp_insert_post`, `transition_post_status` and `clean_post_cache`. On a
-  removal: `before_delete_post`, `delete_post`, `deleted_post`, `after_delete_post` and
-  `clean_post_cache`; trashing first adds `wp_trash_post` and a status transition.
-- **What the caches purge on:**
-
-  | Cache                                                                | Runs on                                                                                                                    | Purges a record's pages on                                                                                         | A write | A removal              |
-  | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------- | ---------------------- |
-  | LiteSpeed Cache (7 million installs)                                 | its page cache needs a LiteSpeed server (OpenLiteSpeed, Enterprise, LiteSpeed hosting) or its QUIC.cloud CDN on any server | `transition_post_status` when the post is or was published, `delete_post`, `wp_trash_post`                         | yes     | yes                    |
-  | WP Rocket (5.5 million sites)                                        | any server                                                                                                                 | `clean_post_cache`, `delete_post`, `wp_trash_post`, `pre_post_update`                                              | yes     | yes                    |
-  | W3 Total Cache                                                       | any server                                                                                                                 | `save_post`, `pre_post_update`, `before_delete_post`                                                               | yes     | yes                    |
-  | WP Super Cache                                                       | any server                                                                                                                 | `edit_post`, `delete_post`, `clean_post_cache`, `transition_post_status`, `wp_trash_post`                          | yes     | yes                    |
-  | WP Fastest Cache                                                     | any server                                                                                                                 | `transition_post_status` only; an update of a published post counts, and so does trashing                          | yes     | after the change below |
-  | Breeze (Cloudways' own)                                              | any server; Varnish where there is one                                                                                     | Varnish: `save_post`, `deleted_post`, `edit_post`; its file cache: `save_post`, `pre_post_update`, `wp_trash_post` | yes     | after the change below |
-  | Host caches (Kinsta, WP Engine, SiteGround and the like), Cloudflare | their own layer                                                                                                            | their plugins hook the same events; read when a customer site runs there                                           | —       | —                      |
-
-  One change follows from the reading: two caches purge on trashing but not on a forced delete,
-  and a removed record is deleted outright today. The plugin will trash the post and then delete
-  it, the WordPress way for a removal, which every cache above listens to.
-
-- **Where each is proved.** On the staging site, one cache plugin at a time, switched by the
-  driver: WP Rocket (a licence, question 63), W3 Total Cache, WP Super Cache, WP Fastest Cache,
-  and Breeze with Varnish. LiteSpeed's page cache needs a LiteSpeed server, so it is proved
-  either in CI, on OpenLiteSpeed in a container with the same suite (free), or on a LiteSpeed
-  host of Kowboy's with a second test site; question 63 asks which. Host caches and Cloudflare are
-  read now and proved when a customer site runs there.
-- **Browser cache.** A page cache can be purged; a browser cannot be reached. Some installations
-  let browsers keep dynamic pages too, and then the browser's copy lives until its time runs out,
-  whatever the server does. The plugin's part, on every host: it sets no browser cache directive
-  of its own on pages, so an installation's own setting is the only one; it answers a browser's
-  or a CDN's check correctly, with an ETag from the record's content hash and a Last-Modified
-  from its write time on record pages, so a check gets "unchanged" (304) or the new page (200)
-  at once; and a template set's own scripts and styles carry the set's version in their address,
-  so a release replaces them. How long an installation lets browsers keep pages is that
-  installation's choice and bounds how quickly a visitor sees a change; the implementer
-  documentation (next-steps item 13) says so and recommends a short time. The smoke suite asserts
-  all three with each cache.
+- Every record is written through `wp_insert_post` or `wp_update_post` with `clean_post_cache`
+  after it, and removed by trashing it and then deleting it (`wp_trash_post`, then
+  `wp_delete_post`), so the events every cache purges on fire: `save_post`, `edit_post`,
+  `transition_post_status`, `clean_post_cache`, `wp_trash_post`, `delete_post`. Checked
+  2026-09-20 in the sources of LiteSpeed Cache, WP Rocket, W3 Total Cache, WP Super Cache, WP
+  Fastest Cache and Breeze: all purge on these. Trash-then-delete is the one change; today a
+  removal deletes outright, which two of them do not see.
+- The plugin sets no browser cache directive of its own on pages, and answers a browser's or a
+  CDN's check on a record page with an ETag from the record's content hash, so a kept copy is
+  revalidated as changed or unchanged. A template set's assets carry the set's version in their
+  address. How long an installation lets browsers keep pages is that installation's setting.
+- Proof: the smoke suite runs one change-and-removal case against the staging site with the
+  cache plugin its host provides, named under AC 20. No cache matrix, no extra servers, no new
+  criterion.
 
 ## What "every test green" means here
 
-| AC      | Proved on the live site by                                                                                                                                                                                                                                                            |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 18      | A change lands on staging, is published to the staging channel and tested by the job by itself; production still waits for Patric's word.                                                                                                                                             |
-| 20      | The scenario suite in CI and the smoke on the live site; the search half comes with step 2.                                                                                                                                                                                           |
-| 21      | Every round reaches the site through the real updater from the staging channel, so a broken build is replaced by the next one on every round, not only in theory.                                                                                                                     |
-| 22      | The site's bell URL is broken on the tenant page for one round, and Core's timeline still shows the site pulling on its own every 15 minutes, the same code path CI proves converges; then the URL is put back.                                                                       |
-| 8       | The driver points the site at a dead Core; every page type answers 200 with the last content; then back.                                                                                                                                                                              |
-| 19      | A forcerefresh runs while staging Core redeploys (the agent asks for the redeploy mid-pull); the cursor ends at Core's latest position and the counts match the tenant's.                                                                                                             |
-| 43, new | Cache invalidation (question 64), with each supported cache in turn: a change that reaches the site makes the next request for the record's page and its lists fresh, a removed record's page is gone, and a browser's check on a record page answers changed or unchanged correctly. |
-| 24      | Possible on this site (restore the staging database through the API, watch the site converge); scheduled for Phase 7, not this step.                                                                                                                                                  |
+| AC  | Proved on the live site by                                                                                                                                                                                      |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 18  | A change lands on staging, is published to the staging channel and tested by the job by itself; production still waits for Patric's word.                                                                       |
+| 20  | The scenario suite in CI and the smoke on the live site; the search half comes with step 2.                                                                                                                     |
+| 21  | Every round reaches the site through the real updater from the staging channel, so a broken build is replaced by the next one on every round, not only in theory.                                               |
+| 22  | The site's bell URL is broken on the tenant page for one round, and Core's timeline still shows the site pulling on its own every 15 minutes, the same code path CI proves converges; then the URL is put back. |
+| 8   | The driver points the site at a dead Core; every page type answers 200 with the last content; then back.                                                                                                        |
+| 19  | A forcerefresh runs while staging Core redeploys (the agent asks for the redeploy mid-pull); the cursor ends at Core's latest position and the counts match the tenant's.                                       |
+| 24  | Possible on this site (restore the staging database through the API, watch the site converge); scheduled for Phase 7, not this step.                                                                            |
 
 Where changes come from: real changes arrive when Vitec's subscription for the test account
 points at staging (next-steps item 6, on Patric and Vitec) and whenever the test account changes.
@@ -205,25 +176,20 @@ made-up records on the site Patric looks at, so it is not proposed.
 
 ## What it needs from Patric
 
-- **69** the site's WordPress admin login, once (on Cloudways, its API key yields it), or the git
-  route with a deploy key.
-- **63** the caches to support and where LiteSpeed's page cache is proved, and a WP Rocket
-  licence for the staging site.
-- **64** AC 43 as reworded, and the live-site tests named in the report (a protected path).
-- **68** its second part, the listing state, explained in the register.
+- **69** the test site's address and its WordPress admin login, once, for the first install.
 - Already open: Vitec's subscription for the test account pointed at staging (item 6), so real
   changes flow; not blocking.
 
 ## Order of work
 
-1. Now, needing no answer: the plugin's two updater changes, trash-then-delete, and the ETag and
-   Last-Modified answers on record pages; the Space and the staging channel; the driver; the
-   packaging-and-smoke job on staging Core (publishing only, until the site is reachable).
+1. Now, needing no answer: the plugin's two updater changes, trash-then-delete, and the ETag on
+   record pages; the Space and the staging channel; the driver; the packaging-and-smoke job on
+   staging Core (publishing only, until the site is reachable).
 2. With 69: the first install, the site registered on the tenant page, the cron, the first sync
    visible in a browser.
-3. The loop run until it is green with the caches that need no licence; WP Rocket and LiteSpeed
-   where 63 says.
-4. With 64: AC 43 and the live-site tests in `acceptance/criteria.json`, the report regenerated.
+3. The loop run until it is green, the cache case with the host's cache plugin.
+4. The live-site tests named in `acceptance/criteria.json` under the criteria they prove, the
+   report regenerated.
 5. Step 2 joins the loop.
 
 Later, not this step: a Lovable staging site the same way (strategy §4 names it); the restore drill

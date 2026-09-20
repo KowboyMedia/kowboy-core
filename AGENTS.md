@@ -119,6 +119,13 @@ instructions instead of results.
   `docs/open-questions.md` number in chat too, never a fresh "1."; numbers keep counting across
   sessions. Each question is phrased so that a yes, a no or a pick answers it, with the smaller
   option named.
+- **One line per ask, and never a technical one.** When an agent needs something from Patric,
+  chat gets one line: what is needed, and how to answer it (a paste, a yes or no, or a pick
+  between two things named in plain words). No background, no alternatives, no reasoning; the
+  register entry may hold those for whoever wants them, and Patric asks if he does. Which tool,
+  which plugin, where a test runs, how something is built: never asked. The agent decides, writes
+  the decision down and moves on (Patric, 2026-09-20, after a round of questions written with
+  their reasoning and options was unreadable).
 
 ## Raising issues
 

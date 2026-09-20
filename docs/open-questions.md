@@ -87,89 +87,20 @@ page, a "check the login" probe, the "look at a record" dry run and the queue of
 One additive field on `Adapter.admin`. Smaller: yes as described; or keep HTML fragments from the
 adapter shown inside the app, which looks and behaves differently from the rest.
 
-## 63. `[client-wordpress]` The caches to support and where each is proved; a WP Rocket licence
+## 66. `[client-wordpress]` Send the v3 template files when you can
 
-Re-asked 2026-09-20 after an agent had tied the answer to one host. The plugin invalidates every
-cache the WordPress way, on every host and server; checked in the caches' own code
-(`docs/staging-site.md`): LiteSpeed Cache, WP Rocket, W3 Total Cache, WP Super Cache, WP Fastest
-Cache and Breeze all purge on what the plugin's writes and removals fire. Proof: on the staging
-site, one cache plugin at a time, for every cache that runs on any server; LiteSpeed's page cache
-needs a LiteSpeed server, so it is proved either in CI on OpenLiteSpeed in a container (free) or
-on a LiteSpeed host of Kowboy's with a second test site. WP Rocket is a paid plugin, about $59 a
-year for one site. Three picks: does the list stand; LiteSpeed in CI, or name a LiteSpeed host for
-a second site; and a WP Rocket licence, yes or no. Smaller: the list stands, LiteSpeed in CI, no
-licence yet.
+The templates folder of v3 and the list wrapper's script and stylesheet, as a zip or files in
+chat. They become `docs/inputs/templates-v3/`, the input of record for step 2; agents open no old
+repository, and nothing else of the old plugin is taken.
 
-## 64. `[client-wordpress]` A criterion for cache invalidation on the staging site
+## 67. `[client-wordpress]` Paste the reference site's address
 
-Re-asked 2026-09-20, free of any host. Proposed AC 43: with each supported cache in turn, a change
-that reaches the site makes the next request for the record's page and its list pages fresh, a
-removed record's page is gone from the cache, the plugin sets no browser cache directive of its
-own on pages, and a browser's check on a record page answers changed (200) or unchanged (304)
-correctly, so an installation that lets browsers keep pages revalidates within its own time. With
-it, the live-site tests of AC 8, 18, 19, 21 and 22 are named in `acceptance/criteria.json` next to
-the CI ones, so the report says what is proved where. `acceptance/` is protected. Smaller: fold the
-cache proof under AC 20 without a new number. Yes to AC 43, or fold.
+For the parity check of step 2. An agent checks by comparing listings whether it runs on the test
+account staging holds; if not, a second ask follows for that customer's Vitec login. The
+comparison is scoped to the templates' own markup, so no theme is needed.
 
-## 66. `[client-wordpress]` The v3 template files are the approved items; you supply them
+## 69. `[client-wordpress]` Paste the test site's address and its WordPress admin username and password
 
-AGENTS.md forbids taking anything from the plugins v1 to v3 unless you ask item by item. Step 2
-needs exactly the template files (the templates folder of v3 and the list wrapper's script and
-stylesheet), nothing else from the old plugin: every helper call and field in them is replaced on
-port. Confirm that this ask covers those files and hand them over in chat (a zip or the files); an
-agent keeps them as `docs/inputs/templates-v3/`, the input of record, and agents open no old
-repository. Nothing in the port starts before the files are there (Patric, 2026-09-20: not now;
-kept open). Smaller: v2's files, if v3's are harder to find (you said they are the same).
-
-## 67. `[client-wordpress]` The reference site for parity: its address, its CRM account, its theme
-
-The whole workflow Patric asked for on 2026-09-20 is the access table in `docs/staging-site.md`
-and question 69; for the reference site nothing but its public address is needed, its pages are
-read over HTTPS with no login. What remains: which site is it (its address)? Does it run on the
-Vitec test account staging already holds (`M31529`), or on a customer's account, whose Vitec key
-pair and office ids then go on staging as a second tenant (an agent adds it on the tenant page; a
-customer's data on staging is your call)? And should the staging site run the same theme, so whole
-pages can be compared, or is the comparison scoped to the templates' own markup (the default,
-needs no theme)? Blocks the parity check, not the port.
-
-## 68. `[core]` `[crm]` A prepared listing state, so no site has to know a CRM's statuses
-
-The first part, hidden values, was approved on 2026-09-20 and is in `decisions.md`: a prepared
-string is absent when the CRM says hide. This is the second part, explained in full at Patric's
-request.
-
-**The problem.** Vitec has 23 statuses for a listing (`docs/inputs/vitec/enumerations/Api_EstateStatus.md`):
-Till salu, Såld, Såld/Referensobjekt, Kommande, Snart till salu, Försprång, Bokad, Vilande,
-Återtagen, Ej till salu, Reserverad/Ej till salu, Uthyrd, Uthyrd preliminärt, Hyresledig,
-Tillträdd, Pågående, Slutsålt, and more. A site shows three or four lists: till salu, kommande,
-sålda (referenser), perhaps uthyres. Somebody has to decide which of the 23 goes in which list.
-Today that decision is nowhere: a record carries Vitec's status exactly as sent, so every site's
-developer, or the agent building the site, must learn the 23 values and decide, and every site
-may decide differently. When Mspecs arrives with its own statuses, every site must learn those
-too.
-
-**The proposal.** Core makes that decision once, in a table Patric approves: each CRM status maps
-to one of a handful of Core states, for example "for sale", "coming", "sold", "rented", "not for
-sale". The table lives in the ledger (one entry, one row per CRM), the adapter applies it, and
-every listing gets one small field next to the CRM's own status, which stays as it is:
-`state: { id: "for_sale", name: "Till salu" }`, the same id-and-name shape every enumeration has.
-A site or an agent then filters a list on `state.id` and prints `state.name`, and never needs to
-know any CRM's statuses. Mspecs later gets its own row in the table and no site changes.
-
-**What it changes.** The field tables and `schemas/` gain `state` on property and project, the
-ledger gains the table, and the sentence in AGENTS.md that forbids a status decision in Core
-becomes "only by ledger entries"; all protected, hence this question. Smaller: leave the grouping
-to the sites, each with its own 23-row table. Yes to the state, or leave it to the sites?
-
-## 69. `[client-wordpress]` The test site's first install, without SFTP
-
-Patric asked on 2026-09-20 whether the WordPress API, SFTP and a git deployment cover everything,
-or whether there is a gap. One: SFTP and SSH are unreachable from where agents run (port 22 is
-blocked; verified the same day), so the first install of the plugin and the driver on the test
-site needs one of two things. (a) The site's WordPress admin login, pasted once: the agent uploads
-and activates the plugin over HTTPS, makes itself an application password for the REST API, and
-from then on every change arrives through the plugin's own update channel with nothing more from
-anyone; on Cloudways the site's API key yields that login. (b) The host's git deployment with a
-build branch that holds only the plugin folders, which needs a deploy key added on GitHub by a
-repository admin, and differs from host to host. Everything else, settings, cron, logs, is done
-over HTTPS or through Core. Smaller: (a). The login, or the git route?
+For the first install of the plugin on the test site; after that every change arrives by itself
+through the plugin's update channel and nothing more is needed from anyone. SFTP is not used,
+because it is unreachable from where agents run.

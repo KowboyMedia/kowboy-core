@@ -122,11 +122,10 @@ the first item that is not done, and keep the file current. Decisions and open q
     real update channel (a staging channel on the Space, published and tested by a post-deploy
     job on staging Core), driven over HTTPS through the WordPress API, Core's admin API and a
     staging-only driver, with a loop that runs until every client criterion a live site can prove
-    is green; caches proved the WordPress way, one cache plugin at a time, LiteSpeed's on a
-    LiteSpeed server. Needs the site's admin login once (question 69); waits on 63 and 64 for the
-    cache cases. The parts that need no answer may start: the plugin's updater changes,
-    trash-then-delete, the ETag and Last-Modified answers, the Space and the staging channel, the
-    driver, the job.
+    is green; caches invalidated the WordPress way and proved once with the host's cache plugin
+    (questions 63 and 64 closed). Needs the site's login once (question 69). The parts that need
+    no answer may start: the plugin's updater changes, trash-then-delete, the ETag on record
+    pages, the Space and the staging channel, the driver, the job.
 12. **The default templates** (Patric, 2026-09-20; item 10 folds in): plan in
     `docs/default-templates.md`. A separate package per template set, `core-client-templates-2026`
     first (question 65 answered); the v3 templates Patric supplies (question 66, not yet) are
@@ -138,12 +137,14 @@ the first item that is not done, and keep the file current. Decisions and open q
     the customer, written for an agent that reads the data as much as for a developer: absence
     means "do not show", what is the site's own decision, the query functions, viewings in the
     past, and the answer to question 68 once it is given. Planned when Patric says so.
-14. **Hidden values in `display`** (question 68, first part, approved 2026-09-20): one ledger
-    entry saying a prepared string is absent when the CRM says hide (price, address, bids, and
-    whatever else a CRM flags), the rule in `engine/rules/` with its test, and AGENTS.md's "no
-    visibility" sentence amended to "only by ledger entries" in the same change, for Patric's
-    review through the protected paths. Waits on question 54 (b), (c) and (e) for how Vitec
-    expresses each flag on the test account. The listing state is the open second part of 68.
+14. **Hidden values and the listing state** (question 68, approved 2026-09-20, both parts): one
+    ledger entry saying a prepared string is absent when the CRM says hide (price, address, bids,
+    and whatever else a CRM flags), waiting on question 54 (b), (c) and (e) for how Vitec
+    expresses each; and `state` as `{id, name}` on property and project, a few Core states mapped
+    from the CRM's status by a ledger table with one row set per CRM, applied by the adapter,
+    `status` untouched next to it; the field tables, `schemas/`, the rules and their tests, and
+    AGENTS.md's "no status, no visibility" sentence amended to "only by ledger entries", all in
+    one change for Patric's review through the protected paths.
 
 ## Later, when Patric supplies them
 
@@ -189,5 +190,7 @@ the first item that is not done, and keep the file current. Decisions and open q
   (`git fetch origin staging && git reset --hard origin/staging`); a branch that already carries
   work merges `origin/staging` into itself instead. AGENTS.md and this file are read from there.
 - Never invent a contract field or a business rule.
+- An ask to Patric is one line, what is needed and how to answer; technical choices are never
+  asked (AGENTS.md "Working with Patric", 2026-09-20).
 - Core parses no CRM data (AGENTS.md): every tag, slug, status, flag or formatted string is the
   site's, from the payload it stores. Never propose otherwise, in code or in chat.
