@@ -17,48 +17,81 @@ export const escape = (value: unknown): string =>
 
 export type NavItem = { href: string; label: string; group?: string };
 
-// ---- Tabler's files, served under a versioned path so browsers may cache them for good --------
+// ---- Vendored front-end assets, each served from node_modules under a versioned path so browsers
+// may cache them for good and Core depends on no outside host. --------------------------------
 
-const tabler = ((): { root: string; version: string } => {
-  const manifest = createRequire(import.meta.url).resolve('@tabler/core/package.json');
+type AssetFile = { path: string; type: string };
+type Vendor = { base: string; root: string; files: Record<string, AssetFile> };
+
+function vendor(slug: string, pkg: string, files: Record<string, AssetFile>): Vendor {
+  const manifest = createRequire(import.meta.url).resolve(`${pkg}/package.json`);
   const { version } = JSON.parse(readFileSync(manifest, 'utf8')) as { version: string };
-  return { root: dirname(manifest), version };
-})();
+  return { base: `/admin/assets/${slug}/${version}`, root: dirname(manifest), files };
+}
 
-const ASSETS = `/admin/assets/${tabler.version}`;
-const ASSET_FILES: Record<string, { path: string; type: string }> = {
+// Tabler, the admin UI kit on Bootstrap 5 (Patric, 2026-09-18).
+const TABLER = vendor('tabler', '@tabler/core', {
   'tabler.min.css': { path: 'dist/css/tabler.min.css', type: 'text/css; charset=utf-8' },
   'tabler.min.js': { path: 'dist/js/tabler.min.js', type: 'text/javascript; charset=utf-8' },
-};
+});
+
+// jsoneditor (josdejong), Apache-2.0: the market-leading component for showing JSON (Patric,
+// 2026-09-19), used read-only for the panel's JSON blocks. Its CSS reaches an icon sprite at a
+// relative img/ path, served here too.
+const JSONEDITOR = vendor('jsoneditor', 'jsoneditor', {
+  'jsoneditor.min.css': { path: 'dist/jsoneditor.min.css', type: 'text/css; charset=utf-8' },
+  // The minimalist build: the read-only tree needs neither the code editor nor the validator.
+  'jsoneditor.min.js': {
+    path: 'dist/jsoneditor-minimalist.min.js',
+    type: 'text/javascript; charset=utf-8',
+  },
+  'img/jsoneditor-icons.svg': { path: 'dist/img/jsoneditor-icons.svg', type: 'image/svg+xml' },
+});
+
 const loaded = new Map<string, string>();
 
-/** The stylesheet and the script, open to anyone: the login page needs them too. */
-export function assetRoutes(): RouteTable {
-  return [
-    {
-      method: 'GET',
-      path: `${ASSETS}/*`,
-      handler: async (request) => {
-        const name = request.path.slice(ASSETS.length + 1);
-        const file = ASSET_FILES[name];
-        if (!file) return { status: 404, body: { error: 'not found' } };
-        let body = loaded.get(name);
-        if (body === undefined) {
-          body = readFileSync(join(tabler.root, file.path), 'utf8');
-          loaded.set(name, body);
-        }
-        return {
-          status: 200,
-          headers: {
-            'content-type': file.type,
-            'cache-control': 'public, max-age=31536000, immutable',
-          },
-          body,
-        };
-      },
+function serve(v: Vendor): RouteTable[number] {
+  return {
+    method: 'GET',
+    path: `${v.base}/*`,
+    handler: async (request) => {
+      const name = request.path.slice(v.base.length + 1);
+      const file = v.files[name];
+      if (!file) return { status: 404, body: { error: 'not found' } };
+      const key = `${v.base}/${name}`;
+      let body = loaded.get(key);
+      if (body === undefined) {
+        body = readFileSync(join(v.root, file.path), 'utf8');
+        loaded.set(key, body);
+      }
+      return {
+        status: 200,
+        headers: {
+          'content-type': file.type,
+          'cache-control': 'public, max-age=31536000, immutable',
+        },
+        body,
+      };
     },
-  ];
+  };
 }
+
+/** The vendored stylesheets and scripts, open to anyone: the login page needs Tabler too. */
+export function assetRoutes(): RouteTable {
+  return [serve(TABLER), serve(JSONEDITOR)];
+}
+
+/** The jsoneditor stylesheet and script, plus the one-off enhancer that turns every `.json-block`
+ * on the page into a read-only viewer. Added only to pages that carry a JSON block. */
+const jsonHead = `<link rel="stylesheet" href="${JSONEDITOR.base}/jsoneditor.min.css">`;
+const jsonScript =
+  `<script src="${JSONEDITOR.base}/jsoneditor.min.js"></script>` +
+  `<script>(function(){if(typeof JSONEditor==='undefined')return;` +
+  `document.querySelectorAll('.json-block').forEach(function(b){` +
+  `var pre=b.querySelector('pre.json-fallback'),m=b.querySelector('.json-view');if(!pre||!m)return;` +
+  `var data;try{data=JSON.parse(pre.textContent);}catch(e){return;}` +
+  `try{new JSONEditor(m,{mode:'view',mainMenuBar:true,navigationBar:false,statusBar:false},data);` +
+  `pre.hidden=true;m.hidden=false;}catch(e){}});})();</script>`;
 
 // ---- The shell ---------------------------------------------------------------------------------
 
@@ -68,15 +101,31 @@ const STYLE = `
   .ok { color: var(--tblr-green); }
   .bad { color: var(--tblr-red); }
   pre { max-height: 34rem; overflow: auto; font-size: .8rem; }
+  .json-view { height: 24rem; }
   details > summary { cursor: pointer; color: var(--tblr-primary); }
   .datagrid-content { overflow-wrap: anywhere; }
   td .badge { vertical-align: middle; }
+  /* Live activity: the whole row carries the state; a row that just arrived slides in and glows. */
+  @keyframes activity-in {
+    from { opacity: 0; transform: translateY(-.4rem); box-shadow: inset 0 0 0 100vw rgba(245, 159, 0, .35); }
+    to { opacity: 1; transform: none; box-shadow: inset 0 0 0 100vw rgba(245, 159, 0, 0); }
+  }
+  tr.activity-new > td { animation: activity-in 1.6s ease-out; }
+  @media (prefers-reduced-motion: reduce) { tr.activity-new > td { animation: none; } }
+  /* Charts are inline SVG that fills its card; figures use the same sans as everything else. */
+  .chart svg { width: 100%; height: auto; display: block; }
+  .chart-legend { display: flex; flex-wrap: wrap; gap: .25rem 1rem; font-size: .8rem; color: var(--tblr-secondary); margin-top: .5rem; }
+  .chart-legend .key { display: inline-block; width: .75rem; height: .75rem; border-radius: 2px; vertical-align: -1px; margin-right: .35rem; }
+  .chart .hit:hover { opacity: .85; }
+  .sparkline { display: block; width: 100%; height: 2.5rem; margin-top: .5rem; }
+  .figure { font-size: 1.75rem; font-weight: 600; line-height: 1.1; }
+  .tabular { font-variant-numeric: tabular-nums; }
 `;
 
-const head = (title: string): string =>
-  `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escape(title)} · Core admin</title><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="stylesheet" href="${ASSETS}/tabler.min.css"><style>${STYLE}</style></head>`;
+const head = (title: string, extra = ''): string =>
+  `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escape(title)} · Core admin</title><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="stylesheet" href="${TABLER.base}/tabler.min.css">${extra}<style>${STYLE}</style></head>`;
 
-const script = `<script src="${ASSETS}/tabler.min.js"></script>`;
+const script = `<script src="${TABLER.base}/tabler.min.js"></script>`;
 
 const flashOf = (flash: string | null | undefined): string =>
   flash
@@ -98,7 +147,12 @@ function navigation(items: NavItem[], current: string): string {
     .join('');
 }
 
-/** One full page: the sidebar with the navigation and who is logged in, then the body. */
+/**
+ * One full page: the sidebar with the navigation and who is logged in, then the body. The
+ * `email_off` markers tell the platform's edge (Cloudflare in front of App Platform) to leave
+ * email addresses alone: without them every address in a record or an event was rewritten into a
+ * "[email protected]" link (Patric, 2026-09-20: remove the mask).
+ */
 export function page(options: {
   title: string;
   nav: NavItem[];
@@ -109,9 +163,10 @@ export function page(options: {
   flash?: string | null;
 }): string {
   const user = escape(options.user ?? '');
+  const needsJson = options.body.includes('json-block');
   return (
-    head(options.title) +
-    `<body><div class="page">` +
+    head(options.title, needsJson ? jsonHead : '') +
+    `<body><!--email_off--><div class="page">` +
     `<aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark"><div class="container-fluid">` +
     `<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu" aria-controls="sidebar-menu" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>` +
     `<div class="navbar-brand navbar-brand-autodark"><a href="/admin" class="text-reset text-decoration-none">Core admin</a></div>` +
@@ -120,7 +175,7 @@ export function page(options: {
     `</div></div></aside>` +
     `<div class="page-wrapper"><div class="page-header d-print-none"><div class="container-xl"><div class="row g-2 align-items-center"><div class="col"><h2 class="page-title">${escape(options.title)}</h2></div></div></div></div>` +
     `<div class="page-body"><div class="container-xl">${flashOf(options.flash)}${options.body}</div></div>` +
-    `<footer class="footer footer-transparent d-print-none"><div class="container-xl"><p class="text-secondary small mb-0">Times are Swedish time (${TIME_ZONE}); hover a time for the exact moment in UTC.</p></div></footer></div></div>${script}</body></html>`
+    `<footer class="footer footer-transparent d-print-none"><div class="container-xl"><p class="text-secondary small mb-0">Times are Swedish time (${TIME_ZONE}); hover a time for the exact moment in UTC.</p></div></footer></div></div>${script}${needsJson ? jsonScript : ''}<!--/email_off--></body></html>`
   );
 }
 
@@ -132,7 +187,7 @@ export function standalone(options: {
 }): string {
   return (
     head(options.title) +
-    `<body class="d-flex flex-column"><div class="page page-center"><div class="container container-tight py-4"><div class="text-center mb-4"><a href="/admin" class="navbar-brand navbar-brand-autodark">Core admin</a></div><div class="card card-md"><div class="card-body"><h2 class="h2 text-center mb-3">${escape(options.title)}</h2>${flashOf(options.flash)}${options.body}</div></div></div></div>${script}</body></html>`
+    `<body class="d-flex flex-column"><!--email_off--><div class="page page-center"><div class="container container-tight py-4"><div class="text-center mb-4"><a href="/admin" class="navbar-brand navbar-brand-autodark">Core admin</a></div><div class="card card-md"><div class="card-body"><h2 class="h2 text-center mb-3">${escape(options.title)}</h2>${flashOf(options.flash)}${options.body}</div></div></div></div>${script}<!--/email_off--></body></html>`
   );
 }
 
@@ -152,6 +207,15 @@ export const grid = (items: string[]): string =>
     .map(
       (item) =>
         `<div class="col-md-6 col-xl-4 d-flex">${item.replace('class="card mb-3"', 'class="card mb-3 flex-fill"')}</div>`,
+    )
+    .join('')}</div>`;
+
+/** Two cards side by side on a wide screen, one under another on a narrow one. */
+export const pair = (items: string[]): string =>
+  `<div class="row row-cards">${items
+    .map(
+      (item) =>
+        `<div class="col-lg-6 d-flex">${item.replace('class="card mb-3"', 'class="card mb-3 flex-fill"')}</div>`,
     )
     .join('')}</div>`;
 
@@ -175,9 +239,19 @@ export function kv(pairs: [string, string][]): string {
     .join('')}</div>`;
 }
 
-/** A value shown as JSON. */
+/** A value shown as JSON in a plain `<pre>`. */
 export const pre = (value: unknown): string =>
   `<pre>${escape(typeof value === 'string' ? value : JSON.stringify(value, null, 2))}</pre>`;
+
+/**
+ * A JSON value shown with the jsoneditor component (read-only), degrading to a `<pre>` when its
+ * script has not loaded. The `<pre>` holds the canonical JSON: it is the single source the viewer
+ * reads, and what a no-script reader sees. A page that has one of these loads the viewer's assets.
+ */
+export const json = (value: unknown): string =>
+  `<div class="json-block"><pre class="json-fallback">${escape(
+    typeof value === 'string' ? value : JSON.stringify(value, null, 2),
+  )}</pre><div class="json-view" hidden></div></div>`;
 
 const BADGE: Record<'ok' | 'bad' | 'muted', string> = {
   ok: 'bg-green-lt',
@@ -293,6 +367,34 @@ const clock = new Intl.DateTimeFormat('sv-SE', {
   second: '2-digit',
   hourCycle: 'h23',
 });
+
+/**
+ * The first moment of a calendar day in the panel's zone, as an ISO string: what a day typed into
+ * a filter means, since the panel shows every time in Swedish time.
+ */
+export function startOfDay(day: string): string {
+  const guess = new Date(`${day}T00:00:00Z`);
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: TIME_ZONE,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(guess);
+  const part = (type: string): number => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  const local = Date.UTC(
+    part('year'),
+    part('month') - 1,
+    part('day'),
+    part('hour'),
+    part('minute'),
+    part('second'),
+  );
+  return new Date(guess.getTime() - (local - guess.getTime())).toISOString();
+}
 
 /** A moment as `2026-09-18 22:14:05` in Swedish time; a value that is not a date stays as it is. */
 export const stamp = (value: Date | string): string => {

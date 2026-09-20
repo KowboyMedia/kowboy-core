@@ -424,7 +424,7 @@
         "the admin panel mails at most ten links a day, whatever the form is fed",
         "the admin panel remembers the device for 30 days when asked, and for the browser session otherwise",
         "the admin panel shows the overview with every health check, the adapter ones included",
-        "the admin panel adds a tenant, shows its token once, and the token pulls changes (AC 42)",
+        "the admin panel adds a tenant, shows its token on the page at all times, and the token pulls changes (AC 42)",
         "the admin panel adds a site with a bell secret shown once, and rings it",
         "the admin panel creates a connection, saves it, and queues a lifecycle event the worker delivers",
         "the admin panel finds an item, shows raw, unified and display with its timeline, and recomputes it",
@@ -433,7 +433,11 @@
         "the Vitec adapter has its own admin panel: the fetch list, the schedules, and one record looked at or queued (AC 42)",
         "the admin panel keeps the events page up when a filter value is not a date or a number, and says so",
         "the web process as deployed recomputes a stored record from the admin API and the panel with no adapter started (AC 13)",
-        "the web process as deployed lets only an allowed address in through the maintenance login, and logs every attempt"
+        "the web process as deployed lets only an allowed address in through the maintenance login, and logs every attempt",
+        "the admin panel shows the dashboard: figures, two hourly charts with table twins, and no email mask",
+        "the admin panel filters items by tenant, entity type, office, date range and removal, and recomputes a selection",
+        "the admin panel lists the live activity of the write path, a state per row, and turns a row to applied when a site reports it",
+        "the admin panel names only pages the panel has in every adapter’s setup directions"
       ],
       "note": "docs/admin-panel.md, approved by Patric 2026-09-18 (question 29). Login by email link, no shared password (Patric, 2026-09-18, question 30)."
     }

@@ -1,9 +1,16 @@
-# Admin panel: the MVP
+# Admin panel
 
-Approved and built 2026-09-18 (question 29): `engine/admin/` and `adapters/vitec/admin/`, tested as AC 42. One place, in a browser, to
-configure Core and its adapters and to see what is happening, so that nothing needs a database
-client, a script or a console. Everything an agent does for an operator today (tenants,
-connections, lifecycle events, health, the event log) becomes a panel.
+Approved 2026-09-18 (question 29), built the same day and grown since: `engine/admin/` and
+`adapters/vitec/admin/`, tested as AC 42. One place, in a browser, to configure Core and its
+adapters and to see what is happening, so that nothing needs a database client, a script or a
+console.
+
+**This file describes the panel as it is.** A change to a page, an action, a setting, a lifecycle
+event or a health check changes this file, the panel's own words and the adapter's setup
+directions in the same change (AGENTS.md, definition of done, Patric 2026-09-20). Two tests keep
+the directions honest: `adapters/vitec/admin/directions.test.ts` (every setting, lifecycle event,
+health check and credential field is named) and the acceptance test that every page a direction
+names exists on the panel.
 
 ## Shape
 
@@ -12,76 +19,102 @@ connections, lifecycle events, health, the event log) becomes a panel.
   allowed list (`ADMIN_EMAIL_DOMAINS`) a link goes there by mail; the page answers the same way
   whatever the address, so the list stays private. The link lasts 15 minutes and opens a session
   for the browser session, or for 30 days with "Remember this device" ticked. A CSRF token on
-  every form. The mail goes through Postmark (`POSTMARK_SERVER_TOKEN`, `MAIL_FROM`), at most one link per
-  address per minute and ten a day in all. Users and roles come later.
+  every form. The mail goes through Postmark (`POSTMARK_SERVER_TOKEN`, `MAIL_FROM`), at most one
+  link per address per minute and ten a day in all. While a mailbox is in maintenance,
+  `ADMIN_LOGIN_WITHOUT_EMAIL=true` lets an allowed address in straight from the form (Patric,
+  2026-09-19); every attempt is logged as `admin.login`, and the Settings page shows the switch.
+  Users and roles come later.
 - **How it is built.** Server-rendered HTML from TypeScript template functions on top of Tabler,
   the open-source admin UI kit on Bootstrap 5 (Patric, 2026-09-18: a market-leading component
-  library, a professional and responsive look). Core serves Tabler's stylesheet and script itself,
-  so the panel depends on no outside host; nothing to build. Every page is a title, one line on what
-  it is for, and cards that each say what they show or do, with a line of help under every field,
-  so a cold reader can follow. Every panel reads the same tables the engine and adapters use, and
-  writes through the same functions the scripts and the admin API use: one code path per concern.
+  library, a professional and responsive look). JSON is shown with jsoneditor, read-only (Patric,
+  2026-09-19), the minimalist build. Charts and figures are inline SVG and plain HTML drawn by
+  `engine/admin/charts.ts` in Tabler's colours (blue, orange, teal, purple as series, validated
+  for colour-blindness and contrast; red only for what failed), with a legend, hover readouts and
+  a table twin for every chart; no chart library. Core serves every stylesheet and script itself,
+  so the panel depends on no outside host; nothing to build. Every page is a title, one line on
+  what it is for, and cards that each say what they show or do, with a line of help under every
+  field, so a cold reader can follow. Every panel reads the same tables the engine and adapters
+  use, and writes through the same functions the scripts and the admin API use: one code path per
+  concern. The pages carry Cloudflare's `email_off` markers, so the platform's edge leaves email
+  addresses as they are (Patric, 2026-09-20).
 - **Where the code lives.** `engine/admin/` holds the shell (login, navigation, layout, the panel
-  registry) and the Core panels. `adapters/<provider>/admin/` holds that adapter's settings and
-  panels, which the adapter hands to the engine through the adapter API; the shell renders them
-  in place without knowing what they show. The seam holds: no CRM name in `engine/`.
-- **Tests.** Every panel is driven through HTTP in the acceptance harness like the API is, and
-  one acceptance criterion (AC 42) names those tests.
+  registry), the Core pages, `stats.ts` (the numbers, from the event log, the items and the
+  subscribers) and `charts.ts` (figures and charts). `adapters/<provider>/admin/` holds that
+  adapter's settings and pages, which the adapter hands to the engine through the adapter API; the
+  shell renders them in place without knowing what they show. The seam holds: no CRM name in
+  `engine/`.
+- **Tests.** Every page is driven through HTTP in the acceptance harness like the API is, and one
+  acceptance criterion (AC 42) names those tests; `acceptance/entrypoint.test.ts` starts the web
+  process exactly as deployed.
 
-## Panels
+## Pages
 
-1. **Overview.** The health checks as `/v1/health` reports them, live; items per tenant and
-   datatype (live and tombstoned); the worker's last heartbeat; the version and the migrations
-   applied; the last 20 events. The first page after login.
-2. **Tenants.** The list, with each tenant's number, name, licence, connections and sites; add one by name, Core assigns the number. A
-   tenant's page holds everything about that customer (Patric, 2026-09-18 and 2026-09-19): the
-   licence and the token (shown once, rotated), the name, its connections (a table, and "Add a
-   connection" folded under it; open one for its login, offices and loads) and its sites (a
-   table with one actions menu per row: ring it now, delta or forcerefresh, a new bell secret
-   shown once, and an edit page for its label, bell URL and active flag; "Add a site" folded
-   under the table). The token and the bell secret go into the site's own settings by hand. A
-   disabled licence stops the bells and the pulls; the sites keep showing what they have, and
-   their administrators see one notice saying so.
+1. **Dashboard** (`/admin`, the first page after login). Six figures: health (checks passing),
+   live records (and removed ones), written in the last 24 hours with a sparkline per hour, sites
+   up to date (pulled within the hour), bells in the last 24 hours (and unanswered ones), and what
+   waits for the worker. Two charts per hour over the last 24 hours: records (written, removed in
+   the CRM, dropped as malformed or unlicensed) and sites (bells, pulls, applied, failed). Then
+   records per datatype, the sites' freshness meter with the pulls' answer times (typical and
+   slowest 5 %), and everything else in the event log by type (the adapters' calls to their CRMs,
+   notifications, logins, tests). Below: the health checks as `/v1/health` reports them, records
+   per tenant and datatype, the last 20 events, the version and the migrations applied.
+2. **Tenants.** The list, with each tenant's number, name, licence, connections and sites; add one
+   by name, Core assigns the number. A tenant's page holds everything about that customer
+   (Patric, 2026-09-18 and 2026-09-19): the licence and the token, shown on the page at all times
+   (kept encrypted beside its hash; "New token" retires the old one at once), the name, its
+   connections (a table, and "Add a connection" folded under it; open one for its login, offices
+   and loads) and its sites (a table with one actions menu per row: ring it now, delta or
+   forcerefresh, a new bell secret shown once, and an edit page for its label, bell URL and active
+   flag; "Add a site" folded under the table). The token and the bell secret go into the site's
+   own settings by hand. A disabled licence stops the bells and the pulls; the sites keep showing
+   what they have, and their administrators see one notice saying so.
 3. **Connections.** A connection exists only inside its tenant (Patric, 2026-09-19): there is no
-   global list. Its own page, reached from the tenant's page: the credentials as a write-only
-   form the adapter declares (never displayed), the offices, active or not, the actions (load
-   everything, load added offices, resync, remove) and, below, the adapter's own status fragment
-   (for Vitec: last catch-up and comparison, what is waiting on the fetch list, records that keep
-   failing).
-4. **Adapter panels.** One per adapter, from `adapters/<provider>/admin/`. Every adapter page
-   opens with its setup directions ("Set up Vitec"): the steps in order, built from what the
-   adapter reads, and kept true by a test in the adapter that fails when a setting, a lifecycle
-   event, a health check or a credential field exists in the code without a line in the
-   directions (Patric, 2026-09-18). For Vitec, then: the webhook URL to give Vitec (with its
-   token), the fetch concurrency; the fetch list (waiting, retrying, given up, with "retry now"
-   and "drop"); catch-up and comparison per connection with "run now"; "fetch this id now" and
-   "list this office now" for one record or one office.
-5. **Items.** Find an item by datatype and id, or browse an office. Show its envelope (seq, hash,
-   deleted, dates) and its three faces side by side: raw, unified (`data`) and display. Its
-   timeline from the event log, down to what each site applied (question 37). Actions: recompute this item; refetch it through the adapter.
-   Never a hand edit of data.
-6. **Events.** The timeline query of strategy §8.2: filter by tenant, connection, datatype, id,
-   type and time; follow a correlation id from a webhook to the writes, bells and pulls it caused.
-7. **Test panel.** Run a request and see the answer, without leaving the browser:
-   - as a site: `GET /v1/changes` for a tenant, a datatype and a cursor, with the response and its
-     size, compressed and plain;
-   - as an operator: bell, lifecycle event, replay, recompute and the recompute preview, with what
-     they returned;
-   - through an adapter, read-only against the CRM with a connection's credentials: for Vitec,
-     get one estate by id or list one page of an office, and see the raw answer next to what the
-     mapper makes of it (unified and display), a dry run that writes nothing.
-     Every run is logged as an event with who ran it.
-8. **Settings.** Core's configuration as read from the environment, shown read-only (page size,
-   bell throttle, event retention, gzip level); the start-over point per tenant, explained in
-   plain words (the position up to which deletion markers are gone, so a site that pulled before
-   it is told to pull everything again); run housekeeping now (tombstone purge, event retention).
+   global list. Its own page, reached from the tenant's page: the credentials as a write-only form
+   the adapter declares (never displayed), the offices, active or not, the actions (load
+   everything, load added offices, remove offices, resync, remove everything) and, below, the
+   adapter's own status fragment (for Vitec: last catch-up and comparison, what is waiting on the
+   fetch list) and the connection's latest events.
+4. **Adapter pages.** One per adapter, from `adapters/<provider>/admin/`, under the CRM adapters
+   heading. Every adapter page opens with its setup directions ("Set up Vitec"): the steps in
+   order and the settings as they are, built from what the adapter reads and kept true by the two
+   tests above (Patric, 2026-09-18). For Vitec, then: the notification URL to give Vitec (with its
+   token), where Connect is and how many requests go at once; the connections with their
+   schedules (last catch-up, last comparison, the fetch list's counts, "Catch up now", "Compare
+   now", "Resume now" when paused); the refused offices ("Probe now", "Forget"); the fetch list
+   (waiting, retrying, given up, with "Retry now" and "Drop"); and a page to fetch one record by
+   hand: look at it (raw next to unified, nothing written) or queue it for the worker.
+5. **Items.** Six figures: live and removed records, written, removed and dropped in the last 24
+   hours, applied and failed at the sites. A search by tenant, connection, entity type, office,
+   record id, the days it was written, removed or not, and how many at most (newest first, up to
+   500); the results have a box per row and "Recompute selected". The live activity list: the last
+   100 records through the write path, newest first, the whole row coloured by state (fetched,
+   fetched and applied by a site, error: dropped or failed at a site), with what happened, which
+   site reported and the correlation id; it refreshes itself every five seconds and lights up new
+   rows. Queued records (yellow, sorted with the rest by time) and "Update from CRM" for a
+   selection wait on register question 57, two additive adapter capabilities. One record's page:
+   where it comes from, its place in the change sequence and when it was written; raw, unified
+   and display side by side as JSON viewers; recompute it; its timeline from the event log, down
+   to what each site applied (question 37). Never a hand edit of data.
+6. **Events.** The timeline query of strategy §8.2: filter by tenant, connection, type, correlation
+   id, one record, a time range and a limit; a value that is not a date is left out and said so,
+   a limit that is not a whole number above zero is the default; follow a correlation id from a
+   webhook to the writes, bells and pulls it caused.
+7. **Test page.** Run a request and see the answer, without leaving the browser: as a site,
+   `GET /v1/changes` for a tenant, a datatype and a cursor, with the response and its size plain
+   and gzipped; as an operator, a bell, a lifecycle event, and a recompute or its preview, with
+   what they returned. Every run is logged as `admin.test`. Requests against a CRM live on the
+   adapter's own page (for Vitec: fetch one record).
+8. **Settings.** Core's configuration as read from the environment, shown read-only (version,
+   page size, bell window, event and tombstone retention, gzip level, migrations applied, who may
+   log in, the login mail, whether the email login is paused); the start-over point per tenant,
+   explained in plain words (the position up to which deletion markers are gone, so a site that
+   pulled before it is told to pull everything again); run housekeeping now (tombstone purge,
+   event retention).
 
 One rule for every button (Patric, 2026-09-19): a card's own action is a blue button, a secondary
 action next to other things is a small outlined one, a removal is a red outlined one, and a row's
 actions sit in one menu. Filters and forms offer tenants, connections and datatypes as dropdowns,
 never as free text.
-
-Order of building: 1, 3 with the Vitec fragment, 5, 7, 6, 2, 8.
 
 ## Times
 
@@ -90,15 +123,16 @@ the footer says so; hovering a time shows the exact moment in UTC. Core itself s
 only moments (UTC with an offset), never wall-clock times; the zone is a display choice made in
 one place (`engine/admin/html.ts`).
 
-## Not in the MVP
+## Not built
 
 Users and roles (whoever reads mail at an allowed domain is an operator; roles come when they are
-needed), editing data by hand, charts, more than one language, anything a site does (templates,
-search).
+needed), editing data by hand, more than one language, anything a site does (templates, search),
+and, until question 57 is answered, queued records in the live list and "Update from CRM" for a
+selection.
 
-## What it takes from the adapter API (approved)
+## What it takes from the adapter API
 
-One additive field on `Adapter`:
+Approved 2026-09-18, one additive field on `Adapter`:
 
 ```ts
 admin?: {
@@ -111,6 +145,31 @@ admin?: {
 };
 ```
 
-The engine mounts the panels, wraps them in the shell and passes the request through; it never
-inspects what they render. This is the generic capability any adapter can use, and the only
-change to the protected adapter API the MVP needs.
+The engine mounts the pages, wraps them in the shell and passes the request through; it never
+inspects what they render. This is the generic capability any adapter can use.
+
+Proposed 2026-09-20 (register question 57), two more additive pieces, so the live list can show
+what still waits on an adapter's own list and a selection can be fetched again from the CRM:
+
+```ts
+admin?: {
+  // …as above, and:
+  /** What waits on the adapter's own fetch list, oldest first, for the panel's live activity list. */
+  queue?(): Promise<
+    {
+      connectionId: string;
+      officeId: string;
+      datatype: Datatype;
+      remoteId: string;
+      queuedAt: string;
+      reason: string;
+      attempts: number;
+      nextAt: string | null;
+      lastError: string | null;
+    }[]
+  >;
+};
+
+/** One more lifecycle event, delivered like the others: the adapter puts these records on its list. */
+type Refetch = { type: 'refetch'; connection: Connection; records: { datatype: Datatype; remoteId: string }[] };
+```

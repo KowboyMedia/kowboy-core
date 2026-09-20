@@ -43,8 +43,12 @@ export async function connectionById(id: string): Promise<Connection | null> {
 /** A new tenant: Core assigns the number, the name is the only thing a person types. */
 export async function createTenant(input: { displayName: string; token: string }): Promise<number> {
   const { rows } = await db().query<{ id: number }>(
-    'insert into tenants (display_name, token_hmac) values ($1, $2) returning id',
-    [input.displayName, tokenHmac(input.token, credentialsKey)],
+    'insert into tenants (display_name, token_hmac, token_enc) values ($1, $2, $3) returning id',
+    [
+      input.displayName,
+      tokenHmac(input.token, credentialsKey),
+      encrypt(input.token, credentialsKey),
+    ],
   );
   return Number(rows[0]?.id);
 }
@@ -148,13 +152,19 @@ export type TenantRow = {
   active: boolean;
   purge_watermark: string;
   created_at: Date;
+  /** The token its sites pull with, for display on the tenant page; null for tenants made before
+   * the token was kept recoverable (they show it again only when it is rotated). */
+  token: string | null;
 };
 
 export async function tenants(): Promise<TenantRow[]> {
-  const { rows } = await db().query<TenantRow>(
-    'select id, display_name, active, purge_watermark, created_at from tenants order by id',
+  const { rows } = await db().query<Omit<TenantRow, 'token'> & { token_enc: string | null }>(
+    'select id, display_name, active, purge_watermark, created_at, token_enc from tenants order by id',
   );
-  return rows;
+  return rows.map(({ token_enc, ...tenant }) => ({
+    ...tenant,
+    token: token_enc ? decrypt(token_enc, credentialsKey) : null,
+  }));
 }
 
 /** Rename a tenant, give it a new token (hashed like the script does), or switch it off. */
@@ -169,7 +179,10 @@ export async function updateTenant(
     sets.push(`${column} = $${values.length}`);
   };
   if (changes.displayName !== undefined) set('display_name', changes.displayName);
-  if (changes.token !== undefined) set('token_hmac', tokenHmac(changes.token, credentialsKey));
+  if (changes.token !== undefined) {
+    set('token_hmac', tokenHmac(changes.token, credentialsKey));
+    set('token_enc', encrypt(changes.token, credentialsKey));
+  }
   if (changes.active !== undefined) set('active', changes.active);
   if (sets.length === 0) return;
   await db().query(`update tenants set ${sets.join(', ')} where id = $1`, values);
