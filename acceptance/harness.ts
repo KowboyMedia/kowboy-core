@@ -138,7 +138,8 @@ export async function harness(options: {
   return running;
 }
 
-async function truncate(): Promise<void> {
+/** Every table empty and the sequence at 1: what the harness does before a test, for a test that starts Core another way. */
+export async function truncate(): Promise<void> {
   await db().query(
     'truncate tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results, error_reports restart identity cascade',
   );

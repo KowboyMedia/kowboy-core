@@ -121,7 +121,10 @@
       "ac": 13,
       "title": "recompute rewrites affected records with no CRM traffic",
       "phase": "engine",
-      "tests": ["admin recomputes from stored raw with no CRM traffic, and gives a new seq (AC 13)"]
+      "tests": [
+        "admin recomputes from stored raw with no CRM traffic, and gives a new seq (AC 13)",
+        "the web process as deployed recomputes a stored record from the admin API and the panel with no adapter started (AC 13)"
+      ]
     },
     {
       "ac": 14,
@@ -427,7 +430,10 @@
         "the admin panel finds an item, shows raw, unified and display with its timeline, and recomputes it",
         "the admin panel pulls as a site from the test panel and shows the sizes",
         "the admin panel runs housekeeping from the settings page",
-        "the Vitec adapter has its own admin panel: the fetch list, the schedules, and one record looked at or queued (AC 42)"
+        "the Vitec adapter has its own admin panel: the fetch list, the schedules, and one record looked at or queued (AC 42)",
+        "the admin panel keeps the events page up when a filter value is not a date or a number, and says so",
+        "the web process as deployed recomputes a stored record from the admin API and the panel with no adapter started (AC 13)",
+        "the web process as deployed lets only an allowed address in through the maintenance login, and logs every attempt"
       ],
       "note": "docs/admin-panel.md, approved by Patric 2026-09-18 (question 29). Login by email link, no shared password (Patric, 2026-09-18, question 30)."
     }

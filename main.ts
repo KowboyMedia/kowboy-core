@@ -3,8 +3,11 @@
 //
 //   node dist/main.js web      subscriber API, admin API and panel, health, and the adapters' own endpoints
 //   node dist/main.js worker   the adapters' background work, bells, housekeeping
-import { startEngine } from './engine/index.js';
-import { startAdapter } from './engine/adapter-api/index.js';
+import type { Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { pathToFileURL } from 'node:url';
+import { startEngine, type Engine } from './engine/index.js';
+import { adapterApi, startAdapter } from './engine/adapter-api/index.js';
 import { adapterRoutes } from './engine/http/server.js';
 import { adminRoutesFor } from './engine/admin/index.js';
 import { closeErrorReporting, report } from './engine/errors.js';
@@ -17,32 +20,56 @@ import { vitecAdapter } from './adapters/vitec/index.js';
  */
 const adapters: Adapter[] = [vitecAdapter];
 
-const role = process.argv[2] ?? 'web';
-const engine = await startEngine();
+/**
+ * One role of Core, as `node dist/main.js <role>` runs it. A function so the acceptance tests can
+ * start the web role exactly as deployed, with no adapter started.
+ */
+export async function main(role: string): Promise<{ engine: Engine; server: Server | null }> {
+  const engine = await startEngine();
 
-if (role === 'web') {
-  const routes = adapters.flatMap((adapter) =>
-    adapterRoutes(adapter.manifest.provider, adapter.routes ?? []),
-  );
-  // The admin panel (docs/admin-panel.md) lives in the web process, with the adapters' own panels.
-  engine.listen([...routes, ...adminRoutesFor(engine, adapters)]);
-  console.log(`web listening on ${engine.config.port}`);
-} else if (role === 'worker') {
-  engine.startWorker();
-  for (const adapter of adapters) await startAdapter(adapter);
-  console.log(`worker started with ${adapters.length} adapter(s)`);
-} else {
-  console.error(`unknown role "${role}"; expected web or worker`);
-  process.exit(1);
+  // Both roles need every adapter's mappers in the registry: the worker to ingest, and the web
+  // process to recompute a record from stored raw, from the panel or the admin API, with no CRM
+  // traffic and no adapter started. Starting an adapter (its timers, loops and endpoints) is the
+  // worker's alone. Without this the web process answered every recompute with "no adapter
+  // registered for this connection" (found on staging, 2026-09-20).
+  for (const adapter of adapters) {
+    adapterApi(adapter.manifest.provider).register(adapter.manifest, adapter.mappers);
+  }
+
+  if (role === 'web') {
+    const routes = adapters.flatMap((adapter) =>
+      adapterRoutes(adapter.manifest.provider, adapter.routes ?? []),
+    );
+    // The admin panel (docs/admin-panel.md) lives in the web process, with the adapters' own panels.
+    const server = engine.listen([...routes, ...adminRoutesFor(engine, adapters)]);
+    console.log(`web listening on ${(server.address() as AddressInfo).port}`);
+    return { engine, server };
+  }
+  if (role === 'worker') {
+    engine.startWorker();
+    for (const adapter of adapters) await startAdapter(adapter);
+    console.log(`worker started with ${adapters.length} adapter(s)`);
+    return { engine, server: null };
+  }
+  await engine.stop();
+  throw new Error(`unknown role "${role}"; expected web or worker`);
 }
 
-const shutdown = (signal: string): void => {
-  console.log(`${signal}: shutting down`);
-  void Promise.all(adapters.map((adapter) => adapter.stop?.()))
-    .then(() => engine.stop())
-    .catch((error: unknown) => report(error, { where: 'shutdown' }))
-    .then(() => closeErrorReporting())
-    .finally(() => process.exit(0));
-};
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+// Run when started as the program, not when a test imports it.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const { engine } = await main(process.argv[2] ?? 'web').catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+
+  const shutdown = (signal: string): void => {
+    console.log(`${signal}: shutting down`);
+    void Promise.all(adapters.map((adapter) => adapter.stop?.()))
+      .then(() => engine.stop())
+      .catch((error: unknown) => report(error, { where: 'shutdown' }))
+      .then(() => closeErrorReporting())
+      .finally(() => process.exit(0));
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+}
