@@ -8,7 +8,11 @@ export function db(databaseUrl?: string): pg.Pool {
     if (!databaseUrl) throw new Error('the database pool is not open yet');
     pool = new pg.Pool({
       connectionString: databaseUrl,
-      max: 10,
+      // Sized to the cluster: the smallest managed plan allows 22 connections, 3 of them kept
+      // for its superuser, and web and worker each run this pool and an adapter's own (3). Six
+      // here keeps the four pools under that limit, with the dashboard's parallel queries
+      // queueing instead of failing with "remaining connection slots are reserved" (2026-09-20).
+      max: 6,
       // A connection the network silently dropped (a firewall change, a failover) must not hang a
       // query for good: it fails after a minute, and the pool discards the client it ran on.
       query_timeout: 60_000,
