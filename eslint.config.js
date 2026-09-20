@@ -7,7 +7,6 @@ export default tseslint.config(
   {
     ignores: [
       'dist/**',
-      'admin/dist/**',
       'node_modules/**',
       'clients/lovable-kit/supabase/**',
       'clients/wordpress/core-client/lib/**',
@@ -15,10 +14,6 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  {
-    files: ['admin/src/**/*.{ts,tsx}'],
-    languageOptions: { globals: { ...globals.browser } },
-  },
   {
     languageOptions: { globals: { ...globals.node } },
     rules: {

@@ -1,8 +1,9 @@
 // The event log: concurrent writes, redaction, and the retention window.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { harness, type Harness } from './harness.js';
+import { harness, TENANT, type Harness } from './harness.js';
 import { deleteExpiredEvents, logEvent, queryEvents, redact } from '../engine/events.js';
 import { db } from '../engine/storage/db.js';
+import { addSubscriber, deleteSubscriber } from '../engine/storage/connections.js';
 
 let running: Harness;
 
@@ -37,6 +38,22 @@ describe('the event log', () => {
       nested: { api_key: '[redacted]', kept: 'visible' },
       kept: 'visible',
     });
+  });
+
+  it('loses a site’s history when the site is deleted (Patric, 2026-09-20)', async () => {
+    const site = await addSubscriber({
+      tenantId: TENANT,
+      label: 'a site',
+      bellUrl: 'http://127.0.0.1:9/bell',
+      bellSecret: 'secret',
+    });
+    await logEvent({ type: 'pull', tenantId: TENANT, subscriberId: site, fields: {} });
+    await logEvent({ type: 'pull', tenantId: TENANT, fields: {} });
+    expect(await queryEvents({ subscriberId: site })).toHaveLength(1);
+
+    await deleteSubscriber(site);
+    expect(await queryEvents({ subscriberId: site })).toHaveLength(0);
+    expect(await queryEvents({ type: 'pull' })).toHaveLength(1);
   });
 
   it('deletes events outside the retention window (AC 16)', async () => {

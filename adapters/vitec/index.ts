@@ -33,6 +33,7 @@ import type {
   Connection,
   Datatype,
   EventContext,
+  HealthResult,
   Route,
 } from '../../engine/adapter-api/index.js';
 
@@ -286,6 +287,20 @@ function parseNotification(
   return { officeId, id, datatype, reason };
 }
 
+/** The largest notification body the event log keeps whole; Vitec's are a few hundred bytes. */
+const BODY_LIMIT = 10_000;
+
+/** What Vitec sent, as the log keeps it: the JSON when it parses, the text otherwise, cut at the limit. */
+function bodyOf(body: Buffer): unknown {
+  const text = body.toString('utf8');
+  if (text === '') return null;
+  try {
+    return text.length <= BODY_LIMIT ? JSON.parse(text) : text.slice(0, BODY_LIMIT);
+  } catch {
+    return text.slice(0, BODY_LIMIT);
+  }
+}
+
 const tokenMatches = (given: string | undefined, expected: string): boolean =>
   given !== undefined &&
   given.length === expected.length &&
@@ -298,10 +313,20 @@ const routes: Route[] = [
     handler: async (request, api) => {
       const expected = process.env['VITEC_WEBHOOK_TOKEN'];
       if (!expected) return { status: 503, body: { error: 'VITEC_WEBHOOK_TOKEN is not set' } };
-      // Every arrival goes in the event log, and a queued one onto its record's timeline (AC 16).
-      const arrived = (fields: Record<string, unknown>, context?: EventContext): Promise<void> =>
-        api.logEvent('webhook.received', { path: '/v1/hook/vitec/webhook', ...fields }, context);
+      // Every arrival goes in the event log with what Vitec sent, kept as long as the log keeps
+      // events (Patric, 2026-09-20, question 63), and a queued one onto its record's timeline (AC 16).
       const [path, query] = request.url.split('?');
+      const arrived = (fields: Record<string, unknown>, context?: EventContext): Promise<void> =>
+        api.logEvent(
+          'webhook.received',
+          {
+            path: '/v1/hook/vitec/webhook',
+            body: bodyOf(request.body),
+            ...(query ? { query } : {}),
+            ...fields,
+          },
+          context,
+        );
       if (!tokenMatches(path?.split('/').pop(), expected)) {
         await arrived({ outcome: 'rejected', detail: 'bad token', response: 401 });
         return { status: 401, body: { error: 'bad token' } };
@@ -690,28 +715,47 @@ async function tickOnce(): Promise<void> {
 
 // ---- Health -----------------------------------------------------------------------------------
 
-async function catchUpHealth(current: AdapterApi): Promise<{ ok: boolean; detail?: string }> {
-  const problems: string[] = startPending ? ['catching up since the worker started'] : [];
+/** A red check's answer: what is wrong in counts and plain words, and which ones, kept apart. */
+function unhealthy(problems: Map<string, string[]>, prefix: string[] = []): HealthResult {
+  const names = [...problems.values()].flat();
+  if (prefix.length === 0 && names.length === 0) return { ok: true };
+  const counted = [...problems.entries()]
+    .filter(([, which]) => which.length > 0)
+    .map(([what, which]) => `${which.length} ${what}`);
+  return { ok: false, detail: [...prefix, ...counted].join('; '), names };
+}
+
+async function catchUpHealth(current: AdapterApi): Promise<HealthResult> {
+  const problems = new Map<string, string[]>([
+    ['connection(s) whose login is not readable', []],
+    ['connection(s) with no offices', []],
+    ['connection(s) not caught up for over 12 h', []],
+    ['connection(s) never caught up', []],
+  ]);
+  const note = (what: string, which: string): void => {
+    problems.get(what)?.push(which);
+  };
   for (const connection of await current.connections()) {
     if (!connection.active) continue;
     if (!credentialsOf(connection)) {
-      problems.push(`${connection.id}: credentials are not readable`);
+      note('connection(s) whose login is not readable', `${connection.id}: login not readable`);
       continue;
     }
     if (connection.licensedOffices.length === 0) {
-      problems.push(`${connection.id}: no offices configured`);
+      note('connection(s) with no offices', `${connection.id}: no offices configured`);
       continue;
     }
     const age = ageMs(await store.getState(connection.id, 'catch_up_at'));
     if (age > CATCH_UP_LIMIT_MS) {
-      problems.push(
-        Number.isFinite(age)
-          ? `${connection.id}: last catch-up ${Math.round(age / 3_600_000)} h ago`
-          : `${connection.id}: never caught up`,
-      );
+      if (Number.isFinite(age)) {
+        note(
+          'connection(s) not caught up for over 12 h',
+          `${connection.id}: last catch-up ${Math.round(age / 3_600_000)} h ago`,
+        );
+      } else note('connection(s) never caught up', `${connection.id}: never caught up`);
     }
   }
-  return problems.length === 0 ? { ok: true } : { ok: false, detail: problems.join('; ') };
+  return unhealthy(problems, startPending ? ['catching up since the worker started'] : []);
 }
 
 export const vitecAdapter: Adapter = {
@@ -760,29 +804,30 @@ export const vitecAdapter: Adapter = {
     given.healthCheck(`${PROVIDER}.catch_up`, () => catchUpHealth(given));
     given.healthCheck(`${PROVIDER}.offices`, async () => {
       const blocked = await store.blockedOffices();
-      return blocked.length === 0
-        ? { ok: true }
-        : {
-            ok: false,
-            detail: blocked
-              .map(
-                (office) =>
-                  `${office.officeId}: refused ${span(Date.now() - office.blockedAt.getTime())} ago, next probe ${office.blockedUntil.getTime() <= Date.now() ? 'due' : `in ${span(office.blockedUntil.getTime() - Date.now())}`}`,
-              )
-              .join('; '),
-          };
+      if (blocked.length === 0) return { ok: true };
+      const nextProbe = Math.min(...blocked.map((office) => office.blockedUntil.getTime()));
+      return {
+        ok: false,
+        detail: `${blocked.length} office(s) refused by Vitec; the next probe is ${nextProbe <= Date.now() ? 'due' : `in ${span(nextProbe - Date.now())}`}`,
+        names: blocked.map(
+          (office) =>
+            `${office.officeId}: refused ${span(Date.now() - office.blockedAt.getTime())} ago, next probe ${office.blockedUntil.getTime() <= Date.now() ? 'due' : `in ${span(office.blockedUntil.getTime() - Date.now())}`}`,
+        ),
+      };
     });
     given.healthCheck(`${PROVIDER}.connect`, async () => {
-      const problems: string[] = [];
+      const pausedOnes: string[] = [];
       for (const connection of await given.connections()) {
         const pause = await pauseOf(connection.id);
         if (paused(pause)) {
-          problems.push(
-            `${connection.id}: paused for another ${span((pause.pausedUntil ?? 0) - Date.now())} after ${PAUSE_AFTER} failures in a row`,
+          pausedOnes.push(
+            `${connection.id}: paused for another ${span((pause.pausedUntil ?? 0) - Date.now())}`,
           );
         }
       }
-      return problems.length === 0 ? { ok: true } : { ok: false, detail: problems.join('; ') };
+      return unhealthy(
+        new Map([[`connection(s) paused after ${PAUSE_AFTER} failures in a row`, pausedOnes]]),
+      );
     });
 
     drainTimer = setInterval(() => void scheduleDrain(), DRAIN_MS);

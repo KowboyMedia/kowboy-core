@@ -132,11 +132,27 @@ export async function addSubscriber(input: {
   return Number(rows[0]?.id);
 }
 
-export async function recordPull(tenantId: number, client: string | null): Promise<void> {
-  await db().query(
-    'update subscribers set last_pull_at = now(), last_client = coalesce($2, last_client) where tenant_id = $1',
-    [tenantId, client],
+/**
+ * A pull names the site it came from (Patric, 2026-09-20, "add name"): the `X-Core-Site` header
+ * carries the site's own bell URL, and the site with that URL under the tenant is the one that
+ * pulled. Without the header, or with one no site of the tenant carries, every site of the tenant
+ * counts as pulling, as before. Answers the site's number when one site matched.
+ */
+export async function recordPull(
+  tenantId: number,
+  client: string | null,
+  site: string | null,
+): Promise<number | null> {
+  const { rows } = await db().query<{ id: string }>(
+    `update subscribers set last_pull_at = now(), last_client = coalesce($2, last_client)
+     where tenant_id = $1
+       and ($3::text is null
+            or bell_url = $3
+            or not exists (select 1 from subscribers where tenant_id = $1 and bell_url = $3))
+     returning id`,
+    [tenantId, client, site],
   );
+  return site !== null && rows.length === 1 ? Number(rows[0]?.id) : null;
 }
 
 export async function subscribers(): Promise<SubscriberRow[]> {
@@ -239,7 +255,8 @@ export async function tenantById(id: number): Promise<TenantRow | null> {
   return (await tenants()).find((tenant) => tenant.id === id) ?? null;
 }
 
-/** A site is deleted with its row; its events stay in the log. */
+/** A site is deleted with its row and its history in the event log (Patric, 2026-09-20). */
 export async function deleteSubscriber(id: number): Promise<void> {
+  await db().query('delete from events where subscriber_id = $1', [id]);
   await db().query('delete from subscribers where id = $1', [id]);
 }

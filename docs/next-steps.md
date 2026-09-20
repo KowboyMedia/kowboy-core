@@ -101,7 +101,11 @@ the first item that is not done, and keep the file current. Decisions and open q
    (`docs/admin-panel.md`). Later that day Patric judged it a reskin: the pages, layouts and
    flows were inherited from the first build. The next rebuild starts from the requirement
    sheets, with the design approved before any code, and is not built until he says so
-   (`docs/admin-panel-rebuild.md` §7, questions 62 to 65).
+   (`docs/admin-panel-rebuild.md` §7, questions 62 to 65). Later still that day both panels
+   were removed for good, the old operator endpoints and scripts cut (65), the public health
+   check reworded to counts (62), every Vitec notification stored (63), pulls named by site,
+   and a site's deletion made to take its history; the brief for the next panel is
+   `docs/admin-panel-rebuild.md` §8 and the work is item 11.
 
 8. ~~**Setup directions on each adapter's panel, and a licence notice in the plugin** (Patric,
    2026-09-18).~~ Done 2026-09-18: the Vitec panel opens with "Set up Vitec", kept true by
@@ -121,6 +125,13 @@ the first item that is not done, and keep the file current. Decisions and open q
     site's template, per the register. 2026-09-19: the shape is settled (question 55): the shortcode
     gets a `project_id` attribute, and a list without one leaves out every property that carries a
     `project_id`.
+
+11. **Design the admin panel from the requirement sheets** (`docs/admin-panel-rebuild.md` §8),
+    best in a fresh conversation so nothing of the removed builds is remembered: the pattern
+    study, the information architecture, then a clickable design Patric approves before any
+    code; then build it in slices, each a user journey with its browser test, on Refine and
+    shadcn/ui (question 64) and the engine's functions (`docs/admin-panel.md`). Not built until
+    Patric says so. Question 66 (sold properties last in a recompute) is open.
 
 ## Later, when Patric supplies them
 
@@ -157,7 +168,7 @@ the first item that is not done, and keep the file current. Decisions and open q
   themselves instead of asking Patric for a console (verified 2026-09-19): `DIGITALOCEAN_ACCESS_TOKEN`
   (the account with both apps; their addresses come from `GET /v2/apps`; production writes wait
   for "allow" as above), `VITEC_USERNAME`, `VITEC_PASSWORD`, `VITEC_OFFICE_ID` and
-  `VITEC_ESTATE_ID` (the Vitec test account, `scripts/vitec-probe.ts`) and `GITHUB_TOKEN` (the
+  `VITEC_ESTATE_ID` (the Vitec test account) and `GITHUB_TOKEN` (the
   repository, but not its settings: variables and secrets answer 403). There is no Sentry token.
   Values are never printed, logged or committed.
 - A new session's branch starts from `main`, which is production and far behind `staging`

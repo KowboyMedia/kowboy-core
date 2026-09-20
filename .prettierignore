@@ -1,5 +1,4 @@
 dist
-admin/dist
 node_modules
 golden
 package-lock.json

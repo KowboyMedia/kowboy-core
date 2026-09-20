@@ -3,14 +3,18 @@
 // beyond its documentation waits for a test account on staging (strategy §9, Phase 6).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  adminCall,
-  adminLogin,
+  connectionById,
   harness,
+  healthReport,
   pull,
-  ADMIN_SECRET,
+  queryEvents,
+  queueLifecycle,
   type Harness,
+  type HealthReport,
 } from '../../acceptance/harness.js';
 import { drainFetchList, runSchedules, vitecAdapter } from './index.js';
+import { vitecAdmin } from './admin/index.js';
+import type { Connection, LifecycleEvent } from '../../engine/adapter-api/index.js';
 import * as store from './store.js';
 import { PASSWORD, USERNAME, startFakeConnect, type FakeConnect } from './test/connect.js';
 
@@ -62,15 +66,23 @@ function seed(fake: FakeConnect): void {
 let fake: FakeConnect;
 let running: Harness;
 
-/** An admin event: queued by the web process, delivered by the worker, here by hand. */
-const event = async (body: Record<string, unknown>): Promise<Response> => {
-  const response = await fetch(`${running.baseUrl}/v1/admin/event`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-admin-secret': ADMIN_SECRET },
-    body: JSON.stringify({ connection_id: CONNECTION, ...body }),
-  });
+/** A lifecycle event: queued as the panel will queue it, delivered by the worker, here by hand. */
+const event = async (type: LifecycleEvent['type'], officeIds?: string[]): Promise<void> => {
+  await queueLifecycle(CONNECTION, type, officeIds ? { officeIds } : {});
   await running.deliver();
-  return response;
+};
+
+/** An optional part of the adapter's panel that the Vitec adapter does implement. */
+const required = <T>(part: T | undefined, what: string): T => {
+  if (!part) throw new Error(`the Vitec adapter has no ${what}`);
+  return part;
+};
+
+/** The test connection as the engine holds it, credentials decrypted. */
+const connection = async (): Promise<Connection> => {
+  const found = await connectionById(CONNECTION);
+  if (!found) throw new Error(`${CONNECTION} is gone`);
+  return found;
 };
 
 const hook = (body: Record<string, unknown>, token = TOKEN): Promise<Response> =>
@@ -80,11 +92,8 @@ const hook = (body: Record<string, unknown>, token = TOKEN): Promise<Response> =
     body: JSON.stringify(body),
   });
 
-const health = async (): Promise<Record<string, { ok: boolean; detail?: string }>> => {
-  const response = await fetch(`${running.baseUrl}/v1/health`);
-  return ((await response.json()) as { checks: Record<string, { ok: boolean; detail?: string }> })
-    .checks;
-};
+/** The checks as the worker reports them, names included; /v1/health answers without the names. */
+const health = async (): Promise<HealthReport['checks']> => (await healthReport()).checks;
 
 const item = async (
   datatype: string,
@@ -97,19 +106,12 @@ const item = async (
 const fetchesOf = (id: string): number =>
   fake.requests.filter((request) => request.path.endsWith(`/${OFFICE}/${id}`)).length;
 
-/** One record's timeline, as the admin API answers it. */
-const timelineOf = async (
+/** One record's timeline, as the event log answers it. */
+const timelineOf = (
   datatype: string,
   id: string,
-): Promise<{ type: string; fields: Record<string, unknown> }[]> => {
-  const response = await fetch(
-    `${running.baseUrl}/v1/admin/events?entity=${CONNECTION}/${datatype}/${id}`,
-    { headers: { 'x-admin-secret': ADMIN_SECRET } },
-  );
-  return (
-    (await response.json()) as { events: { type: string; fields: Record<string, unknown> }[] }
-  ).events;
-};
+): Promise<{ type: string; correlation_id: string | null; fields: Record<string, unknown> }[]> =>
+  queryEvents({ entity: { connectionId: CONNECTION, datatype, remoteId: id } });
 
 const notify = (id: string): Promise<Response> =>
   hook({ type: 'Estate', event: 'Update', customerId: OFFICE, id });
@@ -139,7 +141,7 @@ describe('the Vitec adapter', () => {
   it('loads everything a new connection publishes, with the spine and the referenced association', async () => {
     seed(fake);
     await start();
-    await event({ event: 'connection_added' });
+    await event('connection_added');
     await drainFetchList();
 
     const property = await item('property', 'OBJ1');
@@ -438,7 +440,7 @@ describe('the Vitec adapter', () => {
     await drainFetchList();
 
     fake.unlist(OFFICE, 'property', 'OBJ1');
-    await event({ event: 'resync' });
+    await event('resync');
     await drainFetchList();
     expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
     expect((await item('office', OFFICE))?.['deleted']).toBe(false);
@@ -478,13 +480,7 @@ describe('the Vitec adapter', () => {
     const { correlation_id } = (await response.json()) as { correlation_id: string };
     await drainFetchList();
 
-    const timeline = await fetch(
-      `${running.baseUrl}/v1/admin/events?entity=${CONNECTION}/property/OBJ2`,
-      { headers: { 'x-admin-secret': ADMIN_SECRET } },
-    );
-    const { events } = (await timeline.json()) as {
-      events: { type: string; correlation_id: string | null; fields: Record<string, unknown> }[];
-    };
+    const events = await timelineOf('property', 'OBJ2');
     expect(events.map((event) => event.type)).toEqual(
       expect.arrayContaining(['webhook.received', 'crm.call', 'entity.written']),
     );
@@ -500,6 +496,8 @@ describe('the Vitec adapter', () => {
       outcome: 'queued',
       event: 'webhook',
       response: 202,
+      // What Vitec sent, kept whole for as long as the log keeps events (question 63).
+      body: { type: 'Estate', event: 'Update', customerId: OFFICE, id: 'OBJ2' },
     });
   });
 
@@ -512,10 +510,13 @@ describe('the Vitec adapter', () => {
     await notify('OBJ2');
     await drainFetchList();
     expect(fetchesOf('OBJ2')).toBe(1);
-    expect((await health())['vitec.offices']).toMatchObject({
+    // The public detail counts; the office is named aside, for the alerts (question 62).
+    const offices = (await health())['vitec.offices'];
+    expect(offices).toMatchObject({
       ok: false,
-      detail: expect.stringContaining(OFFICE),
+      detail: expect.stringContaining('1 office(s) refused by Vitec'),
     });
+    expect(offices?.names?.[0]).toContain(OFFICE);
 
     // Nothing more is asked for the office: a new notification waits, parked.
     await notify('OBJ3');
@@ -552,10 +553,12 @@ describe('the Vitec adapter', () => {
     for (const id of ids) await notify(id);
     await drainFetchList();
     expect(fake.requests.length - before).toBeLessThanOrEqual(5);
-    expect((await health())['vitec.connect']).toMatchObject({
+    const paused = (await health())['vitec.connect'];
+    expect(paused).toMatchObject({
       ok: false,
-      detail: expect.stringContaining(CONNECTION),
+      detail: expect.stringContaining('1 connection(s) paused'),
     });
+    expect(paused?.names?.[0]).toContain(CONNECTION);
 
     // The pause runs out and Vitec is back: the probe fetches go through, and the rest follow.
     fake.failNext(0);
@@ -565,12 +568,7 @@ describe('the Vitec adapter', () => {
     await drainFetchList();
     expect((await health())['vitec.connect']?.ok).toBe(true);
     for (const id of ids) expect(await item('property', id)).toBeDefined();
-    const events = await fetch(`${running.baseUrl}/v1/admin/events?connection=${CONNECTION}`, {
-      headers: { 'x-admin-secret': ADMIN_SECRET },
-    });
-    const types = ((await events.json()) as { events: { type: string }[] }).events.map(
-      (event) => event.type,
-    );
+    const types = (await queryEvents({ connectionId: CONNECTION })).map((row) => row.type);
     expect(types).toContain('connect.paused');
     expect(types).toContain('connect.resumed');
   });
@@ -623,126 +621,69 @@ describe('the Vitec adapter', () => {
     }
   });
 
-  it('is set up from the tenant’s page: the CRM panel’s login and offices make the connection, and the first load runs with that login (AC 42)', async () => {
+  it('probes a typed login per office before it is saved, and loads with that login (AC 42)', async () => {
     seed(fake);
     await start();
-    const { headers } = await adminLogin(running);
-    const saved = await adminCall<{
-      id: number;
-      notes: string[];
-      connection: { id: string; has_credentials: boolean };
-      tenant: { token: string };
-    }>(running, headers, 'POST', '/v1/admin/tenants', {
-      name: 'Acme',
-      active: true,
-      connection: {
-        provider: 'vitec',
-        credentials: { username: USERNAME, password: PASSWORD },
-        offices: [OFFICE],
-        active: true,
-      },
-      sites: [{ label: 'acme.se', url: 'http://127.0.0.1:9/bell', active: true }],
-    });
-    expect(saved.status).toBe(201);
-    expect(saved.body.notes.join(' ')).toContain(
-      'Loading every record of 1 office(s) from vitec now',
-    );
-    expect(saved.body.connection.id).toBe(`vitec-${saved.body.id}`);
-    expect(saved.body.connection.has_credentials).toBe(true);
-    // The worker takes the load, the adapter fetches with the login typed on the page, and the
-    // tenant's token from the page pulls what arrived.
-    await running.deliver();
+    const probe = required(vitecAdmin.probe, 'probe');
+    const refused = await probe(JSON.stringify({ username: USERNAME, password: 'wrong' }), [
+      OFFICE,
+    ]);
+    expect(refused.ok).toBe(false);
+    expect(refused.detail).toContain(OFFICE);
+    const accepted = await probe(credentials, [OFFICE]);
+    expect(accepted.ok).toBe(true);
+    expect(accepted.detail).toContain('Vitec answers');
+    expect(await probe(credentials, [])).toMatchObject({ ok: false });
+
+    // The worker takes the first load, and the adapter fetches with the saved login.
+    await event('connection_added');
     await drainFetchList();
-    const pulled = await fetch(`${running.baseUrl}/v1/changes?datatype=property`, {
-      headers: { authorization: `Bearer ${saved.body.tenant.token}` },
-    });
-    expect(pulled.status).toBe(200);
-    expect(((await pulled.json()) as { items: unknown[] }).items).toHaveLength(1);
+    expect((await pull(running.baseUrl, 'property')).items).toHaveLength(1);
   });
 
   it('describes its panel as data: the directions and settings, the schedules with run-now actions, the fetch list, one record looked at without writing or fetched again, and its queue (AC 42)', async () => {
     seed(fake);
     await start();
     await drainFetchList();
-    const { headers } = await adminLogin(running);
+    const connections = [await connection()];
 
-    const page = await adminCall<{
-      directions: { steps: { text: string }[]; settings: { key: string }[] };
-      sections: {
-        title: string;
-        items?: { label: string; value: unknown }[];
-        table?: { rows: { cells: unknown[] }[] };
-      }[];
-    }>(running, headers, 'GET', '/v1/admin/providers/vitec');
-    expect(page.status).toBe(200);
-    expect(page.body.directions.settings.map((s) => s.key)).toContain('VITEC_WEBHOOK_TOKEN');
-    const url = page.body.sections.find((s) => s.title === 'Notification URL')?.items?.[0]?.value;
+    expect(vitecAdmin.directions().settings.map((setting) => setting.key)).toContain(
+      'VITEC_WEBHOOK_TOKEN',
+    );
+    const page = await vitecAdmin.panel(connections);
+    const url = page.find((section) => section.title === 'Notification URL')?.items?.[0]?.value;
     expect(url).toContain(`/v1/hook/vitec/webhook/${TOKEN}`);
-    const connections = page.body.sections.find((s) => s.title === 'Connections and schedules');
-    expect(connections?.table?.rows[0]?.cells[0]).toBe(CONNECTION);
+    const schedules = page.find((section) => section.title === 'Connections and schedules');
+    expect(schedules?.table?.rows[0]?.cells[0]).toBe(CONNECTION);
 
     // Look: fetched and mapped, nothing written.
     fake.put(OFFICE, 'property', estate('OBJ9'));
-    const looked = await adminCall<{
-      raw: Record<string, unknown>;
-      unified: Record<string, unknown>;
-      display: unknown;
-    }>(running, headers, 'POST', `/v1/admin/connections/${CONNECTION}/inspect`, {
+    const looked = await required(vitecAdmin.inspect, 'inspect')(connections[0] as Connection, {
       datatype: 'property',
       remoteId: 'OBJ9',
       officeId: OFFICE,
     });
-    expect(looked.status).toBe(200);
-    expect(looked.body.unified).toHaveProperty('agent_ids');
-    expect(looked.body.raw).toHaveProperty('id', 'OBJ9');
+    expect(looked?.raw).toHaveProperty('id', 'OBJ9');
+    expect(looked?.mapped?.data).toHaveProperty('agent_ids');
     expect(await item('property', 'OBJ9')).toBeUndefined();
 
     // Fetch again, named outright: the worker hands it to the adapter, which fetches and stores it.
-    const queued = await adminCall<{ queued: { event: string }[] }>(
-      running,
-      headers,
-      'POST',
-      '/v1/admin/refetch',
-      {
-        scope: { connectionId: CONNECTION },
-        records: [{ datatype: 'property', remoteId: 'OBJ9', officeId: OFFICE }],
-      },
-    );
-    expect(queued.status).toBe(202);
-    expect(queued.body.queued[0]?.event).toBe('refetch');
+    await queueLifecycle(CONNECTION, 'refetch', {
+      records: [{ datatype: 'property', remoteId: 'OBJ9', officeId: OFFICE }],
+    });
     await running.deliver();
-    const waiting = await adminCall<{ queued: { remote_id: string; state: string }[] }>(
-      running,
-      headers,
-      'GET',
-      '/v1/admin/items/activity',
-    );
-    expect(waiting.body.queued.map((row) => row.remote_id)).toContain('OBJ9');
+    const queue = required(vitecAdmin.queue, 'queue');
+    expect((await queue(connections)).map((row) => row.remoteId)).toContain('OBJ9');
     await drainFetchList();
     expect(await item('property', 'OBJ9')).toBeDefined();
 
-    // "Catch up now" makes the next tick run it; the tenant's page shows what the adapter knows.
-    const acted = await adminCall<{ message: string }>(
-      running,
-      headers,
-      'POST',
-      '/v1/admin/providers/vitec/actions',
-      {
-        action: 'catch_up',
-        params: { connection: CONNECTION },
-      },
-    );
-    expect(acted.status).toBe(200);
+    // "Catch up now" makes the next tick run it; the connection's section says what the adapter knows.
+    const acted = await vitecAdmin.act('catch_up', { connection: CONNECTION }, connections);
+    expect(acted.message).toContain('next tick');
     expect(await store.getState(CONNECTION, 'catch_up_at')).toBe('1970-01-01T00:00:00.000Z');
-    const tenant = await adminCall<{
-      connection: { credentials: { label: string }[]; sections: { title: string }[] };
-    }>(running, headers, 'GET', '/v1/admin/tenants/1');
-    expect(tenant.body.connection.credentials.map((field) => field.label)).toContain(
-      'Connect username',
-    );
-    expect(tenant.body.connection.sections.map((section) => section.title)).toContain(
-      'What Vitec knows',
-    );
+    expect(vitecAdmin.credentials.map((field) => field.label)).toContain('Connect username');
+    const own = await vitecAdmin.connection?.(connections[0] as Connection);
+    expect(own?.map((section) => section.title)).toContain('What Vitec knows');
   });
 
   it('fetches at most five records at once (proposal point 10)', async () => {
@@ -773,7 +714,7 @@ describe('the Vitec adapter', () => {
       licensedOffices: [OFFICE, 'M2'],
     });
     fake.requests.length = 0;
-    await event({ event: 'offices_added', office_ids: ['M2'] });
+    await event('offices_added', ['M2']);
     await drainFetchList();
 
     expect((await item('property', 'OBJ2'))?.['office_id']).toBe('M2');

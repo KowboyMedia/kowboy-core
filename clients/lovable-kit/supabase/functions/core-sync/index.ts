@@ -224,6 +224,8 @@ async function pull(
         headers: {
           authorization: `Bearer ${env('CORE_TENANT_TOKEN')}`,
           'x-core-client': `lovable-kit/${VERSION}`,
+          // Which site pulls: the same address Core rings, so Core can tell the sites apart.
+          'x-core-site': `${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/core-sync`,
         },
       },
     );

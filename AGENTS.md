@@ -74,8 +74,8 @@ Lint findings (including function complexity), duplicate code, dead code (unused
 main.ts               entrypoint: starts engine, mounts adapter endpoints, starts adapters; the only file importing both
 engine/               CRM-agnostic: storage, rules runner, bells, subscriber API, recompute, health, event log
 engine/adapter-api/   the only engine code adapters may import (protected)
-engine/admin-api/     the admin panel's JSON API, used by the browser app and the agents alike
-admin/                the admin panel's browser app (React on Vite), built into admin/dist and served under /admin
+engine/admin-api/     the admin panel's JSON API (being designed; docs/admin-panel-rebuild.md §8)
+admin/                the admin panel's browser app (being designed; not built until Patric says so)
 adapters/<provider>/  everything CRM-specific, incl. webhooks, schedules, fetch lists, one folder per CRM
 clients/wordpress/    thin WordPress client
 clients/lovable-kit/  Supabase sync + bell functions for Lovable sites
@@ -127,6 +127,10 @@ instructions instead of results.
   `docs/open-questions.md` number in chat too, never a fresh "1."; numbers keep counting across
   sessions. Each question is phrased so that a yes, a no or a pick answers it, with the smaller
   option named.
+- **A question carries its whole context** (Patric, 2026-09-20, on question 62). In chat as in
+  the register: what it is about, why it is asked, what each option means for the product, and
+  the smaller option, so he can answer without opening a file or scrolling back. A bare label
+  ("waiting on you: 62") is not a question.
 
 ## Raising issues
 
