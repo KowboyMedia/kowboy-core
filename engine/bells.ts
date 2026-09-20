@@ -30,23 +30,32 @@ const window = (): string => `${throttleMs} milliseconds`;
 /** A site is rung only while its tenant's licence is active (Patric, 2026-09-18): otherwise it keeps what it shows. */
 const LICENSED = 'exists (select 1 from tenants where id = subscribers.tenant_id and active)';
 
-/** Ring every active subscriber of a tenant: at once if outside the window, otherwise queued. */
-export async function ring(tenantId: number, kind: BellKind = 'delta'): Promise<void> {
+/**
+ * Ring every active subscriber of a tenant, or one of them: at once if outside the window,
+ * otherwise queued.
+ */
+export async function ring(
+  tenantId: number,
+  kind: BellKind = 'delta',
+  onlySubscriberId?: number,
+): Promise<void> {
   // The update is the claim: only one process wins the leading edge for a subscriber.
   const { rows: due } = await db().query<Subscriber>(
     `update subscribers set last_bell_at = now()
      where tenant_id = $1 and active = true and ${LICENSED}
+       and ($3::bigint is null or id = $3)
        and (last_bell_at is null or last_bell_at < now() - $2::interval)
      returning id, tenant_id, bell_url, bell_secret`,
-    [tenantId, window()],
+    [tenantId, window(), onlySubscriberId ?? null],
   );
   // Everyone else is inside the window: collapse into one trailing bell. forcerefresh outranks delta.
   await db().query(
     `update subscribers
      set bell_pending = case when bell_pending = 'forcerefresh' then bell_pending else $2 end
      where tenant_id = $1 and active = true and ${LICENSED} and last_bell_at >= now() - $3::interval
+       and ($5::bigint is null or id = $5)
        and id <> all($4::bigint[])`,
-    [tenantId, kind, window(), due.map((row) => row.id)],
+    [tenantId, kind, window(), due.map((row) => row.id), onlySubscriberId ?? null],
   );
   await Promise.all(due.map((subscriber) => send(subscriber, kind)));
 }

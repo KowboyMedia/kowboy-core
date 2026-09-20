@@ -20,11 +20,18 @@ npm run start:web             # subscriber API, admin, health, adapter endpoints
 npm run start:worker          # adapter background work, bells, housekeeping
 ```
 
-Migrations run at startup. The admin panel is at `/admin` on the web process: log in with a link
-mailed to an address at an allowed domain (`ADMIN_EMAIL_DOMAINS`; the mail needs `MAIL_FROM` and
-`POSTMARK_SERVER_TOKEN`), then a dashboard, tenants with their sites and connections, the
-adapters' own panels, items with a live activity list, events, a test panel and settings
-([docs/admin-panel.md](docs/admin-panel.md), which describes the panel as it is).
+Migrations run at startup. The admin panel is at `/admin` on the web process: a browser app
+(`admin/`, built into `admin/dist` by `npm run build`) on the admin API under `/v1/admin/`. Log in
+with a link mailed to an address at an allowed domain (`ADMIN_EMAIL_DOMAINS`; the mail needs
+`MAIL_FROM` and `POSTMARK_SERVER_TOKEN`), then a dashboard, tenants made and changed on one page,
+records with search and a live activity list, jobs, events with the audit trail, the adapters'
+pages and settings ([docs/admin-panel.md](docs/admin-panel.md), which describes the panel as it
+is). Optional: `SENTRY_ENVIRONMENT` names the environment shown on every page (staging,
+production, local), `PUBLIC_URL` is where Core is reached for the links in alerts, and
+`ALERT_EMAIL` and `ALERT_SLACK_WEBHOOK_URL` are where an alert goes when a health check changes
+state. While developing the app, `npm run dev:admin` serves it from source and passes API calls to
+a running web process (`CORE_URL`, default `http://127.0.0.1:3000`); `npm run test:e2e` runs its
+user journeys in a browser against a Core the tests start themselves.
 
 Tenants, connections and subscribers are also added with one script, through the same functions
 the panel uses, so tokens are hashed and CRM credentials encrypted the way the engine expects:

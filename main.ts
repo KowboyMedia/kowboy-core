@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url';
 import { startEngine, type Engine } from './engine/index.js';
 import { adapterApi, startAdapter } from './engine/adapter-api/index.js';
 import { adapterRoutes } from './engine/http/server.js';
-import { adminRoutesFor } from './engine/admin/index.js';
+import { adminRoutesFor } from './engine/admin-api/index.js';
 import { closeErrorReporting, report } from './engine/errors.js';
 import type { Adapter } from './engine/adapter-api/types.js';
 import { vitecAdapter } from './adapters/vitec/index.js';
@@ -40,7 +40,7 @@ export async function main(role: string): Promise<{ engine: Engine; server: Serv
     const routes = adapters.flatMap((adapter) =>
       adapterRoutes(adapter.manifest.provider, adapter.routes ?? []),
     );
-    // The admin panel (docs/admin-panel.md) lives in the web process, with the adapters' own panels.
+    // The admin panel (docs/admin-panel.md): its API and the app itself, in the web process.
     const server = engine.listen([...routes, ...adminRoutesFor(engine, adapters)]);
     console.log(`web listening on ${(server.address() as AddressInfo).port}`);
     return { engine, server };

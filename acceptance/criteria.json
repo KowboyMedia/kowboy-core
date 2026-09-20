@@ -123,7 +123,7 @@
       "phase": "engine",
       "tests": [
         "admin recomputes from stored raw with no CRM traffic, and gives a new seq (AC 13)",
-        "the web process as deployed recomputes a stored record from the admin API and the panel with no adapter started (AC 13)"
+        "the web process as deployed recomputes a stored record from the admin API with no adapter started (AC 13)"
       ]
     },
     {
@@ -158,7 +158,8 @@
         "ingest links a webhook to the write it caused by correlation id (AC 16)",
         "the event log keeps every event when many writers log at once",
         "the event log deletes events outside the retention window (AC 16)",
-        "the Vitec adapter puts the notification, the Vitec call and the write on one timeline (AC 16)"
+        "the Vitec adapter puts the notification, the Vitec call and the write on one timeline (AC 16)",
+        "the dashboard, events, settings and search pages the event log, follows a correlation id, leaves a bad filter value out and says so, and carries the audit trail"
       ],
       "note": "Causes covered: written, unchanged, dropped (unlicensed, malformed, inactive, unknown datatype), tombstoned, bell, pull. A correlation id links a webhook to the write it caused, and since 2026-09-18 (question 9) an adapter stamps its own events with it: the notification's arrival and every CRM call, with status and duration, sit on the record's timeline. Since the same day (question 37) each site reports what it applied and what it could not, so the timeline runs to the site."
     },
@@ -361,7 +362,10 @@
       "ac": 36,
       "title": "Release impact preview performs no writes",
       "phase": "engine",
-      "tests": ["admin previews a recompute without writing anything (AC 36)"]
+      "tests": [
+        "admin previews a recompute without writing anything (AC 36)",
+        "jobs previews a recompute as a job with progress and a result, runs it for real with new seqs and a bell, and stops one on request"
+      ]
     },
     {
       "ac": 37,
@@ -420,26 +424,34 @@
       "title": "Admin panel: every panel works through HTTP, and an adapter brings its own",
       "phase": "engine",
       "tests": [
-        "the admin panel mails a login link to an allowed address only, answers every address the same, and refuses a form without its token",
-        "the admin panel mails at most ten links a day, whatever the form is fed",
-        "the admin panel remembers the device for 30 days when asked, and for the browser session otherwise",
-        "the admin panel shows the overview with every health check, the adapter ones included",
-        "the admin panel makes a tenant in one save: name, the CRM with its panel and offices, two sites; the page then shows the token, the secrets and the load (AC 42)",
-        "the admin panel edits a tenant on the same page: rename, an office added and one dropped, a site switched off and one added, a new token and a new bell secret, and refusals keep the page",
-        "the admin panel finds an item, shows raw, unified and display with its timeline, and recomputes it",
-        "the admin panel pulls as a site from the test panel and shows the sizes",
-        "the admin panel runs housekeeping from the settings page",
-        "the Vitec adapter has its own admin panel: the fetch list, the schedules, and one record looked at or queued (AC 42)",
-        "the admin panel keeps the events page up when a filter value is not a date or a number, and says so",
-        "the web process as deployed recomputes a stored record from the admin API and the panel with no adapter started (AC 13)",
+        "the admin panel’s login mails a link to an allowed address only, answers every address the same, and keeps a change without the panel’s header out",
+        "the admin panel’s login mails at most ten links a day, whatever the form is fed, and one per address per minute",
+        "the admin panel’s login remembers the device for 30 days when asked, and for the browser session otherwise",
+        "the tenant page makes a tenant in one save: name, the CRM with its offices, two sites; the answer carries the token, the secrets and the load (AC 42)",
+        "the tenant page edits a tenant on the same page: rename, an office added and one dropped, a site switched off, one removed and one added; refusals name the field",
+        "the tenant page rotates the token and a site’s bell secret, rings one site, and queues the connection’s actions",
+        "the tenant page shows what the sites did: a bell answered, the first pull, what was applied and what failed, and the sites’ own errors",
+        "records searches with server-side filters, sorts and pages, shows the figures, and one record with its three faces and timeline",
+        "records lists the live activity with a state per row, turns a row to applied or failed when a site reports, and shows what waits on the adapter",
+        "records fetches again from the CRM: named records go to the adapter as a refetch, a tenant as a resync",
+        "jobs previews a recompute as a job with progress and a result, runs it for real with new seqs and a bell, and stops one on request",
+        "the dashboard, events, settings and search answers the dashboard with figures, two hourly charts, health with the adapter’s checks, and the latest events",
+        "the dashboard, events, settings and search pages the event log, follows a correlation id, leaves a bad filter value out and says so, and carries the audit trail",
+        "the dashboard, events, settings and search shows the settings as they run, runs housekeeping, lists the providers with their panels, and finds tenants and records",
+        "the dashboard, events, settings and search pulls as a site from the panel with the sizes, and rings from it",
+        "the live feed and the alerts streams new events and jobs to an open page",
+        "the live feed and the alerts tells a change of a health check once, by mail and to Slack, and its recovery once",
+        "the web process as deployed serves the app under /admin and its API next to it",
         "the web process as deployed lets only an allowed address in through the maintenance login, and logs every attempt",
-        "the admin panel shows the dashboard: figures, two hourly charts with table twins, and no email mask",
-        "the admin panel filters items by tenant, entity type, office, date range and removal, and recomputes a selection",
-        "the admin panel lists the live activity of the write path, a state per row, and turns a row to applied when a site reports it",
-        "the admin panel names only pages the panel has in every adapter’s setup directions",
-        "the Vitec adapter is set up from the tenant’s page: the CRM panel’s login and offices make the connection, and the first load runs with that login (AC 42)"
+        "the Vitec adapter is set up from the tenant’s page: the CRM panel’s login and offices make the connection, and the first load runs with that login (AC 42)",
+        "the Vitec adapter describes its panel as data: the directions and settings, the schedules with run-now actions, the fetch list, one record looked at without writing or fetched again, and its queue (AC 42)",
+        "the Vitec setup directions name every environment variable the adapter reads, and so does the README",
+        "journey: an allowed address gets a link by mail and is in; a stranger gets the same answer and no link",
+        "journey: one page makes the tenant with its CRM login, offices and sites, loads its records, and changes it on the same page",
+        "journey: the search filters and sorts on the server, a selection previews a recompute, the job runs for real, and a record shows its three faces and timeline",
+        "journey: the log filters and pages, the audit trail says who did what, an adapter action runs, housekeeping runs, and the palette jumps to a tenant"
       ],
-      "note": "docs/admin-panel.md, approved by Patric 2026-09-18 (question 29). Login by email link, no shared password (Patric, 2026-09-18, question 30)."
+      "note": "Rebuilt from scratch 2026-09-20 (Patric: every Must and Should, no carry-over): a browser app on the admin API, every user journey a browser test (admin/e2e), docs/admin-panel.md. Login by email link, no shared password (Patric, 2026-09-18, question 30)."
     }
   ]
 }

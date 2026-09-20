@@ -1,43 +1,46 @@
-// The entrypoint as deployed (main.ts), web role alone: no adapter is started there, yet a stored
-// record must recompute from the panel and from the admin API, so main.ts registers every
-// adapter's mappers in both roles. Until 2026-09-20 the web process had none, and every recompute
-// on staging failed with "no adapter registered for this connection".
+// The web role exactly as deployed, `node dist/main.js web` in a function: the adapters' mappers
+// are registered without the adapters started, so a recompute from the admin API works; the app
+// itself is served under /admin; and the maintenance login lets only an allowed address in.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { main } from '../main.js';
-import { ADMIN_EMAIL, ADMIN_SECRET, truncate } from './harness.js';
-import { connectionById, createTenant, upsertConnection } from '../engine/storage/connections.js';
-import { ingest } from '../engine/ingest.js';
+import { adapterApi } from '../engine/adapter-api/index.js';
+import { clearRegistry } from '../engine/registry.js';
+import { queryEvents } from '../engine/events.js';
+import { createTenant, upsertConnection } from '../engine/storage/connections.js';
+import type { Engine } from '../engine/index.js';
+import { ADMIN_SECRET, TOKEN, truncate } from './harness.js';
 
-const CONNECTION = 'vitec-web';
-const OFFICE = 'M1';
-const FORM = { 'content-type': 'application/x-www-form-urlencoded' };
+const CONNECTION = 'vitec-entrypoint';
+const OFFICE = 'M77';
 
-/** An estate as Vitec Connect publishes it, the shape adapters/vitec/vitec.test.ts uses. */
 const estate = {
-  id: 'OBJ1',
-  office: { id: OFFICE, customerId: OFFICE },
-  primaryAgentId: 'U1',
-  secondaryAgentId: null,
-  projectId: 'PR1',
-  address: { streetAddress: 'Storgatan 1', area: { id: 'A1', name: 'Centrum' } },
-  extensions: { housingCooperative: { association: { id: 'F1' } } },
+  id: 'OBJ-ENTRY',
+  customerId: OFFICE,
   changedAt: '2026-09-10T08:00:00.1234567+02:00',
+  status: { id: 1, name: 'Till salu' },
+  address: { streetAddress: 'Storgatan 1', city: 'Malmö' },
+  price: { startingPrice: 2000000, currency: 'SEK' },
 };
 
-let started: Awaited<ReturnType<typeof main>>;
-let baseUrl = '';
+let engine: Engine;
+let server: Server;
+let baseUrl: string;
 
 beforeEach(async () => {
-  // The maintenance login (2026-09-19): an allowed address logs in from the form, no mailed link.
+  clearRegistry();
   process.env['ADMIN_LOGIN_WITHOUT_EMAIL'] = 'true';
-  started = await main('web');
-  baseUrl = `http://127.0.0.1:${(started.server?.address() as AddressInfo).port}`;
+  process.env['PORT'] = '0';
+  const started = await main('web');
+  engine = started.engine;
+  server = started.server as Server;
+  baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   await truncate();
-  const tenantId = await createTenant({ displayName: 'Test tenant', token: 'web-token' });
+  await createTenant({ displayName: 'Entry tenant', token: TOKEN });
   await upsertConnection({
     id: CONNECTION,
-    tenantId,
+    tenantId: 1,
     provider: 'vitec',
     licensedOffices: [OFFICE],
   });
@@ -45,68 +48,107 @@ beforeEach(async () => {
 
 afterEach(async () => {
   delete process.env['ADMIN_LOGIN_WITHOUT_EMAIL'];
-  await started.engine.stop();
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+  await engine.stop();
 });
 
-const login = async (email: string): Promise<Response> =>
-  fetch(`${baseUrl}/admin/login`, {
-    method: 'POST',
-    headers: FORM,
-    body: new URLSearchParams({ email }).toString(),
-    redirect: 'manual',
+const admin = (
+  path: string,
+  body?: unknown,
+  headers: Record<string, string> = {},
+): Promise<Response> =>
+  fetch(`${baseUrl}${path}`, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: { 'x-admin-secret': ADMIN_SECRET, 'content-type': 'application/json', ...headers },
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
 
 describe('the web process as deployed', () => {
-  it('recomputes a stored record from the admin API and the panel with no adapter started (AC 13)', async () => {
-    const connection = await connectionById(CONNECTION);
-    if (!connection) throw new Error(`no connection ${CONNECTION}`);
-    // The write path needs the mapper too: main.ts registered it without starting the adapter.
-    expect(await ingest(connection, 'property', 'OBJ1', estate)).toMatchObject({
-      outcome: 'written',
-    });
+  it('recomputes a stored record from the admin API with no adapter started (AC 13)', async () => {
+    // The record arrives the way the worker's adapter would write it: through the adapter API.
+    const api = adapterApi('vitec');
+    const written = await api.ingest(
+      {
+        id: CONNECTION,
+        tenantId: 1,
+        provider: 'vitec',
+        credentials: null,
+        licensedOffices: [OFFICE],
+        active: true,
+      },
+      'property',
+      estate.id,
+      estate,
+    );
+    expect(written.outcome).toBe('written');
 
-    const api = await fetch(`${baseUrl}/v1/admin/recompute`, {
-      method: 'POST',
-      headers: { 'x-admin-secret': ADMIN_SECRET, 'content-type': 'application/json' },
-      body: JSON.stringify({ connection_id: CONNECTION }),
+    const synchronous = await admin('/v1/admin/recompute', {
+      connection_id: CONNECTION,
+      dry_run: true,
     });
-    expect(api.status).toBe(200);
-    expect(await api.json()).toMatchObject({ examined: 1, failed: 0 });
+    expect(synchronous.status).toBe(200);
+    const preview = (await synchronous.json()) as { examined: number; failed: number };
+    expect(preview.examined).toBe(1);
+    expect(preview.failed).toBe(0);
 
-    // The panel: the maintenance login from the form, then the record's Recompute button.
-    const opened = await login(ADMIN_EMAIL);
-    expect(opened.status).toBe(303);
-    expect(opened.headers.get('location')).toBe('/admin');
-    const cookie = (opened.headers.get('set-cookie') ?? '').split(';')[0] ?? '';
-    const csrf = cookie.slice(cookie.indexOf('=') + 1);
-    const recomputed = await fetch(`${baseUrl}/admin/items/${CONNECTION}/property/OBJ1/recompute`, {
-      method: 'POST',
-      headers: { cookie, ...FORM },
-      body: new URLSearchParams({ csrf }).toString(),
+    // The same through the panel's API: a job, run here as the worker would run it.
+    const queued = await admin('/v1/admin/jobs', {
+      scope: { connectionId: CONNECTION },
+      dryRun: true,
     });
-    expect(recomputed.status).toBe(200);
-    const html = await recomputed.text();
-    expect(html).toContain('examined&quot;: 1');
-    expect(html).toContain('failed&quot;: 0');
-    expect(html).not.toContain('no adapter registered');
+    expect(queued.status).toBe(201);
+    const { runNextJob } = await import('../engine/jobs.js');
+    expect(await runNextJob()).toBe(true);
+    const { id } = (await queued.json()) as { id: number };
+    const job = (await (await admin(`/v1/admin/jobs/${id}`)).json()) as {
+      job: { state: string; result: { examined: number } };
+    };
+    expect(job.job.state).toBe('done');
+    expect(job.job.result.examined).toBe(1);
+  });
+
+  it('serves the app under /admin and its API next to it', async () => {
+    const page = await fetch(`${baseUrl}/admin/tenants/1`);
+    expect(page.status).toBe(200);
+    expect(page.headers.get('content-type')).toContain('text/html');
+    expect(page.headers.get('content-security-policy')).toContain("default-src 'self'");
+    const html = await page.text();
+    expect(html).toContain('<div id="root">');
+    expect(html).toContain('/admin/assets/');
+    const mode = await fetch(`${baseUrl}/v1/admin/login-mode`);
+    expect(((await mode.json()) as { maintenanceLogin: boolean }).maintenanceLogin).toBe(true);
+    expect((await fetch(`${baseUrl}/v1/admin/session`)).status).toBe(401);
   });
 
   it('lets only an allowed address in through the maintenance login, and logs every attempt', async () => {
-    const refused = await login('someone@elsewhere.test');
-    expect(refused.status).toBe(401);
-    expect(await refused.text()).toContain('can’t log in here');
-    const opened = await login(ADMIN_EMAIL);
-    const cookie = (opened.headers.get('set-cookie') ?? '').split(';')[0] ?? '';
-    const events = await fetch(`${baseUrl}/v1/admin/events?type=admin.login`, {
-      headers: { 'x-admin-secret': ADMIN_SECRET },
+    const refused = await fetch(`${baseUrl}/v1/admin/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'someone@elsewhere.test' }),
     });
-    const { events: rows } = (await events.json()) as {
-      events: { fields: Record<string, unknown> }[];
-    };
-    expect(rows.map((row) => row.fields['ok'])).toEqual([false, true]);
-    expect(rows.every((row) => row.fields['via'] === 'maintenance')).toBe(true);
+    expect(refused.status).toBe(401);
+    expect(refused.headers.get('set-cookie')).toBeNull();
+
+    const allowed = await fetch(`${baseUrl}/v1/admin/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'operator@example.test', remember: true }),
+    });
+    expect(allowed.status).toBe(200);
+    const cookie = allowed.headers.get('set-cookie') ?? '';
+    expect(cookie).toContain('core_admin_session=');
+    expect(cookie).toContain('Max-Age=');
+    const session = await fetch(`${baseUrl}/v1/admin/session`, {
+      headers: { cookie: cookie.split(';')[0] ?? '' },
+    });
+    expect(((await session.json()) as { user: string }).user).toBe('operator@example.test');
+
+    const attempts = await queryEvents({ type: 'admin.login' });
     expect(
-      await fetch(`${baseUrl}/admin/settings`, { headers: { cookie } }).then((r) => r.text()),
-    ).toContain('PAUSED for maintenance');
+      attempts.map((event) => [event.fields['email'], event.fields['ok'], event.fields['via']]),
+    ).toEqual([
+      ['someone@elsewhere.test', false, 'maintenance'],
+      ['operator@example.test', true, 'maintenance'],
+    ]);
   });
 });
