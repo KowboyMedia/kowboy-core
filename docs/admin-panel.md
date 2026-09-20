@@ -35,7 +35,7 @@ connections, lifecycle events, health, the event log) becomes a panel.
    applied; the last 20 events. The first page after login.
 2. **Tenants.** The list, with each tenant's number, name, licence, connections and sites; add one by name, Core assigns the number. A
    tenant's page holds everything about that customer (Patric, 2026-09-18 and 2026-09-19): the
-   licence and the token (shown once, rotated), the name, its connections (a table, and "Add a
+   licence and the token (shown on the page at all times, rotated), the name, its connections (a table, and "Add a
    connection" folded under it; open one for its login, offices and loads) and its sites (a
    table with one actions menu per row: ring it now, delta or forcerefresh, a new bell secret
    shown once, and an edit page for its label, bell URL and active flag; "Add a site" folded

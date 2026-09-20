@@ -124,23 +124,27 @@ describe('the admin panel', () => {
     expect(html).toContain('migrations applied');
   });
 
-  it('adds a tenant, shows its token once, and the token pulls changes (AC 42)', async () => {
-    const page = await post('/admin/tenants', { name: 'Acme Mäkleri' });
-    expect(page.status).toBe(200);
-    const html = await page.text();
-    expect(html).toContain('Token for Acme Mäkleri');
-    const token = shownAfter(html, 'Token for Acme Mäkleri');
+  it('adds a tenant, shows its token on the page at all times, and the token pulls changes (AC 42)', async () => {
+    const tokenOf = (h: string): string => /class="user-select-all">([^<]+)</.exec(h)?.[1] ?? '';
+    const created = await post('/admin/tenants', { name: 'Acme Mäkleri' });
+    expect(created.status).toBe(200);
+    const html = await created.text();
     const acme = /\/admin\/tenants\/(\d+)\/token/.exec(html)?.[1] ?? '';
     expect(acme).not.toBe('');
+    const token = tokenOf(html);
     expect(token.length).toBeGreaterThan(20);
+    // Shown again on a fresh open of the tenant page, not only the once (Patric, 2026-09-19).
+    const reopened = await (await get(`/admin/tenants/${acme}`)).text();
+    expect(tokenOf(reopened)).toBe(token);
     const pull = await fetch(`${running.baseUrl}/v1/changes?datatype=property`, {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(pull.status).toBe(200);
-    // A second token retires the first.
+    // A second token retires the first, and is the one shown from then on.
     const rotated = await post(`/admin/tenants/${acme}/token`, {});
-    const next = shownAfter(await rotated.text(), 'Token for Acme Mäkleri');
+    const next = tokenOf(await rotated.text());
     expect(next).not.toBe(token);
+    expect(tokenOf(await (await get(`/admin/tenants/${acme}`)).text())).toBe(next);
     const old = await fetch(`${running.baseUrl}/v1/changes?datatype=property`, {
       headers: { authorization: `Bearer ${token}` },
     });
