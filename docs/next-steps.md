@@ -92,6 +92,10 @@ the first item that is not done, and keep the file current. Decisions and open q
    himself (question 56). Same day, on Patric's third telling: a tenant is made and changed on
    one page and one flow (name, the CRM with its panel for the login and offices, the sites),
    with one Save; the tests and the browser walk drive that flow as a person would.
+   Later that day Patric judged the panel below a professional product's bar and asked for the
+   use cases, a catalogue of what comparable products offer, MoSCoW ratings and a rebuild
+   proposal before anything is built: `docs/admin-panel-rebuild.md`, questions 59 to 61. Nothing
+   of the rebuild is built until he answers.
 
 8. ~~**Setup directions on each adapter's panel, and a licence notice in the plugin** (Patric,
    2026-09-18).~~ Done 2026-09-18: the Vitec panel opens with "Set up Vitec", kept true by

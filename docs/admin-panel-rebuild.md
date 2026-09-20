@@ -1,0 +1,218 @@
+# Admin panel: the rebuild (proposal, register questions 59 to 61)
+
+Patric, 2026-09-20: the panel as built works but reads as a hobby project: full-page reloads, no
+word after a save, a search that cannot sort, inconsistent panels, journeys that take thought, and
+core functions missing (recompute everything, an office, a tenant, a CRM). Nothing is built until
+this is discussed. This file is the discussion piece: what the panel is for, what comparable
+products offer, every function rated with MoSCoW, and how to build it to the standard of a
+professional product in 2026.
+
+## 1. What the panel is for
+
+The people at the panel are Kowboy's operators: Patric and the agents, later a support person.
+Customers never see it (decision 2026-09-18: the panel stays people-only, agents keep the API).
+
+| #   | Use case                                                                                                                                                                                                                                                                    |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| U1  | **Onboard a customer.** Make the tenant with its CRM login, offices and sites in one go, watch the first load finish, hand the token and the bell secret to the site.                                                                                                       |
+| U2  | **Keep it healthy.** Know within minutes when something is red (the worker, an adapter, a refused office, a site that stopped pulling), see why, and act from there.                                                                                                        |
+| U3  | **Support a customer.** "Why is listing X missing or wrong on their site?" Find the record, see the CRM's payload, the unified record, the display strings and the timeline from the CRM's notification to the site's apply; fetch it again or recompute it; ring the site. |
+| U4  | **Release safely.** After a ledger or mapping change: preview the impact, recompute a scope or everything with progress, verify, and see what changed.                                                                                                                      |
+| U5  | **Watch the flow.** What is happening now and over the day: records in, calls to the CRMs, bells, pulls, what is queued, what failed, per tenant.                                                                                                                           |
+| U6  | **Licences and secrets.** Disable or enable a tenant, rotate its token or a site's bell secret, see who logged in and what they did.                                                                                                                                        |
+| U7  | **Configure an adapter.** The notification URL to give the CRM, its settings, the second CRM when it comes.                                                                                                                                                                 |
+| U8  | **Try things without leaving the browser.** Pull as a site, look at a CRM record raw and unified, dry-run a recompute, replay a notification.                                                                                                                               |
+
+## 2. What comparable products offer
+
+Three families set the bar. What they have in common is the catalogue in section 3.
+
+- **Sync and integration platforms** (Airbyte, Fivetran, Nango, Merge): a connection page with a
+  status tab (health per stream, records loaded per run), a timeline of connection events, logs
+  per attempt with retries, "sync now" and "reset", per-stream on/off, notifications by email,
+  Slack or webhook on failure, usage and quotas. Airbyte's connection page shows the last syncs'
+  stream status and records loaded, a timeline of events, downloadable logs per attempt, and
+  retries per attempt ([Airbyte connection status](https://docs.airbyte.com/platform/cloud/managing-airbyte-cloud/review-connection-status),
+  [connection timeline](https://docs.airbyte.com/platform/cloud/managing-airbyte-cloud/review-connection-timeline),
+  read 2026-09-20).
+- **Developer consoles** (Stripe, Postmark, Sentry): an event log with filters and a timeline per
+  object, webhook attempts with resend, request logs with search, a test mode, API keys with
+  rotation, alerts, an audit log of the team's actions, command palette, keyboard shortcuts, dark
+  mode.
+- **Admin frameworks** (React-admin, Refine, Filament, Django admin): lists with server-side sort,
+  filter, search and paging, column chooser, bulk actions, forms with validation, undo and toasts,
+  relations, dashboard widgets, live updates, saved filters, CSV export, roles and permissions,
+  responsive and accessible by default. Refine is MIT and headless with live updates and
+  notifications built in and integrations for Ant Design, Material UI, Mantine, Chakra or any
+  Tailwind design ([Refine on GitHub](https://github.com/refinedev/refine),
+  [Refine licence](https://refine.dev/docs/further-readings/license/), read 2026-09-20).
+  React-admin's core is MIT, but its realtime and audit-log packages are part of the paid
+  Enterprise Edition ([React-admin ecosystem](https://marmelab.com/react-admin/Ecosystem.html),
+  [ra-audit-log](https://react-admin-ee.marmelab.com/documentation/ra-audit-log), read 2026-09-20).
+
+## 3. Every function, rated (MoSCoW)
+
+Must: without it the panel is not the product. Should: expected of a professional tool, built
+right after the Musts. Could: nice, when there is time. Won't: not now, on purpose. Size is a
+rough effort: S a few hours, M a day or two, L several days. "Built" means it exists in today's
+panel and carries over in the new form.
+
+### A. Onboarding a customer (U1)
+
+| Function                                                                                                                                                 | Rating | Size  | Note                                                       |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----- | ---------------------------------------------------------- |
+| One page for a tenant: name, licence, the CRM chosen from a list with its panel (login, offices), the sites one or many, one Save; edit is the same page | Must   | built | Keeps the flow of 2026-09-20.                              |
+| Save without a reload, a toast saying what happened (made, loading, secrets ready), errors shown at the field                                            | Must   | S     | The thing missing today.                                   |
+| Checks while typing: required fields, URL shape, offices shape, a login half filled                                                                      | Must   | S     |                                                            |
+| Copy buttons for the token and the bell secrets, with "copied"                                                                                           | Must   | S     |                                                            |
+| "Check the login" before saving: the adapter tries the CRM with the typed login and says yes or no                                                       | Should | M     | Needs a generic adapter capability (a probe); question 61. |
+| First-load progress on the tenant page: records per datatype, done or failed, how long it took                                                           | Should | M     | Comes with jobs (D).                                       |
+| A tenant with two CRMs                                                                                                                                   | Could  | M     | No customer needs it yet.                                  |
+| Archive a tenant (hide it, keep its data 90 days)                                                                                                        | Could  | S     | Today: licence off and "Remove everything".                |
+
+### B. Health and monitoring (U2, U5)
+
+| Function                                                                                       | Rating | Size  | Note                                                                                  |
+| ---------------------------------------------------------------------------------------------- | ------ | ----- | ------------------------------------------------------------------------------------- |
+| Dashboard: health, figures, charts over 24 hours, records per datatype, sites' freshness       | Must   | built | Made live (refreshes itself).                                                         |
+| Health checks with the reason for a red one                                                    | Must   | built |                                                                                       |
+| Live activity: the last records through Core with their state, and what is queued              | Must   | built | Queued rows need question 57.                                                         |
+| Per-connection status: schedules, fetch list, refused offices, retries, with "run now" actions | Must   | built | Moves from the Vitec page onto the tenant's connection view; the adapter provides it. |
+| Alerts by email or Slack when health goes red or a site stops pulling, with a link to the page | Should | M     | Postmark and Slack exist; Sentry for errors already.                                  |
+| Environment banner (staging or production), version and deploy time on every page              | Should | S     |                                                                                       |
+| Usage: CRM calls per connection per day, Sentry budget, event log size                         | Could  | S     |                                                                                       |
+| Uptime and answer times of the sites' pulls over 7 days                                        | Could  | S     |                                                                                       |
+
+### C. Records (U3)
+
+| Function                                                                                       | Rating | Size  | Note                                        |
+| ---------------------------------------------------------------------------------------------- | ------ | ----- | ------------------------------------------- |
+| Search with server-side filters: tenant, CRM, office, entity type, id, written dates, removed  | Must   | built | Without a reload.                           |
+| Sort by any column, pages of 25 to 500, choose the columns shown                               | Must   | S     | Missing today.                              |
+| Tick rows and act on them: recompute, fetch again from the CRM, ring the tenant's sites        | Must   | S     | "Fetch again" needs question 57.            |
+| One record: raw, unified and display side by side, its timeline down to what each site applied | Must   | built |                                             |
+| Preview what a recompute would change for one record before doing it                           | Should | S     | The dry run exists.                         |
+| Free-text search across a record's fields (address, name)                                      | Should | M     | Postgres full-text over the unified record. |
+| Records failing the schema, listed with their errors                                           | Should | S     | From the impact preview.                    |
+| Export a search as CSV or JSON                                                                 | Could  | S     |                                             |
+| Saved searches                                                                                 | Could  | S     |                                             |
+| A record's earlier versions and the diff between them                                          | Could  | L     | Needs versions stored; nothing today.       |
+
+### D. Recompute and fetch again (U4)
+
+| Function                                                                                             | Rating | Size  | Note                                                                                    |
+| ---------------------------------------------------------------------------------------------------- | ------ | ----- | --------------------------------------------------------------------------------------- |
+| Recompute by scope: one record, a selection, office(s), tenant(s), CRM(s), a datatype, everything    | Must   | M     | Patric's ask; the engine already recomputes any scope, the panel only offered a record. |
+| Fetch again from the CRM by the same scopes                                                          | Must   | M     | Office, tenant and CRM scopes exist as lifecycle events; record and selection need 57.  |
+| Preview first, then run: every recompute shows examined, changed, failed and examples before writing | Must   | S     |                                                                                         |
+| Long operations as jobs: progress, cancel, a result, a history of runs                               | Must   | M     | Run by the worker, watched live; today a recompute of everything blocks a request.      |
+| Impact preview before a release, as a report with diffs (AC 36)                                      | Should | S     |                                                                                         |
+| Housekeeping now                                                                                     | Must   | built |                                                                                         |
+
+### E. Sites (U1, U3)
+
+| Function                                                                                              | Rating | Size  | Note                 |
+| ----------------------------------------------------------------------------------------------------- | ------ | ----- | -------------------- |
+| Sites per tenant: last pull, last bell and its answer, ring (changes or everything), new bell secret  | Must   | built |                      |
+| Site setup checklist: secret and token in the site, first bell answered, first pull done, first apply | Should | S     | Makes U1 end to end. |
+| What a site holds versus Core: counts per datatype from its applied reports, and what failed there    | Should | M     |                      |
+| The site's own errors (from `/v1/errors`) shown per site                                              | Should | S     |                      |
+
+### F. Events and audit (U3, U6)
+
+| Function                                                                        | Rating | Size  | Note                                                        |
+| ------------------------------------------------------------------------------- | ------ | ----- | ----------------------------------------------------------- |
+| The event log with filters, and following a correlation id                      | Must   | built | Paged, with a live tail.                                    |
+| Who did what on the panel: logins, saves, actions, with the person and the time | Should | S     | Logins and tests are logged; saves and actions are not yet. |
+| Export events                                                                   | Could  | S     |                                                             |
+
+### G. Trying things (U8)
+
+| Function                                                               | Rating | Size  | Note                                                                            |
+| ---------------------------------------------------------------------- | ------ | ----- | ------------------------------------------------------------------------------- |
+| Pull as a site, ring, queue a lifecycle event, recompute preview       | Must   | built | Moves next to what it concerns (a "Try" drawer on the tenant and record pages). |
+| Look at a CRM record: raw next to unified and display, nothing written | Must   | built | Vitec only today; generic through the adapter is question 61.                   |
+| Replay a notification payload                                          | Could  | S     |                                                                                 |
+
+### H. Settings and access (U6, U7)
+
+| Function                                                       | Rating | Size  | Note                                                                |
+| -------------------------------------------------------------- | ------ | ----- | ------------------------------------------------------------------- |
+| Configuration read-only, migrations, rules and schema versions | Must   | built |                                                                     |
+| Token and bell secret rotation                                 | Must   | built |                                                                     |
+| Login by email link, the maintenance switch                    | Must   | built |                                                                     |
+| Adapter settings and directions, the notification URL          | Must   | built |                                                                     |
+| A second CRM appears in the tenant's CRM list by itself        | Must   | built | The design holds.                                                   |
+| Users and roles (operator, viewer), invited by email           | Could  | M     | "Roles come when they are needed" (2026-09-18); one operator today. |
+| Passkeys or a second factor                                    | Could  | M     |                                                                     |
+| Rotate the admin secret the agents use                         | Could  | S     |                                                                     |
+
+### I. The qualities of a professional tool (every page)
+
+| Function                                                                                  | Rating | Size | Note                                                                   |
+| ----------------------------------------------------------------------------------------- | ------ | ---- | ---------------------------------------------------------------------- |
+| No full-page reloads: actions and searches answer in place, with loading and error states | Must   | —    | The heart of the rebuild.                                              |
+| A toast for every outcome, undo where it is safe (a licence switch, a site switched off)  | Must   | S    |                                                                        |
+| One pattern each for a list, a detail page, a form and a row's actions, used everywhere   | Must   | —    | Consistency.                                                           |
+| Confirmations that say what will happen before "Remove everything" or "New token"         | Must   | S    |                                                                        |
+| Empty states that say what to do next                                                     | Must   | S    |                                                                        |
+| Responsive and accessible: keyboard, labels, contrast, screen reader names                | Must   | —    |                                                                        |
+| Live updates: activity, jobs, health and figures change on the page without a reload      | Should | M    | One event stream from Core.                                            |
+| A command palette: jump to a tenant, a record id, a page                                  | Should | S    |                                                                        |
+| Dark mode                                                                                 | Could  | S    |                                                                        |
+| Keyboard shortcuts                                                                        | Could  | S    |                                                                        |
+| The panel in Swedish                                                                      | Won't  |      | An internal tool; the sites are Swedish, the panel is not a site.      |
+| A customer-facing portal                                                                  | Won't  |      | Customers get sites, not the panel.                                    |
+| Editing record data by hand                                                               | Won't  |      | Core copies the CRM; a hand edit would be a lie the next fetch undoes. |
+
+## 4. How to build it
+
+The bar is a product one would pay for. Four ways, rated by the impression they give, how they fit
+Core's rules (simple, one code path, the seam), the effort, what they add, and how they are tested.
+
+| Way                                                                                                                                                         | Impression | Fit with Core                                                                                                 | Effort | Adds                                                                             | Verdict                                                                            |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Keep today's server-rendered Tabler pages and add htmx for in-place updates and sorting                                                                     | medium     | high: no build, small code                                                                                    | medium | htmx (14 KB)                                                                     | The ceiling stays low; every rich table or live view is hand work.                 |
+| **A React app on Core's admin API: Refine (headless) with shadcn/ui and Tailwind, tables by TanStack, forms by react-hook-form, toasts, a command palette** | high       | good: the API becomes the one code path for agents and the app; the app is a client like the WordPress plugin | high   | a build step (Vite) and browser-side libraries, all MIT; Playwright for journeys | **Recommended.** The look and behaviour of a 2026 SaaS console, on standard parts. |
+| A React app with React-admin and Material UI                                                                                                                | high       | good, the same shape                                                                                          | medium | the same, plus paid packages for realtime and audit log                          | The live and audit pieces are paid; the free part is dated Material.               |
+| A low-code tool (Retool, Appsmith) on Core's API                                                                                                            | medium     | poor: a vendor holds the panel and reaches the data                                                           | low    | a vendor, a monthly cost                                                         | No: a vendor, a cost, and the panel leaves the repository.                         |
+
+The recommendation in words: Core gets a complete admin API (JSON, under `/v1/admin/`), which is
+the single place where tenants are saved, records searched, recomputes run and events read; the
+agents already use that API, the app becomes its second user, and nothing is done in two ways.
+The app lives in one new folder of the repository, is built into static files by the same
+`npm run build`, and is served by Core's web process under `/admin`, so nothing else runs and
+nothing is hosted elsewhere. Long operations (recompute everything, fetch an office again) become
+jobs the worker runs with progress, watched live through one event stream from Core, which also
+feeds the activity list, the dashboard and the health verdict. Every user journey (onboard a
+tenant, find a record, recompute a scope, ring a site, rotate a token) is a browser test run in
+the checks, so "it passed the tests" means "a person could do it".
+
+Ant Design instead of shadcn/ui is the faster, more conventional alternative if speed matters
+more than the modern look; the rest stays the same.
+
+### What it takes from the adapter API (approval needed)
+
+An adapter's own pages cannot be React code shipped by the adapter without coupling the app to
+each CRM. Instead the adapter hands the engine **data that describes its panel**: sections of
+key-values, tables with row actions, forms with fields, and actions, and the app renders them
+with the same components as everything else. The same shape carries the connection status on the
+tenant page, the "check the login" probe, the "look at a record" dry run and the queue (question
+57). This is one additive change to `engine/adapter-api/`, question 61.
+
+### Order of work
+
+1. The admin API completed and tested, jobs and the event stream in the engine, the adapter
+   panel description (61) if approved.
+2. The app: shell and login, dashboard, tenants (the one-page flow, in place, with toasts),
+   records (grid with sort, filter, paging, selection and actions; the record page), recompute
+   and fetch-again by scope with jobs, events, settings, adapter panels. Every journey a browser
+   test. Today's pages are replaced page by page as each journey passes, and removed at the end.
+3. The Shoulds: alerts, first-load progress, the site checklist and parity, the audit trail, the
+   command palette, live everywhere, "check the login".
+4. The Coulds, as they earn their place.
+
+## 5. Decisions asked of Patric
+
+Register questions 59 (the ratings), 60 (the way to build) and 61 (the adapter panel
+description). Question 57 (queue and fetch-again for records) stands.

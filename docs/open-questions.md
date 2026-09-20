@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 59 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
+answering is quick. Next number: 62 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
 ## 52. The pairs for the Vitec mapping: no longer needed for the mapping; what remains is Vitec's golden masters
@@ -55,3 +55,34 @@ user's password through the API and updates both apps so they take the new bindi
 restarts for about a minute, production included, so it needs your "allow"). Or leave it, on the
 strength of the trusted-sources rule. Either way, agents now read only the fields they need from
 that endpoint.
+
+## 59. `[core]` The admin panel rebuild: the function list and its MoSCoW ratings
+
+Patric, 2026-09-20: the panel reads as a hobby project and misses core functions; list what
+comparable products offer, rate every function with MoSCoW, and do not build before it is
+discussed. `docs/admin-panel-rebuild.md` holds the use cases, the catalogue and the ratings: 32
+Musts (among them saves in place with a toast, sortable and pageable searches, recompute and
+fetch-again by record, selection, office, tenant, CRM, datatype or everything, with a preview and
+progress), 14 Shoulds, 14 Coulds and 3 Won'ts. Smaller: yes, the ratings stand as drafted; or
+name the rows that move.
+
+## 60. `[core]` The admin panel rebuild: how it is built
+
+`docs/admin-panel-rebuild.md` §4. Recommended: a React app on Core's admin API (Refine, headless,
+with shadcn/ui and Tailwind, tables by TanStack, forms by react-hook-form, a command palette),
+built into static files by the same build and served by Core's web process under `/admin`; long
+operations as jobs run by the worker and watched live; every user journey a browser test in the
+checks. It adds a build step and browser-side libraries, all MIT, and Playwright for the tests.
+Smaller: keep today's server-rendered pages and add htmx for in-place updates and sorting, with a
+lower ceiling. Yes to the recommendation, or the smaller one, or Ant Design instead of shadcn/ui
+for speed.
+
+## 61. `[core]` `[crm]` An adapter describes its panel as data (an adapter API change)
+
+`docs/admin-panel-rebuild.md` §4. In the new app an adapter cannot ship pages of its own without
+coupling the app to each CRM, so the adapter hands the engine data that describes its panel:
+sections of key-values, tables with row actions, forms and actions; the app renders them with the
+same components as everything else. The same shape carries the connection status on the tenant
+page, a "check the login" probe, the "look at a record" dry run and the queue of question 57.
+One additive field on `Adapter.admin`. Smaller: yes as described; or keep HTML fragments from the
+adapter shown inside the app, which looks and behaves differently from the rest.
