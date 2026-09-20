@@ -4,7 +4,8 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 66 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
+answering is quick. Next number: 74 (62 to 69 were also used in chat on 2026-09-20 for the WordPress
+plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
 ## 52. The pairs for the Vitec mapping: no longer needed for the mapping; what remains is Vitec's golden masters
@@ -74,3 +75,39 @@ Nothing outside the repository uses `POST /v1/admin/bell`, `event`, `replay` and
 with the admin secret, nor `scripts/tenant.ts` (tenants, connections and sites from the command
 line, replaced by the panel), nor `scripts/vitec-probe.ts` (a one-off probe of Vitec Connect from
 2026-09-17, settled). Smaller: cut them and point their tests at the panel's API; or keep them.
+
+## 70. `[client-wordpress]` Send the v3 template files when you can
+
+Step 2 of the WordPress plan (`docs/default-templates.md`) ports Kowboy's default templates onto
+the universal model, and the source for that port is the template files of plugin version 3: the
+templates folder (the cards a list is made of, the single pages of every entity, the list
+wrappers with their filter form) and the list wrapper's script and stylesheet. AGENTS.md forbids
+taking anything from the old plugins unless Patric asks for it item by item, so the files must
+come from Patric, as a zip or as files in chat. An agent then keeps them under
+`docs/inputs/templates-v3/` as the input of record, opens no old repository, and takes nothing
+else of the old plugin: every helper call and field name in the files is replaced on port. Asked
+on 2026-09-20 as 66 in chat; Patric could not send them yet. Nothing in the port starts before the
+files are there.
+
+## 71. `[client-wordpress]` Paste the reference site's address
+
+Step 2 checks the ported templates against the reference site, the site that runs the original
+templates today, record by record and page by page, so that the output is identical
+(`docs/default-templates.md`, "Parity"). For that an agent needs only the site's public address:
+its pages are read over HTTPS with no login. Whether the reference site runs on the Vitec test
+account that staging already holds (office `M31529`) or on a customer's account, an agent finds
+out by comparing the listings; if it is a customer's account, a second ask follows for that
+customer's Vitec login, since both sites must show the same records. The comparison is scoped to
+the templates' own markup, so the staging site needs no particular theme. Asked on 2026-09-20 as
+67 in chat.
+
+## 73. `[client-wordpress]` Paste the test site's address and its WordPress admin username and password
+
+Step 1 of the WordPress plan (`docs/staging-site.md`) puts the plugin on a test site on Kowboy's
+Cloudways server and lets an agent iterate there until every check is green. Agents work over
+HTTPS only: SFTP and SSH, the file-transfer and shell access a host offers, are unreachable from
+where agents run, verified on 2026-09-20. The first install of the plugin and of the staging-only
+driver therefore goes through the site's WordPress admin: the agent logs in once, uploads and
+activates both, and makes itself an application password for the WordPress REST API. After that
+every change reaches the site by itself through the plugin's own update channel, and nothing more
+is needed from anyone. Asked on 2026-09-20 as 69 in chat.
