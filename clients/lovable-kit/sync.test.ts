@@ -58,7 +58,7 @@ async function start(
   await site.query(`truncate ${Object.values(TABLES).join(', ')}, core_sync_state`);
 
   const port = await freePort();
-  const bellUrl = `http://127.0.0.1:${port}/`;
+  const bellUrl = `http://127.0.0.1:${port}/functions/v1/core-sync`;
   deno = spawn(DENO, ['run', '--quiet', '--allow-all', '--config', CONFIG, FUNCTION], {
     env: {
       ...process.env,

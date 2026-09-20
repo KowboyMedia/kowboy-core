@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 74 (62 to 69 were also used in chat on 2026-09-20 for the WordPress
+answering is quick. Next number: 75 (62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
@@ -44,38 +44,6 @@ restarts for about a minute, production included, so it needs your "allow"). Or 
 strength of the trusted-sources rule. Either way, agents now read only the fields they need from
 that endpoint.
 
-## 62. `[core]` The public health check: names in the details, or counts only?
-
-`GET /v1/health` exists, needs no login, answers 200 when every check passes and 500 when any
-fails, and names each check with a detail. Some details name customers: the `subscribers` check
-lists the sites that stopped pulling by name, the Vitec checks name connections and office ids.
-Strategy §8.1 says counts only. Smaller: the public answer says counts and plain words ("2 of 8
-sites have not pulled within the hour", "1 connection is paused after repeated failures") and the
-panel keeps the names; or leave the names in, since only whoever knows the address sees them.
-
-## 63. `[crm-vitec]` Store every notification Vitec sends?
-
-Today the arrival of a notification is one `webhook.received` event with the outcome, the office,
-the datatype, the record id and the kind (Update or Remove), kept 30 days like every event; the
-body as Vitec sent it is not stored. Smaller: put the body into that event (a few lines, gone
-after 30 days); or an adapter table of its own that keeps every notification for good and lets a
-person replay one from the panel (the Could "replay a notification").
-
-## 64. `[core]` The framework for the new admin panel
-
-For the panel rebuilt from the requirement sheets: Refine (MIT, headless: resources, list and
-detail pages, live updates, notifications, access control) with shadcn/ui components,
-recommended; Ant Design Pro (a complete, conventional look, less work on components); or
-React-admin (the most used, MIT core, its live updates and audit log in a paid edition). Pick
-one.
-
-## 65. `[core]` Cut what nothing uses: the old operator endpoints and the setup scripts
-
-Nothing outside the repository uses `POST /v1/admin/bell`, `event`, `replay` and `recompute`
-with the admin secret, nor `scripts/tenant.ts` (tenants, connections and sites from the command
-line, replaced by the panel), nor `scripts/vitec-probe.ts` (a one-off probe of Vitec Connect from
-2026-09-17, settled). Smaller: cut them and point their tests at the panel's API; or keep them.
-
 ## 70. `[client-wordpress]` Send the v3 template files when you can
 
 Step 2 of the WordPress plan (`docs/default-templates.md`) ports Kowboy's default templates onto
@@ -111,3 +79,17 @@ driver therefore goes through the site's WordPress admin: the agent logs in once
 activates both, and makes itself an application password for the WordPress REST API. After that
 every change reaches the site by itself through the plugin's own update channel, and nothing more
 is needed from anyone. Asked on 2026-09-20 as 69 in chat.
+
+## 74. `[core]` Sold properties last in a recompute: which universal field says "sold"?
+
+Patric's rule (2026-09-20): when recomputing, properties already sold are done last, whatever the
+CRM. A recompute is Core re-running the mapping, the rules and the display strings over every
+stored record; the order it runs in changes nothing in the result, only which records the sites
+get first. The rule in AGENTS.md says that nowhere in Core is a decision drawn from a CRM value
+(no status, no flag), and "sold" is such a value, so the engine must not read a CRM field to
+order by. Two ways that keep that rule: (a) the smaller: the engine orders by the universal field
+`sold_at` (the contract date, mapped by every adapter that has one, `docs/field-tables.md`):
+records with a `sold_at` go last, the rest keep their order, and no CRM is named anywhere; (b) the
+adapter says which of its records are sold through a new generic capability of the adapter API (a
+priority per record), which is more contract for the same result. A yes to (a), or (b), decides
+it; the engine and the panel then both use that order. Nothing is built until answered.

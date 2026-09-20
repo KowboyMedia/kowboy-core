@@ -1,4 +1,4 @@
-// Mail the engine sends: today only the admin panel's login links. One sender, configured at
+// Mail the engine sends: today only the alerts. One sender, configured at
 // start from the environment; the tests replace it with one that keeps the mail. The sender is
 // Postmark's HTTP API (question 31): the platform blocks SMTP ports, so no mail server can be
 // spoken to directly, and Kowboy's own domain is locked to a stranger's Elastic Email account.

@@ -1,12 +1,17 @@
-// /v1/admin/*: lifecycle events, replay and recompute, the event timeline, bells, and health.
+// The engine's operations, as the admin panel will call them: lifecycle events, replay and
+// recompute, the event timeline, bells, and health.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { harness, pull, until, ADMIN_SECRET, TENANT, type Harness } from './harness.js';
+import { harness, pull, until, TENANT, type Harness } from './harness.js';
 import { fakeWebhookAdapter, drainFetchList } from '../adapters/fake-webhook/index.js';
 import * as crm from '../adapters/fake-webhook/crm.js';
 import { db } from '../engine/storage/db.js';
-import { heartbeat } from '../engine/health.js';
-import { flushBells } from '../engine/bells.js';
-import type { ImpactReport } from '../engine/recompute.js';
+import { healthReport, heartbeat } from '../engine/health.js';
+import { checkAlerts } from '../engine/alerts.js';
+import { flushBells, ring } from '../engine/bells.js';
+import { queueLifecycle } from '../engine/lifecycle.js';
+import type { LifecycleEvent } from '../engine/adapter-api/types.js';
+import { queryEvents } from '../engine/events.js';
+import { recompute } from '../engine/recompute.js';
 
 const CONNECTION = 'fake-acme';
 
@@ -23,12 +28,15 @@ const property = (ref: string, officeRef = '100'): Record<string, unknown> => ({
   internalCode: 1,
 });
 
-const admin = async (path: string, body: unknown): Promise<Response> =>
-  fetch(`${running.baseUrl}/v1/admin/${path}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-admin-secret': ADMIN_SECRET },
-    body: JSON.stringify(body),
-  });
+/** Queue a lifecycle event for the test connection and deliver it, as the worker's tick would. */
+const event = async (
+  type: LifecycleEvent['type'],
+  officeIds?: string[],
+): Promise<number | null> => {
+  const id = await queueLifecycle(CONNECTION, type, officeIds ? { officeIds } : {});
+  await running.deliver();
+  return id;
+};
 
 let running: Harness;
 
@@ -44,23 +52,12 @@ afterEach(async () => {
   await running.stop();
 });
 
-describe('admin', () => {
-  it('needs the admin secret', async () => {
-    const response = await fetch(`${running.baseUrl}/v1/admin/bell`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ tenant_id: TENANT }),
-    });
-    expect(response.status).toBe(401);
-  });
-
+describe('operations', () => {
   it('loads a new connection end to end on connection_added (AC 34)', async () => {
     crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
     crm.put('property', 'OBJ-1', property('OBJ-1'));
 
-    const response = await admin('event', { connection_id: CONNECTION, event: 'connection_added' });
-    await running.deliver();
-    expect(response.status).toBe(202);
+    expect(await event('connection_added')).not.toBeNull();
 
     await until(async () => {
       await drainFetchList();
@@ -73,19 +70,13 @@ describe('admin', () => {
   it('tombstones an office that is removed (AC 26)', async () => {
     crm.put('property', 'OBJ-1', property('OBJ-1', '100'));
     crm.put('property', 'OBJ-2', property('OBJ-2', '200'));
-    await admin('event', { connection_id: CONNECTION, event: 'connection_added' });
-    await running.deliver();
+    await event('connection_added');
     await until(async () => {
       await drainFetchList();
       return (await pull(running.baseUrl, 'property')).items.length === 2;
     }, 'both properties');
 
-    await admin('event', {
-      connection_id: CONNECTION,
-      event: 'offices_removed',
-      office_ids: ['100'],
-    });
-    await running.deliver();
+    await event('offices_removed', ['100']);
 
     const page = await pull(running.baseUrl, 'property');
     const tombstoned = page.items.filter((item) => item['deleted'] === true);
@@ -96,8 +87,7 @@ describe('admin', () => {
     crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
     crm.put('office', '200', { ref: '200', title: 'Nacka', updatedUtc: '2026-08-30T09:00:00Z' });
     crm.put('property', 'OBJ-100', property('OBJ-100', '100'));
-    await admin('event', { connection_id: CONNECTION, event: 'connection_added' });
-    await running.deliver();
+    await event('connection_added');
     await until(async () => {
       await drainFetchList();
       return (await pull(running.baseUrl, 'property')).items.length === 1;
@@ -108,12 +98,7 @@ describe('admin', () => {
 
     // A second office is licensed later, and its records arrive.
     crm.put('property', 'OBJ-200', property('OBJ-200', '200'));
-    await admin('event', {
-      connection_id: CONNECTION,
-      event: 'offices_added',
-      office_ids: ['200'],
-    });
-    await running.deliver();
+    await event('offices_added', ['200']);
     await until(async () => {
       await drainFetchList();
       return (await pull(running.baseUrl, 'property')).items.length === 2;
@@ -127,8 +112,7 @@ describe('admin', () => {
 
   it('previews a recompute without writing anything (AC 36)', async () => {
     crm.put('property', 'OBJ-1', property('OBJ-1'));
-    await admin('event', { connection_id: CONNECTION, event: 'connection_added' });
-    await running.deliver();
+    await event('connection_added');
     await until(async () => {
       await drainFetchList();
       return (await pull(running.baseUrl, 'property')).items.length === 1;
@@ -143,7 +127,7 @@ describe('admin', () => {
        where remote_id = 'OBJ-1'`,
     );
 
-    const preview = (await (await admin('recompute', { dry_run: true })).json()) as ImpactReport;
+    const preview = await recompute({}, { dryRun: true });
     expect(preview.examined).toBe(1);
     expect(preview.changed).toBe(1);
     expect(preview.failed).toBe(0);
@@ -155,8 +139,7 @@ describe('admin', () => {
 
   it('recomputes from stored raw with no CRM traffic, and gives a new seq (AC 13)', async () => {
     crm.put('property', 'OBJ-1', property('OBJ-1'));
-    await admin('event', { connection_id: CONNECTION, event: 'connection_added' });
-    await running.deliver();
+    await event('connection_added');
     await until(async () => {
       await drainFetchList();
       return (await pull(running.baseUrl, 'property')).items.length === 1;
@@ -169,9 +152,7 @@ describe('admin', () => {
 
     // The CRM is emptied first: a recompute that needed it would fail this test.
     crm.reset();
-    const report = (await (
-      await admin('replay', { connection_id: CONNECTION })
-    ).json()) as ImpactReport;
+    const report = await recompute({ connectionId: CONNECTION });
     expect(report.changed).toBe(1);
 
     const after = await pull(running.baseUrl, 'property');
@@ -181,27 +162,23 @@ describe('admin', () => {
   });
 
   it('fires a bell on demand', async () => {
-    const response = await admin('bell', { tenant_id: TENANT, kind: 'forcerefresh' });
-    expect(response.status).toBe(202);
+    await ring(TENANT, 'forcerefresh');
     await until(() => running.bells.length > 0, 'the bell');
     await flushBells();
   });
 
   it('answers the event timeline query', async () => {
     crm.put('property', 'OBJ-1', property('OBJ-1'));
-    await admin('event', { connection_id: CONNECTION, event: 'connection_added' });
-    await running.deliver();
+    await event('connection_added');
     await until(async () => {
       await drainFetchList();
       return (await pull(running.baseUrl, 'property')).items.length === 1;
     }, 'the property');
 
-    const response = await fetch(
-      `${running.baseUrl}/v1/admin/events?entity=${CONNECTION}/property/OBJ-1`,
-      { headers: { 'x-admin-secret': ADMIN_SECRET } },
-    );
-    const body = (await response.json()) as { events: { type: string }[] };
-    expect(body.events.map((event) => event.type)).toContain('entity.written');
+    const timeline = await queryEvents({
+      entity: { connectionId: CONNECTION, datatype: 'property', remoteId: 'OBJ-1' },
+    });
+    expect(timeline.map((row) => row.type)).toContain('entity.written');
   });
 });
 
@@ -224,5 +201,52 @@ describe('health', () => {
     expect(passing.status).toBe(200);
     expect(passingBody.ok).toBe(true);
     expect(Object.keys(passingBody.checks)).toContain('fake-webhook.webhook_lag');
+  });
+
+  it('answers anyone with counts and plain words, and keeps the names for the alerts (question 62)', async () => {
+    await heartbeat();
+    await db().query("update subscribers set last_pull_at = now() - interval '2 hours'");
+
+    const response = await fetch(`${running.baseUrl}/v1/health`);
+    const text = await response.text();
+    const body = JSON.parse(text) as { checks: Record<string, { detail?: string }> };
+    expect(response.status).toBe(500);
+    expect(body.checks['subscribers']).toEqual({
+      ok: false,
+      detail: '1 site(s) have not pulled for an hour',
+    });
+    expect(text).not.toContain('test site');
+
+    expect((await healthReport()).checks['subscribers']?.names).toEqual(['test site']);
+  });
+});
+
+describe('alerts', () => {
+  const config = {
+    environment: 'test',
+    publicUrl: 'https://core.example',
+    email: 'ops@example.test',
+    slackWebhookUrl: null,
+  };
+
+  it('tells a change of a health check once, by mail with the names, and its recovery once', async () => {
+    await heartbeat();
+    await db().query("update subscribers set last_pull_at = now() - interval '2 hours'");
+
+    const red = await checkAlerts(config);
+    expect(red.map((change) => change.name)).toContain('subscribers');
+    expect(running.mails).toHaveLength(1);
+    expect(running.mails[0]?.subject).toContain('1 check(s) failing');
+    expect(running.mails[0]?.text).toContain('1 site(s) have not pulled for an hour (test site)');
+    expect(running.mails[0]?.text).toContain('https://core.example/v1/health');
+
+    // Still red: told once, not every minute.
+    expect(await checkAlerts(config)).toEqual([]);
+    expect(running.mails).toHaveLength(1);
+
+    await pull(running.baseUrl, 'property');
+    const green = await checkAlerts(config);
+    expect(green).toEqual([{ name: 'subscribers', ok: true, detail: null, names: [] }]);
+    expect(running.mails[1]?.subject).toContain('all checks green again');
   });
 });

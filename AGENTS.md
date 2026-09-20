@@ -74,8 +74,8 @@ Lint findings (including function complexity), duplicate code, dead code (unused
 main.ts               entrypoint: starts engine, mounts adapter endpoints, starts adapters; the only file importing both
 engine/               CRM-agnostic: storage, rules runner, bells, subscriber API, recompute, health, event log
 engine/adapter-api/   the only engine code adapters may import (protected)
-engine/admin-api/     the admin panel's JSON API, used by the browser app and the agents alike
-admin/                the admin panel's browser app (React on Vite), built into admin/dist and served under /admin
+engine/admin-api/     the admin panel's JSON API (being designed; docs/admin-panel-rebuild.md §8)
+admin/                the admin panel's browser app (being designed; not built until Patric says so)
 adapters/<provider>/  everything CRM-specific, incl. webhooks, schedules, fetch lists, one folder per CRM
 clients/wordpress/    thin WordPress client
 clients/lovable-kit/  Supabase sync + bell functions for Lovable sites

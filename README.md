@@ -14,33 +14,20 @@ Needs Node 22 and a Postgres 16 database.
 
 ```bash
 npm install
-# set DATABASE_URL, ADMIN_SECRET, ADMIN_EMAIL_DOMAINS and CREDENTIALS_KEY in the environment or a .env file
+# set DATABASE_URL and CREDENTIALS_KEY in the environment or a .env file
 npm run build
-npm run start:web             # subscriber API, admin, health, adapter endpoints
+npm run start:web             # subscriber API, health, adapter endpoints
 npm run start:worker          # adapter background work, bells, housekeeping
 ```
 
-Migrations run at startup. The admin panel is at `/admin` on the web process: a browser app
-(`admin/`, built into `admin/dist` by `npm run build`) on the admin API under `/v1/admin/`. Log in
-with a link mailed to an address at an allowed domain (`ADMIN_EMAIL_DOMAINS`; the mail needs
-`MAIL_FROM` and `POSTMARK_SERVER_TOKEN`), then a dashboard, tenants made and changed on one page,
-records with search and a live activity list, jobs, events with the audit trail, the adapters'
-pages and settings ([docs/admin-panel.md](docs/admin-panel.md), which describes the panel as it
-is). Optional: `SENTRY_ENVIRONMENT` names the environment shown on every page (staging,
-production, local), `PUBLIC_URL` is where Core is reached for the links in alerts, and
-`ALERT_EMAIL` and `ALERT_SLACK_WEBHOOK_URL` are where an alert goes when a health check changes
-state. While developing the app, `npm run dev:admin` serves it from source and passes API calls to
-a running web process (`CORE_URL`, default `http://127.0.0.1:3000`); `npm run test:e2e` runs its
-user journeys in a browser against a Core the tests start themselves.
-
-Tenants, connections and subscribers are also added with one script, through the same functions
-the panel uses, so tokens are hashed and CRM credentials encrypted the way the engine expects:
-
-```bash
-node dist/scripts/tenant.js add-tenant "Acme Mäkleri"               # prints the tenant's number and token once
-node dist/scripts/tenant.js add-connection acme-1 1 <provider> '<credentials>' 100,205
-node dist/scripts/tenant.js add-subscriber 1 "acme.se" https://acme.se/wp-json/core/v1/bell
-```
+Migrations run at startup. `GET /v1/health` is public, for an uptime monitor: 200 when every
+check passes, 500 when any fails, each check explained in counts and plain words. There is no
+admin panel at the moment: the next one is designed from the requirement sheets before it is
+built ([docs/admin-panel.md](docs/admin-panel.md) says what the engine offers it today).
+Optional: `SENTRY_ENVIRONMENT` names the environment (staging, production, local) in alerts and
+to Sentry, `PUBLIC_URL` is where Core is reached for the link in alerts, `ALERT_EMAIL` (mailed
+through Postmark: `MAIL_FROM`, `POSTMARK_SERVER_TOKEN`) and `ALERT_SLACK_WEBHOOK_URL` are where an
+alert goes when a health check changes state.
 
 The Vitec adapter's connection format, webhook URL and settings (`VITEC_WEBHOOK_TOKEN`,
 `VITEC_FETCH_CONCURRENCY`) are in [adapters/vitec/README.md](adapters/vitec/README.md).

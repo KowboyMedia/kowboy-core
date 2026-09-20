@@ -2,19 +2,12 @@
 export type Config = {
   databaseUrl: string;
   port: number;
-  adminSecret: string;
-  /** Email domains whose addresses may log in to the admin panel; empty means nobody. */
-  adminEmailDomains: string[];
-  /** Maintenance switch (Patric, 2026-09-19): while the mailbox is down, an allowed-domain address
-   * logs in straight from the form, with no mailed link. Off unless ADMIN_LOGIN_WITHOUT_EMAIL is
-   * exactly "true"; turn it off again by unsetting it. */
-  adminLoginWithoutEmail: boolean;
-  /** The login mail's sender and the token of the service that sends it; unset means no mail. */
+  /** The alert mail's sender and the token of the service that sends it; unset means no mail. */
   mailFrom: string | null;
   postmarkServerToken: string | null;
   credentialsKey: string;
   sentryDsn: string | null;
-  /** What this Core is: staging, production, local. Shown on every page of the panel, told to Sentry. */
+  /** What this Core is: staging, production, local. Named in alerts, told to Sentry. */
   environment: string;
   /** Where this Core is reached, for the links in alerts; unset means alerts carry no link. */
   publicUrl: string | null;
@@ -37,19 +30,10 @@ const optional = (name: string): string | null => process.env[name] || null;
 
 const numberOr = (name: string, fallback: number): number => Number(process.env[name] ?? fallback);
 
-const list = (name: string): string[] =>
-  (process.env[name] ?? '')
-    .split(',')
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
-
 export function loadConfig(): Config {
   return {
     databaseUrl: required('DATABASE_URL'),
     port: numberOr('PORT', 3000),
-    adminSecret: required('ADMIN_SECRET'),
-    adminEmailDomains: list('ADMIN_EMAIL_DOMAINS'),
-    adminLoginWithoutEmail: process.env.ADMIN_LOGIN_WITHOUT_EMAIL === 'true',
     mailFrom: optional('MAIL_FROM'),
     postmarkServerToken: optional('POSTMARK_SERVER_TOKEN'),
     credentialsKey: required('CREDENTIALS_KEY'),

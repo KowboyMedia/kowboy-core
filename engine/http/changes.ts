@@ -37,12 +37,14 @@ export async function changes(request: Request): Promise<Response> {
   const items = rows.map(toEnvelope);
 
   const client = request.headers['x-core-client'] ?? null;
-  await recordPull(tenantId, client);
+  const site = request.headers['x-core-site'] ?? null;
+  const subscriberId = await recordPull(tenantId, client, site);
   await logEvent({
     type: 'pull',
     tenantId,
+    subscriberId,
     datatype,
-    fields: { after, items: items.length, client, duration_ms: Date.now() - startedAt },
+    fields: { after, items: items.length, client, site, duration_ms: Date.now() - startedAt },
   });
 
   return jsonResponse(200, {

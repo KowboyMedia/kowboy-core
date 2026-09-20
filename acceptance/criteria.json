@@ -65,11 +65,10 @@
     },
     {
       "ac": 7,
-      "title": "Tenant isolation and the admin secret",
+      "title": "Tenant isolation",
       "phase": "engine",
       "tests": [
-        "GET /v1/changes refuses an unknown token, a missing token and a tenant_id parameter",
-        "admin needs the admin secret"
+        "GET /v1/changes refuses an unknown token, a missing token and a tenant_id parameter"
       ],
       "note": "Cross-tenant reads are blocked by the token-to-tenant lookup; a second tenant fixture would make that explicit."
     },
@@ -122,8 +121,8 @@
       "title": "recompute rewrites affected records with no CRM traffic",
       "phase": "engine",
       "tests": [
-        "admin recomputes from stored raw with no CRM traffic, and gives a new seq (AC 13)",
-        "the web process as deployed recomputes a stored record from the admin API with no adapter started (AC 13)"
+        "operations recomputes from stored raw with no CRM traffic, and gives a new seq (AC 13)",
+        "the web process as deployed recomputes a stored record with no adapter started (AC 13)"
       ]
     },
     {
@@ -131,21 +130,21 @@
       "title": "Adding an office loads only that office's records",
       "phase": "engine",
       "tests": [
-        "admin loads only the added office, and gives other offices no new seq (AC 14)",
+        "operations loads only the added office, and gives other offices no new seq (AC 14)",
         "two adapters, one engine resyncs a connection on request (AC 14)",
         "the Vitec adapter loads an added office without a new seq for the others (AC 14)",
         "the Vitec adapter tombstones what Vitec no longer lists on a resync (AC 14)",
-        "restore (AC 41) delivers a lifecycle event queued by the admin endpoint, and counts one nobody takes"
+        "restore (AC 41) delivers a queued lifecycle event, and counts one nobody takes"
       ],
-      "note": "The adapter loads the added office's records plus the tenant-wide entities they reference; other offices get no new seq. Admin events reach the worker through the lifecycle_events table."
+      "note": "The adapter loads the added office's records plus the tenant-wide entities they reference; other offices get no new seq. Lifecycle events reach the worker through the lifecycle_events table."
     },
     {
       "ac": 15,
       "title": "replay reproduces the current records exactly",
       "phase": "engine",
       "tests": [
-        "admin recomputes from stored raw with no CRM traffic, and gives a new seq (AC 13)",
-        "admin previews a recompute without writing anything (AC 36)"
+        "operations recomputes from stored raw with no CRM traffic, and gives a new seq (AC 13)",
+        "operations previews a recompute without writing anything (AC 36)"
       ]
     },
     {
@@ -154,12 +153,14 @@
       "phase": "engine",
       "tests": [
         "ingest keeps the whole timeline of an entity in the event log (AC 16)",
-        "admin answers the event timeline query",
+        "operations answers the event timeline query",
         "ingest links a webhook to the write it caused by correlation id (AC 16)",
         "the event log keeps every event when many writers log at once",
         "the event log deletes events outside the retention window (AC 16)",
         "the Vitec adapter puts the notification, the Vitec call and the write on one timeline (AC 16)",
-        "the dashboard, events, settings and search pages the event log, follows a correlation id, leaves a bad filter value out and says so, and carries the audit trail"
+        "the event log loses a site’s history when the site is deleted (Patric, 2026-09-20)",
+        "the Lovable kit against Core names itself on every pull, so Core knows which of the tenant’s sites pulled (Patric, 2026-09-20)",
+        "the WordPress client against Core names itself on every pull, so Core knows which of the tenant’s sites pulled (Patric, 2026-09-20)"
       ],
       "note": "Causes covered: written, unchanged, dropped (unlicensed, malformed, inactive, unknown datatype), tombstoned, bell, pull. A correlation id links a webhook to the write it caused, and since 2026-09-18 (question 9) an adapter stamps its own events with it: the notification's arrival and every CRM call, with status and duration, sit on the record's timeline. Since the same day (question 37) each site reports what it applied and what it could not, so the timeline runs to the site."
     },
@@ -167,7 +168,10 @@
       "ac": 17,
       "title": "Health and alerting",
       "phase": "engine",
-      "tests": ["health is 500 while a check fails and 200 when everything passes (AC 17)"],
+      "tests": [
+        "health is 500 while a check fails and 200 when everything passes (AC 17)",
+        "health answers anyone with counts and plain words, and keeps the names for the alerts (question 62)"
+      ],
       "note": "Sentry Uptime alerting waits on the account."
     },
     {
@@ -241,7 +245,7 @@
       "phase": "engine",
       "tests": [
         "ingest turns a webhook into a served item (AC 2, AC 3)",
-        "admin previews a recompute without writing anything (AC 36)"
+        "operations previews a recompute without writing anything (AC 36)"
       ],
       "note": "The write path refuses an item that fails its schema, and the release preview reports failures. Since 2026-09-19 the schemas carry the universal names of docs/field-tables.md (Gate 2, approved that day) and allow the mirrored tail next to them; every record of the Vitec test account on staging validated against them that day."
     },
@@ -268,7 +272,7 @@
       "title": "Removal tombstones items; tombstones are purged after 90 days",
       "phase": "engine",
       "tests": [
-        "admin tombstones an office that is removed (AC 26)",
+        "operations tombstones an office that is removed (AC 26)",
         "ingest tombstones a record the CRM no longer has (AC 26)",
         "tombstone retention hard-deletes a tombstone after the retention window, and keeps a fresh one (AC 26)"
       ],
@@ -342,7 +346,7 @@
       "title": "Initial sync for a new tenant, office and subscriber",
       "phase": "engine",
       "tests": [
-        "admin loads a new connection end to end on connection_added (AC 34)",
+        "operations loads a new connection end to end on connection_added (AC 34)",
         "a subscriber converges from seq 0 to everything Core holds (AC 5)"
       ]
     },
@@ -362,10 +366,7 @@
       "ac": 36,
       "title": "Release impact preview performs no writes",
       "phase": "engine",
-      "tests": [
-        "admin previews a recompute without writing anything (AC 36)",
-        "jobs previews a recompute as a job with progress and a result, runs it for real with new seqs and a bell, and stops one on request"
-      ]
+      "tests": ["operations previews a recompute without writing anything (AC 36)"]
     },
     {
       "ac": 37,
@@ -423,35 +424,8 @@
       "ac": 42,
       "title": "Admin panel: every panel works through HTTP, and an adapter brings its own",
       "phase": "engine",
-      "tests": [
-        "the admin panel’s login mails a link to an allowed address only, answers every address the same, and keeps a change without the panel’s header out",
-        "the admin panel’s login mails at most ten links a day, whatever the form is fed, and one per address per minute",
-        "the admin panel’s login remembers the device for 30 days when asked, and for the browser session otherwise",
-        "the tenant page makes a tenant in one save: name, the CRM with its offices, two sites; the answer carries the token, the secrets and the load (AC 42)",
-        "the tenant page edits a tenant on the same page: rename, an office added and one dropped, a site switched off, one removed and one added; refusals name the field",
-        "the tenant page rotates the token and a site’s bell secret, rings one site, and queues the connection’s actions",
-        "the tenant page shows what the sites did: a bell answered, the first pull, what was applied and what failed, and the sites’ own errors",
-        "records searches with server-side filters, sorts and pages, shows the figures, and one record with its three faces and timeline",
-        "records lists the live activity with a state per row, turns a row to applied or failed when a site reports, and shows what waits on the adapter",
-        "records fetches again from the CRM: named records go to the adapter as a refetch, a tenant as a resync",
-        "jobs previews a recompute as a job with progress and a result, runs it for real with new seqs and a bell, and stops one on request",
-        "the dashboard, events, settings and search answers the dashboard with figures, two hourly charts, health with the adapter’s checks, and the latest events",
-        "the dashboard, events, settings and search pages the event log, follows a correlation id, leaves a bad filter value out and says so, and carries the audit trail",
-        "the dashboard, events, settings and search shows the settings as they run, runs housekeeping, lists the providers with their panels, and finds tenants and records",
-        "the dashboard, events, settings and search pulls as a site from the panel with the sizes, and rings from it",
-        "the live feed and the alerts streams new events and jobs to an open page",
-        "the live feed and the alerts tells a change of a health check once, by mail and to Slack, and its recovery once",
-        "the web process as deployed serves the app under /admin and its API next to it",
-        "the web process as deployed lets only an allowed address in through the maintenance login, and logs every attempt",
-        "the Vitec adapter is set up from the tenant’s page: the CRM panel’s login and offices make the connection, and the first load runs with that login (AC 42)",
-        "the Vitec adapter describes its panel as data: the directions and settings, the schedules with run-now actions, the fetch list, one record looked at without writing or fetched again, and its queue (AC 42)",
-        "the Vitec setup directions name every environment variable the adapter reads, and so does the README",
-        "journey: an allowed address gets a link by mail and is in; a stranger gets the same answer and no link",
-        "journey: one page makes the tenant with its CRM login, offices and sites, loads its records, and changes it on the same page",
-        "journey: the search filters and sorts on the server, a selection previews a recompute, the job runs for real, and a record shows its three faces and timeline",
-        "journey: the log filters and pages, the audit trail says who did what, an adapter action runs, housekeeping runs, and the palette jumps to a tenant"
-      ],
-      "note": "Rebuilt from scratch 2026-09-20 (Patric: every Must and Should, no carry-over): a browser app on the admin API, every user journey a browser test (admin/e2e), docs/admin-panel.md. Login by email link, no shared password (Patric, 2026-09-18, question 30)."
+      "tests": [],
+      "note": "Not yet: the panel built on 2026-09-20 was removed the same day (Patric: it inherited the old layouts and flows) and the next one is designed from the requirement sheets first (docs/admin-panel-rebuild.md §8), then built in slices, each with its tests. The adapter side of the contract (the panel as data, the login probe, one record looked at, the queue, fetch again) stays and is proved by the Vitec adapter tests named AC 42."
     }
   ]
 }

@@ -118,6 +118,8 @@ function core_client_fetch_page(string $datatype, int $after): ?object
             'headers' => [
                 'Authorization' => 'Bearer ' . $settings['token'],
                 'X-Core-Client' => 'wordpress/' . CORE_CLIENT_VERSION,
+                // Which site pulls: the same address Core rings, so Core can tell the sites apart.
+                'X-Core-Site' => rest_url('core/v1/bell'),
             ],
         ],
     );

@@ -29,13 +29,6 @@ services:
       - key: DATABASE_CA_CERT
         value: ${db.CA_CERT}
         scope: RUN_TIME
-      - key: ADMIN_SECRET
-        value: EV[1:XHT5pk361HHDg2Nn0Dw5xBKWW2iCV652:VKxYO123nW6fUA7bkwADI5NtQT6vY1T36BHs0IVQUe/7uSBuTNnOBkswVJrHGaP2dhYZug0Ryi9FjII=]
-        scope: RUN_TIME
-        type: SECRET
-      - key: ADMIN_EMAIL_DOMAINS
-        value: kowboy.se
-        scope: RUN_TIME
       - key: MAIL_FROM
         value: patric@kowboy.se
         scope: RUN_TIME
@@ -76,10 +69,6 @@ workers:
       - key: DATABASE_CA_CERT
         value: ${db.CA_CERT}
         scope: RUN_TIME
-      - key: ADMIN_SECRET
-        value: EV[1:2qxa1s46zTh9VTuAO3kVmkd/zwIwM2Ep:e73kiq7+ipkjW6J+qGGxsLvAUGeMFR0fYs3v5DSTTTYK7wUjha4BnNjrwylGxAbw6EHAv2FIo7vB37o=]
-        scope: RUN_TIME
-        type: SECRET
       - key: SENTRY_ENVIRONMENT
         value: production
         scope: RUN_TIME

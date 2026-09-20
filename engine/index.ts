@@ -6,7 +6,14 @@ import { migrate } from './storage/migrate.js';
 import { configureCredentials } from './storage/connections.js';
 import { configureBells, flushPendingBells } from './bells.js';
 import { configureMail, postmark } from './mail.js';
-import { heartbeat, healthReport, pruneHealth, readiness, recordHealth } from './health.js';
+import {
+  forViewers,
+  heartbeat,
+  healthReport,
+  pruneHealth,
+  readiness,
+  recordHealth,
+} from './health.js';
 import { deliverLifecycleEvents } from './lifecycle.js';
 import { deleteExpiredEvents, logEvent } from './events.js';
 import { failStaleJobs, runNextJob } from './jobs.js';
@@ -15,7 +22,6 @@ import { purgeTombstones } from './storage/items.js';
 import { changes } from './http/changes.js';
 import { applied } from './http/applied.js';
 import { siteError } from './http/errors.js';
-import { adminRoutes } from './http/admin.js';
 import { configureCompression, jsonResponse, startServer, type RouteTable } from './http/server.js';
 
 export const VERSION = '0.1.0';
@@ -85,7 +91,8 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
       method: 'GET',
       path: '/v1/health',
       handler: async () => {
-        const health = await healthReport();
+        // Public, for an uptime monitor: 500 while any check fails, counts and plain words only.
+        const health = forViewers(await healthReport());
         return jsonResponse(health.ok ? 200 : 500, { ...health, version: VERSION });
       },
     },
@@ -97,7 +104,6 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
         return jsonResponse(ready.ok ? 200 : 500, { ...ready, version: VERSION });
       },
     },
-    ...adminRoutes(config.adminSecret),
   ];
 
   let server: Server | null = null;

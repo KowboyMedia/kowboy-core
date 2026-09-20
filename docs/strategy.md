@@ -290,7 +290,7 @@ Returns **200 if all checks pass, 500 if any fails, with the same payload**. It 
 | `schema`      | The database holds a migration this app does not ship (§7.2)       |
 | `lifecycle`   | A queued lifecycle event has waited more than 5 min for the worker |
 
-Adapter checks are defined by each adapter (§5.4), run in the worker, recorded every 30 s and reported by `web`; a record older than 2 min counts as failed, so a restored database or a dead worker shows red at once. `GET /v1/admin/health` returns the same checks with names.
+Adapter checks are defined by each adapter (§5.4), run in the worker, recorded every 30 s and reported by `web`; a record older than 2 min counts as failed, so a restored database or a dead worker shows red at once. The names behind a count (`names` on a check) reach the alerts, not the public answer.
 
 ### 8.2 Event log: "what happened, where, and when"
 
@@ -308,7 +308,7 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
 | `site.applied` / `site.failed`                      | engine     | what a site reported after a page (question 37): entity, `seq`, client version, and the reason when it could not apply the record                 |
 | `admin.call` / `lifecycle.sent`                     | engine     | endpoint or event, parameters                                                                                                                     |
 
-**Query:** `GET /v1/admin/events?entity=…|connection=…|subscriber=…|correlation=…|type=…&from=…&to=…` returns a timeline, for example:
+**Query:** the engine's timeline query (by entity, connection, subscriber, correlation id, type, from and to; `engine/events.ts`), which the panel will expose, returns for example:
 
 ```
 10:02:01.120 webhook.received  vitec-acme  property OBJ-19203  sig=ok  202
@@ -324,19 +324,14 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
 
 ### 8.3 Admin panel
 
-One place in the `web` process, behind a login by email link to an allowed domain (no shared
-password): a JSON admin API under `/v1/admin/` (engine/admin-api/), used by a browser app served
-under `/admin` (admin/, React on Vite, built by `npm run build`) and by the agents with the admin
-secret alike. A dashboard (health, figures and hourly charts over the last 24 hours, latest
-events), tenants made and changed on one page (name and licence, the CRM connection with the login
-the adapter declares and the offices, the sites, one save), records with server-side search, sort
-and pages, a selection to recompute or fetch again, a live activity list and one record's raw,
-unified and display with its timeline, jobs (a recompute of any scope, previewed first, with
-progress and a history), events with the audit trail, the adapters' pages drawn from what they
-describe as data, and settings. Every change is an `admin.action` event; a live stream refreshes
-open pages; alerts go out by mail and Slack when a health check changes state. Every user journey
-is a browser test (admin/e2e). docs/admin-panel.md is the design (approved 2026-09-18, rebuilt
-2026-09-20, AC 42).
+None today (2026-09-20): the first panel and its rebuild were removed because the rebuild had
+inherited the first one's pages and flows. The next one is designed from the requirement sheets
+(docs/admin-panel-rebuild.md §8) with its screens approved before any code, then built in slices
+on the engine's functions and the adapter contract that stay (docs/admin-panel.md: jobs, the
+streaming recompute, the records search, the numbered event log, alerts, `Adapter.admin` and the
+`refetch` event). One place in the `web` process, behind a login; every change an audit event;
+alerts by mail and Slack when a health check changes state; every user journey a browser test
+(AC 42).
 
 ## 9. Phases and approval gates
 
@@ -459,7 +454,7 @@ Examples: golden/vitec/property/price-on-request
 5. Throttle bells per subscriber with a leading and trailing edge.
 6. Remove `schema_version` and down-converters. One shape, additive changes, expand-contract as ordinary releases (§6).
 7. Add tombstone purge, a watermark, resync-required responses, resync-with-sweep and purge-and-resync (§7).
-8. `/v1/health` returns 200 or 500, with engine checks plus adapter-registered checks (Vitec: webhook lag, repeated retries, catch-up). Add `/v1/admin/health` and the event log with correlation ids (§8).
+8. `/v1/health` returns 200 or 500, with engine checks plus adapter-registered checks (Vitec: webhook lag, repeated retries, catch-up, refused offices, a paused connection). It is public, for an uptime monitor: every detail is counts and plain words, never a customer's name; the names travel on the check for the alerts and the panel (question 62, 2026-09-20). Add the event log with correlation ids (§8).
 9. Reduce page size from 1000 to 100.
 10. Add a `CREDENTIALS_KEY` env var.
 11. Generate TS types from JSON Schema; use golden masters for the initial build only; ledger format as in §11.
@@ -471,7 +466,7 @@ Examples: golden/vitec/property/price-on-request
 17. Webhook listeners, schedules and timers are adapter concerns. `main.ts` starts the engine, mounts adapter endpoints and starts the adapters.
 18. A sixth datatype, `project` (approved 2026-09-16): a new-build project that groups properties. It has its own office, agents and areas; a property names its project by `project_id`.
 19. Every engine start advances the item sequence by 1,000,000,000 and every worker start runs the adapters' catch-up and id comparison, so a database restore needs no other step (§7.2, AC 41).
-20. `web` and `worker` share two tables: lifecycle events queued by the admin API and delivered by the worker, and the adapters' health results recorded by the worker and reported by `web`; `GET /v1/ready` is the platform's readiness probe (§5.1, §8.1).
+20. `web` and `worker` share two tables: lifecycle events queued by the panel (or a test) and delivered by the worker, and the adapters' health results recorded by the worker and reported by `web`; `GET /v1/ready` is the platform's readiness probe (§5.1, §8.1).
 21. The entire CRM payload reaches the sites (Patric, 2026-09-18): the item envelope carries `raw`, the payload untouched, next to `data`, and `data` mirrors the whole payload mechanically (snake_case names, the CRM's nesting kept) with the spine on top; `display` travels in the envelope (who fills it: question 44).
 22. Sites report back what they applied (Patric, 2026-09-18, question 37): after each page a site pulled, it posts to `POST /v1/applied` which records it applied and which it could not (`schemas/applied.v1.json`), with the tenant's token; Core puts `site.applied` and `site.failed` events on each record's timeline, so the timeline runs from the CRM's notification to the site. A report that cannot be delivered never stops a sync.
 23. Core applies no logic to CRM data (Patric, 2026-09-17 to 2026-09-19, question 44): the adapter maps the CRM's fields onto the universal names and lifts the linking ids; the engine computes `display` from `universal` by ledger entries, one interpreter for every CRM, and never reads a CRM field; no decision anywhere in Core is drawn from a value. Tags and slugs are the site's. This supersedes the SRS wherever it has Kore deciding from a value: `slug` (§6.7) and the tags, flags and slugs of Appendix A; the placement rule of §7 stands for `display` only.

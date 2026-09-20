@@ -10,6 +10,7 @@ import * as crm from '../adapters/fake-polling/crm.js';
 import { SEQUENCE_JUMP } from '../engine/index.js';
 import { db } from '../engine/storage/db.js';
 import { pruneHealth } from '../engine/health.js';
+import { queueLifecycle } from '../engine/lifecycle.js';
 
 const CONNECTION = 'polling-acme';
 
@@ -177,25 +178,15 @@ describe('restore (AC 41)', () => {
     expect(health.checks['fake-polling.poll']).toBeDefined();
   });
 
-  it('delivers a lifecycle event queued by the admin endpoint, and counts one nobody takes', async () => {
+  it('delivers a queued lifecycle event, and counts one nobody takes', async () => {
     crm.put('property', 'P-1', property('P-1', 'Kungsgatan 1'));
-    const response = await fetch(`${running.baseUrl}/v1/admin/event`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-admin-secret': 'test-admin-secret' },
-      body: JSON.stringify({ connection_id: CONNECTION, event: 'resync' }),
-    });
-    expect(response.status).toBe(202);
+    expect(await queueLifecycle(CONNECTION, 'resync')).not.toBeNull();
     expect((await pull(running.baseUrl, 'property')).items).toHaveLength(0);
 
     await running.deliver();
     expect((await pull(running.baseUrl, 'property')).items).toHaveLength(1);
 
-    const unknown = await fetch(`${running.baseUrl}/v1/admin/event`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-admin-secret': 'test-admin-secret' },
-      body: JSON.stringify({ connection_id: 'nobody', event: 'resync' }),
-    });
-    expect(unknown.status).toBe(404);
+    expect(await queueLifecycle('nobody', 'resync')).toBeNull();
 
     await db().query(
       `insert into lifecycle_events (connection_id, event, created_at)
