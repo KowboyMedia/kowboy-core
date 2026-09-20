@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 62 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
+answering is quick. Next number: 66 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
 ## 52. The pairs for the Vitec mapping: no longer needed for the mapping; what remains is Vitec's golden masters
@@ -42,3 +42,35 @@ user's password through the API and updates both apps so they take the new bindi
 restarts for about a minute, production included, so it needs your "allow"). Or leave it, on the
 strength of the trusted-sources rule. Either way, agents now read only the fields they need from
 that endpoint.
+
+## 62. `[core]` The public health check: names in the details, or counts only?
+
+`GET /v1/health` exists, needs no login, answers 200 when every check passes and 500 when any
+fails, and names each check with a detail. Some details name customers: the `subscribers` check
+lists the sites that stopped pulling by name, the Vitec checks name connections and office ids.
+Strategy §8.1 says counts only. Smaller: the public answer says counts and plain words ("2 of 8
+sites have not pulled within the hour", "1 connection is paused after repeated failures") and the
+panel keeps the names; or leave the names in, since only whoever knows the address sees them.
+
+## 63. `[crm-vitec]` Store every notification Vitec sends?
+
+Today the arrival of a notification is one `webhook.received` event with the outcome, the office,
+the datatype, the record id and the kind (Update or Remove), kept 30 days like every event; the
+body as Vitec sent it is not stored. Smaller: put the body into that event (a few lines, gone
+after 30 days); or an adapter table of its own that keeps every notification for good and lets a
+person replay one from the panel (the Could "replay a notification").
+
+## 64. `[core]` The framework for the new admin panel
+
+For the panel rebuilt from the requirement sheets: Refine (MIT, headless: resources, list and
+detail pages, live updates, notifications, access control) with shadcn/ui components,
+recommended; Ant Design Pro (a complete, conventional look, less work on components); or
+React-admin (the most used, MIT core, its live updates and audit log in a paid edition). Pick
+one.
+
+## 65. `[core]` Cut what nothing uses: the old operator endpoints and the setup scripts
+
+Nothing outside the repository uses `POST /v1/admin/bell`, `event`, `replay` and `recompute`
+with the admin secret, nor `scripts/tenant.ts` (tenants, connections and sites from the command
+line, replaced by the panel), nor `scripts/vitec-probe.ts` (a one-off probe of Vitec Connect from
+2026-09-17, settled). Smaller: cut them and point their tests at the panel's API; or keep them.

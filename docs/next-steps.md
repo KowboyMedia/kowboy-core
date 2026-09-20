@@ -98,8 +98,10 @@ the first item that is not done, and keep the file current. Decisions and open q
    answer the same day: every Must and Should, from scratch, nothing carried over. Built and in
    staging on 2026-09-20: the admin API, the browser app under `admin/`, jobs, the live feed,
    alerts, the Vitec adapter's panel as data, and browser journeys as an enforced check
-   (`docs/admin-panel.md`). The Coulds and the gaps are listed in `docs/admin-panel-rebuild.md`
-   §6 for Patric to pick from.
+   (`docs/admin-panel.md`). Later that day Patric judged it a reskin: the pages, layouts and
+   flows were inherited from the first build. The next rebuild starts from the requirement
+   sheets, with the design approved before any code, and is not built until he says so
+   (`docs/admin-panel-rebuild.md` §7, questions 62 to 65).
 
 8. ~~**Setup directions on each adapter's panel, and a licence notice in the plugin** (Patric,
    2026-09-18).~~ Done 2026-09-18: the Vitec panel opens with "Set up Vitec", kept true by
