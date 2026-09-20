@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 75 (62 to 69 were also used in chat on 2026-09-20 for the WordPress
+answering is quick. Next number: 76 (62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
@@ -79,3 +79,14 @@ driver therefore goes through the site's WordPress admin: the agent logs in once
 activates both, and makes itself an application password for the WordPress REST API. After that
 every change reaches the site by itself through the plugin's own update channel, and nothing more
 is needed from anyone. Asked on 2026-09-20 as 69 in chat.
+
+## 75. `[core]` Add one line for the folder `admin/` to AGENTS.md's layout list
+
+The admin area's browser app lives in a new top-level folder, `admin/`, with its own line in
+`docs/decisions.md` as AGENTS.md requires. AGENTS.md also carries a short map of the repository
+under "Naming and layout", and that map does not mention `admin/`, so a reader of AGENTS.md alone
+would not know the folder exists or what belongs in it. AGENTS.md is a protected file: an agent
+may not change it without your word, however small the change. The line would read
+`admin/                the admin area's browser app, built into dist/admin and served under /admin`,
+placed after the two `clients/` lines. Nothing is blocked by this; the map is simply incomplete
+until it is added. Smaller: yes, add the line. Or leave the map as it is.

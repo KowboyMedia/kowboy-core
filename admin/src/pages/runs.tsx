@@ -1,0 +1,352 @@
+// Runs (U4): one scope, then a preview that writes nothing, then a job. Recompute and fetch again
+// take the same scope, so a person learns it once. Every run is a red button with a confirmation
+// that says what will happen (Patric's rule 2).
+import { useState } from 'react';
+import { useCustomMutation, useList } from '@refinedev/core';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input, Label, Select } from '@/components/ui/input';
+import { Confirm } from '@/components/confirm';
+import { DataTable } from '@/components/data-table';
+import { Empty } from '@/components/empty';
+import { JsonView } from '@/components/json-view';
+import { PageHeader } from '@/components/layout';
+import { count, moment } from '@/lib/format';
+
+type Scope = {
+  provider?: string;
+  tenantId?: number;
+  connectionId?: string;
+  officeId?: string;
+  datatype?: string;
+  remoteId?: string;
+  staleRulesOnly?: boolean;
+};
+
+type Report = {
+  total: number;
+  examined: number;
+  changed: number;
+  unchanged: number;
+  failed: number;
+  failures: { remoteId: string; datatype: string; connectionId: string; errors: string[] }[];
+  examples: { remoteId: string; datatype: string; changed: Record<string, unknown> }[];
+};
+
+type Job = {
+  id: string;
+  kind: string;
+  scope: Scope;
+  dry_run: boolean;
+  state: 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+  progress: { total?: number; examined?: number; changed?: number; failed?: number };
+  result: Report | null;
+  error: string | null;
+  requested_by: string | null;
+  created_at: string;
+  finished_at: string | null;
+};
+
+const DATATYPES = ['property', 'agent', 'office', 'area', 'association', 'project'];
+
+const TONE = {
+  queued: 'warn',
+  running: 'warn',
+  done: 'ok',
+  failed: 'bad',
+  cancelled: 'muted',
+} as const;
+
+export function Runs() {
+  const [scope, setScope] = useState<Scope>({});
+  const [report, setReport] = useState<{ scope: string; report: Report } | null>(null);
+  const { mutateAsync } = useCustomMutation();
+  const { result, query } = useList<Job>({ resource: 'jobs', pagination: { mode: 'off' } });
+  const jobs = result?.data ?? [];
+
+  const clean = (): Scope => {
+    const out: Scope = {};
+    if (scope.provider) out.provider = scope.provider;
+    if (scope.tenantId) out.tenantId = Number(scope.tenantId);
+    if (scope.connectionId) out.connectionId = scope.connectionId;
+    if (scope.officeId) out.officeId = scope.officeId;
+    if (scope.datatype) out.datatype = scope.datatype;
+    if (scope.remoteId) out.remoteId = scope.remoteId;
+    if (scope.staleRulesOnly) out.staleRulesOnly = true;
+    return out;
+  };
+
+  const post = async <T,>(url: string, values: object): Promise<T> => {
+    const answer = await mutateAsync({
+      url,
+      method: 'post',
+      values,
+      successNotification: false,
+      errorNotification: false,
+    });
+    return answer.data as unknown as T;
+  };
+
+  const said = Object.keys(clean()).length === 0 ? 'every record in Core' : 'the chosen scope';
+
+  const act = async (what: () => Promise<string>): Promise<void> => {
+    try {
+      toast.success(await what());
+      await query.refetch();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const field = (key: keyof Scope, label: string, placeholder: string): React.ReactNode => (
+    <div className="flex flex-col gap-1">
+      <Label htmlFor={`scope-${key}`}>{label}</Label>
+      <Input
+        id={`scope-${key}`}
+        value={String(scope[key] ?? '')}
+        placeholder={placeholder}
+        onChange={(event) => setScope({ ...scope, [key]: event.target.value })}
+      />
+    </div>
+  );
+
+  return (
+    <>
+      <PageHeader
+        title="Runs"
+        what="Compute records again from what Core stores, or fetch them from the CRM again. Preview first; every run is a job you can watch and stop."
+      >
+        <Confirm
+          label="Housekeeping now"
+          title="Run housekeeping"
+          what="Events older than the retention window are deleted, tombstones older than 90 days are purged, and spent sign-in links and sessions are cleared. Nothing a site shows changes."
+          confirmLabel="Run it"
+          variant="secondary"
+          onConfirm={() =>
+            act(async () => {
+              const done = await post<{ events: number; tombstones: number; sessions: number }>(
+                '/runs/housekeeping',
+                {},
+              );
+              return `${done.events} event(s), ${done.tombstones} tombstone(s) and ${done.sessions} session(s) cleared.`;
+            })
+          }
+        />
+      </PageHeader>
+
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle>What to run it on</CardTitle>
+          <CardDescription>
+            Leave everything empty for every record in Core. Anything you fill in narrows it.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {field('provider', 'CRM', 'every connection of this CRM')}
+            {field('tenantId', 'Tenant number', '1')}
+            {field('connectionId', 'Connection', 'acme-crm')}
+            {field('officeId', 'Office', 'M31529')}
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="scope-datatype">Entity type</Label>
+              <Select
+                id="scope-datatype"
+                value={scope.datatype ?? ''}
+                onChange={(event) => setScope({ ...scope, datatype: event.target.value })}
+              >
+                <option value="">any</option>
+                {DATATYPES.map((datatype) => (
+                  <option key={datatype} value={datatype}>
+                    {datatype}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            {field('remoteId', 'One record id', 'OBJ-1')}
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={scope.staleRulesOnly ?? false}
+              onChange={(event) => setScope({ ...scope, staleRulesOnly: event.target.checked })}
+            />
+            Only records an older rules version made
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              data-testid="preview"
+              onClick={() =>
+                void act(async () => {
+                  setReport(
+                    await post<{ scope: string; report: Report }>('/runs/preview', clean()),
+                  );
+                  return 'Previewed. Nothing was written.';
+                })
+              }
+            >
+              Preview
+            </Button>
+            <Confirm
+              label="Recompute"
+              title="Recompute"
+              what={`Every record in ${said} is computed again from what Core already stores, sold properties last. No CRM is called. Each site is rung for whatever changed, and will pull it.`}
+              confirmLabel="Start the recompute"
+              onConfirm={() =>
+                act(async () => {
+                  const queued = await post<{ job: number; scope: string }>(
+                    '/runs/recompute',
+                    clean(),
+                  );
+                  return `Job ${String(queued.job)} is queued for ${queued.scope}.`;
+                })
+              }
+            />
+            <Confirm
+              label="Fetch again from the CRM"
+              title="Fetch again from the CRM"
+              what={`Core asks the CRM for ${said} again. This makes real calls to the CRM and may take a while; records the CRM no longer has are removed from Core and from the sites.`}
+              confirmLabel="Fetch it again"
+              onConfirm={() =>
+                act(async () => {
+                  const outcome = await post<{ detail: string }>('/runs/fetch-again', clean());
+                  return outcome.detail;
+                })
+              }
+            />
+            <Button variant="ghost" onClick={() => setScope({})}>
+              Clear the scope
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {report && (
+        <Card className="mb-4" data-testid="preview-report">
+          <CardHeader>
+            <CardTitle>What a recompute would do to {report.scope}</CardTitle>
+            <CardDescription>Nothing has been written.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <div className="flex flex-wrap gap-4 text-sm">
+              <span>
+                examined <strong>{count(report.report.examined)}</strong>
+              </span>
+              <span>
+                would change <strong>{count(report.report.changed)}</strong>
+              </span>
+              <span>
+                unchanged <strong>{count(report.report.unchanged)}</strong>
+              </span>
+              <span className={report.report.failed > 0 ? 'text-danger' : ''}>
+                would fail <strong>{count(report.report.failed)}</strong>
+              </span>
+            </div>
+            {report.report.failed > 0 && (
+              <div>
+                <p className="mb-1 text-sm font-medium">The records that would fail</p>
+                <DataTable
+                  columns={[
+                    {
+                      key: 'id',
+                      header: 'Record',
+                      cell: (row) => `${row.datatype} ${row.remoteId}`,
+                    },
+                    { key: 'connection', header: 'Connection', cell: (row) => row.connectionId },
+                    { key: 'errors', header: 'Why', cell: (row) => row.errors.join('; ') },
+                  ]}
+                  rows={report.report.failures}
+                  rowKey={(row) => `${row.connectionId}|${row.datatype}|${row.remoteId}`}
+                  empty={<Empty what="None." />}
+                />
+              </div>
+            )}
+            {report.report.examples.length > 0 && (
+              <div>
+                <p className="mb-1 text-sm font-medium">Examples of what would change</p>
+                <JsonView value={report.report.examples} rows={14} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Runs</CardTitle>
+          <CardDescription>Newest first, with what each one was asked to do.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={[
+              { key: 'id', header: 'Job', cell: (job) => `#${job.id}` },
+              {
+                key: 'state',
+                header: 'State',
+                cell: (job) => <Badge tone={TONE[job.state]}>{job.state}</Badge>,
+              },
+              {
+                key: 'progress',
+                header: 'Progress',
+                cell: (job) =>
+                  job.progress.total === undefined
+                    ? '—'
+                    : `${count(job.progress.examined ?? 0)} of ${count(job.progress.total)} · ${count(job.progress.changed ?? 0)} changed · ${count(job.progress.failed ?? 0)} failed`,
+              },
+              {
+                key: 'scope',
+                header: 'Scope',
+                cell: (job) => (
+                  <code className="text-xs">
+                    {Object.keys(job.scope).length === 0
+                      ? 'everything'
+                      : JSON.stringify(job.scope).slice(0, 120)}
+                  </code>
+                ),
+              },
+              { key: 'by', header: 'Asked by', cell: (job) => job.requested_by ?? '—' },
+              {
+                key: 'created',
+                header: 'Started',
+                cell: (job) => <span className="tabular-nums">{moment(job.created_at)}</span>,
+              },
+              {
+                key: 'act',
+                header: '',
+                className: 'text-right',
+                cell: (job) =>
+                  job.finished_at === null ? (
+                    <Confirm
+                      label="Stop"
+                      title={`Stop job #${job.id}`}
+                      what="The job stops after the page of records it is working on. Whatever it has already written stays written; nothing is undone."
+                      confirmLabel="Stop it"
+                      size="sm"
+                      onConfirm={() =>
+                        act(async () => {
+                          await post(`/jobs/${job.id}/cancel`, {});
+                          return `Job #${job.id} will stop.`;
+                        })
+                      }
+                    />
+                  ) : job.error ? (
+                    <span className="text-xs text-danger">{job.error}</span>
+                  ) : (
+                    ''
+                  ),
+              },
+            ]}
+            rows={jobs}
+            rowKey={(job) => job.id}
+            loading={query.isLoading}
+            empty={
+              <Empty what="Nothing has been run yet. A preview writes nothing; a recompute becomes a job here." />
+            }
+          />
+        </CardContent>
+      </Card>
+    </>
+  );
+}

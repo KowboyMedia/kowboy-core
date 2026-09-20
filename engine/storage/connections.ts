@@ -155,6 +155,22 @@ export async function recordPull(
   return site !== null && rows.length === 1 ? Number(rows[0]?.id) : null;
 }
 
+/**
+ * The site of a tenant whose bell URL is the one in the `X-Core-Site` header, so a report names
+ * the site that sent it exactly as a pull does. Null when the header is absent or matches none.
+ */
+export async function subscriberByBellUrl(
+  tenantId: number,
+  site: string | null,
+): Promise<number | null> {
+  if (!site) return null;
+  const { rows } = await db().query<{ id: string }>(
+    'select id from subscribers where tenant_id = $1 and bell_url = $2',
+    [tenantId, site],
+  );
+  return rows.length === 1 ? Number(rows[0]?.id) : null;
+}
+
 export async function subscribers(): Promise<SubscriberRow[]> {
   const { rows } = await db().query<SubscriberRow>(
     'select id, tenant_id, label, bell_url, bell_secret, active, last_bell_at, last_bell_status, last_pull_at, last_client from subscribers order by id',
@@ -259,4 +275,26 @@ export async function tenantById(id: number): Promise<TenantRow | null> {
 export async function deleteSubscriber(id: number): Promise<void> {
   await db().query('delete from events where subscriber_id = $1', [id]);
   await db().query('delete from subscribers where id = $1', [id]);
+}
+
+/** One connection's row. Its records go with it; the caller tombstones them first. */
+export async function deleteConnection(id: string): Promise<void> {
+  await db().query('delete from lifecycle_events where connection_id = $1', [id]);
+  await db().query('delete from connections where id = $1', [id]);
+}
+
+/**
+ * "Remove everything" for a tenant: its connections, sites and records go with the row (the
+ * foreign keys cascade), and its history in the event log goes too, as a site's does.
+ */
+export async function deleteTenant(id: number): Promise<void> {
+  const { rows } = await db().query<{ id: string }>(
+    'select id from connections where tenant_id = $1',
+    [id],
+  );
+  for (const row of rows) {
+    await db().query('delete from lifecycle_events where connection_id = $1', [row.id]);
+  }
+  await db().query('delete from events where tenant_id = $1', [id]);
+  await db().query('delete from tenants where id = $1', [id]);
 }

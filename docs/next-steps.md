@@ -156,12 +156,22 @@ the first item that is not done, and keep the file current. Decisions and open q
     AGENTS.md's "no status, no visibility" sentence amended to "only by ledger entries", all in
     one change for Patric's review through the protected paths.
 
-15. **Design the admin panel from the requirement sheets** (`docs/admin-panel-rebuild.md` §8),
-    best in a fresh conversation so nothing of the removed builds is remembered: the pattern
-    study, the information architecture, then a clickable design Patric approves before any
-    code; then build it in slices, each a user journey with its browser test, on Refine and
-    shadcn/ui (question 64) and the engine's functions (`docs/admin-panel.md`). Not built until
-    Patric says so. Sold properties go last in a recompute (question 74, yes, done).
+15. ~~**Design the admin panel from the requirement sheets** (`docs/admin-panel-rebuild.md` §8)~~
+    Done 2026-09-20 on Patric's word, "Admin area v3 build. Build the admin area as described."
+    The design is `docs/admin-panel-design.md`: the pattern study (Airbyte, Stripe, Sentry,
+    React-admin, Refine and shadcn/ui, read that day), the information architecture, and every
+    Must and Should of §3 placed on a page. Built the same day: a JSON admin API under
+    `/v1/admin/` in `engine/admin/`, and the app in `admin/` on Refine and shadcn/ui (question 64)
+    served under `/admin` by the web process. Eight destinations: Overview, Flow, Records,
+    Tenants, Runs, Events, CRMs, Settings. What it is, is `docs/admin-panel.md`. Proved by
+    `acceptance/admin.test.ts` through HTTP and by thirteen browser journeys in `admin/e2e`, both
+    named under AC 42. The Coulds of §3 are still not built and stay listed there.
+    Left: (a) the two settings the area needs on each app, `ADMIN_EMAILS` (who may open it) and
+    `PUBLIC_URL` (where the sign-in link points), are in `.do/app.staging.yaml` and `.do/app.yaml`
+    but not yet on the apps, because the session's permission classifier refused an agent's write
+    to an app spec; staging needs Patric's "allow" and production gets them with the release.
+    (b) Patric walks it on staging and says what he would change. (c) Question 75: one line for
+    the folder `admin/` in AGENTS.md's layout map.
 
 ## Later, when Patric supplies them
 

@@ -17,6 +17,11 @@ export type Config = {
   bellThrottleMs: number;
   eventRetentionDays: number;
   gzipLevel: number;
+  /** The addresses that may open the admin area. Empty means nobody can sign in. */
+  adminEmails: string[];
+  /** How long a sign-in link and a session last. */
+  adminLinkMinutes: number;
+  adminSessionDays: number;
 };
 
 const required = (name: string): string => {
@@ -45,5 +50,11 @@ export function loadConfig(): Config {
     bellThrottleMs: numberOr('BELL_THROTTLE_MS', 10_000),
     eventRetentionDays: numberOr('EVENT_RETENTION_DAYS', 30),
     gzipLevel: numberOr('GZIP_LEVEL', 3),
+    adminEmails: (optional('ADMIN_EMAILS') ?? '')
+      .split(',')
+      .map((address) => address.trim().toLowerCase())
+      .filter(Boolean),
+    adminLinkMinutes: numberOr('ADMIN_LINK_MINUTES', 15),
+    adminSessionDays: numberOr('ADMIN_SESSION_DAYS', 14),
   };
 }

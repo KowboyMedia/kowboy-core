@@ -1,4 +1,5 @@
 import type {
+  AdapterAdmin,
   Datatype,
   HealthResult,
   LifecycleHandler,
@@ -16,6 +17,7 @@ type Registration = { manifest: Manifest; mappers: Mappers };
 const registrations = new Map<string, Registration>();
 const lifecycleHandlers = new Map<string, LifecycleHandler[]>();
 const healthChecks = new Map<string, () => Promise<HealthResult> | HealthResult>();
+const admins = new Map<string, AdapterAdmin>();
 
 export function register(provider: string, manifest: Manifest, mappers: Mappers): void {
   registrations.set(provider, { manifest, mappers });
@@ -31,6 +33,24 @@ export function manifestFor(provider: string): Manifest | null {
 
 export function providers(): string[] {
   return [...registrations.keys()];
+}
+
+/**
+ * What an adapter shows and does in the admin area, as data (`AdapterAdmin`). The entrypoint
+ * registers it for both roles, because the web process draws the panel while the worker runs the
+ * adapter; the engine hands the descriptions on and never inspects what they mean.
+ */
+export function registerAdmin(provider: string, admin: AdapterAdmin): void {
+  admins.set(provider, admin);
+}
+
+export function adminFor(provider: string): AdapterAdmin | null {
+  return admins.get(provider) ?? null;
+}
+
+/** The providers that brought a panel, in registration order. */
+export function adminProviders(): string[] {
+  return [...admins.keys()];
 }
 
 export function addLifecycleHandler(provider: string, handler: LifecycleHandler): void {
@@ -59,4 +79,5 @@ export function clearRegistry(): void {
   registrations.clear();
   lifecycleHandlers.clear();
   healthChecks.clear();
+  admins.clear();
 }

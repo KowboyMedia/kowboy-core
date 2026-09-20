@@ -34,6 +34,15 @@ services:
         value: EV[1:bgk8XOdGy1VfzAIfz1stxfXc3RiUEyAh:E4vFHMxNaQPOrWRs3ojYRW4SlmsBY8WYGMIsgZ/Il3XJHHsgNUa//7P0DJmN9QvLmOA80tkc/oC/lqqi]
         scope: RUN_TIME
         type: SECRET
+      # The admin area (docs/admin-panel.md), added 2026-09-20 with it. Not on the app yet: an
+      # agent's write to the app spec was refused by the session's permission classifier, so
+      # staging needs Patric's "allow" and production gets these with the release.
+      - key: ADMIN_EMAILS
+        value: patric@kowboy.se
+        scope: RUN_TIME
+      - key: PUBLIC_URL
+        value: https://kowboy-core-staging-t7ig3.ondigitalocean.app
+        scope: RUN_TIME
       - key: VITEC_WEBHOOK_TOKEN
         value: EV[1:hOO3+g5WuYm4pzme/z4V0vtqUvjPIh84:LcAwrVM/08EW3EQs1S0aFGc3fSdEhFTTUyIjzH7IIZsh+W33a8vTIUcYcWOg+Apu]
         scope: RUN_TIME

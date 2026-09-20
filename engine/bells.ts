@@ -1,6 +1,7 @@
 import { db } from './storage/db.js';
 import { logEvent } from './events.js';
 import { report } from './errors.js';
+import { inMaintenance } from './storage/settings.js';
 
 /**
  * Bells tell a subscriber "there is something new, pull". They carry no data (SRS §8).
@@ -31,6 +32,23 @@ const window = (): string => `${throttleMs} milliseconds`;
 const LICENSED = 'exists (select 1 from tenants where id = subscribers.tenant_id and active)';
 
 /**
+ * While Core is in maintenance nothing is rung: the changes are remembered as pending bells and
+ * go out in one round when the switch is turned off (docs/admin-panel.md, Settings).
+ */
+async function holdForMaintenance(
+  tenantId: number,
+  kind: BellKind,
+  onlyId?: number,
+): Promise<void> {
+  await db().query(
+    `update subscribers
+     set bell_pending = case when bell_pending = 'forcerefresh' then bell_pending else $2 end
+     where tenant_id = $1 and active = true and ${LICENSED} and ($3::bigint is null or id = $3)`,
+    [tenantId, kind, onlyId ?? null],
+  );
+}
+
+/**
  * Ring every active subscriber of a tenant, or one of them: at once if outside the window,
  * otherwise queued.
  */
@@ -39,6 +57,7 @@ export async function ring(
   kind: BellKind = 'delta',
   onlySubscriberId?: number,
 ): Promise<void> {
+  if (await inMaintenance()) return holdForMaintenance(tenantId, kind, onlySubscriberId);
   // The update is the claim: only one process wins the leading edge for a subscriber.
   const { rows: due } = await db().query<Subscriber>(
     `update subscribers set last_bell_at = now()
@@ -62,10 +81,11 @@ export async function ring(
 
 /** Send the trailing bells whose window has passed. The worker calls this once a second. */
 export async function flushPendingBells(): Promise<void> {
+  if (await inMaintenance()) return;
   const { rows } = await db().query<Subscriber & { kind: BellKind }>(
     `update subscribers set last_bell_at = now(), bell_pending = null
      where bell_pending is not null and active = true and ${LICENSED}
-       and last_bell_at < now() - $1::interval
+       and (last_bell_at is null or last_bell_at < now() - $1::interval)
      returning id, tenant_id, bell_url, bell_secret, bell_pending as kind`,
     [window()],
   );

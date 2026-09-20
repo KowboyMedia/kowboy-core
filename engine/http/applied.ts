@@ -4,7 +4,7 @@
 // as for a pull, and a record of another tenant's connection is nobody's to report on.
 import { authenticate } from './changes.js';
 import { validateApplied } from '../contract.js';
-import { connectionById } from '../storage/connections.js';
+import { connectionById, subscriberByBellUrl } from '../storage/connections.js';
 import { logEvent } from '../events.js';
 import { jsonResponse, type Request, type Response } from './server.js';
 import type { Datatype } from '../adapter-api/types.js';
@@ -32,6 +32,12 @@ export async function applied(request: Request): Promise<Response> {
   if (!checked.valid) return jsonResponse(400, { error: 'not a report', detail: checked.errors });
 
   const client = request.headers['x-core-client'] ?? null;
+  // Which site reports, as on a pull (Patric, 2026-09-20, "add name"), so the tenant's page can
+  // show what this site applied and what it could not, rather than the tenant's total.
+  const subscriberId = await subscriberByBellUrl(
+    auth.tenantId,
+    request.headers['x-core-site'] ?? null,
+  );
   const owned = new Map<string, boolean>();
   let recorded = 0;
   for (const outcome of (body as { items: Outcome[] }).items) {
@@ -46,6 +52,7 @@ export async function applied(request: Request): Promise<Response> {
       connectionId: outcome.connection_id,
       datatype: outcome.datatype,
       remoteId: outcome.remote_id,
+      subscriberId,
       fields: {
         seq: outcome.seq,
         client,

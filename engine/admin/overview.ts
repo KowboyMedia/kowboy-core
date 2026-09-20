@@ -1,0 +1,108 @@
+// The Overview page's figures (docs/admin-panel-design.md §2): the verdict first, then the day,
+// then the sites. One call, because a dashboard that loads in eight requests feels like eight
+// pages.
+import { db } from '../storage/db.js';
+import { healthReport } from '../health.js';
+import { itemCounts } from '../storage/items.js';
+import { subscribers, tenants } from '../storage/connections.js';
+import { openJobs } from '../jobs.js';
+import { inMaintenance } from '../storage/settings.js';
+
+/** The event types the day's chart counts, in the order the legend shows them. */
+export const COUNTED = ['entity.written', 'pull', 'bell', 'site.applied', 'site.failed'] as const;
+export type Counted = (typeof COUNTED)[number];
+
+export type HourRow = { hour: string } & Record<Counted, number>;
+
+export type SiteRow = {
+  id: number;
+  tenantId: number;
+  tenant: string;
+  label: string;
+  bellUrl: string;
+  active: boolean;
+  lastPullAt: string | null;
+  lastBellAt: string | null;
+  lastBellStatus: string | null;
+  lastClient: string | null;
+};
+
+export type Overview = {
+  health: Awaited<ReturnType<typeof healthReport>>;
+  maintenance: boolean;
+  tenants: { total: number; active: number };
+  records: { tenantId: number; datatype: string; live: number; tombstoned: number }[];
+  day: { hours: HourRow[]; totals: Record<Counted, number> };
+  sites: SiteRow[];
+  jobs: Awaited<ReturnType<typeof openJobs>>;
+};
+
+/** Twenty-four hourly buckets ending now, so the chart never has a hole in it. */
+function emptyHours(): HourRow[] {
+  const start = new Date();
+  start.setUTCMinutes(0, 0, 0);
+  return Array.from({ length: 24 }, (_, index) => {
+    const at = new Date(start.getTime() - (23 - index) * 3_600_000);
+    const row = { hour: at.toISOString() } as HourRow;
+    for (const type of COUNTED) row[type] = 0;
+    return row;
+  });
+}
+
+async function day(): Promise<Overview['day']> {
+  const { rows } = await db().query<{ hour: Date; type: Counted; n: string }>(
+    `select date_trunc('hour', at) as hour, type, count(*) as n
+     from events
+     where at >= now() - interval '24 hours' and type = any($1::text[])
+     group by 1, 2`,
+    [[...COUNTED]],
+  );
+  const hours = emptyHours();
+  const at = new Map(hours.map((row) => [row.hour, row]));
+  const totals = Object.fromEntries(COUNTED.map((type) => [type, 0])) as Record<Counted, number>;
+  for (const row of rows) {
+    const bucket = at.get(row.hour.toISOString());
+    const n = Number(row.n);
+    if (bucket) bucket[row.type] = n;
+    totals[row.type] += n;
+  }
+  return { hours, totals };
+}
+
+export async function overview(): Promise<Overview> {
+  const [health, maintenance, allTenants, counts, figures, sites, jobs] = await Promise.all([
+    healthReport(),
+    inMaintenance(),
+    tenants(),
+    itemCounts(),
+    day(),
+    subscribers(),
+    openJobs(),
+  ]);
+  const names = new Map(allTenants.map((tenant) => [tenant.id, tenant.display_name]));
+  return {
+    health,
+    maintenance,
+    tenants: { total: allTenants.length, active: allTenants.filter((t) => t.active).length },
+    records: counts.map((count) => ({
+      tenantId: count.tenant_id,
+      datatype: count.datatype,
+      live: Number(count.live),
+      tombstoned: Number(count.tombstoned),
+    })),
+    day: figures,
+    sites: sites.map((site) => ({
+      id: Number(site.id),
+      tenantId: site.tenant_id,
+      tenant: names.get(site.tenant_id) ?? String(site.tenant_id),
+      label: site.label,
+      bellUrl: site.bell_url,
+      active: site.active,
+      lastPullAt: site.last_pull_at?.toISOString() ?? null,
+      lastBellAt: site.last_bell_at?.toISOString() ?? null,
+      lastBellStatus: site.last_bell_status,
+      lastClient: site.last_client,
+    })),
+    jobs,
+  };
+}

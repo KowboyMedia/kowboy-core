@@ -39,6 +39,12 @@ services:
         value: EV[1:N71KfGweIKlzf42ES3sufrtrqQJ013Mh:I0ZD7+OARrP/BbYy68T9PHSqYa4n1BluG/nbSgXQdNQNG7W0/lWyQfH4WVTve0F4Fh1EBKRdvGN92ytY]
         scope: RUN_TIME
         type: SECRET
+      # The admin area (docs/admin-panel.md), added 2026-09-20 with it. Not on the app yet: an
+      # agent's write to the app spec was refused by the session's permission classifier, so
+      # staging needs Patric's "allow" and production gets these with the release.
+      - key: ADMIN_EMAILS
+        value: patric@kowboy.se
+        scope: RUN_TIME
       - key: VITEC_WEBHOOK_TOKEN
         value: EV[1:OxipdqTDafYFVf8FXX6NLaV/2tYmkqJk:ZOz9q8aPrzrNiV526Q/l3Nhl9bg4JKi4LmOkmi6BoN1yKVxnDZaApOGJHAMdZf46]
         scope: RUN_TIME
