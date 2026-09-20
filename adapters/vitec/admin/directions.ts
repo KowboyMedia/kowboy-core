@@ -9,13 +9,10 @@ export function directions(): string {
   const steps = table(
     ['Step', 'What to do'],
     [
-      [
-        '1. Tenant',
-        'On Tenants, make the tenant. Its token is on the tenant’s page and goes into the site’s settings.',
-      ],
+      ['1. Tenant', 'On Tenants, press “New tenant” and give the customer’s name.'],
       [
         '2. Connection',
-        'On the tenant’s page, add a connection with the CRM <code>vitec</code> and the offices as customer ids (<code>M30011</code> and the like), then open it and save the <em>Connect username</em> and <em>Connect password</em> (the key pair Vitec issues per customer in its partner portal). “Load everything” (the event <code>connection_added</code>) fetches every record of those offices. A connection without offices fetches nothing, and <code>vitec.catch_up</code> says so.',
+        'On the same page, choose the CRM <code>vitec</code>: its panel asks for the <em>Connect username</em> and <em>Connect password</em> (the key pair Vitec issues per customer in its partner portal) and the offices as customer ids (<code>M30011</code> and the like). Add the sites below and save: the tenant is made, its token and every site’s bell secret are on the page, and every record of those offices is loaded (the event <code>connection_added</code>). A connection without offices fetches nothing, and <code>vitec.catch_up</code> says so.',
       ],
       [
         '3. Notifications',
@@ -23,7 +20,7 @@ export function directions(): string {
       ],
       [
         '4. More offices',
-        'Add the office on the connection and run “Load these offices” (the event <code>offices_added</code>): only the new ones are fetched. “Resync” (the event <code>resync</code>) fetches one datatype again for the whole connection.',
+        'Add the office on the tenant’s page and save: only the new one is loaded (the event <code>offices_added</code>), and an office taken away is taken off the sites (the event <code>offices_removed</code>). “Resync” (the event <code>resync</code>) fetches one datatype again for the whole connection; “Remove everything” (the event <code>connection_removed</code>) takes every record off the sites.',
       ],
       [
         '5. Check',

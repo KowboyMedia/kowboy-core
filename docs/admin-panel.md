@@ -58,22 +58,25 @@ names exists on the panel.
    slowest 5 %), and everything else in the event log by type (the adapters' calls to their CRMs,
    notifications, logins, tests). Below: the health checks as `/v1/health` reports them, records
    per tenant and datatype, the last 20 events, the version and the migrations applied.
-2. **Tenants.** The list, with each tenant's number, name, licence, connections and sites; add one
-   by name, Core assigns the number. A tenant's page holds everything about that customer
-   (Patric, 2026-09-18 and 2026-09-19): the licence and the token, shown on the page at all times
-   (kept encrypted beside its hash; "New token" retires the old one at once), the name, its
-   connections (a table, and "Add a connection" folded under it; open one for its login, offices
-   and loads) and its sites (a table with one actions menu per row: ring it now, delta or
-   forcerefresh, a new bell secret shown once, and an edit page for its label, bell URL and active
-   flag; "Add a site" folded under the table). The token and the bell secret go into the site's
-   own settings by hand. A disabled licence stops the bells and the pulls; the sites keep showing
-   what they have, and their administrators see one notice saying so.
-3. **Connections.** A connection exists only inside its tenant (Patric, 2026-09-19): there is no
-   global list. Its own page, reached from the tenant's page: the credentials as a write-only form
-   the adapter declares (never displayed), the offices, active or not, the actions (load
-   everything, load added offices, remove offices, resync, remove everything) and, below, the
-   adapter's own status fragment (for Vitec: last catch-up and comparison, what is waiting on the
-   fetch list) and the connection's latest events.
+2. **Tenants.** The list (number, name, licence, CRM, sites) and "New tenant". One page makes a
+   tenant and one page changes it, the same page, components and code path (Patric, 2026-09-20,
+   the flow as he told it): the name and licence; the CRM connection, chosen from the CRMs Core
+   ships, whose panel then asks for the login the adapter declares (stored encrypted, never shown
+   again; leave it empty to keep it) and the offices; and the sites, one or many, each with its
+   name, bell URL and active flag. One Save does it all: the tenant is made and gets its number
+   and token, the connection is made (id `<crm>-<tenant number>`) and loaded from the CRM once
+   the login is there (the event `connection_added`), an added office is loaded and a dropped
+   one taken off the sites (`offices_added`, `offices_removed`), and every new site gets its
+   bell secret. Below the form on an existing tenant: the token (shown at all times, "New
+   token" retires it), the connection's state, the loads and actions (load everything, resync,
+   remove everything), what the adapter knows, and the connection's latest events; each site
+   row has a menu to ring it (delta or forcerefresh) and to make a new bell secret, and shows
+   the secret. The token and the bell secret go into the site's own settings by hand. A
+   disabled licence stops the bells and the pulls; the sites keep showing what they have. A
+   connection or a site exists only inside its tenant, and nothing about a customer is made
+   anywhere else.
+3. **Connections** have no page of their own: an old connection link opens its tenant. What
+   remains under `/admin/connections/<id>/event` is the action handler the tenant page posts to.
 4. **Adapter pages.** One per adapter, from `adapters/<provider>/admin/`, under the CRM adapters
    heading. Every adapter page opens with its setup directions ("Set up Vitec"): the steps in
    order and the settings as they are, built from what the adapter reads and kept true by the two

@@ -1,322 +1,529 @@
-// Tenants, each with its connections and its sites (subscribers): the same writes scripts/tenant.ts
-// does, from a page. A connection or a site exists only inside its tenant (Patric, 2026-09-18 and
-// 2026-09-19): both are made and listed on the tenant's page, and there is no global list of
-// either. A tenant's token is shown on its page (kept recoverable, encrypted); a site's bell
-// secret is shown once, when it is made, and never stored in the clear.
+// One page per tenant, for making it and for changing it (Patric, 2026-09-20, the flow as he told
+// it): the name and licence, the CRM connection with the login the adapter asks for and the
+// offices, and the sites, one or many; one Save. The same page, the same components and the same
+// code path edit an existing tenant, and then the page also shows the token, the loads and
+// actions, what the adapter knows and the latest events. Nothing about a customer is made
+// anywhere else: a connection or a site exists only inside its tenant.
 import {
   addSubscriber,
   connections,
+  createTenant,
   subscribers,
   tenants,
   updateSubscriber,
   updateTenant,
-  createTenant,
+  upsertConnection,
   type ConnectionListRow,
   type SubscriberRow,
   type TenantRow,
 } from '../storage/connections.js';
 import { newSecret } from '../storage/crypto.js';
+import { queueLifecycle } from '../lifecycle.js';
 import { ring, type BellKind } from '../bells.js';
-import { addConnectionForm, connectionTable } from './connections.js';
+import { credentialFields } from './adapters.js';
+import { actionCards, eventsCard, statusCard } from './connections.js';
 import {
   card,
-  details,
   escape,
   field,
   form,
-  grid,
   intro,
   kv,
   link,
-  menu,
   pill,
-  pre,
   select,
   table,
+  textarea,
   when,
   yesNo,
 } from './html.js';
-import { numberOf, type Ctx, type Panel } from './context.js';
+import { lists, numberOf, officesOf, type Ctx, type Panel } from './context.js';
+import type { Response } from '../http/server.js';
 
-/** A secret shown once, on the page that made it (a site's bell secret). */
-type Shown = { label: string; value: string };
+type SiteDraft = { id: string; label: string; url: string; active: boolean };
+
+/** What the form holds: typed in, or read from a tenant that exists. Secrets are never echoed. */
+type Draft = {
+  name: string;
+  active: boolean;
+  /** The CRM adapter, or '' for none yet. */
+  provider: string;
+  offices: string;
+  connectionActive: boolean;
+  sites: SiteDraft[];
+};
+
+type Existing = {
+  tenant: TenantRow;
+  connection: ConnectionListRow | undefined;
+  sites: SubscriberRow[];
+};
 
 const ACTIVE = [
   { value: 'yes', label: 'yes' },
   { value: 'no', label: 'no' },
 ];
-
+const EMPTY_SITE: SiteDraft = { id: '', label: '', url: '', active: true };
 const href = (id: number): string => `/admin/tenants/${id}`;
+const yes = (value: string | undefined): boolean => value !== 'no';
 
-const tenantById = async (id: number | undefined): Promise<TenantRow | undefined> =>
-  id === undefined ? undefined : (await tenants()).find((tenant) => tenant.id === id);
-
-const siteById = async (id: number): Promise<SubscriberRow | undefined> =>
-  (await subscribers()).find((row) => String(row.id) === String(id));
-
-function tenantRows(rows: TenantRow[], links: ConnectionListRow[], sites: SubscriberRow[]): string {
-  return table(
-    ['Tenant', 'Name', 'Licence', 'Connections', 'Sites'],
-    rows.map((tenant) => [
-      link(href(tenant.id), `#${tenant.id}`),
-      escape(tenant.display_name),
-      licence(tenant),
-      escape(links.filter((row) => row.tenant_id === tenant.id).length),
-      escape(sites.filter((site) => site.tenant_id === tenant.id).length),
-    ]),
-    'No tenants yet.',
-  );
+async function load(id: number): Promise<Existing | undefined> {
+  const [rows, links, sites] = await Promise.all([tenants(), connections(), subscribers()]);
+  const tenant = rows.find((row) => row.id === id);
+  if (!tenant) return undefined;
+  return {
+    tenant,
+    connection: links.find((row) => row.tenant_id === id),
+    sites: sites.filter((site) => site.tenant_id === id),
+  };
 }
+
+const draftOf = (existing: Existing | undefined): Draft =>
+  existing
+    ? {
+        name: existing.tenant.display_name,
+        active: existing.tenant.active,
+        provider: existing.connection?.provider ?? '',
+        offices: existing.connection?.licensed_offices.join('\n') ?? '',
+        connectionActive: existing.connection?.active ?? true,
+        sites: existing.sites.map((site) => ({
+          id: String(site.id),
+          label: site.label,
+          url: site.bell_url,
+          active: site.active,
+        })),
+      }
+    : {
+        name: '',
+        active: true,
+        provider: '',
+        offices: '',
+        connectionActive: true,
+        sites: [EMPTY_SITE],
+      };
+
+/** The form as typed: the rows of sites come from the body with their repeats kept. */
+function draftFromForm(ctx: Ctx): Draft {
+  const body = lists(ctx.request);
+  const ids = body.getAll('site_id');
+  const urls = body.getAll('site_url');
+  const actives = body.getAll('site_active');
+  const provider = ctx.form['provider'] ?? '';
+  return {
+    name: (ctx.form['name'] ?? '').trim(),
+    active: yes(ctx.form['active']),
+    provider,
+    offices: ctx.form[`${provider}_offices`] ?? '',
+    connectionActive: yes(ctx.form[`${provider}_active`]),
+    sites: body.getAll('site_label').map((label, i) => ({
+      id: ids[i] ?? '',
+      label: label.trim(),
+      url: (urls[i] ?? '').trim(),
+      active: yes(actives[i]),
+    })),
+  };
+}
+
+// ---- The list --------------------------------------------------------------------------------------
 
 const licence = (tenant: TenantRow): string =>
   tenant.active ? pill('ok', 'active') : pill('bad', 'disabled');
 
-/** One row per site, with its actions in one menu (Patric, 2026-09-19: one style everywhere). */
-function siteRows(ctx: Ctx, sites: SubscriberRow[]): string {
-  const bell = (site: SubscriberRow, kind: BellKind, label: string): string =>
-    form(`/admin/sites/${site.id}/ring`, ctx.csrf, '', {
-      submit: label,
-      menu: true,
-      hidden: { tenant: String(site.tenant_id), kind },
-    });
-  return table(
-    ['Site', 'Bell URL', 'Active', 'Last pull', 'Last bell', ''],
-    sites.map((site) => [
-      escape(site.label),
-      `<code>${escape(site.bell_url)}</code>`,
-      yesNo(site.active),
-      `${when(site.last_pull_at)} <span class="text-secondary">${escape(site.last_client ?? '')}</span>`,
-      `${when(site.last_bell_at)} <span class="text-secondary">${escape(site.last_bell_status ?? '')}</span>`,
-      menu('Actions', [
-        bell(site, 'delta', 'Ring: pull changes'),
-        bell(site, 'forcerefresh', 'Ring: pull everything'),
-        form(`/admin/sites/${site.id}/secret`, ctx.csrf, '', {
-          submit: 'New bell secret',
-          menu: true,
-        }),
-        `<a class="dropdown-item" href="/admin/sites/${site.id}/edit">Edit</a>`,
-      ]),
-    ]),
-    'No sites yet.',
-  );
-}
-
-async function listPage(ctx: Ctx, flash?: string | null): Promise<ReturnType<Ctx['render']>> {
+async function listPage(ctx: Ctx): Promise<Response> {
   const [rows, links, sites] = await Promise.all([tenants(), connections(), subscribers()]);
   const body =
     intro(
-      'A tenant is one customer of Kowboy. Open one for its licence and token, its connections (the CRM logins and offices its records come from) and its sites. A disabled licence stops the bells and the pulls; the sites keep showing what they have.',
+      'A tenant is one customer of Kowboy: its name and licence, the CRM its records come from, and the sites that show them, all on one page. A disabled licence stops the bells and the pulls; the sites keep showing what they have.',
     ) +
     card(
       'Tenants',
-      'Every tenant has one token, shown on its page; its sites pull with it.',
-      tenantRows(rows, links, sites),
-    ) +
-    card(
-      'Add a tenant',
-      'Makes the tenant, gives it a number and shows its token on its page. Its connections and sites come next, there too.',
-      form(
-        '/admin/tenants',
-        ctx.csrf,
-        field('name', 'Name', {
-          required: true,
-          help: 'The customer’s name as people say it. Core assigns the tenant its number.',
-        }),
-        { submit: 'Add tenant' },
-      ),
+      'Open one for everything about that customer, or make a new one.',
+      table(
+        ['Tenant', 'Name', 'Licence', 'CRM', 'Sites'],
+        rows.map((tenant) => [
+          link(href(tenant.id), `#${tenant.id}`),
+          escape(tenant.display_name),
+          licence(tenant),
+          escape(
+            links
+              .filter((row) => row.tenant_id === tenant.id)
+              .map((row) => row.provider)
+              .join(', '),
+          ),
+          escape(sites.filter((site) => site.tenant_id === tenant.id).length),
+        ]),
+        'No tenants yet.',
+      ) + `<a class="btn btn-primary mt-3" href="/admin/tenants/new">New tenant</a>`,
     );
-  return ctx.render('Tenants', body, flash);
+  return ctx.render('Tenants', body);
 }
 
-async function tenantPage(
-  ctx: Ctx,
-  tenant: TenantRow,
-  flash?: string | null,
-  shown?: Shown,
-): Promise<ReturnType<Ctx['render']>> {
-  const [links, sites] = await Promise.all([connections(), subscribers()]);
-  const own = links.filter((row) => row.tenant_id === tenant.id);
-  const ownSites = sites.filter((site) => site.tenant_id === tenant.id);
-  const once = shown
-    ? `<div class="alert alert-important alert-success" role="alert"><strong>${escape(shown.label)}</strong>: copy it now, it is shown once and never again.${pre(shown.value)}</div>`
+// ---- The form: tenant, CRM connection, sites -----------------------------------------------------------
+
+/** One CRM's panel: the login its adapter asks for, and the offices. Shown when that CRM is chosen. */
+function crmPanel(ctx: Ctx, provider: string, draft: Draft, existing?: Existing): string {
+  const fields = credentialFields(ctx.adapters, provider);
+  const connection = existing?.connection?.provider === provider ? existing.connection : undefined;
+  const login = fields
+    .map((f) =>
+      field(`${provider}_credential_${f.key}`, f.label, { type: f.secret ? 'password' : 'text' }),
+    )
+    .join('');
+  const state = connection
+    ? connection.has_credentials
+      ? pill('ok', 'login set')
+      : pill('bad', 'login missing')
     : '';
-  const token = tenant.token
-    ? `<code class="user-select-all">${escape(tenant.token)}</code>`
-    : '<span class="text-secondary">Set before tokens were shown here; use “New token” to set and reveal one.</span>';
+  const help =
+    fields.length === 0
+      ? 'This CRM needs no login.'
+      : connection
+        ? 'The login is stored encrypted and never shown again. Leave the fields empty to keep it, or fill in every field to replace it.'
+        : 'The login this CRM issues to the customer. It is stored encrypted and never shown again.';
+  return (
+    `<div class="crm-panel border rounded p-3 mb-3" data-provider="${escape(provider)}">` +
+    `<h4 class="mb-1">${escape(provider)} ${state}</h4><p class="text-secondary small">${escape(help)}</p>${login}` +
+    textarea(
+      `${provider}_offices`,
+      'Offices',
+      draft.provider === provider ? draft.offices : '',
+      'The office ids this tenant is licensed for, one per line or comma-separated. Saving loads an added office and takes a dropped one off the sites.',
+    ) +
+    (connection
+      ? select(
+          `${provider}_active`,
+          'Connection active',
+          ACTIVE,
+          draft.connectionActive ? 'yes' : 'no',
+          'An inactive connection is left alone: nothing is fetched, and its records stay as they are.',
+        )
+      : '') +
+    `</div>`
+  );
+}
+
+function crmSection(ctx: Ctx, draft: Draft, existing?: Existing): string {
+  const fixed = existing?.connection;
+  const providers = ctx.adapters.map((adapter) => adapter.provider);
+  const choice = fixed
+    ? `<input type="hidden" name="provider" value="${escape(fixed.provider)}"><div class="mb-3"><div class="form-label">CRM</div><div>${escape(fixed.provider)} <span class="text-secondary small">connection <code>${escape(fixed.id)}</code></span></div></div>`
+    : select(
+        'provider',
+        'CRM',
+        [{ value: '', label: 'none yet' }, ...providers.map((value) => ({ value }))],
+        draft.provider,
+        'Choose the CRM this tenant’s records come from; its panel opens below.',
+      );
+  const panels = providers
+    .filter((provider) => !fixed || provider === fixed.provider)
+    .map((provider) => crmPanel(ctx, provider, draft, existing))
+    .join('');
+  return choice + panels;
+}
+
+/** A button in a site row that submits the small actions form outside the main one. */
+const siteAction = (site: SubscriberRow, action: string, label: string, kind?: BellKind): string =>
+  `<button type="submit" class="dropdown-item" form="site-actions" formaction="/admin/sites/${site.id}/${action}"${kind ? ` name="kind" value="${kind}"` : ''}>${escape(label)}</button>`;
+
+function siteRow(site: SiteDraft, saved: SubscriberRow | undefined, editing: boolean): string {
+  const actions = saved
+    ? `<div class="dropdown"><button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Actions</button><div class="dropdown-menu">${siteAction(saved, 'ring', 'Ring: pull changes', 'delta')}${siteAction(saved, 'ring', 'Ring: pull everything', 'forcerefresh')}${siteAction(saved, 'secret', 'New bell secret')}</div></div>`
+    : '';
+  const secret = saved
+    ? `<code class="user-select-all">${escape(saved.bell_secret)}</code>` +
+      (saved.last_bell_at
+        ? `<div class="text-secondary small">last bell ${when(saved.last_bell_at)} ${escape(saved.last_bell_status ?? '')}</div>`
+        : '')
+    : '<span class="text-secondary small">made on save</span>';
+  return (
+    `<tr><td><input type="hidden" name="site_id" value="${escape(site.id)}"><input class="form-control" name="site_label" value="${escape(site.label)}" placeholder="acme.se" aria-label="Site"></td>` +
+    `<td><input class="form-control" name="site_url" value="${escape(site.url)}" placeholder="https://acme.se/wp-json/core/v1/bell" aria-label="Bell URL"></td>` +
+    `<td><select class="form-select" name="site_active" aria-label="Active"><option value="yes"${site.active ? ' selected' : ''}>yes</option><option value="no"${site.active ? '' : ' selected'}>no</option></select></td>` +
+    `<td>${secret}</td>${editing ? `<td>${actions}</td>` : ''}</tr>`
+  );
+}
+
+function sitesSection(draft: Draft, existing?: Existing): string {
+  const editing = existing !== undefined;
+  const rows = draft.sites
+    .map((site) =>
+      siteRow(
+        site,
+        existing?.sites.find((saved) => String(saved.id) === site.id),
+        editing,
+      ),
+    )
+    .join('');
+  return (
+    `<div class="table-responsive"><table class="table table-vcenter"><thead><tr><th>Site</th><th>Bell URL</th><th>Active</th><th>Bell secret</th>${editing ? '<th></th>' : ''}</tr></thead><tbody id="sites">${rows}</tbody></table></div>` +
+    `<button type="button" class="btn btn-outline-secondary btn-sm" id="add-site">Add another site</button>` +
+    `<template id="site-row">${siteRow(EMPTY_SITE, undefined, editing)}</template>`
+  );
+}
+
+/** Shows the chosen CRM's panel, and adds a site row on request. */
+const FORM_SCRIPT =
+  `<script>(function(){var s=document.getElementById('provider');function show(){document.querySelectorAll('.crm-panel').forEach(function(p){p.hidden=p.dataset.provider!==s.value})}` +
+  `if(s){s.addEventListener('change',show);show()}var a=document.getElementById('add-site'),t=document.getElementById('site-row'),b=document.getElementById('sites');` +
+  `if(a&&t&&b)a.addEventListener('click',function(){b.appendChild(t.content.cloneNode(true))})})();</script>`;
+
+async function formPage(
+  ctx: Ctx,
+  draft: Draft,
+  existing?: Existing,
+  flash?: string | null,
+): Promise<Response> {
+  const tenant = existing?.tenant;
+  const action = tenant ? href(tenant.id) : '/admin/tenants/new';
   const body =
     intro(
-      `Everything about ${escape(tenant.display_name)}: the licence and the token its sites pull with, the CRM connections its records come from, and the sites that show them.`,
+      tenant
+        ? `Everything about ${tenant.display_name}: the name and licence, the CRM connection its records come from, and the sites that show them. Change what you need and save.`
+        : 'A new customer in one go: the name, the CRM its records come from with the login and the offices, and the sites that show them. Save makes the tenant, loads the CRM and gives every site its bell secret.',
     ) +
-    once +
-    grid([
-      card(
-        'Licence and token',
-        'The token goes into every site’s settings; a new one retires the old one at once.',
-        kv([
-          ['Tenant number', `<code>${escape(tenant.id)}</code>`],
-          ['Licence', licence(tenant)],
-          ['Token', token],
-          ['Connections', escape(own.length)],
-          ['Sites', escape(ownSites.length)],
-        ]) +
-          `<div class="mt-3">${form(`${href(tenant.id)}/token`, ctx.csrf, '', { submit: 'New token', inline: true })}</div>`,
-      ),
-      card(
-        'Name and licence',
-        'A disabled licence stops the bells and the pulls; the sites keep showing what they have.',
-        form(
-          href(tenant.id),
-          ctx.csrf,
-          field('name', 'Name', { value: tenant.display_name }) +
-            select('active', 'Licence', ACTIVE, tenant.active ? 'yes' : 'no'),
-          { submit: 'Save' },
-        ),
-      ),
-    ]) +
+    `<form method="post" action="${action}"><input type="hidden" name="csrf" value="${escape(ctx.csrf)}">` +
     card(
-      'Connections',
-      'A connection is this tenant’s link to one CRM: the offices that belong to it, and the login Core uses there. Open one for its login, its offices and its loads.',
-      connectionTable(own) + details('Add a connection', addConnectionForm(ctx, tenant.id)),
+      'Tenant',
+      'The customer’s name as people say it; Core assigns the number. A disabled licence stops the bells and the pulls.',
+      field('name', 'Name', { value: draft.name, required: true }) +
+        select('active', 'Licence', ACTIVE, draft.active ? 'yes' : 'no'),
+    ) +
+    card(
+      'CRM connection',
+      'Where this tenant’s records come from: the CRM, the login it issued and the offices it licenses.',
+      crmSection(ctx, draft, existing),
     ) +
     card(
       'Sites',
-      'Core calls a site’s bell URL when this tenant has something new, and the site pulls with the token. The bell secret proves it was Core that called. "Pull changes" fetches what changed since the site’s last pull; "pull everything" makes it rewrite all it has.',
-      siteRows(ctx, ownSites) +
-        details(
-          'Add a site',
-          form(
-            '/admin/sites',
-            ctx.csrf,
-            field('label', 'Label', {
-              required: true,
-              help: 'What you call this site, for these pages only.',
-            }) +
-              field('url', 'Bell URL', {
-                required: true,
-                placeholder: 'https://site.example/wp-json/core/v1/bell',
-                help: 'The address Core calls when there is something new. A WordPress site with the plugin answers at /wp-json/core/v1/bell.',
-              }),
-            { submit: 'Add site', hidden: { tenant: String(tenant.id) } },
-          ),
-        ),
-    );
-  return ctx.render(tenant.display_name, body, flash);
-}
-
-function sitePage(ctx: Ctx, site: SubscriberRow): ReturnType<Ctx['render']> {
-  const body =
-    intro(
-      `The site ${escape(site.label)} of tenant #${escape(site.tenant_id)}. Its token and bell secret are not shown here; make new ones from the tenant’s page.`,
+      'The websites that show this tenant’s records, one or many. Core calls a site’s bell URL when there is something new; the site pulls with the tenant’s token and proves it is Core with the bell secret. Both go into the site’s own settings.',
+      sitesSection(draft, existing),
     ) +
-    card(
-      'Site',
-      'The label is for these pages; the bell URL is where Core calls.',
-      form(
-        `/admin/sites/${site.id}`,
-        ctx.csrf,
-        field('label', 'Label', { value: site.label, required: true }) +
-          field('url', 'Bell URL', { value: site.bell_url, required: true }) +
-          select(
-            'active',
-            'Active',
-            ACTIVE,
-            site.active ? 'yes' : 'no',
-            'An inactive site is not rung.',
-          ),
-        { submit: 'Save' },
-      ) + `<p class="mt-3 mb-0">${link(href(site.tenant_id), 'Back to the tenant')}</p>`,
-    );
-  return ctx.render(`Site ${site.label}`, body);
+    `<button class="btn btn-primary">Save</button></form>` +
+    (tenant
+      ? `<form method="post" id="site-actions"><input type="hidden" name="csrf" value="${escape(ctx.csrf)}"><input type="hidden" name="tenant" value="${tenant.id}"></form>` +
+        (await afterForm(ctx, existing))
+      : '') +
+    FORM_SCRIPT;
+  return ctx.render(tenant ? tenant.display_name : 'New tenant', body, flash);
 }
 
-const yes = (value: string | undefined): boolean => value === 'yes';
+/** What only an existing tenant has: its token, the loads and actions, the adapter's view, events. */
+async function afterForm(ctx: Ctx, existing: Existing): Promise<string> {
+  const { tenant, connection } = existing;
+  const token = tenant.token
+    ? `<code class="user-select-all">${escape(tenant.token)}</code>`
+    : '<span class="text-secondary">Set before tokens were shown here; “New token” sets and shows one.</span>';
+  const tokenCard = card(
+    'Token',
+    'The token goes into every site’s settings; a new one retires the old one at once.',
+    kv([
+      ['Tenant number', `<code>${escape(tenant.id)}</code>`],
+      ['Licence', licence(tenant)],
+      ['Token', token],
+    ]) +
+      `<div class="mt-3">${form(`${href(tenant.id)}/token`, ctx.csrf, '', { submit: 'New token', inline: true })}</div>`,
+  );
+  if (!connection) return `<div class="mt-4">${tokenCard}</div>`;
+  return (
+    `<div class="mt-4">${tokenCard}` +
+    card(
+      'CRM connection: state',
+      'What Core knows about the link to the CRM.',
+      kv([
+        ['Connection', `<code>${escape(connection.id)}</code>`],
+        ['Active', yesNo(connection.active)],
+        ['Login', connection.has_credentials ? pill('ok', 'set') : pill('bad', 'missing')],
+        ['Last ingest', when(connection.last_ingest_at)],
+        [
+          'Last error',
+          connection.last_error
+            ? `<span class="bad">${escape(connection.last_error)}</span>`
+            : '<span class="muted">none</span>',
+        ],
+      ]),
+    ) +
+    actionCards(ctx, connection) +
+    (await statusCard(ctx, connection)) +
+    (await eventsCard(connection)) +
+    `</div>`
+  );
+}
 
-/** The page a site's action returns to: its tenant's. */
-async function tenantOfSite(id: number): Promise<TenantRow | undefined> {
-  const site = await siteById(id);
-  return site ? tenantById(site.tenant_id) : undefined;
+// ---- Save: the one code path for a new tenant and a changed one -------------------------------------------
+
+/** What is wrong with the CRM part of the draft, in one sentence, or null. */
+function checkConnection(ctx: Ctx, draft: Draft, existing?: Existing): string | null {
+  if (!draft.provider) return null;
+  if (!ctx.adapters.some((adapter) => adapter.provider === draft.provider))
+    return 'Choose a CRM from the list.';
+  if (existing?.connection && draft.provider !== existing.connection.provider)
+    return 'The CRM of an existing connection cannot change; remove everything first.';
+  const fields = credentialFields(ctx.adapters, draft.provider);
+  const given = fields.filter(
+    (f) => (ctx.form[`${draft.provider}_credential_${f.key}`] ?? '') !== '',
+  );
+  return given.length > 0 && given.length < fields.length
+    ? `Fill in every login field (${fields.map((f) => f.label).join(', ')}) or none.`
+    : null;
+}
+
+/** A site row that is not empty needs a name and a proper bell URL. */
+const checkSites = (sites: SiteDraft[]): string | null =>
+  sites.some((site) => (site.label || site.url) && (!site.label || !/^https?:\/\//.test(site.url)))
+    ? 'A site needs a name and a bell URL starting with http:// or https://.'
+    : null;
+
+/** What is wrong with the draft, in one sentence, or null. */
+const check = (ctx: Ctx, draft: Draft, existing?: Existing): string | null =>
+  (draft.name ? null : 'A tenant needs a name.') ??
+  checkConnection(ctx, draft, existing) ??
+  checkSites(draft.sites);
+
+/** What the worker is asked to do after a save, in words for the flash. */
+async function queueLoads(
+  id: string,
+  provider: string,
+  login: { had: boolean; has: boolean },
+  before: string[],
+  offices: string[],
+): Promise<string[]> {
+  const notes: string[] = [];
+  const added = offices.filter((office) => !before.includes(office));
+  const removed = before.filter((office) => !offices.includes(office));
+  if (removed.length > 0) {
+    await queueLifecycle(id, 'offices_removed', { officeIds: removed });
+    notes.push(`Taking office ${removed.join(', ')} off the sites.`);
+  }
+  if (!login.has) {
+    notes.push(
+      `The ${provider} login is missing, so nothing is loaded yet: add it and save again.`,
+    );
+  } else if (!login.had) {
+    await queueLifecycle(id, 'connection_added');
+    notes.push(`Loading every record of ${offices.length} office(s) from ${provider} now.`);
+  } else if (added.length > 0) {
+    await queueLifecycle(id, 'offices_added', { officeIds: added });
+    notes.push(`Loading office ${added.join(', ')} now.`);
+  }
+  return notes;
+}
+
+/** The connection written and its loads queued; what happened, in words for the flash. */
+async function saveConnection(
+  ctx: Ctx,
+  tenantId: number,
+  draft: Draft,
+  existing: ConnectionListRow | undefined,
+): Promise<string[]> {
+  const provider = draft.provider;
+  const fields = credentialFields(ctx.adapters, provider);
+  const values = fields.map(
+    (f) => [f.key, ctx.form[`${provider}_credential_${f.key}`] ?? ''] as const,
+  );
+  const replaced = fields.length > 0 && values.every(([, value]) => value !== '');
+  const offices = officesOf(draft.offices);
+  const id = existing?.id ?? `${provider}-${tenantId}`;
+  await upsertConnection({
+    id,
+    tenantId,
+    provider,
+    credentials: replaced ? JSON.stringify(Object.fromEntries(values)) : null,
+    licensedOffices: offices,
+    active: existing ? draft.connectionActive : true,
+  });
+  // "Had" a login: the connection could load before this save; "has": it can now.
+  const needsLogin = fields.length > 0;
+  const had = existing !== undefined && (!needsLogin || existing.has_credentials);
+  const has = had || !needsLogin || replaced;
+  return queueLoads(id, provider, { had, has }, existing?.licensed_offices ?? [], offices);
+}
+
+async function saveSites(tenantId: number, sites: SiteDraft[]): Promise<string[]> {
+  const notes: string[] = [];
+  for (const site of sites) {
+    if (!site.label && !site.url) continue;
+    if (site.id) {
+      await updateSubscriber(Number(site.id), {
+        label: site.label,
+        bellUrl: site.url,
+        active: site.active,
+      });
+    } else {
+      await addSubscriber({
+        tenantId,
+        label: site.label,
+        bellUrl: site.url,
+        bellSecret: newSecret(),
+      });
+      if (!site.active) await updateSubscriber(await lastSiteId(tenantId), { active: false });
+      notes.push(`Site ${site.label} added; its bell secret is on the page.`);
+    }
+  }
+  return notes;
+}
+
+const lastSiteId = async (tenantId: number): Promise<number> =>
+  Math.max(
+    ...(await subscribers()).filter((s) => s.tenant_id === tenantId).map((s) => Number(s.id)),
+  );
+
+async function save(ctx: Ctx, id?: number): Promise<Response> {
+  const existing = id === undefined ? undefined : await load(id);
+  if (id !== undefined && !existing) return ctx.redirect('/admin/tenants', '!No such tenant.');
+  const draft = draftFromForm(ctx);
+  const problem = check(ctx, draft, existing);
+  if (problem) return formPage(ctx, draft, existing, `!${problem}`);
+  const tenantId = existing
+    ? existing.tenant.id
+    : await createTenant({ displayName: draft.name, token: newSecret() });
+  if (existing) await updateTenant(tenantId, { displayName: draft.name, active: draft.active });
+  const notes = draft.provider
+    ? await saveConnection(ctx, tenantId, draft, existing?.connection)
+    : [];
+  notes.push(...(await saveSites(tenantId, draft.sites)));
+  return ctx.redirect(
+    href(tenantId),
+    `Tenant #${tenantId} ${draft.name} saved.${notes.length ? ` ${notes.join(' ')}` : ''}`,
+  );
+}
+
+/** The tenant a site belongs to, for the site's actions. */
+async function tenantOfSite(id: number): Promise<number | undefined> {
+  const site = (await subscribers()).find((row) => String(row.id) === String(id));
+  return site?.tenant_id;
 }
 
 export const tenantPanels: Panel[] = [
   { method: 'GET', pattern: /^\/admin\/tenants$/, handle: (ctx) => listPage(ctx) },
   {
-    method: 'POST',
-    pattern: /^\/admin\/tenants$/,
-    handle: async (ctx) => {
-      const name = (ctx.form['name'] ?? '').trim();
-      if (!name) return listPage(ctx, '!A tenant needs a name.');
-      const token = newSecret();
-      const id = await createTenant({ displayName: name, token });
-      const tenant = await tenantById(id);
-      if (!tenant) return listPage(ctx, `!Tenant ${id} could not be read back.`);
-      return tenantPage(ctx, tenant, `Tenant #${id} ${name} created. Its token is shown below.`);
-    },
+    method: 'GET',
+    pattern: /^\/admin\/tenants\/new$/,
+    handle: (ctx) => formPage(ctx, draftOf(undefined)),
   },
+  { method: 'POST', pattern: /^\/admin\/tenants\/new$/, handle: (ctx) => save(ctx) },
   {
     method: 'GET',
     pattern: /^\/admin\/tenants\/(\d+)$/,
     handle: async (ctx) => {
-      const tenant = await tenantById(numberOf(ctx.params[0]));
-      if (!tenant) return { ...ctx.render('Not found', '<p>No such tenant.</p>'), status: 404 };
-      return tenantPage(ctx, tenant);
+      const existing = await load(Number(ctx.params[0]));
+      if (!existing) return { ...ctx.render('Not found', '<p>No such tenant.</p>'), status: 404 };
+      return formPage(ctx, draftOf(existing), existing);
     },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/admin\/tenants\/(\d+)$/,
+    handle: (ctx) => save(ctx, numberOf(ctx.params[0]) ?? 0),
   },
   {
     method: 'POST',
     pattern: /^\/admin\/tenants\/(\d+)\/token$/,
     handle: async (ctx) => {
-      const tenant = await tenantById(numberOf(ctx.params[0]));
-      if (!tenant) return ctx.redirect('/admin/tenants', '!No such tenant.');
-      const token = newSecret();
-      await updateTenant(tenant.id, { token });
-      const updated = (await tenantById(tenant.id)) ?? tenant;
-      return tenantPage(
-        ctx,
-        updated,
-        `New token for ${tenant.display_name}; the old one stops working now. The new one is shown below.`,
-      );
-    },
-  },
-  {
-    method: 'POST',
-    pattern: /^\/admin\/tenants\/(\d+)$/,
-    handle: async (ctx) => {
       const id = numberOf(ctx.params[0]);
-      if (id === undefined || !(await tenantById(id)))
+      if (id === undefined || !(await load(id)))
         return ctx.redirect('/admin/tenants', '!No such tenant.');
-      await updateTenant(id, {
-        displayName: ctx.form['name'] || undefined,
-        active: yes(ctx.form['active']),
-      });
-      return ctx.redirect(href(id), `Tenant ${id} saved.`);
-    },
-  },
-  {
-    method: 'POST',
-    pattern: /^\/admin\/sites$/,
-    handle: async (ctx) => {
-      const tenant = await tenantById(numberOf(ctx.form['tenant']));
-      if (!tenant) return ctx.redirect('/admin/tenants', '!A site needs a tenant.');
-      const label = ctx.form['label'] ?? '';
-      const bellUrl = ctx.form['url'] ?? '';
-      if (!label || !/^https?:\/\//.test(bellUrl)) {
-        return ctx.redirect(href(tenant.id), '!A site needs a label and a bell URL.');
-      }
-      const bellSecret = newSecret();
-      const id = await addSubscriber({ tenantId: tenant.id, label, bellUrl, bellSecret });
-      return tenantPage(ctx, tenant, `Site ${label} added.`, {
-        label: `Bell secret for site ${id}`,
-        value: bellSecret,
-      });
-    },
-  },
-  {
-    method: 'GET',
-    pattern: /^\/admin\/sites\/(\d+)\/edit$/,
-    handle: async (ctx) => {
-      const site = await siteById(Number(ctx.params[0]));
-      if (!site) return { ...ctx.render('Not found', '<p>No such site.</p>'), status: 404 };
-      return sitePage(ctx, site);
+      await updateTenant(id, { token: newSecret() });
+      return ctx.redirect(href(id), 'New token; the old one stops working now. It is on the page.');
     },
   },
   {
@@ -324,8 +531,8 @@ export const tenantPanels: Panel[] = [
     pattern: /^\/admin\/sites\/(\d+)\/ring$/,
     handle: async (ctx) => {
       const kind: BellKind = ctx.form['kind'] === 'forcerefresh' ? 'forcerefresh' : 'delta';
-      const tenantId = numberOf(ctx.form['tenant']);
-      if (tenantId === undefined) return ctx.redirect('/admin/tenants', '!No such tenant.');
+      const tenantId = await tenantOfSite(Number(ctx.params[0]));
+      if (tenantId === undefined) return ctx.redirect('/admin/tenants', '!No such site.');
       await ring(tenantId, kind);
       return ctx.redirect(href(tenantId), `Rang ${kind} for tenant #${tenantId}.`);
     },
@@ -335,29 +542,22 @@ export const tenantPanels: Panel[] = [
     pattern: /^\/admin\/sites\/(\d+)\/secret$/,
     handle: async (ctx) => {
       const id = Number(ctx.params[0]);
-      const tenant = await tenantOfSite(id);
-      if (!tenant) return ctx.redirect('/admin/tenants', '!No such site.');
-      const bellSecret = newSecret();
-      await updateSubscriber(id, { bellSecret });
-      return tenantPage(ctx, tenant, `New bell secret for site ${id}; give it to the site.`, {
-        label: `Bell secret for site ${id}`,
-        value: bellSecret,
-      });
+      const tenantId = await tenantOfSite(id);
+      if (tenantId === undefined) return ctx.redirect('/admin/tenants', '!No such site.');
+      await updateSubscriber(id, { bellSecret: newSecret() });
+      return ctx.redirect(
+        href(tenantId),
+        `New bell secret for site ${id}; it is on the page. Give it to the site.`,
+      );
     },
   },
   {
-    method: 'POST',
-    pattern: /^\/admin\/sites\/(\d+)$/,
+    // The site's own edit page is gone; the tenant's page edits every site.
+    method: 'GET',
+    pattern: /^\/admin\/sites\/(\d+)\/edit$/,
     handle: async (ctx) => {
-      const id = Number(ctx.params[0]);
-      const tenant = await tenantOfSite(id);
-      if (!tenant) return ctx.redirect('/admin/tenants', '!No such site.');
-      await updateSubscriber(id, {
-        label: ctx.form['label'] || undefined,
-        bellUrl: ctx.form['url'] || undefined,
-        active: yes(ctx.form['active']),
-      });
-      return ctx.redirect(href(tenant.id), `Site ${id} saved.`);
+      const tenantId = await tenantOfSite(Number(ctx.params[0]));
+      return tenantId === undefined ? ctx.redirect('/admin/tenants') : ctx.redirect(href(tenantId));
     },
   },
 ];

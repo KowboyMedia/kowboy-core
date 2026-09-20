@@ -89,7 +89,9 @@ the first item that is not done, and keep the file current. Decisions and open q
    activity list, the token is on the tenant's page, JSON is shown in a viewer, the email mask is
    gone, the texts are current and AGENTS.md keeps them so. Queued rows and "Update from CRM"
    wait on question 57 (two additive adapter capabilities); Patric recomputes staging's records
-   himself (question 56).
+   himself (question 56). Same day, on Patric's third telling: a tenant is made and changed on
+   one page and one flow (name, the CRM with its panel for the login and offices, the sites),
+   with one Save; the tests and the browser walk drive that flow as a person would.
 
 8. ~~**Setup directions on each adapter's panel, and a licence notice in the plugin** (Patric,
    2026-09-18).~~ Done 2026-09-18: the Vitec panel opens with "Set up Vitec", kept true by

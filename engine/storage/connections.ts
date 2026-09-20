@@ -110,6 +110,8 @@ export type SubscriberRow = {
   tenant_id: number;
   label: string;
   bell_url: string;
+  /** Stored as sent to the site, so the tenant's page can show it (Patric, 2026-09-20). */
+  bell_secret: string;
   active: boolean;
   last_bell_at: Date | null;
   last_bell_status: string | null;
@@ -139,7 +141,7 @@ export async function recordPull(tenantId: number, client: string | null): Promi
 
 export async function subscribers(): Promise<SubscriberRow[]> {
   const { rows } = await db().query<SubscriberRow>(
-    'select id, tenant_id, label, bell_url, active, last_bell_at, last_bell_status, last_pull_at, last_client from subscribers order by id',
+    'select id, tenant_id, label, bell_url, bell_secret, active, last_bell_at, last_bell_status, last_pull_at, last_client from subscribers order by id',
   );
   return rows;
 }
