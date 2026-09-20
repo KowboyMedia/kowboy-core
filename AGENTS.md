@@ -127,6 +127,10 @@ instructions instead of results.
   `docs/open-questions.md` number in chat too, never a fresh "1."; numbers keep counting across
   sessions. Each question is phrased so that a yes, a no or a pick answers it, with the smaller
   option named.
+- **Every reply ends with what Patric does next** (Patric, 2026-09-20). One or two plain lines
+  at the end of every answer, whatever else it holds: "nothing, I carry on", "answer 74 with yes
+  or no", or the one step only he can take, named. An agent never leaves the conversation, or
+  pauses to wait, without them.
 - **One line per ask, the reasoning in the register.** When an agent needs something from Patric,
   chat gets one line: what is needed, and how to answer it (a paste, a yes or no, or a pick
   between two things named in plain words). The register entry carries the whole reasoning, in
