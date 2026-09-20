@@ -70,9 +70,9 @@ search half of AC 20, proved without a browser in the scenario suite: the same a
 Lovable kit on the same dataset. The templates package holds only how it looks: the cards, the
 single pages, the list wrappers with their form, script and stylesheet, and the endpoint that
 renders cards for the wrapper's reloads. It shows what `display` gives and formats nothing (the
-ledger does, AGENTS.md); what to show for a status, a hidden price, a past viewing or a "till salu"
-list is the site's own decision, taken in the templates from `status.id` and the rest, as the
-reference site takes it.
+ledger does, AGENTS.md). What stays the site's own decision, past viewings, wording, layout, is
+taken in the templates; a hidden price and the lines between "till salu", "kommande" and
+"referenser" are question 68, which asks Core to prepare them so no implementer has to.
 
 **The override rule.** A template is looked up in the theme first (`<theme>/core/<file>`), then in
 the package. Editing means copying the file into the theme; the package's own folder is never
