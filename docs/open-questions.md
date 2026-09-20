@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 58 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
+answering is quick. Next number: 59 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
 ## 52. The pairs for the Vitec mapping: no longer needed for the mapping; what remains is Vitec's golden masters
@@ -44,3 +44,14 @@ datatype, id, queued at, reason, attempts, next attempt, last error), and one li
 putting them on its list. The panel then colours queued rows yellow in the live list, sorted with
 the rest by time, and gets an “Update from CRM” button next to “Recompute selected”. The shapes
 are drafted in docs/admin-panel.md. Smaller: yes to both as drafted; or the queue alone.
+
+## 58. `[core]` The database cluster's admin password appeared in a session's transcript; rotate it?
+
+On 2026-09-20 an agent asked the DigitalOcean API for the cluster's size, and the answer carried
+the cluster's connection string, password included, into the session's tool output, which the
+transcript keeps. The cluster accepts connections only from the two apps (question 33), so the
+password alone opens nothing from outside. Smaller: rotate it anyway. An agent resets the database
+user's password through the API and updates both apps so they take the new binding (each app
+restarts for about a minute, production included, so it needs your "allow"). Or leave it, on the
+strength of the trusted-sources rule. Either way, agents now read only the fields they need from
+that endpoint.
