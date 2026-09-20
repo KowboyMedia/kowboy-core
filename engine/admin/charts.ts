@@ -44,9 +44,11 @@ export function tile(
   return (
     `<div class="card card-sm h-100"><div class="card-body">` +
     `<div class="subheader">${escape(label)}</div>` +
-    `<div class="d-flex align-items-baseline"><div class="figure me-2${colour}">${escape(value)}</div>` +
-    (options.context ? `<div class="text-secondary small">${escape(options.context)}</div>` : '') +
-    `</div>${options.spark ? sparkline(options.spark) : ''}</div></div>`
+    `<div class="figure text-nowrap${colour}">${escape(value)}</div>` +
+    (options.context
+      ? `<div class="text-secondary small mt-1">${escape(options.context)}</div>`
+      : '') +
+    `${options.spark ? sparkline(options.spark) : ''}</div></div>`
   );
 }
 
@@ -92,8 +94,9 @@ function segment(
  * table under the chart for whoever cannot use the picture.
  */
 export function columns(labels: string[], series: Series[], caption: string): string {
-  const W = 720;
-  const H = 220;
+  // Sized for half a page: the text keeps its size when the picture fills its card.
+  const W = 560;
+  const H = 230;
   const left = 44;
   const right = 8;
   const top = 10;
@@ -111,14 +114,14 @@ export function columns(labels: string[], series: Series[], caption: string): st
     .map(
       (t) =>
         `<line x1="${left}" x2="${W - right}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}" stroke="${GRID}" stroke-width="1"/>` +
-        `<text x="${left - 6}" y="${(y(t) + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="${INK}">${escape(figure(t))}</text>`,
+        `<text x="${left - 6}" y="${(y(t) + 3).toFixed(1)}" text-anchor="end" font-size="11" fill="${INK}">${escape(figure(t))}</text>`,
     )
     .join('');
   const every = labels.length > 12 ? 3 : 1;
   const xLabels = labels
     .map((label, i) =>
       i % every === 0 || i === labels.length - 1
-        ? `<text x="${(left + i * slot + slot / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="${INK}">${escape(label)}</text>`
+        ? `<text x="${(left + i * slot + slot / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="${INK}">${escape(label)}</text>`
         : '',
     )
     .join('');

@@ -257,7 +257,7 @@ describe('the admin panel', () => {
     const html = await (await get('/admin')).text();
     expect(html).toContain('Dashboard');
     expect((html.match(/class="subheader"/g) ?? []).length).toBeGreaterThanOrEqual(6);
-    expect((html.match(/viewBox="0 0 720 220"/g) ?? []).length).toBe(2);
+    expect((html.match(/viewBox="0 0 560 230"/g) ?? []).length).toBe(2);
     expect(html).toContain('As a table');
     expect(html).toContain('Records per datatype');
     // The platform's edge rewrites email addresses unless the page says not to.

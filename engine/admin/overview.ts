@@ -17,7 +17,7 @@ import {
   type Hourly,
   type SiteFreshness,
 } from './stats.js';
-import { card, escape, grid, intro, kv, okBad, pill, table } from './html.js';
+import { card, escape, grid, intro, kv, okBad, pair, pill, table } from './html.js';
 import { eventsTable } from './timeline.js';
 import type { Panel } from './context.js';
 
@@ -65,12 +65,15 @@ const sum = (rows: { live: string; tombstoned: string }[], key: 'live' | 'tombst
 const allFresh = (f: SiteFreshness): boolean => f.active === 0 || f.fresh === f.active;
 
 function sitesTile(f: SiteFreshness): string {
+  const waiting = [...f.stale, ...f.never];
+  const named =
+    waiting.slice(0, 3).join(', ') + (waiting.length > 3 ? ` and ${waiting.length - 3} more` : '');
   const context =
     f.active === 0
       ? 'no site is attached'
       : allFresh(f)
         ? 'all pulled within the hour'
-        : `waiting on ${[...f.stale, ...f.never].join(', ')}`;
+        : `waiting on ${named}`;
   return tile('Sites up to date', `${f.fresh} of ${f.active}`, {
     state: f.active === 0 ? undefined : allFresh(f) ? 'ok' : 'bad',
     context,
@@ -110,7 +113,7 @@ function figures(d: Data): string {
 /** The two charts over the last 24 hours. */
 function charts(d: Data): string {
   const series = (h: Hourly, type: string): number[] => h.counts.get(type) ?? [];
-  return grid([
+  return pair([
     card(
       `Records per hour, last ${HOURS} hours`,
       'What the adapters brought in: written, removed in the CRM, or dropped because it was malformed or of an unlicensed office.',

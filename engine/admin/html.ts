@@ -210,6 +210,15 @@ export const grid = (items: string[]): string =>
     )
     .join('')}</div>`;
 
+/** Two cards side by side on a wide screen, one under another on a narrow one. */
+export const pair = (items: string[]): string =>
+  `<div class="row row-cards">${items
+    .map(
+      (item) =>
+        `<div class="col-lg-6 d-flex">${item.replace('class="card mb-3"', 'class="card mb-3 flex-fill"')}</div>`,
+    )
+    .join('')}</div>`;
+
 /** A table; the cells are HTML already, so escape data before putting it in. */
 export function table(headers: string[], rows: string[][], empty = 'Nothing here.'): string {
   if (rows.length === 0) return `<p class="text-secondary mb-0">${escape(empty)}</p>`;
