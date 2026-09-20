@@ -161,6 +161,31 @@ describe('operations', () => {
     expect(Number(after.items[0]?.['seq'])).toBeGreaterThan(Number(before.items[0]?.['seq']));
   });
 
+  it('recomputes sold properties last, whatever the CRM (question 74)', async () => {
+    // The sold one is written first, so by seq alone it would be recomputed first.
+    crm.put('property', 'OBJ-SOLD', { ...property('OBJ-SOLD'), soldUtc: '2026-09-01T10:00:00Z' });
+    await event('connection_added');
+    await until(async () => {
+      await drainFetchList();
+      return (await pull(running.baseUrl, 'property')).items.length === 1;
+    }, 'the sold property');
+    crm.put('property', 'OBJ-FOR-SALE', property('OBJ-FOR-SALE'));
+    await event('resync');
+    await until(async () => {
+      await drainFetchList();
+      return (await pull(running.baseUrl, 'property')).items.length === 2;
+    }, 'both properties');
+
+    await db().query(`update items set content_hash = 'stale'`);
+    const report = await recompute({});
+    expect(report.changed).toBe(2);
+
+    const after = await pull(running.baseUrl, 'property');
+    const seqOf = (id: string): number =>
+      Number(after.items.find((item) => item['remote_id'] === id)?.['seq']);
+    expect(seqOf('OBJ-FOR-SALE')).toBeLessThan(seqOf('OBJ-SOLD'));
+  });
+
   it('fires a bell on demand', async () => {
     await ring(TENANT, 'forcerefresh');
     await until(() => running.bells.length > 0, 'the bell');

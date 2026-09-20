@@ -178,12 +178,19 @@ export async function itemsForScope(scope: ScopeFilter): Promise<ItemRow[]> {
 }
 
 /** A scope in pages by seq, so a recompute of everything never holds everything in memory. */
+/**
+ * One page of a scope by seq, either the records not sold or the sold ones: a recompute runs the
+ * unsold first and the sold last, whatever the CRM (Patric, 2026-09-20, question 74). "Sold" is
+ * the universal `sold_at` (the contract date) being set; a datatype without it is never sold.
+ */
 export async function scopeBatch(
   scope: ScopeFilter,
+  sold: boolean,
   afterSeq: number,
   limit: number,
 ): Promise<ItemRow[]> {
   const where = scopeWhere(scope);
+  where.clauses.push(`(data->>'sold_at') is ${sold ? 'not null' : 'null'}`);
   where.values.push(afterSeq, limit);
   const { rows } = await db().query<ItemRow>(
     `select * from items where ${where.clauses.join(' and ')} and seq > $${where.values.length - 1}

@@ -28,7 +28,8 @@ API will call when it exists:
   `lifecycle_events` and delivered to the adapter by the worker.
 - **Recompute** (`engine/recompute.ts`): any scope (everything, a CRM, a tenant, a connection, an
   office, a datatype, one record, a list, or only records an older rules version made), as a
-  preview that writes nothing or for real, in pages of 200 records with progress. Long runs are
+  preview that writes nothing or for real, in pages of 200 records with progress, the records
+  not sold first and the sold ones (universal `sold_at` set) last (question 74). Long runs are
   jobs (`engine/jobs.ts`) the worker takes, with progress, a result, cancel and a history.
 - **Records** (`engine/storage/items.ts`): search with server-side filters, words in the unified
   record (a full-text index), sort by any column, pages and a total.

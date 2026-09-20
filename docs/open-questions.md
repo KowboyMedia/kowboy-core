@@ -79,17 +79,3 @@ driver therefore goes through the site's WordPress admin: the agent logs in once
 activates both, and makes itself an application password for the WordPress REST API. After that
 every change reaches the site by itself through the plugin's own update channel, and nothing more
 is needed from anyone. Asked on 2026-09-20 as 69 in chat.
-
-## 74. `[core]` Sold properties last in a recompute: which universal field says "sold"?
-
-Patric's rule (2026-09-20): when recomputing, properties already sold are done last, whatever the
-CRM. A recompute is Core re-running the mapping, the rules and the display strings over every
-stored record; the order it runs in changes nothing in the result, only which records the sites
-get first. The rule in AGENTS.md says that nowhere in Core is a decision drawn from a CRM value
-(no status, no flag), and "sold" is such a value, so the engine must not read a CRM field to
-order by. Two ways that keep that rule: (a) the smaller: the engine orders by the universal field
-`sold_at` (the contract date, mapped by every adapter that has one, `docs/field-tables.md`):
-records with a `sold_at` go last, the rest keep their order, and no CRM is named anywhere; (b) the
-adapter says which of its records are sold through a new generic capability of the adapter API (a
-priority per record), which is more contract for the same result. A yes to (a), or (b), decides
-it; the engine and the panel then both use that order. Nothing is built until answered.
