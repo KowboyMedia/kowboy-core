@@ -324,13 +324,19 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
 
 ### 8.3 Admin panel
 
-One place in the `web` process, under `/admin`, behind a login by email link to an allowed domain
-(no shared password): a dashboard (health, figures and hourly charts over the last 24 hours, latest events), tenants and sites (the token on the tenant's page, bell secrets shown once, ring now), connections (the
-credentials form the adapter declares, offices, lifecycle actions), the adapters' own panels,
-items (figures, filters, a selection to recompute, a live activity list, and one record's raw, unified and display with its timeline), events, a test panel that runs requests as
-a site or an operator, and settings. Server-rendered on Tabler (Bootstrap 5), served by Core itself;
-an adapter's panels come through `Adapter.admin` and the engine never looks inside them. docs/admin-panel.md is the design
-(approved 2026-09-18, AC 42).
+One place in the `web` process, behind a login by email link to an allowed domain (no shared
+password): a JSON admin API under `/v1/admin/` (engine/admin-api/), used by a browser app served
+under `/admin` (admin/, React on Vite, built by `npm run build`) and by the agents with the admin
+secret alike. A dashboard (health, figures and hourly charts over the last 24 hours, latest
+events), tenants made and changed on one page (name and licence, the CRM connection with the login
+the adapter declares and the offices, the sites, one save), records with server-side search, sort
+and pages, a selection to recompute or fetch again, a live activity list and one record's raw,
+unified and display with its timeline, jobs (a recompute of any scope, previewed first, with
+progress and a history), events with the audit trail, the adapters' pages drawn from what they
+describe as data, and settings. Every change is an `admin.action` event; a live stream refreshes
+open pages; alerts go out by mail and Slack when a health check changes state. Every user journey
+is a browser test (admin/e2e). docs/admin-panel.md is the design (approved 2026-09-18, rebuilt
+2026-09-20, AC 42).
 
 ## 9. Phases and approval gates
 

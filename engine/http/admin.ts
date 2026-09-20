@@ -1,12 +1,15 @@
 import { sameSecret } from '../storage/crypto.js';
 import { queueLifecycle } from '../lifecycle.js';
 import { recompute, type Scope } from '../recompute.js';
-import { queryEvents, type EventQuery } from '../events.js';
 import { ring, type BellKind } from '../bells.js';
 import { jsonResponse, type Request, type Response } from './server.js';
 import type { Datatype, LifecycleEvent } from '../adapter-api/types.js';
 
-/** `/v1/admin/*` (SRS §10). Header `X-Admin-Secret` must equal `ADMIN_SECRET`. */
+/**
+ * The operator API the agents and scripts call (SRS §10): header `X-Admin-Secret` must equal
+ * `ADMIN_SECRET`. Everything else under `/v1/admin/` is the panel's API (engine/admin-api/),
+ * which takes the same header or a login.
+ */
 export function adminRoutes(
   adminSecret: string,
 ): { method: string; path: string; handler: (request: Request) => Promise<Response> }[] {
@@ -83,28 +86,5 @@ export function adminRoutes(
         return jsonResponse(200, await recompute(scope, { dryRun: body.dry_run === true }));
       }),
     },
-    {
-      method: 'GET',
-      path: '/v1/admin/events',
-      handler: guard(async (request) => {
-        return jsonResponse(200, { events: await queryEvents(eventQuery(request.query)) });
-      }),
-    },
   ];
-}
-
-/** `?entity=<connection>/<datatype>/<remote id>` plus the plain filters (SRS §11). */
-function eventQuery(query: URLSearchParams): EventQuery {
-  const [connectionId, datatype, remoteId] = (query.get('entity') ?? '').split('/');
-  const value = (name: string): string | undefined => query.get(name) ?? undefined;
-  return {
-    entity: connectionId && datatype && remoteId ? { connectionId, datatype, remoteId } : undefined,
-    connectionId: value('connection'),
-    tenantId: value('tenant') === undefined ? undefined : Number(value('tenant')),
-    correlationId: value('correlation'),
-    type: value('type'),
-    from: value('from'),
-    to: value('to'),
-    limit: query.has('limit') ? Number(query.get('limit')) : undefined,
-  };
 }

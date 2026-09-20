@@ -2,7 +2,14 @@
 // the fetch list, both schedules, licensing by office and the health checks. Vitec's behaviour
 // beyond its documentation waits for a test account on staging (strategy §9, Phase 6).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { adminLogin, harness, pull, ADMIN_SECRET, type Harness } from '../../acceptance/harness.js';
+import {
+  adminCall,
+  adminLogin,
+  harness,
+  pull,
+  ADMIN_SECRET,
+  type Harness,
+} from '../../acceptance/harness.js';
 import { drainFetchList, runSchedules, vitecAdapter } from './index.js';
 import * as store from './store.js';
 import { PASSWORD, USERNAME, startFakeConnect, type FakeConnect } from './test/connect.js';
@@ -619,104 +626,123 @@ describe('the Vitec adapter', () => {
   it('is set up from the tenant’s page: the CRM panel’s login and offices make the connection, and the first load runs with that login (AC 42)', async () => {
     seed(fake);
     await start();
-    const { cookie, csrf } = await adminLogin(running);
-    const saved = await fetch(`${running.baseUrl}/admin/tenants/new`, {
-      method: 'POST',
-      headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams([
-        ['csrf', csrf],
-        ['name', 'Acme'],
-        ['active', 'yes'],
-        ['provider', 'vitec'],
-        ['vitec_credential_username', USERNAME],
-        ['vitec_credential_password', PASSWORD],
-        ['vitec_offices', OFFICE],
-        ['site_id', ''],
-        ['site_label', 'acme.se'],
-        ['site_url', 'http://127.0.0.1:9/bell'],
-        ['site_active', 'yes'],
-      ]).toString(),
-      redirect: 'manual',
+    const { headers } = await adminLogin(running);
+    const saved = await adminCall<{
+      id: number;
+      notes: string[];
+      connection: { id: string; has_credentials: boolean };
+      tenant: { token: string };
+    }>(running, headers, 'POST', '/v1/admin/tenants', {
+      name: 'Acme',
+      active: true,
+      connection: {
+        provider: 'vitec',
+        credentials: { username: USERNAME, password: PASSWORD },
+        offices: [OFFICE],
+        active: true,
+      },
+      sites: [{ label: 'acme.se', url: 'http://127.0.0.1:9/bell', active: true }],
     });
-    expect(saved.status).toBe(303);
-    const location = decodeURIComponent(saved.headers.get('location') ?? '');
-    expect(location).toContain('Loading every record of 1 office(s) from vitec now');
-    const id = /\/admin\/tenants\/(\d+)/.exec(location)?.[1] ?? '';
-    const page = await (
-      await fetch(`${running.baseUrl}/admin/tenants/${id}`, { headers: { cookie } })
-    ).text();
-    expect(page).toContain('login set');
-    expect(page).toContain(`connection <code>vitec-${id}</code>`);
+    expect(saved.status).toBe(201);
+    expect(saved.body.notes.join(' ')).toContain(
+      'Loading every record of 1 office(s) from vitec now',
+    );
+    expect(saved.body.connection.id).toBe(`vitec-${saved.body.id}`);
+    expect(saved.body.connection.has_credentials).toBe(true);
     // The worker takes the load, the adapter fetches with the login typed on the page, and the
     // tenant's token from the page pulls what arrived.
     await running.deliver();
     await drainFetchList();
-    const token =
-      /Token<\/div><div class="datagrid-content"><code class="user-select-all">([^<]+)</.exec(
-        page,
-      )?.[1] ?? '';
     const pulled = await fetch(`${running.baseUrl}/v1/changes?datatype=property`, {
-      headers: { authorization: `Bearer ${token}` },
+      headers: { authorization: `Bearer ${saved.body.tenant.token}` },
     });
     expect(pulled.status).toBe(200);
     expect(((await pulled.json()) as { items: unknown[] }).items).toHaveLength(1);
   });
 
-  it('has its own admin panel: the fetch list, the schedules, and one record looked at or queued (AC 42)', async () => {
+  it('describes its panel as data: the directions and settings, the schedules with run-now actions, the fetch list, one record looked at without writing or fetched again, and its queue (AC 42)', async () => {
     seed(fake);
     await start();
     await drainFetchList();
-    const { cookie, csrf } = await adminLogin(running);
-    const post = (path: string, fields: Record<string, string>): Promise<Response> =>
-      fetch(`${running.baseUrl}${path}`, {
-        method: 'POST',
-        headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ csrf, ...fields }).toString(),
-        redirect: 'manual',
-      });
+    const { headers } = await adminLogin(running);
 
-    const front = await fetch(`${running.baseUrl}/admin/vitec`, { headers: { cookie } });
-    expect(front.status).toBe(200);
-    const html = await front.text();
-    expect(html).toContain(`/v1/hook/vitec/webhook/${TOKEN}`);
-    expect(html).toContain(CONNECTION);
+    const page = await adminCall<{
+      directions: { steps: { text: string }[]; settings: { key: string }[] };
+      sections: {
+        title: string;
+        items?: { label: string; value: unknown }[];
+        table?: { rows: { cells: unknown[] }[] };
+      }[];
+    }>(running, headers, 'GET', '/v1/admin/providers/vitec');
+    expect(page.status).toBe(200);
+    expect(page.body.directions.settings.map((s) => s.key)).toContain('VITEC_WEBHOOK_TOKEN');
+    const url = page.body.sections.find((s) => s.title === 'Notification URL')?.items?.[0]?.value;
+    expect(url).toContain(`/v1/hook/vitec/webhook/${TOKEN}`);
+    const connections = page.body.sections.find((s) => s.title === 'Connections and schedules');
+    expect(connections?.table?.rows[0]?.cells[0]).toBe(CONNECTION);
 
     // Look: fetched and mapped, nothing written.
     fake.put(OFFICE, 'property', estate('OBJ9'));
-    const looked = await post('/admin/vitec/fetch', {
-      connection: CONNECTION,
+    const looked = await adminCall<{
+      raw: Record<string, unknown>;
+      unified: Record<string, unknown>;
+      display: unknown;
+    }>(running, headers, 'POST', `/v1/admin/connections/${CONNECTION}/inspect`, {
       datatype: 'property',
-      office: OFFICE,
-      id: 'OBJ9',
-      action: 'look',
+      remoteId: 'OBJ9',
+      officeId: OFFICE,
     });
-    const seen = await looked.text();
-    expect(seen).toContain('agent_ids');
-    expect(seen).toContain('Nothing was written');
+    expect(looked.status).toBe(200);
+    expect(looked.body.unified).toHaveProperty('agent_ids');
+    expect(looked.body.raw).toHaveProperty('id', 'OBJ9');
     expect(await item('property', 'OBJ9')).toBeUndefined();
 
-    // Queue: the worker fetches and stores it.
-    await post('/admin/vitec/fetch', {
-      connection: CONNECTION,
-      datatype: 'property',
-      office: OFFICE,
-      id: 'OBJ9',
-      action: 'queue',
-    });
+    // Fetch again, named outright: the worker hands it to the adapter, which fetches and stores it.
+    const queued = await adminCall<{ queued: { event: string }[] }>(
+      running,
+      headers,
+      'POST',
+      '/v1/admin/refetch',
+      {
+        scope: { connectionId: CONNECTION },
+        records: [{ datatype: 'property', remoteId: 'OBJ9', officeId: OFFICE }],
+      },
+    );
+    expect(queued.status).toBe(202);
+    expect(queued.body.queued[0]?.event).toBe('refetch');
+    await running.deliver();
+    const waiting = await adminCall<{ queued: { remote_id: string; state: string }[] }>(
+      running,
+      headers,
+      'GET',
+      '/v1/admin/items/activity',
+    );
+    expect(waiting.body.queued.map((row) => row.remote_id)).toContain('OBJ9');
     await drainFetchList();
     expect(await item('property', 'OBJ9')).toBeDefined();
 
-    // "Catch up now" makes the next tick run it; the connection page shows what the adapter knows.
-    expect(
-      (await post('/admin/vitec', { action: 'catch_up', connection: CONNECTION })).status,
-    ).toBe(303);
+    // "Catch up now" makes the next tick run it; the tenant's page shows what the adapter knows.
+    const acted = await adminCall<{ message: string }>(
+      running,
+      headers,
+      'POST',
+      '/v1/admin/providers/vitec/actions',
+      {
+        action: 'catch_up',
+        params: { connection: CONNECTION },
+      },
+    );
+    expect(acted.status).toBe(200);
     expect(await store.getState(CONNECTION, 'catch_up_at')).toBe('1970-01-01T00:00:00.000Z');
-    const page = await fetch(`${running.baseUrl}/admin/connections/${CONNECTION}`, {
-      headers: { cookie },
-    });
-    const shown = await page.text();
-    expect(shown).toContain('Connect username');
-    expect(shown).toContain('fetch list');
+    const tenant = await adminCall<{
+      connection: { credentials: { label: string }[]; sections: { title: string }[] };
+    }>(running, headers, 'GET', '/v1/admin/tenants/1');
+    expect(tenant.body.connection.credentials.map((field) => field.label)).toContain(
+      'Connect username',
+    );
+    expect(tenant.body.connection.sections.map((section) => section.title)).toContain(
+      'What Vitec knows',
+    );
   });
 
   it('fetches at most five records at once (proposal point 10)', async () => {

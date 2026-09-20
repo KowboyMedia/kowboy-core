@@ -32,19 +32,6 @@ the price is hidden; (c) whether the area name stays when the address is hidden;
 a "till salu, visa som kommande" estate carries; (e) how each of the four bid settings shows in
 `bidding`. Smaller: (a) alone now, the rest when the first client template needs them.
 
-## 57. `[core]` `[crm]` Queued records on the panel, and “Update from CRM” for a selection, need two additive adapter capabilities
-
-The Items page shows what went through the write path and what the sites did with it, but not
-what still waits on an adapter's own fetch list, and it can recompute a selection but not ask the
-CRM for it again: the queue and the fetching are the adapter's (AGENTS.md), and the adapter API is
-protected. Two additive fields would let any adapter hand both to the engine without the engine
-knowing the CRM: `Adapter.admin.queue()` returning the waiting entries (connection, office,
-datatype, id, queued at, reason, attempts, next attempt, last error), and one lifecycle event
-`refetch` carrying a list of records, delivered like the others and answered by the adapter
-putting them on its list. The panel then colours queued rows yellow in the live list, sorted with
-the rest by time, and gets an “Update from CRM” button next to “Recompute selected”. The shapes
-are drafted in docs/admin-panel.md. Smaller: yes to both as drafted; or the queue alone.
-
 ## 58. `[core]` The database cluster's admin password appeared in a session's transcript; rotate it?
 
 On 2026-09-20 an agent asked the DigitalOcean API for the cluster's size, and the answer carried
@@ -55,34 +42,3 @@ user's password through the API and updates both apps so they take the new bindi
 restarts for about a minute, production included, so it needs your "allow"). Or leave it, on the
 strength of the trusted-sources rule. Either way, agents now read only the fields they need from
 that endpoint.
-
-## 59. `[core]` The admin panel rebuild: the function list and its MoSCoW ratings
-
-Patric, 2026-09-20: the panel reads as a hobby project and misses core functions; list what
-comparable products offer, rate every function with MoSCoW, and do not build before it is
-discussed. `docs/admin-panel-rebuild.md` holds the use cases, the catalogue and the ratings: 32
-Musts (among them saves in place with a toast, sortable and pageable searches, recompute and
-fetch-again by record, selection, office, tenant, CRM, datatype or everything, with a preview and
-progress), 14 Shoulds, 14 Coulds and 3 Won'ts. Smaller: yes, the ratings stand as drafted; or
-name the rows that move.
-
-## 60. `[core]` The admin panel rebuild: how it is built
-
-`docs/admin-panel-rebuild.md` §4. Recommended: a React app on Core's admin API (Refine, headless,
-with shadcn/ui and Tailwind, tables by TanStack, forms by react-hook-form, a command palette),
-built into static files by the same build and served by Core's web process under `/admin`; long
-operations as jobs run by the worker and watched live; every user journey a browser test in the
-checks. It adds a build step and browser-side libraries, all MIT, and Playwright for the tests.
-Smaller: keep today's server-rendered pages and add htmx for in-place updates and sorting, with a
-lower ceiling. Yes to the recommendation, or the smaller one, or Ant Design instead of shadcn/ui
-for speed.
-
-## 61. `[core]` `[crm]` An adapter describes its panel as data (an adapter API change)
-
-`docs/admin-panel-rebuild.md` §4. In the new app an adapter cannot ship pages of its own without
-coupling the app to each CRM, so the adapter hands the engine data that describes its panel:
-sections of key-values, tables with row actions, forms and actions; the app renders them with the
-same components as everything else. The same shape carries the connection status on the tenant
-page, a "check the login" probe, the "look at a record" dry run and the queue of question 57.
-One additive field on `Adapter.admin`. Smaller: yes as described; or keep HTML fragments from the
-adapter shown inside the app, which looks and behaves differently from the rest.

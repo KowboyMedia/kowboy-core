@@ -26,7 +26,7 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import * as connect from './api.js';
 import * as store from './store.js';
 import { changedAtOf, isoDate, mappers, referencedIds } from './mappers.js';
-import { vitecAdmin } from './admin/index.js';
+import { refetchOffice, vitecAdmin } from './admin/index.js';
 import type {
   Adapter,
   AdapterApi,
@@ -579,6 +579,37 @@ async function load(live: Live, offices: readonly string[], datatype?: Datatype)
   }
 }
 
+/**
+ * "Fetch again" from the panel: the named records go on the list ahead of loads, each under the
+ * office it was seen with (a record of an office-scoped datatype is fetched under its office; a
+ * record never seen is asked for under the connection's first office). A record Vitec no longer
+ * has is removed, as any fetch that answers 404.
+ */
+async function refetch(
+  live: Live,
+  records: { datatype: Datatype; remoteId: string; officeId: string | null }[],
+): Promise<void> {
+  const correlationId = randomUUID();
+  const entries = [];
+  for (const record of records) {
+    const officeId = await refetchOffice(
+      live.connection,
+      record.datatype,
+      record.remoteId,
+      record.officeId,
+    );
+    if (!officeId) continue;
+    entries.push({
+      officeId,
+      datatype: record.datatype,
+      remoteId: record.remoteId,
+      reason: 'refetch' as const,
+      correlationId,
+    });
+  }
+  await store.enqueue(entries);
+}
+
 /** Resync (strategy §7.2): reload everything listed, and remove every id no longer listed. */
 async function resync(live: Live, datatype?: Datatype): Promise<void> {
   await load(live, live.connection.licensedOffices, datatype);
@@ -711,6 +742,7 @@ export const vitecAdapter: Adapter = {
       if (event.type === 'connection_added') await load(target, event.connection.licensedOffices);
       if (event.type === 'offices_added') await load(target, event.officeIds);
       if (event.type === 'resync') await resync(target, event.datatype);
+      if (event.type === 'refetch') await refetch(target, event.records);
     });
 
     given.healthCheck(`${PROVIDER}.webhook_lag`, async () => {

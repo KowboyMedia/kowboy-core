@@ -8,10 +8,11 @@ import pg from 'pg';
 import type { Datatype } from '../../engine/adapter-api/index.js';
 
 /**
- * Why a record is on the list. A signal from Vitec, a webhook or a removal, goes before loads and
- * catch-ups (strategy §5.3). A 'remove' entry is not fetched: the record left the sites' scope.
+ * Why a record is on the list. A signal from Vitec, a webhook or a removal, and an operator's
+ * "fetch again" go before loads and catch-ups (strategy §5.3). A 'remove' entry is not fetched:
+ * the record left the sites' scope.
  */
-export type Reason = 'webhook' | 'remove' | 'load' | 'catch_up' | 'reference';
+export type Reason = 'webhook' | 'remove' | 'load' | 'catch_up' | 'reference' | 'refetch';
 
 export type Entry = {
   officeId: string;
@@ -162,7 +163,7 @@ export async function claim(limit: number, skipOffices: readonly string[] = []):
      where (office_id, datatype, remote_id) in (
        select office_id, datatype, remote_id from vitec_fetch_list
        where next_at is not null and next_at <= now() and office_id <> all($2::text[])
-       order by (reason in ('webhook', 'remove')) desc, queued_at
+       order by (reason in ('webhook', 'remove', 'refetch')) desc, queued_at
        limit $1
        for update skip locked)
      returning *`,

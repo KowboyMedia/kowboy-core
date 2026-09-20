@@ -8,6 +8,7 @@ import { mappers } from './mappers.js';
 import * as crm from './crm.js';
 import type {
   Adapter,
+  AdapterAdmin,
   AdapterApi,
   Connection,
   Datatype,
@@ -222,6 +223,75 @@ function referencesOf(payload: Record<string, unknown>): [Datatype, string][] {
   ];
 }
 
+/** What this adapter shows in the panel: a CRM without a login, its fetch list, and one action. */
+const admin: AdapterAdmin = {
+  credentials: [],
+  directions: () => ({
+    steps: [
+      {
+        title: 'Tenant',
+        text: 'On Tenants, make a tenant with the CRM fake-webhook and its offices; no login is needed, and every record is loaded on save (the event connection_added).',
+      },
+      {
+        title: 'Notifications',
+        text: 'POST /v1/hook/fake-webhook/webhook with the connection, datatype and record id; the record is fetched and written. offices_added, resync and refetch are handled as for any CRM.',
+      },
+      { title: 'Check', text: 'fake-webhook.webhook_lag is green on the dashboard.' },
+    ],
+    settings: [],
+  }),
+  panel: async (connections) => [
+    {
+      title: 'Fetch list',
+      help: 'Records waiting to be fetched from the fake CRM, and the connections that would fetch them.',
+      items: [
+        { label: 'Waiting', value: fetchList.size },
+        {
+          label: 'Connections',
+          value: connections.map((connection) => connection.id).join(', ') || null,
+        },
+      ],
+      actions: [{ id: 'drain', label: 'Fetch everything waiting now' }],
+    },
+  ],
+  connection: async (connection) => [
+    {
+      title: 'What the fake CRM knows',
+      items: [
+        {
+          label: 'Waiting for this connection',
+          value: [...fetchList.values()].filter((queued) => queued.connectionId === connection.id)
+            .length,
+        },
+      ],
+      actions: [
+        {
+          id: 'drain',
+          label: 'Fetch everything waiting now',
+          params: { connection: connection.id },
+        },
+      ],
+    },
+  ],
+  act: async (action) => {
+    if (action !== 'drain') throw new Error(`no such action: ${action}`);
+    await scheduleDrain();
+    return { message: 'Everything waiting is fetched.' };
+  },
+  queue: async () =>
+    [...fetchList.values()].map((queued) => ({
+      connectionId: queued.connectionId,
+      officeId: '',
+      datatype: queued.datatype,
+      remoteId: queued.remoteId,
+      queuedAt: new Date(queued.queuedAt).toISOString(),
+      reason: 'webhook',
+      attempts: queued.attempts,
+      nextAt: null,
+      lastError: null,
+    })),
+};
+
 export const fakeWebhookAdapter: Adapter = {
   manifest: {
     provider: PROVIDER,
@@ -229,6 +299,7 @@ export const fakeWebhookAdapter: Adapter = {
   },
   mappers,
   routes,
+  admin,
 
   start(given: AdapterApi): void {
     api = given;
@@ -245,6 +316,12 @@ export const fakeWebhookAdapter: Adapter = {
       }
       if (event.type === 'offices_added') {
         loadOffices(event.connection, event.officeIds);
+      }
+      if (event.type === 'refetch') {
+        const correlationId = randomUUID();
+        for (const record of event.records) {
+          enqueue(event.connection.id, record.datatype, record.remoteId, correlationId);
+        }
       }
     });
 

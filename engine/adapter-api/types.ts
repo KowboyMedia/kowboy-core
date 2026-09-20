@@ -54,7 +54,9 @@ export type LifecycleEvent =
   | { type: 'connection_removed'; connection: Connection }
   | { type: 'offices_added'; connection: Connection; officeIds: string[] }
   | { type: 'offices_removed'; connection: Connection; officeIds: string[] }
-  | { type: 'resync'; connection: Connection; datatype?: Datatype };
+  | { type: 'resync'; connection: Connection; datatype?: Datatype }
+  /** Fetch these records again from the CRM (the panel's "fetch again"); records the CRM no longer has are removed. */
+  | { type: 'refetch'; connection: Connection; records: AdminRecord[] };
 
 export type LifecycleHandler = (event: LifecycleEvent) => Promise<void> | void;
 
@@ -121,36 +123,109 @@ export type AdapterApi = {
   report(error: unknown, context?: Record<string, unknown>): void;
 };
 
-/** A field of the credentials form an adapter asks for in the admin panel (docs/admin-panel.md). */
-export type AdminField = { key: string; label: string; secret?: boolean };
+// ---- The admin panel (docs/admin-panel.md): an adapter describes what it shows as data ---------
+//
+// The panel is a browser app the engine serves; it draws every adapter's pages, directions and
+// actions from these descriptions with the same components as its own pages, and never runs
+// adapter code in the browser. Approved 2026-09-20 (register questions 57 and 61 with the rebuild).
 
-/** A panel request: the route request, the parsed form of a POST, and this provider's connections. */
-export type AdminRequest = RouteRequest & {
-  /** The fields of a POST form, or empty. */
-  form: Record<string, string>;
-  /** Goes into every form the panel renders (`adminHtml.form` does it). */
-  csrf: string;
-  /** This provider's connections, credentials decrypted, as `AdapterApi.connections()` gives them. */
-  connections(): Promise<Connection[]>;
+/** A field the panel asks a person to fill: a connection's login, or an action's parameters. */
+export type AdminField = {
+  key: string;
+  label: string;
+  /** Typed hidden, stored encrypted, never shown back. */
+  secret?: boolean;
+  /** One line under the field. */
+  help?: string;
+  /** A fixed set of values instead of free text. */
+  options?: { value: string; label?: string }[];
+  required?: boolean;
 };
 
-/** What a panel renders: an HTML fragment the shell wraps, or a redirect after a POST. */
-export type AdminResult = { html: string } | { redirect: string };
+/** A value the panel shows. A state colours it; a moment is an ISO time the panel formats. */
+export type AdminValue =
+  | string
+  | number
+  | boolean
+  | null
+  | { text: string; state: 'ok' | 'bad' | 'warn' | 'muted' }
+  | { moment: string | null };
 
-export type AdminPanel = {
-  /** Under /admin/<provider>/; "" is the adapter's front page. */
-  path: string;
+/** A button on a section or on a row: the panel hands `id` and `params` to the adapter's `act`. */
+export type AdminAction = {
+  id: string;
+  label: string;
+  /** Parameters the button carries, fixed. */
+  params?: Record<string, string>;
+  /** Parameters a person types first, asked in a dialog. */
+  fields?: AdminField[];
+  /** Asked before running, with this text. */
+  confirm?: string;
+  danger?: boolean;
+};
+
+/** One block of an adapter's page, or of its view under a connection. */
+export type AdminSection = {
   title: string;
-  handle(request: AdminRequest): Promise<AdminResult> | AdminResult;
+  /** One line on what the block shows or does. */
+  help?: string;
+  items?: { label: string; value: AdminValue }[];
+  table?: {
+    columns: string[];
+    rows: { cells: AdminValue[]; actions?: AdminAction[] }[];
+    /** Shown instead of an empty table. */
+    empty?: string;
+  };
+  actions?: AdminAction[];
 };
 
-/** What an adapter shows and asks for in the admin panel (docs/admin-panel.md, approved 2026-09-18). */
+/** Setup directions: what a cold reader does, in order, and the settings as they are. */
+export type AdminDirections = {
+  steps: { title: string; text: string }[];
+  settings: { key: string; value: AdminValue; help: string }[];
+};
+
+/** A record on an adapter's own fetch list, for the panel's live activity list. */
+export type AdminQueued = {
+  connectionId: string | null;
+  officeId: string;
+  datatype: Datatype;
+  remoteId: string;
+  queuedAt: string;
+  reason: string;
+  attempts: number;
+  nextAt: string | null;
+  lastError: string | null;
+};
+
+/** One record named for a fetch that writes nothing, or for a fetch again. */
+export type AdminRecord = { datatype: Datatype; remoteId: string; officeId: string | null };
+
+/** What an adapter shows and does in the admin panel. */
 export type AdapterAdmin = {
-  /** The credentials form of a connection; the values become one JSON document and are never shown back. */
+  /** The login form of a connection; the values become one JSON document, never shown back. */
   credentials: AdminField[];
-  panels: AdminPanel[];
-  /** An HTML fragment under a connection: what the adapter knows about it. */
-  connectionStatus?(connection: Connection): Promise<string>;
+  /** The directions at the top of the adapter's page, built from what the adapter reads. */
+  directions(): AdminDirections;
+  /** The adapter's page: what it knows and can do, given its connections as the engine holds them. */
+  panel(connections: Connection[]): Promise<AdminSection[]>;
+  /** What the adapter knows about one connection, shown on its tenant's page. */
+  connection?(connection: Connection): Promise<AdminSection[]>;
+  /** Run an action a section declared. The message goes to the person who pressed it. */
+  act(
+    action: string,
+    params: Record<string, string>,
+    connections: Connection[],
+  ): Promise<{ message: string }>;
+  /** Try the CRM with a login before it is saved: yes or no, and why. */
+  probe?(credentials: string, officeIds: string[]): Promise<{ ok: boolean; detail: string }>;
+  /** Fetch one record and map it, writing nothing; null when the CRM has no such record. */
+  inspect?(
+    connection: Connection,
+    record: AdminRecord,
+  ): Promise<{ raw: unknown; mapped: MappedRecord | null } | null>;
+  /** What waits on the adapter's own fetch list, oldest first. */
+  queue?(connections: Connection[]): Promise<AdminQueued[]>;
 };
 
 /** What an adapter directory exports. */
@@ -159,7 +234,7 @@ export type Adapter = {
   mappers: Mappers;
   /** Endpoints the entrypoint mounts. The engine never sees the requests. */
   routes?: Route[];
-  /** Its settings and panels in the admin panel, rendered inside the engine's shell. */
+  /** What it shows and does in the admin panel, as data the panel draws. */
   admin?: AdapterAdmin;
   /** Sets up the adapter's own timers, loops and queues. */
   start(api: AdapterApi): Promise<void> | void;
