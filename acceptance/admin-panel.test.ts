@@ -35,13 +35,6 @@ async function login(email = ADMIN_EMAIL, remember = false): Promise<Response> {
 
 const linkIn = (text: string | undefined): string => text?.match(/https?:\/\/\S+/)?.[0] ?? '';
 
-/** The value inside the first <pre> after a marker, as the page shows a secret once. */
-const shownAfter = (html: string, marker: string): string => {
-  const at = html.indexOf(marker);
-  const start = html.indexOf('<pre>', at) + 5;
-  return html.slice(start, html.indexOf('</pre>', start)).trim();
-};
-
 beforeEach(async () => {
   crm.reset();
   running = await harness({
@@ -126,75 +119,155 @@ describe('the admin panel', () => {
     expect(html).toContain('migrations applied');
   });
 
-  it('adds a tenant, shows its token on the page at all times, and the token pulls changes (AC 42)', async () => {
-    const tokenOf = (h: string): string => /class="user-select-all">([^<]+)</.exec(h)?.[1] ?? '';
-    const created = await post('/admin/tenants', { name: 'Acme Mäkleri' });
-    expect(created.status).toBe(200);
-    const html = await created.text();
-    const acme = /\/admin\/tenants\/(\d+)\/token/.exec(html)?.[1] ?? '';
-    expect(acme).not.toBe('');
-    const token = tokenOf(html);
+  /** The tenant form as a person fills it: one POST with the rows of sites kept in order. */
+  const saveTenant = (path: string, rows: [string, string][]): Promise<Response> =>
+    fetch(`${running.baseUrl}${path}`, {
+      method: 'POST',
+      headers: { cookie, ...FORM },
+      body: new URLSearchParams([['csrf', csrf], ...rows]).toString(),
+      redirect: 'manual',
+    });
+  const site = (id: string, label: string, url: string, active = 'yes'): [string, string][] => [
+    ['site_id', id],
+    ['site_label', label],
+    ['site_url', url],
+    ['site_active', active],
+  ];
+  const tokenOn = (html: string): string =>
+    /Token<\/div><div class="datagrid-content"><code class="user-select-all">([^<]+)</.exec(
+      html,
+    )?.[1] ?? '';
+
+  it('makes a tenant in one save: name, the CRM with its panel and offices, two sites; the page then shows the token, the secrets and the load (AC 42)', async () => {
+    const blank = await (await get('/admin/tenants/new')).text();
+    expect(blank).toContain('name="provider"');
+    expect(blank).toContain('data-provider="fake-polling"');
+    expect(blank).toContain('name="site_label"');
+
+    const saved = await saveTenant('/admin/tenants/new', [
+      ['name', 'Acme Mäkleri'],
+      ['active', 'yes'],
+      ['provider', 'fake-polling'],
+      ['fake-polling_offices', 'B-1, B-2'],
+      ...site('', 'acme.se', 'http://127.0.0.1:9/bell'),
+      ...site('', 'acme.dk', 'http://127.0.0.1:9/bell-dk'),
+    ]);
+    expect(saved.status).toBe(303);
+    const location = decodeURIComponent(saved.headers.get('location') ?? '');
+    const id = /\/admin\/tenants\/(\d+)/.exec(location)?.[1] ?? '';
+    expect(id).not.toBe('');
+    expect(location).toContain('Loading every record of 2 office(s) from fake-polling now');
+    expect(location).toContain('Site acme.dk added');
+
+    const page = await (await get(`/admin/tenants/${id}`)).text();
+    expect(page).toContain('Acme Mäkleri');
+    expect(page).toContain(`connection <code>fake-polling-${id}</code>`);
+    expect(page).toContain('B-1');
+    expect(page).toContain('acme.se');
+    expect(page).toContain('acme.dk');
+    // The token and two bell secrets are on the page, and the token pulls.
+    expect((page.match(/user-select-all/g) ?? []).length).toBe(3);
+    const token = tokenOn(page);
     expect(token.length).toBeGreaterThan(20);
-    // Shown again on a fresh open of the tenant page, not only the once (Patric, 2026-09-19).
-    const reopened = await (await get(`/admin/tenants/${acme}`)).text();
-    expect(tokenOf(reopened)).toBe(token);
     const pull = await fetch(`${running.baseUrl}/v1/changes?datatype=property`, {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(pull.status).toBe(200);
-    // A second token retires the first, and is the one shown from then on.
-    const rotated = await post(`/admin/tenants/${acme}/token`, {});
-    const next = tokenOf(await rotated.text());
-    expect(next).not.toBe(token);
-    expect(tokenOf(await (await get(`/admin/tenants/${acme}`)).text())).toBe(next);
-    const old = await fetch(`${running.baseUrl}/v1/changes?datatype=property`, {
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(old.status).toBe(401);
-  });
-
-  it('adds a site with a bell secret shown once, and rings it', async () => {
-    const page = await post('/admin/sites', {
-      tenant: String(TENANT),
-      label: 'acme.se',
-      url: 'http://127.0.0.1:9/bell',
-    });
-    const html = await page.text();
-    expect(html).toContain('Bell secret for site');
-    expect(shownAfter(html, 'Bell secret for site').length).toBeGreaterThan(20);
-    const listed = await (await get(`/admin/tenants/${TENANT}`)).text();
-    expect(listed).toContain('acme.se');
-    const overview = await (await get('/admin/tenants')).text();
-    expect(overview).toContain(`/admin/tenants/${TENANT}`);
-    const id = /\/admin\/sites\/(\d+)\/ring/.exec(listed)?.[1] ?? '';
-    const rang = await post(`/admin/sites/${id}/ring`, { tenant: String(TENANT), kind: 'delta' });
-    expect(rang.status).toBe(303);
-  });
-
-  it('creates a connection, saves it, and queues a lifecycle event the worker delivers', async () => {
-    const created = await post('/admin/connections', {
-      id: 'acme-fake',
-      tenant: String(TENANT),
-      provider: 'fake-polling',
-      offices: 'B-1, B-2',
-    });
-    expect(created.status).toBe(303);
-    expect(created.headers.get('location')).toContain('/admin/connections/acme-fake');
-    const detail = await (await get('/admin/connections/acme-fake')).text();
-    expect(detail).toContain('acme-fake');
-    expect(detail).toContain('Load everything');
-
-    const saved = await post('/admin/connections/acme-fake', { offices: 'B-1', active: 'yes' });
-    expect(saved.status).toBe(303);
-    const list = await (await get(`/admin/tenants/${TENANT}`)).text();
-    expect(list).toContain('B-1');
-    expect(list).not.toContain('B-2');
-
-    const queued = await post('/admin/connections/acme-fake/event', { event: 'connection_added' });
-    expect(queued.status).toBe(303);
+    // The first load was handed to the worker.
     await running.deliver();
-    const events = await (await get('/admin/events?connection=acme-fake')).text();
+    const events = await (await get(`/admin/events?connection=fake-polling-${id}`)).text();
     expect(events).toContain('lifecycle.connection_added');
+    const list = await (await get('/admin/tenants')).text();
+    expect(list).toContain(`/admin/tenants/${id}`);
+    expect(list).toContain('fake-polling');
+  });
+
+  it('edits a tenant on the same page: rename, an office added and one dropped, a site switched off and one added, a new token and a new bell secret, and refusals keep the page', async () => {
+    const made = await saveTenant('/admin/tenants/new', [
+      ['name', 'Acme'],
+      ['active', 'yes'],
+      ['provider', 'fake-polling'],
+      ['fake-polling_offices', 'B-1, B-2'],
+      ...site('', 'acme.se', 'http://127.0.0.1:9/bell'),
+    ]);
+    const id = /\/admin\/tenants\/(\d+)/.exec(made.headers.get('location') ?? '')?.[1] ?? '';
+    const before = await (await get(`/admin/tenants/${id}`)).text();
+    const siteId = /formaction="\/admin\/sites\/(\d+)\/ring"/.exec(before)?.[1] ?? '';
+    expect(siteId).not.toBe('');
+    const token = tokenOn(before);
+
+    const edited = await saveTenant(`/admin/tenants/${id}`, [
+      ['name', 'Acme renamed'],
+      ['active', 'no'],
+      ['provider', 'fake-polling'],
+      ['fake-polling_offices', 'B-1, B-3'],
+      ['fake-polling_active', 'yes'],
+      ...site(siteId, 'acme.se', 'http://127.0.0.1:9/bell', 'no'),
+      ...site('', 'acme.no', 'http://127.0.0.1:9/bell-no'),
+    ]);
+    const location = decodeURIComponent(edited.headers.get('location') ?? '');
+    expect(location).toContain('Taking office B-2 off the sites');
+    expect(location).toContain('Loading office B-3 now');
+    expect(location).toContain('Site acme.no added');
+    const after = await (await get(`/admin/tenants/${id}`)).text();
+    expect(after).toContain('Acme renamed');
+    expect(after).toContain('>disabled<');
+    expect(after).toContain('acme.no');
+    expect(after).toContain('B-3');
+    expect(after).not.toContain('B-2');
+    expect(after).toMatch(
+      /name="site_active" aria-label="Active"><option value="yes">yes<\/option><option value="no" selected>/,
+    );
+    expect(tokenOn(after)).toBe(token);
+    await running.deliver();
+    const events = await (await get(`/admin/events?connection=fake-polling-${id}`)).text();
+    expect(events).toContain('lifecycle.offices_added');
+    expect(events).toContain('lifecycle.offices_removed');
+
+    // A new token retires the old one; a new bell secret changes on the page.
+    const secretBefore =
+      /site_id" value="\d+"[\s\S]*?user-select-all">([^<]+)</.exec(after)?.[1] ?? '';
+    expect((await post(`/admin/tenants/${id}/token`, {})).status).toBe(303);
+    const rotated = await (await get(`/admin/tenants/${id}`)).text();
+    expect(tokenOn(rotated)).not.toBe(token);
+    expect(
+      (
+        await fetch(`${running.baseUrl}/v1/changes?datatype=property`, {
+          headers: { authorization: `Bearer ${token}` },
+        })
+      ).status,
+    ).toBe(401);
+    expect((await post(`/admin/sites/${siteId}/secret`, {})).status).toBe(303);
+    const withSecret = await (await get(`/admin/tenants/${id}`)).text();
+    expect(/site_id" value="\d+"[\s\S]*?user-select-all">([^<]+)</.exec(withSecret)?.[1]).not.toBe(
+      secretBefore,
+    );
+    expect((await post(`/admin/sites/${siteId}/ring`, { kind: 'delta' })).status).toBe(303);
+
+    // Refusals answer with the page, what was typed still in it.
+    const noName = await saveTenant(`/admin/tenants/${id}`, [
+      ['name', ''],
+      ['provider', 'fake-polling'],
+      ['fake-polling_offices', 'B-1'],
+    ]);
+    expect(noName.status).toBe(200);
+    expect(await noName.text()).toContain('A tenant needs a name');
+    const badSite = await saveTenant(`/admin/tenants/${id}`, [
+      ['name', 'Acme renamed'],
+      ['provider', 'fake-polling'],
+      ['fake-polling_offices', 'B-1'],
+      ...site('', 'broken', 'not-a-url'),
+    ]);
+    const kept = await badSite.text();
+    expect(kept).toContain('bell URL starting with http');
+    expect(kept).toContain('value="broken"');
+    // Old links still land on the tenant.
+    expect((await get(`/admin/connections/fake-polling-${id}`)).headers.get('location')).toBe(
+      `/admin/tenants/${id}`,
+    );
+    expect((await get(`/admin/sites/${siteId}/edit`)).headers.get('location')).toBe(
+      `/admin/tenants/${id}`,
+    );
   });
 
   it('finds an item, shows raw, unified and display with its timeline, and recomputes it', async () => {

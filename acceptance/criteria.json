@@ -424,9 +424,8 @@
         "the admin panel mails at most ten links a day, whatever the form is fed",
         "the admin panel remembers the device for 30 days when asked, and for the browser session otherwise",
         "the admin panel shows the overview with every health check, the adapter ones included",
-        "the admin panel adds a tenant, shows its token on the page at all times, and the token pulls changes (AC 42)",
-        "the admin panel adds a site with a bell secret shown once, and rings it",
-        "the admin panel creates a connection, saves it, and queues a lifecycle event the worker delivers",
+        "the admin panel makes a tenant in one save: name, the CRM with its panel and offices, two sites; the page then shows the token, the secrets and the load (AC 42)",
+        "the admin panel edits a tenant on the same page: rename, an office added and one dropped, a site switched off and one added, a new token and a new bell secret, and refusals keep the page",
         "the admin panel finds an item, shows raw, unified and display with its timeline, and recomputes it",
         "the admin panel pulls as a site from the test panel and shows the sizes",
         "the admin panel runs housekeeping from the settings page",
@@ -437,7 +436,8 @@
         "the admin panel shows the dashboard: figures, two hourly charts with table twins, and no email mask",
         "the admin panel filters items by tenant, entity type, office, date range and removal, and recomputes a selection",
         "the admin panel lists the live activity of the write path, a state per row, and turns a row to applied when a site reports it",
-        "the admin panel names only pages the panel has in every adapter’s setup directions"
+        "the admin panel names only pages the panel has in every adapter’s setup directions",
+        "the Vitec adapter is set up from the tenant’s page: the CRM panel’s login and offices make the connection, and the first load runs with that login (AC 42)"
       ],
       "note": "docs/admin-panel.md, approved by Patric 2026-09-18 (question 29). Login by email link, no shared password (Patric, 2026-09-18, question 30)."
     }

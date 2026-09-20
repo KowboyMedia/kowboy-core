@@ -616,6 +616,52 @@ describe('the Vitec adapter', () => {
     }
   });
 
+  it('is set up from the tenant’s page: the CRM panel’s login and offices make the connection, and the first load runs with that login (AC 42)', async () => {
+    seed(fake);
+    await start();
+    const { cookie, csrf } = await adminLogin(running);
+    const saved = await fetch(`${running.baseUrl}/admin/tenants/new`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams([
+        ['csrf', csrf],
+        ['name', 'Acme'],
+        ['active', 'yes'],
+        ['provider', 'vitec'],
+        ['vitec_credential_username', USERNAME],
+        ['vitec_credential_password', PASSWORD],
+        ['vitec_offices', OFFICE],
+        ['site_id', ''],
+        ['site_label', 'acme.se'],
+        ['site_url', 'http://127.0.0.1:9/bell'],
+        ['site_active', 'yes'],
+      ]).toString(),
+      redirect: 'manual',
+    });
+    expect(saved.status).toBe(303);
+    const location = decodeURIComponent(saved.headers.get('location') ?? '');
+    expect(location).toContain('Loading every record of 1 office(s) from vitec now');
+    const id = /\/admin\/tenants\/(\d+)/.exec(location)?.[1] ?? '';
+    const page = await (
+      await fetch(`${running.baseUrl}/admin/tenants/${id}`, { headers: { cookie } })
+    ).text();
+    expect(page).toContain('login set');
+    expect(page).toContain(`connection <code>vitec-${id}</code>`);
+    // The worker takes the load, the adapter fetches with the login typed on the page, and the
+    // tenant's token from the page pulls what arrived.
+    await running.deliver();
+    await drainFetchList();
+    const token =
+      /Token<\/div><div class="datagrid-content"><code class="user-select-all">([^<]+)</.exec(
+        page,
+      )?.[1] ?? '';
+    const pulled = await fetch(`${running.baseUrl}/v1/changes?datatype=property`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(pulled.status).toBe(200);
+    expect(((await pulled.json()) as { items: unknown[] }).items).toHaveLength(1);
+  });
+
   it('has its own admin panel: the fetch list, the schedules, and one record looked at or queued (AC 42)', async () => {
     seed(fake);
     await start();

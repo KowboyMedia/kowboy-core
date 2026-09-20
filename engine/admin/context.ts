@@ -98,7 +98,10 @@ export const redirect = (to: string, flash?: string): Response => ({
   headers: { location: flash ? `${to}?flash=${encodeURIComponent(flash)}` : to },
 });
 
-/** Office ids typed into a form: separated by commas, spaces or newlines. */
+/** A POST body with its repeated fields kept, for a form with rows (`ctx.form` keeps one value per name). */
+export const lists = (request: Request): URLSearchParams =>
+  new URLSearchParams(request.body.toString('utf8'));
+
 /** A form or query value as a positive whole number, or undefined. */
 export const numberOf = (value: string | undefined): number | undefined => {
   const n = Number(value);
