@@ -69,7 +69,7 @@ panel and carries over in the new form.
 | Copy buttons for the token and the bell secrets, with "copied"                                                                                           | Must   | S     |                                                            |
 | "Check the login" before saving: the adapter tries the CRM with the typed login and says yes or no                                                       | Should | M     | Needs a generic adapter capability (a probe); question 61. |
 | First-load progress on the tenant page: records per datatype, done or failed, how long it took                                                           | Should | M     | Comes with jobs (D).                                       |
-| A tenant with two CRMs                                                                                                                                   | Could  | M     | No customer needs it yet.                                  |
+| A tenant with one or several CRMs, of the same or different kinds                                                                                        | Must   | M     | Moved from Could by Patric, 2026-09-20.                    |
 | Archive a tenant (hide it, keep its data 90 days)                                                                                                        | Could  | S     | Today: licence off and "Remove everything".                |
 
 ### B. Health and monitoring (U2, U5)
@@ -293,3 +293,52 @@ tenant's).
    with the admin secret are the contract the agents and scripts use (SRS §10); the panel's
    endpoints sit next to them. Suggestion: leave them; they share the engine's functions with the
    panel, and removing them is a contract change for nothing.
+
+## 7. Patric's verdict on section 6, and what follows (2026-09-20, later)
+
+The build of section 6 was a reskin: new code and a new stack, but every page, its layout and its
+user flow came from the first build, because the function list was written by walking that
+build. Patric had ruled that out. Nothing of it is inherited into the next design; the requirement
+sheets (sections 1 and 3, with the Must below) and best-practice patterns of market-leading admin
+consoles are the only inputs, the information architecture and the screens are approved before
+any code, and nothing is built until he says so. The strategy is in the chat answer of the same
+day and moves into `docs/admin-panel-design.md` once the design is drafted.
+
+Changes to the sheets:
+
+- A tenant may have one or several CRM connections, of the same or different kinds: a Must.
+- Shelved as a later performance improvement: jobs run one after another in the worker (a second
+  worker takes jobs in parallel; one platform setting).
+- Shelved as a later health check: a site that pulls but fails to apply records turns a check red
+  and alerts.
+- Cut what nothing uses (register question 65): the old operator endpoints with the admin secret
+  and the setup scripts, once the panel's API is the one code path.
+- The public health check keeps its 200 or 500 answer for an uptime monitor and must say what is
+  wrong in words a viewer understands without naming customers (register question 62).
+- Every notification Vitec sends may be stored (register question 63).
+
+The gaps of section 6, explained in full:
+
+1. **A pull does not name the site.** A "site" is one website that shows a tenant's records: one
+   WordPress installation with the Core plugin, or one Lovable site. Every site has a bell URL
+   (where Core rings to say "there is something new") and a bell secret (so the site knows the
+   bell came from Core). A "pull" is the site fetching the changes from Core, page by page, with
+   the tenant's token. Because every site of a tenant pulls with the same token, Core can see
+   that a pull happened for the tenant but not which of its sites made it. So "last pull" and
+   "first pull" are known per tenant, not per site, and the setup checklist can say "a site
+   pulled with the token" but not "acme.se pulled". The fix is small: the plugin and the Lovable
+   kit send their site name in a header with every pull, and Core records it per site.
+2. **What a site holds is inferred, not counted.** After every page a site pulls, it reports to
+   Core which records it applied and which it could not. From those reports Core can say "the
+   sites reported 640 properties applied and 6 failed"; it cannot say "the site holds 646
+   properties" because the site never reports its totals. A small addition to the clients, a
+   report of their counts per datatype now and then, would make the comparison exact.
+3. **Removing a site deletes it.** A site is a row in Core: its name, its bell URL, its bell
+   secret, when it was last rung, what it answered, when the tenant last pulled. Taking the site
+   off the tenant's page deletes that row. The events it produced (bells rung, what it applied)
+   stay in the event log, but nothing points at them any more. What is lost: its secret (adding
+   it again means a new secret pasted into the site), its bell history in one place, and a
+   protection against a slip of the hand. The alternative is to keep the row hidden and inactive
+   ("archive"), which is what "archive a tenant" in the Coulds does for a whole tenant. The
+   suggestion stands: deletion is fine for now; archiving covers the case where the history
+   matters.
