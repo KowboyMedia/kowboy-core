@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 68 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
+answering is quick. Next number: 69 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
 ## 52. The pairs for the Vitec mapping: no longer needed for the mapping; what remains is Vitec's golden masters
@@ -87,40 +87,28 @@ page, a "check the login" probe, the "look at a record" dry run and the queue of
 One additive field on `Adapter.admin`. Smaller: yes as described; or keep HTML fragments from the
 adapter shown inside the app, which looks and behaves differently from the rest.
 
-## 62. `[client-wordpress]` The staging site: a third app on App Platform with a managed MySQL database, about $20 a month
+## 63. `[client-wordpress]` A WP Rocket licence for the staging site
 
-`docs/staging-site.md`. Strategy §4's staging WordPress site: one container ($5.00 a month) built
-from the repository like the two Core apps, and DigitalOcean's smallest managed MySQL ($15.15),
-because WordPress needs MySQL and the platform's cheap dev database is Postgres only. Agents
-create and run it through the API; nothing needs a console. Blocks step 1 as a whole and step 2's
-parity check. Smaller: MariaDB inside the container, $5 in all, at the price of a site that empties
-on every deploy and refills from Core in about two minutes, so nothing can be watched across days
-and you may open an empty site right after a change. Yes to the $20 site, or the $5 variant.
+Patric, 2026-09-20: caches are invalidated the WordPress way and nothing else, and the staging site
+tests the single market-leading full-page cache. Checked the same day in the caches' own code
+(`docs/staging-site.md`): the plugin's writes and removals fire exactly what WP Rocket, Breeze and
+WP Super Cache purge on. WP Rocket is the market leader on Cloudways' stack (5.5 million sites;
+LiteSpeed Cache is larger but needs a LiteSpeed server, which Cloudways does not run), and it is
+a paid plugin, about $59 a year for one site. Breeze with Varnish comes with every Cloudways site
+and is tested anyway. Smaller: Breeze alone. A licence for WP Rocket, or Breeze alone?
 
-## 63. `[client-wordpress]` Which page cache the staging site should mirror
+## 64. `[client-wordpress]` A criterion for page cache invalidation on the staging site
 
-The plugin fires what caches listen for; the smoke suite proves a real cache purges on the live
-site (AC 43, question 64). Which host and page cache do the customer sites run: the host's own
-cache, WP Rocket, LiteSpeed, another plugin? Default until answered: WP Super Cache on the staging
-site. Not blocking; the site starts with the default.
-
-## 64. `[client-wordpress]` `[core]` A criterion for cache invalidation, and the live-site tests in the acceptance report
-
-`acceptance/` is protected. Proposed AC 43: on a live site behind a page cache, a change that
-reaches the site makes the next request for its page fresh, and a removed record's page is gone
-from the cache. With it, the live-site tests of AC 8, 18, 19 and 22 (and 21 once a release exists)
-are named in `acceptance/criteria.json` next to the CI ones, so the report says what is proved
-where. Smaller: fold the cache proof under AC 20 without a new number. Yes to AC 43, or fold.
-
-## 65. `[client-wordpress]` The default templates as a separate package
-
-`docs/default-templates.md`. Recommended: a second plugin (working name `core-templates`) holding
-only the cards, the single pages and the list wrappers, with WooCommerce-style overrides (a copy
-in the theme wins and is never overwritten) and its own release on the same updater; the sync
-plugin keeps the local copy, the query functions and the routing, which custom-design sites use
-directly. It buys the three ways of use you named and keeps template releases away from the sync
-loop, for about fifty lines of extra code. Smaller: the templates inside the sync plugin with the
-same override rule, one release for both. Yes to the package (and its name), or inside the plugin.
+Reworded 2026-09-20 after Patric's clarification: the live site is the client WordPress install on
+Cloudways, and the criterion is WordPress-specific. `[core]` was only because the criteria file
+lives in this repository; dropped. Proposed AC 43: on the staging site behind a full-page cache
+(Breeze with Varnish, and WP Rocket if 63 says so), a change that reaches the site makes the next
+request for its page and its list pages fresh, a removed record's page is gone from the cache, and
+browser caches follow because HTML answers carry no long-lived cache directive and the templates'
+assets carry a version. With it, the live-site tests of AC 8, 18, 19, 21 and 22 are named in
+`acceptance/criteria.json` next to the CI ones, so the report says what is proved where.
+`acceptance/` is protected. Smaller: fold the cache proof under AC 20 without a new number. Yes to
+AC 43, or fold.
 
 ## 66. `[client-wordpress]` The v3 template files are the approved items; you supply them
 
@@ -129,15 +117,38 @@ needs exactly the template files (the templates folder of v3 and the list wrappe
 stylesheet), nothing else from the old plugin: every helper call and field in them is replaced on
 port. Confirm that this ask covers those files and hand them over in chat (a zip or the files); an
 agent keeps them as `docs/inputs/templates-v3/`, the input of record, and agents open no old
-repository. Nothing in step 2 starts before the files are there. Smaller: v2's files, if v3's are
-harder to find (you said they are the same).
+repository. Nothing in the port starts before the files are there (Patric, 2026-09-20: not now;
+kept open). Smaller: v2's files, if v3's are harder to find (you said they are the same).
 
-## 67. `[client-wordpress]` The reference site for parity: which site, which CRM account, which theme
+## 67. `[client-wordpress]` The reference site for parity: its address, its CRM account, its theme
 
-The parity check compares the staging site with the reference site record by record, so both must
-show the same CRM data. Which site is it (its address)? Does it run on the Vitec test account
-staging already holds (`M31529`), or on a customer's account, whose Vitec key pair and office ids
-then go on staging as a second tenant (an agent adds it on the tenant page; a customer's data on
-staging is your call)? And should the staging site run the same theme, so whole pages can be
-compared, or is the comparison scoped to the templates' own markup (the default, needs no theme)?
-Blocks the parity check, not the port.
+Patric asked on 2026-09-20 for the whole workflow first; it is the access table in
+`docs/staging-site.md` (one step for him: a Cloudways API key; no SFTP; WordPress admin through the
+login the Cloudways API gives, then an application password the agent makes itself). For the
+reference site nothing but its public address is needed: its pages are read over HTTPS, no login.
+What remains: which site is it (its address)? Does it run on the Vitec test account staging
+already holds (`M31529`), or on a customer's account, whose Vitec key pair and office ids then go
+on staging as a second tenant (an agent adds it on the tenant page; a customer's data on staging
+is your call)? And should the staging site run the same theme, so whole pages can be compared, or
+is the comparison scoped to the templates' own markup (the default, needs no theme)? Blocks the
+parity check, not the port.
+
+## 68. `[core]` `[crm]` What Core prepares for a site: hidden values and the listing state
+
+Patric, 2026-09-20: what a hidden price or a status shows as should be Core's help, not the
+implementer's thinking, especially for implementers using agents that read the data; `display.price`
+empty when hidden, or a separate flag. Recommended, two parts. (a) **Absence is the signal:**
+`display` already leaves a key out when its inputs are missing (R-001); the ledger gains one entry
+saying that `display` honours the CRM's own hide flags, so `display.price`, `display.address_line`
+and `display.highest_bid` are absent when the CRM says hide, while `data` stays complete for a
+site that wants the value anyway. Absence beats a flag: an implementer shows what is there and
+checks nothing. How Vitec expresses a hidden price, a hidden address and the bid settings is
+question 54 (b), (c) and (e), read off the test account first. (b) **A prepared listing state:**
+`state`, `{id, name}` like every enumeration, on property and project, with a small fixed set of
+ids (for sale, coming, sold, withdrawn, rented, and what else the ledger names) and a Swedish
+name, mapped from the CRM's `status` by a table in the ledger, one table per CRM, applied by the
+adapter; `status` stays next to it as sent. A list is then "`state.id` is `for_sale`" and a badge
+is `state.name`, with nothing to think about. Both change protected things: AGENTS.md's "no
+status, no visibility" sentence becomes "only by ledger entries", the field tables and `schemas/`
+gain `state`, and the ledger gains two entries. Smaller: (a) alone. Yes to both, (a) alone, or a
+flag instead of absence?

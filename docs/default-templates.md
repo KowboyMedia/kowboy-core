@@ -1,8 +1,11 @@
 # The default templates: one package, three ways to use it, parity with the reference site
 
-Step 2 of two, proposed 2026-09-20 for Patric's decisions (questions 65 to 67). It needs step 1's
-site ([staging-site.md](staging-site.md)) for the parity check and runs in the same loop.
-Next-steps item 10 (the templates on the universal model, question 55) is done inside this step.
+Step 2 of two. Proposed 2026-09-20 and revised the same day for Patric's answers: a separate
+package it is, named after the client package with `-templates`, and one package per template set
+is the agent's pick within that. Open: questions 66 (the template files), 67 (the reference site)
+and 68 (what Core prepares for a site). It needs step 1's site ([staging-site.md](staging-site.md))
+for the parity check and runs in the same loop. Next-steps item 10 (the templates on the universal
+model, question 55) is done inside this step.
 
 ## What the templates are
 
@@ -15,32 +18,49 @@ paths AGENTS.md fixes, and the sitemap. `display` gives them the prepared string
 (`docs/field-tables.md`, "display": prices, areas, rooms, fees, the fact tables as `sections`),
 and `data` everything else under its universal name, with the whole payload next to it.
 
-## Where they live
+## Where they live: decided
+
+Patric's answer (question 65, 2026-09-20): a separate package, named after the WordPress client
+package with `-templates`. The shape below is the agent's pick within that answer, made for the
+second half of his question: template sets will come and go as the style advances, a site should
+choose among the installed ones, and a custom set for a client should be the same thing under
+another name, installed and updated the same way.
 
 Patric named three ways a site uses the templates:
 
 | Site                            | Installed                                                           | What updates                                                                |
 | ------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | Custom design                   | the sync plugin only; the theme renders from the plugin's functions | the plugin                                                                  |
-| The defaults, edited            | the sync plugin and the templates; edited copies in the theme       | every template the theme did not copy; a copy in the theme is never touched |
+| The defaults, edited            | the sync plugin and a set; edited copies in the theme               | every template the theme did not copy; a copy in the theme is never touched |
 | The defaults, maintained (WaaS) | both, auto-updated, no copies in the theme                          | everything, on Kowboy's release                                             |
 
-Three places the templates could live, rated against those ways and the rules:
+**One package per template set.** The first set is `2026`, so the package is
+`core-client-templates-2026`; the next style is `core-client-templates-2027` or whatever it is
+called; a set made for one client is `core-client-templates-<client>`. Each is a WordPress plugin:
+a folder with a header, its templates (cards, single pages, list wrappers), its script and
+stylesheet, and one line that registers the set with the sync plugin. Per set rather than one
+package with a folder per set, because a site installs only the set it uses, a client's set never
+ships to other customers, every set is released and updated on its own channel, and choosing a
+set needs nothing more than one dropdown.
 
-| Question             | A. Inside the sync plugin                                                  | B. A second plugin, `core-templates` (working name)                                                         | C. A theme                       |
-| -------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| Custom-design sites  | carry dormant template code                                                | install nothing they do not use                                                                             | would have to run Kowboy's theme |
-| Edited defaults      | a copy in the theme wins and is never overwritten (the WooCommerce rule)   | the same rule, the same safety                                                                              | a child theme; heavier           |
-| WaaS sites           | template changes ride the plugin's releases                                | the package releases on its own cadence                                                                     | theme updates                    |
-| A template bug       | ships in the same release as the sync loop and can take a site's sync down | can never touch syncing; the sync plugin stays thin and rarely released (the safe-update principle, SRS §8) | the same as B                    |
-| Releases and updates | one zip, one JSON                                                          | two zips, two JSONs, one updater with two lines; the package names the plugin version it needs              | a theme updater as well          |
-| Code                 | the least                                                                  | about fifty lines more: a header, the packaging, the updater line, the version check                        | the most                         |
-| Patric's effort      | none                                                                       | none: agents package and release both                                                                       | a theme decision per site        |
+**The selector.** The sync plugin's settings page lists the sets that are installed and active and
+lets the site pick one; the pick is the site's. Several sets may be installed side by side,
+switching is instant, and no data changes. The theme's own copies override whichever set is chosen.
 
-**Recommended: B, a separate package.** Fifty lines buy exactly the three ways of use and keep the
-thin client thin: templates change often, the sync loop should not, and a template release can
-never break syncing. The Concept's "a client is templates plus a sync loop" holds; on a site they
-are two files instead of one. Question 65.
+**A custom set for a client.** A copy of a set folder under a new name, made by one script
+(`npm run new-template-set <name>`), edited as a set of its own, released on its own channel and
+auto-updated like the rest. A customer's own developers can do the same from a package's zip: the
+structure is the whole recipe.
+
+**Where the sets live.** In this repository, `clients/wordpress/templates/<set>/`, next to the
+plugin, so CI runs every set against the plugin and the staging site carries them. The release
+workflow packages each set as its own zip and JSON (`core-client-templates-<set>.json`) on the
+Space, next to the plugin's, and the updater's list gains a line per installed set.
+
+**Dependency.** A set declares `Requires Plugins: core-client` (WordPress 6.5 and later refuse to
+activate it before the sync plugin is active; for a plugin outside WordPress.org no install link is
+offered, which is fine, the plugin comes first anyway) and the plugin version it needs, checked
+when it loads, with a notice when the plugin is older. The sync plugin depends on no set.
 
 **The split inside the client.** The sync plugin (`core-client`) keeps the local copy and every
 question a template can ask of it: `core_client_item()`, `core_client_item_raw()`, one query
@@ -59,9 +79,10 @@ the package. Editing means copying the file into the theme; the package's own fo
 edited on a site, and an update never touches the theme. So a site that changed the card alone
 keeps getting every other template's updates.
 
-**Releases.** The package has its own version and its own release JSON on the Space
-(`core-templates.json`); the must-use updater gets a second line; a `v*` tag packages both
-(`.github/workflows/release.yml`). One approval promotes everything (strategy §4).
+**Releases.** Every set has its own version and its own release JSON on the Space; the must-use
+updater keeps a list, one line per package it watches; a `v*` tag packages the plugin and every
+set (`.github/workflows/release.yml`), and the staging channel of step 1 carries them all on every
+change. One approval promotes everything (strategy §4).
 
 ## How the port happens
 
@@ -88,9 +109,13 @@ those files is replaced on port by the plugin's functions, the universal names a
      or under a label, with at most the site's own date and time settings applied (the site's
      locale is the site's, SRS §7). Every such addition is a line in the inventory, so it can
      become a ledger entry later. This is what "obscure" means here: shown, not formatted.
-   - **The site's own logic.** What a status shows as, a hidden price, past viewings, the lines
-     between "till salu", "kommande" and "referenser", tags: decided in the templates from the
-     values, as AGENTS.md puts it on the site, and noted in the inventory as the site's rules.
+   - **The site's own logic.** Past viewings, wording, tags, what to show where: decided in the
+     templates, as AGENTS.md puts it on the site, and noted in the inventory as the site's rules.
+     A hidden price, a hidden address, whether bids show, and the lines between "till salu",
+     "kommande" and "referenser" are question 68: Patric wants Core to prepare these so an
+     implementer, or an agent reading the data, never has to think about them. Until it is
+     answered the templates decide from the values as the reference site does, and every such
+     decision is a line in the inventory, ready to move into Core.
 3. **Port**, file by file, onto the package with the override rule, on the staging site.
 4. **Parity**, automated, in the smoke job of step 1: for each page type a sample of records (by
    CRM id, never by URL: the Swedish paths are new) is fetched from both sites, the templates' own
@@ -110,19 +135,22 @@ those files is replaced on port by the plugin's functions, the universal names a
 
 ## What it needs from Patric
 
-- **65** the separate package, and its name, or templates inside the plugin.
-- **66** the v3 template files, and the confirmation that they are the approved items.
+- **66** the v3 template files, and the confirmation that they are the approved items (Patric,
+  2026-09-20: not now; the point stays open).
 - **67** the reference site: its address, its CRM account, and whether the staging site gets its
-  theme.
+  theme. The access an agent needs for the whole workflow is the table in
+  [staging-site.md](staging-site.md); for the reference site it is its public address only.
+- **68** what Core prepares for a site: hidden values and the listing state.
 - Already open: 54 (a) to (e) as the templates need them; 52 is untouched (golden masters come
   from the test account).
 
 ## Order of work
 
-After 65 to 67: the inventory → the gaps raised in one batch → the package skeleton, the override
-rule, the updater line and the release → the port, file by file, on the staging site → the parity
-check in the smoke job → AC 28 and AC 20's search half in `acceptance/criteria.json`, the report
-regenerated.
+Now, needing no answer: the set package's skeleton (`core-client-templates-2026`), the selector,
+the override rule, the updater's list and the release per set, and the query function in the sync
+plugin. With 66: the inventory → the gaps raised in one batch → the port, file by file, on the
+staging site. With 67: the parity check in the smoke job → AC 28 and AC 20's search half in
+`acceptance/criteria.json`, the report regenerated.
 
 Not in this step: the Lovable example site (item 10's other half, the same universal names, later),
 a site's custom design, and which sites auto-update (WordPress's own per-site setting, which the

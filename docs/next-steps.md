@@ -117,17 +117,25 @@ the first item that is not done, and keep the file current. Decisions and open q
     `project_id`. 2026-09-20: folded into item 12, `docs/default-templates.md`.
 
 11. **The staging site** (Patric, 2026-09-20; strategy §4's staging WordPress site): plan in
-    `docs/staging-site.md`. A third App Platform app built from the repository like the two Core
-    apps, on the `kowboy-test` tenant staging holds, driven by agents through the API and a
-    staging-only driver, with the smoke suite as a post-deploy job, and a loop that runs until
-    every client criterion a live site can prove is green. Waits on questions 62 to 64; the parts
-    that need no answer (the site image, the driver, the smoke suite against a local site) may
-    start.
+    `docs/staging-site.md`. A WordPress application on Kowboy's Cloudways server (question 62),
+    on the `kowboy-test` tenant staging holds, reached through the plugin's real update channel
+    (a staging channel on the Space, published and tested by a post-deploy job on staging Core),
+    driven by agents through the Cloudways API, Core's admin API and a staging-only driver, with
+    a loop that runs until every client criterion a live site can prove is green. Needs one step
+    from Patric, a Cloudways API key; waits on questions 63, 64 and 68 for the last cases. The
+    parts that need no answer may start: the plugin's updater changes and trash-then-delete, the
+    Space and the staging channel, the driver, the job.
 12. **The default templates** (Patric, 2026-09-20; item 10 folds in): plan in
-    `docs/default-templates.md`. Recommended a separate package with theme overrides; the v3
-    templates Patric supplies are ported onto the universal model, gaps raised by the rule in the
-    document, and parity checked against the reference site in the same loop as item 11. Waits on
-    questions 65 to 67, and on the template files.
+    `docs/default-templates.md`. A separate package per template set, `core-client-templates-2026`
+    first (question 65 answered); the v3 templates Patric supplies (question 66, not yet) are
+    ported onto the universal model, gaps raised by the rule in the document, and parity checked
+    against the reference site (question 67) in the same loop as item 11. The package skeleton,
+    the selector, the override rule and the release per set may start now.
+13. **Documentation for implementers, people and agents alike** (Patric, 2026-09-20, recorded and
+    not yet discussed): how to build a site on Core, what to keep in mind and what to recommend to
+    the customer, written for an agent that reads the data as much as for a developer: absence
+    means "do not show", what is the site's own decision, the query functions, viewings in the
+    past, and the answer to question 68 once it is given. Planned when Patric says so.
 
 ## Later, when Patric supplies them
 
