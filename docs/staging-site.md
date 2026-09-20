@@ -37,10 +37,12 @@ a customer gets. Nothing here is specific to a host. What the plugin needs from 
 8.3, MySQL or MariaDB, WordPress 6.8 or later, outbound HTTPS to Core and a cron tick, and that is
 all the loop needs too.
 
-1. **Where it runs.** A WordPress application on Kowboy's Cloudways server (Patric, question 66),
-   because that is where Kowboy runs it; the same site could stand on any host. Where a host has
-   an API, as Cloudways has, it is a convenience for the agent (the site's login, its cron, a
-   Varnish purge), never a dependency.
+1. **Where it runs.** A blank WordPress site Kowboy sets up (Patric, 2026-09-20, evening: a blank
+   WordPress with admin and SFTP access, on which anything may be installed and any page added);
+   Kowboy runs it on Cloudways (question 66), and the same site could stand on any host. Where a
+   host has an API, as Cloudways has, it is a convenience for the agent (the site's login, its
+   cron, a Varnish purge), never a dependency. SFTP is not used: it is unreachable from where
+   agents run, and the admin login is enough.
 
 2. **How code reaches it: the update channel, the customer's own path.** The plugin's updater
    exists (`mu-plugins/core-client-updater.php`, AC 21): WordPress asks a release JSON on the
@@ -50,10 +52,11 @@ all the loop needs too.
    always sees a newer one while a production release keeps its tag's version, and published to
    that channel; the site updates itself within minutes, or at once when the driver asks it to.
    The template sets of step 2 travel the same way, one JSON each. Two small changes to the plugin
-   make this, and every customer install, one upload and one click: the plugin writes the updater
-   file into `mu-plugins/` on activation (the updater still runs on its own afterwards and never
-   loads plugin code), and the channel address is a setting with the production channel as its
-   default, the wp-config constant kept as an override. A host's git deployment works as well
+   make this, and every customer install, one upload and one click (the user's path is in
+   [default-templates.md](default-templates.md), "Installing and updating"): the plugin writes the
+   updater file into `mu-plugins/` on activation (the updater still runs on its own afterwards and
+   never loads plugin code), and the channel address is a setting with the production channel as
+   its default, the wp-config constant kept as an override. A host's git deployment works as well
    (a build branch holding only the plugin folders, pulled into `wp-content/plugins/`), but it
    needs a deploy key that only a repository admin can add and differs from host to host; the
    channel needs nothing from any host.

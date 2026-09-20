@@ -123,8 +123,9 @@ the first item that is not done, and keep the file current. Decisions and open q
     `project_id`. 2026-09-20: folded into item 12, `docs/default-templates.md`.
 
 11. **The staging site** (Patric, 2026-09-20; strategy §4's staging WordPress site): plan in
-    `docs/staging-site.md`. A WordPress site on Kowboy's Cloudways server (question 66; nothing
-    depends on the host), on the `kowboy-test` tenant staging holds, reached through the plugin's
+    `docs/staging-site.md`. The blank WordPress site Kowboy sets up (Patric, evening), on
+    Cloudways (question 66; nothing depends on the host), on the `kowboy-test` tenant staging
+    holds, reached through the plugin's
     real update channel (a staging channel on the Space, published and tested by a post-deploy
     job on staging Core), driven over HTTPS through the WordPress API, Core's admin API and a
     staging-only driver, with a loop that runs until every client criterion a live site can prove
@@ -134,10 +135,14 @@ the first item that is not done, and keep the file current. Decisions and open q
     pages, the Space and the staging channel, the driver, the job.
 12. **The default templates** (Patric, 2026-09-20; item 10 folds in): plan in
     `docs/default-templates.md`. A separate package per template set, `core-client-templates-2026`
-    first (question 69 answered); the v3 templates Patric supplies (question 70, not yet) are
-    ported onto the universal model, gaps raised by the rule in the document, and parity checked
-    against the reference site (question 71) in the same loop as item 11. The package skeleton,
-    the selector, the override rule and the release per set may start now.
+    first (question 69 answered). Patric's strategy of the evening: the templates are written new
+    to match the output of a WordPress site running plugin v3 with a client's data, page by page,
+    on the blank site of item 11; the old plugin's files are never read (question 70 closed). The
+    installer is decided: one upload, the updater placed by the plugin, updates through
+    WordPress's own Plugins page, template sets installed from the plugin's settings page, the
+    channels written by jobs on the Core apps. Waits on 71 (the v3 site), 73 (the blank site) and
+    74 (the shortcodes to match). The package skeleton, the selector, the override rule, the
+    installer and the release per set may start now.
 13. **Documentation for implementers, people and agents alike** (Patric, 2026-09-20, recorded and
     not yet discussed): how to build a site on Core, what to keep in mind and what to recommend to
     the customer, written for an agent that reads the data as much as for a developer: absence
