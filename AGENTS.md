@@ -136,3 +136,8 @@ Patric is the strategist and product owner. Agents find problems; Patric decides
 2. The acceptance report is updated if an acceptance criterion's status changed.
 3. A `docs/decisions.md` line exists for any structural choice.
 4. Strategy §9 is updated if the phase moved.
+5. **The admin panel tells the truth** (Patric, 2026-09-20: keep it fresh). A change to a page, an
+   action, a setting, a lifecycle event or a health check carries its words in the same change: the
+   panel's own text, the adapter's setup directions and `docs/admin-panel.md`. The tests that read
+   them stay green: `adapters/*/admin/directions.test.ts` (every setting, event, health check and
+   credential field is named) and the acceptance test that every page a direction names exists.

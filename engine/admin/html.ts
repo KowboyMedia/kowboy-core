@@ -40,7 +40,11 @@ const TABLER = vendor('tabler', '@tabler/core', {
 // relative img/ path, served here too.
 const JSONEDITOR = vendor('jsoneditor', 'jsoneditor', {
   'jsoneditor.min.css': { path: 'dist/jsoneditor.min.css', type: 'text/css; charset=utf-8' },
-  'jsoneditor.min.js': { path: 'dist/jsoneditor.min.js', type: 'text/javascript; charset=utf-8' },
+  // The minimalist build: the read-only tree needs neither the code editor nor the validator.
+  'jsoneditor.min.js': {
+    path: 'dist/jsoneditor-minimalist.min.js',
+    type: 'text/javascript; charset=utf-8',
+  },
   'img/jsoneditor-icons.svg': { path: 'dist/img/jsoneditor-icons.svg', type: 'image/svg+xml' },
 });
 
@@ -101,6 +105,21 @@ const STYLE = `
   details > summary { cursor: pointer; color: var(--tblr-primary); }
   .datagrid-content { overflow-wrap: anywhere; }
   td .badge { vertical-align: middle; }
+  /* Live activity: the whole row carries the state; a row that just arrived slides in and glows. */
+  @keyframes activity-in {
+    from { opacity: 0; transform: translateY(-.4rem); box-shadow: inset 0 0 0 100vw rgba(245, 159, 0, .35); }
+    to { opacity: 1; transform: none; box-shadow: inset 0 0 0 100vw rgba(245, 159, 0, 0); }
+  }
+  tr.activity-new > td { animation: activity-in 1.6s ease-out; }
+  @media (prefers-reduced-motion: reduce) { tr.activity-new > td { animation: none; } }
+  /* Charts are inline SVG that fills its card; figures use the same sans as everything else. */
+  .chart svg { width: 100%; height: auto; display: block; }
+  .chart-legend { display: flex; flex-wrap: wrap; gap: .25rem 1rem; font-size: .8rem; color: var(--tblr-secondary); margin-top: .5rem; }
+  .chart-legend .key { display: inline-block; width: .75rem; height: .75rem; border-radius: 2px; vertical-align: -1px; margin-right: .35rem; }
+  .chart .hit:hover { opacity: .85; }
+  .sparkline { display: block; width: 100%; height: 2.5rem; margin-top: .5rem; }
+  .figure { font-size: 1.75rem; font-weight: 600; line-height: 1.1; }
+  .tabular { font-variant-numeric: tabular-nums; }
 `;
 
 const head = (title: string, extra = ''): string =>
@@ -128,7 +147,12 @@ function navigation(items: NavItem[], current: string): string {
     .join('');
 }
 
-/** One full page: the sidebar with the navigation and who is logged in, then the body. */
+/**
+ * One full page: the sidebar with the navigation and who is logged in, then the body. The
+ * `email_off` markers tell the platform's edge (Cloudflare in front of App Platform) to leave
+ * email addresses alone: without them every address in a record or an event was rewritten into a
+ * "[email protected]" link (Patric, 2026-09-20: remove the mask).
+ */
 export function page(options: {
   title: string;
   nav: NavItem[];
@@ -142,7 +166,7 @@ export function page(options: {
   const needsJson = options.body.includes('json-block');
   return (
     head(options.title, needsJson ? jsonHead : '') +
-    `<body><div class="page">` +
+    `<body><!--email_off--><div class="page">` +
     `<aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark"><div class="container-fluid">` +
     `<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu" aria-controls="sidebar-menu" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>` +
     `<div class="navbar-brand navbar-brand-autodark"><a href="/admin" class="text-reset text-decoration-none">Core admin</a></div>` +
@@ -151,7 +175,7 @@ export function page(options: {
     `</div></div></aside>` +
     `<div class="page-wrapper"><div class="page-header d-print-none"><div class="container-xl"><div class="row g-2 align-items-center"><div class="col"><h2 class="page-title">${escape(options.title)}</h2></div></div></div></div>` +
     `<div class="page-body"><div class="container-xl">${flashOf(options.flash)}${options.body}</div></div>` +
-    `<footer class="footer footer-transparent d-print-none"><div class="container-xl"><p class="text-secondary small mb-0">Times are Swedish time (${TIME_ZONE}); hover a time for the exact moment in UTC.</p></div></footer></div></div>${script}${needsJson ? jsonScript : ''}</body></html>`
+    `<footer class="footer footer-transparent d-print-none"><div class="container-xl"><p class="text-secondary small mb-0">Times are Swedish time (${TIME_ZONE}); hover a time for the exact moment in UTC.</p></div></footer></div></div>${script}${needsJson ? jsonScript : ''}<!--/email_off--></body></html>`
   );
 }
 
@@ -163,7 +187,7 @@ export function standalone(options: {
 }): string {
   return (
     head(options.title) +
-    `<body class="d-flex flex-column"><div class="page page-center"><div class="container container-tight py-4"><div class="text-center mb-4"><a href="/admin" class="navbar-brand navbar-brand-autodark">Core admin</a></div><div class="card card-md"><div class="card-body"><h2 class="h2 text-center mb-3">${escape(options.title)}</h2>${flashOf(options.flash)}${options.body}</div></div></div></div>${script}</body></html>`
+    `<body class="d-flex flex-column"><!--email_off--><div class="page page-center"><div class="container container-tight py-4"><div class="text-center mb-4"><a href="/admin" class="navbar-brand navbar-brand-autodark">Core admin</a></div><div class="card card-md"><div class="card-body"><h2 class="h2 text-center mb-3">${escape(options.title)}</h2>${flashOf(options.flash)}${options.body}</div></div></div></div>${script}<!--/email_off--></body></html>`
   );
 }
 
@@ -334,6 +358,34 @@ const clock = new Intl.DateTimeFormat('sv-SE', {
   second: '2-digit',
   hourCycle: 'h23',
 });
+
+/**
+ * The first moment of a calendar day in the panel's zone, as an ISO string: what a day typed into
+ * a filter means, since the panel shows every time in Swedish time.
+ */
+export function startOfDay(day: string): string {
+  const guess = new Date(`${day}T00:00:00Z`);
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: TIME_ZONE,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(guess);
+  const part = (type: string): number => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  const local = Date.UTC(
+    part('year'),
+    part('month') - 1,
+    part('day'),
+    part('hour'),
+    part('minute'),
+    part('second'),
+  );
+  return new Date(guess.getTime() - (local - guess.getTime())).toISOString();
+}
 
 /** A moment as `2026-09-18 22:14:05` in Swedish time; a value that is not a date stays as it is. */
 export const stamp = (value: Date | string): string => {

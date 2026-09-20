@@ -172,12 +172,17 @@ export async function purgeTombstones(days: number): Promise<number> {
 
 // ---- What the admin panel looks at (docs/admin-panel.md) ----------------------------------------
 
-/** Items by remote id, or the first ones of an office or a connection, tombstones included. */
+/** Items by any mix of filters, newest first, tombstones included unless `deleted` says otherwise. */
 export async function findItems(query: {
+  tenantId?: number;
   datatype?: Datatype;
   remoteId?: string;
   officeId?: string;
   connectionId?: string;
+  /** Written in Core at or after this moment, and before this one (ISO strings). */
+  writtenFrom?: string;
+  writtenTo?: string;
+  deleted?: boolean;
   limit?: number;
 }): Promise<ItemRow[]> {
   const where: string[] = ['true'];
@@ -186,10 +191,14 @@ export async function findItems(query: {
     values.push(value);
     where.push(clause.replace('?', `$${values.length}`));
   };
+  if (query.tenantId) add('tenant_id = ?', query.tenantId);
   if (query.datatype) add('datatype = ?', query.datatype);
   if (query.remoteId) add('remote_id = ?', query.remoteId);
   if (query.officeId) add('office_id = ?', query.officeId);
   if (query.connectionId) add('connection_id = ?', query.connectionId);
+  if (query.writtenFrom) add('updated_at >= ?', query.writtenFrom);
+  if (query.writtenTo) add('updated_at < ?', query.writtenTo);
+  if (query.deleted !== undefined) add('deleted = ?', query.deleted);
   values.push(Math.min(query.limit ?? 50, 500));
   const { rows } = await db().query<ItemRow>(
     `select * from items where ${where.join(' and ')} order by seq desc limit $${values.length}`,

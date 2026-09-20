@@ -11,11 +11,11 @@ export function directions(): string {
     [
       [
         '1. Tenant',
-        'On Tenants, make the tenant. Its token is shown once and goes into the site’s settings.',
+        'On Tenants, make the tenant. Its token is on the tenant’s page and goes into the site’s settings.',
       ],
       [
         '2. Connection',
-        'On Connections, add a connection for the tenant with the CRM <code>vitec</code>, the <em>Connect username</em> and <em>Connect password</em> (the key pair Vitec issues per customer in its partner portal) and the offices as customer ids (<code>M30011</code> and the like). Saving with “Load everything” (the event <code>connection_added</code>) fetches every record of those offices. A connection without offices fetches nothing, and <code>vitec.catch_up</code> says so.',
+        'On the tenant’s page, add a connection with the CRM <code>vitec</code> and the offices as customer ids (<code>M30011</code> and the like), then open it and save the <em>Connect username</em> and <em>Connect password</em> (the key pair Vitec issues per customer in its partner portal). “Load everything” (the event <code>connection_added</code>) fetches every record of those offices. A connection without offices fetches nothing, and <code>vitec.catch_up</code> says so.',
       ],
       [
         '3. Notifications',
@@ -27,7 +27,7 @@ export function directions(): string {
       ],
       [
         '5. Check',
-        'On the overview, <code>vitec.webhook_lag</code>, <code>vitec.retries</code>, <code>vitec.catch_up</code>, <code>vitec.offices</code> and <code>vitec.connect</code> are green, and the first notification shows on a record’s timeline as <code>webhook.received</code>.',
+        'On the dashboard, <code>vitec.webhook_lag</code>, <code>vitec.retries</code>, <code>vitec.catch_up</code>, <code>vitec.offices</code> and <code>vitec.connect</code> are green, and the first notification shows on a record’s timeline as <code>webhook.received</code>.',
       ],
     ],
   );

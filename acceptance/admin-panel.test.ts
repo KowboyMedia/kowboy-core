@@ -2,9 +2,11 @@
 // the fake polling adapter: the login by email link, every Core panel, and the seam (an adapter's panel is
 // mounted, the engine never looks inside it).
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { adminLogin, harness, ADMIN_EMAIL, TENANT, type Harness } from './harness.js';
+import { adminLogin, harness, pull, ADMIN_EMAIL, TENANT, TOKEN, type Harness } from './harness.js';
 import { fakePollingAdapter, poll } from '../adapters/fake-polling/index.js';
 import * as crm from '../adapters/fake-polling/crm.js';
+import { vitecAdapter } from '../adapters/vitec/index.js';
+import { nav } from '../engine/admin/context.js';
 
 const CONNECTION = 'polling-acme';
 const FORM = { 'content-type': 'application/x-www-form-urlencoded' };
@@ -249,6 +251,123 @@ describe('the admin panel', () => {
     // The filters that could not be used are left out; the rest of the page works.
     expect(html).toContain('admin.login');
     expect((await get('/admin/events?limit=-5')).status).toBe(200);
+  });
+
+  it('shows the dashboard: figures, two hourly charts with table twins, and no email mask', async () => {
+    const html = await (await get('/admin')).text();
+    expect(html).toContain('Dashboard');
+    expect((html.match(/class="subheader"/g) ?? []).length).toBeGreaterThanOrEqual(6);
+    expect((html.match(/viewBox="0 0 720 220"/g) ?? []).length).toBe(2);
+    expect(html).toContain('As a table');
+    expect(html).toContain('Records per datatype');
+    // The platform's edge rewrites email addresses unless the page says not to.
+    expect(html).toContain('<!--email_off-->');
+  });
+
+  it('filters items by tenant, entity type, office, date range and removal, and recomputes a selection', async () => {
+    crm.put('property', 'P-3', {
+      object_id: 'P-3',
+      stage: 'active',
+      branch_id: 'B-1',
+      street: 'S 3',
+    });
+    crm.put('property', 'P-4', {
+      object_id: 'P-4',
+      stage: 'active',
+      branch_id: 'B-2',
+      street: 'S 4',
+    });
+    await poll();
+    // The panel's days are Swedish days, so the test asks for today in Stockholm.
+    const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Stockholm' }).format(
+      new Date(),
+    );
+    const rows = async (query: string): Promise<number> =>
+      (await (await get(`/admin/items?${query}`)).text()).match(/name="key"/g)?.length ?? 0;
+    expect(await rows(`datatype=&tenant=${TENANT}`)).toBe(2);
+    expect(await rows('datatype=property&office=B-2')).toBe(1);
+    expect(await rows(`datatype=&from=${today}&to=${today}`)).toBe(2);
+    expect(await rows('datatype=&from=2000-01-01&to=2000-01-02')).toBe(0);
+    expect(await rows('datatype=&removed=yes')).toBe(0);
+    expect(await rows('datatype=&tenant=999')).toBe(0);
+
+    const ticked = new URLSearchParams([
+      ['csrf', csrf],
+      ['back', '/admin/items?datatype='],
+      ['key', `${CONNECTION}/property/P-3`],
+      ['key', `${CONNECTION}/property/P-4`],
+    ]);
+    const recomputed = await fetch(`${running.baseUrl}/admin/items/recompute`, {
+      method: 'POST',
+      headers: { cookie, ...FORM },
+      body: ticked.toString(),
+    });
+    const result = await recomputed.text();
+    expect(result).toContain('examined&quot;: 2');
+    expect(result).toContain('failed&quot;: 0');
+    const none = await post('/admin/items/recompute', { back: '/admin/items' });
+    expect(none.status).toBe(303);
+    expect(decodeURIComponent(none.headers.get('location') ?? '')).toContain('Tick at least one');
+  });
+
+  it('lists the live activity of the write path, a state per row, and turns a row to applied when a site reports it', async () => {
+    crm.put('property', 'P-5', {
+      object_id: 'P-5',
+      stage: 'active',
+      branch_id: 'B-1',
+      street: 'S 5',
+    });
+    await poll();
+    const page = await (await get('/admin/items')).text();
+    expect(page).toContain('id="activity"');
+    expect(page).toContain('data-state="fetched"');
+    const seq = (await pull(running.baseUrl, 'property')).items[0]?.['seq'];
+    const applied = await fetch(`${running.baseUrl}/v1/applied`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${TOKEN}`,
+        'content-type': 'application/json',
+        'x-core-client': 'wp/1.0',
+      },
+      body: JSON.stringify({
+        items: [
+          {
+            datatype: 'property',
+            connection_id: CONNECTION,
+            remote_id: 'P-5',
+            seq,
+            result: 'applied',
+          },
+        ],
+      }),
+    });
+    expect(applied.status).toBe(202);
+    const rows = await (await get('/admin/items/activity')).text();
+    expect(rows).toContain(`/admin/items/${CONNECTION}/property/P-5`);
+    expect(rows).toMatch(/table-success[^>]*data-state="applied"/);
+    expect(rows).toContain('wp/1.0 applied');
+  });
+
+  it('names only pages the panel has in every adapter’s setup directions', async () => {
+    const pages = new Set(nav([]).map((item) => item.label));
+    for (const adapter of [fakePollingAdapter, vitecAdapter]) {
+      const front = adapter.admin?.panels[0];
+      if (!front) continue;
+      const result = await front.handle({
+        method: 'GET',
+        url: `/admin/${adapter.manifest.provider}`,
+        headers: {},
+        body: Buffer.alloc(0),
+        form: {},
+        csrf: '',
+        connections: async () => [],
+      });
+      const text = 'html' in result ? result.html.replace(/<[^>]+>/g, ' ') : '';
+      const named = [...text.matchAll(/\bOn ([A-Z][a-z]+)\b/g)].map((m) => m[1] ?? '');
+      expect(named.length).toBeGreaterThan(0);
+      for (const page of named)
+        expect(pages, `${adapter.manifest.provider} names ${page}`).toContain(page);
+    }
   });
 
   it('runs housekeeping from the settings page', async () => {

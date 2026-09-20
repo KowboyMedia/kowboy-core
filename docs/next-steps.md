@@ -84,7 +84,12 @@ the first item that is not done, and keep the file current. Decisions and open q
    Checked 2026-09-20 on staging as Patric and in a browser against a local copy, every page and
    every button: two fixes followed, a recompute that failed in the web process (the mappers were
    not registered there) and event filters that showed a database error for a bad date or
-   number; both are tests now.
+   number; both are tests now. Later that day (Patric): the first page is a dashboard with
+   figures and hourly charts, Items got figures, filters, a selection to recompute and a live
+   activity list, the token is on the tenant's page, JSON is shown in a viewer, the email mask is
+   gone, the texts are current and AGENTS.md keeps them so. Queued rows and "Update from CRM"
+   wait on question 57 (two additive adapter capabilities); Patric recomputes staging's records
+   himself (question 56).
 
 8. ~~**Setup directions on each adapter's panel, and a licence notice in the plugin** (Patric,
    2026-09-18).~~ Done 2026-09-18: the Vitec panel opens with "Set up Vitec", kept true by

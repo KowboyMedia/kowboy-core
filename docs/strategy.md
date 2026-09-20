@@ -325,9 +325,9 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
 ### 8.3 Admin panel
 
 One place in the `web` process, under `/admin`, behind a login by email link to an allowed domain
-(no shared password): overview (health, counts, latest events), tenants and sites (tokens and bell secrets shown once, ring now), connections (the
+(no shared password): a dashboard (health, figures and hourly charts over the last 24 hours, latest events), tenants and sites (the token on the tenant's page, bell secrets shown once, ring now), connections (the
 credentials form the adapter declares, offices, lifecycle actions), the adapters' own panels,
-items (raw, unified, display, the timeline, recompute), events, a test panel that runs requests as
+items (figures, filters, a selection to recompute, a live activity list, and one record's raw, unified and display with its timeline), events, a test panel that runs requests as
 a site or an operator, and settings. Server-rendered on Tabler (Bootstrap 5), served by Core itself;
 an adapter's panels come through `Adapter.admin` and the engine never looks inside them. docs/admin-panel.md is the design
 (approved 2026-09-18, AC 42).
@@ -409,7 +409,7 @@ golden/<provider>/<datatype>/<case>/
 | 39  | **Repeated retries (Vitec).** A record failing 3 fetches in a row turns `vitec.retries` red. It turns green after a successful fetch or when an operator discards the record.                                                                                                                                                                                                                                                                                                                                                                                       |
 | 40  | **Compression.** A 100-item `/v1/changes` page is served gzip-encoded with `Content-Encoding: gzip`, at least 4x smaller than the same body uncompressed, and adds under 10 ms p95 per page. A client that does not accept gzip still gets valid plain JSON.                                                                                                                                                                                                                                                                                                        |
 | 41  | **Restore.** After Core's database is restored to an earlier point and the app restarted: no subscriber skips a change, no subscriber deletes or rewrites an item it should keep, every `seq` served afterwards is above every cursor handed out before, Core converges to the CRM's current state including deletions made after the restore point, and only records whose change date moved are fetched. `/v1/health` is red from the restart until every adapter has caught up and says when the database is ahead of the app; `/v1/ready` stays 200 throughout. |
-| 42  | **Admin panel.** One place in the `web` process, behind a login by email link: overview, tenants and sites, connections, adapter panels, items (raw, unified, display, timeline), events, a test panel that runs requests, settings. Every panel is driven through HTTP in the tests; an adapter's panels come through `Adapter.admin` and the engine never looks inside them (docs/admin-panel.md, approved 2026-09-18).                                                                                                                                           |
+| 42  | **Admin panel.** One place in the `web` process, behind a login by email link: a dashboard, tenants and sites, connections, adapter panels, items (filters, a selection, live activity, raw, unified, display, timeline), events, a test panel that runs requests, settings. Every panel is driven through HTTP in the tests; an adapter's panels come through `Adapter.admin` and the engine never looks inside them (docs/admin-panel.md, approved 2026-09-18).                                                                                                   |
 
 ## 11. Rules ledger: what Kowboy supplies
 

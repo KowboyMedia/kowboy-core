@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 57 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
+answering is quick. Next number: 58 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
 ## 52. The pairs for the Vitec mapping: no longer needed for the mapping; what remains is Vitec's golden masters
@@ -32,14 +32,15 @@ the price is hidden; (c) whether the area name stays when the address is hidden;
 a "till salu, visa som kommande" estate carries; (e) how each of the four bid settings shows in
 `bidding`. Smaller: (a) alone now, the rest when the first client template needs them.
 
-## 56. `[core]` Staging's records still have the shape from before the model change; a recompute brings them to the current model
+## 57. `[core]` `[crm]` Queued records on the panel, and “Update from CRM” for a selection, need two additive adapter capabilities
 
-On 2026-09-20 a recompute ran on staging for the first time (its button in the web process was
-broken until that day). A preview over the test tenant's 1,139 records shows every one would
-change and none would fail: they were loaded on 2026-09-18 in the mechanical mirror, before the
-universal model and the ledger entries of 2026-09-19, and nothing has re-fetched them since, so a
-site pulling from staging today gets the old shape. Writing the recompute changes staging's shared
-data, which the session's permission refused. Smaller: yes, an agent runs it after your "allow"
-(about ten seconds; no site is attached to the tenant, so nothing leaves Core). Or press
-"recompute and write" yourself on the panel's Test page (tenant 1, connection vitec-test,
-datatype all).
+The Items page shows what went through the write path and what the sites did with it, but not
+what still waits on an adapter's own fetch list, and it can recompute a selection but not ask the
+CRM for it again: the queue and the fetching are the adapter's (AGENTS.md), and the adapter API is
+protected. Two additive fields would let any adapter hand both to the engine without the engine
+knowing the CRM: `Adapter.admin.queue()` returning the waiting entries (connection, office,
+datatype, id, queued at, reason, attempts, next attempt, last error), and one lifecycle event
+`refetch` carrying a list of records, delivered like the others and answered by the adapter
+putting them on its list. The panel then colours queued rows yellow in the live list, sorted with
+the rest by time, and gets an “Update from CRM” button next to “Recompute selected”. The shapes
+are drafted in docs/admin-panel.md. Smaller: yes to both as drafted; or the queue alone.
