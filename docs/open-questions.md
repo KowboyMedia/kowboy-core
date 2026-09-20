@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 56 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
+answering is quick. Next number: 57 (47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
 ## 52. The pairs for the Vitec mapping: no longer needed for the mapping; what remains is Vitec's golden masters
@@ -31,3 +31,15 @@ an agent: (a) a new-build project's homes appear in the marketed list with their
 the price is hidden; (c) whether the area name stays when the address is hidden; (d) what status
 a "till salu, visa som kommande" estate carries; (e) how each of the four bid settings shows in
 `bidding`. Smaller: (a) alone now, the rest when the first client template needs them.
+
+## 56. `[core]` Staging's records still have the shape from before the model change; a recompute brings them to the current model
+
+On 2026-09-20 a recompute ran on staging for the first time (its button in the web process was
+broken until that day). A preview over the test tenant's 1,139 records shows every one would
+change and none would fail: they were loaded on 2026-09-18 in the mechanical mirror, before the
+universal model and the ledger entries of 2026-09-19, and nothing has re-fetched them since, so a
+site pulling from staging today gets the old shape. Writing the recompute changes staging's shared
+data, which the session's permission refused. Smaller: yes, an agent runs it after your "allow"
+(about ten seconds; no site is attached to the tenant, so nothing leaves Core). Or press
+"recompute and write" yourself on the panel's Test page (tenant 1, connection vitec-test,
+datatype all).
