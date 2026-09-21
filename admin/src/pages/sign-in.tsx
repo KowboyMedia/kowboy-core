@@ -54,7 +54,9 @@ export function SignIn() {
                 required
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@kowboy.se"
+                // Neutral on purpose: the page says nothing about which addresses or domains
+                // are let in (Patric, 2026-09-21).
+                placeholder="you@example.com"
               />
             </div>
             <label className="flex items-start gap-2 text-sm">
