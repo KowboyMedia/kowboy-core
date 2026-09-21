@@ -40,10 +40,15 @@ The Vitec adapter's connection format, webhook URL and settings (`VITEC_WEBHOOK_
 Core runs on DigitalOcean App Platform with one managed Postgres cluster in Frankfurt (strategy
 §2). Two apps share it, each with a database of its own:
 
-| App                   | Spec                   | Branch    | Deploys                              | Database       |
-| --------------------- | ---------------------- | --------- | ------------------------------------ | -------------- |
-| `kowboy-core-staging` | `.do/app.staging.yaml` | `staging` | on every push                        | `core_staging` |
-| `kowboy-core`         | `.do/app.yaml`         | `main`    | when an agent asks, on Patric's word | `defaultdb`    |
+| App                   | Address                     | Spec                   | Branch    | Deploys                              | Database       |
+| --------------------- | --------------------------- | ---------------------- | --------- | ------------------------------------ | -------------- |
+| `kowboy-core-staging` | `staging.core.kowboy.cloud` | `.do/app.staging.yaml` | `staging` | on every push                        | `core_staging` |
+| `kowboy-core`         | `core.kowboy.cloud`         | `.do/app.yaml`         | `main`    | when an agent asks, on Patric's word | `defaultdb`    |
+
+Each app also keeps answering on the `*.ondigitalocean.app` address it was born with; nothing is
+redirected. The `kowboy.cloud` zone is not hosted at DigitalOcean (its nameservers are Strato's),
+so each address is one CNAME record in that zone pointing at the app's own
+`*.ondigitalocean.app` name, and DigitalOcean issues the certificate once the record answers.
 
 A change, from an agent or a human, goes: pull request → the checks must pass → merge into
 `staging` → staging updates itself → confirm on staging → pull request into `main` → the checks
