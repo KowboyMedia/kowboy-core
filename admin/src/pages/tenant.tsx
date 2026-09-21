@@ -431,7 +431,9 @@ export function TenantPage() {
                       placeholder="M31529, M31530"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Separated by commas. Empty means every office the login can see.
+                      Separated by commas, as the CRM names them. Name at least one: with none, Core
+                      filters nothing and the CRM is likely to send nothing. Two tenants may name
+                      the same office, and then both hold its records.
                     </p>
                   </div>
                 </div>

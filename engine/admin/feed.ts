@@ -6,6 +6,7 @@
 import type { ServerResponse } from 'node:http';
 import { latestEventId, queryEvents, type EventRow } from '../events.js';
 import { connections, connectionsForProvider, tenants } from '../storage/connections.js';
+import { itemKey, officesOf } from '../storage/items.js';
 import { adminFor, adminProviders } from '../registry.js';
 import { openJobs } from '../jobs.js';
 import { healthReport } from '../health.js';
@@ -46,7 +47,12 @@ const keyOf = (row: {
   connectionId: string | null;
   datatype: string | null;
   remoteId: string | null;
-}): string => `${row.connectionId ?? ''}|${row.datatype ?? ''}|${row.remoteId ?? ''}`;
+}): string =>
+  itemKey({
+    connectionId: row.connectionId ?? '',
+    datatype: row.datatype ?? '',
+    remoteId: row.remoteId ?? '',
+  });
 
 /** Every adapter's own fetch list, as the adapters report it. */
 async function fromAdapters(): Promise<AdminQueued[]> {
@@ -131,6 +137,20 @@ export async function flow(limit = 200): Promise<FlowRow[]> {
     const row = waitingRow(entry, tenantId, names);
     rows.set(row.key, row);
   }
+
+  // A record that has moved carries no office on its event, so the office comes from the record
+  // itself — which is also what makes two tenants holding the same office plain to read.
+  const missing = [...rows.values()].filter(
+    (row) => row.officeId === null && row.connectionId !== null && row.remoteId !== null,
+  );
+  const offices = await officesOf(
+    missing.map((row) => ({
+      connectionId: row.connectionId ?? '',
+      datatype: row.datatype ?? '',
+      remoteId: row.remoteId ?? '',
+    })),
+  );
+  for (const row of missing) row.officeId = offices.get(row.key) ?? null;
 
   return [...rows.values()]
     .sort((left, right) => (left.queuedAt < right.queuedAt ? 1 : -1))
