@@ -1,11 +1,15 @@
 # The default templates: one package, three ways to use it, parity with the reference site
 
 Step 2 of two. Proposed 2026-09-20 and revised the same day for Patric's answers: a separate
-package it is, named after the client package with `-templates`, and one package per template set
-is the agent's pick within that. Open: questions 70 (the template files) and 71 (the reference site)
-(68 is answered: hidden values and the listing state come from Core). It needs step 1's site ([staging-site.md](staging-site.md))
-for the parity check and runs in the same loop. Next-steps item 10 (the templates on the universal
-model, question 55) is done inside this step.
+package per template set, and the templates written new from what a site running the old plugin
+_shows_, its files never read. On 2026-09-21 Patric asked for the most autonomous way to do this
+for any client, and that is [template-porting.md](template-porting.md): a pair of environments
+per client, a copy of the client's site with the old plugin as the source and a copy with Core's
+plugin as the target, made and compared by an agent until the target shows the same. This file
+keeps what the templates are, where they live, the gap rule and the installer. Open: question 79
+(the Cloudways API key). It runs in the same loop as step 1
+([staging-site.md](staging-site.md)). Next-steps item 10 (the templates on the universal model,
+question 55) is done inside this step.
 
 ## What the templates are
 
@@ -84,70 +88,87 @@ updater keeps a list, one line per package it watches; a `v*` tag packages the p
 set (`.github/workflows/release.yml`), and the staging channel of step 1 carries them all on every
 change. One approval promotes everything (strategy §4).
 
-## How the port happens
+## How the templates are made: the output as the specification
 
-**The rule first.** AGENTS.md forbids taking anything from the WordPress plugins v1 to v3 unless
-Patric asks for it item by item. This step is that ask, and it covers the **template files only**:
-the templates folder of v3 and the list wrapper's script and stylesheet, handed over by Patric and
-kept as `docs/inputs/templates-v3/`, the input of record. Agents open no old repository. Nothing
-else of the old plugin comes along: every helper call, every field name and every condition in
-those files is replaced on port by the plugin's functions, the universal names and `display`
-(question 70).
+**The rule first.** AGENTS.md forbids taking anything from the WordPress plugins v1 to v3. Patric's
+strategy of 2026-09-20 keeps that whole: the templates are written new, from what a site running
+the old plugin _shows_, never from what its files contain. On the source site an agent uses the
+WordPress admin and the public pages; it never opens the old plugin's files. A client's own
+template files (its theme's templates, which Kowboy wrote) are part of what Patric asks to port,
+so they are read; the old plugin's helpers behind them are not, and what those helpers produce is
+learned from the rendered pages.
 
-1. **Inventory.** From the supplied files: every field, helper and condition each template uses,
-   in one table, old reference → universal name, `display` key, "needs a rule" or "not in the
-   model". The table is the field specification next-steps item 2 waited for, seen from the
-   template side, and it makes the parity inventory of AC 28 mechanical.
-2. **Gaps, sorted by one rule**, so the agent acts without a question for each:
-   - **Raised, behind the gate.** A field the reference site shows on a card or at the top of a
-     single page whose prepared string `display` lacks (a ledger entry, drafted and registered); a
-     field that exists nowhere in `data` (a model question); a filter or sort the reference site
-     offers that the query function cannot answer. Each is one register question, raised in one
-     batch after the inventory; meanwhile the spot in the template stays empty. A closed gate is
-     not a note.
-   - **Added on the agent's own, listed.** A field present in `data`, shown as sent in a fact row
-     or under a label, with at most the site's own date and time settings applied (the site's
-     locale is the site's, SRS §7). Every such addition is a line in the inventory, so it can
-     become a ledger entry later. This is what "obscure" means here: shown, not formatted.
-   - **The site's own logic.** Past viewings, wording, tags, what to show where: decided in the
-     templates, as AGENTS.md puts it on the site, and noted in the inventory as the site's rules.
-     A hidden price, a hidden address, whether bids show, and the lines between "till salu",
-     "kommande" and "referenser" are Core's (question 72, approved 2026-09-20, next-steps item
-     14): a prepared string is absent when the CRM says hide, and every listing carries a
-     prepared `state` next to the CRM's own status. The templates show and group by those.
-3. **Port**, file by file, onto the package with the override rule, on the staging site.
-4. **Parity**, automated, in the smoke job of step 1: for each page type a sample of records (by
-   CRM id, never by URL: the Swedish paths are new) is fetched from both sites, the templates' own
-   markup is compared after normalising what cannot match (whitespace, nonces, asset hashes, the
-   host, image widths, timestamps), and the list wrapper's reload answers are compared for the same
-   filters. The result is a diff per page, and the loop runs until every diff is empty or is a
-   raised question. The samples cover every property type and status the test account offers, and
-   question 54's cases as they arrive.
+**The environments** (a source and a target per client) and **the loop** (inventory, port,
+compare, gaps, delivery) are in [template-porting.md](template-porting.md). The rule for gaps,
+applied there, so the agent acts without a question for each:
 
-   Both sites must show the same records, so the reference site's CRM account is either the test
-   account staging holds or a customer's account added to staging as a second tenant (its Vitec
-   key pair and office ids on the tenant page). Whole-page equality needs the same theme on both; a
-   comparison scoped to the templates' markup needs none and is the default (question 71).
+- **Raised, behind the gate.** A value the source shows on a card or at the top of a single page
+  whose prepared string `display` lacks (a ledger entry, drafted and registered); a value that
+  exists nowhere in `data` (a model question); a filter or sort the source offers that the query
+  function cannot answer. Each is one register question, raised in one batch after the
+  inventory; meanwhile the spot in the template stays empty. A closed gate is not a note.
+- **Fixed, no question.** A helper or a field that exists in version 4 but is wrong: a bug, fixed
+  with a test. A helper the plugin lacks: added.
+- **Added on the agent's own, listed.** A value present in `data`, shown as sent in a fact row or
+  under a label, with at most the site's own date and time settings applied. Every such addition
+  is a line in the inventory, so it can become a ledger entry later. This is what "obscure"
+  means here: shown, not formatted.
+- **Core's, already decided.** A hidden price, a hidden address, whether bids show, and the lines
+  between "till salu", "kommande" and "referenser" come prepared from Core (question 72,
+  approved: a prepared string is absent when the CRM says hide, and every listing carries a
+  prepared `state` next to the CRM's own status, next-steps item 14). The templates show and
+  group by those.
+- **The site's own logic.** Past viewings, wording, layout: decided in the templates, as
+  AGENTS.md puts it on the site, and noted in the inventory as the site's rules.
 
-5. **Acceptance.** AC 28 gets the parity check as its tests and AC 20 its search half; both are
-   changes to `acceptance/`, reviewed through the change that makes them.
+**Acceptance.** AC 28 gets the comparison as its tests and AC 20 its search half; both are
+changes to `acceptance/`, reviewed through the change that makes them.
+
+## Installing and updating: the user's path
+
+Patric's requirement (2026-09-20): installing the plugin and any template package must be very
+simple, from an address that keeps them updated, so that "Plugins → Update" in the WordPress
+admin works. Decided (an agent's decision, within the rules):
+
+1. **One upload, one click.** The user downloads `core-client.zip` from Kowboy's address and
+   uploads it under Plugins → Add New → Upload Plugin, the WordPress way for a plugin that is not
+   on WordPress.org, and activates it. On activation the plugin places the small updater file into
+   `mu-plugins/` itself, so nobody copies a file by hand; the updater keeps running on its own
+   afterwards and never loads plugin code, which is what keeps a broken release replaceable (the
+   safe-update rule of SRS §8, the stated reason for not using an update library inside the
+   plugin).
+2. **Updates through WordPress itself.** The updater answers WordPress's own update check for
+   every Kowboy package on the site (the `Update URI` header and its `update_plugins_<host>`
+   filter, WordPress 5.8 and later): it reads one release JSON per package from Kowboy's address,
+   and WordPress shows the update under Plugins, applies it on a click, or by itself, since the
+   updater switches auto-update on. The updater watches a list, the plugin and every template
+   set, instead of one file.
+3. **Template sets from the plugin's own page.** The plugin's settings page reads an index of the
+   available sets from the same address (`sets.json`: name, version, package) and shows each
+   with one button, Install; the click runs WordPress's own plugin installer on the package, the
+   set is activated and selected, and it updates like the plugin from then on. A set can still
+   be uploaded as a zip like any plugin.
+4. **Where the addresses live.** The Space (DigitalOcean's file storage, approved 2026-09-16)
+   holds one folder per package with its zip, its release JSON and the index; the production
+   channel is written by a job on the production Core app on each release, and the staging
+   channel by a job on the staging Core app on each landing (step 1). The keys sit in the apps'
+   environment, set by an agent through the DigitalOcean API, so no key is ever pasted anywhere
+   and no secret sits in GitHub; the tag workflow keeps attaching the files to the GitHub Release
+   as the record.
 
 ## What it needs from Patric
 
-- **70** the v3 template files, and the confirmation that they are the approved items (Patric,
-  2026-09-20: not now; the point stays open).
-- **71** the reference site: its address, its CRM account, and whether the staging site gets its
-  theme. The access an agent needs for the whole workflow is the table in
-  [staging-site.md](staging-site.md); for the reference site it is its public address only.
+- **79** the Cloudways API key ([template-porting.md](template-porting.md)); the first port is
+  the reference client's.
 - Already open: 54 (a) to (e) as the templates need them; 52 is untouched (golden masters come
   from the test account).
 
 ## Order of work
 
 Now, needing no answer: the set package's skeleton (`core-client-templates-2026`), the selector,
-the override rule, the updater's list and the release per set, and the query function in the sync
-plugin. With 66: the inventory → the gaps raised in one batch → the port, file by file, on the
-staging site. With 67: the parity check in the smoke job → AC 28 and AC 20's search half in
+the override rule, the installer's four parts and the release per set, and the query function in
+the sync plugin. With 79: the porting server, then the first client's pair of environments and
+the loop of [template-porting.md](template-porting.md) → AC 28 and AC 20's search half in
 `acceptance/criteria.json`, the report regenerated.
 
 Not in this step: the Lovable example site (item 10's other half, the same universal names, later),

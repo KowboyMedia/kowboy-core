@@ -127,21 +127,26 @@ the first item that is not done, and keep the file current. Decisions and open q
     `project_id`. 2026-09-20: folded into item 12, `docs/default-templates.md`.
 
 11. **The staging site** (Patric, 2026-09-20; strategy §4's staging WordPress site): plan in
-    `docs/staging-site.md`. A WordPress site on Kowboy's Cloudways server (question 66; nothing
-    depends on the host), on the `kowboy-test` tenant staging holds, reached through the plugin's
+    `docs/staging-site.md`. The blank WordPress site Kowboy sets up (Patric, evening), on
+    Cloudways (question 66; nothing depends on the host), on the `kowboy-test` tenant staging
+    holds, reached through the plugin's
     real update channel (a staging channel on the Space, published and tested by a post-deploy
     job on staging Core), driven over HTTPS through the WordPress API, Core's admin API and a
     staging-only driver, with a loop that runs until every client criterion a live site can prove
     is green; caches invalidated the WordPress way and proved once with the host's cache plugin
-    (questions 67 and 68 closed). Needs the site's login once (question 73). The parts that need
+    (questions 67 and 68 closed). Waits on question 79 (the Cloudways API key); then the agent makes the site itself (item 16). The parts that need
     no answer may start: the plugin's updater changes, trash-then-delete, the ETag on record
     pages, the Space and the staging channel, the driver, the job.
 12. **The default templates** (Patric, 2026-09-20; item 10 folds in): plan in
     `docs/default-templates.md`. A separate package per template set, `core-client-templates-2026`
-    first (question 69 answered); the v3 templates Patric supplies (question 70, not yet) are
-    ported onto the universal model, gaps raised by the rule in the document, and parity checked
-    against the reference site (question 71) in the same loop as item 11. The package skeleton,
-    the selector, the override rule and the release per set may start now.
+    first (question 69 answered). Patric's strategy of the evening: the templates are written new
+    to match the output of a WordPress site running plugin v3 with a client's data, page by page,
+    on the blank site of item 11; the old plugin's files are never read (question 70 closed). The
+    installer is decided: one upload, the updater placed by the plugin, updates through
+    WordPress's own Plugins page, template sets installed from the plugin's settings page, the
+    channels written by jobs on the Core apps. 2026-09-21: the two sites became a pair of environments
+    per client made by the agent, item 16; 71, 73 and 74 are superseded. The package skeleton,
+    the selector, the override rule, the installer and the release per set may start now.
 13. **Documentation for implementers, people and agents alike** (Patric, 2026-09-20, recorded and
     not yet discussed): how to build a site on Core, what to keep in mind and what to recommend to
     the customer, written for an agent that reads the data as much as for a developer: absence
@@ -195,6 +200,39 @@ the first item that is not done, and keep the file current. Decisions and open q
     links in alerts carry it, and give Vitec the new notification URLs if the old ones are ever
     retired — the `*.ondigitalocean.app` addresses keep working, so nothing breaks in the meantime.
 
+16. **Porting any client's templates to version 4** (Patric, 2026-09-21): plan in
+    `docs/template-porting.md`. One porting server with a pair of sites per client, the source a
+    copy of the client's live site with the old plugin, the target a copy with Core's plugin and
+    the client's template set, made through the host's API, compared page by page and iterated
+    by an agent until the target shows the same; gaps raised by step 2's rule. Cloudways (question
+    75, 2026-09-21); waits on question 79, the Cloudways API key in the agents' environment.
+    After that nothing needs a person except a client's CRM login the first time it reaches
+    staging.
+
+    **Resuming in a new session, once question 79 is answered**, in this order:
+    1. Check the environment: `CLOUDWAYS_EMAIL` and `CLOUDWAYS_API_KEY` exist (values never
+       printed). Get a token from the Cloudways API (`https://api.cloudways.com/api/v2/…`; v1
+       retired in March 2026; email and key in, a short-lived bearer token out) and list the
+       account's servers and apps, so the session knows which client sites live there and
+       whether the porting server already exists. The exact calls are read from the API
+       reference with the key in hand; `docs/template-porting.md` names what they must do.
+    2. If no porting server exists: make one in the account (DigitalOcean underneath, Frankfurt,
+       the smallest 2 GB size, name `kowboy-porting`), and write its id and address into
+       `docs/template-porting.md` under a new "The server" heading.
+    3. Make the first pair for the first client (question 80): copy the client's live app to the
+       porting server as `<client>-source`, password-protect it, keep search engines out, stop
+       its mail and, where its old plugin has the switch, its CRM polling; copy it again as
+       `<client>-target`, read both apps' WordPress logins from the API, and on the target
+       replace the old plugin with Core's plugin, the staging-only driver and the client's
+       template set, install the updater, and point it at staging Core with a tenant for that
+       client (the client's CRM login from Patric if staging does not hold it; the tenant page
+       gives the token and the bell secret).
+    4. Then item 11's loop (the Space and the staging channel, the driver, the packaging-and-
+       smoke job on staging Core, the first sync visible in a browser) and this item's steps 2
+       to 6 (inventory, port, compare, gaps, delivery).
+    5. Write every id, address and login location (never a secret) into `docs/template-porting.md`
+       as it is made, so the next session finds it there.
+
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health
@@ -230,9 +268,12 @@ the first item that is not done, and keep the file current. Decisions and open q
   themselves instead of asking Patric for a console (verified 2026-09-19): `DIGITALOCEAN_ACCESS_TOKEN`
   (the account with both apps; their addresses come from `GET /v2/apps`; production writes wait
   for "allow" as above), `VITEC_USERNAME`, `VITEC_PASSWORD`, `VITEC_OFFICE_ID` and
-  `VITEC_ESTATE_ID` (the Vitec test account) and `GITHUB_TOKEN` (the
-  repository, but not its settings: variables and secrets answer 403). There is no Sentry token.
-  Values are never printed, logged or committed.
+  `VITEC_ESTATE_ID` (the Vitec test account) and `GITHUB_TOKEN` (the repository, but not its
+  settings: variables and secrets answer 403); `CLOUDWAYS_EMAIL` and `CLOUDWAYS_API_KEY` once
+  Patric adds them (question 79): the porting server and every site on it,
+  `docs/template-porting.md`. There is no Sentry token. Values are never printed, logged or
+  committed. Nothing but web traffic leaves the environment: no SSH, no SFTP, on any port
+  (checked 2026-09-21).
 - A new session's branch starts from `main`, which is production and far behind `staging`
   (2026-09-19: a side session started 53 changes back and had to be combined afterwards). Before
   any work, a fresh branch is moved onto staging's latest and pushed
