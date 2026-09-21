@@ -213,15 +213,18 @@ test('journey: U6 maintenance pauses Core’s own work, and says so everywhere',
   await go(page, 'Settings');
   await page.getByRole('button', { name: 'Turn maintenance on' }).click();
   await page.getByRole('button', { name: 'Turn it on' }).click();
-  await expect(page.getByText('Maintenance is on.')).toBeVisible();
+  // The card itself says so, by offering the switch the other way.
+  await expect(page.getByRole('button', { name: 'Turn maintenance off' })).toBeVisible();
 
+  // The page itself, not the toast that is still fading on top of it.
   await go(page, 'Overview');
-  await expect(page.getByText('Maintenance is on.')).toBeVisible();
+  await expect(page.getByRole('main').getByText('Maintenance is on.')).toBeVisible();
 
   await go(page, 'Settings');
   await page.getByRole('button', { name: 'Turn maintenance off' }).click();
   await page.getByRole('button', { name: 'Turn it off' }).click();
   await expect(page.getByText('the held bells go out now', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Turn maintenance on' })).toBeVisible();
 });
 
 test('journey: the palette goes anywhere, and sign-out ends the session', async ({ page }) => {
