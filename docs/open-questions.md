@@ -82,28 +82,3 @@ source shows. Patric called this site "our reference site, which runs the origin
 2026-09-20 but did not name it. An agent needs the name as Cloudways lists the app, and the
 client's CRM login if staging does not hold that account yet (the test account `M31529` is on
 staging already; a client's is not).
-
-## 81. `[core]` Two tenants may hold the same office's records. Should Core say something?
-
-Core gives an office's records to every connection that names that office, whatever tenant it
-belongs to: the record is fetched once from the CRM and written for each of them, each with its
-own copy, its own version numbers and its own sites. That is deliberate and documented
-(`adapters/vitec/README.md`), and it is the only way two sites can show the same brokerage's
-listings. It is also how a new customer can quietly end up holding a test account's estates, which
-is what happened on staging on 2026-09-21: the new tenant named an office the test tenant already
-had. Nothing was wrong with the syncing, but nothing warned anybody either. The smaller change is
-a warning and not a rule: when a connection names an office another tenant already names, the
-tenant page says so in one line before the save, and the office keeps working for both. The
-alternative is to refuse it, which would make a legitimate arrangement impossible. Answer "warn"
-or "leave it as it is".
-
-## 82. `[crm-vitec]` What should an empty office list mean?
-
-The tenant page used to say "empty means every office the login can see", and that was not true:
-the engine takes it as "filter nothing", while the Vitec adapter skips a connection that names no
-office, so an empty list fetches nothing at all. The page now says what actually happens, which
-closes the immediate hole. The question is what it should do: (a) leave it — an office must always
-be named, which is explicit and hard to get wrong; or (b) make the sentence true, so that saving a
-connection with no offices fills in every office its licence lists, which is fewer keystrokes and
-means a new office appears by itself when the CRM licenses one. (b) is a change to the adapter's
-behaviour, so it waits for your answer.

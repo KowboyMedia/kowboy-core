@@ -229,6 +229,25 @@ describe('the admin area', () => {
     });
     expect(badBell.status).toBe(400);
     expect(badBell.body.error).toContain('http');
+
+    // A CRM is asked for one office at a time, so a connection with none named would fetch
+    // nothing while looking healthy. It is refused at the field (Patric, 2026-09-21).
+    const noOffice = await api<{ error: string }>('/tenants', {
+      method: 'POST',
+      body: tenantBody({
+        connections: [
+          {
+            id: 'acme-crm',
+            provider: 'fake-webhook',
+            credentials: { key: 'a-key' },
+            licensedOffices: [],
+            active: true,
+          },
+        ],
+      }),
+    });
+    expect(noOffice.status).toBe(400);
+    expect(noOffice.body.error).toContain('office');
   });
 
   it('holds one tenant with two CRM connections (U1, a Must of 2026-09-20)', async () => {
