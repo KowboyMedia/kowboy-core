@@ -1,14 +1,15 @@
 # The default templates: one package, three ways to use it, parity with the reference site
 
-Step 2 of two. Proposed 2026-09-20, revised the same day for Patric's answers, and reset the same
-evening by his strategy: **two sites, and the v3 site's output as the specification.** Kowboy sets
-up one WordPress site running the old plugin (version 3) with a client's data, and one blank
-WordPress site; an agent gets the admin login of both, writes the new templates from what the v3
-site shows, and iterates until the blank site, running Core's plugin and the templates, shows the
-same. The old plugin's files are never read: what the customer sees is the specification. Open:
-questions 71 (the v3 site), 73 (the blank site) and 74 (the shortcodes to match). It runs in the
-same loop as step 1 ([staging-site.md](staging-site.md)); the blank site is step 1's test site.
-Next-steps item 10 (the templates on the universal model, question 55) is done inside this step.
+Step 2 of two. Proposed 2026-09-20 and revised the same day for Patric's answers: a separate
+package per template set, and the templates written new from what a site running the old plugin
+_shows_, its files never read. On 2026-09-21 Patric asked for the most autonomous way to do this
+for any client, and that is [template-porting.md](template-porting.md): a pair of environments
+per client, a copy of the client's site with the old plugin as the source and a copy with Core's
+plugin as the target, made and compared by an agent until the target shows the same. This file
+keeps what the templates are, where they live, the gap rule and the installer. Open: question 75
+(where the porting server runs). It runs in the same loop as step 1
+([staging-site.md](staging-site.md)). Next-steps item 10 (the templates on the universal model,
+question 55) is done inside this step.
 
 ## What the templates are
 
@@ -87,61 +88,41 @@ updater keeps a list, one line per package it watches; a `v*` tag packages the p
 set (`.github/workflows/release.yml`), and the staging channel of step 1 carries them all on every
 change. One approval promotes everything (strategy §4).
 
-## How the templates are made: two sites, the output as the specification
+## How the templates are made: the output as the specification
 
 **The rule first.** AGENTS.md forbids taking anything from the WordPress plugins v1 to v3. Patric's
-strategy of 2026-09-20 keeps that whole: the templates are written new, from what the v3 site
-_shows_, never from what its files contain. On the v3 site an agent uses the WordPress admin (to
-make pages with the old shortcodes) and the public pages (to read the output); it opens no file
-of that site, so the old code is never read, and the v3 template files of question 70 are not
-needed. (Patric offered git and SFTP access to the v3 site as well; neither is needed, and SFTP is
-unreachable from where agents run anyway.)
+strategy of 2026-09-20 keeps that whole: the templates are written new, from what a site running
+the old plugin _shows_, never from what its files contain. On the source site an agent uses the
+WordPress admin and the public pages; it never opens the old plugin's files. A client's own
+template files (its theme's templates, which Kowboy wrote) are part of what Patric asks to port,
+so they are read; the old plugin's helpers behind them are not, and what those helpers produce is
+learned from the rendered pages.
 
-**The two sites.**
+**The environments** (a source and a target per client) and **the loop** (inventory, port,
+compare, gaps, delivery) are in [template-porting.md](template-porting.md). The rule for gaps,
+applied there, so the agent acts without a question for each:
 
-| Site                      | Runs                                                  | The agent gets                        | Used for                                                                                     |
-| ------------------------- | ----------------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------- |
-| The v3 site               | the old plugin, version 3, with a client's data       | its address and WordPress admin login | pages with the old shortcodes, in every variant; their output is the specification           |
-| The blank site (step 1's) | Core's plugin and the template sets, on the same data | its address and WordPress admin login | the same pages with the new shortcodes; the loop runs until its output matches the v3 site's |
+- **Raised, behind the gate.** A value the source shows on a card or at the top of a single page
+  whose prepared string `display` lacks (a ledger entry, drafted and registered); a value that
+  exists nowhere in `data` (a model question); a filter or sort the source offers that the query
+  function cannot answer. Each is one register question, raised in one batch after the
+  inventory; meanwhile the spot in the template stays empty. A closed gate is not a note.
+- **Fixed, no question.** A helper or a field that exists in version 4 but is wrong: a bug, fixed
+  with a test. A helper the plugin lacks: added.
+- **Added on the agent's own, listed.** A value present in `data`, shown as sent in a fact row or
+  under a label, with at most the site's own date and time settings applied. Every such addition
+  is a line in the inventory, so it can become a ledger entry later. This is what "obscure"
+  means here: shown, not formatted.
+- **Core's, already decided.** A hidden price, a hidden address, whether bids show, and the lines
+  between "till salu", "kommande" and "referenser" come prepared from Core (question 72,
+  approved: a prepared string is absent when the CRM says hide, and every listing carries a
+  prepared `state` next to the CRM's own status, next-steps item 14). The templates show and
+  group by those.
+- **The site's own logic.** Past viewings, wording, layout: decided in the templates, as
+  AGENTS.md puts it on the site, and noted in the inventory as the site's rules.
 
-Both sites must show the same records: the blank site's tenant on staging Core gets the same CRM
-account as the v3 site (the test account staging already holds, or the client's, which an agent
-adds on the tenant page once its login is given).
-
-1. **Pages.** On the v3 site the agent makes one page per shortcode and variant it must match
-   (lists with their filters and sorts, a project's homes, an agent's listings, an office's, and
-   so on), and the single pages exist by permalink. The shortcodes and attributes to cover come
-   from Patric or from the client's pages already on the site (question 74). The same pages are
-   made on the blank site with the new shortcodes.
-2. **Inventory.** From the v3 site's output, page by page: every value shown, its universal name
-   or `display` key on Core's side, "needs a rule" or "not in the model". The table is the
-   parity inventory of AC 28, made mechanical, and the field specification seen from the
-   template side.
-3. **Gaps, sorted by one rule**, so the agent acts without a question for each:
-   - **Raised, behind the gate.** A value the v3 site shows on a card or at the top of a single
-     page whose prepared string `display` lacks (a ledger entry, drafted and registered); a value
-     that exists nowhere in `data` (a model question); a filter or sort the v3 site offers that
-     the query function cannot answer. Each is one register question, raised in one batch after
-     the inventory; meanwhile the spot in the template stays empty. A closed gate is not a note.
-   - **Added on the agent's own, listed.** A value present in `data`, shown as sent in a fact row
-     or under a label, with at most the site's own date and time settings applied. Every such
-     addition is a line in the inventory, so it can become a ledger entry later. This is what
-     "obscure" means here: shown, not formatted.
-   - **Core's, already decided.** A hidden price, a hidden address, whether bids show, and the
-     lines between "till salu", "kommande" and "referenser" come prepared from Core (question
-     72, approved: a prepared string is absent when the CRM says hide, and every listing carries
-     a prepared `state` next to the CRM's own status, next-steps item 14). The templates show and
-     group by those.
-   - **The site's own logic.** Past viewings, wording, layout: decided in the templates, as
-     AGENTS.md puts it on the site, and noted in the inventory as the site's rules.
-4. **Write and compare**, page by page, on the blank site: for each page the two outputs are
-   fetched, the templates' own markup is compared after normalising what cannot match
-   (whitespace, nonces, asset addresses, the host, image widths, timestamps), and the list
-   wrapper's reload answers are compared for the same filters. The result is a diff per page, and
-   the loop runs until every diff is empty or is a raised question. The comparison is scoped to
-   the templates' markup, so the two sites need no common theme.
-5. **Acceptance.** AC 28 gets the comparison as its tests and AC 20 its search half; both are
-   changes to `acceptance/`, reviewed through the change that makes them.
+**Acceptance.** AC 28 gets the comparison as its tests and AC 20 its search half; both are
+changes to `acceptance/`, reviewed through the change that makes them.
 
 ## Installing and updating: the user's path
 
@@ -177,11 +158,8 @@ admin works. Decided (an agent's decision, within the rules):
 
 ## What it needs from Patric
 
-- **71** the v3 site's address and its WordPress admin login, once it is set up.
-- **73** the blank site's address and its WordPress admin login, once it is set up (step 1's
-  site).
-- **74** the shortcodes and attributes the templates must match, or the word that the client's
-  pages on the v3 site cover them.
+- **75** where the porting server runs ([template-porting.md](template-porting.md)); the first
+  port is the reference client's.
 - Already open: 54 (a) to (e) as the templates need them; 52 is untouched (golden masters come
   from the test account).
 
@@ -189,10 +167,9 @@ admin works. Decided (an agent's decision, within the rules):
 
 Now, needing no answer: the set package's skeleton (`core-client-templates-2026`), the selector,
 the override rule, the installer's four parts and the release per set, and the query function in
-the sync plugin. With 71 and 74: the pages on the v3 site and the inventory → the gaps raised in
-one batch. With 73: the same pages on the blank site → write and compare, page by page, until the
-diffs are empty → AC 28 and AC 20's search half in `acceptance/criteria.json`, the report
-regenerated.
+the sync plugin. With 75: the porting server, then the first client's pair of environments and
+the loop of [template-porting.md](template-porting.md) → AC 28 and AC 20's search half in
+`acceptance/criteria.json`, the report regenerated.
 
 Not in this step: the Lovable example site (item 10's other half, the same universal names, later),
 a site's custom design, and which sites auto-update (WordPress's own per-site setting, which the

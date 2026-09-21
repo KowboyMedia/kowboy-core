@@ -130,7 +130,7 @@ the first item that is not done, and keep the file current. Decisions and open q
     job on staging Core), driven over HTTPS through the WordPress API, Core's admin API and a
     staging-only driver, with a loop that runs until every client criterion a live site can prove
     is green; caches invalidated the WordPress way and proved once with the host's cache plugin
-    (questions 67 and 68 closed). Needs the site's login once (question 73). The parts that need
+    (questions 67 and 68 closed). Waits on question 75 (the host); then the agent makes the site itself (item 15). The parts that need
     no answer may start: the plugin's updater changes, trash-then-delete, the ETag on record
     pages, the Space and the staging channel, the driver, the job.
 12. **The default templates** (Patric, 2026-09-20; item 10 folds in): plan in
@@ -140,9 +140,9 @@ the first item that is not done, and keep the file current. Decisions and open q
     on the blank site of item 11; the old plugin's files are never read (question 70 closed). The
     installer is decided: one upload, the updater placed by the plugin, updates through
     WordPress's own Plugins page, template sets installed from the plugin's settings page, the
-    channels written by jobs on the Core apps. Waits on 71 (the v3 site), 73 (the blank site) and
-    74 (the shortcodes to match). The package skeleton, the selector, the override rule, the
-    installer and the release per set may start now.
+    channels written by jobs on the Core apps. 2026-09-21: the two sites became a pair of environments
+    per client made by the agent, item 15; 71, 73 and 74 are superseded. The package skeleton,
+    the selector, the override rule, the installer and the release per set may start now.
 13. **Documentation for implementers, people and agents alike** (Patric, 2026-09-20, recorded and
     not yet discussed): how to build a site on Core, what to keep in mind and what to recommend to
     the customer, written for an agent that reads the data as much as for a developer: absence
@@ -156,6 +156,13 @@ the first item that is not done, and keep the file current. Decisions and open q
     `status` untouched next to it; the field tables, `schemas/`, the rules and their tests, and
     AGENTS.md's "no status, no visibility" sentence amended to "only by ledger entries", all in
     one change for Patric's review through the protected paths.
+15. **Porting any client's templates to version 4** (Patric, 2026-09-21): plan in
+    `docs/template-porting.md`. One porting server with a pair of sites per client, the source a
+    copy of the client's live site with the old plugin, the target a copy with Core's plugin and
+    the client's template set, made through the host's API, compared page by page and iterated
+    by an agent until the target shows the same; gaps raised by step 2's rule. Waits on question
+    75 (the host). With Cloudways, nothing needs a person after its API key, except a client's
+    CRM login the first time it reaches staging.
 
 ## Later, when Patric supplies them
 
