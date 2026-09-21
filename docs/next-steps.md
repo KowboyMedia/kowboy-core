@@ -165,6 +165,30 @@ the first item that is not done, and keep the file current. Decisions and open q
     After that nothing needs a person except a client's CRM login the first time it reaches
     staging.
 
+    **Resuming in a new session, once question 76 is answered**, in this order:
+    1. Check the environment: `CLOUDWAYS_EMAIL` and `CLOUDWAYS_API_KEY` exist (values never
+       printed). Get a token from the Cloudways API (`https://api.cloudways.com/api/v2/…`; v1
+       retired in March 2026; email and key in, a short-lived bearer token out) and list the
+       account's servers and apps, so the session knows which client sites live there and
+       whether the porting server already exists. The exact calls are read from the API
+       reference with the key in hand; `docs/template-porting.md` names what they must do.
+    2. If no porting server exists: make one in the account (DigitalOcean underneath, Frankfurt,
+       the smallest 2 GB size, name `kowboy-porting`), and write its id and address into
+       `docs/template-porting.md` under a new "The server" heading.
+    3. Make the first pair for the first client (question 77): copy the client's live app to the
+       porting server as `<client>-source`, password-protect it, keep search engines out, stop
+       its mail and, where its old plugin has the switch, its CRM polling; copy it again as
+       `<client>-target`, read both apps' WordPress logins from the API, and on the target
+       replace the old plugin with Core's plugin, the staging-only driver and the client's
+       template set, install the updater, and point it at staging Core with a tenant for that
+       client (the client's CRM login from Patric if staging does not hold it; the tenant page
+       gives the token and the bell secret).
+    4. Then item 11's loop (the Space and the staging channel, the driver, the packaging-and-
+       smoke job on staging Core, the first sync visible in a browser) and this item's steps 2
+       to 6 (inventory, port, compare, gaps, delivery).
+    5. Write every id, address and login location (never a secret) into `docs/template-porting.md`
+       as it is made, so the next session finds it there.
+
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health
@@ -201,8 +225,11 @@ the first item that is not done, and keep the file current. Decisions and open q
   (the account with both apps; their addresses come from `GET /v2/apps`; production writes wait
   for "allow" as above), `VITEC_USERNAME`, `VITEC_PASSWORD`, `VITEC_OFFICE_ID` and
   `VITEC_ESTATE_ID` (the Vitec test account, `scripts/vitec-probe.ts`) and `GITHUB_TOKEN` (the
-  repository, but not its settings: variables and secrets answer 403). There is no Sentry token.
-  Values are never printed, logged or committed.
+  repository, but not its settings: variables and secrets answer 403); `CLOUDWAYS_EMAIL` and
+  `CLOUDWAYS_API_KEY` once Patric adds them (question 76): the porting server and every site on
+  it, `docs/template-porting.md`. There is no Sentry token. Values are never printed, logged or
+  committed. Nothing but web traffic leaves the environment: no SSH, no SFTP, on any port
+  (checked 2026-09-21).
 - A new session's branch starts from `main`, which is production and far behind `staging`
   (2026-09-19: a side session started 53 changes back and had to be combined afterwards). Before
   any work, a fresh branch is moved onto staging's latest and pushed

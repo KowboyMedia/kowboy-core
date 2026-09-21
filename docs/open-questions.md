@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 77 (62 to 69 were also used in chat on 2026-09-20 for the WordPress
+answering is quick. Next number: 78 (62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
@@ -86,3 +86,13 @@ the environment agents run in, next to the DigitalOcean token and the Vitec test
 already there, not in chat: a secret pasted in chat stays in the conversation's record (the
 lesson of question 58). Once the two variables exist, an agent creates the server and the first
 pair of environments with nothing further from anyone.
+
+## 77. `[client-wordpress]` Name the first client to port: the site whose templates are the reference
+
+The porting workflow (`docs/template-porting.md`) starts from one client: its live site on
+Cloudways is copied twice onto the porting server, a source with the old plugin and a target
+with Core's plugin, and the new default templates are written to make the target show what the
+source shows. Patric called this site "our reference site, which runs the original templates" on
+2026-09-20 but did not name it. An agent needs the name as Cloudways lists the app, and the
+client's CRM login if staging does not hold that account yet (the test account `M31529` is on
+staging already; a client's is not).

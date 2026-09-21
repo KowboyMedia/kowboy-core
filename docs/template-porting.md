@@ -80,8 +80,17 @@ Steps 1, 2, 4 and 6 are the same for every client; steps 3 and 5 are the work. W
 nothing in the list needs a person except the CRM login the first time a client's account
 reaches staging.
 
+## The server and the pairs, as made
+
+Nothing yet (2026-09-21). Every agent that makes something here writes it down in this section:
+the server's name, id and address; per client the two apps' names, ids and addresses, where their
+logins live (the Cloudways API, never here), the tenant on staging Core, and the date. Secrets
+never.
+
 ## What it needs from Patric
 
 - **76** a Cloudways API key in the agents' environment settings, as `CLOUDWAYS_EMAIL` and
   `CLOUDWAYS_API_KEY`.
-- Per client: the client's name, and the CRM login if staging does not hold it yet.
+- **77** the first client to port, by the name Cloudways lists it, and its CRM login if staging
+  does not hold that account.
+- Per later client: the same two things.
