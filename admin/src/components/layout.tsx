@@ -18,7 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Palette } from '@/components/palette';
-import { PAGES } from '@/lib/pages';
+import { NAV } from '@/lib/pages';
 import { ago } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -78,13 +78,13 @@ export function Layout() {
           aria-label="Sections"
         >
           <ul className="flex flex-col gap-0.5">
-            {PAGES.map((item) => {
+            {NAV.map((item) => {
               const Icon = ICONS[item.icon] ?? Gauge;
               return (
-                <li key={item.to}>
+                <li key={item.path}>
                   <NavLink
-                    to={item.to}
-                    end={item.to === '/'}
+                    to={item.path}
+                    end={item.path === '/'}
                     onClick={() => setOpen(false)}
                     className={({ isActive }) =>
                       cn(
@@ -94,7 +94,7 @@ export function Layout() {
                     }
                   >
                     <Icon className="size-4" aria-hidden="true" />
-                    {item.label}
+                    {item.name}
                   </NavLink>
                 </li>
               );

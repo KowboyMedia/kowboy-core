@@ -448,6 +448,7 @@
         "the admin area streams what happens, so the pages need no reload (§3 I, Should)",
         "the admin area serves the built app under /admin, and the app’s own addresses (AC 42)",
         "the admin area signs a person out, and the session stops working (U6, AC 42)",
+        "the admin area names only pages that exist in every adapter’s setup directions (AGENTS.md, done 5)",
         "journey: U1 onboard a customer, watch the first load, take the secrets",
         "journey: U1 the page refuses what it cannot save, at the field",
         "journey: U2 keep it healthy — the verdict, and where a red check is fixed",

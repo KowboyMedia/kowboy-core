@@ -11,6 +11,9 @@ import { queryEvents } from '../engine/events.js';
 import { inMaintenance } from '../engine/storage/settings.js';
 import { flushBells } from '../engine/bells.js';
 import { runNextJob } from '../engine/jobs.js';
+import { PAGE_NAMES, pagesNamedIn } from '../engine/admin/pages.js';
+import { adapters as shipped } from '../main.js';
+import { fakePollingAdapter } from '../adapters/fake-polling/index.js';
 
 const EMAIL = 'tester@kowboy.se';
 
@@ -479,6 +482,25 @@ describe('the admin area', () => {
     expect(probed.body.data.ok).toBe(true);
 
     expect((await api('/crms/nothing-here')).status).toBe(404);
+  });
+
+  it('names only pages that exist in every adapter’s setup directions (AGENTS.md, done 5)', () => {
+    // A direction tells a cold reader where to go; a page it names and the area does not have
+    // sends that reader nowhere. Every adapter Core ships is checked, and the fakes with them,
+    // so a new CRM is covered the day it is added to the entrypoint.
+    const all = [...shipped, fakeWebhookAdapter, fakePollingAdapter].filter((one) => one.admin);
+    expect(all.length).toBeGreaterThan(1);
+    for (const adapter of all) {
+      const provider = adapter.manifest.provider;
+      const text = (adapter.admin?.directions().steps ?? [])
+        .map((step) => `${step.title} ${step.text}`)
+        .join('\n');
+      const named = pagesNamedIn(text);
+      expect(named.length, `${provider} names no page`).toBeGreaterThan(0);
+      for (const page of named) {
+        expect(PAGE_NAMES, `${provider} sends a reader to ${page}`).toContain(page);
+      }
+    }
   });
 
   it('shows the configuration without any value, and the migrations (U6, AC 42)', async () => {

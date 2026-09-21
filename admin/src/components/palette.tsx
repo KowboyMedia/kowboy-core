@@ -5,7 +5,7 @@ import { Command } from 'cmdk';
 import { useNavigate } from 'react-router';
 import { useList } from '@refinedev/core';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { PAGES } from '@/lib/pages';
+import { NAV } from '@/lib/pages';
 
 type TenantSummary = { id: number; displayName: string };
 
@@ -51,14 +51,14 @@ export function Palette() {
               Nothing by that name. A record id searches the records.
             </Command.Empty>
             <Command.Group heading="Pages" className="px-1 text-xs text-muted-foreground">
-              {PAGES.map((item) => (
+              {NAV.map((item) => (
                 <Command.Item
-                  key={item.to}
-                  value={`page ${item.label}`}
-                  onSelect={() => go(item.to)}
+                  key={item.path}
+                  value={`page ${item.name}`}
+                  onSelect={() => go(item.path)}
                   className="cursor-pointer rounded-md px-2 py-2 text-sm text-foreground data-[selected=true]:bg-accent"
                 >
-                  {item.label}
+                  {item.name}
                 </Command.Item>
               ))}
             </Command.Group>

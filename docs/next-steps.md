@@ -166,12 +166,15 @@ the first item that is not done, and keep the file current. Decisions and open q
     Tenants, Runs, Events, CRMs, Settings. What it is, is `docs/admin-panel.md`. Proved by
     `acceptance/admin.test.ts` through HTTP and by thirteen browser journeys in `admin/e2e`, both
     named under AC 42. The Coulds of §3 are still not built and stay listed there.
-    Left: (a) the two settings the area needs on each app, `ADMIN_EMAILS` (who may open it) and
-    `PUBLIC_URL` (where the sign-in link points), are in `.do/app.staging.yaml` and `.do/app.yaml`
-    but not yet on the apps, because the session's permission classifier refused an agent's write
-    to an app spec; staging needs Patric's "allow" and production gets them with the release.
-    (b) Patric walks it on staging and says what he would change. (c) Question 75: one line for
-    the folder `admin/` in AGENTS.md's layout map.
+    2026-09-21: the settings the area needs are on the staging app, on Patric's "allow"
+    (`ADMIN_EMAILS`, who may open it, and `PUBLIC_URL`, where the sign-in link points); the three
+    settings of the removed panels (`ADMIN_SECRET`, `ADMIN_EMAIL_DOMAINS`,
+    `ADMIN_LOGIN_WITHOUT_EMAIL`) went with them, and the spec DigitalOcean returned is committed
+    back. Question 75 is closed: AGENTS.md's layout map names `engine/admin/` and `admin/` as they
+    are. Left: (a) Patric walks the area on staging once this change is there, and says what he
+    would change. (b) Production has never held `POSTMARK_SERVER_TOKEN` or `PUBLIC_URL`, so its
+    sign-in link cannot be mailed; both go on with the release, and that write needs Patric's
+    "allow" for production the way every production write does.
 
 ## Later, when Patric supplies them
 

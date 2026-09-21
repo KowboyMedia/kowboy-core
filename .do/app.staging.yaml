@@ -23,6 +23,10 @@ services:
       - key: MAIL_FROM
         value: patric@kowboy.se
         scope: RUN_TIME
+      - key: POSTMARK_SERVER_TOKEN
+        value: EV[1:HDWQpFCri0z9Z/jh4WauuteSPvDZ45Li:v0tHUwi3muaRBba4D3QCv3uSYKie1NiAoac39ySuKnv46m9+7su8NfF8apgULpn/6qxCAw==]
+        scope: RUN_TIME
+        type: SECRET
       - key: SENTRY_DSN
         value: EV[1:TC95QipSafbeZ7bRSp0ego7jH3veGtTo:ZDpqKlVH+M7+HlgX3et+HuV67WZ28xaaD/m+rUloNZOD7QpU0XpNZ5M8I5Pp6B5CWwqggvSjOaL0pq1Zto4FGviKcDNT6XlSriMYi1PC5f+ZwHUSgPv5M8XayIzyTH0MWAKWvuSnmL+GDaRpZeqB]
         scope: RUN_TIME
@@ -34,9 +38,7 @@ services:
         value: EV[1:bgk8XOdGy1VfzAIfz1stxfXc3RiUEyAh:E4vFHMxNaQPOrWRs3ojYRW4SlmsBY8WYGMIsgZ/Il3XJHHsgNUa//7P0DJmN9QvLmOA80tkc/oC/lqqi]
         scope: RUN_TIME
         type: SECRET
-      # The admin area (docs/admin-panel.md), added 2026-09-20 with it. Not on the app yet: an
-      # agent's write to the app spec was refused by the session's permission classifier, so
-      # staging needs Patric's "allow" and production gets these with the release.
+      # The admin area (docs/admin-panel.md). On the app since 2026-09-21, on Patric's "allow".
       - key: ADMIN_EMAILS
         value: patric@kowboy.se
         scope: RUN_TIME
@@ -79,6 +81,10 @@ workers:
         type: SECRET
       - key: SENTRY_ENVIRONMENT
         value: staging
+        scope: RUN_TIME
+      # Where Core is reached, for the links in the alerts this worker sends.
+      - key: PUBLIC_URL
+        value: https://kowboy-core-staging-t7ig3.ondigitalocean.app
         scope: RUN_TIME
       - key: CREDENTIALS_KEY
         value: EV[1:bXCPiQ3i5oZD5/Fpa0u5wNdS+/myat0p:QkNWjoD35n9Rr27BQMbnrndq/yyVbSTvhgkvhS3MCgl5XY2Vz+DCiYoz1VHoRXKDra/3pGqjxmmDQXTA]

@@ -18,7 +18,7 @@ import { vitecAdapter } from './adapters/vitec/index.js';
  * Every adapter Core ships. Adding a CRM is adding a directory and one line here. The two fake
  * adapters live in the tests and local runs only (question 34, 2026-09-18).
  */
-const adapters: Adapter[] = [vitecAdapter];
+export const adapters: Adapter[] = [vitecAdapter];
 
 /**
  * One role of Core, as `node dist/main.js <role>` runs it. A function so the acceptance tests can

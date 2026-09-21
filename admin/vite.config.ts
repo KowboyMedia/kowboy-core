@@ -22,6 +22,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // The navigation reads the engine's own list of pages, which sits above this root.
+    fs: { allow: [fileURLToPath(new URL('..', import.meta.url))] },
     // In development the app runs on Vite and talks to a Core started beside it.
     proxy: { '/v1': 'http://127.0.0.1:3000' },
   },

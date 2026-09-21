@@ -39,9 +39,9 @@ services:
         value: EV[1:N71KfGweIKlzf42ES3sufrtrqQJ013Mh:I0ZD7+OARrP/BbYy68T9PHSqYa4n1BluG/nbSgXQdNQNG7W0/lWyQfH4WVTve0F4Fh1EBKRdvGN92ytY]
         scope: RUN_TIME
         type: SECRET
-      # The admin area (docs/admin-panel.md), added 2026-09-20 with it. Not on the app yet: an
-      # agent's write to the app spec was refused by the session's permission classifier, so
-      # staging needs Patric's "allow" and production gets these with the release.
+      # The admin area (docs/admin-panel.md). Staging has these since 2026-09-21; production gets
+      # them with the release, together with PUBLIC_URL and the Postmark token the sign-in link
+      # is mailed through, which production has never held.
       - key: ADMIN_EMAILS
         value: patric@kowboy.se
         scope: RUN_TIME
