@@ -48,7 +48,7 @@ services:
         value: kowboy.se
         scope: RUN_TIME
       - key: PUBLIC_URL
-        value: https://kowboy-core-staging-t7ig3.ondigitalocean.app
+        value: https://staging.core.kowboy.cloud
         scope: RUN_TIME
       - key: VITEC_WEBHOOK_TOKEN
         value: EV[1:hOO3+g5WuYm4pzme/z4V0vtqUvjPIh84:LcAwrVM/08EW3EQs1S0aFGc3fSdEhFTTUyIjzH7IIZsh+W33a8vTIUcYcWOg+Apu]
@@ -89,7 +89,7 @@ workers:
         scope: RUN_TIME
       # Where Core is reached, for the links in the alerts this worker sends.
       - key: PUBLIC_URL
-        value: https://kowboy-core-staging-t7ig3.ondigitalocean.app
+        value: https://staging.core.kowboy.cloud
         scope: RUN_TIME
       - key: CREDENTIALS_KEY
         value: EV[1:bXCPiQ3i5oZD5/Fpa0u5wNdS+/myat0p:QkNWjoD35n9Rr27BQMbnrndq/yyVbSTvhgkvhS3MCgl5XY2Vz+DCiYoz1VHoRXKDra/3pGqjxmmDQXTA]
