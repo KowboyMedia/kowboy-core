@@ -184,6 +184,51 @@ function scopeWhere(scope: ScopeFilter): Where {
   return where;
 }
 
+/** The key a page uses for a record, and the one `officesOf` answers by. */
+export const itemKey = (row: {
+  connectionId: string;
+  datatype: string;
+  remoteId: string;
+}): string => `${row.connectionId}|${row.datatype}|${row.remoteId}`;
+
+/**
+ * The office each of these records sits under, in one query. The event log does not carry the
+ * office — an event says what happened, not where the record lives — so a page that shows both
+ * reads it from the records themselves (Patric, 2026-09-21: Flow showed no office at all).
+ */
+export async function officesOf(
+  keys: { connectionId: string; datatype: string; remoteId: string }[],
+): Promise<Map<string, string | null>> {
+  if (keys.length === 0) return new Map();
+  const { rows } = await db().query<{
+    connection_id: string;
+    datatype: string;
+    remote_id: string;
+    office_id: string | null;
+  }>(
+    `select i.connection_id, i.datatype, i.remote_id, i.office_id
+     from items i
+     join unnest($1::text[], $2::text[], $3::text[]) as k(connection_id, datatype, remote_id)
+       on i.connection_id = k.connection_id and i.datatype = k.datatype
+      and i.remote_id = k.remote_id`,
+    [
+      keys.map((key) => key.connectionId),
+      keys.map((key) => key.datatype),
+      keys.map((key) => key.remoteId),
+    ],
+  );
+  return new Map(
+    rows.map((row) => [
+      itemKey({
+        connectionId: row.connection_id,
+        datatype: row.datatype,
+        remoteId: row.remote_id,
+      }),
+      row.office_id,
+    ]),
+  );
+}
+
 /** Every stored item for a scope, for replay and recompute. */
 export async function itemsForScope(scope: ScopeFilter): Promise<ItemRow[]> {
   const where = scopeWhere(scope);

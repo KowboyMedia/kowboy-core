@@ -527,12 +527,24 @@ describe('the admin area', () => {
     );
 
     const flow = await api<{
-      data: { state: string; remoteId: string; queuedAt: string; what: string }[];
+      data: {
+        state: string;
+        remoteId: string;
+        queuedAt: string;
+        what: string;
+        officeId: string | null;
+        tenant: string | null;
+      }[];
     }>('/flow');
     expect(flow.status).toBe(200);
     const row = flow.body.data.find((one) => one.remoteId === 'OBJ-1');
     expect(row?.state).toBe('fetched');
     expect(row?.what).not.toBe('');
+    // Every row says whose record it is and which office it came from. The office is on the
+    // record, never on the event, so a record that has already moved must still show it
+    // (Patric, 2026-09-21: two tenants held the same records and the office column was empty).
+    expect(row?.tenant).toBe('Acme Mäklare');
+    expect(row?.officeId).toBe('100');
   });
 
   it('reads the event log by every filter, and follows a chain (U3, U6, AC 42)', async () => {
