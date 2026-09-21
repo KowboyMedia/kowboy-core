@@ -8,12 +8,11 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Confirm } from '@/components/confirm';
 import { DataTable } from '@/components/data-table';
 import { Empty } from '@/components/empty';
 import { JsonView } from '@/components/json-view';
 import { PageHeader } from '@/components/layout';
-import { moment } from '@/lib/format';
+import { exact, moment } from '@/lib/format';
 import type { RecordRow } from './records';
 
 type TimelineEvent = {
@@ -21,7 +20,8 @@ type TimelineEvent = {
   at: string;
   type: string;
   correlationId: string | null;
-  fields: Record<string, unknown>;
+  /** What happened, in one sentence. The payload stays in the log and on the Events page. */
+  said: string;
 };
 
 type RecordView = {
@@ -108,30 +108,28 @@ export function RecordPage() {
         >
           Preview a recompute
         </Button>
-        <Confirm
-          label="Recompute"
-          title="Recompute this record"
-          what="The record is computed again from what Core already stores. No CRM is called, and the tenant's sites are rung if anything changed."
-          confirmLabel="Recompute it"
-          onConfirm={() =>
-            say(async () => {
+        <Button
+          variant="secondary"
+          onClick={() =>
+            void say(async () => {
               await post('/runs/recompute', scope);
-              return 'The recompute is queued; watch it on Runs.';
+              return 'The recompute is queued; watch it on Manual sync.';
             })
           }
-        />
-        <Confirm
-          label="Fetch again"
-          title="Fetch this record from the CRM"
-          what="The record goes on its adapter's fetch list and is fetched from the CRM again. If the CRM no longer has it, Core removes it."
-          confirmLabel="Fetch it again"
-          onConfirm={() =>
-            say(async () => {
+        >
+          Recompute
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() =>
+            void say(async () => {
               const outcome = await post<{ detail: string }>('/runs/fetch-again', scope);
               return outcome.detail;
             })
           }
-        />
+        >
+          Fetch again
+        </Button>
         <Button
           variant="outline"
           onClick={() =>
@@ -143,20 +141,24 @@ export function RecordPage() {
         >
           Ask the CRM now
         </Button>
-        <Confirm
-          label="Ring the sites"
-          title="Ring this tenant’s sites"
-          what="Every site of this tenant is told there is something new, and pulls whatever it has not seen."
-          confirmLabel="Ring them"
+        <Button
           variant="secondary"
-          onConfirm={() =>
-            say(async () => {
+          onClick={() =>
+            void say(async () => {
               await post(`/tenants/${String(record.row.tenantId)}/ring`);
               return 'Rang the tenant’s sites.';
             })
           }
-        />
+        >
+          Ring the sites
+        </Button>
       </PageHeader>
+
+      <p className="mb-3 text-xs text-muted-foreground">
+        None of these can lose anything: a recompute rebuilds this record from what Core already
+        stores, fetching again asks the CRM for the same record and writes only what differs, and a
+        bell only tells the sites to pull. Running any of them twice does no more than once.
+      </p>
 
       <div className="mb-4 flex flex-wrap gap-2 text-sm">
         <Badge tone={record.row.deleted ? 'muted' : 'ok'}>
@@ -241,7 +243,7 @@ export function RecordPage() {
           <CardTitle>Its timeline</CardTitle>
           <CardDescription>
             Everything that touched this record, newest first, from the CRM’s notification to each
-            site’s apply.
+            site’s apply. The whole of each event, payload and all, is on Events.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -250,19 +252,14 @@ export function RecordPage() {
               {
                 key: 'at',
                 header: 'When',
-                cell: (event) => <span className="tabular-nums">{moment(event.at)}</span>,
+                cell: (event) => <span className="tabular-nums">{exact(event.at)}</span>,
               },
+              { key: 'said', header: 'What happened', cell: (event) => event.said },
               {
                 key: 'type',
-                header: 'What',
-                cell: (event) => <Badge tone="neutral">{event.type}</Badge>,
-              },
-              {
-                key: 'fields',
-                header: 'Detail',
-                cell: (event) => (
-                  <code className="text-xs break-all">{JSON.stringify(event.fields)}</code>
-                ),
+                header: 'Type',
+                cell: (event) => <Badge tone="muted">{event.type}</Badge>,
+                optional: true,
               },
               {
                 key: 'correlation',

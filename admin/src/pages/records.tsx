@@ -1,6 +1,11 @@
 // Records (U3): the grid. Every filter, the sort, the page and the page size live in the address,
 // so a filtered view is a link one can paste to a colleague (React-admin's pattern, read
-// 2026-09-20). Ticked rows act on themselves: recompute, fetch again, ring the tenant's sites.
+// 2026-09-20). The tenant, the connection, the office and the entity are picked from the same
+// component Manual sync uses, never typed (Patric, 2026-09-21).
+//
+// Ticking acts on records. "Select all" means every record the search matches, not the page in
+// front of you: when it is on, the actions send the search itself as the scope, so a hundred
+// thousand matches cost the same as fifty.
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useCustomMutation, useList } from '@refinedev/core';
@@ -10,10 +15,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input, Label, Select } from '@/components/ui/input';
 import { Confirm } from '@/components/confirm';
-import { DataTable, type Sort } from '@/components/data-table';
+import { DataTable, DEFAULT_PAGE_SIZE, type Sort } from '@/components/data-table';
 import { Empty } from '@/components/empty';
 import { PageHeader } from '@/components/layout';
-import { moment } from '@/lib/format';
+import { ScopePicker, useScopeOptions, type ScopeValue } from '@/components/scope-picker';
+import { count, moment } from '@/lib/format';
 
 export type RecordRow = {
   tenantId: number;
@@ -33,18 +39,26 @@ export type RecordRow = {
   addressLine: string | null;
 };
 
-const DATATYPES = ['property', 'agent', 'office', 'area', 'association', 'project'];
-
-/** Which query parameter each filter is, and the label above its box. */
-const FILTERS = [
+/** The boxes a person types into. The pickers above them cover tenant, connection, office, entity. */
+const TYPED = [
   { key: 'q', label: 'Words in the record', placeholder: 'storgatan' },
-  { key: 'tenant', label: 'Tenant number', placeholder: '1' },
-  { key: 'connection', label: 'Connection', placeholder: 'acme-crm' },
-  { key: 'office', label: 'Office', placeholder: 'M31529' },
   { key: 'id', label: 'Record id', placeholder: 'OBJ-1' },
   { key: 'from', label: 'Written from', placeholder: '2026-09-01' },
   { key: 'to', label: 'Written before', placeholder: '2026-09-21' },
 ] as const;
+
+/** Every filter the grid can hold, so clearing and counting never miss one. */
+const FILTER_KEYS = [
+  'q',
+  'id',
+  'from',
+  'to',
+  'tenant',
+  'connection',
+  'office',
+  'datatype',
+  'deleted',
+];
 
 export const recordPath = (row: {
   connectionId: string;
@@ -56,6 +70,9 @@ export const recordPath = (row: {
 export function Records() {
   const [params, setParams] = useSearchParams();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  /** On: the actions mean every record the search matches, not the ones loaded. */
+  const [allMatching, setAllMatching] = useState(false);
+  const options = useScopeOptions();
   const { mutateAsync } = useCustomMutation();
 
   const set = (key: string, value: string): void => {
@@ -64,62 +81,108 @@ export function Records() {
     else next.set(key, value);
     if (key !== 'page') next.delete('page');
     setParams(next, { replace: true });
+    setSelected(new Set());
+    setAllMatching(false);
+  };
+
+  const scope: ScopeValue = {
+    tenantId: params.get('tenant') ?? '',
+    connectionId: params.get('connection') ?? '',
+    officeId: params.get('office') ?? '',
+    datatype: params.get('datatype') ?? '',
+  };
+
+  const setScope = (next: ScopeValue): void => {
+    const params_ = new URLSearchParams(params);
+    for (const [key, value] of [
+      ['tenant', next.tenantId],
+      ['connection', next.connectionId],
+      ['office', next.officeId],
+      ['datatype', next.datatype],
+    ] as const) {
+      if (value === undefined || value === '') params_.delete(key);
+      else params_.set(key, value);
+    }
+    params_.delete('page');
+    setParams(params_, { replace: true });
+    setSelected(new Set());
+    setAllMatching(false);
   };
 
   const page = Number(params.get('page') ?? 1);
-  const size = Number(params.get('size') ?? 50);
+  const size = Number(params.get('size') ?? DEFAULT_PAGE_SIZE);
   const sort: Sort = {
     field: params.get('sort') ?? 'seq',
     order: params.get('dir') === 'asc' ? 'asc' : 'desc',
   };
 
-  const filters = [
-    ...FILTERS.map((filter) => ({
-      field: filter.key,
-      operator: 'eq' as const,
-      value: params.get(filter.key) ?? '',
-    })),
-    { field: 'datatype', operator: 'eq' as const, value: params.get('datatype') ?? '' },
-    { field: 'deleted', operator: 'eq' as const, value: params.get('deleted') ?? '' },
-  ];
-
   const { result, query } = useList<RecordRow>({
     resource: 'records',
     pagination: { currentPage: page, pageSize: size },
     sorters: [{ field: sort.field, order: sort.order }],
-    filters,
+    filters: FILTER_KEYS.map((key) => ({
+      field: key,
+      operator: 'eq' as const,
+      value: params.get(key) ?? '',
+    })),
   });
   const rows = result?.data ?? [];
   const total = result?.total ?? 0;
 
-  const chosen = rows.filter((row) =>
-    selected.has(`${row.connectionId}|${row.datatype}|${row.remoteId}`),
-  );
-  const asRecords = chosen.map((row) => ({
-    connectionId: row.connectionId,
-    datatype: row.datatype,
-    remoteId: row.remoteId,
-  }));
+  const keyOf = (row: RecordRow): string => `${row.connectionId}|${row.datatype}|${row.remoteId}`;
+  const chosen = rows.filter((row) => selected.has(keyOf(row)));
+  const howMany = allMatching ? total : chosen.length;
 
-  const run = async (url: string, message: string): Promise<void> => {
+  /**
+   * What the actions act on. With "select all" on, that is the search itself — the same filters
+   * the server just counted — so nothing depends on which page happens to be loaded.
+   */
+  const target = (): Record<string, unknown> => {
+    if (!allMatching) {
+      return {
+        records: chosen.map((row) => ({
+          connectionId: row.connectionId,
+          datatype: row.datatype,
+          remoteId: row.remoteId,
+        })),
+      };
+    }
+    const out: Record<string, unknown> = {};
+    if (params.get('tenant')) out['tenantId'] = Number(params.get('tenant'));
+    if (params.get('connection')) out['connectionId'] = params.get('connection');
+    if (params.get('office')) out['officeId'] = params.get('office');
+    if (params.get('datatype')) out['datatype'] = params.get('datatype');
+    if (params.get('id')) out['remoteId'] = params.get('id');
+    if (params.get('q')) out['text'] = params.get('q');
+    return out;
+  };
+
+  const run = async (url: string, fallback: string): Promise<void> => {
     try {
       const answer = await mutateAsync({
         url,
         method: 'post',
-        values: { records: asRecords },
+        values: target(),
         successNotification: false,
         errorNotification: false,
       });
       const detail = (answer.data as unknown as { detail?: string })?.detail;
-      toast.success(detail ?? message);
+      toast.success(detail ?? fallback);
       setSelected(new Set());
+      setAllMatching(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
     }
   };
 
   const ringTheirSites = async (): Promise<void> => {
-    const tenants = [...new Set(chosen.map((row) => row.tenantId))];
+    const tenants = allMatching
+      ? [Number(params.get('tenant') ?? 0)].filter(Boolean)
+      : [...new Set(chosen.map((row) => row.tenantId))];
+    if (tenants.length === 0) {
+      toast.error('Choose a tenant first, or tick rows, so Core knows whose sites to ring.');
+      return;
+    }
     for (const tenantId of tenants) {
       await mutateAsync({
         url: `/tenants/${String(tenantId)}/ring`,
@@ -129,8 +192,10 @@ export function Records() {
         errorNotification: false,
       });
     }
-    toast.success(`Rang the sites of ${tenants.length} tenant(s).`);
+    toast.success(`Rang the sites of ${String(tenants.length)} tenant(s).`);
   };
+
+  const filtered = FILTER_KEYS.some((key) => params.get(key));
 
   return (
     <>
@@ -141,7 +206,8 @@ export function Records() {
 
       <Card className="mb-4">
         <CardContent className="grid gap-3 pt-4 sm:grid-cols-2 lg:grid-cols-4">
-          {FILTERS.map((filter) => (
+          <ScopePicker value={scope} onChange={setScope} options={options} />
+          {TYPED.map((filter) => (
             <div key={filter.key} className="flex flex-col gap-1">
               <Label htmlFor={`filter-${filter.key}`}>{filter.label}</Label>
               <Input
@@ -152,21 +218,6 @@ export function Records() {
               />
             </div>
           ))}
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="filter-datatype">Entity type</Label>
-            <Select
-              id="filter-datatype"
-              value={params.get('datatype') ?? ''}
-              onChange={(event) => set('datatype', event.target.value)}
-            >
-              <option value="">any</option>
-              {DATATYPES.map((datatype) => (
-                <option key={datatype} value={datatype}>
-                  {datatype}
-                </option>
-              ))}
-            </Select>
-          </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="filter-deleted">Removed</Label>
             <Select
@@ -182,6 +233,7 @@ export function Records() {
           <div className="flex items-end">
             <Button
               variant="outline"
+              disabled={!filtered}
               onClick={() => setParams(new URLSearchParams(), { replace: true })}
             >
               Clear the filters
@@ -191,7 +243,7 @@ export function Records() {
       </Card>
 
       <DataTable
-        caption={`${total.toLocaleString('en-GB')} record(s) match`}
+        caption={`${count(total)} record(s) match`}
         columns={[
           {
             key: 'what',
@@ -244,15 +296,10 @@ export function Records() {
             ),
           },
           { key: 'seq', header: 'Seq', sortAs: 'seq', cell: (row) => row.seq, optional: true },
-          {
-            key: 'rulesVersion',
-            header: 'Rules',
-            cell: (row) => row.rulesVersion,
-            optional: true,
-          },
+          { key: 'rulesVersion', header: 'Rules', cell: (row) => row.rulesVersion, optional: true },
         ]}
         rows={rows}
-        rowKey={(row) => `${row.connectionId}|${row.datatype}|${row.remoteId}`}
+        rowKey={keyOf}
         loading={query.isLoading}
         sort={sort}
         onSort={(next) => {
@@ -262,34 +309,41 @@ export function Records() {
           setParams(params_, { replace: true });
         }}
         selected={selected}
-        onSelect={setSelected}
+        onSelect={(next) => {
+          setSelected(next);
+          if (next.size === 0) setAllMatching(false);
+        }}
+        allMatching={{
+          on: allMatching,
+          total,
+          onChange: setAllMatching,
+          what: 'record(s) matching these filters',
+        }}
         selectionActions={
           <>
             <Button
               size="sm"
               variant="secondary"
-              onClick={() => void run('/runs/preview', 'Previewed.')}
+              onClick={() => void run('/runs/preview', 'Previewed. Nothing was written.')}
             >
               Preview a recompute
             </Button>
             <Confirm
               label="Recompute"
-              title="Recompute the ticked records"
-              what={`${chosen.length} record(s) are computed again from what Core already stores. No CRM is called, and the sites are rung for whatever changed.`}
+              title={`Recompute ${count(howMany)} record(s)`}
+              what={`${count(howMany)} record(s) are computed again from what Core already stores, sold properties last. No CRM is called, and the sites are rung for whatever changed.`}
               confirmLabel="Recompute them"
               variant="danger"
               size="sm"
               onConfirm={() => run('/runs/recompute', 'The recompute is queued.')}
             />
-            <Confirm
-              label="Fetch again"
-              title="Fetch the ticked records from the CRM"
-              what={`${chosen.length} record(s) are put on their adapter's fetch list and fetched from the CRM again. A record the CRM no longer has is removed.`}
-              confirmLabel="Fetch them again"
-              variant="danger"
+            <Button
               size="sm"
-              onConfirm={() => run('/runs/fetch-again', 'Queued for the CRM.')}
-            />
+              variant="secondary"
+              onClick={() => void run('/runs/fetch-again', 'Queued for the CRM.')}
+            >
+              Fetch again
+            </Button>
             <Button size="sm" variant="secondary" onClick={() => void ringTheirSites()}>
               Ring their sites
             </Button>
@@ -305,12 +359,12 @@ export function Records() {
         empty={
           <Empty
             what={
-              params.size === 0
-                ? 'Core holds no records yet. They arrive when a tenant’s CRM connection loads.'
-                : 'Nothing matches these filters.'
+              filtered
+                ? 'Nothing matches these filters.'
+                : 'Core holds no records yet. They arrive when a tenant’s CRM connection loads.'
             }
             next={
-              params.size > 0 ? (
+              filtered ? (
                 <Button
                   size="sm"
                   variant="outline"

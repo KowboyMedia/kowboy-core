@@ -32,6 +32,8 @@ export type AdminValue =
 export type AdminAction = {
   id: string;
   label: string;
+  /** What the button does and when to press it: shown next to it, never hidden behind a hover. */
+  help?: string;
   params?: Record<string, string>;
   fields?: AdminField[];
   confirm?: string;
@@ -110,7 +112,9 @@ function Action({ action, run }: { action: AdminAction; run: Run }) {
       <Confirm
         label={action.label}
         title={action.label}
-        what={action.confirm ?? `This runs “${action.label}”.`}
+        what={
+          [action.help, action.confirm].filter(Boolean).join(' ') || `This runs “${action.label}”.`
+        }
         confirmLabel={action.label}
         variant={action.danger ? 'danger' : 'secondary'}
         size="sm"
@@ -124,6 +128,18 @@ function Action({ action, run }: { action: AdminAction; run: Run }) {
     <Button variant="secondary" size="sm" disabled={busy} onClick={() => void go()}>
       {action.label}
     </Button>
+  );
+}
+
+/** A button with the sentence that says what it does, for the blocks that have room for it. */
+function ExplainedAction({ action, run }: { action: AdminAction; run: Run }) {
+  return (
+    <div className="flex max-w-md flex-col gap-1">
+      <div>
+        <Action action={action} run={run} />
+      </div>
+      {action.help && <p className="text-xs text-muted-foreground">{action.help}</p>}
+    </div>
   );
 }
 
@@ -141,7 +157,9 @@ function SectionTable({ table, run }: { table: NonNullable<AdminSection['table']
       cell: (row) => (
         <div className="flex flex-wrap justify-end gap-1">
           {(row.actions ?? []).map((action) => (
-            <Action key={action.id + JSON.stringify(action.params)} action={action} run={run} />
+            <span key={action.id + JSON.stringify(action.params)} title={action.help}>
+              <Action action={action} run={run} />
+            </span>
           ))}
         </div>
       ),
@@ -183,9 +201,9 @@ export function AdapterSections({ sections, run }: { sections: AdminSection[]; r
             )}
             {section.table && <SectionTable table={section.table} run={run} />}
             {section.actions && section.actions.length > 0 && (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-4">
                 {section.actions.map((action) => (
-                  <Action key={action.id} action={action} run={run} />
+                  <ExplainedAction key={action.id} action={action} run={run} />
                 ))}
               </div>
             )}

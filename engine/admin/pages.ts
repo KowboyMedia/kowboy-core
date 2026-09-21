@@ -18,7 +18,11 @@ export const PAGES: Page[] = [
     what: 'Find a record and see everything about it',
   },
   { name: 'Tenants', path: '/tenants', what: 'Customers, their CRMs and their sites' },
-  { name: 'Runs', path: '/runs', what: 'Recompute or fetch again, by scope' },
+  {
+    name: 'Manual sync',
+    path: '/manual-sync',
+    what: 'Recompute or fetch from the CRM again, by scope',
+  },
   { name: 'Events', path: '/events', what: 'Everything that happened' },
   { name: 'CRMs', path: '/crms', what: 'Each adapter’s own page' },
   { name: 'Settings', path: '/settings', what: 'Configuration, versions, maintenance' },
@@ -28,8 +32,15 @@ export const PAGE_NAMES: string[] = PAGES.map((page) => page.name);
 
 /**
  * The pages a piece of setup text names. The convention every adapter's directions follow is
- * "On <Page>", written exactly as the navigation labels it; this is what the test reads.
+ * "On <Page>", written exactly as the navigation labels it — a page whose name is two words is
+ * matched whole, so "On Manual sync" is one page and not a page called "Manual". What follows
+ * "On " and is not a page comes back as it is, which is how the test catches it.
  */
-export const pagesNamedIn = (text: string): string[] => [
-  ...new Set([...text.matchAll(/\bOn ([A-Z][A-Za-z]+)\b/g)].map((match) => match[1] ?? '')),
-];
+export function pagesNamedIn(text: string): string[] {
+  const found = new Set<string>();
+  for (const match of text.matchAll(/\bOn ([A-Z][A-Za-z ]*)/g)) {
+    const rest = match[1] ?? '';
+    found.add(PAGE_NAMES.find((name) => rest.startsWith(name)) ?? rest.split(/[\s,.]/)[0] ?? '');
+  }
+  return [...found];
+}

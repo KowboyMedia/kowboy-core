@@ -449,6 +449,9 @@
         "the admin area serves the built app under /admin, and the app’s own addresses (AC 42)",
         "the admin area signs a person out, and the session stops working (U6, AC 42)",
         "the admin area names only pages that exist in every adapter’s setup directions (AGENTS.md, done 5)",
+        "the admin area remembers a device for thirty days, on as many as a person likes (Patric, 2026-09-21)",
+        "the admin area offers the pickers a scope is chosen from (Patric, 2026-09-21)",
+        "the admin area explains every button an adapter puts on a page (Patric, 2026-09-21)",
         "journey: U1 onboard a customer, watch the first load, take the secrets",
         "journey: U1 the page refuses what it cannot save, at the field",
         "journey: U2 keep it healthy — the verdict, and where a red check is fixed",
@@ -459,6 +462,7 @@
         "journey: U8 try things — ring a site and fetch a record again",
         "journey: U7 configure an adapter — its directions, settings and actions",
         "journey: U6 secrets — rotating a token says what breaks, and asks first",
+        "journey: U6 remember this device, and see every device it is signed in on",
         "journey: U6 the event log says who did what",
         "journey: U6 maintenance pauses Core’s own work, and says so everywhere",
         "journey: the palette goes anywhere, and sign-out ends the session"

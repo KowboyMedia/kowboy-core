@@ -84,6 +84,13 @@ type Form = {
 
 const EMPTY: Form = { displayName: '', active: true, connections: [], sites: [] };
 
+/**
+ * What a stored login looks like on the page. Core never sends a secret to the browser, so this
+ * is a mask standing in for a value the page does not have, not a masked copy of one it does
+ * (Patric, 2026-09-21).
+ */
+const MASK = '••••••••••••';
+
 const toForm = (tenant: TenantView): Form => ({
   displayName: tenant.displayName,
   active: tenant.active,
@@ -213,10 +220,17 @@ export function TenantPage() {
   };
 
   const tryLogin = async (connection: ConnectionForm): Promise<void> => {
+    const stored = tenant?.connections.find((one) => one.id === connection.id);
     try {
       const outcome = await post<{ ok: boolean; detail: string }>(
         `/crms/${connection.provider}/probe`,
-        { credentials: connection.credentials, officeIds: offices(connection.offices) },
+        {
+          credentials: connection.credentials,
+          officeIds: offices(connection.offices),
+          // Nothing typed on a saved connection means "try the login you already hold": the page
+          // cannot send back a password it was never given.
+          ...(stored ? { connectionId: stored.id } : {}),
+        },
       );
       if (outcome.ok) toast.success('The CRM answered', { description: outcome.detail });
       else toast.error('The CRM refused', { description: outcome.detail });
@@ -437,7 +451,9 @@ export function TenantPage() {
                         type={field.secret ? 'password' : 'text'}
                         autoComplete="off"
                         value={connection.credentials[field.key] ?? ''}
-                        placeholder={saved?.hasCredentials ? 'stored — type to replace' : ''}
+                        // A login Core holds shows as a mask. The value itself never leaves
+                        // the server, so it is not in this page even hidden; typing replaces it.
+                        placeholder={saved?.hasCredentials ? MASK : ''}
                         onChange={(event) =>
                           change({
                             credentials: {
@@ -458,6 +474,11 @@ export function TenantPage() {
                     variant="outline"
                     disabled={!connection.provider}
                     onClick={() => void tryLogin(connection)}
+                    title={
+                      Object.values(connection.credentials).some((value) => value !== '')
+                        ? 'Tries the login typed above, before it is saved.'
+                        : 'Tries the login Core already holds for this connection.'
+                    }
                   >
                     Check the login
                   </Button>

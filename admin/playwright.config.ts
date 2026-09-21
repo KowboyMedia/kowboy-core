@@ -19,7 +19,10 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   forbidOnly: Boolean(process.env['CI']),
-  retries: process.env['CI'] ? 1 : 0,
+  // The journeys are one walk through the area in order: the first makes the tenant the rest
+  // work on. Retrying one of them alone replays it against a Core that has already moved on, so a
+  // retry can only mislead — a failure here is a failure (2026-09-21).
+  retries: 0,
   reporter: process.env['CI']
     ? [['list'], ['json', { outputFile: 'admin/e2e/report.json' }]]
     : 'list',

@@ -16,9 +16,10 @@ import {
   cookieFrom,
   cookieHeader,
   currentConfig,
+  devicesOf,
+  forgetOtherDevices,
   requestSignIn,
   sessionFor,
-  sessionSeconds,
   signIn,
   signOut,
   type Session,
@@ -41,7 +42,14 @@ import {
   toScope,
   type ScopeInput,
 } from './runs.js';
-import { listTenants, readTenant, removeTenant, saveTenant, type TenantInput } from './tenants.js';
+import {
+  listTenants,
+  readTenant,
+  removeTenant,
+  saveTenant,
+  scopeOptions,
+  type TenantInput,
+} from './tenants.js';
 import {
   body,
   fail,
@@ -70,10 +78,13 @@ const routes: AdminRoute[] = [
     path: '/sign-in',
     open: true,
     handler: async (request) => {
-      const parsed = body<{ email?: string }>(request);
+      const parsed = body<{ email?: string; remember?: boolean }>(request);
       if ('error' in parsed) return parsed.error;
       if (!parsed.value.email) return fail(400, 'Type the address you sign in with.');
-      return jsonResponse(200, await requestSignIn(parsed.value.email));
+      return jsonResponse(
+        200,
+        await requestSignIn(parsed.value.email, parsed.value.remember === true),
+      );
     },
   },
   {
@@ -81,14 +92,15 @@ const routes: AdminRoute[] = [
     path: '/sign-in/:token',
     open: true,
     handler: async (request): Promise<Response> => {
-      const signedIn = await signIn(request.params['token'] ?? '');
+      // The browser that opens the link is the device being remembered, so it names itself here.
+      const signedIn = await signIn(request.params['token'] ?? '', deviceOf(request));
       // A link that is unknown, spent or too old sends the person back to ask for a new one.
       if (!signedIn) return { status: 303, headers: { location: '/admin/sign-in?again=1' } };
       return {
         status: 303,
         headers: {
           location: '/admin',
-          'set-cookie': cookieHeader(signedIn.cookie, sessionSeconds()),
+          'set-cookie': cookieHeader(signedIn.cookie, signedIn.seconds),
         },
       };
     },
@@ -116,6 +128,37 @@ const routes: AdminRoute[] = [
         version: VERSION,
         startedAt: STARTED_AT,
       });
+    },
+  },
+
+  {
+    method: 'GET',
+    path: '/devices',
+    handler: async (request) => {
+      const rows = await devicesOf(request.session.email, cookieFrom(request.headers['cookie']));
+      return page(
+        rows.map((row) => ({
+          device: row.device,
+          remembered: row.remembered,
+          current: row.current,
+          signedInAt: row.created_at.toISOString(),
+          lastSeenAt: row.last_seen_at.toISOString(),
+          until: row.expires_at.toISOString(),
+        })),
+        rows.length,
+      );
+    },
+  },
+  {
+    method: 'POST',
+    path: '/devices/forget-others',
+    handler: async (request) => {
+      const forgotten = await forgetOtherDevices(
+        request.session.email,
+        cookieFrom(request.headers['cookie']),
+      );
+      await audit(request.session, 'devices_forgotten', { sessions: forgotten });
+      return one({ forgotten });
     },
   },
 
@@ -273,6 +316,11 @@ const routes: AdminRoute[] = [
   },
 
   // ---- Records ---------------------------------------------------------------------------------
+  {
+    method: 'GET',
+    path: '/scope',
+    handler: async () => one(await scopeOptions()),
+  },
   {
     method: 'GET',
     path: '/records',
@@ -497,14 +545,19 @@ const routes: AdminRoute[] = [
     method: 'POST',
     path: '/crms/:provider/probe',
     handler: async (request) => {
-      const parsed = body<{ credentials?: Record<string, string>; officeIds?: string[] }>(request);
+      const parsed = body<{
+        credentials?: Record<string, string>;
+        officeIds?: string[];
+        /** A saved connection: try the login Core already holds, which the page cannot re-type. */
+        connectionId?: string;
+      }>(request);
       if ('error' in parsed) return parsed.error;
       const provider = request.params['provider'] ?? '';
-      const outcome = await probe(
-        provider,
-        parsed.value.credentials ?? {},
-        parsed.value.officeIds ?? [],
-      );
+      const outcome = await probe(provider, {
+        typed: parsed.value.credentials ?? {},
+        officeIds: parsed.value.officeIds ?? [],
+        ...(parsed.value.connectionId ? { connectionId: parsed.value.connectionId } : {}),
+      });
       await audit(request.session, 'login_tried', { provider, ok: outcome.ok });
       return one(outcome);
     },
@@ -539,6 +592,15 @@ const refuseSite = (site: TenantInput['sites'][number]): string | null => {
     ? null
     : `The site ${site.label} needs a bell address starting with http:// or https://.`;
 };
+
+/**
+ * The device a request comes from, as a person would name it. The browser's own description is
+ * all Core has; it is kept whole and shown only to the person it belongs to.
+ */
+function deviceOf(request: Request): string | null {
+  const agent = request.headers['user-agent'];
+  return agent ? agent.slice(0, 200) : null;
+}
 
 /** What a tenant page will not save, said as the field the person must fix. */
 function refuseTenant(input: TenantInput): string | null {

@@ -31,31 +31,42 @@ const adminUrl = (path: string): string => `${settings().publicUrl ?? ''}${path}
 
 const hash = (token: string): string => tokenHmac(token, settings().credentialsKey);
 
-export const mayOpen = (email: string): boolean =>
-  settings().adminEmails.includes(email.trim().toLowerCase());
+/**
+ * Whether an address may open the area: it is on the list by name, or its domain is on the list
+ * of whole domains. Nothing the sign-in page shows depends on the answer (Patric, 2026-09-21).
+ */
+export function mayOpen(email: string): boolean {
+  const address = email.trim().toLowerCase();
+  if (settings().adminEmails.includes(address)) return true;
+  const domain = address.slice(address.lastIndexOf('@') + 1);
+  return domain !== '' && address.includes('@') && settings().adminEmailDomains.includes(domain);
+}
 
 export type SignInOutcome = { sent: boolean; detail: string; link?: string };
 
 /**
  * Make a sign-in link for an allowed address and mail it. An address that may not open the area
- * gets the same answer as one that may, so the panel never tells a stranger who works here; the
- * attempt is in the event log either way.
+ * gets the same answer as one that may, so the panel never tells a stranger who works here, nor
+ * which addresses or domains are let in; the attempt is in the event log either way.
+ *
+ * `remember` is the person's choice on the sign-in page, carried on the link because the session
+ * is made when the link is opened, not when it is asked for.
  */
-export async function requestSignIn(rawEmail: string): Promise<SignInOutcome> {
+export async function requestSignIn(rawEmail: string, remember = false): Promise<SignInOutcome> {
   const email = rawEmail.trim().toLowerCase();
   const allowed = mayOpen(email);
   const same = {
     sent: true,
     detail: 'If that address may open the admin area, the link is on its way.',
   };
-  await logEvent({ type: 'admin.sign_in_requested', fields: { email, allowed } });
+  await logEvent({ type: 'admin.sign_in_requested', fields: { email, allowed, remember } });
   if (!allowed) return same;
 
   const token = newSecret();
   await db().query(
-    `insert into admin_logins (token_hmac, email, expires_at)
-     values ($1, $2, now() + ($3 || ' minutes')::interval)`,
-    [hash(token), email, String(settings().adminLinkMinutes)],
+    `insert into admin_logins (token_hmac, email, expires_at, remember)
+     values ($1, $2, now() + ($3 || ' minutes')::interval, $4)`,
+    [hash(token), email, String(settings().adminLinkMinutes), remember],
   );
   const link = adminUrl(`/v1/admin/sign-in/${token}`);
 
@@ -76,26 +87,68 @@ export async function requestSignIn(rawEmail: string): Promise<SignInOutcome> {
   return same;
 }
 
-/** Spend a link and make the session behind it. Null when the link is unknown, used or too old. */
-export async function signIn(token: string): Promise<{ session: Session; cookie: string } | null> {
-  const { rows } = await db().query<{ email: string }>(
+export type SignedIn = { session: Session; cookie: string; seconds: number };
+
+/**
+ * Spend a link and make the session behind it. Null when the link is unknown, used or too old.
+ * A remembered device keeps its session for thirty days instead of a fortnight; every device gets
+ * a row of its own, so a person may be remembered on as many as they like and signing out of one
+ * leaves the others alone.
+ */
+export async function signIn(token: string, device: string | null): Promise<SignedIn | null> {
+  const { rows } = await db().query<{ email: string; remember: boolean }>(
     `update admin_logins set used_at = now()
      where token_hmac = $1 and used_at is null and expires_at > now()
-     returning email`,
+     returning email, remember`,
     [hash(token)],
   );
-  const email = rows[0]?.email;
-  if (!email) return null;
-  if (!mayOpen(email)) return null;
+  const login = rows[0];
+  if (!login || !mayOpen(login.email)) return null;
 
+  const days = login.remember ? settings().adminRememberDays : settings().adminSessionDays;
   const cookie = newSecret();
   await db().query(
-    `insert into admin_sessions (token_hmac, email, expires_at)
-     values ($1, $2, now() + ($3 || ' days')::interval)`,
-    [hash(cookie), email, String(settings().adminSessionDays)],
+    `insert into admin_sessions (token_hmac, email, expires_at, remembered, device)
+     values ($1, $2, now() + ($3 || ' days')::interval, $4, $5)`,
+    [hash(cookie), login.email, String(days), login.remember, device],
   );
-  await logEvent({ type: 'admin.signed_in', fields: { email } });
-  return { session: { email }, cookie };
+  await logEvent({
+    type: 'admin.signed_in',
+    fields: { email: login.email, remembered: login.remember, days },
+  });
+  return { session: { email: login.email }, cookie, seconds: days * 24 * 60 * 60 };
+}
+
+export type DeviceRow = {
+  device: string | null;
+  remembered: boolean;
+  created_at: Date;
+  last_seen_at: Date;
+  expires_at: Date;
+  /** True for the device reading this, so the Settings page can say "this one". */
+  current: boolean;
+};
+
+/** The devices a person is signed in on, newest first, for the Settings page. */
+export async function devicesOf(email: string, cookie: string | null): Promise<DeviceRow[]> {
+  const { rows } = await db().query<DeviceRow>(
+    `select device, remembered, created_at, last_seen_at, expires_at,
+            token_hmac = $2 as current
+     from admin_sessions where email = $1 and expires_at > now()
+     order by last_seen_at desc`,
+    [email, cookie ? hash(cookie) : ''],
+  );
+  return rows;
+}
+
+/** Forget every device but the one asking. Used from Settings when a laptop goes missing. */
+export async function forgetOtherDevices(email: string, cookie: string | null): Promise<number> {
+  const { rowCount } = await db().query(
+    'delete from admin_sessions where email = $1 and token_hmac <> $2',
+    [email, cookie ? hash(cookie) : ''],
+  );
+  await logEvent({ type: 'admin.devices_forgotten', fields: { email, sessions: rowCount ?? 0 } });
+  return rowCount ?? 0;
 }
 
 /** The session a cookie stands for, or null. Every read moves the session's last-seen time. */
@@ -120,8 +173,6 @@ export function cookieHeader(value: string, seconds: number): string {
   const secure = settings().environment === 'local' ? '' : ' Secure;';
   return `${COOKIE}=${value}; Path=/; HttpOnly;${secure} SameSite=Strict; Max-Age=${seconds}`;
 }
-
-export const sessionSeconds = (): number => settings().adminSessionDays * 24 * 60 * 60;
 
 /** The cookie value the browser sent, if any. */
 export function cookieFrom(header: string | undefined): string | null {

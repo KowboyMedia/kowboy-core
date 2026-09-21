@@ -10,6 +10,7 @@ import { adminFor, adminProviders } from '../registry.js';
 import { openJobs } from '../jobs.js';
 import { healthReport } from '../health.js';
 import { report } from '../errors.js';
+import { summarise } from './summary.js';
 import type { AdminQueued } from '../adapter-api/types.js';
 import type { Response } from '../http/server.js';
 
@@ -31,14 +32,14 @@ export type FlowRow = {
   site: string | null;
 };
 
-/** What each engine event means for a row, in the words the list shows. */
-const FROM_EVENT: Record<string, { state: FlowState; what: string }> = {
-  'entity.written': { state: 'fetched', what: 'written in Core' },
-  'entity.unchanged': { state: 'fetched', what: 'fetched, nothing had changed' },
-  'entity.tombstoned': { state: 'fetched', what: 'removed in Core' },
-  'entity.dropped': { state: 'error', what: 'dropped' },
-  'site.applied': { state: 'applied', what: 'a site applied it' },
-  'site.failed': { state: 'error', what: 'a site could not apply it' },
+/** Which state each engine event puts a record in. What it says comes from summary.ts. */
+const FROM_EVENT: Record<string, FlowState> = {
+  'entity.written': 'fetched',
+  'entity.unchanged': 'fetched',
+  'entity.tombstoned': 'fetched',
+  'entity.dropped': 'error',
+  'site.applied': 'applied',
+  'site.failed': 'error',
 };
 
 const keyOf = (row: {
@@ -84,17 +85,13 @@ const waitingRow = (entry: AdminQueued, tenantId: number | null, names: Names): 
 });
 
 /** One row for a record that has moved, from the event that moved it. */
-const movedRow = (
-  event: EventRow,
-  meaning: { state: FlowState; what: string },
-  names: Names,
-): FlowRow => ({
+const movedRow = (event: EventRow, state: FlowState, names: Names): FlowRow => ({
   key: keyOf({
     connectionId: event.connection_id,
     datatype: event.datatype,
     remoteId: event.remote_id,
   }),
-  state: meaning.state,
+  state,
   tenantId: event.tenant_id,
   tenant: event.tenant_id === null ? null : (names.get(event.tenant_id) ?? null),
   connectionId: event.connection_id,
@@ -102,7 +99,7 @@ const movedRow = (
   datatype: event.datatype,
   remoteId: event.remote_id,
   queuedAt: event.at.toISOString(),
-  what: detailOf(event) ?? meaning.what,
+  what: summarise(event.type, event.fields),
   attempt: null,
   site: typeof event.fields['client'] === 'string' ? event.fields['client'] : null,
 });
@@ -124,9 +121,9 @@ export async function flow(limit = 200): Promise<FlowRow[]> {
   const rows = new Map<string, FlowRow>();
   // Newest first, so the first event seen for a record is the state it is in now.
   for (const event of events) {
-    const meaning = FROM_EVENT[event.type];
-    if (!meaning || !event.remote_id) continue;
-    const row = movedRow(event, meaning, names);
+    const state = FROM_EVENT[event.type];
+    if (!state || !event.remote_id) continue;
+    const row = movedRow(event, state, names);
     if (!rows.has(row.key)) rows.set(row.key, row);
   }
   for (const entry of await fromAdapters()) {
@@ -138,15 +135,6 @@ export async function flow(limit = 200): Promise<FlowRow[]> {
   return [...rows.values()]
     .sort((left, right) => (left.queuedAt < right.queuedAt ? 1 : -1))
     .slice(0, limit);
-}
-
-/** The event's own words when it has any: a drop's reason, a failure's detail. */
-function detailOf(event: EventRow): string | null {
-  for (const key of ['reason', 'detail', 'cause']) {
-    const value = event.fields[key];
-    if (typeof value === 'string' && value !== '') return value;
-  }
-  return null;
 }
 
 // ---- The live stream ---------------------------------------------------------------------------
@@ -242,5 +230,7 @@ export const toStreamEvent = (event: EventRow): Record<string, unknown> => ({
   datatype: event.datatype,
   remoteId: event.remote_id,
   subscriberId: event.subscriber_id === null ? null : Number(event.subscriber_id),
+  // The same sentence the timeline reads, so one event never says two things.
+  said: summarise(event.type, event.fields),
   fields: event.fields,
 });

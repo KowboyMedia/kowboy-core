@@ -17,11 +17,19 @@ export type Config = {
   bellThrottleMs: number;
   eventRetentionDays: number;
   gzipLevel: number;
-  /** The addresses that may open the admin area. Empty means nobody can sign in. */
+  /** The addresses that may open the admin area, one by one. */
   adminEmails: string[];
-  /** How long a sign-in link and a session last. */
+  /**
+   * Whole domains that may open it: anyone at one of these addresses. The sign-in page never
+   * says so, and answers an address it will not let in exactly as it answers one it will
+   * (Patric, 2026-09-21).
+   */
+  adminEmailDomains: string[];
+  /** How long a sign-in link lasts, and a session made from one. */
   adminLinkMinutes: number;
   adminSessionDays: number;
+  /** How long a session lasts when the person asked to be remembered on that device. */
+  adminRememberDays: number;
 };
 
 const required = (name: string): string => {
@@ -34,6 +42,13 @@ const required = (name: string): string => {
 const optional = (name: string): string | null => process.env[name] || null;
 
 const numberOr = (name: string, fallback: number): number => Number(process.env[name] ?? fallback);
+
+/** A setting holding several values, separated by commas; empty entries are dropped. */
+const list = (name: string): string[] =>
+  (optional(name) ?? '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
 
 export function loadConfig(): Config {
   return {
@@ -50,11 +65,10 @@ export function loadConfig(): Config {
     bellThrottleMs: numberOr('BELL_THROTTLE_MS', 10_000),
     eventRetentionDays: numberOr('EVENT_RETENTION_DAYS', 30),
     gzipLevel: numberOr('GZIP_LEVEL', 3),
-    adminEmails: (optional('ADMIN_EMAILS') ?? '')
-      .split(',')
-      .map((address) => address.trim().toLowerCase())
-      .filter(Boolean),
+    adminEmails: list('ADMIN_EMAILS'),
+    adminEmailDomains: list('ADMIN_EMAIL_DOMAINS').map((domain) => domain.replace(/^@/, '')),
     adminLinkMinutes: numberOr('ADMIN_LINK_MINUTES', 15),
     adminSessionDays: numberOr('ADMIN_SESSION_DAYS', 14),
+    adminRememberDays: numberOr('ADMIN_REMEMBER_DAYS', 30),
   };
 }

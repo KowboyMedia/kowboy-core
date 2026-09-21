@@ -161,6 +161,12 @@ export type AdminValue =
 export type AdminAction = {
   id: string;
   label: string;
+  /**
+   * What the button does and when a person would press it, in one sentence the panel shows next
+   * to it (Patric, 2026-09-21: a button nobody can explain is a button nobody should press).
+   * Required in practice: the acceptance test refuses an action without it.
+   */
+  help?: string;
   /** Parameters the button carries, fixed. */
   params?: Record<string, string>;
   /** Parameters a person types first, asked in a dialog. */

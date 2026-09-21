@@ -44,6 +44,18 @@ export type DataTableProps<T> = {
   onSelect?: (selected: Set<string>) => void;
   /** Shown above the table when at least one row is ticked. */
   selectionActions?: ReactNode;
+  /**
+   * Ticking the header box ticks the rows in front of a person; this offers the rest
+   * (Patric, 2026-09-21: Select all must mean all). When it is on, the page's actions work on
+   * everything the search matches, not on the rows loaded.
+   */
+  allMatching?: {
+    on: boolean;
+    total: number;
+    onChange: (on: boolean) => void;
+    /** What is being counted, for the sentence: "all 4 812 record(s) matching these filters". */
+    what: string;
+  };
   page?: {
     page: number;
     size: number;
@@ -59,6 +71,9 @@ export type DataTableProps<T> = {
 
 const SIZES = [25, 50, 100, 250, 500];
 
+/** The grid shows this many rows unless a person picks otherwise (Patric, 2026-09-21). */
+export const DEFAULT_PAGE_SIZE = 500;
+
 export function DataTable<T>({
   columns,
   rows,
@@ -70,6 +85,7 @@ export function DataTable<T>({
   selected,
   onSelect,
   selectionActions,
+  allMatching,
   page,
   rowClass,
   onRowClick,
@@ -91,7 +107,12 @@ export function DataTable<T>({
       else next.add(rowKey(row));
     }
     onSelect(next);
+    // Ticking the header box off never leaves "and every other match" on behind it.
+    if (allTicked) allMatching?.onChange(false);
   };
+
+  /** More matches exist than are loaded, so "all" is a choice a person has to make. */
+  const moreThanLoaded = allMatching !== undefined && allMatching.total > rows.length && allTicked;
 
   const headerButton = (column: Column<T>): ReactNode => {
     if (!column.sortAs || !onSort) return column.header;
@@ -121,8 +142,19 @@ export function DataTable<T>({
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           {ticking && selected.size > 0 ? (
             <>
-              <span>{selected.size} ticked</span>
-              <Button variant="ghost" size="sm" onClick={() => onSelect(new Set())}>
+              <span>
+                {allMatching?.on
+                  ? `all ${allMatching.total.toLocaleString('sv-SE')} ${allMatching.what} ticked`
+                  : `${String(selected.size)} ticked`}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  onSelect(new Set());
+                  allMatching?.onChange(false);
+                }}
+              >
                 Clear
               </Button>
               {selectionActions}
@@ -156,6 +188,35 @@ export function DataTable<T>({
           )}
         </div>
       </div>
+
+      {moreThanLoaded && allMatching && (
+        <div className="rounded-md border border-ring/40 bg-accent px-3 py-2 text-sm">
+          {allMatching.on ? (
+            <>
+              All {allMatching.total.toLocaleString('sv-SE')} {allMatching.what} are ticked, not
+              only the {rows.length.toLocaleString('sv-SE')} on this page.{' '}
+              <button
+                type="button"
+                className="underline"
+                onClick={() => allMatching.onChange(false)}
+              >
+                Only this page
+              </button>
+            </>
+          ) : (
+            <>
+              The {rows.length.toLocaleString('sv-SE')} rows on this page are ticked.{' '}
+              <button
+                type="button"
+                className="underline"
+                onClick={() => allMatching.onChange(true)}
+              >
+                Tick all {allMatching.total.toLocaleString('sv-SE')} {allMatching.what}
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="rounded-lg border bg-card">
         <Table>

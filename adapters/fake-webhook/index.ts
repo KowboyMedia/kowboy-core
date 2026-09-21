@@ -258,7 +258,13 @@ const admin: AdapterAdmin = {
           value: connections.map((connection) => connection.id).join(', ') || null,
         },
       ],
-      actions: [{ id: 'drain', label: 'Fetch everything waiting now' }],
+      actions: [
+        {
+          id: 'drain',
+          label: 'Fetch everything waiting now',
+          help: 'Fetches every record on this CRM’s list at once instead of waiting for the next tick.',
+        },
+      ],
     },
   ],
   connection: async (connection) => [
@@ -275,6 +281,7 @@ const admin: AdapterAdmin = {
         {
           id: 'drain',
           label: 'Fetch everything waiting now',
+          help: 'Fetches every record waiting for this connection at once instead of waiting for the next tick.',
           params: { connection: connection.id },
         },
       ],

@@ -20,6 +20,8 @@ export type ScopeInput = {
   officeId?: string;
   datatype?: Datatype;
   remoteId?: string;
+  /** Words in the record: the grid's own search, so "every match" is the search and not a list. */
+  text?: string;
   records?: { connectionId: string; datatype: Datatype; remoteId: string }[];
   staleRulesOnly?: boolean;
 };
@@ -51,6 +53,7 @@ const NARROWED = [
   'officeId',
   'datatype',
   'remoteId',
+  'text',
 ] as const;
 
 /** The scope in the engine's own terms. */
@@ -71,6 +74,7 @@ export function describe(input: ScopeInput): string {
   if (input.records && input.records.length > 0)
     parts.push(`${input.records.length} chosen record(s)`);
   if (input.remoteId) parts.push(`the record ${input.remoteId}`);
+  if (input.text) parts.push(`the records containing “${input.text}”`);
   if (input.datatype) parts.push(`the ${input.datatype} records`);
   if (input.officeId) parts.push(`the office ${input.officeId}`);
   if (input.connectionId) parts.push(`the connection ${input.connectionId}`);
@@ -122,6 +126,19 @@ async function refetchRecords(records: NonNullable<ScopeInput['records']>): Prom
  */
 export async function fetchAgain(input: ScopeInput): Promise<FetchAgain> {
   if (input.records && input.records.length > 0) return refetchRecords(input.records);
+
+  // A scope that names one record, or a search, is a list of records to the adapters: resolve it
+  // here rather than asking every connection to load everything again.
+  if (input.remoteId || input.text) {
+    const matched = await itemsForScope(await toScope(input));
+    return refetchRecords(
+      matched.map((item) => ({
+        connectionId: item.connection_id,
+        datatype: item.datatype,
+        remoteId: item.remote_id,
+      })),
+    );
+  }
 
   const wanted = (await connections()).filter(
     (row) =>

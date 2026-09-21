@@ -63,6 +63,9 @@ export type SignInOutcome = {
   link?: string;
 };
 
-/** Ask for a sign-in link. The sign-in page and Refine's auth provider both call this one. */
-export const requestSignIn = (email: string): Promise<SignInOutcome> =>
-  call<SignInOutcome>('/sign-in', { method: 'POST', body: { email } });
+/**
+ * Ask for a sign-in link. The sign-in page and Refine's auth provider both call this one.
+ * `remember` rides along because the session is made when the link is opened, not now.
+ */
+export const requestSignIn = (email: string, remember = false): Promise<SignInOutcome> =>
+  call<SignInOutcome>('/sign-in', { method: 'POST', body: { email, remember } });

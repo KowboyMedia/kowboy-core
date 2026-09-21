@@ -26,8 +26,9 @@ export type Configuration = {
   /** Whether each secret or address is set, never its value. */
   set: { key: string; set: boolean; what: string }[];
   alerts: { email: string | null; slack: boolean; mail: boolean };
-  /** The addresses that may open this area. */
+  /** The addresses that may open this area, and the whole domains that may. */
   people: string[];
+  peopleDomains: string[];
   migrations: string[];
   maintenance: boolean;
   switches: Awaited<ReturnType<typeof storedSettings>>;
@@ -69,7 +70,16 @@ export async function configuration(): Promise<Configuration> {
         set: config.alertSlackWebhookUrl !== null,
         what: 'where an alert is posted',
       },
-      { key: 'ADMIN_EMAILS', set: config.adminEmails.length > 0, what: 'who may open this area' },
+      {
+        key: 'ADMIN_EMAILS',
+        set: config.adminEmails.length > 0,
+        what: 'the addresses that may open this area',
+      },
+      {
+        key: 'ADMIN_EMAIL_DOMAINS',
+        set: config.adminEmailDomains.length > 0,
+        what: 'whole domains that may open this area',
+      },
     ],
     alerts: {
       email: config.alertEmail,
@@ -77,6 +87,7 @@ export async function configuration(): Promise<Configuration> {
       mail: mailConfigured(),
     },
     people: config.adminEmails,
+    peopleDomains: config.adminEmailDomains,
     migrations: await migrationsApplied(),
     maintenance: await inMaintenance(),
     switches: await storedSettings(),
