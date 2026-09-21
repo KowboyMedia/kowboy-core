@@ -76,6 +76,14 @@ A connection is a setting of a tenant: there is no connections page, list or men
 three times). The tenant's page holds any number of connections, of the same CRM or different ones,
 each with the CRM's own login fields, the offices it may see, a **Check the login** button that
 tries the CRM before anything is saved, and whatever the adapter reports about that connection.
+
+**A connection names at least one office**, and the save refuses it otherwise (Patric, 2026-09-21).
+A CRM is asked for one office at a time — every call carries it — and no CRM offers a list of the
+offices a login covers, so a connection with none named would fetch nothing at all while looking
+perfectly healthy. Two tenants may name the same office: the record is fetched once and written
+for each of them, each with its own copies, its own version numbers and its own sites, which is
+how two sites can show one brokerage's listings. Core does not warn about that; the page says it
+where the offices are typed.
 Its sites are on the same page with their bell address, their bell secret, their setup checklist,
 what they reported applied and failed, and their own errors.
 

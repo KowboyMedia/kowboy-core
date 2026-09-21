@@ -431,9 +431,10 @@ export function TenantPage() {
                       placeholder="M31529, M31530"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Separated by commas, as the CRM names them. Name at least one: with none, Core
-                      filters nothing and the CRM is likely to send nothing. Two tenants may name
-                      the same office, and then both hold its records.
+                      Separated by commas, as the CRM names them. At least one is required: a CRM is
+                      asked for one office at a time, so a connection naming none would fetch
+                      nothing at all. Two tenants may name the same office, and then both hold its
+                      records.
                     </p>
                   </div>
                 </div>
