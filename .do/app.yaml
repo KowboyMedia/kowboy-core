@@ -96,6 +96,13 @@ databases:
     cluster_name: kowboy-core-production
     db_name: defaultdb
     db_user: doadmin
+domains:
+  # Core's own address (Patric, 2026-09-21). The kowboy.cloud zone is not hosted at
+  # DigitalOcean, so the record lives with whoever hosts it: a CNAME from core.kowboy.cloud
+  # to kowboy-core-wyvhr.ondigitalocean.app. The app keeps answering on that
+  # ondigitalocean.app address too; nothing is redirected.
+  - domain: core.kowboy.cloud
+    type: PRIMARY
 region: fra
 alerts:
   - rule: DEPLOYMENT_FAILED

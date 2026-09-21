@@ -186,6 +186,14 @@ the first item that is not done, and keep the file current. Decisions and open q
     and Records, where nothing is typed any more; "select all" meaning every record the search
     matches, on pages of 500; a stored login tried by Core itself, with the secret nowhere in the
     page; and a **Go to…** button that spells out the keys of the palette.
+    2026-09-21, the addresses: both apps now carry their own domain on App Platform,
+    `core.kowboy.cloud` and `staging.core.kowboy.cloud`, and DigitalOcean is waiting for the two
+    CNAME records in the `kowboy.cloud` zone at Strato (`core` → `kowboy-core-wyvhr.ondigitalocean.app`,
+    `staging.core` → `kowboy-core-staging-t7ig3.ondigitalocean.app`), which only Patric can add.
+    The moment each record answers, DigitalOcean issues the certificate by itself. Left for an
+    agent then: point `PUBLIC_URL` at the new address on each app, so the sign-in link and the
+    links in alerts carry it, and give Vitec the new notification URLs if the old ones are ever
+    retired — the `*.ondigitalocean.app` addresses keep working, so nothing breaks in the meantime.
 
 ## Later, when Patric supplies them
 
