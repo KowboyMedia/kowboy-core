@@ -221,6 +221,8 @@ function core_client_report_applied(array $outcomes): void
         'headers' => [
             'Authorization' => 'Bearer ' . $settings['token'],
             'X-Core-Client' => 'wordpress/' . CORE_CLIENT_VERSION,
+            // Which site reports, as on a pull, so Core keeps the outcome on this site's row.
+            'X-Core-Site' => rest_url('core/v1/bell'),
             'Content-Type' => 'application/json',
         ],
         'body' => wp_json_encode(['items' => $items]),

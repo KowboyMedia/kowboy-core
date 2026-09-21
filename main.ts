@@ -8,6 +8,7 @@ import type { AddressInfo } from 'node:net';
 import { pathToFileURL } from 'node:url';
 import { startEngine, type Engine } from './engine/index.js';
 import { adapterApi, startAdapter } from './engine/adapter-api/index.js';
+import { registerAdmin } from './engine/registry.js';
 import { adapterRoutes } from './engine/http/server.js';
 import { closeErrorReporting, report } from './engine/errors.js';
 import type { Adapter } from './engine/adapter-api/types.js';
@@ -17,7 +18,7 @@ import { vitecAdapter } from './adapters/vitec/index.js';
  * Every adapter Core ships. Adding a CRM is adding a directory and one line here. The two fake
  * adapters live in the tests and local runs only (question 34, 2026-09-18).
  */
-const adapters: Adapter[] = [vitecAdapter];
+export const adapters: Adapter[] = [vitecAdapter];
 
 /**
  * One role of Core, as `node dist/main.js <role>` runs it. A function so the acceptance tests can
@@ -32,6 +33,9 @@ export async function main(role: string): Promise<{ engine: Engine; server: Serv
   // registered for this connection" (found on staging, 2026-09-20).
   for (const adapter of adapters) {
     adapterApi(adapter.manifest.provider).register(adapter.manifest, adapter.mappers);
+    // The admin area runs in the web process while the adapter runs in the worker, so both roles
+    // register what the adapter shows and does there (docs/admin-panel-design.md §3).
+    if (adapter.admin) registerAdmin(adapter.manifest.provider, adapter.admin);
   }
 
   if (role === 'web') {

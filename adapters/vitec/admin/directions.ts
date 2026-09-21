@@ -1,7 +1,9 @@
 // Setup directions at the top of the Vitec page (Patric, 2026-09-18: every adapter's page tells a
 // cold reader how to set it up, and stays up to date). Built from what the adapter reads;
 // directions.test.ts fails when a setting, a lifecycle event, a health check or a credential
-// field exists in the code without a mention here.
+// field exists in the code without a mention here. A page of the admin area is named as
+// "On <Page>", exactly as its navigation labels it, and the acceptance test checks every one
+// against engine/admin/pages.ts (AGENTS.md, definition of done 5).
 import * as connect from '../api.js';
 import type { AdminDirections } from '../../../engine/adapter-api/index.js';
 
@@ -19,11 +21,11 @@ export function directions(): AdminDirections {
       },
       {
         title: 'Changes later',
-        text: 'Add an office on the tenant’s page and save: only the new one is loaded (the event offices_added), and an office taken away is taken off the sites (offices_removed). “Resync” (resync) fetches the list again for the whole connection, one datatype or all, and removes what is no longer on it; “Remove everything” (connection_removed) takes every record off the sites. “Fetch again” on a record or a selection (refetch) fetches those records once more, and “Look at a record” under the connection shows one raw and unified without writing anything.',
+        text: 'Add an office on the tenant’s page and save: only the new one is loaded (the event offices_added), and an office taken away is taken off the sites (offices_removed). On Runs, “Fetch again from the CRM” with this connection as the scope fetches Vitec’s list once more, for one datatype or all, and removes what is no longer on it (resync); “Remove everything” on the tenant’s page (connection_removed) takes every record off the sites. On Records, tick rows and press “Fetch again” (refetch) to fetch those records once more, and “Ask the CRM now” on a record’s own page shows it raw and unified without writing anything.',
       },
       {
         title: 'Check',
-        text: 'On the dashboard, vitec.webhook_lag, vitec.retries, vitec.catch_up, vitec.offices and vitec.connect are green, and the first notification shows on a record’s timeline as webhook.received.',
+        text: 'On Overview, vitec.webhook_lag, vitec.retries, vitec.catch_up, vitec.offices and vitec.connect are green, and the first notification shows on a record’s timeline as webhook.received. On Flow, the records Vitec sends appear as they arrive.',
       },
     ],
     settings: [

@@ -23,17 +23,12 @@ import { changes } from './http/changes.js';
 import { applied } from './http/applied.js';
 import { siteError } from './http/errors.js';
 import { configureCompression, jsonResponse, startServer, type RouteTable } from './http/server.js';
+import { SEQUENCE_JUMP, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
+import { adminRoutes, configureAdmin } from './admin/index.js';
+import { deleteExpiredSessions } from './admin/auth.js';
 
-export const VERSION = '0.1.0';
+export { SEQUENCE_JUMP, STARTED_AT, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
 
-/**
- * Every start moves the item sequence this far ahead (strategy §7.2). A database restored to an
- * earlier point then never hands out a seq a subscriber has already seen: nothing is skipped, and
- * nothing below a subscriber's cursor is served except what is written after the restore.
- */
-export const SEQUENCE_JUMP = 1_000_000_000;
-/** Tombstones are hard-deleted after 90 days (AC 26). */
-export const TOMBSTONE_RETENTION_DAYS = 90;
 const HEARTBEAT_MS = 30_000;
 const BELL_FLUSH_MS = 1_000;
 const HOUSEKEEPING_MS = 60 * 60_000;
@@ -82,8 +77,10 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
       ? postmark(config.postmarkServerToken, config.mailFrom)
       : null,
   );
+  configureAdmin(config);
 
   const routes: RouteTable = [
+    ...adminRoutes(),
     { method: 'GET', path: '/v1/changes', handler: changes },
     { method: 'POST', path: '/v1/applied', handler: applied },
     { method: 'POST', path: '/v1/errors', handler: siteError },
@@ -148,6 +145,7 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
       tick(async () => {
         await deleteExpiredEvents(config.eventRetentionDays);
         await purgeTombstones(TOMBSTONE_RETENTION_DAYS);
+        await deleteExpiredSessions();
       }, HOUSEKEEPING_MS);
       tick(() => failStaleJobs(), ALERTS_MS);
     },

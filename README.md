@@ -21,9 +21,11 @@ npm run start:worker          # adapter background work, bells, housekeeping
 ```
 
 Migrations run at startup. `GET /v1/health` is public, for an uptime monitor: 200 when every
-check passes, 500 when any fails, each check explained in counts and plain words. There is no
-admin panel at the moment: the next one is designed from the requirement sheets before it is
-built ([docs/admin-panel.md](docs/admin-panel.md) says what the engine offers it today).
+check passes, 500 when any fails, each check explained in counts and plain words. The admin area
+is `/admin` on the web process, built into `dist/admin` by the same `npm run build`
+([docs/admin-panel.md](docs/admin-panel.md)); `ADMIN_EMAILS` says who may open it, and a sign-in
+link is mailed to one of those addresses. For work on the app alone, `npm run dev:admin` serves it
+on port 5173 against a Core running beside it.
 Optional: `SENTRY_ENVIRONMENT` names the environment (staging, production, local) in alerts and
 to Sentry, `PUBLIC_URL` is where Core is reached for the link in alerts, `ALERT_EMAIL` (mailed
 through Postmark: `MAIL_FROM`, `POSTMARK_SERVER_TOKEN`) and `ALERT_SLACK_WEBHOOK_URL` are where an
