@@ -80,17 +80,37 @@ Steps 1, 2, 4 and 6 are the same for every client; steps 3 and 5 are the work. W
 nothing in the list needs a person except the CRM login the first time a client's account
 reaches staging.
 
+## The default set: three apps on dev.kowboy.se (Patric, 2026-09-21; question 82)
+
+For "Kowboy 2026", the default set, Patric asked for a triple instead of a client's pair: three
+apps on `dev.kowboy.se`, plugin v2, plugin v3 and Core's plugin, each with the Vitec test account
+(`M31529`, on staging as tenant `kowboy-test`) and the default plugin templates, so the master
+is the v3 app's output (decision of 2026-09-20, question 85 for the versions that differ) and no
+client's data or login is involved. The v2 and v3 zips come from Kowboy's release host and are
+installed as black boxes through the WordPress admin; their files are never opened. The loop is
+the same as for a pair (inventory, port, compare, gaps, delivery), with the six pages of question
+84 first. The client ports (question 80) keep the pair shape.
+
 ## The server and the pairs, as made
 
-Nothing yet (2026-09-21). Every agent that makes something here writes it down in this section:
+2026-09-21, first attempt: `CLOUDWAYS_EMAIL` and `CLOUDWAYS_API_KEY` are in the environment, and
+the key is an API v2 access token (the v1 `oauth/access_token` exchange refuses it; sent as a
+bearer token, `GET /api/v2/apps`, the public catalogue, answers). Every account call
+(`/api/v2/server`, an app's credentials, alerts) answers `403 insufficient_scope`, so the token
+was made with a limited scope and nothing could be made (question 81). `*.dev.kowboy.se` points
+at 165.22.87.59 (nginx, 403 for every name; the `kowboy.se` zone is on Cloudflare); which
+Cloudways server that is, only the API can say once 81 is answered. The bare `dev.kowboy.se` has
+no record. Every agent that makes something here writes it down in this section:
 the server's name, id and address; per client the two apps' names, ids and addresses, where their
 logins live (the Cloudways API, never here), the tenant on staging Core, and the date. Secrets
 never.
 
 ## What it needs from Patric
 
-- **79** a Cloudways API key in the agents' environment settings, as `CLOUDWAYS_EMAIL` and
-  `CLOUDWAYS_API_KEY`.
+- ~~**79** a Cloudways API key in the agents' environment settings~~ There since 2026-09-21;
+  **81** a token whose scope covers the work (the one there cannot list servers).
+- **82** the triple on dev.kowboy.se for the default set, **83** the package's name, **84** the
+  first round's scope, **85** the master among the template versions.
 - **80** the first client to port, by the name Cloudways lists it, and its CRM login if staging
   does not hold that account.
 - Per later client: the same two things.

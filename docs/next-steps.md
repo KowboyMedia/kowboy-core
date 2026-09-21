@@ -208,8 +208,17 @@ the first item that is not done, and keep the file current. Decisions and open q
     75, 2026-09-21); waits on question 79, the Cloudways API key in the agents' environment.
     After that nothing needs a person except a client's CRM login the first time it reaches
     staging.
+    2026-09-21, later: the two variables exist, but the token was made with a limited scope and
+    Cloudways refuses every account call (`insufficient_scope`), so nothing was made: question 81. The same day Patric asked for the default set, "Kowboy 2026", to be written against
+    three apps on `dev.kowboy.se` (plugin v2, plugin v3 and Core's plugin, each with the Vitec
+    test account and the default plugin templates) instead of a client's pair; the differences
+    from the stored plan are questions 82 to 85 (`docs/template-porting.md`, "The default set").
+    `*.dev.kowboy.se` already resolves to one server that answers 403 for every name; step 3
+    below becomes: three apps on that server, `v2`, `v3` and `v4.dev.kowboy.se`, for the
+    default set; the pair stays for client ports.
 
     **Resuming in a new session, once question 79 is answered**, in this order:
+
     1. Check the environment: `CLOUDWAYS_EMAIL` and `CLOUDWAYS_API_KEY` exist (values never
        printed). Get a token from the Cloudways API (`https://api.cloudways.com/api/v2/…`; v1
        retired in March 2026; email and key in, a short-lived bearer token out) and list the
