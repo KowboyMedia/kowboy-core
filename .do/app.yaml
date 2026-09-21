@@ -40,10 +40,15 @@ services:
         scope: RUN_TIME
         type: SECRET
       # The admin area (docs/admin-panel.md). Staging has these since 2026-09-21; production gets
-      # them with the release, together with PUBLIC_URL and the Postmark token the sign-in link
-      # is mailed through, which production has never held.
+      # the area itself with the release. PUBLIC_URL is here from 2026-09-21, the day production
+      # took its own address: it is where the sign-in link and the links in alerts point. The
+      # Postmark token that mails them is still staging's alone, so production cannot send the
+      # sign-in link yet; it goes on with the release.
       - key: ADMIN_EMAILS
         value: patric@kowboy.se
+        scope: RUN_TIME
+      - key: PUBLIC_URL
+        value: https://core.kowboy.cloud
         scope: RUN_TIME
       # Everyone at Kowboy may open the area without a list to keep (Patric, 2026-09-21);
       # the sign-in page never gives this away.

@@ -195,10 +195,14 @@ the first item that is not done, and keep the file current. Decisions and open q
     `core.kowboy.cloud` and `staging.core.kowboy.cloud`, and DigitalOcean is waiting for the two
     CNAME records in the `kowboy.cloud` zone at Strato (`core` → `kowboy-core-wyvhr.ondigitalocean.app`,
     `staging.core` → `kowboy-core-staging-t7ig3.ondigitalocean.app`), which only Patric can add.
-    The moment each record answers, DigitalOcean issues the certificate by itself. Left for an
-    agent then: point `PUBLIC_URL` at the new address on each app, so the sign-in link and the
-    links in alerts carry it, and give Vitec the new notification URLs if the old ones are ever
-    retired — the `*.ondigitalocean.app` addresses keep working, so nothing breaks in the meantime.
+    Both records were added the same afternoon, DigitalOcean issued both certificates by itself,
+    and both addresses answer: `https://core.kowboy.cloud/v1/health` and
+    `https://staging.core.kowboy.cloud/v1/health`. `PUBLIC_URL` points at the new address on each
+    app, so the sign-in link and the links in alerts carry it; production holds it for the first
+    time, though it still cannot mail a sign-in link until it has the Postmark token. The
+    `*.ondigitalocean.app` addresses keep answering as well, so Vitec's subscriptions are
+    untouched; the new notification URLs are the same paths on the new addresses, for whenever
+    Vitec is given them.
 
 16. **Porting any client's templates to version 4** (Patric, 2026-09-21): plan in
     `docs/template-porting.md`. One porting server with a pair of sites per client, the source a
