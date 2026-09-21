@@ -1,29 +1,20 @@
-// Runs (U4): one scope, then a preview that writes nothing, then a job. Recompute and fetch again
-// take the same scope, so a person learns it once. Every run is a red button with a confirmation
-// that says what will happen (Patric's rule 2).
+// Manual sync (U4, renamed from Runs on 2026-09-21): pick what to run it on — tenant, then its
+// connection, then that connection's office, then the entity — preview what it would do, then run
+// it. Recompute and fetch again take the same scope, so a person learns the pickers once.
 import { useState } from 'react';
 import { useCustomMutation, useList } from '@refinedev/core';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input, Label, Select } from '@/components/ui/input';
+import { Input, Label } from '@/components/ui/input';
 import { Confirm } from '@/components/confirm';
 import { DataTable } from '@/components/data-table';
 import { Empty } from '@/components/empty';
 import { JsonView } from '@/components/json-view';
 import { PageHeader } from '@/components/layout';
+import { ScopePicker, useScopeOptions, type ScopeValue } from '@/components/scope-picker';
 import { count, moment } from '@/lib/format';
-
-type Scope = {
-  provider?: string;
-  tenantId?: number;
-  connectionId?: string;
-  officeId?: string;
-  datatype?: string;
-  remoteId?: string;
-  staleRulesOnly?: boolean;
-};
 
 type Report = {
   total: number;
@@ -38,8 +29,7 @@ type Report = {
 type Job = {
   id: string;
   kind: string;
-  scope: Scope;
-  dry_run: boolean;
+  scope: Record<string, unknown>;
   state: 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
   progress: { total?: number; examined?: number; changed?: number; failed?: number };
   result: Report | null;
@@ -49,8 +39,6 @@ type Job = {
   finished_at: string | null;
 };
 
-const DATATYPES = ['property', 'agent', 'office', 'area', 'association', 'project'];
-
 const TONE = {
   queued: 'warn',
   running: 'warn',
@@ -59,22 +47,25 @@ const TONE = {
   cancelled: 'muted',
 } as const;
 
-export function Runs() {
-  const [scope, setScope] = useState<Scope>({});
+export function ManualSync() {
+  const [scope, setScope] = useState<ScopeValue>({});
+  const [remoteId, setRemoteId] = useState('');
+  const [staleRulesOnly, setStaleRulesOnly] = useState(false);
   const [report, setReport] = useState<{ scope: string; report: Report } | null>(null);
+  const options = useScopeOptions();
   const { mutateAsync } = useCustomMutation();
   const { result, query } = useList<Job>({ resource: 'jobs', pagination: { mode: 'off' } });
   const jobs = result?.data ?? [];
 
-  const clean = (): Scope => {
-    const out: Scope = {};
-    if (scope.provider) out.provider = scope.provider;
-    if (scope.tenantId) out.tenantId = Number(scope.tenantId);
-    if (scope.connectionId) out.connectionId = scope.connectionId;
-    if (scope.officeId) out.officeId = scope.officeId;
-    if (scope.datatype) out.datatype = scope.datatype;
-    if (scope.remoteId) out.remoteId = scope.remoteId;
-    if (scope.staleRulesOnly) out.staleRulesOnly = true;
+  /** The scope as the admin API takes it: only what was actually picked. */
+  const chosen = (): Record<string, unknown> => {
+    const out: Record<string, unknown> = {};
+    if (scope.tenantId) out['tenantId'] = Number(scope.tenantId);
+    if (scope.connectionId) out['connectionId'] = scope.connectionId;
+    if (scope.officeId) out['officeId'] = scope.officeId;
+    if (scope.datatype) out['datatype'] = scope.datatype;
+    if (remoteId.trim() !== '') out['remoteId'] = remoteId.trim();
+    if (staleRulesOnly) out['staleRulesOnly'] = true;
     return out;
   };
 
@@ -89,7 +80,8 @@ export function Runs() {
     return answer.data as unknown as T;
   };
 
-  const said = Object.keys(clean()).length === 0 ? 'every record in Core' : 'the chosen scope';
+  const narrowed = Object.keys(chosen()).length > 0;
+  const said = narrowed ? 'the chosen scope' : 'every record in Core';
 
   const act = async (what: () => Promise<string>): Promise<void> => {
     try {
@@ -100,22 +92,10 @@ export function Runs() {
     }
   };
 
-  const field = (key: keyof Scope, label: string, placeholder: string): React.ReactNode => (
-    <div className="flex flex-col gap-1">
-      <Label htmlFor={`scope-${key}`}>{label}</Label>
-      <Input
-        id={`scope-${key}`}
-        value={String(scope[key] ?? '')}
-        placeholder={placeholder}
-        onChange={(event) => setScope({ ...scope, [key]: event.target.value })}
-      />
-    </div>
-  );
-
   return (
     <>
       <PageHeader
-        title="Runs"
+        title="Manual sync"
         what="Compute records again from what Core stores, or fetch them from the CRM again. Preview first; every run is a job you can watch and stop."
       >
         <Confirm
@@ -130,7 +110,7 @@ export function Runs() {
                 '/runs/housekeeping',
                 {},
               );
-              return `${done.events} event(s), ${done.tombstones} tombstone(s) and ${done.sessions} session(s) cleared.`;
+              return `${count(done.events)} event(s), ${count(done.tombstones)} tombstone(s) and ${count(done.sessions)} session(s) cleared.`;
             })
           }
         />
@@ -140,37 +120,28 @@ export function Runs() {
         <CardHeader>
           <CardTitle>What to run it on</CardTitle>
           <CardDescription>
-            Leave everything empty for every record in Core. Anything you fill in narrows it.
+            Narrow it from the left: a tenant, then one of its CRM connections, then an office of
+            that connection, then one kind of record. Leave a picker alone to include all of it.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {field('provider', 'CRM', 'every connection of this CRM')}
-            {field('tenantId', 'Tenant number', '1')}
-            {field('connectionId', 'Connection', 'acme-crm')}
-            {field('officeId', 'Office', 'M31529')}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <ScopePicker value={scope} onChange={setScope} options={options} />
             <div className="flex flex-col gap-1">
-              <Label htmlFor="scope-datatype">Entity type</Label>
-              <Select
-                id="scope-datatype"
-                value={scope.datatype ?? ''}
-                onChange={(event) => setScope({ ...scope, datatype: event.target.value })}
-              >
-                <option value="">any</option>
-                {DATATYPES.map((datatype) => (
-                  <option key={datatype} value={datatype}>
-                    {datatype}
-                  </option>
-                ))}
-              </Select>
+              <Label htmlFor="scope-record">One record id</Label>
+              <Input
+                id="scope-record"
+                value={remoteId}
+                placeholder="the whole scope"
+                onChange={(event) => setRemoteId(event.target.value)}
+              />
             </div>
-            {field('remoteId', 'One record id', 'OBJ-1')}
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
-              checked={scope.staleRulesOnly ?? false}
-              onChange={(event) => setScope({ ...scope, staleRulesOnly: event.target.checked })}
+              checked={staleRulesOnly}
+              onChange={(event) => setStaleRulesOnly(event.target.checked)}
             />
             Only records an older rules version made
           </label>
@@ -181,7 +152,7 @@ export function Runs() {
               onClick={() =>
                 void act(async () => {
                   setReport(
-                    await post<{ scope: string; report: Report }>('/runs/preview', clean()),
+                    await post<{ scope: string; report: Report }>('/runs/preview', chosen()),
                   );
                   return 'Previewed. Nothing was written.';
                 })
@@ -198,28 +169,38 @@ export function Runs() {
                 act(async () => {
                   const queued = await post<{ job: number; scope: string }>(
                     '/runs/recompute',
-                    clean(),
+                    chosen(),
                   );
                   return `Job ${String(queued.job)} is queued for ${queued.scope}.`;
                 })
               }
             />
-            <Confirm
-              label="Fetch again from the CRM"
-              title="Fetch again from the CRM"
-              what={`Core asks the CRM for ${said} again. This makes real calls to the CRM and may take a while; records the CRM no longer has are removed from Core and from the sites.`}
-              confirmLabel="Fetch it again"
-              onConfirm={() =>
-                act(async () => {
-                  const outcome = await post<{ detail: string }>('/runs/fetch-again', clean());
+            <Button
+              variant="secondary"
+              onClick={() =>
+                void act(async () => {
+                  const outcome = await post<{ detail: string }>('/runs/fetch-again', chosen());
                   return outcome.detail;
                 })
               }
-            />
-            <Button variant="ghost" onClick={() => setScope({})}>
+            >
+              Fetch again from the CRM
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setScope({});
+                setRemoteId('');
+                setStaleRulesOnly(false);
+              }}
+            >
               Clear the scope
             </Button>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Fetching again asks the CRM for the same records and writes only what actually differs,
+            so running it twice does no more than running it once.
+          </p>
         </CardContent>
       </Card>
 
@@ -298,13 +279,12 @@ export function Runs() {
               {
                 key: 'scope',
                 header: 'Scope',
-                cell: (job) => (
-                  <code className="text-xs">
-                    {Object.keys(job.scope).length === 0
-                      ? 'everything'
-                      : JSON.stringify(job.scope).slice(0, 120)}
-                  </code>
-                ),
+                cell: (job) =>
+                  Object.keys(job.scope).length === 0 ? (
+                    'everything'
+                  ) : (
+                    <code className="text-xs">{JSON.stringify(job.scope).slice(0, 120)}</code>
+                  ),
               },
               { key: 'by', header: 'Asked by', cell: (job) => job.requested_by ?? '—' },
               {

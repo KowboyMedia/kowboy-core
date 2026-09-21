@@ -71,8 +71,8 @@ export const dataProvider: DataProvider = {
 
 export const authProvider: AuthProvider = {
   /** The sign-in page asks for a link; the link itself is what signs a person in. */
-  async login({ email }: { email?: string }) {
-    const outcome = await requestSignIn(email ?? '');
+  async login({ email, remember }: { email?: string; remember?: boolean }) {
+    const outcome = await requestSignIn(email ?? '', remember === true);
     // Nothing is redirected: the person now opens the link from their mail.
     return { success: outcome.sent, successNotification: { message: outcome.detail } };
   },

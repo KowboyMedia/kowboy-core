@@ -45,6 +45,11 @@ services:
       - key: ADMIN_EMAILS
         value: patric@kowboy.se
         scope: RUN_TIME
+      # Everyone at Kowboy may open the area without a list to keep (Patric, 2026-09-21);
+      # the sign-in page never gives this away.
+      - key: ADMIN_EMAIL_DOMAINS
+        value: kowboy.se
+        scope: RUN_TIME
       - key: VITEC_WEBHOOK_TOKEN
         value: EV[1:OxipdqTDafYFVf8FXX6NLaV/2tYmkqJk:ZOz9q8aPrzrNiV526Q/l3Nhl9bg4JKi4LmOkmi6BoN1yKVxnDZaApOGJHAMdZf46]
         scope: RUN_TIME

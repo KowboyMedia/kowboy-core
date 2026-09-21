@@ -112,12 +112,22 @@ describe('the admin area', () => {
     // An address that may not open the area gets the same answer as one that may, and no mail:
     // the panel never tells a stranger who works here.
     const before = running.mails.length;
-    const stranger = await api<{ sent: boolean }>('/sign-in', {
+    const stranger = await api<{ sent: boolean; detail: string }>('/sign-in', {
       method: 'POST',
       body: { email: 'someone@example.com' },
     });
     expect(stranger.body.sent).toBe(true);
     expect(running.mails).toHaveLength(before);
+
+    // A colleague whose address is nowhere on the list by name, but whose whole domain is allowed,
+    // is let in — and the answer is word for word the stranger's, so the page never gives away
+    // that a domain is allowed at all (Patric, 2026-09-21).
+    const colleague = await api<{ sent: boolean; detail: string }>('/sign-in', {
+      method: 'POST',
+      body: { email: 'colleague@kowboy.se' },
+    });
+    expect(colleague.body.detail).toBe(stranger.body.detail);
+    expect(running.mails).toHaveLength(before + 1);
 
     await signIn();
     expect((await api('/overview')).status).toBe(200);
@@ -134,6 +144,49 @@ describe('the admin area', () => {
     expect(again.status).toBe(303);
     expect(again.headers.get('location')).toContain('again=1');
     expect(again.headers.get('set-cookie')).toBeNull();
+  });
+
+  it('remembers a device for thirty days, on as many as a person likes (Patric, 2026-09-21)', async () => {
+    /** The days a cookie is kept for, out of what the browser was told. */
+    const days = (header: string): number =>
+      Math.round(Number(/Max-Age=(\d+)/.exec(header)?.[1] ?? 0) / 86_400);
+
+    /** One browser signing in: ask for a link, open it, keep what it was given. */
+    const device = async (remember: boolean): Promise<{ cookie: string; days: number }> => {
+      const before = running.mails.length;
+      await api('/sign-in', { method: 'POST', body: { email: EMAIL, remember } });
+      const path = linkFrom(running.mails[before]?.text ?? '');
+      if (!path) throw new Error('no sign-in link was mailed');
+      const opened = await fetch(`${running.baseUrl}${path}`, { redirect: 'manual' });
+      const header = opened.headers.get('set-cookie') ?? '';
+      return { cookie: header.split(';')[0] ?? '', days: days(header) };
+    };
+
+    // The session beforeEach made is a device of its own; these are two more.
+    const already = (await api<{ total: number }>('/devices')).body.total;
+    const remembered = await device(true);
+    const ordinary = await device(false);
+    expect(remembered.days).toBe(30);
+    expect(ordinary.days).toBe(14);
+
+    // Both are signed in at once: remembering one device never signs another one out.
+    cookie = remembered.cookie;
+    const listed = await api<{
+      data: { remembered: boolean; current: boolean }[];
+      total: number;
+    }>('/devices');
+    expect(listed.body.total).toBe(already + 2);
+    expect(listed.body.data.filter((row) => row.current)).toHaveLength(1);
+    expect(listed.body.data.filter((row) => row.remembered)).toHaveLength(1);
+
+    // A laptop goes missing: every other device is forgotten from here, and this one carries on.
+    const forgot = await api<{ data: { forgotten: number } }>('/devices/forget-others', {
+      method: 'POST',
+    });
+    expect(forgot.body.data.forgotten).toBe(already + 1);
+    expect((await api('/overview')).status).toBe(200);
+    cookie = ordinary.cookie;
+    expect((await api('/overview')).status).toBe(401);
   });
 
   it('onboards a customer in one save, and says what it did (U1, AC 42)', async () => {
@@ -267,13 +320,27 @@ describe('the admin area', () => {
     expect(words.body.total).toBe(3);
 
     const one = await api<{
-      data: { raw: unknown; data: Record<string, unknown>; display: unknown; timeline: unknown[] };
+      data: {
+        raw: unknown;
+        data: Record<string, unknown>;
+        display: unknown;
+        timeline: Record<string, unknown>[];
+      };
     }>('/records/acme-crm/property/OBJ-1');
     expect(one.status).toBe(200);
     expect(one.body.data.raw).toMatchObject({ ref: 'OBJ-1' });
     expect(one.body.data.data?.['id']).toBe('OBJ-1');
     expect(one.body.data.display).not.toBeNull();
+
+    // Its timeline says what happened in words and carries no payload at all, so a person reads it
+    // at a glance and the page stays the same size however long the history is (Patric,
+    // 2026-09-21). The record's own faces are above it; the history never repeats them.
     expect(one.body.data.timeline.length).toBeGreaterThan(0);
+    for (const event of one.body.data.timeline) {
+      expect(Object.keys(event).sort()).toEqual(['at', 'correlationId', 'id', 'said', 'type']);
+      expect(event['said']).not.toBe('');
+    }
+    expect(JSON.stringify(one.body.data.timeline)).not.toContain('Storgatan');
   });
 
   it('previews a recompute and runs one as a job with progress (U4, AC 42)', async () => {
@@ -331,6 +398,48 @@ describe('the admin area', () => {
     await running.deliver();
     const events = await queryEvents({ type: 'lifecycle.refetch', limit: 10 });
     expect(events).toHaveLength(1);
+
+    // "Select all" on Records sends the search itself, never the rows the browser happened to have
+    // loaded: the engine resolves it to the same records, so a hundred thousand matches cost one
+    // call and one page of fifty costs no less (Patric, 2026-09-21).
+    const bySearch = await api<{ data: { queued: number } }>('/runs/fetch-again', {
+      method: 'POST',
+      body: { text: 'storgatan', datatype: 'property' },
+    });
+    expect(bySearch.body.data.queued).toBe(1);
+    await running.deliver();
+    expect(await queryEvents({ type: 'lifecycle.refetch', limit: 10 })).toHaveLength(2);
+
+    // The same search as a recompute scope, in the words the confirmation shows.
+    const preview = await api<{ data: { scope: string; report: { examined: number } } }>(
+      '/runs/preview',
+      { method: 'POST', body: { text: 'storgatan' } },
+    );
+    expect(preview.body.data.scope).toContain('storgatan');
+    expect(preview.body.data.report.examined).toBe(1);
+  });
+
+  it('offers the pickers a scope is chosen from (Patric, 2026-09-21)', async () => {
+    // Tenant, then that tenant's CRM connections, then that connection's offices: Records and
+    // Manual sync both read this, so neither page asks a person to type a number they must know.
+    await api('/tenants', { method: 'POST', body: tenantBody() });
+    const scope = await api<{
+      data: {
+        tenants: {
+          id: number;
+          name: string;
+          connections: { id: string; provider: string; offices: string[] }[];
+        }[];
+        datatypes: string[];
+      };
+    }>('/scope');
+    expect(scope.status).toBe(200);
+    const tenant = scope.body.data.tenants.find((row) => row.name === 'Acme Mäklare');
+    expect(tenant).toBeDefined();
+    expect(tenant?.connections).toHaveLength(1);
+    expect(tenant?.connections[0]?.id).toBe('acme-crm');
+    expect(tenant?.connections[0]?.provider).toBe('fake-webhook');
+    expect(tenant?.connections[0]?.offices).toEqual(['100']);
   });
 
   it('rings a tenant’s sites and one site alone (U8, AC 42)', async () => {
@@ -481,6 +590,30 @@ describe('the admin area', () => {
     );
     expect(probed.body.data.ok).toBe(true);
 
+    // On a saved connection the page has no password to send — a stored secret never reaches the
+    // browser — so the check tries the login Core already holds (Patric, 2026-09-21: the check did
+    // not work there), with the offices that connection is licensed for.
+    await api('/tenants', { method: 'POST', body: tenantBody() });
+    const stored = await api<{ data: { ok: boolean; detail: string } }>(
+      '/crms/fake-webhook/probe',
+      {
+        method: 'POST',
+        body: { credentials: {}, officeIds: [], connectionId: 'acme-crm' },
+      },
+    );
+    expect(stored.body.data.ok).toBe(true);
+
+    // Nothing typed and nothing saved is a question, not a red cross.
+    const neither = await api<{ data: { ok: boolean; detail: string } }>(
+      '/crms/fake-webhook/probe',
+      {
+        method: 'POST',
+        body: { credentials: {}, officeIds: [] },
+      },
+    );
+    expect(neither.body.data.ok).toBe(false);
+    expect(neither.body.data.detail).toContain('save the connection');
+
     expect((await api('/crms/nothing-here')).status).toBe(404);
   });
 
@@ -501,6 +634,41 @@ describe('the admin area', () => {
         expect(PAGE_NAMES, `${provider} sends a reader to ${page}`).toContain(page);
       }
     }
+  });
+
+  it('explains every button an adapter puts on a page (Patric, 2026-09-21)', async () => {
+    // A button nobody can explain is a button nobody should press. Every action an adapter
+    // declares, on a page, under a connection or on a row, carries one sentence saying what it
+    // does and when to press it.
+    const all = [...shipped, fakeWebhookAdapter].filter((one) => one.admin);
+    const connections = [
+      {
+        id: 'explained',
+        tenantId: 1,
+        provider: '',
+        credentials: null,
+        licensedOffices: ['100'],
+        active: true,
+      },
+    ];
+    let checked = 0;
+    for (const adapter of all) {
+      const provider = adapter.manifest.provider;
+      const sections = [
+        ...((await adapter.admin?.panel(connections.map((c) => ({ ...c, provider })))) ?? []),
+        ...((await adapter.admin?.connection?.({ ...connections[0], provider } as never)) ?? []),
+      ];
+      const actions = sections.flatMap((section) => [
+        ...(section.actions ?? []),
+        ...(section.table?.rows ?? []).flatMap((row) => row.actions ?? []),
+      ]);
+      for (const action of actions) {
+        checked += 1;
+        expect(action.help ?? '', `${provider}: the button "${action.label}"`).not.toBe('');
+        expect((action.help ?? '').length, `${provider}: "${action.label}"`).toBeGreaterThan(30);
+      }
+    }
+    expect(checked).toBeGreaterThan(2);
   });
 
   it('shows the configuration without any value, and the migrations (U6, AC 42)', async () => {

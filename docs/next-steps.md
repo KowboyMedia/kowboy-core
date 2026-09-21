@@ -175,6 +175,17 @@ the first item that is not done, and keep the file current. Decisions and open q
     would change. (b) Production has never held `POSTMARK_SERVER_TOKEN` or `PUBLIC_URL`, so its
     sign-in link cannot be mailed; both go on with the release, and that write needs Patric's
     "allow" for production the way every production write does.
+    2026-09-21, the first round of Patric's own remarks, all built: Swedish dates and figures
+    everywhere; **Remember this device** for thirty days, per device, with the devices listed on
+    Settings and one button to forget the others; `ADMIN_EMAIL_DOMAINS` back with a new meaning —
+    everyone at `kowboy.se` may sign in, and nothing on the sign-in page says so; a record's
+    timeline as sentences with no payload in it, written by one engine module the Events page and
+    Flow read too; honest danger, so fetching again and recomputing one record are plain buttons;
+    a sentence on every adapter action, kept honest by a test (question 76); Runs renamed
+    **Manual sync**; one scope picker — tenant, connection, office, entity — on both Manual sync
+    and Records, where nothing is typed any more; "select all" meaning every record the search
+    matches, on pages of 500; a stored login tried by Core itself, with the secret nowhere in the
+    page; and a **Go to…** button that spells out the keys of the palette.
 
 ## Later, when Patric supplies them
 

@@ -10,6 +10,7 @@ import { Input, Label } from '@/components/ui/input';
 export function SignIn() {
   const [params] = useSearchParams();
   const [email, setEmail] = useState('');
+  const [remember, setRemember] = useState(false);
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<SignInOutcome | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
@@ -19,7 +20,7 @@ export function SignIn() {
     setBusy(true);
     setFailed(null);
     try {
-      setOutcome(await requestSignIn(email));
+      setOutcome(await requestSignIn(email, remember));
     } catch (error) {
       setFailed(error instanceof Error ? error.message : String(error));
     } finally {
@@ -56,6 +57,21 @@ export function SignIn() {
                 placeholder="you@kowboy.se"
               />
             </div>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={remember}
+                onChange={(event) => setRemember(event.target.checked)}
+              />
+              <span>
+                Remember this device
+                <span className="block text-xs text-muted-foreground">
+                  Stay signed in here for 30 days instead of 14. Each device you tick this on is
+                  remembered on its own.
+                </span>
+              </span>
+            </label>
             <Button type="submit" disabled={busy}>
               {busy ? 'Sending…' : 'Send me a link'}
             </Button>

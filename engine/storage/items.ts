@@ -132,9 +132,24 @@ export type ScopeFilter = {
   officeId?: string;
   datatype?: Datatype;
   remoteId?: string;
+  /**
+   * Words in the unified record, the same full-text condition the records search uses. It is here
+   * so "select every record this search matches" is the search itself, not a list of ids the
+   * browser happened to have loaded (Patric, 2026-09-21).
+   */
+  text?: string;
   /** Named records, whatever else the scope says. */
   keys?: ItemKey[];
   rulesVersionBefore?: string;
+};
+
+/** The words of a free-text search as a prefix query, or null when there are none. */
+export const textQuery = (value: string): string | null => {
+  const words = value
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
+  return words.length === 0 ? null : words.map((word) => `${word}:*`).join(' & ');
 };
 
 type Where = { clauses: string[]; values: unknown[] };
@@ -152,6 +167,8 @@ function scopeWhere(scope: ScopeFilter): Where {
   if (scope.officeId) add('office_id = ?', scope.officeId);
   if (scope.datatype) add('datatype = ?', scope.datatype);
   if (scope.remoteId) add('remote_id = ?', scope.remoteId);
+  const words = scope.text ? textQuery(scope.text) : null;
+  if (words) add(FULL_TEXT, words);
   if (scope.rulesVersionBefore) add('rules_version <> ?', scope.rulesVersionBefore);
   if (scope.keys) {
     const n = where.values.length;
@@ -268,14 +285,8 @@ export type ItemSearch = {
   size?: number;
 };
 
-/** The words of a free-text search as a prefix query, or null when there are none. */
-export const textQuery = (text: string): string | null => {
-  const words = text
-    .toLowerCase()
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter(Boolean);
-  return words.length === 0 ? null : words.map((word) => `${word}:*`).join(' & ');
-};
+/** The one full-text condition over the unified record (migration 006's index). */
+export const FULL_TEXT = `jsonb_to_tsvector('simple', coalesce(data, '{}'::jsonb), '["string"]') @@ to_tsquery('simple', ?)`;
 
 /** Items by any mix of filters, one page, with the count of everything that matches. */
 export async function searchItems(query: ItemSearch): Promise<{ rows: ItemRow[]; total: number }> {
@@ -290,10 +301,7 @@ export async function searchItems(query: ItemSearch): Promise<{ rows: ItemRow[];
     ['updated_at >= ?', query.writtenFrom],
     ['updated_at < ?', query.writtenTo],
     ['deleted = ?', query.deleted],
-    [
-      `jsonb_to_tsvector('simple', coalesce(data, '{}'::jsonb), '["string"]') @@ to_tsquery('simple', ?)`,
-      text,
-    ],
+    [FULL_TEXT, text],
   ];
   const where: string[] = ['true'];
   const values: unknown[] = [];

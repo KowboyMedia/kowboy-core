@@ -13,7 +13,7 @@ import { Records } from '@/pages/records';
 import { RecordPage } from '@/pages/record';
 import { Tenants } from '@/pages/tenants';
 import { TenantPage } from '@/pages/tenant';
-import { Runs } from '@/pages/runs';
+import { ManualSync } from '@/pages/manual-sync';
 import { Events } from '@/pages/events';
 import { Crms } from '@/pages/crms';
 import { CrmPage } from '@/pages/crm';
@@ -43,10 +43,11 @@ export function App() {
           { name: 'flow', list: '/flow' },
           { name: 'records', list: '/records' },
           { name: 'tenants', list: '/tenants', show: '/tenants/:id', create: '/tenants/new' },
-          { name: 'jobs', list: '/runs' },
+          { name: 'jobs', list: '/manual-sync' },
           { name: 'events', list: '/events' },
           { name: 'crms', list: '/crms', show: '/crms/:provider' },
           { name: 'settings', list: '/settings' },
+          { name: 'devices', list: '/settings' },
         ]}
         options={{
           liveMode: 'auto',
@@ -73,7 +74,7 @@ export function App() {
               <Route path="new" element={<TenantPage />} />
               <Route path=":id" element={<TenantPage />} />
             </Route>
-            <Route path="runs" element={<Runs />} />
+            <Route path="manual-sync" element={<ManualSync />} />
             <Route path="events" element={<Events />} />
             <Route path="crms" element={<Outlet />}>
               <Route index element={<Crms />} />

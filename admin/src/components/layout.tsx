@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Palette } from '@/components/palette';
+import { openPalette, Palette, shortcut } from '@/components/palette';
 import { NAV } from '@/lib/pages';
 import { ago } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -62,9 +62,18 @@ export function Layout() {
           {me ? `v${me.version} · running since ${ago(me.startedAt)}` : ''}
         </span>
         <div className="ml-auto flex items-center gap-2">
-          <kbd className="hidden rounded border px-1.5 py-0.5 text-xs text-muted-foreground lg:inline">
-            ⌘K
-          </kbd>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={openPalette}
+            title="Jump to a page, a tenant or a record id"
+          >
+            <Search aria-hidden="true" />
+            Go to…
+            <kbd className="ml-1 hidden rounded border px-1 text-xs text-muted-foreground sm:inline">
+              {shortcut()}
+            </kbd>
+          </Button>
           <span className="hidden text-xs text-muted-foreground sm:inline">{me?.email}</span>
           <Button variant="outline" size="sm" onClick={() => logout()}>
             Sign out

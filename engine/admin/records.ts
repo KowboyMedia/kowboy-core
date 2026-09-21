@@ -4,6 +4,7 @@
 import { readItem, searchItems, type ItemRow, type ItemSearch } from '../storage/items.js';
 import { connectionById, connections } from '../storage/connections.js';
 import { queryEvents, type EventRow } from '../events.js';
+import { summarise } from './summary.js';
 import { adminFor } from '../registry.js';
 import { recompute } from '../recompute.js';
 import type { AdminRecord, Canonical, Datatype, MappedRecord } from '../adapter-api/types.js';
@@ -77,12 +78,18 @@ export async function search(query: ItemSearch): Promise<{ rows: RecordRow[]; to
   return { rows: rows.map((row) => toRow(row, providers.get(row.connection_id) ?? '')), total };
 }
 
+/**
+ * One line of a record's timeline. It carries no payload on purpose (Patric, 2026-09-21): the
+ * engine says in words what happened, so the page reads at a glance and the answer stays small.
+ * The whole event, payload and all, is still in the log and on the Events page.
+ */
 export type TimelineEvent = {
   id: number;
   at: string;
   type: string;
   correlationId: string | null;
-  fields: Record<string, unknown>;
+  /** What happened, in one sentence. */
+  said: string;
 };
 
 const toEvent = (event: EventRow): TimelineEvent => ({
@@ -90,7 +97,7 @@ const toEvent = (event: EventRow): TimelineEvent => ({
   at: event.at.toISOString(),
   type: event.type,
   correlationId: event.correlation_id,
-  fields: event.fields,
+  said: summarise(event.type, event.fields),
 });
 
 export type RecordView = {

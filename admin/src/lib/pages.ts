@@ -8,7 +8,7 @@ const ICON: Record<string, string> = {
   Flow: 'activity',
   Records: 'search',
   Tenants: 'building',
-  Runs: 'play',
+  'Manual sync': 'play',
   Events: 'list',
   CRMs: 'plug',
   Settings: 'settings',

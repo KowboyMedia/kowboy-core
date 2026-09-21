@@ -1,5 +1,7 @@
 // What the Vitec adapter shows and does in the admin panel (docs/admin-panel.md), as data the
-// panel draws: the notification URL, each connection's schedules and fetch list with "run now"
+// panel draws. Every action carries `help`, one sentence saying what it does and when a person
+// would press it; `directions.test.ts` refuses an action without one, so a button added later
+// cannot arrive unexplained (Patric, 2026-09-21). What it draws: the notification URL, each connection's schedules and fetch list with "run now"
 // actions, the refused offices, the fetch list itself; under a tenant's connection, what Vitec
 // knows about it; a probe of a typed login; one record fetched and mapped without writing; and
 // what waits on the fetch list. Nothing here knows the engine beyond the adapter API.
@@ -67,10 +69,27 @@ async function scheduleOf(connection: Connection): Promise<Schedule> {
 }
 
 const scheduleActions = (connection: Connection, schedule: Schedule): AdminAction[] => [
-  { id: 'catch_up', label: 'Catch up now', params: { connection: connection.id } },
-  { id: 'compare', label: 'Compare now', params: { connection: connection.id } },
+  {
+    id: 'catch_up',
+    label: 'Catch up now',
+    help: 'Asks Vitec for everything that changed since the last catch-up and fetches it. This runs by itself every few minutes; press it when a notification looks to have been missed and you do not want to wait.',
+    params: { connection: connection.id },
+  },
+  {
+    id: 'compare',
+    label: 'Compare now',
+    help: 'Fetches Vitec’s own list of what is marketed and removes from Core anything no longer on it. This runs by itself once a day; press it when a listing has been taken off the website and should disappear from the sites now.',
+    params: { connection: connection.id },
+  },
   ...(schedule.paused
-    ? [{ id: 'resume', label: 'Resume now', params: { connection: connection.id } }]
+    ? [
+        {
+          id: 'resume',
+          label: 'Resume now',
+          help: 'This connection stopped asking Vitec after five failures in a row and is waiting out its pause. Press this to start again at once, once you believe Vitec is answering.',
+          params: { connection: connection.id },
+        },
+      ]
     : []),
 ];
 
@@ -132,11 +151,17 @@ async function blockedSection(): Promise<AdminSection> {
       moment(office.blockedUntil),
     ],
     actions: [
-      { id: 'probe', label: 'Probe now', params: { office: office.officeId } },
+      {
+        id: 'probe',
+        label: 'Probe now',
+        help: 'Asks Vitec once for this office to see whether it answers again. A probe runs by itself each cool-down; this one runs at the worker’s next tick.',
+        params: { office: office.officeId },
+      },
       {
         id: 'forget',
         label: 'Forget',
         danger: true,
+        help: 'Drops the block without asking Vitec at all. For an office that has genuinely left the licence, so Core stops probing for it.',
         confirm: `Drop the block on ${office.officeId} without a probe? For an office that left the licence.`,
         params: { office: office.officeId },
       },
@@ -167,8 +192,19 @@ async function fetchListSection(): Promise<AdminSection> {
         entry.lastError,
       ],
       actions: [
-        { id: 'retry', label: 'Retry now', params },
-        { id: 'drop', label: 'Drop', danger: true, params },
+        {
+          id: 'retry',
+          label: 'Retry now',
+          help: 'Puts this record at the front of the fetch list, whatever its attempt count. For a record that was given up on after six failures and that you believe Vitec can answer for now.',
+          params,
+        },
+        {
+          id: 'drop',
+          label: 'Drop',
+          danger: true,
+          help: 'Takes this record off the fetch list without fetching it. Core keeps whatever it already holds for it; the next notification or comparison will put it back.',
+          params,
+        },
       ],
     };
   });

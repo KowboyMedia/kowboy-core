@@ -70,7 +70,8 @@ look at the CRM now) sit on that page rather than on a tools page.
 | **Stripe** ([webhooks](https://docs.stripe.com/webhooks), read 2026-09-20)                                                                  | A retry is explicit and bounded, and the console says how many attempts remain and when.                                 |
 | **Sentry** ([alerts](https://docs.sentry.io/product/alerts/), read 2026-09-20)                                                              | Every long-running thing has a run history with its configuration attached, so a run can be read back later.             |
 
-**Chosen.** One Runs page where the scope is built once (everything, a CRM, a tenant, a
+**Chosen.** One Manual sync page (called Runs until Patric renamed it on 2026-09-21) where the
+scope is built once (everything, a CRM, a tenant, a
 connection, an office, a datatype, a record, a selection, or only stale rules) and then either
 previewed or run. Preview always comes first and writes nothing; running queues a job with
 progress, cancel, a result and a history, the Sentry way: the job row keeps the scope it ran.
@@ -130,7 +131,7 @@ Eight destinations, one level, no nesting. A connection is nowhere in the naviga
 │ Flow       the colour-coded queue, live                                                 │
 │ Records    search → one record                                                          │
 │ Tenants    list → one tenant (licence · token · connections · sites)                    │
-│ Runs       scope → preview → job                                                        │
+│ Manual sync  scope → preview → job                                                      │
 │ Events     the log, filters, live tail, who did what                                    │
 │ CRMs       one page per adapter, as the adapter reports it                              │
 │ Settings   configuration, versions, maintenance, housekeeping, access                   │
@@ -175,11 +176,12 @@ are red with a confirmation. A site shows its own last pull, its last bell and i
 setup checklist (secret and token in the site, first bell answered, first pull done, first apply),
 what it reported applied and failed, and its own errors.
 
-### Runs — U4
+### Manual sync — U4
 
-Scope, then preview, then run. The scope builder is one form: everything · a CRM · a tenant · a
-connection · an office · a datatype · one record · the current selection · only records an older
-rules version made. Preview reports examined, changed, unchanged, failed, the first failures with
+Scope, then preview, then run. The scope builder is one form, and the same component Records
+filters with (Patric, 2026-09-21): a tenant, then that tenant's connections, then that
+connection's offices, then the kind of record — each picked from a box, none typed — plus one
+record id, the current selection, the search itself, and only records an older rules version made. Preview reports examined, changed, unchanged, failed, the first failures with
 their errors and the first examples with their changed fields, and writes nothing. Run queues a
 job: progress, cancel, result, and a history of every run with the scope it ran. Fetch again from
 the CRM uses the same scope builder. Housekeeping is a button here.
@@ -206,55 +208,55 @@ may sign in, and this session.
 
 ### Every Must and every Should, placed
 
-| §3  | Function                                               | Page                             |
-| --- | ------------------------------------------------------ | -------------------------------- |
-| A   | One page for a tenant, one Save; edit is the same page | Tenants → tenant                 |
-| A   | Save without a reload, a toast, errors at the field    | Tenants → tenant                 |
-| A   | Checks while typing                                    | Tenants → tenant                 |
-| A   | Copy buttons for token and bell secrets                | Tenants → tenant                 |
-| A   | Check the login before saving (probe)                  | Tenants → tenant → connection    |
-| A   | First-load progress                                    | Tenants → tenant → connection    |
-| A   | One or several CRMs per tenant                         | Tenants → tenant                 |
-| B   | Dashboard with figures and 24-hour charts              | Overview                         |
-| B   | Health checks with the reason for a red one            | Overview                         |
-| B   | Live activity, and what is queued                      | Flow                             |
-| B   | Per-connection status with "run now"                   | Tenants → tenant → connection    |
-| B   | Alerts by mail or Slack                                | engine; shown on Settings        |
-| B   | Environment banner, version, deploy time               | top bar, every page              |
-| C   | Search with server-side filters                        | Records                          |
-| C   | Sort by any column, pages 25–500, column chooser       | Records                          |
-| C   | Tick rows and act on them                              | Records                          |
-| C   | One record: raw, unified, display, timeline            | Records → record                 |
-| C   | Preview a recompute for one record                     | Records → record                 |
-| C   | Free-text search across a record                       | Records                          |
-| C   | Records failing the schema, with their errors          | Runs → preview failures          |
-| D   | Recompute by scope                                     | Runs                             |
-| D   | Fetch again by scope                                   | Runs                             |
-| D   | Preview first, then run                                | Runs                             |
-| D   | Jobs: progress, cancel, result, history                | Runs                             |
-| D   | Impact preview before a release                        | Runs → preview                   |
-| D   | Housekeeping now                                       | Runs                             |
-| E   | Sites per tenant, ring, new bell secret                | Tenants → tenant                 |
-| E   | Site setup checklist                                   | Tenants → tenant → site          |
-| E   | What a site holds versus Core                          | Tenants → tenant → site          |
-| E   | The site's own errors                                  | Tenants → tenant → site          |
-| F   | The event log with filters and correlation             | Events                           |
-| F   | Who did what on the panel                              | Events, type `admin.*`           |
-| G   | Pull as a site, ring, lifecycle event, preview         | the site, the tenant, the record |
-| G   | Look at a CRM record, nothing written                  | Records → record                 |
-| H   | Configuration, migrations, versions                    | Settings                         |
-| H   | Token and bell secret rotation                         | Tenants → tenant                 |
-| H   | Login by email link, the maintenance switch            | sign-in page; Settings           |
-| H   | Adapter settings, directions, notification URL         | CRMs                             |
-| H   | A second CRM appears by itself                         | CRMs, and the tenant's CRM list  |
-| I   | No full-page reloads                                   | every page                       |
-| I   | A toast for every outcome, undo where safe             | every page                       |
-| I   | One pattern for list, detail, form, row actions        | every page                       |
-| I   | Confirmations that say what will happen                | every dangerous button           |
-| I   | Empty states that say what to do next                  | every list                       |
-| I   | Responsive and accessible                              | every page                       |
-| I   | Live updates                                           | Overview, Flow, Runs, Events     |
-| I   | Command palette                                        | ⌘K, every page                   |
+| §3  | Function                                               | Page                                |
+| --- | ------------------------------------------------------ | ----------------------------------- |
+| A   | One page for a tenant, one Save; edit is the same page | Tenants → tenant                    |
+| A   | Save without a reload, a toast, errors at the field    | Tenants → tenant                    |
+| A   | Checks while typing                                    | Tenants → tenant                    |
+| A   | Copy buttons for token and bell secrets                | Tenants → tenant                    |
+| A   | Check the login before saving (probe)                  | Tenants → tenant → connection       |
+| A   | First-load progress                                    | Tenants → tenant → connection       |
+| A   | One or several CRMs per tenant                         | Tenants → tenant                    |
+| B   | Dashboard with figures and 24-hour charts              | Overview                            |
+| B   | Health checks with the reason for a red one            | Overview                            |
+| B   | Live activity, and what is queued                      | Flow                                |
+| B   | Per-connection status with "run now"                   | Tenants → tenant → connection       |
+| B   | Alerts by mail or Slack                                | engine; shown on Settings           |
+| B   | Environment banner, version, deploy time               | top bar, every page                 |
+| C   | Search with server-side filters                        | Records                             |
+| C   | Sort by any column, pages 25–500, column chooser       | Records                             |
+| C   | Tick rows and act on them                              | Records                             |
+| C   | One record: raw, unified, display, timeline            | Records → record                    |
+| C   | Preview a recompute for one record                     | Records → record                    |
+| C   | Free-text search across a record                       | Records                             |
+| C   | Records failing the schema, with their errors          | Manual sync → preview failures      |
+| D   | Recompute by scope                                     | Manual sync                         |
+| D   | Fetch again by scope                                   | Manual sync                         |
+| D   | Preview first, then run                                | Manual sync                         |
+| D   | Jobs: progress, cancel, result, history                | Manual sync                         |
+| D   | Impact preview before a release                        | Manual sync → preview               |
+| D   | Housekeeping now                                       | Manual sync                         |
+| E   | Sites per tenant, ring, new bell secret                | Tenants → tenant                    |
+| E   | Site setup checklist                                   | Tenants → tenant → site             |
+| E   | What a site holds versus Core                          | Tenants → tenant → site             |
+| E   | The site's own errors                                  | Tenants → tenant → site             |
+| F   | The event log with filters and correlation             | Events                              |
+| F   | Who did what on the panel                              | Events, type `admin.*`              |
+| G   | Pull as a site, ring, lifecycle event, preview         | the site, the tenant, the record    |
+| G   | Look at a CRM record, nothing written                  | Records → record                    |
+| H   | Configuration, migrations, versions                    | Settings                            |
+| H   | Token and bell secret rotation                         | Tenants → tenant                    |
+| H   | Login by email link, the maintenance switch            | sign-in page; Settings              |
+| H   | Adapter settings, directions, notification URL         | CRMs                                |
+| H   | A second CRM appears by itself                         | CRMs, and the tenant's CRM list     |
+| I   | No full-page reloads                                   | every page                          |
+| I   | A toast for every outcome, undo where safe             | every page                          |
+| I   | One pattern for list, detail, form, row actions        | every page                          |
+| I   | Confirmations that say what will happen                | every dangerous button              |
+| I   | Empty states that say what to do next                  | every list                          |
+| I   | Responsive and accessible                              | every page                          |
+| I   | Live updates                                           | Overview, Flow, Manual sync, Events |
+| I   | Command palette                                        | ⌘K, every page                      |
 
 The Coulds of §3 and §6 are not built and stay listed there. The three Won'ts are not built.
 

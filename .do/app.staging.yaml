@@ -42,6 +42,11 @@ services:
       - key: ADMIN_EMAILS
         value: patric@kowboy.se
         scope: RUN_TIME
+      # Everyone at Kowboy may open the area without a list to keep (Patric, 2026-09-21);
+      # the sign-in page never gives this away.
+      - key: ADMIN_EMAIL_DOMAINS
+        value: kowboy.se
+        scope: RUN_TIME
       - key: PUBLIC_URL
         value: https://kowboy-core-staging-t7ig3.ondigitalocean.app
         scope: RUN_TIME

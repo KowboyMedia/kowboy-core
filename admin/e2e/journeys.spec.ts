@@ -5,9 +5,10 @@ import { expect, test, type Page } from '@playwright/test';
 const EMAIL = 'tester@kowboy.se';
 
 /** Sign in as a person does: ask for a link, open the one that comes back, land in the area. */
-async function signIn(page: Page): Promise<void> {
+async function signIn(page: Page, remember = false): Promise<void> {
   await page.goto('/admin/sign-in');
   await page.getByLabel('Your address').fill(EMAIL);
+  if (remember) await page.getByLabel('Remember this device').check();
   await page.getByRole('button', { name: 'Send me a link' }).click();
   const link = page.getByTestId('sign-in-link');
   await expect(link).toBeVisible();
@@ -103,7 +104,9 @@ test('journey: U3 support a customer — find a record and see everything about 
   await expect(page.getByRole('heading', { name: 'The unified record' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'The prepared strings' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Its timeline' })).toBeVisible();
-  await expect(page.getByText('entity.written').first()).toBeVisible();
+  // The history reads as sentences, not as payloads (Patric, 2026-09-21).
+  await expect(page.getByRole('columnheader', { name: 'What happened' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'written', exact: false }).first()).toBeVisible();
 
   // What a recompute would change, without changing anything.
   await page.getByRole('button', { name: 'Preview a recompute' }).click();
@@ -128,7 +131,13 @@ test('journey: U3 sort, page and choose the columns of the grid', async ({ page 
 });
 
 test('journey: U4 release safely — preview a scope, then run it as a job', async ({ page }) => {
-  await go(page, 'Runs');
+  await go(page, 'Manual sync');
+  await expect(page.getByRole('heading', { name: 'Manual sync' })).toBeVisible();
+  // The scope is picked, never typed: a tenant, then its connection, then that connection's
+  // office, then the entity (Patric, 2026-09-21).
+  await page.getByLabel('Tenant').selectOption({ label: TENANT });
+  await page.getByLabel('CRM connection').selectOption('acme-crm');
+  await page.getByLabel('Office').selectOption('100');
   await page.getByLabel('Entity type').selectOption('property');
   await page.getByTestId('preview').click();
   await expect(page.getByTestId('preview-report')).toBeVisible();
@@ -151,9 +160,9 @@ test('journey: U8 try things — ring a site and fetch a record again', async ({
   await page.getByRole('textbox', { name: 'Record id' }).fill('OBJ-1');
   await expect(page.getByRole('link', { name: 'Storgatan 12' })).toBeVisible({ timeout: 30_000 });
   await page.getByRole('checkbox', { name: 'Tick acme-crm|property|OBJ-1' }).check();
+  // Fetching again asks the CRM for the same record and writes only what differs, so it asks
+  // nothing first (Patric, 2026-09-21: it is not dangerous, it is idempotent).
   await page.getByRole('button', { name: 'Fetch again' }).click();
-  await expect(page.getByText('put on their adapter', { exact: false })).toBeVisible();
-  await page.getByRole('button', { name: 'Fetch them again' }).click();
   await expect(page.getByText('fetched from the CRM again', { exact: false })).toBeVisible();
 });
 
@@ -181,6 +190,19 @@ test('journey: U6 secrets — rotating a token says what breaks, and asks first'
   await expect(page.getByText('New token. Paste it into each site.')).toBeVisible();
 });
 
+test('journey: U6 remember this device, and see every device it is signed in on', async ({
+  page,
+}) => {
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page.getByRole('button', { name: 'Send me a link' })).toBeVisible();
+  await signIn(page, true);
+
+  await go(page, 'Settings');
+  await expect(page.getByRole('heading', { name: 'Your devices' })).toBeVisible();
+  await expect(page.getByText('this one')).toBeVisible();
+  await expect(page.getByRole('cell', { name: '30 days' }).first()).toBeVisible();
+});
+
 test('journey: U6 the event log says who did what', async ({ page }) => {
   await go(page, 'Events');
   await page.getByRole('button', { name: 'Saves' }).click();
@@ -203,6 +225,11 @@ test('journey: U6 maintenance pauses Core’s own work, and says so everywhere',
 });
 
 test('journey: the palette goes anywhere, and sign-out ends the session', async ({ page }) => {
+  // The keys open it, and so does the button that spells them out for anyone who does not know
+  // them (Patric, 2026-09-21: "⌘K" — what is this?).
+  await page.getByRole('button', { name: 'Go to…' }).click();
+  await expect(page.getByPlaceholder('Go to a page')).toBeVisible();
+  await page.keyboard.press('Escape');
   await page.keyboard.press('ControlOrMeta+k');
   await page.getByPlaceholder('Go to a page').fill('Records');
   await page.getByRole('option', { name: 'Records' }).first().click();
