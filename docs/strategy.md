@@ -137,6 +137,13 @@ agent merges on Patric's word, a dev with the merge button (Patric, 2026-09-18).
 | Lifecycle events to adapters, event log, health endpoint                           | **Its own HTTP endpoints**, e.g. a webhook listener: route, signature check, and parsing the CRM's payload format |
 |                                                                                    | Mappers from CRM payload to the universal model                                                                   |
 
+**Every adapter, whatever its CRM, acts on a notification near-immediately** (Patric, 2026-09-21):
+a webhook is answered at once and its record fetched within seconds, not at the next scheduled run.
+A burst of notifications for one record is collapsed into one fetch, inside a window that is
+bounded and stated in the adapter's README, never open-ended: batching absorbs a storm, it does not
+delay the quiet case. The window is the adapter's own setting, so a test can hold it still while it
+counts (`docs/known-bugs.md`, 1).
+
 **The adapter API** (`engine/adapter-api/`) is the only part of the engine an adapter may use (E2). Changing it needs approval (E3). It offers:
 
 | Function                                       | Meaning                                                                                                                                   |

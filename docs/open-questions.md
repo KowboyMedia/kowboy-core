@@ -34,34 +34,6 @@ the price is hidden; (c) whether the area name stays when the address is hidden;
 a "till salu, visa som kommande" estate carries; (e) how each of the four bid settings shows in
 `bidding`. Smaller: (a) alone now, the rest when the first client template needs them.
 
-## 76. `[core]` The adapter API gained one optional field on an action: `help`
-
-You asked for descriptive text on every action in the area ("Both are missing descriptive text.
-Add descriptive text to all actions and make a note to keep them updated on related changes",
-2026-09-21). An action is declared by the adapter, not by the area, so the sentence has to live
-where the action lives: `AdminAction` in `engine/adapter-api/types.ts` now carries `help`, one
-sentence saying what the button does and when a person would press it. The area shows it next to
-the button and inside the confirmation where there is one, and an acceptance test refuses an
-action without it, which is the note you asked for: a new or changed action cannot arrive
-unexplained. The field is optional in the type and required in practice by that test, so no
-adapter breaks. `engine/adapter-api/` is a protected path, and this is the additive kind of change
-the contract allows (expand, never rename or remove), but it still needs your word. Answer yes to
-keep it, or no and the sentences move into the area, where they would have to be kept in step with
-every adapter by hand.
-
-## 77. `[core]` One acceptance test can fail on a slow machine, and it is the test's own doing
-
-`acceptance/adapters.test.ts`, "absorbs a burst of webhooks without a fetch per webhook", sends a
-hundred notifications and then counts what is waiting on the fake CRM's list, expecting one. The
-fake CRM empties that list every fifty milliseconds on a timer of its own, so on a machine where
-the hundred notifications take longer than that, the list is already empty when the test counts:
-the test fails although Core did exactly the right thing. It failed once here on 2026-09-21 and
-passed on every run after, which is the shape of a race, not of a bug. What the test proves — a
-burst becomes one fetch, not a hundred — is worth keeping, and AGENTS.md counts a test that fails
-for reasons of its own as a design problem rather than something to re-run. The smaller fix is to
-let the test stop that timer while it counts, which is four lines in the test and changes nothing
-about Core. `acceptance/` is a protected path, so it waits for your yes.
-
 ## 79. `[client-wordpress]` Add a Cloudways API key to the agents' environment settings, as `CLOUDWAYS_EMAIL` and `CLOUDWAYS_API_KEY`
 
 Patric chose Cloudways for the porting server on 2026-09-21 (question 78). Everything on it, the
