@@ -130,7 +130,7 @@ the first item that is not done, and keep the file current. Decisions and open q
     job on staging Core), driven over HTTPS through the WordPress API, Core's admin API and a
     staging-only driver, with a loop that runs until every client criterion a live site can prove
     is green; caches invalidated the WordPress way and proved once with the host's cache plugin
-    (questions 67 and 68 closed). Waits on question 75 (the host); then the agent makes the site itself (item 15). The parts that need
+    (questions 67 and 68 closed). Waits on question 76 (the Cloudways API key); then the agent makes the site itself (item 15). The parts that need
     no answer may start: the plugin's updater changes, trash-then-delete, the ETag on record
     pages, the Space and the staging channel, the driver, the job.
 12. **The default templates** (Patric, 2026-09-20; item 10 folds in): plan in
@@ -160,9 +160,10 @@ the first item that is not done, and keep the file current. Decisions and open q
     `docs/template-porting.md`. One porting server with a pair of sites per client, the source a
     copy of the client's live site with the old plugin, the target a copy with Core's plugin and
     the client's template set, made through the host's API, compared page by page and iterated
-    by an agent until the target shows the same; gaps raised by step 2's rule. Waits on question
-    75 (the host). With Cloudways, nothing needs a person after its API key, except a client's
-    CRM login the first time it reaches staging.
+    by an agent until the target shows the same; gaps raised by step 2's rule. Cloudways (question
+    75, 2026-09-21); waits on question 76, the Cloudways API key in the agents' environment.
+    After that nothing needs a person except a client's CRM login the first time it reaches
+    staging.
 
 ## Later, when Patric supplies them
 

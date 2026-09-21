@@ -1,6 +1,6 @@
 # Porting a client's templates to v4: the environments and the workflow
 
-Proposed 2026-09-21 for Patric's decision (question 75). It generalises step 2
+Proposed 2026-09-21; Patric chose Cloudways the same day (question 75). It generalises step 2
 ([default-templates.md](default-templates.md)) from one client to any: Patric says "port all
 Kowboy templates for site X to version 4", and an agent does the rest, assuming that version 4's
 helper functions and universal fields may be missing or wrong, and raising what it finds. The
@@ -82,6 +82,6 @@ reaches staging.
 
 ## What it needs from Patric
 
-- **75** where the porting server runs: Cloudways (recommended) or a plain DigitalOcean server.
-- Then, once: a Cloudways API key, if Cloudways.
+- **76** a Cloudways API key in the agents' environment settings, as `CLOUDWAYS_EMAIL` and
+  `CLOUDWAYS_API_KEY`.
 - Per client: the client's name, and the CRM login if staging does not hold it yet.

@@ -6,8 +6,8 @@ _shows_, its files never read. On 2026-09-21 Patric asked for the most autonomou
 for any client, and that is [template-porting.md](template-porting.md): a pair of environments
 per client, a copy of the client's site with the old plugin as the source and a copy with Core's
 plugin as the target, made and compared by an agent until the target shows the same. This file
-keeps what the templates are, where they live, the gap rule and the installer. Open: question 75
-(where the porting server runs). It runs in the same loop as step 1
+keeps what the templates are, where they live, the gap rule and the installer. Open: question 76
+(the Cloudways API key). It runs in the same loop as step 1
 ([staging-site.md](staging-site.md)). Next-steps item 10 (the templates on the universal model,
 question 55) is done inside this step.
 
@@ -158,8 +158,8 @@ admin works. Decided (an agent's decision, within the rules):
 
 ## What it needs from Patric
 
-- **75** where the porting server runs ([template-porting.md](template-porting.md)); the first
-  port is the reference client's.
+- **76** the Cloudways API key ([template-porting.md](template-porting.md)); the first port is
+  the reference client's.
 - Already open: 54 (a) to (e) as the templates need them; 52 is untouched (golden masters come
   from the test account).
 
@@ -167,7 +167,7 @@ admin works. Decided (an agent's decision, within the rules):
 
 Now, needing no answer: the set package's skeleton (`core-client-templates-2026`), the selector,
 the override rule, the installer's four parts and the release per set, and the query function in
-the sync plugin. With 75: the porting server, then the first client's pair of environments and
+the sync plugin. With 76: the porting server, then the first client's pair of environments and
 the loop of [template-porting.md](template-porting.md) → AC 28 and AC 20's search half in
 `acceptance/criteria.json`, the report regenerated.
 

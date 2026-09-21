@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 76 (62 to 69 were also used in chat on 2026-09-20 for the WordPress
+answering is quick. Next number: 77 (62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
@@ -76,20 +76,13 @@ with the admin secret, nor `scripts/tenant.ts` (tenants, connections and sites f
 line, replaced by the panel), nor `scripts/vitec-probe.ts` (a one-off probe of Vitec Connect from
 2026-09-17, settled). Smaller: cut them and point their tests at the panel's API; or keep them.
 
-## 75. `[client-wordpress]` Where the porting server runs: Cloudways, or a plain DigitalOcean server
+## 76. `[client-wordpress]` Add a Cloudways API key to the agents' environment settings, as `CLOUDWAYS_EMAIL` and `CLOUDWAYS_API_KEY`
 
-Patric asked on 2026-09-21 for the most autonomous way to port any client's templates to
-version 4, with permanent environments on one server to keep costs down. The answer is
-`docs/template-porting.md`: a pair of sites per client, a copy of the client's live site with the
-old plugin as the source and a copy with Core's plugin as the target, made, compared and iterated
-by an agent. The one thing the agent cannot supply is the server. Checked the same day: nothing
-but web traffic leaves the agent's environment, so it never has a shell on any server; it needs a
-host whose API does what a shell would. Cloudways is that host, and most client sites already
-live there, so a copy of a client's site is one API call; the smallest server costs about $11 a
-month (2 GB, Cloudways' pricing page, 2026-09-21), more as pairs accumulate, and a person gets
-SFTP and a WordPress login for every site from the same panel. A plain DigitalOcean server costs
-about the same but gives the agent no way in beyond creating it, so every operation would need a
-control layer the agent builds and maintains itself, and copies of client sites would need exports
-by a person. Questions 71, 73 and 74 (the two sites Patric would set up, and the shortcodes to
-match) are superseded: the agent makes the environments, and the client's own pages define what
-to match. Smaller: Cloudways. Cloudways, or DigitalOcean?
+Patric chose Cloudways for the porting server on 2026-09-21 (question 75). Everything on it, the
+server, the pairs of sites per client, the copies of client sites, their admin logins, cron and
+password protection, is done through the Cloudways API, and that API needs the account's email
+and an API key, made in the Cloudways platform under the account's API page. The key belongs in
+the environment agents run in, next to the DigitalOcean token and the Vitec test login that are
+already there, not in chat: a secret pasted in chat stays in the conversation's record (the
+lesson of question 58). Once the two variables exist, an agent creates the server and the first
+pair of environments with nothing further from anyone.

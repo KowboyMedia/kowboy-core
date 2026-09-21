@@ -3,7 +3,7 @@
 Step 1 of two. Proposed 2026-09-20 and revised the same day for Patric's answers, and on
 2026-09-21 the test site became the target of a client's pair of environments
 ([template-porting.md](template-porting.md)). The plugin and this loop serve every host. Open:
-where the porting server runs (question 75). Step 2 is [default-templates.md](default-templates.md), and both run in the same
+the Cloudways API key (question 76). Step 2 is [default-templates.md](default-templates.md), and both run in the same
 loop once this site stands. Strategy §4 already names this site: the staging WordPress site next
 to staging Core.
 
@@ -123,7 +123,7 @@ all the loop needs too.
 ## Access, the whole workflow
 
 What an agent needs to run this end to end on any host, and the one thing that is Patric's
-(question 75, where the porting server runs; with Cloudways, its API key):
+(question 76, the Cloudways API key):
 
 | What                             | Why                                                                                                                | How the agent gets in                                                   | Patric's part                                                                  |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
@@ -182,8 +182,8 @@ made-up records on the site Patric looks at, so it is not proposed.
 
 ## What it needs from Patric
 
-- **75** where the porting server runs ([template-porting.md](template-porting.md)); then the
-  agent makes the site itself.
+- **76** the Cloudways API key in the agents' environment; then the agent makes the site itself
+  ([template-porting.md](template-porting.md)).
 - Already open: Vitec's subscription for the test account pointed at staging (item 6), so real
   changes flow; not blocking.
 
@@ -192,7 +192,7 @@ made-up records on the site Patric looks at, so it is not proposed.
 1. Now, needing no answer: the plugin's two updater changes, trash-then-delete, and the ETag on
    record pages; the Space and the staging channel; the driver; the packaging-and-smoke job on
    staging Core (publishing only, until the site is reachable).
-2. With 75: the site made as the target of the first pair, registered on the tenant page, its
+2. With 76: the site made as the target of the first pair, registered on the tenant page, its
    cron set, the first sync visible in a browser.
 3. The loop run until it is green, the cache case with the host's cache plugin.
 4. The live-site tests named in `acceptance/criteria.json` under the criteria they prove, the
