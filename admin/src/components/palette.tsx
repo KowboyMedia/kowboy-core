@@ -10,7 +10,7 @@ import { NAV } from '@/lib/pages';
 type TenantSummary = { id: number; displayName: string };
 
 /** The top bar's button and the keyboard both open the same thing, through this. */
-export const OPEN_PALETTE = 'core:open-palette';
+const OPEN_PALETTE = 'core:open-palette';
 
 export const openPalette = (): void => {
   window.dispatchEvent(new Event(OPEN_PALETTE));

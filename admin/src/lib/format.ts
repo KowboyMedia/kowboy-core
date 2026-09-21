@@ -42,12 +42,6 @@ export function exact(value: string | null | undefined): string {
   return at ? SWEDISH_WITH_SECONDS.format(at) : NEVER;
 }
 
-/** Just the day: 2026-09-21. */
-export function day(value: string | null | undefined): string {
-  const at = parse(value);
-  return at ? SWEDISH.format(at).slice(0, 10) : NEVER;
-}
-
 /** "4 minutes ago", for the things a person judges by how fresh they are. */
 export function ago(value: string | null | undefined): string {
   const at = parse(value);

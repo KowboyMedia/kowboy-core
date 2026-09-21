@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input, Label, Select } from '@/components/ui/input';
 import { Confirm } from '@/components/confirm';
-import { DataTable, type Sort } from '@/components/data-table';
+import { DataTable, DEFAULT_PAGE_SIZE, type Sort } from '@/components/data-table';
 import { Empty } from '@/components/empty';
 import { PageHeader } from '@/components/layout';
 import { ScopePicker, useScopeOptions, type ScopeValue } from '@/components/scope-picker';
@@ -110,7 +110,7 @@ export function Records() {
   };
 
   const page = Number(params.get('page') ?? 1);
-  const size = Number(params.get('size') ?? 500);
+  const size = Number(params.get('size') ?? DEFAULT_PAGE_SIZE);
   const sort: Sort = {
     field: params.get('sort') ?? 'seq',
     order: params.get('dir') === 'asc' ? 'asc' : 'desc',

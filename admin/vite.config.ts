@@ -19,6 +19,12 @@ export default defineConfig({
     // The charting library is a third of the app and only the Overview page draws with it, so it
     // is split off and fetched when that page opens.
     rolldownOptions: { output: { codeSplitting: true } },
+    // What is left after that split is React, Refine, the router and the palette: the app itself,
+    // about 195 kB over the wire, loaded once by a handful of people behind a sign-in on an office
+    // connection. Vite's default advice (500 kB uncompressed) is written for a public site, so the
+    // line is set where a real regression would cross it rather than left to cry wolf on a build
+    // nobody can make smaller without splitting the app into pages it does not need.
+    chunkSizeWarningLimit: 700,
   },
   server: {
     port: 5173,

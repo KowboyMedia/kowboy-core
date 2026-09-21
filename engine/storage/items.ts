@@ -286,7 +286,7 @@ export type ItemSearch = {
 };
 
 /** The one full-text condition over the unified record (migration 006's index). */
-export const FULL_TEXT = `jsonb_to_tsvector('simple', coalesce(data, '{}'::jsonb), '["string"]') @@ to_tsquery('simple', ?)`;
+const FULL_TEXT = `jsonb_to_tsvector('simple', coalesce(data, '{}'::jsonb), '["string"]') @@ to_tsquery('simple', ?)`;
 
 /** Items by any mix of filters, one page, with the count of everything that matches. */
 export async function searchItems(query: ItemSearch): Promise<{ rows: ItemRow[]; total: number }> {
