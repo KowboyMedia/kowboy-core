@@ -33,17 +33,6 @@ the price is hidden; (c) whether the area name stays when the address is hidden;
 a "till salu, visa som kommande" estate carries; (e) how each of the four bid settings shows in
 `bidding`. Smaller: (a) alone now, the rest when the first client template needs them.
 
-## 58. `[core]` The database cluster's admin password appeared in a session's transcript; rotate it?
-
-On 2026-09-20 an agent asked the DigitalOcean API for the cluster's size, and the answer carried
-the cluster's connection string, password included, into the session's tool output, which the
-transcript keeps. The cluster accepts connections only from the two apps (question 33), so the
-password alone opens nothing from outside. Smaller: rotate it anyway. An agent resets the database
-user's password through the API and updates both apps so they take the new binding (each app
-restarts for about a minute, production included, so it needs your "allow"). Or leave it, on the
-strength of the trusted-sources rule. Either way, agents now read only the fields they need from
-that endpoint.
-
 ## 70. `[client-wordpress]` Send the v3 template files when you can
 
 Step 2 of the WordPress plan (`docs/default-templates.md`) ports Kowboy's default templates onto
