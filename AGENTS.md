@@ -74,8 +74,8 @@ Lint findings (including function complexity), duplicate code, dead code (unused
 main.ts               entrypoint: starts engine, mounts adapter endpoints, starts adapters; the only file importing both
 engine/               CRM-agnostic: storage, rules runner, bells, subscriber API, recompute, health, event log
 engine/adapter-api/   the only engine code adapters may import (protected)
-engine/admin-api/     the admin panel's JSON API, used by the browser app and the agents alike
-admin/                the admin panel's browser app (React on Vite), built into admin/dist and served under /admin
+engine/admin/         the admin area's JSON API, under /v1/admin/ (docs/admin-panel.md)
+admin/                the admin area's browser app, built into dist/admin and served under /admin
 adapters/<provider>/  everything CRM-specific, incl. webhooks, schedules, fetch lists, one folder per CRM
 clients/wordpress/    thin WordPress client
 clients/lovable-kit/  Supabase sync + bell functions for Lovable sites
@@ -127,6 +127,10 @@ instructions instead of results.
   `docs/open-questions.md` number in chat too, never a fresh "1."; numbers keep counting across
   sessions. Each question is phrased so that a yes, a no or a pick answers it, with the smaller
   option named.
+- **Every reply ends with what Patric does next** (Patric, 2026-09-20). One or two plain lines
+  at the end of every answer, whatever else it holds: "nothing, I carry on", "answer 74 with yes
+  or no", or the one step only he can take, named. An agent never leaves the conversation, or
+  pauses to wait, without them.
 - **One line per ask, the reasoning in the register.** When an agent needs something from Patric,
   chat gets one line: what is needed, and how to answer it (a paste, a yes or no, or a pick
   between two things named in plain words). The register entry carries the whole reasoning, in

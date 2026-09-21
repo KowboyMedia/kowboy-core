@@ -1,5 +1,4 @@
 dist
-admin/dist
 node_modules
 golden
 package-lock.json
@@ -9,3 +8,4 @@ docs/inputs
 acceptance/report.md
 clients/wordpress/core-client/lib
 docs/data-model-reference.md
+admin/e2e/report.json

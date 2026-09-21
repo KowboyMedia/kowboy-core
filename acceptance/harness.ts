@@ -2,22 +2,24 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { startEngine, type Engine } from '../engine/index.js';
 import { startAdapter } from '../engine/adapter-api/index.js';
-import { adapterRoutes, type RouteTable } from '../engine/http/server.js';
-import { adminRoutesFor } from '../engine/admin-api/index.js';
-import { forgetLoginRequests } from '../engine/admin-api/session.js';
+import { adapterRoutes } from '../engine/http/server.js';
 import { configureMail, type Mail } from '../engine/mail.js';
 import { db } from '../engine/storage/db.js';
 import { addSubscriber, createTenant, upsertConnection } from '../engine/storage/connections.js';
 import { deliverLifecycleEvents } from '../engine/lifecycle.js';
-import { clearRegistry } from '../engine/registry.js';
+import { clearRegistry, registerAdmin } from '../engine/registry.js';
 import type { Adapter } from '../engine/adapter-api/types.js';
+
+// The engine's operations an adapter's tests drive, re-exported so those tests import the harness
+// only: the seam check keeps adapter code, its tests included, out of the engine's internals.
+export { queueLifecycle } from '../engine/lifecycle.js';
+export { queryEvents } from '../engine/events.js';
+export { connectionById } from '../engine/storage/connections.js';
+export { healthReport, type HealthReport } from '../engine/health.js';
 
 /** The test tenant's number: the first one made after every reset. */
 export const TENANT = 1;
 export const TOKEN = 'test-tenant-token';
-export const ADMIN_SECRET = 'test-admin-secret';
-/** An address at the domain the tests allow into the admin panel (ADMIN_EMAIL_DOMAINS). */
-export const ADMIN_EMAIL = 'operator@example.test';
 
 export type Bell = { kind: string; tenant_id: number; secret: string | undefined };
 
@@ -53,22 +55,17 @@ export async function harness(options: {
   adapters?: Adapter[];
   connections?: ConnectionInput[];
   subscriber?: boolean;
-  /** A fixed port, for the browser journeys' server; a free one otherwise. */
-  port?: number;
-  /** Routes mounted next to Core's own, for the journeys' test-only helpers. */
-  routes?: RouteTable;
 }): Promise<Harness> {
   clearRegistry();
   const adapters = options.adapters ?? [];
 
-  let engine = await startEngine({ port: options.port ?? 0 });
+  let engine = await startEngine({ port: 0 });
   await truncate();
   const mails: Mail[] = [];
   const keepMail = (): void => {
     configureMail(async (mail) => {
       mails.push(mail);
     });
-    forgetLoginRequests();
   };
   keepMail();
 
@@ -102,17 +99,17 @@ export async function harness(options: {
     });
   }
 
-  const routes = [
-    ...adapters.flatMap((adapter) =>
-      adapterRoutes(adapter.manifest.provider, adapter.routes ?? []),
-    ),
-    ...adminRoutesFor(engine, adapters),
-    ...(options.routes ?? []),
-  ];
+  const routes = adapters.flatMap((adapter) =>
+    adapterRoutes(adapter.manifest.provider, adapter.routes ?? []),
+  );
   let server = engine.listen(routes);
   const port = (server.address() as AddressInfo).port;
 
-  for (const adapter of adapters) await startAdapter(adapter);
+  for (const adapter of adapters) {
+    await startAdapter(adapter);
+    // As the entrypoint does for both roles: the admin area draws the adapter's own panel.
+    if (adapter.admin) registerAdmin(adapter.manifest.provider, adapter.admin);
+  }
 
   const running: Harness = {
     engine,
@@ -143,11 +140,25 @@ export async function harness(options: {
   return running;
 }
 
-/** Every table empty and the sequence at 1: what the harness does before a test, for a test that starts Core another way. */
+const TABLES =
+  'tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results, error_reports, jobs, alert_state, settings, admin_logins, admin_sessions';
+
+/**
+ * Every table empty and the sequence at 1: what the harness does before a test, and what a test
+ * that starts Core another way calls. Truncating takes an exclusive lock on every table at once,
+ * which Postgres will refuse as a deadlock if a connection the last test left behind is reading
+ * one of them in another order; the second try always has the field to itself.
+ */
 export async function truncate(): Promise<void> {
-  await db().query(
-    'truncate tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results, error_reports, jobs, alert_state restart identity cascade',
-  );
+  for (const attempt of [1, 2]) {
+    try {
+      await db().query(`truncate ${TABLES} restart identity cascade`);
+      break;
+    } catch (error) {
+      if (attempt === 2 || !String(error).includes('deadlock')) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
   await db().query("select setval('item_seq', 1, false)");
 }
 
@@ -199,48 +210,3 @@ export const pull = async (
     has_more: boolean;
   };
 };
-
-/** The headers a logged-in browser sends with a change: the session, and the panel's own header. */
-export type AdminHeaders = Record<string, string>;
-
-/**
- * Log in to the admin panel as a browser would: ask for a link, open the link the mail carries,
- * and keep the session cookie. The headers returned carry what a change needs.
- */
-export async function adminLogin(
-  running: Harness,
-  email = ADMIN_EMAIL,
-  remember = false,
-): Promise<{ cookie: string; headers: AdminHeaders; response: Response }> {
-  await fetch(`${running.baseUrl}/v1/admin/login`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, remember }),
-  });
-  const link = running.mails.at(-1)?.text.match(/https?:\/\/\S+/)?.[0];
-  if (!link) throw new Error(`no login link was mailed to ${email}`);
-  const response = await fetch(link, { redirect: 'manual' });
-  const cookie = (response.headers.get('set-cookie') ?? '').split(';')[0] ?? '';
-  return {
-    cookie,
-    headers: { cookie, 'x-requested-with': 'core-admin', 'content-type': 'application/json' },
-    response,
-  };
-}
-
-/** A logged-in call to the admin API, JSON in and out. */
-export async function adminCall<T = Record<string, unknown>>(
-  running: Harness,
-  headers: AdminHeaders,
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
-  path: string,
-  body?: unknown,
-): Promise<{ status: number; body: T }> {
-  const response = await fetch(`${running.baseUrl}${path}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const text = await response.text();
-  return { status: response.status, body: (text ? JSON.parse(text) : {}) as T };
-}

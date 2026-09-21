@@ -68,21 +68,16 @@ the rules ledger. `mappers.test.ts` holds one Connect-shaped fixture per datatyp
 
 ## Setting up a connection
 
-The directions live on the adapter's panel (`/admin/vitec`, "Set up Vitec"), built from what the
-adapter reads and kept true by `admin/directions.test.ts`: the tenant, the connection with the
-Connect key pair and the offices (customer ids, `M30011` and the like), the notification URL and
-the subscriptions to ask Vitec for, and the health checks to watch. A connection without offices
-fetches nothing and `vitec.catch_up` says so. Without the panel, the same through the admin API:
-
-```bash
-node dist/scripts/tenant.js add-connection acme-vitec t_acme vitec \
-  '{"username":"…","password":"…"}' M30011,M30012
-curl -X POST https://core.example/v1/admin/event -H 'x-admin-secret: …' \
-  -d '{"connection_id":"acme-vitec","event":"connection_added"}'
-```
-
-Adding an office later: set the connection's offices, then `event: offices_added` with the new
-ids; only those are loaded.
+The directions are data the adapter describes for the admin panel (`admin/directions.ts`, shown
+by the panel once it exists), built from what the adapter reads and kept true by
+`admin/directions.test.ts`: the tenant, the connection with the Connect key pair and the offices
+(customer ids, `M30011` and the like), the notification URL and the subscriptions to ask Vitec
+for, and the health checks to watch. A connection without offices fetches nothing and
+`vitec.catch_up` says so. A connection is saved with the engine's `upsertConnection` (the login
+as one JSON document `{"username":"…","password":"…"}`, stored encrypted) and loaded by queueing
+the lifecycle event `connection_added`, which the worker delivers to the adapter. Adding an
+office later: set the connection's offices, then queue `offices_added` with the new ids; only
+those are loaded.
 
 ## Environment
 
@@ -96,7 +91,7 @@ ids; only those are loaded.
 
 ## Verified against Connect (2026-09-17)
 
-`scripts/vitec-probe.ts` ran read-only with the test account (open question 18):
+A read-only probe (since removed) ran with the test account (open question 18):
 
 - List paging counts from 0, `count` is the number of pages and a page past the end is empty. The
   lister stops after the last page.

@@ -14,33 +14,23 @@ Needs Node 22 and a Postgres 16 database.
 
 ```bash
 npm install
-# set DATABASE_URL, ADMIN_SECRET, ADMIN_EMAIL_DOMAINS and CREDENTIALS_KEY in the environment or a .env file
+# set DATABASE_URL and CREDENTIALS_KEY in the environment or a .env file
 npm run build
-npm run start:web             # subscriber API, admin, health, adapter endpoints
+npm run start:web             # subscriber API, health, adapter endpoints
 npm run start:worker          # adapter background work, bells, housekeeping
 ```
 
-Migrations run at startup. The admin panel is at `/admin` on the web process: a browser app
-(`admin/`, built into `admin/dist` by `npm run build`) on the admin API under `/v1/admin/`. Log in
-with a link mailed to an address at an allowed domain (`ADMIN_EMAIL_DOMAINS`; the mail needs
-`MAIL_FROM` and `POSTMARK_SERVER_TOKEN`), then a dashboard, tenants made and changed on one page,
-records with search and a live activity list, jobs, events with the audit trail, the adapters'
-pages and settings ([docs/admin-panel.md](docs/admin-panel.md), which describes the panel as it
-is). Optional: `SENTRY_ENVIRONMENT` names the environment shown on every page (staging,
-production, local), `PUBLIC_URL` is where Core is reached for the links in alerts, and
-`ALERT_EMAIL` and `ALERT_SLACK_WEBHOOK_URL` are where an alert goes when a health check changes
-state. While developing the app, `npm run dev:admin` serves it from source and passes API calls to
-a running web process (`CORE_URL`, default `http://127.0.0.1:3000`); `npm run test:e2e` runs its
-user journeys in a browser against a Core the tests start themselves.
-
-Tenants, connections and subscribers are also added with one script, through the same functions
-the panel uses, so tokens are hashed and CRM credentials encrypted the way the engine expects:
-
-```bash
-node dist/scripts/tenant.js add-tenant "Acme Mäkleri"               # prints the tenant's number and token once
-node dist/scripts/tenant.js add-connection acme-1 1 <provider> '<credentials>' 100,205
-node dist/scripts/tenant.js add-subscriber 1 "acme.se" https://acme.se/wp-json/core/v1/bell
-```
+Migrations run at startup. `GET /v1/health` is public, for an uptime monitor: 200 when every
+check passes, 500 when any fails, each check explained in counts and plain words. The admin area
+is `/admin` on the web process, built into `dist/admin` by the same `npm run build`
+([docs/admin-panel.md](docs/admin-panel.md)); `ADMIN_EMAILS` (addresses) and
+`ADMIN_EMAIL_DOMAINS` (whole domains) say who may open it, and a sign-in link is mailed to an
+address that may. For work on the app alone, `npm run dev:admin` serves it
+on port 5173 against a Core running beside it.
+Optional: `SENTRY_ENVIRONMENT` names the environment (staging, production, local) in alerts and
+to Sentry, `PUBLIC_URL` is where Core is reached for the link in alerts, `ALERT_EMAIL` (mailed
+through Postmark: `MAIL_FROM`, `POSTMARK_SERVER_TOKEN`) and `ALERT_SLACK_WEBHOOK_URL` are where an
+alert goes when a health check changes state.
 
 The Vitec adapter's connection format, webhook URL and settings (`VITEC_WEBHOOK_TOKEN`,
 `VITEC_FETCH_CONCURRENCY`) are in [adapters/vitec/README.md](adapters/vitec/README.md).
@@ -50,10 +40,15 @@ The Vitec adapter's connection format, webhook URL and settings (`VITEC_WEBHOOK_
 Core runs on DigitalOcean App Platform with one managed Postgres cluster in Frankfurt (strategy
 §2). Two apps share it, each with a database of its own:
 
-| App                   | Spec                   | Branch    | Deploys                              | Database       |
-| --------------------- | ---------------------- | --------- | ------------------------------------ | -------------- |
-| `kowboy-core-staging` | `.do/app.staging.yaml` | `staging` | on every push                        | `core_staging` |
-| `kowboy-core`         | `.do/app.yaml`         | `main`    | when an agent asks, on Patric's word | `defaultdb`    |
+| App                   | Address                     | Spec                   | Branch    | Deploys                              | Database       |
+| --------------------- | --------------------------- | ---------------------- | --------- | ------------------------------------ | -------------- |
+| `kowboy-core-staging` | `staging.core.kowboy.cloud` | `.do/app.staging.yaml` | `staging` | on every push                        | `core_staging` |
+| `kowboy-core`         | `core.kowboy.cloud`         | `.do/app.yaml`         | `main`    | when an agent asks, on Patric's word | `defaultdb`    |
+
+Each app also keeps answering on the `*.ondigitalocean.app` address it was born with; nothing is
+redirected. The `kowboy.cloud` zone is not hosted at DigitalOcean (its nameservers are Strato's),
+so each address is one CNAME record in that zone pointing at the app's own
+`*.ondigitalocean.app` name, and DigitalOcean issues the certificate once the record answers.
 
 A change, from an agent or a human, goes: pull request → the checks must pass → merge into
 `staging` → staging updates itself → confirm on staging → pull request into `main` → the checks

@@ -163,6 +163,34 @@ export function syncScenarios(name: string, client: ClientSetup): void {
     );
 
     it(
+      'names itself on every pull, so Core knows which of the tenant’s sites pulled (Patric, 2026-09-20)',
+      async () => {
+        await seed('P-1');
+        await sync();
+        // A second site of the tenant that never pulls: Core must not count it as pulling.
+        const decoy = await addSubscriber({
+          tenantId: TENANT,
+          label: 'another site',
+          bellUrl: 'http://127.0.0.1:9/bell',
+          bellSecret: BELL_SECRET,
+        });
+        await sync();
+
+        const { rows } = await db().query<{ id: string; last_pull_at: Date | null }>(
+          'select id, last_pull_at from subscribers order by id',
+        );
+        expect(rows.find((row) => Number(row.id) === decoy)?.last_pull_at).toBeNull();
+        const own = rows.find((row) => Number(row.id) !== decoy);
+        expect(own?.last_pull_at).not.toBeNull();
+
+        const pulls = await queryEvents({ type: 'pull', subscriberId: Number(own?.id) });
+        expect(pulls.length).toBeGreaterThan(0);
+        expect(pulls[0]?.fields['site']).toBe(site.bellUrl);
+      },
+      SCENARIO_TIMEOUT_MS,
+    );
+
+    it(
       'a disabled licence stops bells and pulls, and the site keeps what it shows (Patric, 2026-09-18)',
       async () => {
         await seed('P-1');

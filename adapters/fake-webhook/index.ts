@@ -223,9 +223,16 @@ function referencesOf(payload: Record<string, unknown>): [Datatype, string][] {
   ];
 }
 
-/** What this adapter shows in the panel: a CRM without a login, its fetch list, and one action. */
+/** What this adapter shows in the panel: its login, its fetch list, and one action. */
 const admin: AdapterAdmin = {
-  credentials: [],
+  credentials: [
+    {
+      key: 'key',
+      label: 'Pretend key',
+      help: 'This CRM is a stand-in; any key it is given is accepted, and every office it knows answers.',
+      required: true,
+    },
+  ],
   directions: () => ({
     steps: [
       {
@@ -251,7 +258,13 @@ const admin: AdapterAdmin = {
           value: connections.map((connection) => connection.id).join(', ') || null,
         },
       ],
-      actions: [{ id: 'drain', label: 'Fetch everything waiting now' }],
+      actions: [
+        {
+          id: 'drain',
+          label: 'Fetch everything waiting now',
+          help: 'Fetches every record on this CRM’s list at once instead of waiting for the next tick.',
+        },
+      ],
     },
   ],
   connection: async (connection) => [
@@ -268,6 +281,7 @@ const admin: AdapterAdmin = {
         {
           id: 'drain',
           label: 'Fetch everything waiting now',
+          help: 'Fetches every record waiting for this connection at once instead of waiting for the next tick.',
           params: { connection: connection.id },
         },
       ],
@@ -277,6 +291,29 @@ const admin: AdapterAdmin = {
     if (action !== 'drain') throw new Error(`no such action: ${action}`);
     await scheduleDrain();
     return { message: 'Everything waiting is fetched.' };
+  },
+  /** A login tried before it is saved: this CRM asks only that a key is typed and the offices exist. */
+  probe: async (credentials, officeIds) => {
+    let key: unknown;
+    try {
+      key = (JSON.parse(credentials) as { key?: unknown }).key;
+    } catch {
+      return { ok: false, detail: 'The login is not readable.' };
+    }
+    if (typeof key !== 'string' || key === '') {
+      return { ok: false, detail: 'This CRM needs a key.' };
+    }
+    const unknownOffices = officeIds.filter((officeId) => crm.get('office', officeId) === null);
+    return unknownOffices.length === 0
+      ? { ok: true, detail: `The CRM answers for ${officeIds.length} office(s).` }
+      : { ok: false, detail: `The CRM has no office ${unknownOffices.join(', ')}.` };
+  },
+  /** One record fetched from the CRM and mapped on the spot, writing nothing. */
+  inspect: async (_connection, record) => {
+    const raw = crm.get(record.datatype, record.remoteId);
+    if (raw === null) return null;
+    const mapper = mappers[record.datatype];
+    return { raw, mapped: mapper ? mapper(raw) : null };
   },
   queue: async () =>
     [...fetchList.values()].map((queued) => ({

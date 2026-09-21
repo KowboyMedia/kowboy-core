@@ -56,21 +56,22 @@ Three families set the bar. What they have in common is the catalogue in section
 
 Must: without it the panel is not the product. Should: expected of a professional tool, built
 right after the Musts. Could: nice, when there is time. Won't: not now, on purpose. Size is a
-rough effort: S a few hours, M a day or two, L several days. "Built" means it exists in today's
-panel and carries over in the new form.
+rough effort: S a few hours, M a day or two, L several days. "Built" in the size column meant
+that the function existed in the panel of 2026-09-20; that panel is removed, its engine functions
+stay (`docs/admin-panel.md`), and every screen is designed anew from this sheet.
 
 ### A. Onboarding a customer (U1)
 
-| Function                                                                                                                                                 | Rating | Size  | Note                                                       |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----- | ---------------------------------------------------------- |
-| One page for a tenant: name, licence, the CRM chosen from a list with its panel (login, offices), the sites one or many, one Save; edit is the same page | Must   | built | Keeps the flow of 2026-09-20.                              |
-| Save without a reload, a toast saying what happened (made, loading, secrets ready), errors shown at the field                                            | Must   | S     | The thing missing today.                                   |
-| Checks while typing: required fields, URL shape, offices shape, a login half filled                                                                      | Must   | S     |                                                            |
-| Copy buttons for the token and the bell secrets, with "copied"                                                                                           | Must   | S     |                                                            |
-| "Check the login" before saving: the adapter tries the CRM with the typed login and says yes or no                                                       | Should | M     | Needs a generic adapter capability (a probe); question 61. |
-| First-load progress on the tenant page: records per datatype, done or failed, how long it took                                                           | Should | M     | Comes with jobs (D).                                       |
-| A tenant with one or several CRMs, of the same or different kinds                                                                                        | Must   | M     | Moved from Could by Patric, 2026-09-20.                    |
-| Archive a tenant (hide it, keep its data 90 days)                                                                                                        | Could  | S     | Today: licence off and "Remove everything".                |
+| Function                                                                                                                                                 | Rating | Size  | Note                                                                                              |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----- | ------------------------------------------------------------------------------------------------- |
+| One page for a tenant: name, licence, the CRM chosen from a list with its panel (login, offices), the sites one or many, one Save; edit is the same page | Must   | built | A connection is a setting of the tenant, never a page or a list of its own (Patric, three times). |
+| Save without a reload, a toast saying what happened (made, loading, secrets ready), errors shown at the field                                            | Must   | S     | The thing missing today.                                                                          |
+| Checks while typing: required fields, URL shape, offices shape, a login half filled                                                                      | Must   | S     |                                                                                                   |
+| Copy buttons for the token and the bell secrets, with "copied"                                                                                           | Must   | S     |                                                                                                   |
+| "Check the login" before saving: the adapter tries the CRM with the typed login and says yes or no                                                       | Should | M     | Needs a generic adapter capability (a probe); question 61.                                        |
+| First-load progress on the tenant page: records per datatype, done or failed, how long it took                                                           | Should | M     | Comes with jobs (D).                                                                              |
+| A tenant with one or several CRMs, of the same or different kinds                                                                                        | Must   | M     | Moved from Could by Patric, 2026-09-20.                                                           |
+| Archive a tenant (hide it, keep its data 90 days)                                                                                                        | Could  | S     | Today: licence off and "Remove everything".                                                       |
 
 ### B. Health and monitoring (U2, U5)
 
@@ -219,41 +220,29 @@ tenant page, the "check the login" probe, the "look at a record" dry run and the
 Register questions 59 (the ratings), 60 (the way to build) and 61 (the adapter panel
 description). Question 57 (queue and fetch-again for records) stands.
 
-## 6. What was built (2026-09-20), the Coulds, and the gaps
+## 6. What was built (2026-09-20) and removed the same day, and the Coulds
 
-**Built from scratch, every Must and every Should.** The old server-rendered panel (`engine/admin/`,
-the Vitec adapter's HTML pages, their tests) is deleted. In its place: a JSON admin API in the
-engine (`engine/admin-api/`) with a login by mailed link, an audit trail, jobs with progress and
-cancel, a live event stream, alerts by mail and Slack, and adapters that describe their panels as
-data; a browser app (`admin/`, React 19, Vite, Tailwind v4, shadcn/ui, TanStack Query and Table,
-react-hook-form, Recharts) built into static files by `npm run build` and served by the web process
-under `/admin`; the Vitec adapter's admin rebuilt as data with a login probe, a record inspection
-and its queue; and tests at three levels: the API through HTTP, the web process as deployed, and
-every user journey in a real browser (`admin/e2e`, an enforced check). The stack is the one
-recommended in section 4, with one change: no Refine. The engine's own rule against framework-style
-layers (AGENTS.md) won over a data-provider abstraction; TanStack Query and Table on the API do the
-same work in plain code.
+Every Must and every Should was built from scratch on 2026-09-20 (a JSON admin API in the engine,
+a browser app on React, Vite, Tailwind, shadcn/ui, TanStack Query and Table; jobs, a live event
+stream, alerts; the Vitec adapter's panel as data; tests through HTTP, of the web process as
+deployed, and of every user journey in a browser) and shipped to staging. Patric's verdict is in
+section 7: the pages, layouts and flows had been inherited from the first build, so the app and
+its API were removed the same day, together with the first build's operator endpoints and setup
+scripts (question 65, cut). What stays is the engine's side, listed in `docs/admin-panel.md`: jobs,
+the streaming recompute, the records search, alerts, site errors, the numbered event log, and the
+adapter contract (`Adapter.admin` and the `refetch` event).
 
-| Rated  | Rows | Built           |
-| ------ | ---- | --------------- |
-| Must   | 32   | 32              |
-| Should | 14   | 14              |
-| Could  | 14   | 0, listed below |
-| Won't  | 3    | 0, on purpose   |
-
-Where a Should had a smaller reading, the honest one was built: "first-load progress" is what the
-latest load has written, left unchanged, removed and dropped since it started (the engine cannot
-see inside an adapter's fetch, but it sees every write); "what a site holds versus Core" is what
-the sites reported applied and failed per datatype out of the event log's 30 days, not a count the
-site never sends; the "site setup checklist" proves the secret by a bell answered, the token by a
-pull and the link by a record applied, since a pull cannot name the site (the token is the
-tenant's).
+| Rated  | Rows | State                                         |
+| ------ | ---- | --------------------------------------------- |
+| Must   | 32   | to be designed and built anew, from the sheet |
+| Should | 14   | to be designed and built anew, from the sheet |
+| Could  | 14   | listed below, for later                       |
+| Won't  | 3    | not built, on purpose                         |
 
 ### The Coulds, not built, for later
 
 | Could                                                                  | What it would take                                                                                                                                 |
 | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A tenant with two CRMs                                                 | Allow more than one connection per tenant on the page and in the save; the engine already keys everything by connection.                           |
 | Archive a tenant                                                       | A flag that hides it from the list and stops its bells, keeping the data 90 days; today: licence off and "Remove everything".                      |
 | Usage: CRM calls per connection per day, Sentry budget, event log size | Three queries over the event log and the database, one card on the dashboard.                                                                      |
 | Uptime and answer times of the sites' pulls over 7 days                | The same query as the dashboard's over a week, one chart.                                                                                          |
@@ -267,32 +256,6 @@ tenant's).
 | Rotate the admin secret from the panel                                 | The secret is the app's environment; rotating it from the panel means Core writing its own configuration on the platform. Better left to an agent. |
 | Dark mode                                                              | The design tokens are in place; a second set of values and a switch.                                                                               |
 | Keyboard shortcuts                                                     | Beyond the palette's ⌘K: a small map of keys to pages.                                                                                             |
-
-### Gaps found while building, with a suggestion each
-
-1. **A pull does not name the site.** Every site of a tenant pulls with the tenant's token, so
-   "last pull" and "first pull" are per tenant, and the checklist proves the token per tenant, not
-   per site. Suggestion: implement later, as a header the clients send (`X-Core-Site`) and Core
-   records per site; a small additive change to both clients. Not blocking.
-2. **What a site holds is inferred, not counted.** Parity is built from the sites' applied and
-   failed reports over the event log's 30 days. Suggestion: implement later, as a periodic
-   `POST /v1/holdings` from the clients with their counts per datatype; then the page can say
-   "the site holds 412 of 415". Not blocking.
-3. **Removing a site deletes it.** A site taken off the tenant's page is deleted with its row; its
-   events stay. Suggestion: do not implement more; "archive a tenant" (a Could) covers the case
-   where history matters.
-4. **The recompute's "everything" is one process at a time.** Jobs run one after another in the
-   worker, in pages of 200 records, so a recompute of everything takes minutes on a large
-   database and blocks the next job. Suggestion: implement only if it hurts: a second worker
-   taking jobs is one line of configuration on the platform, and the queue already locks per job.
-5. **Alerts know Core's health, not the sites'.** A site that stops pulling turns the
-   `subscribers` check red, which alerts; a site that pulls but fails to apply does not.
-   Suggestion: implement later as one more health check, "sites failing to apply in the last
-   hour", registered by the engine; a few lines. Not blocking.
-6. **The old operator endpoints stay.** `POST /v1/admin/bell`, `event`, `replay` and `recompute`
-   with the admin secret are the contract the agents and scripts use (SRS §10); the panel's
-   endpoints sit next to them. Suggestion: leave them; they share the engine's functions with the
-   panel, and removing them is a contract change for nothing.
 
 ## 7. Patric's verdict on section 6, and what follows (2026-09-20, later)
 
@@ -316,6 +279,27 @@ Changes to the sheets:
 - The public health check keeps its 200 or 500 answer for an uptime monitor and must say what is
   wrong in words a viewer understands without naming customers (register question 62).
 - Every notification Vitec sends may be stored (register question 63).
+
+Patric's answers of the same day, later (all done, see `docs/admin-panel.md`):
+
+- Question 62, yes: the public health check answers with counts and plain words, never a
+  customer's name; the names reach the alerts.
+- Question 63, 30 days: the notification body is stored in its `webhook.received` event, kept as
+  long as the event log keeps events.
+- Question 64, OK: the framework is Refine with shadcn/ui components.
+- Question 65, cut: the old operator endpoints and the setup scripts are gone.
+- Gap 1, "add name": every pull names its site (the `X-Core-Site` header), so "last pull" is per
+  site.
+- Gap 3: deleting a site deletes its history too; keeping it brings nothing. And a standing rule
+  for the next panel: every dangerous button is red and asks for a confirmation.
+- Gap 6 was too technical to reach him: nothing outside the repository uses anything yet, so
+  such a cut is the agent's own decision.
+- No bug list is needed: code written from scratch carries no old bugs. He keeps the old bugs and
+  poor flows to himself, as his own check that nothing was carried over.
+- Connections are never a standalone concept for the people at the panel: a connection is a
+  setting of a tenant, on the tenant's page. Said three times.
+- The colour-coded queue list he described earlier is part of the sheet (section 8).
+- When recomputing, properties already sold go last, whatever the CRM (done: question 74, yes).
 
 The gaps of section 6, explained in full:
 
@@ -342,3 +326,48 @@ The gaps of section 6, explained in full:
    ("archive"), which is what "archive a tenant" in the Coulds does for a whole tenant. The
    suggestion stands: deletion is fine for now; archiving covers the case where the history
    matters.
+
+## 8. Design brief for the next panel (2026-09-20)
+
+The inputs, and nothing else: the use cases (§1), the rated functions (§3, every Must and every
+Should), the patterns of market-leading admin consoles (§2, read fresh, not remembered), and the
+rules below. The previous panels are not inputs: not their pages, their layouts, their flows, their
+words, their code. An agent that has seen them works from this document alone, and Patric prefers
+a fresh conversation for the design so that nothing of the old builds sits in the agent's memory.
+
+### Rules from Patric
+
+1. **A connection is a setting of a tenant.** There is no connections page, list, menu entry or
+   concept of its own. A tenant's page holds its connections, one or several, of the same or
+   different CRMs (a Must). Everything the adapter knows about a connection is shown there.
+2. **Dangerous buttons are red and ask first.** Anything that removes, rotates a secret, or
+   starts a run that changes many records has a red button and a confirmation that says what
+   will happen.
+3. **The queue list, colour coded.** One list of the records in flight, tailed live and sorted by
+   the time they were queued, the whole row coloured by state: queued (waiting for the CRM),
+   fetched from the CRM, fetched and applied by a site, error (red); rows animate as they
+   arrive and change state. Columns: tenant, office, entity type, record id, state, queued at,
+   what happened, the attempt, and the site's report. Its data is the engine's write path plus
+   what each adapter reports through `queue()`.
+4. **Sold properties go last in a recompute**, whatever the CRM (question 74, yes): the engine
+   does the records whose universal `sold_at` is empty first, then the rest. The panel shows the
+   order, it does not define it.
+5. **A pull names its site**, so a site's page shows its own last pull, not the tenant's.
+6. **Deleting a site deletes its history.** The confirmation says so.
+7. **Market-leading patterns first.** Refine (question 64) with shadcn/ui; a library or pattern
+   is used the way its documentation says, and any addition, removal or swap is proposed with
+   its net value and waits for Patric's answer (AGENTS.md).
+8. **Nothing is built until Patric says so.** The design is approved first.
+
+### Process
+
+1. **Pattern study**: for each use case of §1, how three comparable products do it today (read,
+   dated), and which pattern is chosen and why. One page.
+2. **Information architecture**: the navigation, the pages, what each page holds, drawn from §3
+   and the patterns, with the rules above applied. Every Must and Should placed on a page.
+3. **Clickable design**: every page as a static, clickable mock (no engine behind it) that Patric
+   can walk through in a browser, with the real words the panel will use. Approved before code.
+4. **Build in slices**, each a user journey of §1 end to end with its browser test, on the
+   engine's existing functions and the adapter contract of `docs/admin-panel.md`; the API a slice
+   needs is written with the slice, one code path for the app and the agents.
+5. **Every slice ships to staging** and is checked there as Patric would use it.

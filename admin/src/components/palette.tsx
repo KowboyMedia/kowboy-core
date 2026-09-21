@@ -1,120 +1,118 @@
-// The command palette (⌘K): jump to a page, a tenant or a record by what is typed.
+// ⌘K: jump to a page, a tenant or a record id (§3 I, Should). One place to go anywhere, so
+// nothing in the app is more than two keystrokes away.
 import { useEffect, useState } from 'react';
+import { Command } from 'cmdk';
 import { useNavigate } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/api/client';
-import type { Provider, SearchResult } from '@/api/types';
-import {
-  Command,
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
+import { useList } from '@refinedev/core';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { NAV } from '@/lib/pages';
 
-const PAGES = [
-  ['Dashboard', '/'],
-  ['Tenants', '/tenants'],
-  ['New tenant', '/tenants/new'],
-  ['Records', '/records'],
-  ['Jobs', '/jobs'],
-  ['Events', '/events'],
-  ['Settings', '/settings'],
-] as const;
+type TenantSummary = { id: number; displayName: string };
 
-export function Palette({
-  open,
-  onOpenChange,
-  providers,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  providers: Provider[];
-}) {
+/** The top bar's button and the keyboard both open the same thing, through this. */
+const OPEN_PALETTE = 'core:open-palette';
+
+export const openPalette = (): void => {
+  window.dispatchEvent(new Event(OPEN_PALETTE));
+};
+
+/** How this computer writes the shortcut, so nobody has to know what ⌘ is. */
+export const shortcut = (): string =>
+  /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘ K' : 'Ctrl K';
+
+export function Palette() {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const navigate = useNavigate();
-  const [text, setText] = useState('');
-  const [needle, setNeedle] = useState('');
-  useEffect(() => {
-    const timer = window.setTimeout(() => setNeedle(text.trim()), 200);
-    return () => window.clearTimeout(timer);
-  }, [text]);
-  const found = useQuery({
-    queryKey: ['search', needle],
-    queryFn: () => api<SearchResult>(`/v1/admin/search?q=${encodeURIComponent(needle)}`),
-    enabled: needle.length > 0,
+  const { result } = useList<TenantSummary>({
+    resource: 'tenants',
+    queryOptions: { enabled: open },
   });
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'k' && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setOpen((was) => !was);
+      }
+    };
+    const onAsked = (): void => setOpen(true);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener(OPEN_PALETTE, onAsked);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener(OPEN_PALETTE, onAsked);
+    };
+  }, []);
+
   const go = (to: string): void => {
-    onOpenChange(false);
-    setText('');
-    navigate(to);
+    setOpen(false);
+    setQuery('');
+    void navigate(to);
   };
+
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <Command shouldFilter={false}>
-        <CommandInput
-          placeholder="A page, a tenant, or a record id…"
-          value={text}
-          onValueChange={setText}
-        />
-        <CommandList>
-          <CommandEmpty>
-            {needle && !found.isPending ? 'Nothing matches.' : 'Type to search.'}
-          </CommandEmpty>
-          <CommandGroup heading="Pages">
-            {PAGES.filter(
-              ([label]) => !needle || label.toLowerCase().includes(needle.toLowerCase()),
-            ).map(([label, to]) => (
-              <CommandItem key={to} value={`page ${label}`} onSelect={() => go(to)}>
-                {label}
-              </CommandItem>
-            ))}
-            {providers
-              .filter((provider) => !needle || provider.provider.includes(needle.toLowerCase()))
-              .map((provider) => (
-                <CommandItem
-                  key={provider.provider}
-                  value={`crm ${provider.provider}`}
-                  onSelect={() => go(`/crm/${provider.provider}`)}
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="p-0">
+        <DialogTitle className="sr-only">Go to</DialogTitle>
+        <Command label="Go to" shouldFilter>
+          <Command.Input
+            value={query}
+            onValueChange={setQuery}
+            placeholder="Go to a page, a tenant, or paste a record id…"
+            className="w-full border-b bg-transparent px-4 py-3 text-sm outline-none"
+          />
+          <Command.List className="max-h-80 overflow-y-auto p-2">
+            <Command.Empty className="px-2 py-6 text-center text-sm text-muted-foreground">
+              Nothing by that name. A record id searches the records.
+            </Command.Empty>
+            <Command.Group heading="Pages" className="px-1 text-xs text-muted-foreground">
+              {NAV.map((item) => (
+                <Command.Item
+                  key={item.path}
+                  value={`page ${item.name}`}
+                  onSelect={() => go(item.path)}
+                  className="cursor-pointer rounded-md px-2 py-2 text-sm text-foreground data-[selected=true]:bg-accent"
                 >
-                  CRM: {provider.provider}
-                </CommandItem>
+                  {item.name}
+                </Command.Item>
               ))}
-          </CommandGroup>
-          {(found.data?.tenants.length ?? 0) > 0 && (
-            <CommandGroup heading="Tenants">
-              {found.data?.tenants.map((tenant) => (
-                <CommandItem
-                  key={tenant.id}
-                  value={`tenant ${tenant.id}`}
-                  onSelect={() => go(`/tenants/${tenant.id}`)}
+            </Command.Group>
+            {(result?.data ?? []).length > 0 && (
+              <Command.Group heading="Tenants" className="px-1 pt-2 text-xs text-muted-foreground">
+                {(result?.data ?? []).map((tenant) => (
+                  <Command.Item
+                    key={tenant.id}
+                    value={`tenant ${tenant.displayName}`}
+                    onSelect={() => go(`/tenants/${String(tenant.id)}`)}
+                    className="cursor-pointer rounded-md px-2 py-2 text-sm text-foreground data-[selected=true]:bg-accent"
+                  >
+                    {tenant.displayName}
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+            {query.trim() !== '' && (
+              <Command.Group heading="Search" className="px-1 pt-2 text-xs text-muted-foreground">
+                <Command.Item
+                  value={`records ${query}`}
+                  onSelect={() => go(`/records?id=${encodeURIComponent(query.trim())}`)}
+                  className="cursor-pointer rounded-md px-2 py-2 text-sm text-foreground data-[selected=true]:bg-accent"
                 >
-                  #{tenant.id} {tenant.name}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          )}
-          {(found.data?.records.length ?? 0) > 0 && (
-            <CommandGroup heading="Records">
-              {found.data?.records.map((record) => (
-                <CommandItem
-                  key={`${record.connection_id}/${record.datatype}/${record.remote_id}`}
-                  value={`record ${record.connection_id} ${record.datatype} ${record.remote_id}`}
-                  onSelect={() =>
-                    go(
-                      `/records/${encodeURIComponent(record.connection_id)}/${record.datatype}/${encodeURIComponent(record.remote_id)}`,
-                    )
-                  }
+                  Records with the id “{query.trim()}”
+                </Command.Item>
+                <Command.Item
+                  value={`text ${query}`}
+                  onSelect={() => go(`/records?q=${encodeURIComponent(query.trim())}`)}
+                  className="cursor-pointer rounded-md px-2 py-2 text-sm text-foreground data-[selected=true]:bg-accent"
                 >
-                  {record.datatype} {record.remote_id}{' '}
-                  <span className="text-muted-foreground">· {record.connection_id}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          )}
-        </CommandList>
-      </Command>
-    </CommandDialog>
+                  Records containing “{query.trim()}”
+                </Command.Item>
+              </Command.Group>
+            )}
+          </Command.List>
+        </Command>
+      </DialogContent>
+    </Dialog>
   );
 }

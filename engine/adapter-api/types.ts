@@ -60,7 +60,13 @@ export type LifecycleEvent =
 
 export type LifecycleHandler = (event: LifecycleEvent) => Promise<void> | void;
 
-export type HealthResult = { ok: boolean; detail?: string };
+/**
+ * One health check's answer. `detail` is for anyone: counts and plain words, never a customer's
+ * name, a connection or an office id, because `/v1/health` is public (Patric, 2026-09-20,
+ * question 62). What the detail counts goes in `names`, which the public answer leaves out and
+ * the alerts and the panel carry.
+ */
+export type HealthResult = { ok: boolean; detail?: string; names?: string[] };
 
 /** One HTTP route an adapter mounts itself (strategy §5.1). The engine never inspects the body. */
 export type Route = {
@@ -155,6 +161,12 @@ export type AdminValue =
 export type AdminAction = {
   id: string;
   label: string;
+  /**
+   * What the button does and when a person would press it, in one sentence the panel shows next
+   * to it (Patric, 2026-09-21: a button nobody can explain is a button nobody should press).
+   * Required in practice: the acceptance test refuses an action without it.
+   */
+  help?: string;
   /** Parameters the button carries, fixed. */
   params?: Record<string, string>;
   /** Parameters a person types first, asked in a dialog. */

@@ -29,13 +29,6 @@ services:
       - key: DATABASE_CA_CERT
         value: ${db.CA_CERT}
         scope: RUN_TIME
-      - key: ADMIN_SECRET
-        value: EV[1:XHT5pk361HHDg2Nn0Dw5xBKWW2iCV652:VKxYO123nW6fUA7bkwADI5NtQT6vY1T36BHs0IVQUe/7uSBuTNnOBkswVJrHGaP2dhYZug0Ryi9FjII=]
-        scope: RUN_TIME
-        type: SECRET
-      - key: ADMIN_EMAIL_DOMAINS
-        value: kowboy.se
-        scope: RUN_TIME
       - key: MAIL_FROM
         value: patric@kowboy.se
         scope: RUN_TIME
@@ -46,6 +39,17 @@ services:
         value: EV[1:N71KfGweIKlzf42ES3sufrtrqQJ013Mh:I0ZD7+OARrP/BbYy68T9PHSqYa4n1BluG/nbSgXQdNQNG7W0/lWyQfH4WVTve0F4Fh1EBKRdvGN92ytY]
         scope: RUN_TIME
         type: SECRET
+      # The admin area (docs/admin-panel.md). Staging has these since 2026-09-21; production gets
+      # them with the release, together with PUBLIC_URL and the Postmark token the sign-in link
+      # is mailed through, which production has never held.
+      - key: ADMIN_EMAILS
+        value: patric@kowboy.se
+        scope: RUN_TIME
+      # Everyone at Kowboy may open the area without a list to keep (Patric, 2026-09-21);
+      # the sign-in page never gives this away.
+      - key: ADMIN_EMAIL_DOMAINS
+        value: kowboy.se
+        scope: RUN_TIME
       - key: VITEC_WEBHOOK_TOKEN
         value: EV[1:OxipdqTDafYFVf8FXX6NLaV/2tYmkqJk:ZOz9q8aPrzrNiV526Q/l3Nhl9bg4JKi4LmOkmi6BoN1yKVxnDZaApOGJHAMdZf46]
         scope: RUN_TIME
@@ -76,10 +80,6 @@ workers:
       - key: DATABASE_CA_CERT
         value: ${db.CA_CERT}
         scope: RUN_TIME
-      - key: ADMIN_SECRET
-        value: EV[1:2qxa1s46zTh9VTuAO3kVmkd/zwIwM2Ep:e73kiq7+ipkjW6J+qGGxsLvAUGeMFR0fYs3v5DSTTTYK7wUjha4BnNjrwylGxAbw6EHAv2FIo7vB37o=]
-        scope: RUN_TIME
-        type: SECRET
       - key: SENTRY_ENVIRONMENT
         value: production
         scope: RUN_TIME
@@ -96,6 +96,13 @@ databases:
     cluster_name: kowboy-core-production
     db_name: defaultdb
     db_user: doadmin
+domains:
+  # Core's own address (Patric, 2026-09-21). The kowboy.cloud zone is not hosted at
+  # DigitalOcean, so the record lives with whoever hosts it: a CNAME from core.kowboy.cloud
+  # to kowboy-core-wyvhr.ondigitalocean.app. The app keeps answering on that
+  # ondigitalocean.app address too; nothing is redirected.
+  - domain: core.kowboy.cloud
+    type: PRIMARY
 region: fra
 alerts:
   - rule: DEPLOYMENT_FAILED

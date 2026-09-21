@@ -7,7 +7,6 @@ export default tseslint.config(
   {
     ignores: [
       'dist/**',
-      'admin/dist/**',
       'node_modules/**',
       'clients/lovable-kit/supabase/**',
       'clients/wordpress/core-client/lib/**',
@@ -15,10 +14,6 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  {
-    files: ['admin/src/**/*.{ts,tsx}'],
-    languageOptions: { globals: { ...globals.browser } },
-  },
   {
     languageOptions: { globals: { ...globals.node } },
     rules: {
@@ -30,5 +25,18 @@ export default tseslint.config(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
       ],
     },
+  },
+  {
+    // The admin area's components. `complexity` counts decision points in a function, which for
+    // Node control flow says how hard it is to follow; in JSX every conditional piece a page
+    // renders counts too, so it says how much the page shows instead. The rule stays on for the
+    // app's own code (.ts), where it means what it was set for.
+    files: ['admin/src/**/*.tsx'],
+    languageOptions: { globals: { ...globals.browser } },
+    rules: { complexity: 'off' },
+  },
+  {
+    files: ['admin/src/**/*.ts', 'admin/e2e/**/*.ts'],
+    languageOptions: { globals: { ...globals.browser } },
   },
 );

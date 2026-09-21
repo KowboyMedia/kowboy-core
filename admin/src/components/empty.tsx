@@ -1,20 +1,11 @@
 import type { ReactNode } from 'react';
 
-/** An empty state that says what to do next. */
-export function Empty({
-  title,
-  hint,
-  action,
-}: {
-  title: string;
-  hint?: string;
-  action?: ReactNode;
-}) {
+/** An empty list says what it would hold and what to do next (§3 I, Must). */
+export function Empty({ what, next }: { what: string; next?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed px-4 py-10 text-center">
-      <div className="text-sm font-medium">{title}</div>
-      {hint && <div className="max-w-md text-sm text-muted-foreground">{hint}</div>}
-      {action && <div className="mt-2">{action}</div>}
+    <div className="flex flex-col items-center gap-2 py-4">
+      <p>{what}</p>
+      {next && <div className="flex gap-2">{next}</div>}
     </div>
   );
 }

@@ -1,5 +1,5 @@
-// Alerts (docs/admin-panel.md): when a health check changes state, one message goes out, by mail
-// or to a Slack incoming webhook or both, with a link to the panel. The last state per check is
+// Alerts: when a health check changes state, one message goes out, by mail
+// or to a Slack incoming webhook or both, with a link to the health page. The last state per check is
 // kept in the database, so a red check is told once, not every minute, and its recovery once.
 import { healthReport } from './health.js';
 import { db } from './storage/db.js';
@@ -14,7 +14,7 @@ export type AlertConfig = {
   slackWebhookUrl: string | null;
 };
 
-export type AlertChange = { name: string; ok: boolean; detail: string | null };
+export type AlertChange = { name: string; ok: boolean; detail: string | null; names: string[] };
 
 type StateRow = { name: string; ok: boolean };
 
@@ -40,7 +40,7 @@ export async function checkAlerts(config: AlertConfig): Promise<AlertChange[]> {
        on conflict (name) do update set ok = excluded.ok, detail = excluded.detail, since = now(), notified_at = now()`,
       [name, check.ok, check.detail ?? null],
     );
-    changes.push({ name, ok: check.ok, detail: check.detail ?? null });
+    changes.push({ name, ok: check.ok, detail: check.detail ?? null, names: check.names ?? [] });
   }
   if (changes.length > 0) await notify(changes, config);
   return changes;
@@ -50,11 +50,12 @@ export async function checkAlerts(config: AlertConfig): Promise<AlertChange[]> {
 async function notify(changes: AlertChange[], config: AlertConfig): Promise<void> {
   const red = changes.filter((change) => !change.ok);
   const subject = `Core ${config.environment}: ${red.length > 0 ? `${red.length} check(s) failing` : 'all checks green again'}`;
+  // The names the public health answer leaves out belong here: the alert goes to Kowboy alone.
   const lines = changes.map(
     (change) =>
-      `${change.ok ? 'OK ' : 'RED'} ${change.name}${change.detail ? `: ${change.detail}` : ''}`,
+      `${change.ok ? 'OK ' : 'RED'} ${change.name}${change.detail ? `: ${change.detail}` : ''}${change.names.length > 0 ? ` (${change.names.join('; ')})` : ''}`,
   );
-  const link = config.publicUrl ? `${config.publicUrl}/admin` : null;
+  const link = config.publicUrl ? `${config.publicUrl}/v1/health` : null;
   const text = `${lines.join('\n')}${link ? `\n\n${link}` : ''}`;
   const outcomes: Record<string, string> = {};
   if (config.email && mailConfigured()) {

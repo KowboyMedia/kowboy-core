@@ -2,6 +2,7 @@
 // holding a Sentry key of its own. Core passes it through the same gate as its own errors, so one
 // bug on fifty sites is one report a day, and answers whether this one left for Sentry.
 import { authenticate } from './changes.js';
+import { subscriberByBellUrl } from '../storage/connections.js';
 import { validateSiteError } from '../contract.js';
 import { reportFromSite } from '../errors.js';
 import { logEvent } from '../events.js';
@@ -25,6 +26,10 @@ export async function siteError(request: Request): Promise<Response> {
 
   const { message, where, detail } = body as SiteError;
   const client = request.headers['x-core-client'] ?? 'site';
+  const subscriberId = await subscriberByBellUrl(
+    auth.tenantId,
+    request.headers['x-core-site'] ?? null,
+  );
   const reported = await reportFromSite({
     tenantId: auth.tenantId,
     client,
@@ -36,6 +41,7 @@ export async function siteError(request: Request): Promise<Response> {
   await logEvent({
     type: 'site.error',
     tenantId: auth.tenantId,
+    subscriberId,
     fields: { client, message, where, detail: detail ?? null, reported },
   });
   return jsonResponse(202, { recorded: true, reported });

@@ -1,15 +1,15 @@
 // The entrypoint, and the only file that imports both the engine and the adapters
 // (strategy §3.1 E2, §5.1).
 //
-//   node dist/main.js web      subscriber API, admin API and panel, health, and the adapters' own endpoints
+//   node dist/main.js web      subscriber API, health, and the adapters' own endpoints
 //   node dist/main.js worker   the adapters' background work, bells, housekeeping
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { pathToFileURL } from 'node:url';
 import { startEngine, type Engine } from './engine/index.js';
 import { adapterApi, startAdapter } from './engine/adapter-api/index.js';
+import { registerAdmin } from './engine/registry.js';
 import { adapterRoutes } from './engine/http/server.js';
-import { adminRoutesFor } from './engine/admin-api/index.js';
 import { closeErrorReporting, report } from './engine/errors.js';
 import type { Adapter } from './engine/adapter-api/types.js';
 import { vitecAdapter } from './adapters/vitec/index.js';
@@ -18,7 +18,7 @@ import { vitecAdapter } from './adapters/vitec/index.js';
  * Every adapter Core ships. Adding a CRM is adding a directory and one line here. The two fake
  * adapters live in the tests and local runs only (question 34, 2026-09-18).
  */
-const adapters: Adapter[] = [vitecAdapter];
+export const adapters: Adapter[] = [vitecAdapter];
 
 /**
  * One role of Core, as `node dist/main.js <role>` runs it. A function so the acceptance tests can
@@ -28,20 +28,21 @@ export async function main(role: string): Promise<{ engine: Engine; server: Serv
   const engine = await startEngine();
 
   // Both roles need every adapter's mappers in the registry: the worker to ingest, and the web
-  // process to recompute a record from stored raw, from the panel or the admin API, with no CRM
-  // traffic and no adapter started. Starting an adapter (its timers, loops and endpoints) is the
+  // process to recompute a record from stored raw, with no CRM traffic and no adapter started. Starting an adapter (its timers, loops and endpoints) is the
   // worker's alone. Without this the web process answered every recompute with "no adapter
   // registered for this connection" (found on staging, 2026-09-20).
   for (const adapter of adapters) {
     adapterApi(adapter.manifest.provider).register(adapter.manifest, adapter.mappers);
+    // The admin area runs in the web process while the adapter runs in the worker, so both roles
+    // register what the adapter shows and does there (docs/admin-panel-design.md §3).
+    if (adapter.admin) registerAdmin(adapter.manifest.provider, adapter.admin);
   }
 
   if (role === 'web') {
     const routes = adapters.flatMap((adapter) =>
       adapterRoutes(adapter.manifest.provider, adapter.routes ?? []),
     );
-    // The admin panel (docs/admin-panel.md): its API and the app itself, in the web process.
-    const server = engine.listen([...routes, ...adminRoutesFor(engine, adapters)]);
+    const server = engine.listen(routes);
     console.log(`web listening on ${(server.address() as AddressInfo).port}`);
     return { engine, server };
   }

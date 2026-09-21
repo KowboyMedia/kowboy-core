@@ -101,7 +101,11 @@ the first item that is not done, and keep the file current. Decisions and open q
    (`docs/admin-panel.md`). Later that day Patric judged it a reskin: the pages, layouts and
    flows were inherited from the first build. The next rebuild starts from the requirement
    sheets, with the design approved before any code, and is not built until he says so
-   (`docs/admin-panel-rebuild.md` §7, questions 62 to 65).
+   (`docs/admin-panel-rebuild.md` §7, questions 62 to 65). Later still that day both panels
+   were removed for good, the old operator endpoints and scripts cut (65), the public health
+   check reworded to counts (62), every Vitec notification stored (63), pulls named by site,
+   and a site's deletion made to take its history; the brief for the next panel is
+   `docs/admin-panel-rebuild.md` §8 and the work is item 15.
 
 8. ~~**Setup directions on each adapter's panel, and a licence notice in the plugin** (Patric,
    2026-09-18).~~ Done 2026-09-18: the Vitec panel opens with "Set up Vitec", kept true by
@@ -130,7 +134,7 @@ the first item that is not done, and keep the file current. Decisions and open q
     job on staging Core), driven over HTTPS through the WordPress API, Core's admin API and a
     staging-only driver, with a loop that runs until every client criterion a live site can prove
     is green; caches invalidated the WordPress way and proved once with the host's cache plugin
-    (questions 67 and 68 closed). Waits on question 76 (the Cloudways API key); then the agent makes the site itself (item 15). The parts that need
+    (questions 67 and 68 closed). Waits on question 79 (the Cloudways API key); then the agent makes the site itself (item 16). The parts that need
     no answer may start: the plugin's updater changes, trash-then-delete, the ETag on record
     pages, the Space and the staging channel, the driver, the job.
 12. **The default templates** (Patric, 2026-09-20; item 10 folds in): plan in
@@ -141,7 +145,7 @@ the first item that is not done, and keep the file current. Decisions and open q
     installer is decided: one upload, the updater placed by the plugin, updates through
     WordPress's own Plugins page, template sets installed from the plugin's settings page, the
     channels written by jobs on the Core apps. 2026-09-21: the two sites became a pair of environments
-    per client made by the agent, item 15; 71, 73 and 74 are superseded. The package skeleton,
+    per client made by the agent, item 16; 71, 73 and 74 are superseded. The package skeleton,
     the selector, the override rule, the installer and the release per set may start now.
 13. **Documentation for implementers, people and agents alike** (Patric, 2026-09-20, recorded and
     not yet discussed): how to build a site on Core, what to keep in mind and what to recommend to
@@ -156,16 +160,56 @@ the first item that is not done, and keep the file current. Decisions and open q
     `status` untouched next to it; the field tables, `schemas/`, the rules and their tests, and
     AGENTS.md's "no status, no visibility" sentence amended to "only by ledger entries", all in
     one change for Patric's review through the protected paths.
-15. **Porting any client's templates to version 4** (Patric, 2026-09-21): plan in
+
+15. ~~**Design the admin panel from the requirement sheets** (`docs/admin-panel-rebuild.md` §8)~~
+    Done 2026-09-20 on Patric's word, "Admin area v3 build. Build the admin area as described."
+    The design is `docs/admin-panel-design.md`: the pattern study (Airbyte, Stripe, Sentry,
+    React-admin, Refine and shadcn/ui, read that day), the information architecture, and every
+    Must and Should of §3 placed on a page. Built the same day: a JSON admin API under
+    `/v1/admin/` in `engine/admin/`, and the app in `admin/` on Refine and shadcn/ui (question 64)
+    served under `/admin` by the web process. Eight destinations: Overview, Flow, Records,
+    Tenants, Runs, Events, CRMs, Settings. What it is, is `docs/admin-panel.md`. Proved by
+    `acceptance/admin.test.ts` through HTTP and by thirteen browser journeys in `admin/e2e`, both
+    named under AC 42. The Coulds of §3 are still not built and stay listed there.
+    2026-09-21: the settings the area needs are on the staging app, on Patric's "allow"
+    (`ADMIN_EMAILS`, who may open it, and `PUBLIC_URL`, where the sign-in link points); the three
+    settings of the removed panels (`ADMIN_SECRET`, `ADMIN_EMAIL_DOMAINS`,
+    `ADMIN_LOGIN_WITHOUT_EMAIL`) went with them, and the spec DigitalOcean returned is committed
+    back. Question 75 is closed: AGENTS.md's layout map names `engine/admin/` and `admin/` as they
+    are. Left: (a) Patric walks the area on staging once this change is there, and says what he
+    would change. (b) Production has never held `POSTMARK_SERVER_TOKEN` or `PUBLIC_URL`, so its
+    sign-in link cannot be mailed; both go on with the release, and that write needs Patric's
+    "allow" for production the way every production write does.
+    2026-09-21, the first round of Patric's own remarks, all built: Swedish dates and figures
+    everywhere; **Remember this device** for thirty days, per device, with the devices listed on
+    Settings and one button to forget the others; `ADMIN_EMAIL_DOMAINS` back with a new meaning —
+    everyone at `kowboy.se` may sign in, and nothing on the sign-in page says so; a record's
+    timeline as sentences with no payload in it, written by one engine module the Events page and
+    Flow read too; honest danger, so fetching again and recomputing one record are plain buttons;
+    a sentence on every adapter action, kept honest by a test (question 76); Runs renamed
+    **Manual sync**; one scope picker — tenant, connection, office, entity — on both Manual sync
+    and Records, where nothing is typed any more; "select all" meaning every record the search
+    matches, on pages of 500; a stored login tried by Core itself, with the secret nowhere in the
+    page; and a **Go to…** button that spells out the keys of the palette.
+    2026-09-21, the addresses: both apps now carry their own domain on App Platform,
+    `core.kowboy.cloud` and `staging.core.kowboy.cloud`, and DigitalOcean is waiting for the two
+    CNAME records in the `kowboy.cloud` zone at Strato (`core` → `kowboy-core-wyvhr.ondigitalocean.app`,
+    `staging.core` → `kowboy-core-staging-t7ig3.ondigitalocean.app`), which only Patric can add.
+    The moment each record answers, DigitalOcean issues the certificate by itself. Left for an
+    agent then: point `PUBLIC_URL` at the new address on each app, so the sign-in link and the
+    links in alerts carry it, and give Vitec the new notification URLs if the old ones are ever
+    retired — the `*.ondigitalocean.app` addresses keep working, so nothing breaks in the meantime.
+
+16. **Porting any client's templates to version 4** (Patric, 2026-09-21): plan in
     `docs/template-porting.md`. One porting server with a pair of sites per client, the source a
     copy of the client's live site with the old plugin, the target a copy with Core's plugin and
     the client's template set, made through the host's API, compared page by page and iterated
     by an agent until the target shows the same; gaps raised by step 2's rule. Cloudways (question
-    75, 2026-09-21); waits on question 76, the Cloudways API key in the agents' environment.
+    75, 2026-09-21); waits on question 79, the Cloudways API key in the agents' environment.
     After that nothing needs a person except a client's CRM login the first time it reaches
     staging.
 
-    **Resuming in a new session, once question 76 is answered**, in this order:
+    **Resuming in a new session, once question 79 is answered**, in this order:
     1. Check the environment: `CLOUDWAYS_EMAIL` and `CLOUDWAYS_API_KEY` exist (values never
        printed). Get a token from the Cloudways API (`https://api.cloudways.com/api/v2/…`; v1
        retired in March 2026; email and key in, a short-lived bearer token out) and list the
@@ -175,7 +219,7 @@ the first item that is not done, and keep the file current. Decisions and open q
     2. If no porting server exists: make one in the account (DigitalOcean underneath, Frankfurt,
        the smallest 2 GB size, name `kowboy-porting`), and write its id and address into
        `docs/template-porting.md` under a new "The server" heading.
-    3. Make the first pair for the first client (question 77): copy the client's live app to the
+    3. Make the first pair for the first client (question 80): copy the client's live app to the
        porting server as `<client>-source`, password-protect it, keep search engines out, stop
        its mail and, where its old plugin has the switch, its CRM polling; copy it again as
        `<client>-target`, read both apps' WordPress logins from the API, and on the target
@@ -224,10 +268,10 @@ the first item that is not done, and keep the file current. Decisions and open q
   themselves instead of asking Patric for a console (verified 2026-09-19): `DIGITALOCEAN_ACCESS_TOKEN`
   (the account with both apps; their addresses come from `GET /v2/apps`; production writes wait
   for "allow" as above), `VITEC_USERNAME`, `VITEC_PASSWORD`, `VITEC_OFFICE_ID` and
-  `VITEC_ESTATE_ID` (the Vitec test account, `scripts/vitec-probe.ts`) and `GITHUB_TOKEN` (the
-  repository, but not its settings: variables and secrets answer 403); `CLOUDWAYS_EMAIL` and
-  `CLOUDWAYS_API_KEY` once Patric adds them (question 76): the porting server and every site on
-  it, `docs/template-porting.md`. There is no Sentry token. Values are never printed, logged or
+  `VITEC_ESTATE_ID` (the Vitec test account) and `GITHUB_TOKEN` (the repository, but not its
+  settings: variables and secrets answer 403); `CLOUDWAYS_EMAIL` and `CLOUDWAYS_API_KEY` once
+  Patric adds them (question 79): the porting server and every site on it,
+  `docs/template-porting.md`. There is no Sentry token. Values are never printed, logged or
   committed. Nothing but web traffic leaves the environment: no SSH, no SFTP, on any port
   (checked 2026-09-21).
 - A new session's branch starts from `main`, which is production and far behind `staging`

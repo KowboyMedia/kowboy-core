@@ -1,6 +1,6 @@
 # Porting a client's templates to v4: the environments and the workflow
 
-Proposed 2026-09-21; Patric chose Cloudways the same day (question 75). It generalises step 2
+Proposed 2026-09-21; Patric chose Cloudways the same day (question 78). It generalises step 2
 ([default-templates.md](default-templates.md)) from one client to any: Patric says "port all
 Kowboy templates for site X to version 4", and an agent does the rest, assuming that version 4's
 helper functions and universal fields may be missing or wrong, and raising what it finds. The
@@ -89,8 +89,8 @@ never.
 
 ## What it needs from Patric
 
-- **76** a Cloudways API key in the agents' environment settings, as `CLOUDWAYS_EMAIL` and
+- **79** a Cloudways API key in the agents' environment settings, as `CLOUDWAYS_EMAIL` and
   `CLOUDWAYS_API_KEY`.
-- **77** the first client to port, by the name Cloudways lists it, and its CRM login if staging
+- **80** the first client to port, by the name Cloudways lists it, and its CRM login if staging
   does not hold that account.
 - Per later client: the same two things.

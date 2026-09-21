@@ -20,16 +20,13 @@ services:
       - key: DATABASE_CA_CERT
         value: ${db.CA_CERT}
         scope: RUN_TIME
-      - key: ADMIN_SECRET
-        value: EV[1:qeNsuORKwpu1hbMP+q1jKmdJs7lmdSFC:Q63rWWTMW0czEt0JMxuqLOjYVV+XdXE9NSSG0JrFIF1lu6vpPAXbzAOaIDKaPDd/SUuOCcB9ERloons=]
-        scope: RUN_TIME
-        type: SECRET
-      - key: ADMIN_EMAIL_DOMAINS
-        value: kowboy.se
-        scope: RUN_TIME
       - key: MAIL_FROM
         value: patric@kowboy.se
         scope: RUN_TIME
+      - key: POSTMARK_SERVER_TOKEN
+        value: EV[1:HDWQpFCri0z9Z/jh4WauuteSPvDZ45Li:v0tHUwi3muaRBba4D3QCv3uSYKie1NiAoac39ySuKnv46m9+7su8NfF8apgULpn/6qxCAw==]
+        scope: RUN_TIME
+        type: SECRET
       - key: SENTRY_DSN
         value: EV[1:TC95QipSafbeZ7bRSp0ego7jH3veGtTo:ZDpqKlVH+M7+HlgX3et+HuV67WZ28xaaD/m+rUloNZOD7QpU0XpNZ5M8I5Pp6B5CWwqggvSjOaL0pq1Zto4FGviKcDNT6XlSriMYi1PC5f+ZwHUSgPv5M8XayIzyTH0MWAKWvuSnmL+GDaRpZeqB]
         scope: RUN_TIME
@@ -41,6 +38,18 @@ services:
         value: EV[1:bgk8XOdGy1VfzAIfz1stxfXc3RiUEyAh:E4vFHMxNaQPOrWRs3ojYRW4SlmsBY8WYGMIsgZ/Il3XJHHsgNUa//7P0DJmN9QvLmOA80tkc/oC/lqqi]
         scope: RUN_TIME
         type: SECRET
+      # The admin area (docs/admin-panel.md). On the app since 2026-09-21, on Patric's "allow".
+      - key: ADMIN_EMAILS
+        value: patric@kowboy.se
+        scope: RUN_TIME
+      # Everyone at Kowboy may open the area without a list to keep (Patric, 2026-09-21);
+      # the sign-in page never gives this away.
+      - key: ADMIN_EMAIL_DOMAINS
+        value: kowboy.se
+        scope: RUN_TIME
+      - key: PUBLIC_URL
+        value: https://kowboy-core-staging-t7ig3.ondigitalocean.app
+        scope: RUN_TIME
       - key: VITEC_WEBHOOK_TOKEN
         value: EV[1:hOO3+g5WuYm4pzme/z4V0vtqUvjPIh84:LcAwrVM/08EW3EQs1S0aFGc3fSdEhFTTUyIjzH7IIZsh+W33a8vTIUcYcWOg+Apu]
         scope: RUN_TIME
@@ -71,16 +80,16 @@ workers:
       - key: DATABASE_CA_CERT
         value: ${db.CA_CERT}
         scope: RUN_TIME
-      - key: ADMIN_SECRET
-        value: EV[1:LrbZO5XdGEiMHZigOKnaDlBPaVmxP5+q:lxGnApkeCgHPs+oJwlA7enBxBs6pQqsAiadwOikECrPg1npCbE66F2SEIHE/q8qcWXiBB8lqvCkf/wo=]
-        scope: RUN_TIME
-        type: SECRET
       - key: SENTRY_DSN
         value: EV[1:nks+6vHH7J3hHQ3b3nQGRP2K8pTqKXFw:QOyJsScJaFg2f/dGmf1WWbrZQIoPxF+IDg3SupLMBIwyoLVao5M4xK9Y8LwW8X0VOJwnkofaiuC8HsXgNVYu6N/dDV9SxVwQNnF4PD1MPpXuQRkPg7DzsZaAuqW6vWilJCYuvBmf3sAi+8NQsK2Y]
         scope: RUN_TIME
         type: SECRET
       - key: SENTRY_ENVIRONMENT
         value: staging
+        scope: RUN_TIME
+      # Where Core is reached, for the links in the alerts this worker sends.
+      - key: PUBLIC_URL
+        value: https://kowboy-core-staging-t7ig3.ondigitalocean.app
         scope: RUN_TIME
       - key: CREDENTIALS_KEY
         value: EV[1:bXCPiQ3i5oZD5/Fpa0u5wNdS+/myat0p:QkNWjoD35n9Rr27BQMbnrndq/yyVbSTvhgkvhS3MCgl5XY2Vz+DCiYoz1VHoRXKDra/3pGqjxmmDQXTA]
@@ -95,6 +104,13 @@ databases:
     cluster_name: kowboy-core-production
     db_name: core_staging
     db_user: doadmin
+domains:
+  # Core's own address (Patric, 2026-09-21). The kowboy.cloud zone is not hosted at
+  # DigitalOcean, so the record lives with whoever hosts it: a CNAME from staging.core.kowboy.cloud
+  # to kowboy-core-staging-t7ig3.ondigitalocean.app. The app keeps answering on that
+  # ondigitalocean.app address too; nothing is redirected.
+  - domain: staging.core.kowboy.cloud
+    type: PRIMARY
 region: fra
 alerts:
   - rule: DEPLOYMENT_FAILED

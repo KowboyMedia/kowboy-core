@@ -70,6 +70,9 @@ const env = (name: string): string => {
   return value;
 };
 
+/** This site's own bell address: what Core rings, and what names it on a pull or a report. */
+const siteName = (): string => `${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/core-sync`;
+
 /**
  * Error reporting through Core (question 46, Patric 2026-09-19): JSON on stderr, and the same to
  * Core's POST /v1/errors, where the same bug on many sites becomes one report a day and no site
@@ -88,6 +91,8 @@ function report(message: string, context: Record<string, unknown> = {}): void {
       authorization: `Bearer ${token}`,
       'content-type': 'application/json',
       'x-core-client': `lovable/${VERSION}`,
+      // Which site reports, as on a pull, so the error shows on this site's row in Core.
+      'x-core-site': siteName(),
     },
     body: JSON.stringify({
       message,
@@ -224,6 +229,8 @@ async function pull(
         headers: {
           authorization: `Bearer ${env('CORE_TENANT_TOKEN')}`,
           'x-core-client': `lovable-kit/${VERSION}`,
+          // Which site pulls: the same address Core rings, so Core can tell the sites apart.
+          'x-core-site': siteName(),
         },
       },
     );
@@ -346,6 +353,8 @@ async function reportApplied(outcomes: (Applied | null)[]): Promise<void> {
       headers: {
         authorization: `Bearer ${env('CORE_TENANT_TOKEN')}`,
         'x-core-client': `lovable-kit/${VERSION}`,
+        // Which site reports, as on a pull, so Core keeps the outcome on this site's row.
+        'x-core-site': siteName(),
         'content-type': 'application/json',
       },
       body: JSON.stringify({ items }),

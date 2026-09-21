@@ -1,603 +1,386 @@
-// Records: the figures, a search with server-side filters, sort and pages, a selection to act on,
-// and the live activity list: the last records through Core with their state, and what waits on
-// the adapters' own lists, coloured by state and lit up as they arrive.
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
-import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
-import { api, qs } from '@/api/client';
-import { providersQuery, recordPath, tenantsQuery } from '@/api/queries';
-import type { Activity, ActivityRow, ItemFigures, ItemRow, ItemsPage } from '@/api/types';
-import { endOfDay, fmtNumber, startOfDay } from '@/lib/format';
-import { PageHeader, Section } from '@/components/page';
-import { StatTile, Tiles } from '@/components/stat-tile';
-import { DataTable, type Sort } from '@/components/data-table';
-import { Moment } from '@/components/moment';
-import { YesNo } from '@/components/state-badge';
-import { PreviewButton, RefetchButton } from '@/components/actions';
+// Records (U3): the grid. Every filter, the sort, the page and the page size live in the address,
+// so a filtered view is a link one can paste to a colleague (React-admin's pattern, read
+// 2026-09-20). The tenant, the connection, the office and the entity are picked from the same
+// component Manual sync uses, never typed (Patric, 2026-09-21).
+//
+// Ticking acts on records. "Select all" means every record the search matches, not the page in
+// front of you: when it is on, the actions send the search itself as the scope, so a hundred
+// thousand matches cost the same as fifty.
+import { useState } from 'react';
+import { Link, useSearchParams } from 'react-router';
+import { useCustomMutation, useList } from '@refinedev/core';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { cn } from '@/lib/utils';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input, Label, Select } from '@/components/ui/input';
+import { Confirm } from '@/components/confirm';
+import { DataTable, DEFAULT_PAGE_SIZE, type Sort } from '@/components/data-table';
+import { Empty } from '@/components/empty';
+import { PageHeader } from '@/components/layout';
+import { ScopePicker, useScopeOptions, type ScopeValue } from '@/components/scope-picker';
+import { count, moment } from '@/lib/format';
 
-const DATATYPES = ['property', 'agent', 'office', 'area', 'association', 'project'];
-const ANY = 'any';
-const KEY_SEP = '\u0000';
+export type RecordRow = {
+  tenantId: number;
+  connectionId: string;
+  provider: string;
+  datatype: string;
+  remoteId: string;
+  officeId: string | null;
+  seq: number;
+  deleted: boolean;
+  updatedAt: string;
+  remoteUpdatedAt: string | null;
+  contentHash: string;
+  rulesVersion: string;
+  schemaVersion: string;
+  name: string | null;
+  addressLine: string | null;
+};
 
-type Params = { get: (name: string) => string; set: (changes: Record<string, string>) => void };
+/** The boxes a person types into. The pickers above them cover tenant, connection, office, entity. */
+const TYPED = [
+  { key: 'q', label: 'Words in the record', placeholder: 'storgatan' },
+  { key: 'id', label: 'Record id', placeholder: 'OBJ-1' },
+  { key: 'from', label: 'Written from', placeholder: '2026-09-01' },
+  { key: 'to', label: 'Written before', placeholder: '2026-09-21' },
+] as const;
 
-/** The page's filters live in the address, so a search can be shared and comes back on reload. */
-function useParams(): Params {
-  const [params, setParams] = useSearchParams();
-  return {
-    get: (name) => params.get(name) ?? '',
-    set: (changes) => {
-      const next = new URLSearchParams(params);
-      for (const [key, value] of Object.entries(changes)) {
-        if (value === '' || value === ANY) next.delete(key);
-        else next.set(key, value);
-      }
-      if (!('page' in changes)) next.delete('page');
-      setParams(next, { replace: true });
-    },
-  };
-}
-
-function Filter({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      {children}
-    </div>
-  );
-}
-
-function Choice({
-  value,
-  onChange,
-  options,
-  any = 'any',
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  options: { value: string; label: string }[];
-  any?: string;
-}) {
-  return (
-    <Select value={value || ANY} onValueChange={onChange}>
-      <SelectTrigger size="sm">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={ANY}>{any}</SelectItem>
-        {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function SearchFilters({ get, set }: Params) {
-  const tenants = useQuery(tenantsQuery());
-  const providers = useQuery(providersQuery());
-  return (
-    <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-      <Filter label="Tenant">
-        <Choice
-          value={get('tenant')}
-          onChange={(value) => set({ tenant: value })}
-          options={(tenants.data ?? []).map((tenant) => ({
-            value: String(tenant.id),
-            label: `#${tenant.id} ${tenant.name}`,
-          }))}
-        />
-      </Filter>
-      <Filter label="CRM">
-        <Choice
-          value={get('provider')}
-          onChange={(value) => set({ provider: value })}
-          options={(providers.data ?? []).map((provider) => ({
-            value: provider.provider,
-            label: provider.provider,
-          }))}
-        />
-      </Filter>
-      <Filter label="Datatype">
-        <Choice
-          value={get('datatype')}
-          onChange={(value) => set({ datatype: value })}
-          options={DATATYPES.map((d) => ({ value: d, label: d }))}
-        />
-      </Filter>
-      <Filter label="Office">
-        <Input
-          className="h-8"
-          value={get('office')}
-          onChange={(event) => set({ office: event.target.value })}
-          placeholder="office id"
-        />
-      </Filter>
-      <Filter label="Record id">
-        <Input
-          className="h-8"
-          value={get('id')}
-          onChange={(event) => set({ id: event.target.value })}
-          placeholder="exact id"
-        />
-      </Filter>
-      <Filter label="Written from">
-        <Input
-          className="h-8"
-          type="date"
-          value={get('from')}
-          onChange={(event) => set({ from: event.target.value })}
-        />
-      </Filter>
-      <Filter label="Written to">
-        <Input
-          className="h-8"
-          type="date"
-          value={get('to')}
-          onChange={(event) => set({ to: event.target.value })}
-        />
-      </Filter>
-      <Filter label="Removed">
-        <Choice
-          value={get('removed')}
-          onChange={(value) => set({ removed: value })}
-          options={[
-            { value: 'no', label: 'live only' },
-            { value: 'yes', label: 'removed only' },
-          ]}
-        />
-      </Filter>
-    </div>
-  );
-}
-
-const stop = (event: React.MouseEvent): void => event.stopPropagation();
-
-const displayLine = (row: ItemRow): string =>
-  Object.values(row.display ?? {})
-    .map(String)
-    .join(' · ');
-
-const COLUMNS: ColumnDef<ItemRow, unknown>[] = [
-  {
-    id: 'seq',
-    header: 'Seq',
-    cell: ({ row }) => <span className="tabular-nums">{row.original.seq}</span>,
-  },
-  {
-    id: 'tenant_id',
-    header: 'Tenant',
-    cell: ({ row }) => (
-      <Link
-        to={`/tenants/${row.original.tenant_id}`}
-        className="text-primary hover:underline"
-        onClick={stop}
-      >
-        #{row.original.tenant_id}
-      </Link>
-    ),
-  },
-  {
-    id: 'connection_id',
-    header: 'Connection',
-    cell: ({ row }) => (
-      <span className="font-mono text-xs whitespace-nowrap">{row.original.connection_id}</span>
-    ),
-  },
-  { id: 'datatype', header: 'Datatype', cell: ({ row }) => row.original.datatype },
-  {
-    id: 'remote_id',
-    header: 'Record id',
-    cell: ({ row }) => (
-      <Link
-        to={recordPath(row.original.connection_id, row.original.datatype, row.original.remote_id)}
-        className="font-medium text-primary hover:underline"
-        onClick={stop}
-      >
-        {row.original.remote_id}
-      </Link>
-    ),
-  },
-  {
-    id: 'office_id',
-    header: 'Office',
-    cell: ({ row }) => row.original.office_id ?? <span className="text-muted-foreground">—</span>,
-  },
-  {
-    id: 'display',
-    header: 'Display',
-    cell: ({ row }) => (
-      <span
-        className="block max-w-xs truncate text-muted-foreground"
-        title={displayLine(row.original)}
-      >
-        {displayLine(row.original) || '—'}
-      </span>
-    ),
-  },
-  {
-    id: 'updated_at',
-    header: 'Written',
-    cell: ({ row }) => <Moment at={row.original.updated_at} />,
-  },
-  {
-    id: 'remote_updated_at',
-    header: 'Changed in the CRM',
-    cell: ({ row }) => <Moment at={row.original.remote_updated_at} />,
-  },
-  {
-    id: 'deleted',
-    header: 'Removed',
-    cell: ({ row }) => <YesNo value={row.original.deleted} yes="removed" no="live" />,
-  },
-  {
-    id: 'rules_version',
-    header: 'Rules',
-    cell: ({ row }) => <span className="font-mono text-xs">{row.original.rules_version}</span>,
-  },
-  {
-    id: 'content_hash',
-    header: 'Hash',
-    cell: ({ row }) => (
-      <span className="font-mono text-xs" title={row.original.content_hash}>
-        {row.original.content_hash.slice(0, 10)}
-      </span>
-    ),
-  },
+/** Every filter the grid can hold, so clearing and counting never miss one. */
+const FILTER_KEYS = [
+  'q',
+  'id',
+  'from',
+  'to',
+  'tenant',
+  'connection',
+  'office',
+  'datatype',
+  'deleted',
 ];
 
-function Figures() {
-  const figures = useQuery({
-    queryKey: ['figures'],
-    queryFn: () => api<ItemFigures>('/v1/admin/items/figures'),
-    refetchInterval: 30_000,
-  });
-  const f = figures.data;
-  if (!f) return null;
-  return (
-    <Tiles>
-      <StatTile
-        label="Live records"
-        value={f.live}
-        context={`${fmtNumber(f.tombstoned)} removed, kept 90 days`}
-      />
-      <StatTile
-        label={`Written, last ${f.hours} h`}
-        value={f.written}
-        context={`${fmtNumber(f.unchanged)} unchanged`}
-      />
-      <StatTile
-        label={`Removed, last ${f.hours} h`}
-        value={f.removed}
-        context="gone from the CRM"
-      />
-      <StatTile
-        label={`Dropped, last ${f.hours} h`}
-        value={f.dropped}
-        state={f.dropped > 0 ? 'bad' : undefined}
-        context="malformed or unlicensed"
-      />
-      <StatTile
-        label={`Applied by sites, last ${f.hours} h`}
-        value={f.applied}
-        context="records the sites reported applied"
-      />
-      <StatTile
-        label={`Failed on sites, last ${f.hours} h`}
-        value={f.failed}
-        state={f.failed > 0 ? 'bad' : undefined}
-        context="records a site could not apply"
-      />
-    </Tiles>
-  );
-}
+export const recordPath = (row: {
+  connectionId: string;
+  datatype: string;
+  remoteId: string;
+}): string =>
+  `/records/${encodeURIComponent(row.connectionId)}/${row.datatype}/${encodeURIComponent(row.remoteId)}`;
 
-/** The search box, debounced into the address, and the actions on a selection. */
-function Toolbar({
-  get,
-  set,
-  keys,
-  onClear,
-}: Params & {
-  keys: { connectionId: string; datatype: string; remoteId: string }[];
-  onClear: () => void;
-}) {
-  const [text, setText] = useState(get('q'));
-  const current = get('q');
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      if (text !== current) set({ q: text });
-    }, 350);
-    return () => window.clearTimeout(timer);
-  }, [text, current, set]);
-  return (
-    <>
-      <Input
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        placeholder="Search words in the record…"
-        className="h-8 max-w-xs"
-        aria-label="Search words"
-      />
-      {keys.length > 0 && (
-        <div
-          className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-2 py-1"
-          data-testid="selection-bar"
-        >
-          <span className="text-sm">{keys.length} selected</span>
-          <PreviewButton scope={{ keys }} label="Preview recompute" />
-          <RefetchButton scope={{ keys }} label="Fetch again" />
-          <Button variant="ghost" size="sm" onClick={onClear}>
-            Clear
-          </Button>
-        </div>
-      )}
-    </>
-  );
-}
+export function Records() {
+  const [params, setParams] = useSearchParams();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  /** On: the actions mean every record the search matches, not the ones loaded. */
+  const [allMatching, setAllMatching] = useState(false);
+  const options = useScopeOptions();
+  const { mutateAsync } = useCustomMutation();
 
-export function RecordsPage() {
-  const navigate = useNavigate();
-  const params = useParams();
-  const { get, set } = params;
-  const page = Number(get('page') || 1);
-  const size = Number(get('size') || 50);
-  const sort: Sort = { by: get('sort') || 'seq', dir: get('dir') === 'asc' ? 'asc' : 'desc' };
-  const query = qs({
-    tenant: get('tenant'),
-    provider: get('provider'),
-    datatype: get('datatype'),
-    office: get('office'),
-    id: get('id'),
-    q: get('q'),
-    from: get('from') ? startOfDay(get('from')) : '',
-    to: get('to') ? endOfDay(get('to')) : '',
-    removed: get('removed'),
-    sort: sort.by,
-    dir: sort.dir,
-    page,
-    size,
+  const set = (key: string, value: string): void => {
+    const next = new URLSearchParams(params);
+    if (value === '') next.delete(key);
+    else next.set(key, value);
+    if (key !== 'page') next.delete('page');
+    setParams(next, { replace: true });
+    setSelected(new Set());
+    setAllMatching(false);
+  };
+
+  const scope: ScopeValue = {
+    tenantId: params.get('tenant') ?? '',
+    connectionId: params.get('connection') ?? '',
+    officeId: params.get('office') ?? '',
+    datatype: params.get('datatype') ?? '',
+  };
+
+  const setScope = (next: ScopeValue): void => {
+    const params_ = new URLSearchParams(params);
+    for (const [key, value] of [
+      ['tenant', next.tenantId],
+      ['connection', next.connectionId],
+      ['office', next.officeId],
+      ['datatype', next.datatype],
+    ] as const) {
+      if (value === undefined || value === '') params_.delete(key);
+      else params_.set(key, value);
+    }
+    params_.delete('page');
+    setParams(params_, { replace: true });
+    setSelected(new Set());
+    setAllMatching(false);
+  };
+
+  const page = Number(params.get('page') ?? 1);
+  const size = Number(params.get('size') ?? DEFAULT_PAGE_SIZE);
+  const sort: Sort = {
+    field: params.get('sort') ?? 'seq',
+    order: params.get('dir') === 'asc' ? 'asc' : 'desc',
+  };
+
+  const { result, query } = useList<RecordRow>({
+    resource: 'records',
+    pagination: { currentPage: page, pageSize: size },
+    sorters: [{ field: sort.field, order: sort.order }],
+    filters: FILTER_KEYS.map((key) => ({
+      field: key,
+      operator: 'eq' as const,
+      value: params.get(key) ?? '',
+    })),
   });
-  const items = useQuery({
-    queryKey: ['items', query],
-    queryFn: () => api<ItemsPage>(`/v1/admin/items${query}`),
-    placeholderData: (previous) => previous,
-  });
-  const [selected, setSelected] = useState<RowSelectionState>({});
-  const keys = useMemo(
-    () =>
-      Object.keys(selected).map((key) => {
-        const [connectionId = '', datatype = '', remoteId = ''] = key.split(KEY_SEP);
-        return { connectionId, datatype, remoteId };
-      }),
-    [selected],
-  );
+  const rows = result?.data ?? [];
+  const total = result?.total ?? 0;
+
+  const keyOf = (row: RecordRow): string => `${row.connectionId}|${row.datatype}|${row.remoteId}`;
+  const chosen = rows.filter((row) => selected.has(keyOf(row)));
+  const howMany = allMatching ? total : chosen.length;
+
+  /**
+   * What the actions act on. With "select all" on, that is the search itself — the same filters
+   * the server just counted — so nothing depends on which page happens to be loaded.
+   */
+  const target = (): Record<string, unknown> => {
+    if (!allMatching) {
+      return {
+        records: chosen.map((row) => ({
+          connectionId: row.connectionId,
+          datatype: row.datatype,
+          remoteId: row.remoteId,
+        })),
+      };
+    }
+    const out: Record<string, unknown> = {};
+    if (params.get('tenant')) out['tenantId'] = Number(params.get('tenant'));
+    if (params.get('connection')) out['connectionId'] = params.get('connection');
+    if (params.get('office')) out['officeId'] = params.get('office');
+    if (params.get('datatype')) out['datatype'] = params.get('datatype');
+    if (params.get('id')) out['remoteId'] = params.get('id');
+    if (params.get('q')) out['text'] = params.get('q');
+    return out;
+  };
+
+  const run = async (url: string, fallback: string): Promise<void> => {
+    try {
+      const answer = await mutateAsync({
+        url,
+        method: 'post',
+        values: target(),
+        successNotification: false,
+        errorNotification: false,
+      });
+      const detail = (answer.data as unknown as { detail?: string })?.detail;
+      toast.success(detail ?? fallback);
+      setSelected(new Set());
+      setAllMatching(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const ringTheirSites = async (): Promise<void> => {
+    const tenants = allMatching
+      ? [Number(params.get('tenant') ?? 0)].filter(Boolean)
+      : [...new Set(chosen.map((row) => row.tenantId))];
+    if (tenants.length === 0) {
+      toast.error('Choose a tenant first, or tick rows, so Core knows whose sites to ring.');
+      return;
+    }
+    for (const tenantId of tenants) {
+      await mutateAsync({
+        url: `/tenants/${String(tenantId)}/ring`,
+        method: 'post',
+        values: {},
+        successNotification: false,
+        errorNotification: false,
+      });
+    }
+    toast.success(`Rang the sites of ${String(tenants.length)} tenant(s).`);
+  };
+
+  const filtered = FILTER_KEYS.some((key) => params.get(key));
+
   return (
     <>
       <PageHeader
         title="Records"
-        intro="Every record Core holds, searchable by any mix of filters; tick rows to recompute them, fetch them again from the CRM, or ring their sites. Below, what is happening to records right now."
+        what="Everything Core holds. Narrow it down, sort it, tick what you need and act on it."
       />
-      <Figures />
-      <Section
-        title="Search"
-        help="Every filter is applied on the server; sort by any column, and choose the columns you want. The search box looks for words in the unified record."
-        className="mb-4"
-      >
-        <SearchFilters {...params} />
-        <DataTable
-          columns={COLUMNS}
-          rows={items.data?.rows ?? []}
-          rowId={(row) => [row.connection_id, row.datatype, row.remote_id].join(KEY_SEP)}
-          total={items.data?.total}
-          page={page}
-          size={size}
-          onPage={(nextPage, nextSize) => set({ page: String(nextPage), size: String(nextSize) })}
-          sort={sort}
-          sortable={items.data?.sortable ?? ['seq']}
-          onSort={(next) => set({ sort: next.by, dir: next.dir })}
-          selectable
-          selected={selected}
-          onSelect={setSelected}
-          loading={items.isPending}
-          rowLink={(row) => navigate(recordPath(row.connection_id, row.datatype, row.remote_id))}
-          defaultHidden={['rules_version', 'content_hash', 'remote_updated_at']}
-          empty="No record matches these filters."
-          toolbar={<Toolbar {...params} keys={keys} onClear={() => setSelected({})} />}
-        />
-      </Section>
-      <ActivityList />
+
+      <Card className="mb-4">
+        <CardContent className="grid gap-3 pt-4 sm:grid-cols-2 lg:grid-cols-4">
+          <ScopePicker value={scope} onChange={setScope} options={options} />
+          {TYPED.map((filter) => (
+            <div key={filter.key} className="flex flex-col gap-1">
+              <Label htmlFor={`filter-${filter.key}`}>{filter.label}</Label>
+              <Input
+                id={`filter-${filter.key}`}
+                value={params.get(filter.key) ?? ''}
+                placeholder={filter.placeholder}
+                onChange={(event) => set(filter.key, event.target.value)}
+              />
+            </div>
+          ))}
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="filter-deleted">Removed</Label>
+            <Select
+              id="filter-deleted"
+              value={params.get('deleted') ?? ''}
+              onChange={(event) => set('deleted', event.target.value)}
+            >
+              <option value="">live and removed</option>
+              <option value="false">live only</option>
+              <option value="true">removed only</option>
+            </Select>
+          </div>
+          <div className="flex items-end">
+            <Button
+              variant="outline"
+              disabled={!filtered}
+              onClick={() => setParams(new URLSearchParams(), { replace: true })}
+            >
+              Clear the filters
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <DataTable
+        caption={`${count(total)} record(s) match`}
+        columns={[
+          {
+            key: 'what',
+            header: 'What it is',
+            cell: (row) => (
+              <Link className="underline" to={recordPath(row)}>
+                {row.addressLine ?? row.name ?? row.remoteId}
+              </Link>
+            ),
+          },
+          { key: 'datatype', header: 'Type', sortAs: 'datatype', cell: (row) => row.datatype },
+          {
+            key: 'remoteId',
+            header: 'Record id',
+            sortAs: 'remote_id',
+            cell: (row) => <span className="font-mono text-xs">{row.remoteId}</span>,
+          },
+          { key: 'tenantId', header: 'Tenant', sortAs: 'tenant_id', cell: (row) => row.tenantId },
+          {
+            key: 'connectionId',
+            header: 'Connection',
+            sortAs: 'connection_id',
+            cell: (row) => row.connectionId,
+          },
+          {
+            key: 'officeId',
+            header: 'Office',
+            sortAs: 'office_id',
+            cell: (row) => row.officeId ?? '—',
+          },
+          {
+            key: 'updatedAt',
+            header: 'Written',
+            sortAs: 'updated_at',
+            cell: (row) => <span className="tabular-nums">{moment(row.updatedAt)}</span>,
+          },
+          {
+            key: 'remoteUpdatedAt',
+            header: 'Changed in the CRM',
+            sortAs: 'remote_updated_at',
+            cell: (row) => <span className="tabular-nums">{moment(row.remoteUpdatedAt)}</span>,
+            optional: true,
+          },
+          {
+            key: 'deleted',
+            header: 'State',
+            sortAs: 'deleted',
+            cell: (row) => (
+              <Badge tone={row.deleted ? 'muted' : 'ok'}>{row.deleted ? 'removed' : 'live'}</Badge>
+            ),
+          },
+          { key: 'seq', header: 'Seq', sortAs: 'seq', cell: (row) => row.seq, optional: true },
+          { key: 'rulesVersion', header: 'Rules', cell: (row) => row.rulesVersion, optional: true },
+        ]}
+        rows={rows}
+        rowKey={keyOf}
+        loading={query.isLoading}
+        sort={sort}
+        onSort={(next) => {
+          const params_ = new URLSearchParams(params);
+          params_.set('sort', next.field);
+          params_.set('dir', next.order);
+          setParams(params_, { replace: true });
+        }}
+        selected={selected}
+        onSelect={(next) => {
+          setSelected(next);
+          if (next.size === 0) setAllMatching(false);
+        }}
+        allMatching={{
+          on: allMatching,
+          total,
+          onChange: setAllMatching,
+          what: 'record(s) matching these filters',
+        }}
+        selectionActions={
+          <>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => void run('/runs/preview', 'Previewed. Nothing was written.')}
+            >
+              Preview a recompute
+            </Button>
+            <Confirm
+              label="Recompute"
+              title={`Recompute ${count(howMany)} record(s)`}
+              what={`${count(howMany)} record(s) are computed again from what Core already stores, sold properties last. No CRM is called, and the sites are rung for whatever changed.`}
+              confirmLabel="Recompute them"
+              variant="danger"
+              size="sm"
+              onConfirm={() => run('/runs/recompute', 'The recompute is queued.')}
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => void run('/runs/fetch-again', 'Queued for the CRM.')}
+            >
+              Fetch again
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => void ringTheirSites()}>
+              Ring their sites
+            </Button>
+          </>
+        }
+        page={{
+          page,
+          size,
+          total,
+          onPage: (next) => set('page', String(next)),
+          onSize: (next) => set('size', String(next)),
+        }}
+        empty={
+          <Empty
+            what={
+              filtered
+                ? 'Nothing matches these filters.'
+                : 'Core holds no records yet. They arrive when a tenant’s CRM connection loads.'
+            }
+            next={
+              filtered ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setParams(new URLSearchParams())}
+                >
+                  Clear the filters
+                </Button>
+              ) : (
+                <Button size="sm" asChild>
+                  <Link to="/tenants/new">Make a tenant</Link>
+                </Button>
+              )
+            }
+          />
+        }
+      />
     </>
-  );
-}
-
-const STATE: Record<
-  ActivityRow['state'],
-  { row: string; badge: 'warn' | 'info' | 'ok' | 'bad'; label: string }
-> = {
-  queued: { row: 'bg-warn-soft hover:bg-warn-soft', badge: 'warn', label: 'waiting on the CRM' },
-  written: { row: 'bg-info-soft hover:bg-info-soft', badge: 'info', label: 'fetched and written' },
-  applied: { row: 'bg-ok-soft hover:bg-ok-soft', badge: 'ok', label: 'applied by a site' },
-  error: { row: 'bg-bad-soft hover:bg-bad-soft', badge: 'bad', label: 'failed' },
-};
-
-/** The record cell: a link to the record's page once it is written, the bare id while it waits. */
-function RecordCell({ row }: { row: ActivityRow }) {
-  const { connection_id: connection, datatype, remote_id: remoteId } = row;
-  if (!connection || !datatype || !remoteId || row.state === 'queued')
-    return <TableCell>{remoteId}</TableCell>;
-  return (
-    <TableCell>
-      <Link
-        to={recordPath(connection, datatype, remoteId)}
-        className="text-primary hover:underline"
-      >
-        {remoteId}
-      </Link>
-    </TableCell>
-  );
-}
-
-function TenantCell({ tenantId }: { tenantId: number | null }) {
-  if (tenantId === null)
-    return (
-      <TableCell>
-        <span className="text-muted-foreground">—</span>
-      </TableCell>
-    );
-  return (
-    <TableCell>
-      <Link to={`/tenants/${tenantId}`} className="text-primary hover:underline">
-        #{tenantId}
-      </Link>
-    </TableCell>
-  );
-}
-
-function ChainCell({ id }: { id: string | null }) {
-  if (!id) return <TableCell className="pr-5" />;
-  return (
-    <TableCell className="pr-5">
-      <Link
-        to={`/events?correlation=${encodeURIComponent(id)}`}
-        className="font-mono text-xs text-primary hover:underline"
-        title={id}
-      >
-        {id.slice(0, 8)}
-      </Link>
-    </TableCell>
-  );
-}
-
-function ActivityRowView({ row, fresh }: { row: ActivityRow; fresh: boolean }) {
-  const state = STATE[row.state];
-  const detail = row.error ?? row.detail ?? '';
-  return (
-    <TableRow data-state-name={row.state} className={cn(state.row, fresh && 'row-in')}>
-      <TableCell className="pl-5">
-        <Moment at={row.at} />
-      </TableCell>
-      <TableCell>
-        <Badge variant={state.badge}>{state.label}</Badge>
-      </TableCell>
-      <TableCell>
-        {row.what}
-        {row.attempts ? (
-          <span className="text-xs text-muted-foreground"> · attempt {row.attempts}</span>
-        ) : null}
-      </TableCell>
-      <TenantCell tenantId={row.tenant_id} />
-      <TableCell className="font-mono text-xs whitespace-nowrap">
-        {row.connection_id ?? row.provider ?? '—'}
-      </TableCell>
-      <TableCell>{row.office_id ?? '—'}</TableCell>
-      <TableCell>{row.datatype}</TableCell>
-      <RecordCell row={row} />
-      <TableCell className="max-w-xs truncate text-xs text-muted-foreground" title={detail}>
-        {detail}
-      </TableCell>
-      <TableCell className="text-xs">
-        <SiteOutcome site={row.site} />
-      </TableCell>
-      <ChainCell id={row.correlation_id} />
-    </TableRow>
-  );
-}
-
-function SiteOutcome({ site }: { site: ActivityRow['site'] }) {
-  if (!site) return null;
-  return (
-    <span className={site.result === 'failed' ? 'text-bad' : 'text-ok'}>
-      {site.result}
-      {site.client ? ` · ${site.client}` : ''}
-      {site.detail ? `: ${site.detail}` : ''}
-    </span>
-  );
-}
-
-function ActivityList() {
-  const activity = useQuery({
-    queryKey: ['activity'],
-    queryFn: () => api<Activity>('/v1/admin/items/activity'),
-    refetchInterval: 5_000,
-  });
-  const seen = useRef<Set<string> | null>(null);
-  const rows = useMemo(() => {
-    const all = [...(activity.data?.queued ?? []), ...(activity.data?.rows ?? [])];
-    return all.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0, 200);
-  }, [activity.data]);
-  const fresh = new Set<string>();
-  if (seen.current) for (const row of rows) if (!seen.current.has(row.key)) fresh.add(row.key);
-  useEffect(() => {
-    seen.current = new Set(rows.map((row) => row.key));
-  }, [rows]);
-  const count = (state: ActivityRow['state']): number =>
-    rows.filter((row) => row.state === state).length;
-  return (
-    <Section
-      title="Live activity"
-      help="The last 100 records through Core and what still waits on the adapters’ fetch lists, newest first, the whole row coloured by state. It updates as things happen."
-      flush
-      actions={
-        <div className="flex flex-wrap gap-1.5 text-xs">
-          <Badge variant="warn">{count('queued')} waiting</Badge>
-          <Badge variant="info">{count('written')} written</Badge>
-          <Badge variant="ok">{count('applied')} applied</Badge>
-          <Badge variant="bad">{count('error')} failed</Badge>
-        </div>
-      }
-    >
-      {rows.length === 0 ? (
-        <p className="px-5 text-sm text-muted-foreground">
-          Nothing has moved yet. Records show here as adapters fetch them and sites apply them.
-        </p>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="pl-5">When</TableHead>
-              <TableHead>State</TableHead>
-              <TableHead>What</TableHead>
-              <TableHead>Tenant</TableHead>
-              <TableHead>Connection</TableHead>
-              <TableHead>Office</TableHead>
-              <TableHead>Datatype</TableHead>
-              <TableHead>Record</TableHead>
-              <TableHead>Detail</TableHead>
-              <TableHead>Site</TableHead>
-              <TableHead className="pr-5">Chain</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => (
-              <ActivityRowView key={row.key} row={row} fresh={fresh.has(row.key)} />
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </Section>
   );
 }

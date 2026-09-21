@@ -27,6 +27,8 @@ function core_client_report(string $message, array $context = []): void
             'Authorization' => 'Bearer ' . $settings['token'],
             'Content-Type' => 'application/json',
             'X-Core-Client' => 'wordpress/' . CORE_CLIENT_VERSION,
+            // Which site reports, as on a pull, so the error shows on this site's row in Core.
+            'X-Core-Site' => rest_url('core/v1/bell'),
         ],
         'body' => wp_json_encode([
             'message' => $message,
