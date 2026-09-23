@@ -132,12 +132,9 @@ describe('GET /v1/changes', () => {
     });
     expect(badToken.status).toBe(401);
 
-    const withTenant = await fetch(
-      `${running.baseUrl}/v1/changes?datatype=property&tenant_id=t_other`,
-      {
-        headers: { authorization: `Bearer ${TOKEN}` },
-      },
-    );
+    const withTenant = await fetch(`${running.baseUrl}/v1/changes?datatype=property&tenant_id=2`, {
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
     expect(withTenant.status).toBe(400);
   });
 

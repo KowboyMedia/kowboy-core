@@ -2,11 +2,17 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kowboy.se/schemas/property.v1.json",
   "title": "property.data",
-  "description": "INCOMPLETE. Only identity and references are defined, because the CRM data models have not been read yet. The descriptive model is added in one piece once they have (docs/field-tables.md). `additionalProperties` is true until then, so this schema does not yet reject an unknown field.",
+  "description": "The universal property (docs/field-tables.md, approved 2026-09-19): identity and references, the CRM's fields copied and renamed onto the universal names, the sizes of the first building on top, every building, images with CDN addresses, viewings and bidding as sent. Fields the field tables do not name stay under their mechanical snake_case names (docs/data-model-reference.md), so `additionalProperties` stays true.",
   "type": "object",
   "properties": {
     "id": {
       "$ref": "_shared.v1.json#/$defs/id"
+    },
+    "display": {
+      "$ref": "_shared.v1.json#/$defs/display"
+    },
+    "provider_extras": {
+      "$ref": "_shared.v1.json#/$defs/providerExtras"
     },
     "office_id": {
       "$ref": "_shared.v1.json#/$defs/reference"
@@ -23,11 +29,307 @@
     "project_id": {
       "$ref": "_shared.v1.json#/$defs/reference"
     },
-    "display": {
-      "$ref": "_shared.v1.json#/$defs/display"
+    "reference_number": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
     },
-    "provider_extras": {
-      "$ref": "_shared.v1.json#/$defs/providerExtras"
+    "status": {
+      "$ref": "_shared.v1.json#/$defs/named"
+    },
+    "type": {
+      "$ref": "_shared.v1.json#/$defs/named"
+    },
+    "subtype": {
+      "$ref": "_shared.v1.json#/$defs/named"
+    },
+    "tenure": {
+      "$ref": "_shared.v1.json#/$defs/named"
+    },
+    "tags": {
+      "type": "array"
+    },
+    "is_new_build": {
+      "$ref": "_shared.v1.json#/$defs/nullableBoolean"
+    },
+    "is_published": {
+      "$ref": "_shared.v1.json#/$defs/nullableBoolean"
+    },
+    "is_preview": {
+      "$ref": "_shared.v1.json#/$defs/nullableBoolean"
+    },
+    "published_at": {
+      "$ref": "_shared.v1.json#/$defs/moment"
+    },
+    "viewing_settings": {
+      "$ref": "_shared.v1.json#/$defs/viewingSettings"
+    },
+    "address": {
+      "$ref": "_shared.v1.json#/$defs/address"
+    },
+    "lat": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "lng": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "heading": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "short_text": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "long_text": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "phrase": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "other_information": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "possession_estimate": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "possession_at": {
+      "$ref": "_shared.v1.json#/$defs/moment"
+    },
+    "sold_at": {
+      "$ref": "_shared.v1.json#/$defs/moment"
+    },
+    "assigned_at": {
+      "$ref": "_shared.v1.json#/$defs/moment"
+    },
+    "price": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "final_price": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "price_text": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "price_other_currency": {
+      "type": ["object", "null"],
+      "properties": {
+        "amount": {
+          "$ref": "_shared.v1.json#/$defs/nullableNumber"
+        },
+        "currency": {
+          "$ref": "_shared.v1.json#/$defs/nullableString"
+        }
+      },
+      "required": ["amount", "currency"],
+      "additionalProperties": false
+    },
+    "currency": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "fee": {
+      "type": ["object", "null"],
+      "properties": {
+        "amount": {
+          "$ref": "_shared.v1.json#/$defs/nullableNumber"
+        },
+        "frequency": {
+          "$ref": "_shared.v1.json#/$defs/nullableString"
+        },
+        "type": {
+          "$ref": "_shared.v1.json#/$defs/nullableString"
+        },
+        "comment": {
+          "$ref": "_shared.v1.json#/$defs/nullableString"
+        }
+      },
+      "required": ["amount", "frequency", "type", "comment"],
+      "additionalProperties": false
+    },
+    "leasehold": {
+      "type": ["object", "null"],
+      "properties": {
+        "fee": {
+          "$ref": "_shared.v1.json#/$defs/nullableNumber"
+        },
+        "term": {
+          "$ref": "_shared.v1.json#/$defs/moment"
+        }
+      },
+      "required": ["fee", "term"],
+      "additionalProperties": false
+    },
+    "lease": {
+      "type": ["object", "null"],
+      "properties": {
+        "fee": {
+          "$ref": "_shared.v1.json#/$defs/nullableNumber"
+        },
+        "description": {
+          "$ref": "_shared.v1.json#/$defs/nullableString"
+        },
+        "term": {
+          "$ref": "_shared.v1.json#/$defs/moment"
+        },
+        "owner_name": {
+          "$ref": "_shared.v1.json#/$defs/nullableString"
+        }
+      },
+      "required": ["fee", "description", "term", "owner_name"],
+      "additionalProperties": false
+    },
+    "rooms": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "bedrooms": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "bedrooms_max": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "bathrooms": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "living_space": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "additional_space": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "building_area": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "area_description": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "area_source": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "floor": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "floors_total": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "floor_description": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "elevator": {
+      "$ref": "_shared.v1.json#/$defs/nullableBoolean"
+    },
+    "elevator_description": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "year_built": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "year_built_text": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "year_built_description": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "buildings": {
+      "type": "array",
+      "items": {
+        "$ref": "_shared.v1.json#/$defs/building"
+      }
+    },
+    "plot": {
+      "type": ["object", "null"],
+      "properties": {
+        "area": {
+          "$ref": "_shared.v1.json#/$defs/nullableNumber"
+        },
+        "type": {
+          "$ref": "_shared.v1.json#/$defs/nullableString"
+        },
+        "description": {
+          "$ref": "_shared.v1.json#/$defs/nullableString"
+        }
+      },
+      "required": ["area", "type", "description"],
+      "additionalProperties": false
+    },
+    "exterior_features": {
+      "type": "array",
+      "items": {
+        "$ref": "_shared.v1.json#/$defs/exteriorFeature"
+      }
+    },
+    "other_buildings": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "building_permission": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "operating_cost": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "operating_costs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "$ref": "_shared.v1.json#/$defs/named"
+          },
+          "value": {
+            "$ref": "_shared.v1.json#/$defs/nullableNumber"
+          }
+        },
+        "required": ["type", "value"],
+        "additionalProperties": false
+      }
+    },
+    "operating_cost_description": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "household_size": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "images": {
+      "$ref": "_shared.v1.json#/$defs/images"
+    },
+    "viewings": {
+      "$ref": "_shared.v1.json#/$defs/viewings"
+    },
+    "bidding": {
+      "type": "object",
+      "properties": {
+        "is_active": {
+          "$ref": "_shared.v1.json#/$defs/nullableBoolean"
+        },
+        "is_verified": {
+          "$ref": "_shared.v1.json#/$defs/nullableBoolean"
+        },
+        "bids": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "placed_at": {
+                "$ref": "_shared.v1.json#/$defs/moment"
+              },
+              "amount": {
+                "$ref": "_shared.v1.json#/$defs/nullableNumber"
+              },
+              "is_cancelled": {
+                "$ref": "_shared.v1.json#/$defs/nullableBoolean"
+              },
+              "alias": {
+                "$ref": "_shared.v1.json#/$defs/nullableString"
+              }
+            },
+            "required": ["placed_at", "amount", "is_cancelled", "alias"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["is_active", "is_verified", "bids"],
+      "additionalProperties": false
+    },
+    "links": {
+      "type": "array"
+    },
+    "surroundings": {
+      "type": ["object", "null"]
     }
   },
   "required": [
@@ -36,6 +338,25 @@
     "agent_ids",
     "area_ids",
     "association_id",
+    "project_id",
+    "status",
+    "type",
+    "subtype",
+    "tenure",
+    "address",
+    "lat",
+    "lng",
+    "price",
+    "final_price",
+    "currency",
+    "fee",
+    "living_space",
+    "additional_space",
+    "rooms",
+    "buildings",
+    "images",
+    "viewings",
+    "bidding",
     "display",
     "provider_extras"
   ],

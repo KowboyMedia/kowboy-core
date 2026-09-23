@@ -26,6 +26,9 @@ export function decrypt(encrypted: string, keyBase64: string): string {
 export const tokenHmac = (token: string, keyBase64: string): string =>
   createHmac('sha256', key(keyBase64)).update(token).digest('hex');
 
+/** A fresh token or secret: 32 random bytes, base64url, shown once. */
+export const newSecret = (): string => randomBytes(32).toString('base64url');
+
 export function sameSecret(a: string, b: string): boolean {
   const left = Buffer.from(a);
   const right = Buffer.from(b);

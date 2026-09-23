@@ -1,15 +1,45 @@
 {
-  "id": "OBJ-55",
-  "office_id": "100",
+  "additional_space": null,
+  "address": {
+    "area_name": null,
+    "city": null,
+    "country_code": null,
+    "municipality": null,
+    "postal_code": null,
+    "street": null
+  },
   "agent_ids": [],
   "area_ids": [],
   "association_id": null,
-  "fake_state": "COMING",
-  "fake_label": null,
-  "fake_amount": null,
+  "bidding": {
+    "bids": [],
+    "is_active": null,
+    "is_verified": null
+  },
+  "buildings": [],
+  "currency": "SEK",
+  "fee": null,
+  "final_price": null,
+  "id": "OBJ-55",
+  "images": [],
+  "lat": null,
+  "living_space": null,
+  "lng": null,
+  "office_id": "100",
+  "price": null,
+  "project_id": null,
   "provider_extras": {
     "fake-webhook": {
       "internal_code": null
     }
-  }
+  },
+  "rooms": null,
+  "status": {
+    "id": "COMING",
+    "name": "COMING"
+  },
+  "subtype": null,
+  "tenure": null,
+  "type": null,
+  "viewings": []
 }

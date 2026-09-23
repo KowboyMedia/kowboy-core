@@ -7,6 +7,7 @@ import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { harness, until, TENANT, TOKEN, type Harness } from '../acceptance/harness.js';
 import { addSubscriber } from '../engine/storage/connections.js';
+import { queryEvents } from '../engine/events.js';
 import { db } from '../engine/storage/db.js';
 import { purgeTombstones } from '../engine/storage/items.js';
 import { fakePollingAdapter, poll } from '../adapters/fake-polling/index.js';
@@ -38,6 +39,8 @@ export type ClientStatus = {
   running_since: string | null;
   last_success_at: string | null;
   last_error: string | null;
+  /** What the site's own administrator is told while it is not syncing (WordPress). */
+  notice?: string | null;
   after: Record<string, number>;
 };
 
@@ -160,6 +163,63 @@ export function syncScenarios(name: string, client: ClientSetup): void {
     );
 
     it(
+      'names itself on every pull, so Core knows which of the tenant’s sites pulled (Patric, 2026-09-20)',
+      async () => {
+        await seed('P-1');
+        await sync();
+        // A second site of the tenant that never pulls: Core must not count it as pulling.
+        const decoy = await addSubscriber({
+          tenantId: TENANT,
+          label: 'another site',
+          bellUrl: 'http://127.0.0.1:9/bell',
+          bellSecret: BELL_SECRET,
+        });
+        await sync();
+
+        const { rows } = await db().query<{ id: string; last_pull_at: Date | null }>(
+          'select id, last_pull_at from subscribers order by id',
+        );
+        expect(rows.find((row) => Number(row.id) === decoy)?.last_pull_at).toBeNull();
+        const own = rows.find((row) => Number(row.id) !== decoy);
+        expect(own?.last_pull_at).not.toBeNull();
+
+        const pulls = await queryEvents({ type: 'pull', subscriberId: Number(own?.id) });
+        expect(pulls.length).toBeGreaterThan(0);
+        expect(pulls[0]?.fields['site']).toBe(site.bellUrl);
+      },
+      SCENARIO_TIMEOUT_MS,
+    );
+
+    it(
+      'a disabled licence stops bells and pulls, and the site keeps what it shows (Patric, 2026-09-18)',
+      async () => {
+        await seed('P-1');
+        await sync();
+        expect(await remoteIds('property')).toEqual(['P-1']);
+
+        const bellAt = async (): Promise<number | null> => {
+          const { rows } = await db().query<{ last_bell_at: Date | null }>(
+            'select last_bell_at from subscribers',
+          );
+          return rows[0]?.last_bell_at?.getTime() ?? null;
+        };
+        await db().query('update tenants set active = false where id = $1', [TENANT]);
+        const rungBefore = await bellAt();
+        await seed('P-2'); // Core writes it, and rings no site whose licence is off
+        expect(await bellAt()).toBe(rungBefore);
+
+        const status = await sync(); // the site's own backstop: refused, and nothing removed
+        expect(status.last_error).toMatch(/licence/);
+        expect(await remoteIds('property')).toEqual(['P-1']);
+
+        await db().query('update tenants set active = true where id = $1', [TENANT]);
+        await sync();
+        expect(await remoteIds('property')).toEqual(['P-1', 'P-2']);
+      },
+      SCENARIO_TIMEOUT_MS,
+    );
+
+    it(
       'converges from seq 0 to everything Core holds (AC 5, AC 34)',
       async () => {
         await seed('P-1', 'P-2', 'P-3');
@@ -176,8 +236,14 @@ export function syncScenarios(name: string, client: ClientSetup): void {
         // data is stored verbatim, and identity is connection plus remote id (AC 6).
         const stored = await item('property', 'P-1');
         expect(stored?.connection_id).toBe(CONNECTION);
-        expect(stored?.data?.['fake_label']).toBe('Kungsgatan P-1');
-        expect(stored?.data?.['display']).toEqual({});
+        expect((stored?.data?.['address'] as Record<string, unknown>)['street']).toBe(
+          'Kungsgatan P-1',
+        );
+        // So is display, the strings Core prepared (rules-ledger/).
+        expect(stored?.data?.['display']).toMatchObject({
+          price: '7\u00a0250\u00a0000\u00a0kr',
+          address_line: 'Kungsgatan P-1',
+        });
         // So is raw: the CRM payload exactly as Core served it.
         expect(stored?.raw).toMatchObject(fakeProperty('P-1'));
       },
@@ -246,7 +312,9 @@ export function syncScenarios(name: string, client: ClientSetup): void {
         await poll();
         await sync();
         expect(byId(await site.items('property'))).toEqual(before);
-        expect((await item('property', 'P-2'))?.data?.['fake_label']).toBe('Nygatan 2');
+        expect(
+          ((await item('property', 'P-2'))?.data?.['address'] as Record<string, unknown>)['street'],
+        ).toBe('Nygatan 2');
         await db().query('drop table items_backup');
       },
       SCENARIO_TIMEOUT_MS,
@@ -277,7 +345,9 @@ export function syncScenarios(name: string, client: ClientSetup): void {
         expect((await item('property', 'P-1'))?.data).toEqual({ damaged: true });
 
         await sync('forcerefresh');
-        expect((await item('property', 'P-1'))?.data?.['fake_label']).toBe('Kungsgatan P-1');
+        expect(
+          ((await item('property', 'P-1'))?.data?.['address'] as Record<string, unknown>)['street'],
+        ).toBe('Kungsgatan P-1');
       },
       SCENARIO_TIMEOUT_MS,
     );
@@ -322,6 +392,44 @@ export function syncScenarios(name: string, client: ClientSetup): void {
 
         const { rows } = await db().query<{ seq: string }>('select max(seq) as seq from items');
         expect(status.after['property']).toBe(Number(rows[0]?.seq));
+
+        // And Core was told: the broken record failed at this site, the others were applied.
+        const failed = await queryEvents({ tenantId: TENANT, type: 'site.failed', limit: 10 });
+        expect(failed.map((event) => event.remote_id)).toEqual(['P-2']);
+        const applied = await queryEvents({ tenantId: TENANT, type: 'site.applied', limit: 10 });
+        expect(applied.map((event) => event.remote_id).sort()).toEqual(['P-1', 'P-3']);
+        // And the skip reached Core's error gate as one bug (question 46), whichever client.
+        await until(
+          async () =>
+            (
+              await db().query<{ fingerprint: string }>(
+                "select fingerprint from error_reports where fingerprint like '%skipped an item%'",
+              )
+            ).rows.length === 1,
+          "the site's error report to reach Core",
+          PATIENCE_MS,
+        );
+      },
+      SCENARIO_TIMEOUT_MS,
+    );
+
+    it(
+      'reports back what it applied, on each record\u2019s timeline in Core (AC 16)',
+      async () => {
+        await seed('P-1', 'P-2');
+        await sync();
+        const applied = await queryEvents({ tenantId: TENANT, type: 'site.applied', limit: 10 });
+        expect(applied.map((event) => event.remote_id).sort()).toEqual(['P-1', 'P-2']);
+        for (const event of applied) {
+          expect(event.connection_id).toBe(CONNECTION);
+          expect(typeof event.fields['client']).toBe('string');
+          expect(typeof event.fields['seq']).toBe('number');
+        }
+        // Nothing changed: the next sync has nothing to report.
+        await sync();
+        expect(
+          (await queryEvents({ tenantId: TENANT, type: 'site.applied', limit: 10 })).length,
+        ).toBe(2);
       },
       SCENARIO_TIMEOUT_MS,
     );

@@ -24,6 +24,38 @@ add_action('admin_menu', function (): void {
     add_options_page('Kowboy Core', 'Kowboy Core', 'manage_options', 'core-client', 'core_client_settings_page');
 });
 
+/**
+ * The one line an administrator must see while this site is not syncing (Patric, 2026-09-18): not
+ * linked, a licence that is not active, or a sync that failed. Null while all is well. The site
+ * keeps showing what it has in every case; only the updates stop.
+ */
+function core_client_notice(): ?string
+{
+    $settings = core_client_settings();
+    if ($settings['url'] === '' || $settings['token'] === '') {
+        return 'This site is not linked to Kowboy Core, so no listings are synced. Contact Kowboy to link it.';
+    }
+    $error = core_client_state('last_error');
+    if ($error === null) {
+        return null;
+    }
+    if (str_contains($error, 'http 401')) {
+        return 'The Kowboy Core licence for this site is not active: the site keeps showing what it has, but nothing updates. Contact Kowboy.';
+    }
+    return "The last sync with Kowboy Core failed ($error). The site keeps showing what it has.";
+}
+
+add_action('admin_notices', function (): void {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+    $notice = core_client_notice();
+    if ($notice === null) {
+        return;
+    }
+    echo '<div class="notice notice-error"><p><strong>Kowboy Core:</strong> ' . esc_html($notice) . '</p></div>';
+});
+
 function core_client_settings_page(): void
 {
     $status = core_client_status();

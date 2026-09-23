@@ -1,5 +1,7 @@
 {
   "id": "area-77",
-  "fake_label": "Fake area",
+  "images": [],
+  "name": "Fake area",
+  "polygon": null,
   "provider_extras": {}
 }

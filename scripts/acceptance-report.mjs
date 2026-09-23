@@ -7,12 +7,14 @@ import { join } from 'node:path';
 
 const { criteria } = JSON.parse(readFileSync('acceptance/criteria.json', 'utf8'));
 
-// Two runs: the default one, and the WordPress client suite, which has its own config because it
-// needs a WordPress install (clients/wordpress/test/setup.sh).
+// Two vitest runs: the default one, and the WordPress client suite, which has its own config
+// because it needs a WordPress install (clients/wordpress/test/setup.sh). Then the browser
+// journeys, which drive the admin area as a person does (admin/playwright.config.ts).
 const CONFIGS = ['vitest.config.ts', 'vitest.wordpress.config.ts'];
 
 const results = new Map();
 const outDir = mkdtempSync(join(tmpdir(), 'core-report-'));
+
 for (const config of CONFIGS) {
   const resultsFile = join(outDir, `${config}.json`);
   try {
@@ -29,6 +31,46 @@ for (const config of CONFIGS) {
       results.set(assertion.fullName, assertion.status);
   }
 }
+
+// The browser journeys: Playwright's own JSON report, flattened to "title → status", so a
+// criterion may name a journey exactly as it names a test.
+function collectJourneys() {
+  const resultsFile = join(outDir, 'journeys.json');
+  try {
+    execFileSync(
+      'npx',
+      ['playwright', 'test', '--config', 'admin/playwright.config.ts', '--reporter=json'],
+      {
+        stdio: 'inherit',
+        env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_NAME: resultsFile },
+      },
+    );
+  } catch {
+    console.error('the browser journeys failed or could not run; the report below records that');
+  }
+  let report;
+  try {
+    report = JSON.parse(readFileSync(resultsFile, 'utf8'));
+  } catch {
+    return;
+  }
+  const walk = (suites) => {
+    for (const suite of suites ?? []) {
+      for (const spec of suite.specs ?? []) {
+        const status = (spec.tests ?? []).every((test) =>
+          (test.results ?? []).some((result) => result.status === 'passed'),
+        )
+          ? 'passed'
+          : 'failed';
+        results.set(spec.title, status);
+      }
+      walk(suite.suites);
+    }
+  };
+  walk(report.suites);
+}
+
+collectJourneys();
 
 const PHASE_LABEL = {
   engine: 'engine (now)',

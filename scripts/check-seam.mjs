@@ -4,13 +4,16 @@
 //  - adapters import engine/adapter-api/ only
 //  - main.ts is the only file importing both sides
 //  - "Kore" (the old product name) appears only under docs/inputs/
+//  - no CRM name in the admin area's own app (admin/src), which draws every adapter's page from
+//    the data the adapter reports and must never know what a CRM is. The journeys under admin/e2e
+//    drive a named fake adapter on purpose and are left out, as the acceptance tests are.
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, normalize, join } from 'node:path';
 import { walk } from './lib/walk.mjs';
 import { report } from './lib/report.mjs';
 
 const CRM_NAMES = ['vitec', 'mspecs'];
-const CODE = ['.ts', '.js', '.mjs', '.php', '.tsx'];
+const CODE = ['.ts', '.js', '.mjs', '.php'];
 const ADAPTER_API = 'engine/adapter-api/';
 
 const specifiers = (source) =>
@@ -21,8 +24,12 @@ const resolve = (file, specifier) =>
 
 const violations = [];
 
-// 1. No CRM name in the engine or the clients.
-for (const file of [...walk('engine', CODE), ...walk('clients', CODE)]) {
+// 1. No CRM name in the engine, the clients or the admin area's app.
+for (const file of [
+  ...walk('engine', CODE),
+  ...walk('clients', CODE),
+  ...walk('admin/src', [...CODE, '.tsx']),
+]) {
   const lines = readFileSync(file, 'utf8').split('\n');
   lines.forEach((line, index) => {
     for (const name of CRM_NAMES) {

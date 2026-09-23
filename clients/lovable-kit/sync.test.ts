@@ -58,7 +58,7 @@ async function start(
   await site.query(`truncate ${Object.values(TABLES).join(', ')}, core_sync_state`);
 
   const port = await freePort();
-  const bellUrl = `http://127.0.0.1:${port}/`;
+  const bellUrl = `http://127.0.0.1:${port}/functions/v1/core-sync`;
   deno = spawn(DENO, ['run', '--quiet', '--allow-all', '--config', CONFIG, FUNCTION], {
     env: {
       ...process.env,
@@ -195,7 +195,9 @@ describe('the Lovable kit on its own', () => {
         60_000,
       );
       const repaired = (await client.items('property')).find((item) => item.remote_id === 'P-000');
-      expect(repaired?.data?.['fake_label']).toBe('Kungsgatan P-000');
+      expect((repaired?.data?.['address'] as Record<string, unknown>)['street']).toBe(
+        'Kungsgatan P-000',
+      );
       expect((await client.items('office')).map((item) => item.remote_id)).toEqual(['B-1']);
       const { rows } = await site.query(
         "select value from core_sync_state where name = 'rebuild_started_at'",

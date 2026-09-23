@@ -3,17 +3,25 @@ import type { AddressInfo } from 'node:net';
 import { startEngine, type Engine } from '../engine/index.js';
 import { startAdapter } from '../engine/adapter-api/index.js';
 import { adapterRoutes } from '../engine/http/server.js';
+import { configureMail, type Mail } from '../engine/mail.js';
 import { db } from '../engine/storage/db.js';
-import { addSubscriber, upsertConnection, upsertTenant } from '../engine/storage/connections.js';
+import { addSubscriber, createTenant, upsertConnection } from '../engine/storage/connections.js';
 import { deliverLifecycleEvents } from '../engine/lifecycle.js';
-import { clearRegistry } from '../engine/registry.js';
+import { clearRegistry, registerAdmin } from '../engine/registry.js';
 import type { Adapter } from '../engine/adapter-api/types.js';
 
-export const TENANT = 't_test';
-export const TOKEN = 'test-tenant-token';
-export const ADMIN_SECRET = 'test-admin-secret';
+// The engine's operations an adapter's tests drive, re-exported so those tests import the harness
+// only: the seam check keeps adapter code, its tests included, out of the engine's internals.
+export { queueLifecycle } from '../engine/lifecycle.js';
+export { queryEvents } from '../engine/events.js';
+export { connectionById } from '../engine/storage/connections.js';
+export { healthReport, type HealthReport } from '../engine/health.js';
 
-export type Bell = { kind: string; tenant_id: string; secret: string | undefined };
+/** The test tenant's number: the first one made after every reset. */
+export const TENANT = 1;
+export const TOKEN = 'test-tenant-token';
+
+export type Bell = { kind: string; tenant_id: number; secret: string | undefined };
 
 export type ConnectionInput = {
   id: string;
@@ -27,6 +35,8 @@ export type Harness = {
   engine: Engine;
   baseUrl: string;
   bells: Bell[];
+  /** Every mail Core sent, instead of sending it. */
+  mails: Mail[];
   /** Add or change a connection of the test tenant. */
   connection(input: ConnectionInput): Promise<void>;
   /** Deliver queued lifecycle events, as the worker's tick would. */
@@ -51,6 +61,13 @@ export async function harness(options: {
 
   let engine = await startEngine({ port: 0 });
   await truncate();
+  const mails: Mail[] = [];
+  const keepMail = (): void => {
+    configureMail(async (mail) => {
+      mails.push(mail);
+    });
+  };
+  keepMail();
 
   const bells: Bell[] = [];
   const bellServer = await listen((request, respond) => {
@@ -62,7 +79,8 @@ export async function harness(options: {
     respond(200);
   });
 
-  await upsertTenant({ id: TENANT, displayName: 'Test tenant', token: TOKEN });
+  const tenantId = await createTenant({ displayName: 'Test tenant', token: TOKEN });
+  if (tenantId !== TENANT) throw new Error(`the test tenant got number ${tenantId}, not ${TENANT}`);
   const connection = (input: ConnectionInput): Promise<void> =>
     upsertConnection({
       id: input.id,
@@ -87,12 +105,17 @@ export async function harness(options: {
   let server = engine.listen(routes);
   const port = (server.address() as AddressInfo).port;
 
-  for (const adapter of adapters) await startAdapter(adapter);
+  for (const adapter of adapters) {
+    await startAdapter(adapter);
+    // As the entrypoint does for both roles: the admin area draws the adapter's own panel.
+    if (adapter.admin) registerAdmin(adapter.manifest.provider, adapter.admin);
+  }
 
   const running: Harness = {
     engine,
     baseUrl: `http://127.0.0.1:${port}`,
     bells,
+    mails,
     connection,
     deliver: async () => {
       await deliverLifecycleEvents();
@@ -103,6 +126,7 @@ export async function harness(options: {
       await during?.();
       await engine.stop();
       engine = await startEngine({ port });
+      keepMail();
       running.engine = engine;
       server = engine.listen(routes);
       for (const adapter of adapters) await startAdapter(adapter);
@@ -116,10 +140,25 @@ export async function harness(options: {
   return running;
 }
 
-async function truncate(): Promise<void> {
-  await db().query(
-    'truncate tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results restart identity cascade',
-  );
+const TABLES =
+  'tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results, error_reports, jobs, alert_state, settings, admin_logins, admin_sessions';
+
+/**
+ * Every table empty and the sequence at 1: what the harness does before a test, and what a test
+ * that starts Core another way calls. Truncating takes an exclusive lock on every table at once,
+ * which Postgres will refuse as a deadlock if a connection the last test left behind is reading
+ * one of them in another order; the second try always has the field to itself.
+ */
+export async function truncate(): Promise<void> {
+  for (const attempt of [1, 2]) {
+    try {
+      await db().query(`truncate ${TABLES} restart identity cascade`);
+      break;
+    } catch (error) {
+      if (attempt === 2 || !String(error).includes('deadlock')) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
   await db().query("select setval('item_seq', 1, false)");
 }
 

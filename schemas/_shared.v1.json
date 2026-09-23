@@ -17,8 +17,40 @@
       }
     },
     "display": {
-      "description": "Human-readable strings computed by Core. Empty until the rules ledger defines a rule.",
+      "description": "Strings the engine prepares from the universal record by the entries in rules-ledger/, one interpreter for every CRM (strategy §12.23). `sections` is the list of fact tables of a property page (R-013).",
       "type": "object",
+      "properties": {
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "header": {
+                "type": "string",
+                "minLength": 1
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["label", "value"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": ["header", "items"],
+            "additionalProperties": false
+          }
+        }
+      },
       "additionalProperties": {
         "type": "string"
       }
@@ -29,6 +61,538 @@
       "additionalProperties": {
         "type": "object"
       }
+    },
+    "named": {
+      "description": "An enumeration as the CRM sends it: its id and its label, both kept (docs/field-tables.md).",
+      "type": ["object", "null"],
+      "properties": {
+        "id": {
+          "type": ["string", "null"]
+        },
+        "name": {
+          "type": ["string", "null"]
+        }
+      },
+      "required": ["id", "name"],
+      "additionalProperties": false
+    },
+    "nullableString": {
+      "type": ["string", "null"]
+    },
+    "nullableNumber": {
+      "type": ["number", "null"]
+    },
+    "nullableBoolean": {
+      "type": ["boolean", "null"]
+    },
+    "moment": {
+      "description": "ISO 8601 in UTC, converted by the adapter from the CRM's clock.",
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "url": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "category": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "name": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "description": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "extension": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "changed_at": {
+          "$ref": "#/$defs/moment"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id",
+        "url",
+        "category",
+        "name",
+        "description",
+        "extension",
+        "changed_at",
+        "order"
+      ],
+      "additionalProperties": false
+    },
+    "images": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/image"
+      }
+    },
+    "viewing": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "starts_at": {
+          "$ref": "#/$defs/moment"
+        },
+        "ends_at": {
+          "$ref": "#/$defs/moment"
+        },
+        "comment": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "is_digital": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "self_registration": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "is_project_viewing": {
+          "$ref": "#/$defs/nullableBoolean"
+        }
+      },
+      "required": ["id", "starts_at", "ends_at"],
+      "additionalProperties": false
+    },
+    "viewings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/viewing"
+      }
+    },
+    "viewingSettings": {
+      "type": "object",
+      "properties": {
+        "visible_limit": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "empty_text": {
+          "$ref": "#/$defs/nullableString"
+        }
+      },
+      "required": ["visible_limit", "empty_text"],
+      "additionalProperties": false
+    },
+    "address": {
+      "type": "object",
+      "properties": {
+        "street": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "postal_code": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "city": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "area_name": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "area_id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "municipality": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "country_code": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "county_municipality_code": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "directions": {
+          "$ref": "#/$defs/nullableString"
+        }
+      },
+      "required": ["street", "postal_code", "city", "area_name", "municipality", "country_code"],
+      "additionalProperties": false
+    },
+    "texts": {
+      "heading": {
+        "$ref": "#/$defs/nullableString"
+      },
+      "short_text": {
+        "$ref": "#/$defs/nullableString"
+      },
+      "long_text": {
+        "$ref": "#/$defs/nullableString"
+      },
+      "phrase": {
+        "$ref": "#/$defs/nullableString"
+      },
+      "other_information": {
+        "$ref": "#/$defs/nullableString"
+      },
+      "possession_estimate": {
+        "$ref": "#/$defs/nullableString"
+      }
+    },
+    "marketing": {
+      "is_new_build": {
+        "$ref": "#/$defs/nullableBoolean"
+      },
+      "is_published": {
+        "$ref": "#/$defs/nullableBoolean"
+      },
+      "is_preview": {
+        "$ref": "#/$defs/nullableBoolean"
+      },
+      "published_at": {
+        "$ref": "#/$defs/moment"
+      },
+      "viewing_settings": {
+        "$ref": "#/$defs/viewingSettings"
+      }
+    },
+    "range": {
+      "type": ["object", "null"],
+      "properties": {
+        "min": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "max": {
+          "$ref": "#/$defs/nullableNumber"
+        }
+      },
+      "required": ["min", "max"],
+      "additionalProperties": false
+    },
+    "phone": {
+      "type": ["object", "null"],
+      "properties": {
+        "number": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "display": {
+          "$ref": "#/$defs/nullableString"
+        }
+      },
+      "required": ["number", "display"],
+      "additionalProperties": false
+    },
+    "typedEntry": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/named"
+        },
+        "description": {
+          "$ref": "#/$defs/nullableString"
+        }
+      },
+      "required": ["type", "description"],
+      "additionalProperties": false
+    },
+    "exteriorFeature": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/named"
+        },
+        "is_available": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "size": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "description": {
+          "$ref": "#/$defs/nullableString"
+        }
+      },
+      "required": ["type", "is_available", "size", "description"],
+      "additionalProperties": false
+    },
+    "buildingFacts": {
+      "rooms": {
+        "$ref": "#/$defs/nullableNumber"
+      },
+      "bedrooms": {
+        "$ref": "#/$defs/nullableNumber"
+      },
+      "bedrooms_max": {
+        "$ref": "#/$defs/nullableNumber"
+      },
+      "bathrooms": {
+        "$ref": "#/$defs/nullableNumber"
+      },
+      "living_space": {
+        "$ref": "#/$defs/nullableNumber"
+      },
+      "additional_space": {
+        "$ref": "#/$defs/nullableNumber"
+      },
+      "building_area": {
+        "$ref": "#/$defs/nullableNumber"
+      },
+      "area_description": {
+        "$ref": "#/$defs/nullableString"
+      },
+      "area_source": {
+        "$ref": "#/$defs/nullableString"
+      },
+      "floor": {
+        "$ref": "#/$defs/nullableNumber"
+      },
+      "floors_total": {
+        "$ref": "#/$defs/nullableNumber"
+      },
+      "floor_description": {
+        "$ref": "#/$defs/nullableString"
+      },
+      "elevator": {
+        "$ref": "#/$defs/nullableBoolean"
+      },
+      "elevator_description": {
+        "$ref": "#/$defs/nullableString"
+      },
+      "year_built": {
+        "$ref": "#/$defs/nullableNumber"
+      },
+      "year_built_text": {
+        "$ref": "#/$defs/nullableString"
+      },
+      "year_built_description": {
+        "$ref": "#/$defs/nullableString"
+      }
+    },
+    "operation": {
+      "operating_cost": {
+        "$ref": "#/$defs/nullableNumber"
+      },
+      "operating_costs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "$ref": "#/$defs/named"
+            },
+            "value": {
+              "$ref": "#/$defs/nullableNumber"
+            }
+          },
+          "required": ["type", "value"],
+          "additionalProperties": false
+        }
+      },
+      "operating_cost_description": {
+        "$ref": "#/$defs/nullableString"
+      },
+      "household_size": {
+        "$ref": "#/$defs/nullableNumber"
+      }
+    },
+    "building": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "type": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "rooms": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "bedrooms": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "bedrooms_max": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "bathrooms": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "living_space": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "additional_space": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "building_area": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "area_description": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "area_source": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "floor": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "floors_total": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "floor_description": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "elevator": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "elevator_description": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "year_built": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "year_built_text": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "year_built_description": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "description": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "interior": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "other_information": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "ventilation": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "$ref": "#/$defs/nullableString"
+            },
+            "inspection": {
+              "$ref": "#/$defs/nullableString"
+            }
+          },
+          "additionalProperties": false
+        },
+        "architecture": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/typedEntry"
+          }
+        },
+        "renovation": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/typedEntry"
+          }
+        },
+        "room_list": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "$ref": "#/$defs/nullableString"
+              },
+              "description": {
+                "$ref": "#/$defs/nullableString"
+              }
+            },
+            "required": ["name", "description"],
+            "additionalProperties": false
+          }
+        },
+        "room_list_text": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "energy_declaration": {
+          "type": ["object", "null"],
+          "properties": {
+            "consumption": {
+              "$ref": "#/$defs/nullableNumber"
+            },
+            "class": {
+              "$ref": "#/$defs/nullableString"
+            },
+            "status": {
+              "$ref": "#/$defs/named"
+            },
+            "performed_at": {
+              "$ref": "#/$defs/moment"
+            }
+          },
+          "required": ["consumption", "class", "status", "performed_at"],
+          "additionalProperties": false
+        },
+        "plot_description": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "exterior_features": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/exteriorFeature"
+          }
+        },
+        "operating_cost": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "operating_costs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "$ref": "#/$defs/named"
+              },
+              "value": {
+                "$ref": "#/$defs/nullableNumber"
+              }
+            },
+            "required": ["type", "value"],
+            "additionalProperties": false
+          }
+        },
+        "operating_cost_description": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "household_size": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "electricity": {
+          "type": "object",
+          "properties": {
+            "company": {
+              "$ref": "#/$defs/nullableString"
+            },
+            "distributor": {
+              "$ref": "#/$defs/nullableString"
+            },
+            "consumption": {
+              "$ref": "#/$defs/nullableNumber"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "rooms",
+        "living_space",
+        "additional_space",
+        "floor",
+        "elevator",
+        "year_built",
+        "architecture",
+        "services",
+        "room_list",
+        "energy_declaration",
+        "exterior_features"
+      ],
+      "additionalProperties": false
     }
   }
 }

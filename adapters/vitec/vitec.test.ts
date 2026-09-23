@@ -2,8 +2,19 @@
 // the fetch list, both schedules, licensing by office and the health checks. Vitec's behaviour
 // beyond its documentation waits for a test account on staging (strategy §9, Phase 6).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { harness, pull, ADMIN_SECRET, type Harness } from '../../acceptance/harness.js';
+import {
+  connectionById,
+  harness,
+  healthReport,
+  pull,
+  queryEvents,
+  queueLifecycle,
+  type Harness,
+  type HealthReport,
+} from '../../acceptance/harness.js';
 import { drainFetchList, runSchedules, vitecAdapter } from './index.js';
+import { vitecAdmin } from './admin/index.js';
+import type { Connection, LifecycleEvent } from '../../engine/adapter-api/index.js';
 import * as store from './store.js';
 import { PASSWORD, USERNAME, startFakeConnect, type FakeConnect } from './test/connect.js';
 
@@ -55,15 +66,23 @@ function seed(fake: FakeConnect): void {
 let fake: FakeConnect;
 let running: Harness;
 
-/** An admin event: queued by the web process, delivered by the worker, here by hand. */
-const event = async (body: Record<string, unknown>): Promise<Response> => {
-  const response = await fetch(`${running.baseUrl}/v1/admin/event`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-admin-secret': ADMIN_SECRET },
-    body: JSON.stringify({ connection_id: CONNECTION, ...body }),
-  });
+/** A lifecycle event: queued as the panel will queue it, delivered by the worker, here by hand. */
+const event = async (type: LifecycleEvent['type'], officeIds?: string[]): Promise<void> => {
+  await queueLifecycle(CONNECTION, type, officeIds ? { officeIds } : {});
   await running.deliver();
-  return response;
+};
+
+/** An optional part of the adapter's panel that the Vitec adapter does implement. */
+const required = <T>(part: T | undefined, what: string): T => {
+  if (!part) throw new Error(`the Vitec adapter has no ${what}`);
+  return part;
+};
+
+/** The test connection as the engine holds it, credentials decrypted. */
+const connection = async (): Promise<Connection> => {
+  const found = await connectionById(CONNECTION);
+  if (!found) throw new Error(`${CONNECTION} is gone`);
+  return found;
 };
 
 const hook = (body: Record<string, unknown>, token = TOKEN): Promise<Response> =>
@@ -73,11 +92,8 @@ const hook = (body: Record<string, unknown>, token = TOKEN): Promise<Response> =
     body: JSON.stringify(body),
   });
 
-const health = async (): Promise<Record<string, { ok: boolean; detail?: string }>> => {
-  const response = await fetch(`${running.baseUrl}/v1/health`);
-  return ((await response.json()) as { checks: Record<string, { ok: boolean; detail?: string }> })
-    .checks;
-};
+/** The checks as the worker reports them, names included; /v1/health answers without the names. */
+const health = async (): Promise<HealthReport['checks']> => (await healthReport()).checks;
 
 const item = async (
   datatype: string,
@@ -89,6 +105,16 @@ const item = async (
 
 const fetchesOf = (id: string): number =>
   fake.requests.filter((request) => request.path.endsWith(`/${OFFICE}/${id}`)).length;
+
+/** One record's timeline, as the event log answers it. */
+const timelineOf = (
+  datatype: string,
+  id: string,
+): Promise<{ type: string; correlation_id: string | null; fields: Record<string, unknown> }[]> =>
+  queryEvents({ entity: { connectionId: CONNECTION, datatype, remoteId: id } });
+
+const notify = (id: string): Promise<Response> =>
+  hook({ type: 'Estate', event: 'Update', customerId: OFFICE, id });
 
 async function start(licensedOffices: string[] = [OFFICE]): Promise<void> {
   running = await harness({
@@ -115,7 +141,7 @@ describe('the Vitec adapter', () => {
   it('loads everything a new connection publishes, with the spine and the referenced association', async () => {
     seed(fake);
     await start();
-    await event({ event: 'connection_added' });
+    await event('connection_added');
     await drainFetchList();
 
     const property = await item('property', 'OBJ1');
@@ -126,13 +152,12 @@ describe('the Vitec adapter', () => {
       area_ids: ['A1'],
       association_id: 'F1',
       project_id: 'PR1',
-      display: {},
       provider_extras: {},
-      // The whole payload, mirrored under snake_case names with the nesting kept.
-      primary_agent_id: 'U1',
-      address: { street_address: 'Storgatan 1', area: { id: 'A1', name: 'Centrum' } },
+      // The universal names (docs/field-tables.md), and the strings the engine prepared from them.
+      address: { street: 'Storgatan 1', area_id: 'A1', area_name: 'Centrum' },
+      display: { address_line: 'Storgatan 1' },
+      // What the tables do not name stays under its mechanical snake_case name, nesting kept.
       extensions: { housing_cooperative: { association: { id: 'F1' } } },
-      changed_at: CHANGED,
     });
     // And the payload itself, untouched, next to it.
     expect(property?.['raw']).toEqual(estate('OBJ1'));
@@ -247,14 +272,16 @@ describe('the Vitec adapter', () => {
     fake.failNext(3);
     await hook({ type: 'Estate', event: 'Update', customerId: OFFICE, id: 'OBJ1' });
     for (let attempt = 1; attempt <= 3; attempt += 1) {
+      if (attempt > 1) await store.expedite();
       await drainFetchList();
       expect(await store.depth()).toBe(1);
-      await store.expedite();
     }
+    // The record now waits out its third backoff, where the adapter's own drain timer leaves it.
     expect((await health())['vitec.retries']).toMatchObject({ ok: false });
     // Three failures did not tombstone anything.
     expect((await item('property', 'OBJ1'))?.['seq']).toBe(before);
 
+    await store.expedite();
     await drainFetchList();
     expect(await store.depth()).toBe(0);
     const after = await item('property', 'OBJ1');
@@ -274,6 +301,8 @@ describe('the Vitec adapter', () => {
       for (let attempt = 1; attempt <= 6; attempt += 1) {
         await drainFetchList();
         await store.expedite();
+        // Other fetches succeed in between: only this record keeps failing, the connection is fine.
+        await store.setState(CONNECTION, 'failures', '0');
       }
       // Given up: still listed, but not due, and reported once.
       await drainFetchList();
@@ -411,7 +440,7 @@ describe('the Vitec adapter', () => {
     await drainFetchList();
 
     fake.unlist(OFFICE, 'property', 'OBJ1');
-    await event({ event: 'resync' });
+    await event('resync');
     await drainFetchList();
     expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
     expect((await item('office', OFFICE))?.['deleted']).toBe(false);
@@ -435,6 +464,226 @@ describe('the Vitec adapter', () => {
       .filter((request) => request.path.endsWith(`/Estate/${OFFICE}`))
       .map((request) => request.query.get('paging.pageIndex'));
     expect([...new Set(pages)].sort()).toEqual(['0', '1', '2']);
+  });
+
+  it('puts the notification, the Vitec call and the write on one timeline (AC 16)', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    fake.put(OFFICE, 'property', estate('OBJ2'));
+    const response = await hook({
+      type: 'Estate',
+      event: 'Update',
+      customerId: OFFICE,
+      id: 'OBJ2',
+    });
+    const { correlation_id } = (await response.json()) as { correlation_id: string };
+    await drainFetchList();
+
+    const events = await timelineOf('property', 'OBJ2');
+    expect(events.map((event) => event.type)).toEqual(
+      expect.arrayContaining(['webhook.received', 'crm.call', 'entity.written']),
+    );
+    for (const event of events) expect(event.correlation_id).toBe(correlation_id);
+    const call = events.find((event) => event.type === 'crm.call');
+    expect(call?.fields).toMatchObject({
+      method: 'GET',
+      endpoint: `/Advertising/Estate/${OFFICE}/OBJ2`,
+      status: 200,
+    });
+    expect(typeof call?.fields['duration_ms']).toBe('number');
+    expect(events.find((event) => event.type === 'webhook.received')?.fields).toMatchObject({
+      outcome: 'queued',
+      event: 'webhook',
+      response: 202,
+      // What Vitec sent, kept whole for as long as the log keeps events (question 63).
+      body: { type: 'Estate', event: 'Update', customerId: OFFICE, id: 'OBJ2' },
+    });
+  });
+
+  it('blocks an office at the first 403, probes it back and loads it again', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    fake.forbid(OFFICE);
+    fake.put(OFFICE, 'property', estate('OBJ2'));
+    await notify('OBJ2');
+    await drainFetchList();
+    expect(fetchesOf('OBJ2')).toBe(1);
+    // The public detail counts; the office is named aside, for the alerts (question 62).
+    const offices = (await health())['vitec.offices'];
+    expect(offices).toMatchObject({
+      ok: false,
+      detail: expect.stringContaining('1 office(s) refused by Vitec'),
+    });
+    expect(offices?.names?.[0]).toContain(OFFICE);
+
+    // Nothing more is asked for the office: a new notification waits, parked.
+    await notify('OBJ3');
+    await drainFetchList();
+    expect(fetchesOf('OBJ3')).toBe(0);
+    expect(await store.depth()).toBe(2);
+
+    // A probe that is refused again means a longer wait.
+    await store.expediteProbe(OFFICE);
+    await runSchedules();
+    expect((await store.blockedOffices())[0]?.probes).toBe(1);
+
+    // The office is back: one probe, then everything of it again, the parked records included.
+    fake.allow(OFFICE);
+    fake.put(OFFICE, 'property', estate('OBJ3'));
+    await store.expediteProbe(OFFICE);
+    await runSchedules();
+    expect((await health())['vitec.offices']?.ok).toBe(true);
+    await drainFetchList();
+    expect(await item('property', 'OBJ2')).toBeDefined();
+    expect(await item('property', 'OBJ3')).toBeDefined();
+    const types = (await timelineOf('property', 'OBJ2')).map((event) => event.type);
+    expect(types).toContain('entity.written');
+  });
+
+  it('pauses a connection after five failures in a row and resumes it with a probe', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    const ids = ['OBJ2', 'OBJ3', 'OBJ4', 'OBJ5', 'OBJ6', 'OBJ7', 'OBJ8'];
+    for (const id of ids) fake.put(OFFICE, 'property', estate(id));
+    fake.failNext(100);
+    const before = fake.requests.length;
+    for (const id of ids) await notify(id);
+    await drainFetchList();
+    expect(fake.requests.length - before).toBeLessThanOrEqual(5);
+    const paused = (await health())['vitec.connect'];
+    expect(paused).toMatchObject({
+      ok: false,
+      detail: expect.stringContaining('1 connection(s) paused'),
+    });
+    expect(paused?.names?.[0]).toContain(CONNECTION);
+
+    // The pause runs out and Vitec is back: the probe fetches go through, and the rest follow.
+    fake.failNext(0);
+    await store.setState(CONNECTION, 'paused_until', new Date(0).toISOString());
+    await store.expedite();
+    await runSchedules();
+    await drainFetchList();
+    expect((await health())['vitec.connect']?.ok).toBe(true);
+    for (const id of ids) expect(await item('property', id)).toBeDefined();
+    const types = (await queryEvents({ connectionId: CONNECTION })).map((row) => row.type);
+    expect(types).toContain('connect.paused');
+    expect(types).toContain('connect.resumed');
+  });
+
+  it('keeps the start of a broken answer and fetches the record at the next try', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    fake.put(OFFICE, 'property', estate('OBJ2'));
+    fake.brokenNext(1);
+    await notify('OBJ2');
+    await drainFetchList();
+    expect(await item('property', 'OBJ2')).toBeUndefined();
+    const call = (await timelineOf('property', 'OBJ2')).find(
+      (event) => event.type === 'crm.call' && event.fields['error'],
+    );
+    expect(String(call?.fields['error'])).toContain('broken JSON');
+    expect(String(call?.fields['error'])).toContain('custo');
+    await store.expedite();
+    await drainFetchList();
+    expect(await item('property', 'OBJ2')).toBeDefined();
+  });
+
+  it('honours Retry-After and keeps under the speed limit', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    fake.put(OFFICE, 'property', estate('OBJ2'));
+    fake.retryAfterNext(1);
+    await notify('OBJ2');
+    await drainFetchList();
+    const heldAt = Date.now();
+    await store.expedite();
+    await drainFetchList();
+    expect(Date.now() - heldAt).toBeGreaterThanOrEqual(900);
+    expect(await item('property', 'OBJ2')).toBeDefined();
+
+    const limit = process.env['VITEC_REQUESTS_PER_SECOND'];
+    process.env['VITEC_REQUESTS_PER_SECOND'] = '4';
+    try {
+      const ids = ['OBJ3', 'OBJ4', 'OBJ5', 'OBJ6', 'OBJ7', 'OBJ8', 'OBJ9', 'OBJ10'];
+      for (const id of ids) fake.put(OFFICE, 'property', estate(id));
+      const startedAt = Date.now();
+      for (const id of ids) await notify(id);
+      await drainFetchList();
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(1500);
+      expect(await item('property', 'OBJ10')).toBeDefined();
+    } finally {
+      process.env['VITEC_REQUESTS_PER_SECOND'] = limit;
+    }
+  });
+
+  it('probes a typed login per office before it is saved, and loads with that login (AC 42)', async () => {
+    seed(fake);
+    await start();
+    const probe = required(vitecAdmin.probe, 'probe');
+    const refused = await probe(JSON.stringify({ username: USERNAME, password: 'wrong' }), [
+      OFFICE,
+    ]);
+    expect(refused.ok).toBe(false);
+    expect(refused.detail).toContain(OFFICE);
+    const accepted = await probe(credentials, [OFFICE]);
+    expect(accepted.ok).toBe(true);
+    expect(accepted.detail).toContain('Vitec answers');
+    expect(await probe(credentials, [])).toMatchObject({ ok: false });
+
+    // The worker takes the first load, and the adapter fetches with the saved login.
+    await event('connection_added');
+    await drainFetchList();
+    expect((await pull(running.baseUrl, 'property')).items).toHaveLength(1);
+  });
+
+  it('describes its panel as data: the directions and settings, the schedules with run-now actions, the fetch list, one record looked at without writing or fetched again, and its queue (AC 42)', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    const connections = [await connection()];
+
+    expect(vitecAdmin.directions().settings.map((setting) => setting.key)).toContain(
+      'VITEC_WEBHOOK_TOKEN',
+    );
+    const page = await vitecAdmin.panel(connections);
+    const url = page.find((section) => section.title === 'Notification URL')?.items?.[0]?.value;
+    expect(url).toContain(`/v1/hook/vitec/webhook/${TOKEN}`);
+    const schedules = page.find((section) => section.title === 'Connections and schedules');
+    expect(schedules?.table?.rows[0]?.cells[0]).toBe(CONNECTION);
+
+    // Look: fetched and mapped, nothing written.
+    fake.put(OFFICE, 'property', estate('OBJ9'));
+    const looked = await required(vitecAdmin.inspect, 'inspect')(connections[0] as Connection, {
+      datatype: 'property',
+      remoteId: 'OBJ9',
+      officeId: OFFICE,
+    });
+    expect(looked?.raw).toHaveProperty('id', 'OBJ9');
+    expect(looked?.mapped?.data).toHaveProperty('agent_ids');
+    expect(await item('property', 'OBJ9')).toBeUndefined();
+
+    // Fetch again, named outright: the worker hands it to the adapter, which fetches and stores it.
+    await queueLifecycle(CONNECTION, 'refetch', {
+      records: [{ datatype: 'property', remoteId: 'OBJ9', officeId: OFFICE }],
+    });
+    await running.deliver();
+    const queue = required(vitecAdmin.queue, 'queue');
+    expect((await queue(connections)).map((row) => row.remoteId)).toContain('OBJ9');
+    await drainFetchList();
+    expect(await item('property', 'OBJ9')).toBeDefined();
+
+    // "Catch up now" makes the next tick run it; the connection's section says what the adapter knows.
+    const acted = await vitecAdmin.act('catch_up', { connection: CONNECTION }, connections);
+    expect(acted.message).toContain('next tick');
+    expect(await store.getState(CONNECTION, 'catch_up_at')).toBe('1970-01-01T00:00:00.000Z');
+    expect(vitecAdmin.credentials.map((field) => field.label)).toContain('Connect username');
+    const own = await vitecAdmin.connection?.(connections[0] as Connection);
+    expect(own?.map((section) => section.title)).toContain('What Vitec knows');
   });
 
   it('fetches at most five records at once (proposal point 10)', async () => {
@@ -465,7 +714,7 @@ describe('the Vitec adapter', () => {
       licensedOffices: [OFFICE, 'M2'],
     });
     fake.requests.length = 0;
-    await event({ event: 'offices_added', office_ids: ['M2'] });
+    await event('offices_added', ['M2']);
     await drainFetchList();
 
     expect((await item('property', 'OBJ2'))?.['office_id']).toBe('M2');

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kowboy.se/schemas/area.v1.json",
   "title": "area.data",
-  "description": "INCOMPLETE. Only identity is defined, because the CRM data models have not been read yet. The descriptive model is added in one piece once they have (docs/field-tables.md). `additionalProperties` is true until then, so this schema does not yet reject an unknown field.",
+  "description": "An area on the universal names (docs/field-tables.md): its name, its polygon as the CRM draws it, its texts and images; areas are loose, the office is informational. Fields the field tables do not name stay under their mechanical snake_case names (docs/data-model-reference.md), so `additionalProperties` stays true.",
   "type": "object",
   "properties": {
     "id": {
@@ -13,8 +13,26 @@
     },
     "provider_extras": {
       "$ref": "_shared.v1.json#/$defs/providerExtras"
+    },
+    "name": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "county_municipality_code": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "polygon": {
+      "type": ["array", "null"]
+    },
+    "office_id": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "surroundings": {
+      "type": ["object", "null"]
+    },
+    "images": {
+      "$ref": "_shared.v1.json#/$defs/images"
     }
   },
-  "required": ["id", "display", "provider_extras"],
+  "required": ["id", "name", "polygon", "images", "display", "provider_extras"],
   "additionalProperties": true
 }

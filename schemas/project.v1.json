@@ -2,11 +2,17 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kowboy.se/schemas/project.v1.json",
   "title": "project.data",
-  "description": "INCOMPLETE. A new-build project that groups properties (approved 2026-09-16 as the sixth datatype). Only identity and references are defined; the descriptive model is added in one piece when the universal model is approved (docs/field-tables.md). `additionalProperties` is true until then, so this schema does not yet reject an unknown field.",
+  "description": "A new-build project that groups properties (sixth datatype, 2026-09-16), on the universal names (docs/field-tables.md): its own address, texts, images, viewings and the ranges it states over its homes. A property names its project in project_id; the project lists none. Fields the field tables do not name stay under their mechanical snake_case names (docs/data-model-reference.md), so `additionalProperties` stays true.",
   "type": "object",
   "properties": {
     "id": {
       "$ref": "_shared.v1.json#/$defs/id"
+    },
+    "display": {
+      "$ref": "_shared.v1.json#/$defs/display"
+    },
+    "provider_extras": {
+      "$ref": "_shared.v1.json#/$defs/providerExtras"
     },
     "office_id": {
       "$ref": "_shared.v1.json#/$defs/reference"
@@ -17,13 +23,103 @@
     "area_ids": {
       "$ref": "_shared.v1.json#/$defs/references"
     },
-    "display": {
-      "$ref": "_shared.v1.json#/$defs/display"
+    "name": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
     },
-    "provider_extras": {
-      "$ref": "_shared.v1.json#/$defs/providerExtras"
+    "status": {
+      "$ref": "_shared.v1.json#/$defs/named"
+    },
+    "is_new_build": {
+      "$ref": "_shared.v1.json#/$defs/nullableBoolean"
+    },
+    "is_published": {
+      "$ref": "_shared.v1.json#/$defs/nullableBoolean"
+    },
+    "is_preview": {
+      "$ref": "_shared.v1.json#/$defs/nullableBoolean"
+    },
+    "published_at": {
+      "$ref": "_shared.v1.json#/$defs/moment"
+    },
+    "viewing_settings": {
+      "$ref": "_shared.v1.json#/$defs/viewingSettings"
+    },
+    "address": {
+      "$ref": "_shared.v1.json#/$defs/address"
+    },
+    "lat": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "lng": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "heading": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "short_text": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "long_text": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "phrase": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "other_information": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "possession_estimate": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "sale_starts_at": {
+      "$ref": "_shared.v1.json#/$defs/moment"
+    },
+    "currency": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "price_range": {
+      "$ref": "_shared.v1.json#/$defs/range"
+    },
+    "fee_range": {
+      "$ref": "_shared.v1.json#/$defs/range"
+    },
+    "living_space_range": {
+      "$ref": "_shared.v1.json#/$defs/range"
+    },
+    "rooms_range": {
+      "$ref": "_shared.v1.json#/$defs/range"
+    },
+    "plot_range": {
+      "$ref": "_shared.v1.json#/$defs/range"
+    },
+    "producer": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "images": {
+      "$ref": "_shared.v1.json#/$defs/images"
+    },
+    "viewings": {
+      "$ref": "_shared.v1.json#/$defs/viewings"
+    },
+    "links": {
+      "type": "array"
+    },
+    "surroundings": {
+      "type": ["object", "null"]
     }
   },
-  "required": ["id", "office_id", "agent_ids", "area_ids", "display", "provider_extras"],
+  "required": [
+    "id",
+    "office_id",
+    "agent_ids",
+    "area_ids",
+    "name",
+    "status",
+    "address",
+    "images",
+    "viewings",
+    "display",
+    "provider_extras"
+  ],
   "additionalProperties": true
 }

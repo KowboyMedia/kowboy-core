@@ -8,6 +8,7 @@ import { mappers } from './mappers.js';
 import * as crm from './crm.js';
 import type {
   Adapter,
+  AdapterAdmin,
   AdapterApi,
   Connection,
   Datatype,
@@ -222,6 +223,112 @@ function referencesOf(payload: Record<string, unknown>): [Datatype, string][] {
   ];
 }
 
+/** What this adapter shows in the panel: its login, its fetch list, and one action. */
+const admin: AdapterAdmin = {
+  credentials: [
+    {
+      key: 'key',
+      label: 'Pretend key',
+      help: 'This CRM is a stand-in; any key it is given is accepted, and every office it knows answers.',
+      required: true,
+    },
+  ],
+  directions: () => ({
+    steps: [
+      {
+        title: 'Tenant',
+        text: 'On Tenants, make a tenant with the CRM fake-webhook and its offices; no login is needed, and every record is loaded on save (the event connection_added).',
+      },
+      {
+        title: 'Notifications',
+        text: 'POST /v1/hook/fake-webhook/webhook with the connection, datatype and record id; the record is fetched and written. offices_added, resync and refetch are handled as for any CRM.',
+      },
+      { title: 'Check', text: 'fake-webhook.webhook_lag is green on the dashboard.' },
+    ],
+    settings: [],
+  }),
+  panel: async (connections) => [
+    {
+      title: 'Fetch list',
+      help: 'Records waiting to be fetched from the fake CRM, and the connections that would fetch them.',
+      items: [
+        { label: 'Waiting', value: fetchList.size },
+        {
+          label: 'Connections',
+          value: connections.map((connection) => connection.id).join(', ') || null,
+        },
+      ],
+      actions: [
+        {
+          id: 'drain',
+          label: 'Fetch everything waiting now',
+          help: 'Fetches every record on this CRM’s list at once instead of waiting for the next tick.',
+        },
+      ],
+    },
+  ],
+  connection: async (connection) => [
+    {
+      title: 'What the fake CRM knows',
+      items: [
+        {
+          label: 'Waiting for this connection',
+          value: [...fetchList.values()].filter((queued) => queued.connectionId === connection.id)
+            .length,
+        },
+      ],
+      actions: [
+        {
+          id: 'drain',
+          label: 'Fetch everything waiting now',
+          help: 'Fetches every record waiting for this connection at once instead of waiting for the next tick.',
+          params: { connection: connection.id },
+        },
+      ],
+    },
+  ],
+  act: async (action) => {
+    if (action !== 'drain') throw new Error(`no such action: ${action}`);
+    await scheduleDrain();
+    return { message: 'Everything waiting is fetched.' };
+  },
+  /** A login tried before it is saved: this CRM asks only that a key is typed and the offices exist. */
+  probe: async (credentials, officeIds) => {
+    let key: unknown;
+    try {
+      key = (JSON.parse(credentials) as { key?: unknown }).key;
+    } catch {
+      return { ok: false, detail: 'The login is not readable.' };
+    }
+    if (typeof key !== 'string' || key === '') {
+      return { ok: false, detail: 'This CRM needs a key.' };
+    }
+    const unknownOffices = officeIds.filter((officeId) => crm.get('office', officeId) === null);
+    return unknownOffices.length === 0
+      ? { ok: true, detail: `The CRM answers for ${officeIds.length} office(s).` }
+      : { ok: false, detail: `The CRM has no office ${unknownOffices.join(', ')}.` };
+  },
+  /** One record fetched from the CRM and mapped on the spot, writing nothing. */
+  inspect: async (_connection, record) => {
+    const raw = crm.get(record.datatype, record.remoteId);
+    if (raw === null) return null;
+    const mapper = mappers[record.datatype];
+    return { raw, mapped: mapper ? mapper(raw) : null };
+  },
+  queue: async () =>
+    [...fetchList.values()].map((queued) => ({
+      connectionId: queued.connectionId,
+      officeId: '',
+      datatype: queued.datatype,
+      remoteId: queued.remoteId,
+      queuedAt: new Date(queued.queuedAt).toISOString(),
+      reason: 'webhook',
+      attempts: queued.attempts,
+      nextAt: null,
+      lastError: null,
+    })),
+};
+
 export const fakeWebhookAdapter: Adapter = {
   manifest: {
     provider: PROVIDER,
@@ -229,6 +336,7 @@ export const fakeWebhookAdapter: Adapter = {
   },
   mappers,
   routes,
+  admin,
 
   start(given: AdapterApi): void {
     api = given;
@@ -245,6 +353,12 @@ export const fakeWebhookAdapter: Adapter = {
       }
       if (event.type === 'offices_added') {
         loadOffices(event.connection, event.officeIds);
+      }
+      if (event.type === 'refetch') {
+        const correlationId = randomUUID();
+        for (const record of event.records) {
+          enqueue(event.connection.id, record.datatype, record.remoteId, correlationId);
+        }
       }
     });
 
