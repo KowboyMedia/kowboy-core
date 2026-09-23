@@ -59,12 +59,6 @@ the first item that is not done, and keep the file current. Decisions and open q
    and someone taking a listing off the website in the Vitec test account. The staging event log
    then shows the notification and the removal.
 
-7. **WordPress templates (wp.v4.templates, 2026-09-21):** import the v4 template package into
-   `clients/wordpress/core-client/` (one file per view, one list function, declarative shadow DOM
-   as a parameter), read `display.*` only, and prove it by an automated comparison of every object
-   on norbanmakleri.se against the same object rendered from Norban's Vitec payloads through Core.
-   Display rules and golden masters: question 30. Cloudways deploy: question 32.
-
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health

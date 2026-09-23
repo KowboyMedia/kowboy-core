@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 34.
+answering is quick. Next number: 30.
 
 ## 2. Protected paths created by an agent
 
@@ -62,33 +62,3 @@ adapter panels, items, events, a test panel that runs requests, settings), serve
 the `web` process behind the admin secret, adapter panels living in each adapter's own folder and
 reaching the shell through one additive field on the adapter API. Answer: yes to build it as
 described, or say what to change. The adapter API field is the one protected change.
-
-## 30. `[core]` The display rules come from the reference site, as one approved PR
-
-The templates print `display.*` strings that Core computes (SRS §7), and no rule exists yet:
-`rules-ledger/` is protected and does not exist. Everything norbanmakleri.se shows is such a rule:
-"2 995 000 kr", "2 rum", "57 kvm", "Avgift 3 785 kr", "Visning Mån 28 sep kl 17:30", "Till salu",
-"Bostadsrätt", "Byggnadsår 1937-1938", "Våning 4 av 4". Suggested: an agent derives each rule by
-comparing the site's output with the same object's payload (the session's Vitec credentials are
-Norban's office), writes the ledger entries and the golden masters (`golden/vitec/`, payload →
-display for the objects on the site), and you approve that one pull request. Grouping and labels
-(which fields sit under "Interiör") stay in the templates as layout. Yes, or say what to change.
-
-## 31. `[client-wordpress]` "Item 17" is not in next-steps
-
-`docs/next-steps.md` counts 1 to 6. The templates are added as item 7 unless 17 refers to another
-list; say which if so.
-
-## 32. `[client-wordpress]` The Cloudways key is rejected
-
-The API key in the session environment answers "invalid credentials" for info@kowboy.se. Check the
-key under Cloudways → Platform API, and name the app (or apps) that should get the new plugin.
-Until then the plugin is proven on a local WordPress only.
-
-## 33. `[client-wordpress]` What the templates cover
-
-The plugin renders the list, the cards and the object, agent, office, area and association
-pages, with the Neve theme's header, footer, page hero and the "Ska du sälja din bostad?" form
-left to the site. Agent, office, area and association pages have no reference on
-norbanmakleri.se, so they are built from the v4 package but not compared. Project pages are not
-built. Yes, or name what to add.
