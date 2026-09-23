@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 81 (75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 82 (75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
@@ -54,3 +54,17 @@ source shows. Patric called this site "our reference site, which runs the origin
 2026-09-20 but did not name it. An agent needs the name as Cloudways lists the app, and the
 client's CRM login if staging does not hold that account yet (the test account `M31529` is on
 staging already; a client's is not).
+
+## 81. `[client-wordpress]` The attached v4 package against the rule "nothing from the old plugins"
+
+On 2026-09-21 Patric attached a template package ("kowboy-v4": one file per view, one list
+function, declarative shadow DOM) and asked for it to be imported as the first template set,
+`core-client-templates-2026`. That package was written by an agent from the v2 plugin's template
+files, and AGENTS.md says that nothing, code or concept, is taken from the WordPress plugins v1
+to v3; question 70 (closed 2026-09-20) said the same for the templates: written new from what the
+reference site shows, its files never read. The two cannot both hold. Yes: the package is an input
+Patric hands over, it is imported and made to fit the plan, and the rule is amended to say that a
+package Patric attaches is not "the old plugins". No: the set is written new from
+norbanmakleri.se's pages alone, and the package is used only as the shape of the code Patric wants
+(one file per view, logic on top, one list function), which is the smaller reading of the rule.
+
