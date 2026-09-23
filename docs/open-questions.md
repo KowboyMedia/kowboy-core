@@ -33,3 +33,12 @@ an agent: (a) a new-build project's homes appear in the marketed list with their
 the price is hidden; (c) whether the area name stays when the address is hidden; (d) what status
 a "till salu, visa som kommande" estate carries; (e) how each of the four bid settings shows in
 `bidding`. Smaller: (a) alone now, the rest when the first client template needs them.
+
+## 80. `[client-wordpress]` Name the first client to port, once the default set is done
+
+Norban is not a client port: norbanmakleri.se runs the default templates of plugin v2 and v3
+unchanged, so it is the reference the default set "Kowboy 2026" is ported from (Patric,
+2026-09-23), and its office is the test account staging already holds. Client ports start after
+the set is done (next-steps item 17), through the automated workflow of
+`docs/template-porting.md`. When the set is done, name the first client by the name Cloudways
+lists its site, and give its CRM login if staging does not hold that account yet.

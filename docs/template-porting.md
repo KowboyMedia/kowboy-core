@@ -107,7 +107,9 @@ never.
 - ~~**79** a Cloudways API key in the agents' environment settings~~ There since 2026-09-21, and
   replaced the same evening with a token of a wider scope (81); the next session uses it.
 - **80** the first client to port, by the name Cloudways lists it, and its CRM login if staging
-  does not hold that account.
+  does not hold that account; asked once the default set is done (Patric, 2026-09-23). Norban is
+  not a client port: its site runs the plugin's default templates unchanged and is the reference
+  for the default set.
 - Per later client: the same two things.
 
 ## Three kinds of port, one workflow
@@ -122,8 +124,9 @@ Patric, 2026-09-23. Every port is one of three, and all three run the workflow a
 
 The shared work is the same in all three: identify every field the source shows by its intention,
 and map it to the version 4 field of the same intention (`display.living_area` may read a little
-differently on another set; the intention is what must be kept). The first client is Norban
-(question 80, 2026-09-23), whose office is the test account staging already holds.
+differently on another set; the intention is what must be kept). The default set comes first,
+from norbanmakleri.se, which runs the old defaults unchanged (any client's data would have
+served); then the client ports, the first client named when the set is done (question 80).
 
 ## Later: a porting factory
 

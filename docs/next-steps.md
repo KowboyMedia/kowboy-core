@@ -205,8 +205,9 @@ the first item that is not done, and keep the file current. Decisions and open q
     Vitec is given them.
 
 16. **Porting any client's templates to version 4** (Patric, 2026-09-21): plan in
-    `docs/template-porting.md`. 2026-09-23: the first client is Norban (question 80, yes), and
-    three kinds of port share the one workflow, the default set, a Kowboy client on plugin v1 to
+    `docs/template-porting.md`. 2026-09-23: client ports start after the default set (item 17) is
+    done; norbanmakleri.se is that set's reference, not a client port, and the first client is
+    named then (question 80). Three kinds of port share the one workflow, the default set, a Kowboy client on plugin v1 to
     v3, and a site that never ran Kowboy; the shared work is mapping every field by intention. One porting server with a pair of sites per client, the source a
     copy of the client's live site with the old plugin, the target a copy with Core's plugin and
     the client's template set, made through the host's API, compared page by page and iterated
