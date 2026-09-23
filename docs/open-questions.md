@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 87 (75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 88 (75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
@@ -42,3 +42,14 @@ unchanged, so it is the reference the default set "Kowboy 2026" is ported from (
 the set is done (next-steps item 17), through the automated workflow of
 `docs/template-porting.md`. When the set is done, name the first client by the name Cloudways
 lists its site, and give its CRM login if staging does not hold that account yet.
+
+## 87. `[core]` The DigitalOcean token in the session environment is refused
+
+On 2026-09-23, after the release, the token stored as `DIGITALOCEAN_ACCESS_TOKEN` in the session
+environment answered "401 Unauthorized" to a plain read of the account's apps, so an agent can no
+longer see the live app's deployments, change either app's settings or ask for a deployment. The
+release itself did not need it: live deploys itself on every change to `main`. It is needed for
+the next settings change on either app (the Postmark token for live's sign-in link, question 79's
+Space keys, Sentry) and for reading deployment state. Make a new personal access token in the
+DigitalOcean account with read and write on apps, save it in the session environment's settings
+under the same name, then say "saved"; the next session picks it up.
