@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 88 (75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 90 (75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
@@ -53,3 +53,27 @@ the next settings change on either app (the Postmark token for live's sign-in li
 Space keys, Sentry) and for reading deployment state. Make a new personal access token in the
 DigitalOcean account with read and write on apps, save it in the session environment's settings
 under the same name, then say "saved"; the next session picks it up.
+
+## 88. `[client-wordpress]` The Cloudways token in the session environment is still the limited one
+
+On 2026-09-23 a new session, the first after the token was replaced (question 81, 2026-09-21),
+sent the token stored as `CLOUDWAYS_API_KEY` to the account call that lists the servers, and
+Cloudways answered "insufficient_scope: this token does not have access to this endpoint", the
+same refusal as before. So either the environment still holds the old token or the new one was
+also made with a limited scope. Without it no agent can find the server behind 165.22.87.59 or
+make `v4.dev.kowboy.se`, the target of next-steps item 17; the local WordPress of the test suite
+stays the target meanwhile, so the set itself is not blocked. In Cloudways, make an API token
+with access to the whole account (servers and applications, not only the public catalogue),
+save it in the session environment's settings under the same name, then say "saved"; the next
+session picks it up.
+
+## 89. `[client-wordpress]` The "kowboy-v4" package is not in this repository
+
+Next-steps item 17 step 2 takes the package's rendered markup, flattened to plain HTML and sliced
+one file per view, and its CSS and JavaScript (question 86). The package was attached in a
+conversation outside this repository, and nothing of it is saved here: no zip, no folder, no
+file named after it. Two ways forward, pick one: attach the package's zip in the chat that
+resumes item 17, and the agent takes its markup and assets as decided; or answer "from the site",
+and the agent writes the markup new from what norbanmakleri.se shows on its pages, which is the
+master anyway and readable over HTTPS, with the set's own CSS written to match. Smaller: "from
+the site", since the master is the only acceptance and no attachment is needed.
