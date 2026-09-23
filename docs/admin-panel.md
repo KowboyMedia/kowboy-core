@@ -1,85 +1,256 @@
-# Admin panel: the MVP
+# The admin area
 
-Proposed 2026-09-18 for Patric's approval (open question 29). One place, in a browser, to
-configure Core and its adapters and to see what is happening, so that nothing needs a database
-client, a script or a console. Everything an agent does for an operator today (tenants,
-connections, lifecycle events, health, the event log) becomes a panel.
+**This file describes the area as it is.** A change to a page, an action, a setting, a lifecycle
+event or a health check changes this file, the area's own words and the adapter's setup directions
+in the same change (AGENTS.md, definition of done, Patric 2026-09-20). The test
+`adapters/vitec/admin/directions.test.ts` keeps the directions honest.
 
-## Shape
+The design it was built from is [`docs/admin-panel-design.md`](admin-panel-design.md): the pattern
+study, the information architecture and where every Must and Should of
+[`docs/admin-panel-rebuild.md`](admin-panel-rebuild.md) §3 sits. Built on 2026-09-20 on Patric's
+word, "Admin area v3 build."
 
-- **Where it runs.** Inside the `web` process, under `/admin`, behind the admin secret at first
-  (one login form, a session cookie, a CSRF token on every form). Users and roles come later.
-- **How it is built.** Server-rendered HTML from TypeScript template functions, one stylesheet, a
-  few lines of JavaScript (copy buttons, auto-refresh of the overview). No framework, no new
-  runtime dependency, nothing to build. Every panel reads the same tables the engine and adapters
-  use, and writes through the same functions the scripts and the admin API use: one code path per
-  concern.
-- **Where the code lives.** `engine/admin/` holds the shell (login, navigation, layout, the panel
-  registry) and the Core panels. `adapters/<provider>/admin/` holds that adapter's settings and
-  panels, which the adapter hands to the engine through the adapter API; the shell renders them
-  in place without knowing what they show. The seam holds: no CRM name in `engine/`.
-- **Tests.** Every panel is driven through HTTP in the acceptance harness like the API is, and
-  one acceptance criterion (AC 42, to be added) names those tests.
+## Where it is and who may open it
 
-## Panels
+`/admin` on the web process, served from `dist/admin` by the same app that answers the sites
+(nothing is hosted elsewhere). Customers never see it; it is Kowboy's own tool (decision
+2026-09-18).
 
-1. **Overview.** The health checks as `/v1/health` reports them, live; items per tenant and
-   datatype (live and tombstoned); the worker's last heartbeat; the version and the migrations
-   applied; the last 20 events. The first page after login.
-2. **Tenants and sites.** Tenants: list, add, rename. Per tenant its sites (subscribers): label,
-   bell URL, active, last pull, last bell and its status; add one; rotate its bell secret; show a
-   tenant token once, rotate it; ring a site now (delta or forcerefresh).
-3. **Connections.** Per tenant: the CRM (adapter), the credentials as a write-only form the
-   adapter declares (never displayed), the licensed offices, active or not. Actions: add (runs the
-   initial load), add or remove offices, resync, deactivate. Below the form, the adapter's own
-   status fragment for this connection (for Vitec: last catch-up and comparison, what is waiting
-   on the fetch list, records that keep failing).
-4. **Adapter panels.** One per adapter, from `adapters/<provider>/admin/`. For Vitec: the webhook
-   URL to give Vitec (with its token), the fetch concurrency; the fetch list (waiting, retrying,
-   given up, with "retry now" and "drop"); catch-up and comparison per connection with "run now";
-   "fetch this id now" and "list this office now" for one record or one office.
-5. **Items.** Find an item by datatype and id, or browse an office. Show its envelope (seq, hash,
-   deleted, dates) and its three faces side by side: raw, unified (`data`) and display. Its
-   timeline from the event log. Actions: recompute this item; refetch it through the adapter.
-   Never a hand edit of data.
-6. **Events.** The timeline query of strategy §8.2: filter by tenant, connection, datatype, id,
-   type and time; follow a correlation id from a webhook to the writes, bells and pulls it caused.
-7. **Test panel.** Run a request and see the answer, without leaving the browser:
-   - as a site: `GET /v1/changes` for a tenant, a datatype and a cursor, with the response and its
-     size, compressed and plain;
-   - as an operator: bell, lifecycle event, replay, recompute and the recompute preview, with what
-     they returned;
-   - through an adapter, read-only against the CRM with a connection's credentials: for Vitec,
-     get one estate by id or list one page of an office, and see the raw answer next to what the
-     mapper makes of it (unified and display), a dry run that writes nothing.
-     Every run is logged as an event with who ran it.
-8. **Settings.** Core's configuration as read from the environment, shown read-only (page size,
-   bell throttle, event retention, gzip level); the purge watermark per tenant; run housekeeping
-   now (tombstone purge, event retention).
+Getting in is a link mailed to an address that may open the area: no password exists to share or to
+phish. Two settings say who that is — `ADMIN_EMAILS`, addresses one by one, and
+`ADMIN_EMAIL_DOMAINS`, whole domains (staging and production both carry `kowboy.se`, so everyone at
+Kowboy is in without a list to keep; Patric, 2026-09-21). A link is good once and for fifteen
+minutes (`ADMIN_LINK_MINUTES`), and the session it makes lasts a fortnight (`ADMIN_SESSION_DAYS`)
+in one cookie that script cannot read.
 
-Order of building: 1, 3 with the Vitec fragment, 5, 7, 6, 2, 8.
+An address that may not open the area gets exactly the answer one that may gets, and no mail: the
+sign-in page never gives away who is on the list, nor that a domain is allowed at all. On a machine
+with no mail sender and no environment name — a developer's own — the link comes back in the
+answer, because there is no other way in; anywhere else it is only ever mailed.
 
-## Not in the MVP
+**Remember this device** on the sign-in page keeps that browser signed in for thirty days
+(`ADMIN_REMEMBER_DAYS`) instead of a fortnight. Every device is a session of its own, so a person
+is remembered on as many as they like, and signing out of one leaves the rest alone. Settings lists
+them — which browser, remembered or not, last used, signed in until — marks the one being read, and
+has one button to forget every other device, for a laptop that goes missing.
 
-Users and roles (one admin secret; a login with users comes when more than one person operates
-it), editing data by hand, charts, more than one language, anything a site does (templates,
-search).
+## The pages
 
-## What it needs from the adapter API (needs approval)
+| Page            | What it is for                                                                                                                                                                                                                |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Overview**    | The verdict first: green, or which checks are red, why, and a link to where each is fixed. Then the day in figures and hourly charts, what Core holds per datatype, the sites' freshness, and any job running now.            |
+| **Flow**        | One list of the records in flight, newest queued first, the whole row coloured by state — waiting for the CRM, in Core, on a site, error — tailing live and animating as rows arrive.                                         |
+| **Records**     | The search: the scope pickers, server-side filters, sort by any column, pages of 500 (25 to 500), a column chooser, and ticked rows that recompute, fetch again or ring. Every choice is in the address, so a view is a link. |
+| **Tenants**     | Tenants only. One tenant is one page and one Save: name, licence, its CRM connections, its sites.                                                                                                                             |
+| **Manual sync** | One scope, then a preview that writes nothing, then a job with progress, a cancel and a history. Fetch again from the CRM takes the same scope. Housekeeping is here. Called Runs until 2026-09-21.                           |
+| **Events**      | The whole log with its filters, a live tail, and one click to follow a chain. Panel saves, sign-ins and actions are `admin.*` events with the person on them, so "who did what" is a filter.                                  |
+| **CRMs**        | One page per adapter, drawn from what the adapter reports: its directions, its settings, its notification URL and its sections. A second CRM appears by itself.                                                               |
+| **Settings**    | Configuration read-only (whether each setting is set, never its value), the migrations the database holds, the versions running, where alerts go, who may sign in, and maintenance.                                           |
 
-One additive field on `Adapter`:
+Every page: no reload, a toast for every outcome, one pattern for a list, a detail page, a form and
+a row's actions, a confirmation before anything dangerous, an empty state that says what to do
+next, and a keyboard-reachable and labelled interface. A **Go to…** button in the top bar opens the
+palette and spells out the keys that also open it (⌘ K on a Mac, Ctrl K elsewhere), so nobody has
+to know them (Patric, 2026-09-21: "⌘K — what is this?"). The top bar names the environment, the
+version and how long this process has been running.
+
+**The scope is picked, never typed.** One component (`admin/src/components/scope-picker.tsx`),
+reading one call (`GET /scope`), gives Records and Manual sync the same four boxes in the same
+order: tenant, then that tenant's CRM connections, then that connection's offices, then the kind of
+record. Narrowing a wider box empties the narrower ones, so a scope can never be one tenant with
+another tenant's connection under it. Nobody types a tenant number or a connection name anywhere
+(Patric, 2026-09-21).
+
+**Select all means all.** Ticking the header box ticks the rows in front of a person; when more
+match than are loaded, a line above the grid offers every match instead. With it on, the actions
+send the search itself — the filters the server just counted — so a hundred thousand matching
+records cost exactly what fifty cost.
+
+**Every date is Swedish**: `2026-09-21 14:05`, Stockholm time, and the figures are grouped the
+Swedish way (`12 345`). Anything older than a day is also shown as "3 days ago" where a glance is
+enough.
+
+### A tenant is one page
+
+A connection is a setting of a tenant: there is no connections page, list or menu entry (Patric,
+three times). The tenant's page holds any number of connections, of the same CRM or different ones,
+each with the CRM's own login fields, the offices it may see, a **Check the login** button that
+tries the CRM before anything is saved, and whatever the adapter reports about that connection.
+
+**A connection names at least one office**, and the save refuses it otherwise (Patric, 2026-09-21).
+A CRM is asked for one office at a time — every call carries it — and no CRM offers a list of the
+offices a login covers, so a connection with none named would fetch nothing at all while looking
+perfectly healthy. Two tenants may name the same office: the record is fetched once and written
+for each of them, each with its own copies, its own version numbers and its own sites, which is
+how two sites can show one brokerage's listings. Core does not warn about that; the page says it
+where the offices are typed.
+Its sites are on the same page with their bell address, their bell secret, their setup checklist,
+what they reported applied and failed, and their own errors.
+
+One Save does all of it, and says what it did. The difference decides what the adapters are told: a
+new connection is loaded, offices added or removed are loaded or tombstoned, a connection taken off
+the page is removed with its records.
+
+**A saved secret is not on the page at all.** A stored password or key never leaves Core: the field
+shows `••••••••••••` where a secret exists, and that mask is the box's placeholder, not its value —
+there is nothing in the page for a browser, an extension or a screenshot to read. Leaving it as it
+is keeps the stored login; typing over it replaces it.
+
+Because of that, **Check the login** on a saved connection has nothing to send, so Core tries the
+login it already holds, with the offices that connection is licensed for. Typed values, when there
+are any, are tried instead, exactly as a save would store them — so a yes here is a yes afterwards
+(Patric, 2026-09-21: the check did not work on a saved connection).
+
+### Dangerous buttons, and the ones that only look it
+
+Anything that removes, rotates a secret or starts a run over many records is red and asks first,
+with a sentence saying what will happen: what breaks until a new token is pasted into each site,
+that a site's deletion takes its history with it, that a recompute rings the sites for whatever
+changed.
+
+The rest are plain buttons that do their work at once, because nothing they do can be lost
+(Patric, 2026-09-21). **Fetch again** asks the CRM for the same records and writes only what
+actually differs, so running it twice does no more than running it once. **Recompute this record**
+builds one record again from what Core already stores and calls no CRM. **Ring the sites** only
+tells the sites to pull. Each says as much on the page next to it.
+
+**Every button carries its sentence.** An action an adapter declares comes with `help`: what the
+button does and when a person would press it, shown next to it on the page and inside the
+confirmation where there is one. The acceptance test _explains every button an adapter puts on a
+page_ refuses an action without it, so a new action cannot arrive unexplained and a changed action
+cannot keep the old sentence (Patric, 2026-09-21).
+
+### A record's timeline
+
+A record's page shows its three faces — the CRM's payload, the unified record, the prepared strings
+— and under them its history: when, what happened in one sentence, and a link to follow the chain
+on Events. The sentence is the engine's (`engine/admin/summary.ts`), so the timeline, the Events
+page and Flow cannot say different things about the same event, and adding an event type anywhere
+in Core means adding its line there.
+
+No payload is on the timeline at all — not the whole event, not the part that changed (Patric,
+2026-09-21: a history of payloads cannot be read at a glance). What changed is named ("written:
+askingPrice, status"); the values themselves are the three faces above, and the whole event, with
+its payload, is one click away on Events.
+
+### Maintenance
+
+One switch on Settings. While it is on, the sites pull exactly as before — nothing a visitor sees
+changes — but Core rings no site and takes no job. Changes meanwhile are remembered as pending
+bells and go out in one round when it is turned off. Every page says so while it is on.
+
+## The admin API
+
+One JSON API under `/v1/admin/`, and the browser app is its second user: everything the app can do
+an agent can do, and nothing is done in two ways. Sign-in and the sign-in link are the only calls
+that need no session.
+
+| Call                                                                                              | What it does                                                           |
+| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `POST /sign-in`, `GET /sign-in/:token`, `POST /sign-out`, `GET /me`                               | Getting in and out, and who is in.                                     |
+| `GET /overview`, `GET /health`                                                                    | The verdict, the day, the sites, the open jobs.                        |
+| `GET /flow`                                                                                       | The records in flight, in the state each reached last.                 |
+| `GET /stream`                                                                                     | One server-sent stream: new events, the open jobs, the health verdict. |
+| `GET /tenants`, `GET /tenants/:id`, `POST /tenants`, `PATCH /tenants/:id`, `DELETE /tenants/:id`  | The tenant list, and one tenant read and written whole.                |
+| `POST /tenants/:id/token`, `POST /tenants/:id/ring`                                               | A new token; ring every site of a tenant.                              |
+| `POST /sites/:id/secret`, `POST /sites/:id/ring`                                                  | A new bell secret; ring one site.                                      |
+| `GET /devices`, `POST /devices/forget-others`                                                     | Where this person is signed in, and forgetting every other device.     |
+| `GET /scope`                                                                                      | The pickers: tenants, their connections, their offices, the datatypes. |
+| `GET /records`, `GET /records/:connection/:datatype/:id`                                          | The search, and one record whole with its timeline.                    |
+| `POST /records/:c/:d/:id/preview`, `POST /records/:c/:d/:id/inspect`                              | What a recompute would change; the CRM asked now, writing nothing.     |
+| `POST /runs/preview`, `POST /runs/recompute`, `POST /runs/fetch-again`, `POST /runs/housekeeping` | A scope previewed, run, fetched again, and housekeeping.               |
+| `GET /jobs`, `GET /jobs/:id`, `POST /jobs/:id/cancel`                                             | The runs and their progress.                                           |
+| `GET /events`                                                                                     | The log by any filter, paged by event number.                          |
+| `GET /crms`, `GET /crms/:provider`, `POST /crms/:provider/act`, `POST /crms/:provider/probe`      | Each adapter's page as data, its actions, and a login tried.           |
+| `GET /settings`, `POST /settings/maintenance`                                                     | The configuration, and the switch.                                     |
+
+Proved by `acceptance/admin.test.ts` through HTTP and by the browser journeys in `admin/e2e`, both
+named under AC 42 in the acceptance report.
+
+## What the engine offers
+
+The area's calls are thin: the work is the engine's own functions, which the acceptance tests also
+drive directly.
+
+- **Tenants, connections and sites** (`engine/storage/connections.ts`): make and change a tenant,
+  its connections (one or several, of the same or different CRMs) and its sites; rotate a token or
+  a bell secret; delete a site, which takes its history in the event log with it, or a tenant,
+  which takes everything.
+- **Lifecycle events** (`engine/lifecycle.ts`): `connection_added`, `connection_removed`,
+  `offices_added`, `offices_removed`, `resync` and `refetch` (named records fetched again) are
+  queued in `lifecycle_events` and delivered to the adapter by the worker.
+- **Recompute** (`engine/recompute.ts`): any scope (everything, a CRM, a tenant, a connection, an
+  office, a datatype, one record, a list, or only records an older rules version made), as a
+  preview that writes nothing or for real, in pages of 200 records with progress, the records not
+  sold first and the sold ones (universal `sold_at` set) last (question 74). Long runs are jobs
+  (`engine/jobs.ts`) the worker takes, with progress, a result, cancel and a history.
+- **Records** (`engine/storage/items.ts`): search with server-side filters, words in the unified
+  record (a full-text index), sort by any column, pages and a total.
+- **The event log** (`engine/events.ts`): the timeline query by record, connection, tenant, site,
+  correlation id, type and time, paged by event number, newest first or oldest first. A `pull`
+  event names the site that pulled, and so do a site's applied reports and its errors (the
+  `X-Core-Site` header both clients send: their own bell URL). A Vitec notification is stored whole
+  in its `webhook.received` event for as long as the log keeps events, 30 days (Patric,
+  2026-09-20, question 63).
+- **Bells** (`engine/bells.ts`): ring every site of a tenant, or one of them, for changes or for
+  everything; held while maintenance is on.
+- **Health** (`engine/health.ts`): the checks of the engine and of every adapter. `GET /v1/health`
+  is public, for an uptime monitor: 200 when every check passes, 500 when any fails, each check
+  with a detail in counts and plain words and never a customer's name (Patric, 2026-09-20,
+  question 62). The names behind a count (`names` on a check) reach the alerts and the area, not
+  the public answer.
+- **Alerts** (`engine/alerts.ts`): when a check turns red or green again, one message by mail
+  (`ALERT_EMAIL`, through Postmark: `POSTMARK_SERVER_TOKEN`, `MAIL_FROM`) and to a Slack incoming
+  webhook (`ALERT_SLACK_WEBHOOK_URL`), with the detail, the names and a link to the health page
+  (`PUBLIC_URL`). Told once per change, never every minute; a check first seen green is not told.
+  Every send is an `alert.sent` event.
+- **Settings** (`engine/storage/settings.ts`): the switches a person throws, one row per key, read
+  by whichever process needs them so web and worker agree without a restart.
+
+## What the adapter API offers
+
+Approved 2026-09-20 with the rebuild (questions 57 and 61) and unchanged since: `Adapter.admin`
+describes the adapter's pages as data, and one more lifecycle event names records to fetch again.
+The Vitec adapter implements all of it (`adapters/vitec/admin/`), and so does the fake webhook
+adapter, which is how the area is proved without a CRM.
 
 ```ts
 admin?: {
-  /** The credentials form for a connection, rendered by the shell; values are never shown back. */
-  credentials: { key: string; label: string; secret: boolean }[];
-  /** Pages under /admin/<provider>/…, rendered inside the shell. */
-  panels: { path: string; title: string; handle(request: AdminRequest): Promise<AdminResponse> }[];
-  /** The status fragment shown under a connection. */
-  connectionStatus?(connection: Connection): Promise<string>;
+  /** The login form of a connection; the values become one JSON document, never shown back. */
+  credentials: AdminField[];
+  /** The directions at the top of the adapter's page: steps, and the settings as they are. */
+  directions(): AdminDirections;
+  /** The adapter's page: sections of key-values, tables with row actions, and actions. */
+  panel(connections: Connection[]): Promise<AdminSection[]>;
+  /** What the adapter knows about one connection, shown under its tenant. */
+  connection?(connection: Connection): Promise<AdminSection[]>;
+  /** Run an action a section declared; the message goes to the person who pressed it. */
+  act(action: string, params: Record<string, string>, connections: Connection[]): Promise<{ message: string }>;
+  /** Try the CRM with a login before it is saved, or the stored one when nothing is typed. */
+  probe?(credentials: string, officeIds: string[]): Promise<{ ok: boolean; detail: string }>;
+  /** Fetch one record and map it, writing nothing; null when the CRM has no such record. */
+  inspect?(connection: Connection, record: AdminRecord): Promise<{ raw: unknown; mapped: MappedRecord | null } | null>;
+  /** What waits on the adapter's own fetch list, for the Flow list. */
+  queue?(connections: Connection[]): Promise<AdminQueued[]>;
 };
+
+/** Delivered like the other lifecycle events: the adapter puts these records on its list. */
+type Refetch = { type: 'refetch'; connection: Connection; records: AdminRecord[] };
 ```
 
-The engine mounts the panels, wraps them in the shell and passes the request through; it never
-inspects what they render. This is the generic capability any adapter can use, and the only
-change to the protected adapter API the MVP needs.
+The engine hands the descriptions on as they are and runs the actions the adapter declared; it
+never inspects what they mean, and no CRM is named in `engine/` or in `admin/src` — the seam check
+enforces both.
+
+## How it is built
+
+- **The app**: React with Refine over the admin API, shadcn/ui components and Tailwind, one
+  `DataTable` every list uses, `sonner` for the toasts and `cmdk` for the palette. All MIT, all
+  approved (questions 60 and 64).
+- **One build**: `npm run build` compiles the engine with `tsc` and the app with Vite into
+  `dist/admin`.
+- **Live**: one `EventSource` on `/v1/admin/stream` feeds Refine's `liveMode: "auto"`, so a browser
+  holds one connection and every page follows along.
+- **Settings it reads**: `ADMIN_EMAILS` and `ADMIN_EMAIL_DOMAINS` (who may open it),
+  `ADMIN_LINK_MINUTES`, `ADMIN_SESSION_DAYS`, `ADMIN_REMEMBER_DAYS`, and the engine's own
+  `PUBLIC_URL`, `MAIL_FROM` and `POSTMARK_SERVER_TOKEN` for the sign-in mail.

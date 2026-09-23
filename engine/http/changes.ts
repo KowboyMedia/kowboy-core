@@ -1,4 +1,4 @@
-import { changesPage } from '../storage/items.js';
+import { changesPage, type ItemRow } from '../storage/items.js';
 import { recordPull, tenantForToken } from '../storage/connections.js';
 import { logEvent } from '../events.js';
 import { DATATYPES, type Datatype } from '../adapter-api/types.js';
@@ -6,6 +6,21 @@ import { jsonResponse, type Request, type Response } from './server.js';
 
 /** Default and maximum page size (strategy AC 27). */
 export const PAGE_SIZE = 100;
+
+/** The item envelope as a subscriber receives it (schemas/item.v1.json). */
+export const toEnvelope = (row: ItemRow): Record<string, unknown> => ({
+  datatype: row.datatype,
+  connection_id: row.connection_id,
+  remote_id: row.remote_id,
+  office_id: row.office_id,
+  seq: Number(row.seq),
+  deleted: row.deleted,
+  schema_version: row.schema_version,
+  content_hash: row.content_hash,
+  remote_updated_at: row.remote_updated_at?.toISOString() ?? null,
+  raw: row.deleted ? null : row.raw,
+  data: row.data,
+});
 
 /**
  * `GET /v1/changes` (SRS §8): everything for this tenant and datatype after `seq`, tombstones
@@ -19,27 +34,17 @@ export async function changes(request: Request): Promise<Response> {
   const { tenantId, datatype, after, limit } = parsed;
   const startedAt = Date.now();
   const rows = await changesPage({ tenantId, datatype, after, limit });
-  const items = rows.map((row) => ({
-    datatype: row.datatype,
-    connection_id: row.connection_id,
-    remote_id: row.remote_id,
-    office_id: row.office_id,
-    seq: Number(row.seq),
-    deleted: row.deleted,
-    schema_version: row.schema_version,
-    content_hash: row.content_hash,
-    remote_updated_at: row.remote_updated_at?.toISOString() ?? null,
-    raw: row.deleted ? null : row.raw,
-    data: row.data,
-  }));
+  const items = rows.map(toEnvelope);
 
   const client = request.headers['x-core-client'] ?? null;
-  await recordPull(tenantId, client);
+  const site = request.headers['x-core-site'] ?? null;
+  const subscriberId = await recordPull(tenantId, client, site);
   await logEvent({
     type: 'pull',
     tenantId,
+    subscriberId,
     datatype,
-    fields: { after, items: items.length, client, duration_ms: Date.now() - startedAt },
+    fields: { after, items: items.length, client, site, duration_ms: Date.now() - startedAt },
   });
 
   return jsonResponse(200, {
@@ -52,7 +57,7 @@ export async function changes(request: Request): Promise<Response> {
 type Failure = { error: string; status: number };
 
 type ParsedRequest =
-  { tenantId: string; datatype: Datatype; after: number; limit: number } | Failure;
+  { tenantId: number; datatype: Datatype; after: number; limit: number } | Failure;
 
 const failed = (parsed: object): parsed is Failure => 'error' in parsed;
 
@@ -72,9 +77,9 @@ async function parseRequest(request: Request): Promise<ParsedRequest> {
 }
 
 /** The tenant comes from the token, never from a parameter (SRS §8). */
-async function authenticate(
+export async function authenticate(
   request: Request,
-): Promise<{ tenantId: string; purgeWatermark: number } | Failure> {
+): Promise<{ tenantId: number; purgeWatermark: number } | Failure> {
   const token = (request.headers['authorization'] ?? '').replace(/^Bearer\s+/i, '');
   if (!token) return { error: 'a tenant token is required', status: 401 };
 

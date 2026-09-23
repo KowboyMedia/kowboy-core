@@ -11,3 +11,6 @@ dist/
 node_modules/
 clients/wordpress/vendor/
 clients/wordpress/composer.lock
+admin/e2e/report.json
+test-results/
+playwright-report/

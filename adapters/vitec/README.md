@@ -8,8 +8,9 @@ sees only the adapter API. The documentation it is built from is `docs/inputs/vi
 index.ts        the adapter: webhook route, fetch loop, schedules, lifecycle, health
 api.ts          Connect over HTTP: basic authentication, list paging, records by id, one request budget
 store.ts        the adapter's own tables: the fetch list, the ids seen per customer, state per connection
-mappers.ts      Connect payloads → the universal model (the technical spine only, see below)
+mappers.ts      Connect payloads → the universal model: the universal names, the spine, the rest mirrored (see below)
 test/connect.ts a stand-in Connect for the tests
+admin/index.ts  its panels in the admin panel: webhook URL, schedules, the fetch list, one record looked at or queued
 vitec.test.ts   the adapter against the real engine and the stand-in
 ```
 
@@ -49,49 +50,48 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   older than 13 h, whose credentials cannot be read, or which has no offices). The checks run in
   the worker and are recorded for the web process every 30 s.
 
-## Mappers: the whole payload, the spine on top
+## Mappers: the universal names, the spine on top, the rest mirrored
 
-The entire payload reaches the sites (Patric, 2026-09-18): `data` mirrors everything Connect
-returns, every field under its snake_case name with the nesting kept (`docs/data-model-reference.md`
-lists every path), and the spine sits on top: `id`, `office_id`, `agent_ids`, `area_ids`,
-`association_id`, `project_id` on a property; `office_ids` on an agent; `office_id`, `agent_ids`,
-`area_ids` on a project. `raw` travels next to `data`, untouched. `remote_updated_at` is Vitec's
-`changedAt`. The office id is what Connect calls the customer id (`M30011`): one office, one
-customer id, and `Office.Id` is an alias of it (Patric, 2026-09-16); licensing filters on it, and
-Vitec's own office id stays in `raw`. Nothing is chosen and nothing is judged; the plugin's own field
-names, once supplied, are laid on top as renames, and `display` waits for the rules ledger.
+`data` is the universal record (`docs/field-tables.md`, approved by Patric on 2026-09-19): Connect's
+fields copied and renamed onto the universal names, with the spine on top: `id`, `office_id`,
+`agent_ids`, `area_ids`, `association_id`, `project_id` on a property; `office_ids` on an agent;
+`office_id`, `agent_ids`, `area_ids` on a project. Everything the tables do not name stays next to
+them under its mechanical snake_case name (`docs/data-model-reference.md` lists every path), and
+`raw` travels next to `data`, untouched. `remote_updated_at` is Vitec's `changedAt`. The office id
+is what Connect calls the customer id (`M30011`): one office, one customer id, and `Office.Id` is
+an alias of it (Patric, 2026-09-16); licensing filters on it, and Vitec's own office id stays in
+`raw`. Nothing is chosen and nothing is judged: an enumeration is copied as `{id, name}`, a bare
+Swedish wall-clock time becomes a UTC moment, an image's address is built on Kowboy's CDN from the
+ids Vitec gives (strategy §12.28), the first building's sizes are lifted onto the property and
+every building is carried, and `display` is the engine's, computed from the universal record by
+the rules ledger. `mappers.test.ts` holds one Connect-shaped fixture per datatype.
 
 ## Setting up a connection
 
-Credentials are one JSON document, the Connect key pair from the partner portal. The licensed
-offices are the office ids (`M30011` and the like), and they are also what the adapter fetches: a
-connection without offices fetches nothing and `vitec.catch_up` says so.
-
-```bash
-node dist/scripts/tenant.js add-connection acme-vitec t_acme vitec \
-  '{"username":"…","password":"…"}' M30011,M30012
-curl -X POST https://core.example/v1/admin/event -H 'x-admin-secret: …' \
-  -d '{"connection_id":"acme-vitec","event":"connection_added"}'
-```
-
-Adding an office later: set the connection's offices, then `event: offices_added` with the new
-ids; only those are loaded. Then ask Vitec for subscriptions (docs/inputs/vitec/notifications.md)
-on `Estate` limited to estates advertised on the website (`Update` and `Remove`), and on
-`Project`, `User`, `Office` and `Area`, pointing at
-`https://<core>/v1/hook/vitec/webhook/<VITEC_WEBHOOK_TOKEN>`.
+The directions are data the adapter describes for the admin panel (`admin/directions.ts`, shown
+by the panel once it exists), built from what the adapter reads and kept true by
+`admin/directions.test.ts`: the tenant, the connection with the Connect key pair and the offices
+(customer ids, `M30011` and the like), the notification URL and the subscriptions to ask Vitec
+for, and the health checks to watch. A connection without offices fetches nothing and
+`vitec.catch_up` says so. A connection is saved with the engine's `upsertConnection` (the login
+as one JSON document `{"username":"…","password":"…"}`, stored encrypted) and loaded by queueing
+the lifecycle event `connection_added`, which the worker delivers to the adapter. Adding an
+office later: set the connection's offices, then queue `offices_added` with the new ids; only
+those are loaded.
 
 ## Environment
 
-| Variable                  | Meaning                                                                                 |
-| ------------------------- | --------------------------------------------------------------------------------------- |
-| `VITEC_WEBHOOK_TOKEN`     | The secret in the webhook URL. Without it the listener answers 503.                     |
-| `VITEC_BASE_URL`          | `https://connect.maklare.vitec.net` unless the tests point it at the stand-in.          |
-| `VITEC_FETCH_CONCURRENCY` | Connect requests at once, default 5.                                                    |
-| `DATABASE_URL`            | Where the adapter's own tables live (`vitec_fetch_list`, `vitec_known`, `vitec_state`). |
+| Variable                    | Meaning                                                                                 |
+| --------------------------- | --------------------------------------------------------------------------------------- |
+| `VITEC_WEBHOOK_TOKEN`       | The secret in the webhook URL. Without it the listener answers 503.                     |
+| `VITEC_BASE_URL`            | `https://connect.maklare.vitec.net` unless the tests point it at the stand-in.          |
+| `VITEC_FETCH_CONCURRENCY`   | Connect requests at once, default 5.                                                    |
+| `VITEC_REQUESTS_PER_SECOND` | The speed limit towards Connect, default 10; the tests raise it.                        |
+| `DATABASE_URL`              | Where the adapter's own tables live (`vitec_fetch_list`, `vitec_known`, `vitec_state`). |
 
 ## Verified against Connect (2026-09-17)
 
-`scripts/vitec-probe.ts` ran read-only with the test account (open question 18):
+A read-only probe (since removed) ran with the test account (open question 18):
 
 - List paging counts from 0, `count` is the number of pages and a page past the end is empty. The
   lister stops after the last page.
@@ -105,7 +105,44 @@ on `Estate` limited to estates advertised on the website (`Update` and `Remove`)
   (Patric, 2026-09-16), so an office item's `remote_id` is Vitec's office id and its `data.id` the
   customer id. Agent list rows carry no customer id, only their offices.
 
+Verified 2026-09-18 (read-only, the test account): `changedAt` is Swedish wall-clock time with no
+offset (`2026-08-31T11:46:09.65`), UTC+1 in winter and UTC+2 in summer. A `changedAtMinValue`
+with an explicit offset is honoured (`…Z` and the same moment as `…+02:00` return the same rows),
+and a bare one is read as Swedish time. The mappers therefore read a bare `changedAt` in
+`Europe/Stockholm` and send the catch-up window with its offset, so no clock is compared with
+another (strategy §6).
+
 Not verified: what an `Office` notification carries as `id`, the office id or the customer id. A
 customer id would fetch a 404 and change nothing; the next catch-up carries the change. A webhook
 accepted and then lost to a crash before its fetch ran is picked up by the next catch-up, not
 sooner.
+
+## Events on a record's timeline
+
+Every notification's arrival is an event, `webhook.received`, with its outcome (queued, ignored,
+rejected) and the office, datatype and id it named; a queued one carries the correlation id that
+the fetch and the write then share, so the record's timeline runs from Vitec's call to the bell.
+Every call to Connect is an event too, `crm.call`: endpoint, query, status, duration, answer size,
+and the start of the answer when it was an error or broken JSON (question 9, 2026-09-18).
+
+## When Vitec misbehaves
+
+Vitec has had timeouts, broken answers, and offices that close without notice, whose every request
+then answers 403 and whose hammering got Core blocked (Patric, 2026-09-18). The adapter guards
+itself, all of it inside the adapter:
+
+- **A refused office (401 or 403)** is blocked at the first refusal: nothing more is asked for it,
+  its waiting records are parked, and one probe per cool-down (an hour, doubling to a day) checks
+  whether it is back. Back means unblocked and loaded in full, so nothing that happened meanwhile is
+  missed. Its records stay on the sites as they are until a person removes the office at the panel
+  (question 38). `vitec.offices` is red while an office is blocked; the panel has "Probe now" and
+  "Forget".
+- **Vitec down, busy or unreachable** (timeouts, 5xx, 429, network errors) and **broken answers**
+  count per connection: after five in a row the connection pauses, two minutes doubling to thirty,
+  and shows red in `vitec.connect`. When the pause runs out the next fetches go through as a probe;
+  one more failure pauses again, a success ends it. Each record is still retried with growing waits
+  and given up after six attempts, for the panel's Retry or Drop.
+- **A broken answer** keeps the start of what Vitec sent in the `crm.call` event, so the cause can
+  be read afterwards; nothing half-parsed is ever written, and the last good version stays.
+- **A speed limit** of ten requests a second (`VITEC_REQUESTS_PER_SECOND`), five at once
+  (`VITEC_FETCH_CONCURRENCY`), and Vitec's own `Retry-After` honoured for up to five minutes.

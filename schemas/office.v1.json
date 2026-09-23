@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kowboy.se/schemas/office.v1.json",
   "title": "office.data",
-  "description": "INCOMPLETE. Only identity is defined, because the CRM data models have not been read yet. The descriptive model is added in one piece once they have (docs/field-tables.md). `additionalProperties` is true until then, so this schema does not yet reject an unknown field.",
+  "description": "An office on the universal names (docs/field-tables.md); `id` is the customer id the licensing filter uses. Fields the field tables do not name stay under their mechanical snake_case names (docs/data-model-reference.md), so `additionalProperties` stays true.",
   "type": "object",
   "properties": {
     "id": {
@@ -13,8 +13,58 @@
     },
     "provider_extras": {
       "$ref": "_shared.v1.json#/$defs/providerExtras"
+    },
+    "brand_id": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "name": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "address": {
+      "type": "object",
+      "properties": {
+        "street": {
+          "$ref": "_shared.v1.json#/$defs/nullableString"
+        },
+        "postal_code": {
+          "$ref": "_shared.v1.json#/$defs/nullableString"
+        },
+        "city": {
+          "$ref": "_shared.v1.json#/$defs/nullableString"
+        }
+      },
+      "required": ["street", "postal_code", "city"],
+      "additionalProperties": false
+    },
+    "phone": {
+      "$ref": "_shared.v1.json#/$defs/phone"
+    },
+    "email": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "seat": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "description": {
+      "$ref": "_shared.v1.json#/$defs/nullableString"
+    },
+    "lat": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
+    },
+    "lng": {
+      "$ref": "_shared.v1.json#/$defs/nullableNumber"
     }
   },
-  "required": ["id", "display", "provider_extras"],
+  "required": [
+    "id",
+    "name",
+    "address",
+    "phone",
+    "email",
+    "lat",
+    "lng",
+    "display",
+    "provider_extras"
+  ],
   "additionalProperties": true
 }

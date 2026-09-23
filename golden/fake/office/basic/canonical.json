@@ -1,5 +1,14 @@
 {
+  "address": {
+    "city": null,
+    "postal_code": null,
+    "street": null
+  },
+  "email": null,
   "id": "100",
-  "fake_label": "Fake office",
+  "lat": null,
+  "lng": null,
+  "name": "Fake office",
+  "phone": null,
   "provider_extras": {}
 }

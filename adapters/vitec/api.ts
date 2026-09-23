@@ -1,7 +1,7 @@
 // Vitec Connect over HTTP: basic authentication, the advertising endpoints and their paging.
 // Documented in docs/inputs/vitec/ (technical-information.md and api/). Nothing here knows the
 // engine, and nothing outside this adapter knows these shapes.
-import type { Datatype } from '../../engine/adapter-api/index.js';
+import type { Datatype, EventContext } from '../../engine/adapter-api/index.js';
 
 /** The Connect key pair from the partner portal (technical-information.md). */
 export type Auth = { username: string; password: string };
@@ -39,14 +39,43 @@ const REQUEST_TIMEOUT_MS = 30_000;
 export const concurrency = (): number =>
   Math.max(1, Number(process.env['VITEC_FETCH_CONCURRENCY'] ?? 5));
 
+/** Requests per second at most, lists included, so a load never looks like an attack. */
+export const requestsPerSecond = (): number =>
+  Math.max(1, Number(process.env['VITEC_REQUESTS_PER_SECOND'] ?? 10));
+
+/** How long a Retry-After is honoured at most. */
+const HOLD_MAX_MS = 5 * 60_000;
+
 let inFlight = 0;
 const waiting: (() => void)[] = [];
+let nextStartAt = 0;
+let holdUntil = 0;
 
-/** Run `send` once a slot is free. */
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Wait for the speed limit, and for any Retry-After Vitec asked for. */
+async function pace(): Promise<void> {
+  const interval = 1000 / requestsPerSecond();
+  const now = Date.now();
+  const at = Math.max(now, nextStartAt, holdUntil);
+  nextStartAt = at + interval;
+  if (at > now) await sleep(at - now);
+}
+
+/** Honour a Retry-After header (seconds, or a date), for at most HOLD_MAX_MS. */
+function hold(header: string | null): void {
+  if (!header) return;
+  const seconds = Number(header);
+  const ms = Number.isFinite(seconds) ? seconds * 1000 : new Date(header).getTime() - Date.now();
+  if (ms > 0) holdUntil = Date.now() + Math.min(ms, HOLD_MAX_MS);
+}
+
+/** Run `send` once a slot is free and the speed limit allows. */
 async function slot<T>(send: () => Promise<T>): Promise<T> {
   if (inFlight >= concurrency()) await new Promise<void>((resolve) => waiting.push(resolve));
   inFlight += 1;
   try {
+    await pace();
     return await send();
   } finally {
     inFlight -= 1;
@@ -57,6 +86,26 @@ async function slot<T>(send: () => Promise<T>): Promise<T> {
 export const baseUrl = (): string =>
   (process.env['VITEC_BASE_URL'] ?? 'https://connect.maklare.vitec.net').replace(/\/$/, '');
 
+/** One request as it went, for the event log: what was asked, what came back, how long it took. */
+export type Call = {
+  method: 'GET';
+  endpoint: string;
+  query: Record<string, string>;
+  status: number | null;
+  duration_ms: number;
+  response_bytes: number | null;
+  error?: string;
+  /** The record and the notification the call was for, when it was for one. */
+  trace?: EventContext;
+};
+
+let observer: ((call: Call) => void) | null = null;
+
+/** Hear about every request made; the adapter puts them in the event log (question 9). */
+export function onCall(fn: ((call: Call) => void) | null): void {
+  observer = fn;
+}
+
 export class VitecError extends Error {
   constructor(
     readonly status: number,
@@ -65,6 +114,26 @@ export class VitecError extends Error {
     super(message);
     this.name = 'VitecError';
   }
+}
+
+/**
+ * What a failed call means for the adapter's guards: `forbidden` is 401 or 403 (a closed office,
+ * a licence gone), `unavailable` is Vitec down, busy or unreachable, `broken` is an answer that is
+ * not JSON, and `other` is anything else.
+ */
+export type FailureKind = 'forbidden' | 'unavailable' | 'broken' | 'other';
+
+export function kindOf(error: unknown): FailureKind {
+  if (error instanceof VitecError) {
+    if (error.status === 401 || error.status === 403) return 'forbidden';
+    if (error.message.includes('broken JSON')) return 'broken';
+    if (error.status === 429 || error.status >= 500) return 'unavailable';
+    return 'other';
+  }
+  const name = error instanceof Error ? error.name : '';
+  return name === 'TimeoutError' || name === 'AbortError' || name === 'TypeError'
+    ? 'unavailable'
+    : 'other';
 }
 
 /**
@@ -78,25 +147,58 @@ export type Page = {
   rows?: Partial<ListRow>[];
 };
 
+/** The start of an answer, for an error message: enough to see what Vitec sent, never the lot. */
+const snippet = (text: string): string => text.replace(/\s+/g, ' ').slice(0, 200);
+
 async function get(
   auth: Auth,
   path: string,
   query: Record<string, string>,
+  trace?: EventContext,
 ): Promise<unknown | null> {
   const url = new URL(`${baseUrl()}/${path}`);
   for (const [name, value] of Object.entries(query)) url.searchParams.set(name, value);
-  const response = await slot(() =>
-    fetch(url, {
-      headers: {
-        authorization: `Basic ${Buffer.from(`${auth.username}:${auth.password}`).toString('base64')}`,
-        accept: 'application/json',
-      },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    }),
-  );
-  if (response.status === 404) return null;
-  if (!response.ok) throw new VitecError(response.status, `${path}: HTTP ${response.status}`);
-  return response.json();
+  const startedAt = Date.now();
+  const call: Call = {
+    method: 'GET',
+    endpoint: `/${path}`,
+    query,
+    status: null,
+    duration_ms: 0,
+    response_bytes: null,
+    trace,
+  };
+  try {
+    const response = await slot(() =>
+      fetch(url, {
+        headers: {
+          authorization: `Basic ${Buffer.from(`${auth.username}:${auth.password}`).toString('base64')}`,
+          accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      }),
+    );
+    call.status = response.status;
+    if (response.status === 429 || response.status === 503)
+      hold(response.headers.get('retry-after'));
+    const text = await response.text();
+    call.response_bytes = Buffer.byteLength(text);
+    if (response.status === 404) return null;
+    if (!response.ok) {
+      throw new VitecError(response.status, `${path}: HTTP ${response.status} ${snippet(text)}`);
+    }
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      throw new VitecError(response.status, `${path}: broken JSON: ${snippet(text)}`);
+    }
+  } catch (error) {
+    call.error = String(error);
+    throw error;
+  } finally {
+    call.duration_ms = Date.now() - startedAt;
+    observer?.(call);
+  }
 }
 
 const segment = encodeURIComponent;
@@ -107,9 +209,15 @@ export function getOne(
   datatype: Datatype,
   officeId: string,
   id: string,
+  trace?: EventContext,
 ): Promise<unknown | null> {
   const query: Record<string, string> = datatype === 'property' ? { extend: ESTATE_EXTEND } : {};
-  return get(auth, `Advertising/${RESOURCE[datatype]}/${segment(officeId)}/${segment(id)}`, query);
+  return get(
+    auth,
+    `Advertising/${RESOURCE[datatype]}/${segment(officeId)}/${segment(id)}`,
+    query,
+    trace,
+  );
 }
 
 /** One page of a list endpoint, or null when Connect answers 404. */
@@ -120,6 +228,7 @@ export function page(
   pageIndex: number,
   changedSince?: Date,
   pageSize = PAGE_SIZE,
+  trace?: EventContext,
 ): Promise<Page | null> {
   const query: Record<string, string> = {
     'paging.pageSize': String(pageSize),
@@ -130,6 +239,7 @@ export function page(
     auth,
     `Advertising/${RESOURCE[datatype]}/${segment(officeId)}`,
     query,
+    trace,
   ) as Promise<Page | null>;
 }
 
@@ -142,9 +252,10 @@ export async function* list(
   datatype: Datatype,
   officeId: string,
   changedSince?: Date,
+  trace?: EventContext,
 ): AsyncGenerator<ListRow> {
   for (let pageIndex = 0; ; pageIndex += 1) {
-    const result = await page(auth, datatype, officeId, pageIndex, changedSince);
+    const result = await page(auth, datatype, officeId, pageIndex, changedSince, PAGE_SIZE, trace);
     const rows = result?.rows ?? [];
     for (const row of rows) {
       if (!row.id) continue;

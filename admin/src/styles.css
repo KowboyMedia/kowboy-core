@@ -1,0 +1,92 @@
+@import 'tailwindcss';
+
+/*
+ * The design tokens, in the shape shadcn/ui components read them. One set of values: dark mode is
+ * a Could in the requirement sheet and is not built, so the tokens are here and a second set is a
+ * small change when it earns its place.
+ */
+@theme {
+  --color-background: oklch(0.99 0 0);
+  --color-foreground: oklch(0.21 0.02 260);
+  --color-card: oklch(1 0 0);
+  --color-muted: oklch(0.97 0.005 260);
+  --color-muted-foreground: oklch(0.52 0.02 260);
+  --color-border: oklch(0.91 0.01 260);
+  --color-input: oklch(0.91 0.01 260);
+  --color-ring: oklch(0.55 0.13 250);
+  --color-primary: oklch(0.32 0.05 258);
+  --color-primary-foreground: oklch(0.99 0 0);
+  --color-secondary: oklch(0.96 0.008 260);
+  --color-secondary-foreground: oklch(0.28 0.03 260);
+  --color-accent: oklch(0.95 0.015 250);
+  --color-accent-foreground: oklch(0.28 0.03 260);
+  --color-danger: oklch(0.55 0.21 27);
+  --color-danger-foreground: oklch(0.99 0 0);
+  --color-ok: oklch(0.6 0.14 152);
+  --color-warn: oklch(0.72 0.16 76);
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      Roboto,
+      Helvetica,
+      Arial,
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Everything reachable by keyboard says so, in one place (§3 I, accessible). */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* The four states of the Flow list, one class each (Patric's rule 3). */
+.flow-queued {
+  background: color-mix(in oklch, var(--color-warn) 12%, transparent);
+}
+.flow-fetched {
+  background: color-mix(in oklch, var(--color-ring) 10%, transparent);
+}
+.flow-applied {
+  background: color-mix(in oklch, var(--color-ok) 12%, transparent);
+}
+.flow-error {
+  background: color-mix(in oklch, var(--color-danger) 12%, transparent);
+}
+
+/* A row that has just arrived or changed state fades in, so the eye catches the movement. */
+@keyframes flow-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.flow-row {
+  animation: flow-in 240ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-row {
+    animation: none;
+  }
+}

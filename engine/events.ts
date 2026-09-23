@@ -3,10 +3,12 @@ import { db } from './storage/db.js';
 export type EventFields = Record<string, unknown>;
 
 export type EventRow = {
+  /** In order of writing; the panel tails and pages the log by it. */
+  id: string;
   at: Date;
   type: string;
   correlation_id: string | null;
-  tenant_id: string | null;
+  tenant_id: number | null;
   connection_id: string | null;
   datatype: string | null;
   remote_id: string | null;
@@ -17,7 +19,7 @@ export type EventRow = {
 export type EventInput = {
   type: string;
   correlationId?: string | null;
-  tenantId?: string | null;
+  tenantId?: number | null;
   connectionId?: string | null;
   datatype?: string | null;
   remoteId?: string | null;
@@ -66,40 +68,53 @@ export async function logEvent(event: EventInput): Promise<void> {
 export type EventQuery = {
   entity?: { connectionId: string; datatype: string; remoteId: string };
   connectionId?: string;
-  tenantId?: string;
+  tenantId?: number;
   subscriberId?: number;
   correlationId?: string;
   type?: string;
   from?: string;
   to?: string;
   limit?: number;
+  /** The admin panel reads the latest first. */
+  newestFirst?: boolean;
+  /** Page older than this event, or tail newer than it. */
+  beforeId?: number;
+  afterId?: number;
 };
 
 /** The admin timeline query (SRS §11, AC 16). */
 export async function queryEvents(query: EventQuery): Promise<EventRow[]> {
+  const filters: [string, unknown][] = [
+    ['connection_id = ?', query.entity?.connectionId],
+    ['datatype = ?', query.entity?.datatype],
+    ['remote_id = ?', query.entity?.remoteId],
+    ['connection_id = ?', query.connectionId],
+    ['tenant_id = ?', query.tenantId],
+    ['subscriber_id = ?', query.subscriberId],
+    ['correlation_id = ?', query.correlationId],
+    ['type = ?', query.type],
+    ['at >= ?', query.from],
+    ['at <= ?', query.to],
+    ['id < ?', query.beforeId],
+    ['id > ?', query.afterId],
+  ];
   const where: string[] = [];
   const values: unknown[] = [];
-  const add = (clause: string, value: unknown) => {
+  for (const [clause, value] of filters) {
+    if (value === undefined || value === null || value === '' || value === 0) continue;
     values.push(value);
     where.push(clause.replace('?', `$${values.length}`));
-  };
-
-  if (query.entity) {
-    add('connection_id = ?', query.entity.connectionId);
-    add('datatype = ?', query.entity.datatype);
-    add('remote_id = ?', query.entity.remoteId);
   }
-  if (query.connectionId) add('connection_id = ?', query.connectionId);
-  if (query.tenantId) add('tenant_id = ?', query.tenantId);
-  if (query.subscriberId !== undefined) add('subscriber_id = ?', query.subscriberId);
-  if (query.correlationId) add('correlation_id = ?', query.correlationId);
-  if (query.type) add('type = ?', query.type);
-  if (query.from) add('at >= ?', query.from);
-  if (query.to) add('at <= ?', query.to);
-
   const limit = Math.min(query.limit ?? 500, 5000);
-  const sql = `select * from events ${where.length ? `where ${where.join(' and ')}` : ''} order by at, ctid limit ${limit}`;
+  const order = query.newestFirst ? 'id desc' : 'id';
+  const sql = `select * from events ${where.length ? `where ${where.join(' and ')}` : ''} order by ${order} limit ${limit}`;
   return (await db().query<EventRow>(sql, values)).rows;
+}
+
+/** The newest event's number, where a live tail starts. */
+export async function latestEventId(): Promise<number> {
+  const { rows } = await db().query<{ id: string | null }>('select max(id) as id from events');
+  return Number(rows[0]?.id ?? 0);
 }
 
 /** Delete events outside the retention window (strategy §8.2). */

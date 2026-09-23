@@ -4,61 +4,41 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 30.
+answering is quick. Next number: 87 (75 to 77 were also used in chat on 2026-09-21 for the porting
+plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
+plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
+conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 2. Protected paths created by an agent
+## 52. The pairs for the Vitec mapping: no longer needed for the mapping; what remains is Vitec's golden masters
 
-`schemas/`, `acceptance/` and `golden/fake/` did not exist before. CODEOWNERS now protects the
-first two, so this is the one time they are created without a prior review. They need your read.
+`[crm-vitec]` Patric's plan of 2026-09-19 (a read endpoint on a client site running the old
+plugin, plus its Vitec key pair, fetched as pairs and mapped by evidence) was overtaken the same
+day by Gate 2: `docs/field-tables.md` names every universal field's Vitec source,
+`adapters/vitec/mappers.ts` copies and renames by those tables, and `display` comes from the
+approved ledger entries. The mapping needs no evidence from the old sites, and taking anything
+from the old plugins is a hard rule against (AGENTS.md). What 52 still delivered is Vitec's golden
+masters (Gate 3, AC 1) and the comparison against the old sites (AC 28). Close 52 and take
+Vitec's golden masters from the test account's real records on staging instead: an agent keeps a
+representative set as `golden/vitec/` cases (payload, universal, display) for Patric's approval,
+the protected path's gate; the parity inventory stays a human-supplied list (strategy §10, AC 28)
+checked against Core's data. Smaller: yes, close 52 and take them from the test account. Or keep
+the pairs.
 
-## 5. There are no business rules, and none can be written yet
+## 54. Vitec on the test account: five things only a person in Vitec can set up
 
-`engine/rules/run.ts` computes nothing. It guarantees `display` exists and gives rules one place to
-live. Earlier it formatted prices, areas, room counts, addresses and slugs; all of that was
-invented from the SRS's illustrative example and has been removed.
+`[crm-vitec]` Core copies what Vitec sends, so nothing in Core waits on these; the sites'
+templates do. One estate per case, set by a person in the Vitec test account, read off staging by
+an agent: (a) a new-build project's homes appear in the marketed list with their `projectId`
+(assumed on 2026-09-19, so a project page can list them); (b) whether the price text stays when
+the price is hidden; (c) whether the area name stays when the address is hidden; (d) what status
+a "till salu, visa som kommande" estate carries; (e) how each of the four bid settings shows in
+`bidding`. Smaller: (a) alone now, the rest when the first client template needs them.
 
-A rule needs two things first: a field to compute over, and a ledger entry saying what the output
-should be. `rules-ledger/` is protected and empty, so nothing can be written until an entry exists.
+## 80. `[client-wordpress]` Name the first client to port, once the default set is done
 
-## 6. Images, when the model is defined
-
-Kowboy serves images through a separate CDN app. The SRS says images are CRM CDN URLs with a sort
-order (§6.6), but there is no image field in the contract today and none will be added on a guess.
-When the model is defined, say whether Core carries image URLs at all or leaves them out entirely.
-
-## 8. Phase 1 cannot exit without the platform
-
-Phase 1's exit is a real PR → staging → production deploy, and AC 18, 24, 27 need a live
-environment. The app is built to run on DigitalOcean App Platform with managed Postgres, but
-nothing is deployed. Phase 1 is split in the strategy into Foundation (done) and Deploy (waiting
-on you).
-
-## 9. The adapter API cannot stamp an adapter's own events
-
-`logEvent(type, fields)` writes a row with no correlation id and no entity reference, so an
-adapter's own events (a webhook arriving, a CRM call and its timing) cannot be linked to the write
-they caused. `ingest` does take a correlation id, so the chain works from the fetch onwards, and
-the fake adapter proves it.
-
-AC 16 asks for one query returning the whole timeline **across webhook, fetch, CRM call, write,
-bell and pull**. Meeting it fully needs one added argument:
-
-```ts
-logEvent(type, fields, context?: { correlationId?, connectionId?, datatype?, remoteId? })
-```
-
-That is an adapter API change, so it needs approval (E3). It is additive and breaks no caller.
-
-## 16. The plugin's license, now that Action Scheduler is bundled
-
-Action Scheduler is GPLv3, and a plugin that ships it is GPL-derived, as WordPress plugins normally
-are. The plugin header has no `License:` line. Suggested: `License: GPL-3.0-or-later` in
-`clients/wordpress/core-client/core-client.php`. Your call; nothing else depends on it.
-
-## 29. `[core]` The admin panel MVP
-
-`docs/admin-panel.md` describes it: eight panels (overview, tenants and sites, connections,
-adapter panels, items, events, a test panel that runs requests, settings), server-rendered inside
-the `web` process behind the admin secret, adapter panels living in each adapter's own folder and
-reaching the shell through one additive field on the adapter API. Answer: yes to build it as
-described, or say what to change. The adapter API field is the one protected change.
+Norban is not a client port: norbanmakleri.se runs the default templates of plugin v2 and v3
+unchanged, so it is the reference the default set "Kowboy 2026" is ported from (Patric,
+2026-09-23), and its office is the test account staging already holds. Client ports start after
+the set is done (next-steps item 17), through the automated workflow of
+`docs/template-porting.md`. When the set is done, name the first client by the name Cloudways
+lists its site, and give its CRM login if staging does not hold that account yet.

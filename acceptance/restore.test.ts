@@ -9,6 +9,8 @@ import { fakePollingAdapter, poll } from '../adapters/fake-polling/index.js';
 import * as crm from '../adapters/fake-polling/crm.js';
 import { SEQUENCE_JUMP } from '../engine/index.js';
 import { db } from '../engine/storage/db.js';
+import { pruneHealth } from '../engine/health.js';
+import { queueLifecycle } from '../engine/lifecycle.js';
 
 const CONNECTION = 'polling-acme';
 
@@ -99,9 +101,11 @@ describe('restore (AC 41)', () => {
     await poll();
     await site.sync();
     expect(new Map(site.store)).toEqual(before);
-    expect(site.items('property').map((item) => item.data?.['fake_label'])).toEqual(
-      expect.arrayContaining(['Nygatan 2', 'Kungsgatan 4']),
-    );
+    expect(
+      site
+        .items('property')
+        .map((item) => (item.data?.['address'] as Record<string, unknown> | undefined)?.['street']),
+    ).toEqual(expect.arrayContaining(['Nygatan 2', 'Kungsgatan 4']));
 
     // Everything served after the restart sits above the cursor from before it.
     const served = (await pull(url, 'property', cursor)).items;
@@ -160,25 +164,29 @@ describe('restore (AC 41)', () => {
     expect((await fetch(`${running.baseUrl}/v1/ready`)).status).toBe(200);
   });
 
-  it('delivers a lifecycle event queued by the admin endpoint, and counts one nobody takes', async () => {
+  it("forgets, at the worker's next round, a check nobody runs any more", async () => {
+    // An adapter that left the app: its last report would otherwise stay red as "no report".
+    await db().query(
+      `insert into health_results (name, ok, detail, at)
+       values ('someone.catch_up', true, null, now() - interval '10 minutes')`,
+    );
+    await pruneHealth();
+    const health = (await (await fetch(`${running.baseUrl}/v1/health`)).json()) as {
+      checks: Record<string, { ok: boolean }>;
+    };
+    expect(health.checks['someone.catch_up']).toBeUndefined();
+    expect(health.checks['fake-polling.poll']).toBeDefined();
+  });
+
+  it('delivers a queued lifecycle event, and counts one nobody takes', async () => {
     crm.put('property', 'P-1', property('P-1', 'Kungsgatan 1'));
-    const response = await fetch(`${running.baseUrl}/v1/admin/event`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-admin-secret': 'test-admin-secret' },
-      body: JSON.stringify({ connection_id: CONNECTION, event: 'resync' }),
-    });
-    expect(response.status).toBe(202);
+    expect(await queueLifecycle(CONNECTION, 'resync')).not.toBeNull();
     expect((await pull(running.baseUrl, 'property')).items).toHaveLength(0);
 
     await running.deliver();
     expect((await pull(running.baseUrl, 'property')).items).toHaveLength(1);
 
-    const unknown = await fetch(`${running.baseUrl}/v1/admin/event`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-admin-secret': 'test-admin-secret' },
-      body: JSON.stringify({ connection_id: 'nobody', event: 'resync' }),
-    });
-    expect(unknown.status).toBe(404);
+    expect(await queueLifecycle('nobody', 'resync')).toBeNull();
 
     await db().query(
       `insert into lifecycle_events (connection_id, event, created_at)

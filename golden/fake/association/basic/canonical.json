@@ -1,5 +1,6 @@
 {
+  "contact": null,
   "id": "BRF-311",
-  "fake_label": "Fake association",
+  "name": "Fake association",
   "provider_extras": {}
 }

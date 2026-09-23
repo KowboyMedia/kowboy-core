@@ -5,30 +5,39 @@ import { closeDb, db } from './storage/db.js';
 import { migrate } from './storage/migrate.js';
 import { configureCredentials } from './storage/connections.js';
 import { configureBells, flushPendingBells } from './bells.js';
-import { heartbeat, healthReport, readiness, recordHealth } from './health.js';
+import { configureMail, postmark } from './mail.js';
+import {
+  forViewers,
+  heartbeat,
+  healthReport,
+  pruneHealth,
+  readiness,
+  recordHealth,
+} from './health.js';
 import { deliverLifecycleEvents } from './lifecycle.js';
 import { deleteExpiredEvents, logEvent } from './events.js';
+import { failStaleJobs, runNextJob } from './jobs.js';
+import { checkAlerts } from './alerts.js';
 import { purgeTombstones } from './storage/items.js';
 import { changes } from './http/changes.js';
-import { adminRoutes } from './http/admin.js';
+import { applied } from './http/applied.js';
+import { siteError } from './http/errors.js';
 import { configureCompression, jsonResponse, startServer, type RouteTable } from './http/server.js';
+import { SEQUENCE_JUMP, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
+import { adminRoutes, configureAdmin } from './admin/index.js';
+import { deleteExpiredSessions } from './admin/auth.js';
 
-export const VERSION = '0.1.0';
+export { SEQUENCE_JUMP, STARTED_AT, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
 
-/**
- * Every start moves the item sequence this far ahead (strategy §7.2). A database restored to an
- * earlier point then never hands out a seq a subscriber has already seen: nothing is skipped, and
- * nothing below a subscriber's cursor is served except what is written after the restore.
- */
-export const SEQUENCE_JUMP = 1_000_000_000;
-/** Tombstones are hard-deleted after 90 days (AC 26). */
-const TOMBSTONE_RETENTION_DAYS = 90;
 const HEARTBEAT_MS = 30_000;
 const BELL_FLUSH_MS = 1_000;
 const HOUSEKEEPING_MS = 60 * 60_000;
-/** How often the worker takes queued lifecycle events, and records the adapters' health checks. */
+/** How often the worker takes queued lifecycle events and jobs, and records the adapters' health checks. */
 const LIFECYCLE_MS = 2_000;
+const JOBS_MS = 2_000;
 const HEALTH_RECORD_MS = 30_000;
+/** How often the worker compares the health checks with their last state and tells a change. */
+const ALERTS_MS = 60_000;
 
 export type Engine = {
   config: Config;
@@ -56,21 +65,31 @@ async function advanceSequence(): Promise<void> {
 /** Start the engine: config, database, migrations, routes. No CRM knowledge anywhere in here. */
 export async function startEngine(overrides: Partial<Config> = {}): Promise<Engine> {
   const config = { ...loadConfig(), ...overrides };
-  initErrorReporting(config.sentryDsn);
+  initErrorReporting(config.sentryDsn, { environment: config.environment, release: VERSION });
   db(config.databaseUrl);
   await migrate();
   await advanceSequence();
   configureCredentials(config.credentialsKey);
   configureBells(config.bellThrottleMs);
   configureCompression(config.gzipLevel);
+  configureMail(
+    config.postmarkServerToken && config.mailFrom
+      ? postmark(config.postmarkServerToken, config.mailFrom)
+      : null,
+  );
+  configureAdmin(config);
 
   const routes: RouteTable = [
+    ...adminRoutes(),
     { method: 'GET', path: '/v1/changes', handler: changes },
+    { method: 'POST', path: '/v1/applied', handler: applied },
+    { method: 'POST', path: '/v1/errors', handler: siteError },
     {
       method: 'GET',
       path: '/v1/health',
       handler: async () => {
-        const health = await healthReport();
+        // Public, for an uptime monitor: 500 while any check fails, counts and plain words only.
+        const health = forViewers(await healthReport());
         return jsonResponse(health.ok ? 200 : 500, { ...health, version: VERSION });
       },
     },
@@ -82,7 +101,6 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
         return jsonResponse(ready.ok ? 200 : 500, { ...ready, version: VERSION });
       },
     },
-    ...adminRoutes(config.adminSecret),
   ];
 
   let server: Server | null = null;
@@ -105,15 +123,40 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
       tick(() => heartbeat(), HEARTBEAT_MS);
       tick(() => flushPendingBells(), BELL_FLUSH_MS);
       tick(() => deliverLifecycleEvents(), LIFECYCLE_MS);
-      tick(() => recordHealth(), HEALTH_RECORD_MS);
+      tick(async () => {
+        while (await runNextJob()) {
+          // one job after another, until the queue is empty
+        }
+      }, JOBS_MS);
+      tick(
+        () =>
+          checkAlerts({
+            environment: config.environment,
+            publicUrl: config.publicUrl,
+            email: config.alertEmail,
+            slackWebhookUrl: config.alertSlackWebhookUrl,
+          }),
+        ALERTS_MS,
+      );
+      tick(async () => {
+        await recordHealth();
+        await pruneHealth();
+      }, HEALTH_RECORD_MS);
       tick(async () => {
         await deleteExpiredEvents(config.eventRetentionDays);
         await purgeTombstones(TOMBSTONE_RETENTION_DAYS);
+        await deleteExpiredSessions();
       }, HOUSEKEEPING_MS);
+      tick(() => failStaleJobs(), ALERTS_MS);
     },
     async stop(): Promise<void> {
       for (const timer of timers) clearInterval(timer);
-      await new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve()));
+      await new Promise<void>((resolve) => {
+        if (!server) return resolve();
+        server.close(() => resolve());
+        // A page's live feed never ends on its own; a stop must not wait for it.
+        server.closeAllConnections();
+      });
       await closeDb();
     },
   };

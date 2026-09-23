@@ -1,8 +1,7 @@
 import type { Mappers, MappedRecord } from '../../engine/adapter-api/index.js';
 
-// A second fake CRM, speaking snake_case, to prove the engine depends on neither vocabulary.
-// Fields beyond identity are named `fake_*` for the same reason as in the other fake adapter:
-// the universal model has no descriptive fields yet, and a dummy provider must not invent them.
+// A second fake CRM, speaking snake_case, to prove the engine depends on neither vocabulary:
+// it maps onto the same universal names (docs/field-tables.md) as the first.
 
 type Raw = Record<string, unknown>;
 
@@ -33,35 +32,98 @@ const property = (raw: unknown): MappedRecord => {
       agent_ids: Array.isArray(record['staff']) ? record['staff'].map(String) : [],
       area_ids: Array.isArray(record['districts']) ? record['districts'].map(String) : [],
       association_id: text(record['coop_id']),
-      fake_state: stage,
-      fake_label: text(record['street']),
-      fake_amount: number(record['price']),
+      project_id: null,
+      status: { id: stage, name: stage },
+      type: null,
+      subtype: null,
+      tenure: null,
+      address: {
+        street: text(record['street']),
+        postal_code: null,
+        city: null,
+        area_name: null,
+        municipality: null,
+        country_code: null,
+      },
+      lat: null,
+      lng: null,
+      price: number(record['price']),
+      final_price: null,
+      currency: 'SEK',
+      fee: null,
+      living_space: null,
+      additional_space: null,
+      rooms: null,
+      buildings: [],
+      images: [],
+      viewings: [],
+      bidding: { is_active: null, is_verified: null, bids: [] },
       display: {},
       provider_extras: { 'fake-polling': { object_type: String(record['object_type']) } },
     },
   };
 };
 
-const byField =
-  (
-    idField: string,
-    labelField: string,
-    officeField: string | null,
-  ): ((raw: unknown) => MappedRecord) =>
+const office = (raw: unknown): MappedRecord => {
+  const record = raw as Raw;
+  const id = require_(record, 'branch_id');
+  return {
+    officeId: id,
+    remoteUpdatedAt: text(record['changed_at']),
+    data: {
+      id,
+      name: text(record['branch_name']),
+      address: { street: null, postal_code: null, city: null },
+      phone: null,
+      email: null,
+      lat: null,
+      lng: null,
+      display: {},
+      provider_extras: {},
+    },
+  };
+};
+
+const agent = (raw: unknown): MappedRecord => {
+  const record = raw as Raw;
+  const id = require_(record, 'staff_id');
+  const officeId = text(record['branch_id']);
+  return {
+    officeId,
+    remoteUpdatedAt: text(record['changed_at']),
+    data: {
+      id,
+      office_ids: officeId ? [officeId] : [],
+      name: text(record['full_name']),
+      title: null,
+      email: null,
+      phones: { mobile: null, public: null },
+      image: null,
+      offices: officeId
+        ? [{ office_id: officeId, order: null, is_visible_in_staff_list: null, phone: null }]
+        : [],
+      display: {},
+      provider_extras: {},
+    },
+  };
+};
+
+const named =
+  (idField: string, nameField: string, extra: Raw): ((raw: unknown) => MappedRecord) =>
   (raw: unknown): MappedRecord => {
     const record = raw as Raw;
     const id = require_(record, idField);
     return {
-      officeId: officeField ? text(record[officeField]) : null,
+      officeId: null,
       remoteUpdatedAt: text(record['changed_at']),
-      data: { id, fake_label: text(record[labelField]), display: {}, provider_extras: {} },
+      data: { id, name: text(record[nameField]), ...extra, display: {}, provider_extras: {} },
     };
   };
 
 export const mappers: Mappers = {
   property,
-  office: byField('branch_id', 'branch_name', 'branch_id'),
-  agent: byField('staff_id', 'full_name', 'branch_id'),
-  area: byField('district_id', 'district_name', null),
-  association: byField('coop_id', 'coop_name', null),
+  office,
+  agent,
+  area: named('district_id', 'district_name', { polygon: null, images: [] }),
+  association: named('coop_id', 'coop_name', { contact: null }),
 };

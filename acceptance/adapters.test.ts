@@ -1,7 +1,8 @@
 // AC 12: two fake adapters, one webhook-style and one polling-style, work end to end through the
 // adapter API alone, and the engine stays free of any provider's vocabulary.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { harness, pull, until, ADMIN_SECRET, type Harness } from './harness.js';
+import { harness, pull, until, type Harness } from './harness.js';
+import { queueLifecycle } from '../engine/lifecycle.js';
 import { fakePollingAdapter, poll } from '../adapters/fake-polling/index.js';
 import { fakeWebhookAdapter, drainFetchList, queueDepth } from '../adapters/fake-webhook/index.js';
 import * as pollingCrm from '../adapters/fake-polling/crm.js';
@@ -146,11 +147,7 @@ describe('two adapters, one engine', () => {
 
   it('resyncs a connection on request (AC 14)', async () => {
     pollingCrm.put('property', 'P-1', pollingProperty('P-1'));
-    await fetch(`${running.baseUrl}/v1/admin/event`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-admin-secret': ADMIN_SECRET },
-      body: JSON.stringify({ connection_id: POLLING, event: 'resync' }),
-    });
+    await queueLifecycle(POLLING, 'resync');
     await running.deliver();
     await until(
       async () => (await pull(running.baseUrl, 'property')).items.length === 1,

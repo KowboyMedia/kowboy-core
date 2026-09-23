@@ -13,8 +13,22 @@ import type { HealthResult } from './adapter-api/types.js';
  */
 export type HealthReport = {
   ok: boolean;
-  checks: Record<string, { ok: boolean; detail?: string }>;
+  checks: Record<string, HealthResult>;
 };
+
+/**
+ * The report as `/v1/health` answers it to anyone, an uptime monitor included: every check with
+ * its counts and plain words, the names left out (Patric, 2026-09-20, question 62).
+ */
+export const forViewers = (report: HealthReport): HealthReport => ({
+  ok: report.ok,
+  checks: Object.fromEntries(
+    Object.entries(report.checks).map(([name, check]) => [
+      name,
+      { ok: check.ok, ...(check.detail ? { detail: check.detail } : {}) },
+    ]),
+  ),
+});
 
 export const WORKER_HEARTBEAT_MS = 2 * 60_000;
 export const SUBSCRIBER_IDLE_MS = 60 * 60_000;
@@ -74,7 +88,11 @@ export async function healthReport(): Promise<HealthReport> {
     );
     return rows.length === 0
       ? { ok: true }
-      : { ok: false, detail: `not pulling: ${rows.map((row) => row.label).join(', ')}` };
+      : {
+          ok: false,
+          detail: `${rows.length} site(s) have not pulled for an hour`,
+          names: rows.map((row) => row.label),
+        };
   });
 
   checks['lifecycle'] = await run(async () => {
@@ -98,16 +116,21 @@ async function adapterChecks(): Promise<HealthReport['checks']> {
     name: string;
     ok: boolean;
     detail: string | null;
+    names: string[] | null;
     age_ms: string;
   }>(
-    'select name, ok, detail, extract(epoch from (now() - at)) * 1000 as age_ms from health_results',
+    'select name, ok, detail, names, extract(epoch from (now() - at)) * 1000 as age_ms from health_results',
   );
   for (const row of rows) {
     if (row.name in checks) continue;
     const age = Number(row.age_ms);
     checks[row.name] =
       age <= RECORDED_STALE_MS
-        ? { ok: row.ok, ...(row.detail ? { detail: row.detail } : {}) }
+        ? {
+            ok: row.ok,
+            ...(row.detail ? { detail: row.detail } : {}),
+            ...(row.names ? { names: row.names } : {}),
+          }
         : { ok: false, detail: `no report for ${Math.round(age / 1000)} s` };
   }
   return checks;
@@ -120,12 +143,22 @@ export async function recordHealth(): Promise<HealthReport['checks']> {
     const result = await run(check);
     checks[name] = result;
     await db().query(
-      `insert into health_results (name, ok, detail, at) values ($1, $2, $3, now())
-       on conflict (name) do update set ok = excluded.ok, detail = excluded.detail, at = now()`,
-      [name, result.ok, result.detail ?? null],
+      `insert into health_results (name, ok, detail, names, at) values ($1, $2, $3, $4, now())
+       on conflict (name) do update set ok = excluded.ok, detail = excluded.detail, names = excluded.names, at = now()`,
+      [name, result.ok, result.detail ?? null, result.names ?? null],
     );
   }
   return checks;
+}
+
+/**
+ * Drop the reports of checks this process does not run any more: a check that left with its
+ * adapter would otherwise stay red for ever as "no report". The worker's tick, after recording.
+ */
+export async function pruneHealth(): Promise<void> {
+  await db().query('delete from health_results where name <> all($1::text[])', [
+    [...registeredHealthChecks().keys()],
+  ]);
 }
 
 async function run(check: () => Promise<HealthResult> | HealthResult): Promise<HealthResult> {
