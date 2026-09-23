@@ -4,6 +4,20 @@ The standing to-do for any session. When Patric says **"Resume next steps"**, re
 the first item that is not done, and keep the file current. Decisions and open questions live in
 `docs/decisions.md` and `docs/open-questions.md`; this file is only the order of work.
 
+## Where to pick up (convergence point, 2026-09-23)
+
+Everything up to 2026-09-23 is combined into staging; no other saved session holds work. The one
+task in progress is **the default template set "Kowboy 2026"**, item 17, with item 18 inside it.
+"Resume next steps", "continue the templates" or "what remains" all mean item 17: read
+`docs/default-templates.md` (what the set is, the scaffolding, the master), `docs/field-tables.md`
+(the universal names and `display`), `rules-ledger/` (the fourteen display rules that exist), and
+`clients/wordpress/README.md` (the plugin the set plugs into). The strategy in one breath: the set
+is a separate WordPress plugin per style, one file per view with the logic on top, reading only
+`display` and `data` from the sync plugin; it must show what norbanmakleri.se shows, page by page,
+and every display string it needs that Core does not prepare yet is a ledger entry drafted for
+Patric's validation. Items 6, 11, 13, 14 and 16 wait on the things named in them and are not
+picked up by "resume". After the set: the client ports (item 16, first client by question 80).
+
 ## Now
 
 1. ~~**Fetch the Vitec Connect documentation**~~ Done 2026-09-16: `docs/inputs/vitec/` holds the
