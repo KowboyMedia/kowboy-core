@@ -91,7 +91,43 @@ updater keeps a list, one line per package it watches; a `v*` tag packages the p
 set (`.github/workflows/release.yml`), and the staging channel of step 1 carries them all on every
 change. One approval promotes everything (strategy §4).
 
-## How the default set is made: three apps on dev.kowboy.se
+## The scaffolding: one file per view
+
+Patric's decision of 2026-09-21, made in the session that built the "kowboy-v4" package (a
+conversation outside this repository) and recorded on 2026-09-23. It is what "simplest possible
+scaffolding" means here, and every set follows it:
+
+- **One file per view.** `single-core_property.php` and its siblings for the single pages, named
+  the WordPress way so the theme hierarchy finds them; `list-<entity>.php` for each list wrapper
+  (the filter form, the cards' container, "show more"); `card-<entity>.php` for each card; archive
+  pages of a few lines that call the list function. Every file is a PHP block on top that prepares
+  the values and plain markup below: a WordPress developer changes a value at the top and the
+  layout underneath, and nothing is hidden in helpers, parts or classes.
+- **One loader.** About a hundred lines: it finds a template (theme first, then the set),
+  registers the shortcode and the reload endpoint, and wraps a view in a shadow root when asked.
+  Nothing else lives outside the view files.
+- **One list function.** The shortcode, the archive page, the reload endpoint and any PHP call the
+  same function with one parameter set, passed through untouched, so a parameter added to the
+  function is at once available everywhere. The first page of a list is rendered on the server
+  (crawlable, no script needed); on load the script hydrates the list with one reload call, and
+  it reloads on filter changes and on "show more".
+- **Shadow DOM as a setting.** One boolean of the site, and a parameter of the list function:
+  declarative, rendered on the server, wrapping the view. The stylesheets stay `.css` files
+  linked in both modes, never CSS inside PHP strings; the scripts query from the shadow root
+  when there is one; a list inside a single page never opens a second root.
+- **From the package, on Patric's word (2026-09-23, question 86).** The package's PHP is not
+  reused; its markup is flattened to plain HTML and sliced per view file, its CSS and JavaScript
+  go into the set's assets.
+
+## How the default set is made: the master is norbanmakleri.se live
+
+Patric's answer of 2026-09-23 to question 85: the master is norbanmakleri.se as it runs live, so
+the set's single pages, lists and cards must show what that site shows, and the v2 and v3 apps
+below are no longer needed for the choice. What the site shows is read over HTTPS: its lists are
+filled by the old plugin's reload endpoint and its single pages carry their markup inside a
+script, both readable without a browser. The plan as it stood on 2026-09-21 follows.
+
+### As planned on 2026-09-21: three apps on dev.kowboy.se
 
 Patric's instruction (2026-09-21, questions 82, 84 and 85): the default set is written against
 three apps on `dev.kowboy.se`, on the Cloudways server the names `*.dev.kowboy.se` already point

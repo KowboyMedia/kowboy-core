@@ -33,13 +33,3 @@ an agent: (a) a new-build project's homes appear in the marketed list with their
 the price is hidden; (c) whether the area name stays when the address is hidden; (d) what status
 a "till salu, visa som kommande" estate carries; (e) how each of the four bid settings shows in
 `bidding`. Smaller: (a) alone now, the rest when the first client template needs them.
-
-## 80. `[client-wordpress]` Name the first client to port: the site whose templates are the reference
-
-The porting workflow (`docs/template-porting.md`) starts from one client: its live site on
-Cloudways is copied twice onto the porting server, a source with the old plugin and a target
-with Core's plugin, and the new default templates are written to make the target show what the
-source shows. Patric called this site "our reference site, which runs the original templates" on
-2026-09-20 but did not name it. An agent needs the name as Cloudways lists the app, and the
-client's CRM login if staging does not hold that account yet (the test account `M31529` is on
-staging already; a client's is not).

@@ -109,3 +109,25 @@ never.
 - **80** the first client to port, by the name Cloudways lists it, and its CRM login if staging
   does not hold that account.
 - Per later client: the same two things.
+
+## Three kinds of port, one workflow
+
+Patric, 2026-09-23. Every port is one of three, and all three run the workflow above:
+
+| Kind                                                                      | Source                                         | Must match one to one |
+| ------------------------------------------------------------------------- | ---------------------------------------------- | --------------------- |
+| The default set (item 17, [default-templates.md](default-templates.md))   | norbanmakleri.se live                          | yes                   |
+| A Kowboy client on plugin v1, v2 or v3                                    | a copy of its site, the old plugin a black box | no                    |
+| A site that never ran Kowboy, WordPress or not, a dummy site, another CRM | its pages, or its data                         | no                    |
+
+The shared work is the same in all three: identify every field the source shows by its intention,
+and map it to the version 4 field of the same intention (`display.living_area` may read a little
+differently on another set; the intention is what must be kept). The first client is Norban
+(question 80, 2026-09-23), whose office is the test account staging already holds.
+
+## Later: a porting factory
+
+Patric, 2026-09-23, exploration only (next-steps item 19): whether the workflow can be packaged
+as a skill or workflow inside Claude Code that takes two inputs, a source and a target, and runs
+the port on its own, asking its questions, approvals and the assumptions it made in batches, and
+reporting the differences a client must know. Not built now.

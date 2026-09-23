@@ -205,7 +205,9 @@ the first item that is not done, and keep the file current. Decisions and open q
     Vitec is given them.
 
 16. **Porting any client's templates to version 4** (Patric, 2026-09-21): plan in
-    `docs/template-porting.md`. One porting server with a pair of sites per client, the source a
+    `docs/template-porting.md`. 2026-09-23: the first client is Norban (question 80, yes), and
+    three kinds of port share the one workflow, the default set, a Kowboy client on plugin v1 to
+    v3, and a site that never ran Kowboy; the shared work is mapping every field by intention. One porting server with a pair of sites per client, the source a
     copy of the client's live site with the old plugin, the target a copy with Core's plugin and
     the client's template set, made through the host's API, compared page by page and iterated
     by an agent until the target shows the same; gaps raised by step 2's rule. Cloudways (question
@@ -247,28 +249,42 @@ the first item that is not done, and keep the file current. Decisions and open q
     5. Write every id, address and login location (never a secret) into `docs/template-porting.md`
        as it is made, so the next session finds it there.
 
-17. **The default set "Kowboy 2026" against three apps on dev.kowboy.se** (Patric, 2026-09-21;
-    questions 82 to 84 closed, 85 open): `docs/default-templates.md`, "How the default set is
-    made". Three apps on the Cloudways server `*.dev.kowboy.se` points at: `v2.dev.kowboy.se`
-    (plugin v2), `v3.dev.kowboy.se` (plugin v3), both installed from their zips through the
-    WordPress admin as black boxes and set up on the Vitec test account through their own
-    settings pages; `v4.dev.kowboy.se` with Core's plugin, the set `kowboy-2026` and staging
-    Core's tenant `kowboy-test`. Then, in this order:
-    1. The comparison for 85: every public page of norbanmakleri.se, the v2 app and the v3 app
-       fetched and compared, the differences listed per page and per version, the child theme's
-       three list-item files judged; Patric names the master.
-    2. The set's skeleton, the selector, the override rule, the installer and the release per
-       set; the query function in the sync plugin (item 12's parts that needed no answer).
-    3. The loop, master against `v4.dev.kowboy.se`: properties, agents and areas (list and
-       single) first, then projects, offices, associations and the list wrappers; every gap in
-       the model or the helpers as one row of the numbered table in chat, with its register
-       number, fixed where version 4 is wrong or lacks a helper, raised behind the gate where a
-       field or a prepared string is missing.
-    4. AC 28 and AC 20's search half, the report regenerated.
-       **Resuming in a new session:** confirm `CLOUDWAYS_API_KEY` answers `GET /api/v2/server`
-       (the token of 2026-09-21 evening), find the server behind 165.22.87.59 in the list, make the
-       three apps on it, map the three names, and write ids, addresses and where the logins live
-       into `docs/default-templates.md` under "How the default set is made"; never a secret.
+17. **The default set "Kowboy 2026"** (Patric, 2026-09-21; questions 82 to 85 closed, 85 on
+    2026-09-23: the master is norbanmakleri.se as it runs live, so the v2 and v3 apps are not
+    needed): `docs/default-templates.md`, "The scaffolding" and "How the default set is made".
+    The target is `v4.dev.kowboy.se` on the Cloudways server `*.dev.kowboy.se` points at, with
+    Core's plugin, the set `kowboy-2026` and staging Core's tenant `kowboy-test` (the same office
+    as Norban, `M31529`); until it stands, the local WordPress of the test suite is the target.
+    In this order:
+    1. The set's skeleton (`clients/wordpress/templates/kowboy-2026/`), the selector, the
+       override rule, the installer and the release per set; the query function in the sync
+       plugin (item 12's parts that needed no answer).
+    2. The templates, one file per view by the scaffolding decision: the v4 package's markup
+       flattened to plain HTML, sliced per file, a logic block on top; its CSS and JavaScript in
+       the set's assets; shadow DOM as the setting; the first page of a list rendered on the
+       server and hydrated by one reload on load; the parameter set passed through untouched.
+    3. The display fields, first attempt (item 18), in the same go.
+    4. The loop, norbanmakleri.se against the target: the for-sale list, the sold list, the
+       cards, the object pages and the agent pages first, then the rest; every gap in the model
+       or the helpers as one row of the numbered table in chat.
+    5. AC 28 and AC 20's search half, the report regenerated.
+       **Resuming in a new session:** the token in the session of 2026-09-21 22:00 was still the
+       limited one (`GET /api/v2/server` answers `insufficient_scope`); a new session checks it
+       first, finds the server behind 165.22.87.59, makes `v4.dev.kowboy.se`, and writes id,
+       address and where the login lives into `docs/default-templates.md`; never a secret.
+
+18. **The display fields, first attempt** (Patric, 2026-09-23): for every value
+    norbanmakleri.se shows on a card, a list or a single page, the prepared string `display`
+    must carry, named by intention (`display.living_area` may read a little differently on
+    another set, the intention is the same). An agent drafts the whole list from the site's
+    output against staging's records for the same objects, as ledger entries and golden
+    masters (`golden/vitec/`, question 52), and Patric validates every one himself, in one
+    review. Done together with item 17 step 3.
+
+19. **A porting factory, exploration only** (Patric, 2026-09-23): whether a skill or workflow
+    inside Claude Code can run a port from two inputs, a source and a target, asking its
+    questions, approvals and assumptions in batches and reporting the differences a client must
+    know; how it would be packaged. Planned when Patric says so, after items 17 and 18.
 
 ## Later, when Patric supplies them
 
@@ -316,6 +332,12 @@ the first item that is not done, and keep the file current. Decisions and open q
   any work, a fresh branch is moved onto staging's latest and pushed
   (`git fetch origin staging && git reset --hard origin/staging`); a branch that already carries
   work merges `origin/staging` into itself instead. AGENTS.md and this file are read from there.
+  The rule is right as long as live lags staging; the release flow of 2026-09-18 (checks,
+  staging, then live on Patric's word) is the final one and only its last step has gone unused:
+  nothing has been promoted to live since 2026-09-18. When Patric says "release", an agent
+  promotes staging to live, and a session started from live is then no worse off. On 2026-09-21
+  two sessions ran side by side and one of them (`brave-gates`) was never combined with
+  staging until 2026-09-23; a session ends by combining, always.
 - Never invent a contract field or a business rule.
 - An ask to Patric is one line, what is needed and how to answer, with the whole reasoning in the
   register entry; technical choices are never asked (AGENTS.md "Working with Patric", 2026-09-20).
