@@ -80,17 +80,32 @@ Steps 1, 2, 4 and 6 are the same for every client; steps 3 and 5 are the work. W
 nothing in the list needs a person except the CRM login the first time a client's account
 reaches staging.
 
+## Not this document: the default set
+
+Kowboy's own default set, "Kowboy 2026", is a separate concern (Patric, 2026-09-21, question 82):
+it is written against three apps on `dev.kowboy.se` with the Vitec test account, never against a
+client's site, and lives in [default-templates.md](default-templates.md). This document is for
+porting one client's templates; it starts with question 80.
+
 ## The server and the pairs, as made
 
-Nothing yet (2026-09-21). Every agent that makes something here writes it down in this section:
+2026-09-21, first attempt: `CLOUDWAYS_EMAIL` and `CLOUDWAYS_API_KEY` are in the environment, and
+the key is an API v2 access token (the v1 `oauth/access_token` exchange refuses it; sent as a
+bearer token, `GET /api/v2/apps`, the public catalogue, answers). Every account call
+(`/api/v2/server`, an app's credentials, alerts) answers `403 insufficient_scope`, so the token
+was made with a limited scope and nothing could be made (question 81; Patric replaced the
+token the same evening, and the next session is the first to hold it). `*.dev.kowboy.se` points
+at 165.22.87.59 (nginx, 403 for every name; the `kowboy.se` zone is on Cloudflare); which
+Cloudways server that is, only the API can say once 81 is answered. The bare `dev.kowboy.se` has
+no record. Every agent that makes something here writes it down in this section:
 the server's name, id and address; per client the two apps' names, ids and addresses, where their
 logins live (the Cloudways API, never here), the tenant on staging Core, and the date. Secrets
 never.
 
 ## What it needs from Patric
 
-- **79** a Cloudways API key in the agents' environment settings, as `CLOUDWAYS_EMAIL` and
-  `CLOUDWAYS_API_KEY`.
+- ~~**79** a Cloudways API key in the agents' environment settings~~ There since 2026-09-21, and
+  replaced the same evening with a token of a wider scope (81); the next session uses it.
 - **80** the first client to port, by the name Cloudways lists it, and its CRM login if staging
   does not hold that account.
 - Per later client: the same two things.

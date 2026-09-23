@@ -127,6 +127,13 @@ instructions instead of results.
   `docs/open-questions.md` number in chat too, never a fresh "1."; numbers keep counting across
   sessions. Each question is phrased so that a yes, a no or a pick answers it, with the smaller
   option named.
+- **Three labelled blocks, questions first** (Patric, 2026-09-21: a page of prose per reply
+  had to be searched for the questions, and it slowed the work). Every reply is three blocks
+  under these headings, in this order, and nothing outside them: **Questions**, one line per
+  register number with how to answer, or "none"; **Done**, one line per thing that changed;
+  **Notes**, only when something matters for a decision, one line each. Reasoning stays in the
+  register and the documents, where chat can point to it. He reads the first block and answers;
+  the other two are optional reading.
 - **Every reply ends with what Patric does next** (Patric, 2026-09-20). One or two plain lines
   at the end of every answer, whatever else it holds: "nothing, I carry on", "answer 74 with yes
   or no", or the one step only he can take, named. An agent never leaves the conversation, or

@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 82 (75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 87 (75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
@@ -34,17 +34,6 @@ the price is hidden; (c) whether the area name stays when the address is hidden;
 a "till salu, visa som kommande" estate carries; (e) how each of the four bid settings shows in
 `bidding`. Smaller: (a) alone now, the rest when the first client template needs them.
 
-## 79. `[client-wordpress]` Add a Cloudways API key to the agents' environment settings, as `CLOUDWAYS_EMAIL` and `CLOUDWAYS_API_KEY`
-
-Patric chose Cloudways for the porting server on 2026-09-21 (question 78). Everything on it, the
-server, the pairs of sites per client, the copies of client sites, their admin logins, cron and
-password protection, is done through the Cloudways API, and that API needs the account's email
-and an API key, made in the Cloudways platform under the account's API page. The key belongs in
-the environment agents run in, next to the DigitalOcean token and the Vitec test login that are
-already there, not in chat: a secret pasted in chat stays in the conversation's record (the
-lesson of question 58). Once the two variables exist, an agent creates the server and the first
-pair of environments with nothing further from anyone.
-
 ## 80. `[client-wordpress]` Name the first client to port: the site whose templates are the reference
 
 The porting workflow (`docs/template-porting.md`) starts from one client: its live site on
@@ -54,17 +43,3 @@ source shows. Patric called this site "our reference site, which runs the origin
 2026-09-20 but did not name it. An agent needs the name as Cloudways lists the app, and the
 client's CRM login if staging does not hold that account yet (the test account `M31529` is on
 staging already; a client's is not).
-
-## 81. `[client-wordpress]` The attached v4 package against the rule "nothing from the old plugins"
-
-On 2026-09-21 Patric attached a template package ("kowboy-v4": one file per view, one list
-function, declarative shadow DOM) and asked for it to be imported as the first template set,
-`core-client-templates-2026`. That package was written by an agent from the v2 plugin's template
-files, and AGENTS.md says that nothing, code or concept, is taken from the WordPress plugins v1
-to v3; question 70 (closed 2026-09-20) said the same for the templates: written new from what the
-reference site shows, its files never read. The two cannot both hold. Yes: the package is an input
-Patric hands over, it is imported and made to fit the plan, and the rule is amended to say that a
-package Patric attaches is not "the old plugins". No: the set is written new from
-norbanmakleri.se's pages alone, and the package is used only as the shape of the code Patric wants
-(one file per view, logic on top, one list function), which is the smaller reading of the rule.
-

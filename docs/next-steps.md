@@ -212,8 +212,18 @@ the first item that is not done, and keep the file current. Decisions and open q
     75, 2026-09-21); waits on question 79, the Cloudways API key in the agents' environment.
     After that nothing needs a person except a client's CRM login the first time it reaches
     staging.
+    2026-09-21, later: the two variables exist, but the token was made with a limited scope and
+    Cloudways refuses every account call (`insufficient_scope`), so nothing was made: question 81. The same day Patric asked for the default set, "Kowboy 2026", to be written against
+    three apps on `dev.kowboy.se` (plugin v2, plugin v3 and Core's plugin, each with the Vitec
+    test account and the default plugin templates) instead of a client's pair; the differences
+    from the stored plan are questions 82 to 85 (`docs/template-porting.md`, "The default set").
+    Patric's answers the same evening: the default set is its own concern, item 17; this item
+    keeps the client ports, starting with question 80. The token was replaced the same evening
+    (81 closed); a running session keeps the environment it started with, so the next session
+    is the first to use it.
 
     **Resuming in a new session, once question 79 is answered**, in this order:
+
     1. Check the environment: `CLOUDWAYS_EMAIL` and `CLOUDWAYS_API_KEY` exist (values never
        printed). Get a token from the Cloudways API (`https://api.cloudways.com/api/v2/…`; v1
        retired in March 2026; email and key in, a short-lived bearer token out) and list the
@@ -236,6 +246,29 @@ the first item that is not done, and keep the file current. Decisions and open q
        to 6 (inventory, port, compare, gaps, delivery).
     5. Write every id, address and login location (never a secret) into `docs/template-porting.md`
        as it is made, so the next session finds it there.
+
+17. **The default set "Kowboy 2026" against three apps on dev.kowboy.se** (Patric, 2026-09-21;
+    questions 82 to 84 closed, 85 open): `docs/default-templates.md`, "How the default set is
+    made". Three apps on the Cloudways server `*.dev.kowboy.se` points at: `v2.dev.kowboy.se`
+    (plugin v2), `v3.dev.kowboy.se` (plugin v3), both installed from their zips through the
+    WordPress admin as black boxes and set up on the Vitec test account through their own
+    settings pages; `v4.dev.kowboy.se` with Core's plugin, the set `kowboy-2026` and staging
+    Core's tenant `kowboy-test`. Then, in this order:
+    1. The comparison for 85: every public page of norbanmakleri.se, the v2 app and the v3 app
+       fetched and compared, the differences listed per page and per version, the child theme's
+       three list-item files judged; Patric names the master.
+    2. The set's skeleton, the selector, the override rule, the installer and the release per
+       set; the query function in the sync plugin (item 12's parts that needed no answer).
+    3. The loop, master against `v4.dev.kowboy.se`: properties, agents and areas (list and
+       single) first, then projects, offices, associations and the list wrappers; every gap in
+       the model or the helpers as one row of the numbered table in chat, with its register
+       number, fixed where version 4 is wrong or lacks a helper, raised behind the gate where a
+       field or a prepared string is missing.
+    4. AC 28 and AC 20's search half, the report regenerated.
+       **Resuming in a new session:** confirm `CLOUDWAYS_API_KEY` answers `GET /api/v2/server`
+       (the token of 2026-09-21 evening), find the server behind 165.22.87.59 in the list, make the
+       three apps on it, map the three names, and write ids, addresses and where the logins live
+       into `docs/default-templates.md` under "How the default set is made"; never a secret.
 
 ## Later, when Patric supplies them
 
