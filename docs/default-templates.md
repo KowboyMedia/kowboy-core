@@ -5,11 +5,12 @@ package per template set, and the templates written new from what a site running
 _shows_, its files never read. On 2026-09-21 Patric asked for the most autonomous way to do this
 for any client, and that is [template-porting.md](template-porting.md): a pair of environments
 per client, a copy of the client's site with the old plugin as the source and a copy with Core's
-plugin as the target, made and compared by an agent until the target shows the same. This file
-keeps what the templates are, where they live, the gap rule and the installer. Open: question 79
-(the Cloudways API key). It runs in the same loop as step 1
-([staging-site.md](staging-site.md)). Next-steps item 10 (the templates on the universal model,
-question 55) is done inside this step.
+plugin as the target, made and compared by an agent until the target shows the same. That document is
+for a client's templates; this one is Kowboy's own default set, and the two are kept apart
+(Patric, 2026-09-21, question 82). This file keeps what the templates are, where they live, the
+gap rule, the installer, and how the default set is made: against three apps on `dev.kowboy.se`,
+below. Open: question 85 (the master among the four versions). Next-steps item 10 (the templates
+on the universal model, question 55) is done inside this step.
 
 ## What the templates are
 
@@ -38,9 +39,11 @@ Patric named three ways a site uses the templates:
 | The defaults, edited            | the sync plugin and a set; edited copies in the theme               | every template the theme did not copy; a copy in the theme is never touched |
 | The defaults, maintained (WaaS) | both, auto-updated, no copies in the theme                          | everything, on Kowboy's release                                             |
 
-**One package per template set.** The first set is `2026`, so the package is
-`core-client-templates-2026`; the next style is `core-client-templates-2027` or whatever it is
-called; a set made for one client is `core-client-templates-<client>`. Each is a WordPress plugin:
+**One package per template set.** The first set is "Kowboy 2026" (Patric, 2026-09-21, question
+83): its slug is `kowboy-2026`, its folder `clients/wordpress/templates/kowboy-2026/`, its package
+`core-client-templates-kowboy-2026`; the next style is `kowboy-2027` or whatever it is called; a
+set made for one client is `core-client-templates-<client>`. `clients/wordpress/templates/` is the
+namespace every set goes into. Each is a WordPress plugin:
 a folder with a header, its templates (cards, single pages, list wrappers), its script and
 stylesheet, and one line that registers the set with the sync plugin. Per set rather than one
 package with a folder per set, because a site installs only the set it uses, a client's set never
@@ -88,6 +91,68 @@ updater keeps a list, one line per package it watches; a `v*` tag packages the p
 set (`.github/workflows/release.yml`), and the staging channel of step 1 carries them all on every
 change. One approval promotes everything (strategy §4).
 
+## The scaffolding: one file per view
+
+Patric's decision of 2026-09-21, made in the session that built the "kowboy-v4" package (a
+conversation outside this repository) and recorded on 2026-09-23. It is what "simplest possible
+scaffolding" means here, and every set follows it:
+
+- **One file per view.** `single-core_property.php` and its siblings for the single pages, named
+  the WordPress way so the theme hierarchy finds them; `list-<entity>.php` for each list wrapper
+  (the filter form, the cards' container, "show more"); `card-<entity>.php` for each card; archive
+  pages of a few lines that call the list function. Every file is a PHP block on top that prepares
+  the values and plain markup below: a WordPress developer changes a value at the top and the
+  layout underneath, and nothing is hidden in helpers, parts or classes.
+- **One loader.** About a hundred lines: it finds a template (theme first, then the set),
+  registers the shortcode and the reload endpoint, and wraps a view in a shadow root when asked.
+  Nothing else lives outside the view files.
+- **One list function.** The shortcode, the archive page, the reload endpoint and any PHP call the
+  same function with one parameter set, passed through untouched, so a parameter added to the
+  function is at once available everywhere. The first page of a list is rendered on the server
+  (crawlable, no script needed); on load the script hydrates the list with one reload call, and
+  it reloads on filter changes and on "show more".
+- **Shadow DOM as a setting.** One boolean of the site, and a parameter of the list function:
+  declarative, rendered on the server, wrapping the view. The stylesheets stay `.css` files
+  linked in both modes, never CSS inside PHP strings; the scripts query from the shadow root
+  when there is one; a list inside a single page never opens a second root.
+- **From the package, on Patric's word (2026-09-23, question 86).** The package's PHP is not
+  reused; its markup is flattened to plain HTML and sliced per view file, its CSS and JavaScript
+  go into the set's assets.
+
+## How the default set is made: the master is norbanmakleri.se live
+
+Patric's answer of 2026-09-23 to question 85: the master is norbanmakleri.se as it runs live, so
+the set's single pages, lists and cards must show what that site shows, and the v2 and v3 apps
+below are no longer needed for the choice. What the site shows is read over HTTPS: its lists are
+filled by the old plugin's reload endpoint and its single pages carry their markup inside a
+script, both readable without a browser. The plan as it stood on 2026-09-21 follows.
+
+### As planned on 2026-09-21: three apps on dev.kowboy.se
+
+Patric's instruction (2026-09-21, questions 82, 84 and 85): the default set is written against
+three apps on `dev.kowboy.se`, on the Cloudways server the names `*.dev.kowboy.se` already point
+at (165.22.87.59), each with the Vitec test account (`M31529`; on staging Core as tenant
+`kowboy-test`) and the default plugin templates, nothing customised:
+
+| App                | Runs                                                           | Role                                           |
+| ------------------ | -------------------------------------------------------------- | ---------------------------------------------- |
+| `v2.dev.kowboy.se` | plugin v2 from Kowboy's release host, installed as a black box | one of the four candidate masters              |
+| `v3.dev.kowboy.se` | plugin v3 from Kowboy's release host, installed as a black box | one of the four candidate masters              |
+| `v4.dev.kowboy.se` | Core's plugin and the set `kowboy-2026`, synced from staging   | the target: made to show what the master shows |
+
+The two old plugins are installed through the WordPress admin from their zips and set up through
+their own settings pages; their files are never opened (AGENTS.md). The scope is the whole list
+above, every entity and the list wrappers (question 84, the wider scope), with properties, agents
+and areas, list and single, compared first. The master is one of four versions, norbanmakleri.se
+live, plugin v2, plugin v3 or the theme in `saas-acf-template`, and Patric picks it after seeing
+them (question 85): the agent fetches every public page of norban and of the v2 and v3 apps,
+compares them region by region and reports the differences per page and per version, and reads
+the child theme's three property list-item files (Kowboy's own theme code, so readable) to say
+whether they are a misplaced default or a deviation; norban is meant to run complete defaults,
+so anything customised there is a developer's mistake, possibly correct code in the wrong place.
+The loop is then the one of [template-porting.md](template-porting.md): inventory, port, compare,
+gaps, delivery, with the master as the source and `v4.dev.kowboy.se` as the target.
+
 ## How the templates are made: the output as the specification
 
 **The rule first.** AGENTS.md forbids taking anything from the WordPress plugins v1 to v3. Patric's
@@ -107,8 +172,13 @@ applied there, so the agent acts without a question for each:
   exists nowhere in `data` (a model question); a filter or sort the source offers that the query
   function cannot answer. Each is one register question, raised in one batch after the
   inventory; meanwhile the spot in the template stays empty. A closed gate is not a note.
-- **Fixed, no question.** A helper or a field that exists in version 4 but is wrong: a bug, fixed
-  with a test. A helper the plugin lacks: added.
+- **Raised and fixed.** A helper or a field that exists in version 4 but is wrong, or a helper
+  the plugin lacks (Patric, 2026-09-21): fixed or added in the same change, with a test, and
+  raised all the same, in the one numbered table below, so the state of the model and of the
+  helpers is visible as it is found.
+- **The table.** Every gap of either kind, in the model or in the helpers, is one row in a
+  numbered table in chat, the numbers being the register's, each with a plain explanation of what
+  the page shows, what version 4 has, and what was done or is asked (Patric, 2026-09-21).
 - **Added on the agent's own, listed.** A value present in `data`, shown as sent in a fact row or
   under a label, with at most the site's own date and time settings applied. Every such addition
   is a line in the inventory, so it can become a ledger entry later. This is what "obscure"
@@ -158,18 +228,19 @@ admin works. Decided (an agent's decision, within the rules):
 
 ## What it needs from Patric
 
-- **79** the Cloudways API key ([template-porting.md](template-porting.md)); the first port is
-  the reference client's.
+- **85** the master among the four versions, once the comparison of the three apps and norban is
+  in front of him.
 - Already open: 54 (a) to (e) as the templates need them; 52 is untouched (golden masters come
   from the test account).
 
 ## Order of work
 
-Now, needing no answer: the set package's skeleton (`core-client-templates-2026`), the selector,
-the override rule, the installer's four parts and the release per set, and the query function in
-the sync plugin. With 79: the porting server, then the first client's pair of environments and
-the loop of [template-porting.md](template-porting.md) → AC 28 and AC 20's search half in
-`acceptance/criteria.json`, the report regenerated.
+Now, needing no answer: the three apps on `dev.kowboy.se` through the Cloudways API (the token
+of a wider scope reaches the next session), the comparison for question 85, the set package's
+skeleton (`kowboy-2026`), the selector, the override rule, the installer's four parts and the
+release per set, and the query function in the sync plugin. With 85: the loop, master against
+`v4.dev.kowboy.se`, until every page matches or is raised → AC 28 and AC 20's search half in
+`acceptance/criteria.json`, the report regenerated. Next-steps item 17 holds the order.
 
 Not in this step: the Lovable example site (item 10's other half, the same universal names, later),
 a site's custom design, and which sites auto-update (WordPress's own per-site setting, which the

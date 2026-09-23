@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 81 (75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 87 (75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
@@ -34,23 +34,11 @@ the price is hidden; (c) whether the area name stays when the address is hidden;
 a "till salu, visa som kommande" estate carries; (e) how each of the four bid settings shows in
 `bidding`. Smaller: (a) alone now, the rest when the first client template needs them.
 
-## 79. `[client-wordpress]` Add a Cloudways API key to the agents' environment settings, as `CLOUDWAYS_EMAIL` and `CLOUDWAYS_API_KEY`
+## 80. `[client-wordpress]` Name the first client to port, once the default set is done
 
-Patric chose Cloudways for the porting server on 2026-09-21 (question 78). Everything on it, the
-server, the pairs of sites per client, the copies of client sites, their admin logins, cron and
-password protection, is done through the Cloudways API, and that API needs the account's email
-and an API key, made in the Cloudways platform under the account's API page. The key belongs in
-the environment agents run in, next to the DigitalOcean token and the Vitec test login that are
-already there, not in chat: a secret pasted in chat stays in the conversation's record (the
-lesson of question 58). Once the two variables exist, an agent creates the server and the first
-pair of environments with nothing further from anyone.
-
-## 80. `[client-wordpress]` Name the first client to port: the site whose templates are the reference
-
-The porting workflow (`docs/template-porting.md`) starts from one client: its live site on
-Cloudways is copied twice onto the porting server, a source with the old plugin and a target
-with Core's plugin, and the new default templates are written to make the target show what the
-source shows. Patric called this site "our reference site, which runs the original templates" on
-2026-09-20 but did not name it. An agent needs the name as Cloudways lists the app, and the
-client's CRM login if staging does not hold that account yet (the test account `M31529` is on
-staging already; a client's is not).
+Norban is not a client port: norbanmakleri.se runs the default templates of plugin v2 and v3
+unchanged, so it is the reference the default set "Kowboy 2026" is ported from (Patric,
+2026-09-23), and its office is the test account staging already holds. Client ports start after
+the set is done (next-steps item 17), through the automated workflow of
+`docs/template-porting.md`. When the set is done, name the first client by the name Cloudways
+lists its site, and give its CRM login if staging does not hold that account yet.

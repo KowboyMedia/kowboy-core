@@ -127,6 +127,21 @@ instructions instead of results.
   `docs/open-questions.md` number in chat too, never a fresh "1."; numbers keep counting across
   sessions. Each question is phrased so that a yes, a no or a pick answers it, with the smaller
   option named.
+- **Every ask is a real question or a real instruction** (Patric, 2026-09-23: two asks read as
+  statements of state, "this session still holds the old token", "I took your words as the
+  answer", and he could not tell what to do). A question ends with a question mark and names
+  its answers: "Is norbanmakleri.se the master? Answer yes or no." An instruction starts with
+  the verb of the one step and says when it is done: "Save the new token in the environment's
+  settings, then say 'saved'." A line that only describes a situation, or that tells Patric
+  what the agent assumed, is not an ask and does not go in the Questions block: it goes in
+  Notes, and if an answer is needed, a question follows it.
+- **Three labelled blocks, questions first** (Patric, 2026-09-21: a page of prose per reply
+  had to be searched for the questions, and it slowed the work). Every reply is three blocks
+  under these headings, in this order, and nothing outside them: **Questions**, one line per
+  register number, each a question or an instruction by the rule above, or "none"; **Done**, one line per thing that changed;
+  **Notes**, only when something matters for a decision, one line each. Reasoning stays in the
+  register and the documents, where chat can point to it. He reads the first block and answers;
+  the other two are optional reading.
 - **Every reply ends with what Patric does next** (Patric, 2026-09-20). One or two plain lines
   at the end of every answer, whatever else it holds: "nothing, I carry on", "answer 74 with yes
   or no", or the one step only he can take, named. An agent never leaves the conversation, or

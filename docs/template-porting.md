@@ -80,17 +80,57 @@ Steps 1, 2, 4 and 6 are the same for every client; steps 3 and 5 are the work. W
 nothing in the list needs a person except the CRM login the first time a client's account
 reaches staging.
 
+## Not this document: the default set
+
+Kowboy's own default set, "Kowboy 2026", is a separate concern (Patric, 2026-09-21, question 82):
+it is written against three apps on `dev.kowboy.se` with the Vitec test account, never against a
+client's site, and lives in [default-templates.md](default-templates.md). This document is for
+porting one client's templates; it starts with question 80.
+
 ## The server and the pairs, as made
 
-Nothing yet (2026-09-21). Every agent that makes something here writes it down in this section:
+2026-09-21, first attempt: `CLOUDWAYS_EMAIL` and `CLOUDWAYS_API_KEY` are in the environment, and
+the key is an API v2 access token (the v1 `oauth/access_token` exchange refuses it; sent as a
+bearer token, `GET /api/v2/apps`, the public catalogue, answers). Every account call
+(`/api/v2/server`, an app's credentials, alerts) answers `403 insufficient_scope`, so the token
+was made with a limited scope and nothing could be made (question 81; Patric replaced the
+token the same evening, and the next session is the first to hold it). `*.dev.kowboy.se` points
+at 165.22.87.59 (nginx, 403 for every name; the `kowboy.se` zone is on Cloudflare); which
+Cloudways server that is, only the API can say once 81 is answered. The bare `dev.kowboy.se` has
+no record. Every agent that makes something here writes it down in this section:
 the server's name, id and address; per client the two apps' names, ids and addresses, where their
 logins live (the Cloudways API, never here), the tenant on staging Core, and the date. Secrets
 never.
 
 ## What it needs from Patric
 
-- **79** a Cloudways API key in the agents' environment settings, as `CLOUDWAYS_EMAIL` and
-  `CLOUDWAYS_API_KEY`.
+- ~~**79** a Cloudways API key in the agents' environment settings~~ There since 2026-09-21, and
+  replaced the same evening with a token of a wider scope (81); the next session uses it.
 - **80** the first client to port, by the name Cloudways lists it, and its CRM login if staging
-  does not hold that account.
+  does not hold that account; asked once the default set is done (Patric, 2026-09-23). Norban is
+  not a client port: its site runs the plugin's default templates unchanged and is the reference
+  for the default set.
 - Per later client: the same two things.
+
+## Three kinds of port, one workflow
+
+Patric, 2026-09-23. Every port is one of three, and all three run the workflow above:
+
+| Kind                                                                      | Source                                         | Must match one to one |
+| ------------------------------------------------------------------------- | ---------------------------------------------- | --------------------- |
+| The default set (item 17, [default-templates.md](default-templates.md))   | norbanmakleri.se live                          | yes                   |
+| A Kowboy client on plugin v1, v2 or v3                                    | a copy of its site, the old plugin a black box | no                    |
+| A site that never ran Kowboy, WordPress or not, a dummy site, another CRM | its pages, or its data                         | no                    |
+
+The shared work is the same in all three: identify every field the source shows by its intention,
+and map it to the version 4 field of the same intention (`display.living_area` may read a little
+differently on another set; the intention is what must be kept). The default set comes first,
+from norbanmakleri.se, which runs the old defaults unchanged (any client's data would have
+served); then the client ports, the first client named when the set is done (question 80).
+
+## Later: a porting factory
+
+Patric, 2026-09-23, exploration only (next-steps item 19): whether the workflow can be packaged
+as a skill or workflow inside Claude Code that takes two inputs, a source and a target, and runs
+the port on its own, asking its questions, approvals and the assumptions it made in batches, and
+reporting the differences a client must know. Not built now.
