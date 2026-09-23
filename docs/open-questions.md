@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 38.
+answering is quick. Next number: 34.
 
 ## 2. Protected paths created by an agent
 
@@ -74,6 +74,11 @@ Norban's office), writes the ledger entries and the golden masters (`golden/vite
 display for the objects on the site), and you approve that one pull request. Grouping and labels
 (which fields sit under "Interiör") stay in the templates as layout. Yes, or say what to change.
 
+## 31. `[client-wordpress]` "Item 17" is not in next-steps
+
+`docs/next-steps.md` counts 1 to 6. The templates are added as item 7 unless 17 refers to another
+list; say which if so.
+
 ## 32. `[client-wordpress]` The Cloudways key is rejected
 
 The API key in the session environment answers "invalid credentials" for info@kowboy.se. Check the
@@ -82,38 +87,8 @@ Until then the plugin is proven on a local WordPress only.
 
 ## 33. `[client-wordpress]` What the templates cover
 
-The plugin renders the for-sale list, the sold list, the cards, the object pages and the agent
-pages, all of which norbanmakleri.se shows and the comparison covers. Office, area and association
-pages have no reference on the site, so they are built from the v4 package but not compared.
-Project pages are not built. The Neve theme's header, footer, page hero and the lead, interest and
-booking forms are left to the site. Yes, or name what to add.
-
-## 34. `[core]` The grouped sections are a display rule, not template layout
-
-The object page prints grouped facts ("Grundinformation", "Interiör", "Byggnad", "Föreningen",
-"Dokument" …), each a label and a text. If the grouping and the labels are template layout, every
-client repeats them, and the Lovable sites would drift from WordPress. Suggested: `display.sections`
-is one rule in the ledger, a list of `{title, items: [{label, text}]}`, and every template prints
-it as it comes. That amends the "grouping and labels stay in the templates" line of question 30.
-Yes (Core carries the sections, the smaller option for the clients), or no (each client groups).
-
-## 35. `[client-wordpress]` Two front-end libraries bundled with the plugin
-
-The reference site's cards and galleries are Swiper (loaded from a CDN) and its hero is
-ken-burns-carousel. Matching the output needs both. Suggested: bundle both files in the plugin,
-about 150 kB, no CDN call at run time, no other dependency. Yes, or say no and the hero and
-sliders become plain images.
-
-## 36. `[client-wordpress]` Should the URLs match the reference site too
-
-The site's addresses are `/objekt/till-salu-lund-centrum-flormansgatan-8-obj5pjjqw…/` and
-`/maklare/sara-gustavsson-han99da…/`; the plugin's are `/objekt/<connection>-<id>/`. Matching
-them keeps search rankings and links on a migrated site, and is one slug rule in the ledger
-(part of question 30). Yes (the slug rule), or no (content only, the smaller option).
-
-## 37. `[core]` Image addresses are a display rule
-
-The site shows every picture from Kowboy's CDN, `cdn-realestate.kowboy.se/r2/<office>/<object>/<image>_1920.jpg`,
-built from ids the CRM payload carries. Question 6 left images open. Suggested: one display rule
-builds those addresses from the payload, so `display.images` is what the templates print and no
-client knows the CDN's layout. Yes, or say where the addresses come from instead.
+The plugin renders the list, the cards and the object, agent, office, area and association
+pages, with the Neve theme's header, footer, page hero and the "Ska du sälja din bostad?" form
+left to the site. Agent, office, area and association pages have no reference on
+norbanmakleri.se, so they are built from the v4 package but not compared. Project pages are not
+built. Yes, or name what to add.
