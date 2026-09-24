@@ -1,126 +1,23 @@
 // The WordPress client against the real Core: the shared scenarios through a real WordPress
-// install (WP_ROOT, prepared by test/setup.sh) served by PHP's built-in server, so the REST
-// endpoint, WP-Cron and the bell all run for real. Then what only WordPress has: the must-use
-// updater and the WP-CLI commands.
-import { execFile, spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+// install (test/site.ts), then what only WordPress has: the must-use updater, the release
+// packaging and the WP-CLI commands.
+import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-import { promisify } from 'node:util';
-import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { harness, until, TOKEN } from '../../acceptance/harness.js';
+import { harness, TOKEN } from '../../acceptance/harness.js';
 import { fakePollingAdapter, poll } from '../../adapters/fake-polling/index.js';
 import * as crm from '../../adapters/fake-polling/crm.js';
 import {
   BELL_SECRET,
   CONNECTION,
   fakeProperty,
-  freePort,
   syncScenarios,
-  type ClientDriver,
-  type ClientItem,
   type ClientStatus,
-  type CoreDetails,
-  type Kind,
 } from '../sync-scenarios.js';
-
-const WP_ROOT = process.env['WP_ROOT'] ?? join(homedir(), '.cache/kowboy-core/wordpress');
-const WP_CLI = join(WP_ROOT, '..', 'wp-cli.phar');
-const DRIVER = join(import.meta.dirname, 'test/driver.php');
-const run = promisify(execFile);
-
-if (!existsSync(join(WP_ROOT, 'wp-load.php'))) {
-  throw new Error(`no WordPress install at ${WP_ROOT}: run clients/wordpress/test/setup.sh first`);
-}
-
-/** One command through the driver. The last line of its output is the answer, as JSON. */
-async function driver<T>(command: string, argument = ''): Promise<T> {
-  const { stdout } = await run('php', [DRIVER, command, argument], {
-    env: { ...process.env, WP_ROOT },
-    maxBuffer: 16 * 1024 * 1024,
-  });
-  const lines = stdout.trim().split('\n');
-  return JSON.parse(lines[lines.length - 1] ?? 'null') as T;
-}
-
-const wp = (...args: string[]): Promise<{ stdout: string; stderr: string }> =>
-  run('php', [WP_CLI, `--path=${WP_ROOT}`, '--allow-root', ...args], {
-    env: { ...process.env, WP_ROOT },
-  });
-
-let server: ChildProcess | null = null;
-
-async function start(core: CoreDetails): Promise<ClientDriver> {
-  const port = await freePort();
-  const siteUrl = `http://127.0.0.1:${port}`;
-  // Several workers, because a bell makes WordPress call its own wp-cron.php.
-  server = spawn('php', ['-S', `127.0.0.1:${port}`, '-t', WP_ROOT], {
-    env: { ...process.env, WP_ROOT, PHP_CLI_SERVER_WORKERS: '4' },
-    stdio: 'ignore',
-  });
-
-  const configured = await driver<{ bell_url: string }>(
-    'configure',
-    JSON.stringify({
-      site: siteUrl,
-      url: core.url,
-      token: core.token,
-      bell_secret: core.bellSecret,
-    }),
-  );
-  await driver('reset');
-  await until(
-    () =>
-      fetch(`${siteUrl}/?rest_route=/`).then(
-        (response) => response.ok,
-        () => false,
-      ),
-    'WordPress to serve',
-    30_000,
-  );
-
-  return {
-    bellUrl: configured.bell_url,
-    async bell(kind: Kind, secret: string): Promise<number> {
-      const response = await fetch(configured.bell_url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-core-secret': secret },
-        body: JSON.stringify({ kind }),
-      });
-      return response.status;
-    },
-    async trigger(kind: Kind): Promise<void> {
-      await driver('sync', kind);
-    },
-    async backstop(): Promise<void> {
-      const result = await driver<{ scheduled: boolean; processed: number }>('backstop');
-      expect(result.scheduled).toBe(true);
-      expect(result.processed).toBeGreaterThanOrEqual(1);
-    },
-    items: (datatype: string) => driver<ClientItem[]>('items', datatype),
-    status: () => driver<ClientStatus>('status'),
-    async damage(datatype: string, remoteId: string): Promise<void> {
-      const result = await driver<{ damaged: boolean }>(
-        'damage',
-        JSON.stringify({ datatype, remote_id: remoteId }),
-      );
-      expect(result.damaged).toBe(true);
-    },
-  };
-}
-
-async function stop(): Promise<void> {
-  const running = server;
-  if (!running) return;
-  server = null;
-  const exited = new Promise<void>((resolve) => running.once('exit', () => resolve()));
-  running.kill('SIGTERM');
-  await exited;
-}
+import { driver, run, start, stop, wp } from './test/site.js';
 
 syncScenarios('the WordPress client', { start, stop });
 
@@ -183,27 +80,65 @@ describe('the WordPress client', () => {
     }
   });
 
-  it('packages a release WordPress can install, with the version from the plugin header', async () => {
+  it('packages the plugin and a set for WordPress, and indexes the sets, from the plugin headers', async () => {
     const out = mkdtempSync(join(tmpdir(), 'core-client-release-'));
+    const release = join(import.meta.dirname, 'release.php');
+    const plugin = join(import.meta.dirname, 'core-client');
+    const set = join(import.meta.dirname, 'templates', 'kowboy-2026');
     await run('php', [
-      join(import.meta.dirname, 'release.php'),
+      release,
+      'package',
+      plugin,
+      'core-client',
       out,
-      'https://example.test/core-client.zip',
+      'https://example.test/channel',
     ]);
+    await run('php', [
+      release,
+      'package',
+      set,
+      'core-client-templates-kowboy-2026',
+      out,
+      'https://example.test/channel',
+    ]);
+    await run('php', [release, 'index', out, 'https://example.test/channel', `kowboy-2026=${set}`]);
 
     const { stdout } = await run('unzip', ['-Z1', join(out, 'core-client.zip')]);
     const files = stdout.trim().split('\n').sort();
     expect(files).toContain('core-client/core-client.php');
     expect(files).toContain('core-client/includes/sync.php');
+    expect(files).toContain('core-client/updater/core-client-updater.php');
+    expect(files).toContain('core-client/channel.json');
     expect(files).toContain('core-client/lib/action-scheduler/action-scheduler.php');
     expect(files.every((file) => file.startsWith('core-client/'))).toBe(true);
-
-    const header = readFileSync(join(import.meta.dirname, 'core-client/core-client.php'), 'utf8');
-    const version = /^\s*\*\s*Version:\s*(\S+)/m.exec(header)?.[1];
+    const version = /^\s*\*\s*Version:\s*(\S+)/m.exec(
+      readFileSync(join(plugin, 'core-client.php'), 'utf8'),
+    )?.[1];
     expect(JSON.parse(readFileSync(join(out, 'core-client.json'), 'utf8'))).toEqual({
       version,
-      package: 'https://example.test/core-client.zip',
+      package: `https://example.test/channel/core-client/core-client-${version}.zip`,
     });
+
+    const setFiles = (
+      await run('unzip', ['-Z1', join(out, 'core-client-templates-kowboy-2026.zip')])
+    ).stdout
+      .trim()
+      .split('\n');
+    expect(setFiles).toContain(
+      'core-client-templates-kowboy-2026/core-client-templates-kowboy-2026.php',
+    );
+    expect(setFiles).toContain('core-client-templates-kowboy-2026/single-core_property.php');
+    const setVersion = /^\s*\*\s*Version:\s*(\S+)/m.exec(
+      readFileSync(join(set, 'core-client-templates-kowboy-2026.php'), 'utf8'),
+    )?.[1];
+    expect(JSON.parse(readFileSync(join(out, 'sets.json'), 'utf8'))).toEqual([
+      {
+        slug: 'kowboy-2026',
+        name: 'Kowboy Core templates: Kowboy 2026',
+        version: setVersion,
+        package: `https://example.test/channel/core-client-templates-kowboy-2026/core-client-templates-kowboy-2026-${setVersion}.zip`,
+      },
+    ]);
   });
 
   it('ships PHP that parses', async () => {
@@ -218,26 +153,53 @@ describe('the WordPress client', () => {
     for (const file of files) await run('php', ['-l', join(import.meta.dirname, file)]);
   });
 
-  it('lets the must-use updater offer a newer release without touching the plugin (AC 21)', async () => {
-    const release = createServer((_request, response) => {
-      response.writeHead(200, { 'content-type': 'application/json' });
-      response.end(
-        JSON.stringify({ version: '9.9.9', package: 'https://kowboy.se/core-client-9.9.9.zip' }),
-      );
+  it('lets the must-use updater offer a newer release of the plugin and of a set, and the settings page the sets on offer (AC 21)', async () => {
+    const channel = createServer((request, response) => {
+      const bodies: Record<string, unknown> = {
+        '/core-client/core-client.json': {
+          version: '9.9.9',
+          package: 'https://kowboy.se/core-client-9.9.9.zip',
+        },
+        '/core-client-templates-kowboy-2026/core-client-templates-kowboy-2026.json': {
+          version: '9.9.9',
+          package: 'https://kowboy.se/core-client-templates-kowboy-2026-9.9.9.zip',
+        },
+        '/sets.json': [
+          {
+            slug: 'kowboy-2026',
+            name: 'Kowboy 2026',
+            version: '9.9.9',
+            package: 'https://kowboy.se/core-client-templates-kowboy-2026-9.9.9.zip',
+          },
+          {
+            slug: 'kowboy-2027',
+            name: 'Kowboy 2027',
+            version: '1.0.0',
+            package: 'https://kowboy.se/core-client-templates-kowboy-2027-1.0.0.zip',
+          },
+        ],
+      };
+      const body = bodies[request.url ?? ''];
+      response.writeHead(body === undefined ? 404 : 200, { 'content-type': 'application/json' });
+      response.end(JSON.stringify(body ?? {}));
     });
-    await new Promise<void>((resolve) => release.listen(0, '127.0.0.1', () => resolve()));
+    await new Promise<void>((resolve) => channel.listen(0, '127.0.0.1', () => resolve()));
     try {
-      const url = `http://127.0.0.1:${(release.address() as AddressInfo).port}/core-client.json`;
-      const result = await driver<{ update: { version: string; package: string } | null }>(
-        'update-check',
-        url,
-      );
-      expect(result.update).toEqual({
-        version: '9.9.9',
-        package: 'https://kowboy.se/core-client-9.9.9.zip',
+      const url = `http://127.0.0.1:${(channel.address() as AddressInfo).port}/`;
+      const result = await driver<{
+        offered: Record<string, { version: string; package: string } | null>;
+      }>('update-check', url);
+      expect(result.offered).toEqual({
+        'core-client': { version: '9.9.9', package: 'https://kowboy.se/core-client-9.9.9.zip' },
+        'core-client-templates-kowboy-2026': {
+          version: '9.9.9',
+          package: 'https://kowboy.se/core-client-templates-kowboy-2026-9.9.9.zip',
+        },
       });
+      const { sets } = await driver<{ sets: { slug: string }[] }>('sets', url);
+      expect(sets.map((set) => set.slug)).toEqual(['kowboy-2026', 'kowboy-2027']);
     } finally {
-      release.close();
+      channel.close();
     }
   });
 

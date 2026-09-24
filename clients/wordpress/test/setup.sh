@@ -51,8 +51,15 @@ require_once ABSPATH . 'wp-settings.php';
 CONFIG
 
 ln -sfn "$repo/clients/wordpress/core-client" "$WP_ROOT/wp-content/plugins/core-client"
+# Every template set, under the folder name its package has (docs/default-templates.md).
+for set in "$repo"/clients/wordpress/templates/*/; do
+  set=${set%/}
+  ln -sfn "$set" "$WP_ROOT/wp-content/plugins/core-client-templates-$(basename "$set")"
+done
 mkdir -p "$WP_ROOT/wp-content/mu-plugins"
-ln -sfn "$repo/clients/wordpress/mu-plugins/core-client-updater.php" "$WP_ROOT/wp-content/mu-plugins/core-client-updater.php"
+# The plugin places the updater itself on activation (includes/packages.php); a symlink keeps the
+# test install on the repository's copy.
+ln -sfn "$repo/clients/wordpress/core-client/updater/core-client-updater.php" "$WP_ROOT/wp-content/mu-plugins/core-client-updater.php"
 
 # In the test install, Action Scheduler runs actions only when the driver asks it to.
 cat > "$WP_ROOT/wp-content/mu-plugins/core-client-test-runner.php" <<'RUNNER'

@@ -1,13 +1,18 @@
 import type { Mappers, MappedRecord } from '../../engine/adapter-api/index.js';
 
 // A second fake CRM, speaking snake_case, to prove the engine depends on neither vocabulary:
-// it maps onto the same universal names (docs/field-tables.md) as the first.
+// it maps onto the same universal names (docs/field-tables.md) as the first. It carries enough
+// of a listing (sizes, fee, images, viewings, dates, an agent's contact) for the client
+// templates to be proved against it.
 
 type Raw = Record<string, unknown>;
 
 const text = (value: unknown): string | null => (typeof value === 'string' && value ? value : null);
 const number = (value: unknown): number | null =>
   typeof value === 'number' ? value : typeof value === 'string' && value ? Number(value) : null;
+const strings = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
+const named = (value: unknown): { id: string; name: string } | null =>
+  typeof value === 'string' && value ? { id: value, name: value } : null;
 
 const STAGES = new Set(['pre', 'active', 'done', 'cancelled']);
 
@@ -17,11 +22,23 @@ const require_ = (record: Raw, field: string): string => {
   return id;
 };
 
+const image = (url: string, order: number): Raw => ({
+  id: `img-${order}`,
+  url,
+  category: null,
+  name: null,
+  description: null,
+  extension: 'jpg',
+  changed_at: null,
+  order,
+});
+
 const property = (raw: unknown): MappedRecord => {
   const record = raw as Raw;
   const id = require_(record, 'object_id');
   const stage = String(record['stage']);
   if (!STAGES.has(stage)) throw new Error(`unknown stage "${stage}"`);
+  const fee = number(record['fee']);
 
   return {
     officeId: text(record['branch_id']),
@@ -29,34 +46,51 @@ const property = (raw: unknown): MappedRecord => {
     data: {
       id,
       office_id: text(record['branch_id']),
-      agent_ids: Array.isArray(record['staff']) ? record['staff'].map(String) : [],
-      area_ids: Array.isArray(record['districts']) ? record['districts'].map(String) : [],
+      agent_ids: strings(record['staff']),
+      area_ids: strings(record['districts']),
       association_id: text(record['coop_id']),
-      project_id: null,
-      status: { id: stage, name: stage },
+      project_id: text(record['project_id']),
+      status: { id: stage, name: text(record['stage_label']) ?? stage },
       type: null,
       subtype: null,
-      tenure: null,
+      tenure: named(record['tenure']),
+      price_text: text(record['price_text']),
       address: {
         street: text(record['street']),
-        postal_code: null,
-        city: null,
-        area_name: null,
+        postal_code: text(record['postal_code']),
+        city: text(record['city']),
+        area_name: text(record['district_name']),
+        area_id: strings(record['districts'])[0] ?? null,
         municipality: null,
         country_code: null,
       },
-      lat: null,
-      lng: null,
+      lat: number(record['lat']),
+      lng: number(record['lng']),
+      short_text: text(record['blurb']),
       price: number(record['price']),
-      final_price: null,
+      final_price: number(record['final_price']),
+      sold_at: text(record['sold_at']),
+      published_at: text(record['published_at']),
       currency: 'SEK',
-      fee: null,
-      living_space: null,
+      fee: fee === null ? null : { amount: fee, frequency: 'Monthly', type: null, comment: null },
+      living_space: number(record['living_space']),
       additional_space: null,
-      rooms: null,
+      rooms: number(record['rooms']),
       buildings: [],
-      images: [],
-      viewings: [],
+      images: strings(record['images']).map((url, index) => image(url, index + 1)),
+      viewings: (Array.isArray(record['viewings']) ? record['viewings'] : []).map(
+        (viewing, index) => ({
+          id: `viewing-${index + 1}`,
+          starts_at: text((viewing as Raw)['starts_at']),
+          ends_at: text((viewing as Raw)['ends_at']),
+          comment: text((viewing as Raw)['comment']),
+          is_digital: null,
+          self_registration: null,
+          is_project_viewing: null,
+        }),
+      ),
+      viewing_settings: { visible_limit: null, empty_text: null },
+      exterior_features: [],
       bidding: { is_active: null, is_verified: null, bids: [] },
       display: {},
       provider_extras: { 'fake-polling': { object_type: String(record['object_type']) } },
@@ -73,11 +107,11 @@ const office = (raw: unknown): MappedRecord => {
     data: {
       id,
       name: text(record['branch_name']),
-      address: { street: null, postal_code: null, city: null },
+      address: { street: text(record['street']), postal_code: null, city: text(record['city']) },
       phone: null,
-      email: null,
-      lat: null,
-      lng: null,
+      email: text(record['email']),
+      lat: number(record['lat']),
+      lng: number(record['lng']),
       display: {},
       provider_extras: {},
     },
@@ -88,6 +122,8 @@ const agent = (raw: unknown): MappedRecord => {
   const record = raw as Raw;
   const id = require_(record, 'staff_id');
   const officeId = text(record['branch_id']);
+  const mobile = text(record['mobile']);
+  const photo = text(record['photo']);
   return {
     officeId,
     remoteUpdatedAt: text(record['changed_at']),
@@ -95,20 +131,25 @@ const agent = (raw: unknown): MappedRecord => {
       id,
       office_ids: officeId ? [officeId] : [],
       name: text(record['full_name']),
-      title: null,
-      email: null,
-      phones: { mobile: null, public: null },
-      image: null,
+      title: text(record['title']),
+      description: text(record['bio']),
+      email: text(record['email']),
+      phones: { mobile: mobile ? { number: mobile, display: mobile } : null, public: null },
+      image: photo ? image(photo, 1) : null,
       offices: officeId
         ? [{ office_id: officeId, order: null, is_visible_in_staff_list: null, phone: null }]
         : [],
+      reviews: (Array.isArray(record['reviews']) ? record['reviews'] : []).map((review) => ({
+        text: text((review as Raw)['text']),
+        author: text((review as Raw)['author']),
+      })),
       display: {},
       provider_extras: {},
     },
   };
 };
 
-const named =
+const namedRecord =
   (idField: string, nameField: string, extra: Raw): ((raw: unknown) => MappedRecord) =>
   (raw: unknown): MappedRecord => {
     const record = raw as Raw;
@@ -116,7 +157,14 @@ const named =
     return {
       officeId: null,
       remoteUpdatedAt: text(record['changed_at']),
-      data: { id, name: text(record[nameField]), ...extra, display: {}, provider_extras: {} },
+      data: {
+        id,
+        name: text(record[nameField]),
+        office_id: text(record['branch_id']),
+        ...extra,
+        display: {},
+        provider_extras: {},
+      },
     };
   };
 
@@ -124,6 +172,6 @@ export const mappers: Mappers = {
   property,
   office,
   agent,
-  area: named('district_id', 'district_name', { polygon: null, images: [] }),
-  association: named('coop_id', 'coop_name', { contact: null }),
+  area: namedRecord('district_id', 'district_name', { polygon: null, images: [] }),
+  association: namedRecord('coop_id', 'coop_name', { contact: null }),
 };

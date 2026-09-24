@@ -9,7 +9,9 @@
 //   php driver.php items <datatype>
 //   php driver.php status
 //   php driver.php damage '{"datatype":"property","remote_id":"P-1"}'
-//   php driver.php update-check <url of a release json>
+//   php driver.php update-check <url of an update channel folder>
+//   php driver.php sets <url of an update channel folder>
+//   php driver.php option <name> [<json value>]
 
 declare(strict_types=1);
 
@@ -23,8 +25,8 @@ $argument = $argv[2] ?? '';
 
 $_SERVER['HTTP_HOST'] = '127.0.0.1';
 $_SERVER['REQUEST_URI'] = '/';
-if ($command === 'update-check') {
-    define('CORE_CLIENT_UPDATE_URL', $argument);
+if ($command === 'update-check' || $command === 'sets') {
+    define('CORE_CLIENT_CHANNEL', $argument);
 }
 define('WP_USE_THEMES', false);
 require "$root/wp-load.php";
@@ -125,6 +127,7 @@ function core_driver_items(string $datatype): array
             'raw' => is_string($raw) ? json_decode($raw) : null,
             'post_status' => $post?->post_status,
             'post_modified_gmt' => $post?->post_modified_gmt,
+            'permalink' => get_permalink((int) $row->post_id),
         ];
     }
     return $items;
@@ -150,18 +153,39 @@ function core_driver_damage(array $spec): array
     return ['damaged' => true];
 }
 
-/** @return array<string, mixed> */
+/**
+ * What WordPress's own update check hears for every package the updater watches.
+ *
+ * @return array<string, mixed>
+ */
 function core_driver_update_check(): array
 {
     delete_site_transient('update_plugins');
     wp_update_plugins();
     $updates = get_site_transient('update_plugins');
-    $update = is_object($updates) ? ($updates->response['core-client/core-client.php'] ?? null) : null;
-    return [
-        'update' => is_object($update)
+    $offered = [];
+    $packages = get_option('core_client_packages');
+    foreach (is_array($packages) ? $packages['packages'] : [] as $package => $file) {
+        $update = is_object($updates) ? ($updates->response[$file] ?? null) : null;
+        $offered[$package] = is_object($update)
             ? ['version' => $update->new_version ?? $update->version ?? null, 'package' => $update->package ?? null]
-            : null,
-    ];
+            : null;
+    }
+    return ['update' => $offered['core-client'] ?? null, 'offered' => $offered];
+}
+
+/**
+ * Read or write one option, so a test can pick the template set or switch shadow DOM on.
+ *
+ * @return array<string, mixed>
+ */
+function core_driver_option(string $argument): array
+{
+    [$name, $json] = explode(' ', $argument, 2) + ['', null];
+    if ($json !== null) {
+        update_option($name, json_decode($json, true));
+    }
+    return ['value' => get_option($name)];
 }
 
 $result = match ($command) {
@@ -173,6 +197,8 @@ $result = match ($command) {
     'status' => core_client_status(),
     'damage' => core_driver_damage((array) json_decode($argument, true)),
     'update-check' => core_driver_update_check(),
+    'sets' => ['sets' => core_client_available_sets()],
+    'option' => core_driver_option($argument),
     default => null,
 };
 if ($result === null) {

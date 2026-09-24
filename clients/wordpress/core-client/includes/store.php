@@ -1,8 +1,8 @@
 <?php
 // The local copy (SRS Appendix A): one post type per datatype carries each item, the full `data`
-// sits in one JSON meta key, the raw CRM payload in another, and one index table answers "which post holds this item" and the hash
-// test. Templates read from here and never from Core. Columns for the search filters, routing and
-// templates come with the data model (docs/field-tables.md).
+// sits in one JSON meta key, the raw CRM payload in another, and one index table answers "which
+// post holds this item", the hash test, and the list queries (includes/query.php) from search
+// columns copied off the universal names. Templates read from here and never from Core.
 
 declare(strict_types=1);
 
@@ -60,6 +60,8 @@ function core_client_install(): void
     $charset = $wpdb->get_charset_collate();
     $index = core_client_index_table();
     $state = core_client_state_table();
+    // The search columns are copies of universal names (docs/field-tables.md), filled on every
+    // write, so a list query never opens the JSON. `agent_ids` is `,id,id,` for one LIKE.
     dbDelta("CREATE TABLE $index (
         post_id bigint(20) unsigned NOT NULL,
         datatype varchar(20) NOT NULL,
@@ -70,8 +72,26 @@ function core_client_install(): void
         content_hash varchar(64) NOT NULL,
         remote_updated_at datetime DEFAULT NULL,
         synced_at datetime(6) NOT NULL,
+        status_id varchar(64) DEFAULT NULL,
+        type_id varchar(64) DEFAULT NULL,
+        tenure_id varchar(64) DEFAULT NULL,
+        price decimal(14,2) DEFAULT NULL,
+        living_space decimal(10,2) DEFAULT NULL,
+        rooms decimal(6,2) DEFAULT NULL,
+        area_name varchar(191) DEFAULT NULL,
+        city varchar(191) DEFAULT NULL,
+        street varchar(191) DEFAULT NULL,
+        project_id varchar(191) DEFAULT NULL,
+        agent_ids text DEFAULT NULL,
+        published_at datetime DEFAULT NULL,
+        sold_at datetime DEFAULT NULL,
+        sort_name varchar(191) DEFAULT NULL,
+        office_ids text DEFAULT NULL,
+        area_id varchar(191) DEFAULT NULL,
         PRIMARY KEY  (post_id),
-        UNIQUE KEY item (datatype, connection_id, remote_id)
+        UNIQUE KEY item (datatype, connection_id, remote_id),
+        KEY listing (datatype, status_id, published_at),
+        KEY project (project_id)
     ) $charset;");
     dbDelta("CREATE TABLE $state (
         name varchar(64) NOT NULL,
@@ -83,6 +103,7 @@ function core_client_install(): void
 
 register_activation_hook(CORE_CLIENT_FILE, function (): void {
     core_client_install();
+    core_client_place_updater();
     flush_rewrite_rules();
 });
 
@@ -146,25 +167,92 @@ function core_client_upsert_item(string $datatype, object $item, ?object $existi
     update_post_meta($post_id, 'core_raw', wp_slash((string) wp_json_encode($item->raw ?? null, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)));
 
     // `synced_at` is bookkeeping for the rebuild sweep only; nothing else may key on it.
-    $index = core_client_index_table();
-    $wpdb->query($wpdb->prepare(
-        "INSERT INTO $index (post_id, datatype, connection_id, remote_id, office_id, seq, content_hash, remote_updated_at, synced_at)
-         VALUES (%d, %s, %s, %s, %s, %d, %s, %s, NOW(6))
-         ON DUPLICATE KEY UPDATE post_id = VALUES(post_id), office_id = VALUES(office_id), seq = VALUES(seq),
-           content_hash = VALUES(content_hash), remote_updated_at = VALUES(remote_updated_at), synced_at = NOW(6)",
-        $post_id,
-        $datatype,
-        $item->connection_id,
-        $item->remote_id,
-        $item->office_id,
-        $item->seq,
-        $item->content_hash,
-        $remote === false ? null : gmdate('Y-m-d H:i:s', $remote),
-    ));
+    core_client_replace_index_row([
+        'post_id' => $post_id,
+        'datatype' => $datatype,
+        'connection_id' => $item->connection_id,
+        'remote_id' => $item->remote_id,
+        'office_id' => $item->office_id,
+        'seq' => $item->seq,
+        'content_hash' => $item->content_hash,
+        'remote_updated_at' => $remote === false ? null : gmdate('Y-m-d H:i:s', $remote),
+        'synced_at' => 'now',
+        ...core_client_search_columns(is_object($item->data) ? $item->data : new stdClass()),
+    ]);
 
     clean_post_cache($post_id);
     do_action('core_item_updated', $post_id, $datatype);
     return $post_id;
+}
+
+/**
+ * REPLACE one index row: a missing value is written as NULL (wpdb::prepare has no placeholder for
+ * it), and `synced_at` by the database's own clock, the one the rebuild sweep compares against.
+ *
+ * @param array<string, string|int|float|null> $row
+ */
+function core_client_replace_index_row(array $row): void
+{
+    global $wpdb;
+    $columns = [];
+    $places = [];
+    $args = [];
+    foreach ($row as $column => $value) {
+        $columns[] = $column;
+        if ($value === null) {
+            $places[] = 'NULL';
+        } elseif ($column === 'synced_at') {
+            $places[] = 'NOW(6)';
+        } elseif (is_int($value)) {
+            $places[] = '%d';
+            $args[] = $value;
+        } elseif (is_float($value)) {
+            $places[] = '%f';
+            $args[] = $value;
+        } else {
+            $places[] = '%s';
+            $args[] = $value;
+        }
+    }
+    $sql = 'REPLACE INTO ' . core_client_index_table() . ' (' . implode(', ', $columns) . ') VALUES (' . implode(', ', $places) . ')';
+    $wpdb->query($wpdb->prepare($sql, ...$args));
+}
+
+/**
+ * The search columns, copied from the universal names of `data` as they are, null where the
+ * record has no value. Nothing is judged: a status id is stored, a price is stored.
+ *
+ * @return array<string, string|float|null>
+ */
+function core_client_search_columns(object $data): array
+{
+    $id = fn (mixed $named): ?string => is_object($named) && is_string($named->id ?? null) ? $named->id : null;
+    $number = fn (mixed $value): ?float => is_int($value) || is_float($value) ? (float) $value : null;
+    $text = fn (mixed $value): ?string => is_string($value) && $value !== '' ? mb_substr($value, 0, 191) : null;
+    $moment = function (mixed $value): ?string {
+        $time = is_string($value) ? strtotime($value) : false;
+        return $time === false ? null : gmdate('Y-m-d H:i:s', $time);
+    };
+    $ids = fn (mixed $list): ?string => is_array($list) && $list !== [] ? ',' . implode(',', array_filter($list, 'is_string')) . ',' : null;
+    $address = is_object($data->address ?? null) ? $data->address : new stdClass();
+    return [
+        'status_id' => $id($data->status ?? null),
+        'type_id' => $id($data->type ?? null),
+        'tenure_id' => $id($data->tenure ?? null),
+        'price' => $number($data->price ?? null),
+        'living_space' => $number($data->living_space ?? null),
+        'rooms' => $number($data->rooms ?? null),
+        'area_name' => $text($address->area_name ?? null),
+        'city' => $text($address->city ?? null),
+        'street' => $text($address->street ?? null),
+        'project_id' => $text($data->project_id ?? null),
+        'agent_ids' => $ids($data->agent_ids ?? null),
+        'published_at' => $moment($data->published_at ?? null),
+        'sold_at' => $moment($data->sold_at ?? null),
+        'sort_name' => $text($data->name ?? null) ?? $text($address->street ?? null),
+        'office_ids' => $ids($data->office_ids ?? null),
+        'area_id' => $text($address->area_id ?? null),
+    ];
 }
 
 /** A tombstone: the post and its index row go, through wp_delete_post (deleted_post fires). */
@@ -208,4 +296,44 @@ function core_client_item_raw(int $post_id): ?array
     $json = get_post_meta($post_id, 'core_raw', true);
     $raw = is_string($json) ? json_decode($json, true) : null;
     return is_array($raw) ? $raw : null;
+}
+
+/**
+ * The post that holds an item, by datatype and the CRM's id, in any connection; null when the
+ * site has none. What a single page uses to reach the records an item points at.
+ */
+function core_client_post_id(string $datatype, string $remote_id): ?int
+{
+    global $wpdb;
+    $index = core_client_index_table();
+    $post_id = $wpdb->get_var($wpdb->prepare(
+        "SELECT i.post_id FROM $index i JOIN {$wpdb->posts} p ON p.ID = i.post_id WHERE i.datatype = %s AND i.remote_id = %s",
+        $datatype,
+        $remote_id,
+    ));
+    return $post_id === null ? null : (int) $post_id;
+}
+
+/**
+ * The items a list of ids names, in the order given, each with its post id; ids the site does not
+ * hold are left out. What a single page uses for the agents, the office or the association an
+ * item points at.
+ *
+ * @param list<mixed> $ids
+ * @return list<array{post_id: int, item: array<string, mixed>}>
+ */
+function core_client_items(string $datatype, array $ids): array
+{
+    $items = [];
+    foreach ($ids as $id) {
+        if (!is_string($id) || $id === '') {
+            continue;
+        }
+        $post_id = core_client_post_id($datatype, $id);
+        $item = $post_id === null ? null : core_client_item($post_id);
+        if ($item !== null) {
+            $items[] = ['post_id' => $post_id, 'item' => $item];
+        }
+    }
+    return $items;
 }

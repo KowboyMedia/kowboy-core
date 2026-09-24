@@ -39,4 +39,9 @@ export default tseslint.config(
     files: ['admin/src/**/*.ts', 'admin/e2e/**/*.ts'],
     languageOptions: { globals: { ...globals.browser } },
   },
+  {
+    // The template sets' scripts run in the visitor's browser, without a build step.
+    files: ['clients/wordpress/templates/**/assets/*.js'],
+    languageOptions: { globals: { ...globals.browser }, sourceType: 'script' },
+  },
 );

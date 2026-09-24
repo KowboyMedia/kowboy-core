@@ -1,31 +1,45 @@
 # WordPress client
 
-A thin plugin (SRS Appendix A): three settings, a bell endpoint, the sync loop and a local store.
-No data logic, no CRM knowledge. Templates, routing and search come with the data model.
+A thin plugin (SRS Appendix A): three settings, a bell endpoint, the sync loop and a local store,
+plus everything a template asks of it: the query function, the template sets and the one list
+function. No data logic, no CRM knowledge. How a page looks is a template set's business
+(`templates/`, [docs/default-templates.md](../../docs/default-templates.md)).
 
 ```
 core-client/                     the plugin
   core-client.php                header and requires
-  includes/settings.php          Core URL, tenant token, bell secret; the settings page with the last sync
-  includes/store.php             post types, the index and state tables, upsert and delete
+  includes/settings.php          Core URL, tenant token, bell secret; the template set, shadow DOM and the
+                                 status ids of the site's lists; the sets on offer with an Install button
+  includes/store.php             post types, the index table with its search columns, upsert and delete
+  includes/query.php             core_client_query(): one parameter set in, one page of items out
+  includes/templates.php         the sets' registry, the override rule (theme first), the list function,
+                                 the shortcode, the reload endpoint, the routing of single pages and archives
+  includes/view-page.php         the theme's header and footer around one view
+  includes/packages.php          places the updater, keeps the package list, installs a set from the channel
   includes/sync.php              the SRS §8 loop
   includes/bell.php              POST /wp-json/core/v1/bell
   includes/schedule.php          the 15 minute backstop, an Action Scheduler recurring action
-  lib/action-scheduler/          Action Scheduler 4.1.0, bundled (GPLv3)
+  includes/routing.php           /objekt/<id> and old slugs answer 301 to the current permalink
   includes/cli.php               wp core-client sync [--force], wp core-client status
-  includes/report.php            error reporting placeholder (Sentry later)
-mu-plugins/core-client-updater.php   safe update, independent of the plugin (45 lines)
-release.php                      builds core-client.zip and core-client.json for a release
-test/                            setup.sh, install.php and driver.php for the scenario suite
+  includes/report.php            error reporting through Core
+  updater/core-client-updater.php  the must-use updater the plugin places itself; never loads plugin code
+  lib/action-scheduler/          Action Scheduler 4.1.0, bundled (GPLv3)
+templates/kowboy-2026/           the default template set "Kowboy 2026", a plugin of its own
+release.php                      packages a plugin or a set, and writes the index of sets
+test/                            setup.sh, install.php, driver.php and site.ts for the suites
+sync.test.ts                     the shared sync scenarios, the updater, the packaging, WP-CLI
+templates.test.ts                the set and the template machinery on a real WordPress
 ```
 
 ## Installing it on a site
 
-1. Put `core-client/` in `wp-content/plugins/` and activate it.
-2. Put `core-client-updater.php` in `wp-content/mu-plugins/`, and in `wp-config.php`:
-   `define('CORE_CLIENT_UPDATE_URL', 'https://…/core-client.json');`
-3. Settings → Kowboy Core: the Core URL, the tenant token and the bell secret. The page shows the
+1. Upload `core-client.zip` under Plugins → Add New → Upload Plugin and activate it. On activation
+   the plugin puts its updater into `mu-plugins/` itself.
+2. Settings → Kowboy Core: the Core URL, the tenant token and the bell secret. The page shows the
    bell URL to give Kowboy, `https://<site>/wp-json/core/v1/bell`, and the last successful sync.
+3. On the same page, under Templates: install a set with one click (the sets the update channel
+   offers are listed there; a set can also be uploaded as a zip like any plugin), pick the set,
+   and name which of the CRM's status ids this site lists as for sale, as coming and as sold.
 
 The first sync happens on the first bell or the next 15 minute run, or now: `wp core-client sync`.
 
@@ -45,8 +59,8 @@ or `wp action-scheduler run`.
   projects, `kontor/<office name>-<id>`, `forening/<association name>-<id>`, `maklare/<first name>-<last name>-<id>`
   and `omrade/<municipality>-<area name>-<id>`. Every entity ends in `-<id>`. A request by id alone (`/objekt/<id>`) or by an old
   slug (`/objekt/<old slug>-<id>`) answers 301 to the current permalink, and a removed or unknown
-  id answers 301 to the property archive (`includes/routing.php`). Until the universal field
-  names arrive (question 51) the placeholder slug is connection plus id.
+  id answers 301 to the property archive (`includes/routing.php`). Until the slugs are built the
+  placeholder slug is connection plus id.
 - The sitemap's change date is the post's modified time, which WordPress sets on every write; a
   write happens only when the content changed (question 43). The CRM's own change time is in the
   record for the templates.
@@ -56,45 +70,89 @@ or `wp action-scheduler run`.
 - One post type per datatype: `core_property` (archive and permalinks under `/objekt/`),
   `core_agent`, `core_office`, `core_area`, `core_association`, `core_project`. Public, so sitemaps, permalinks and
   cache plugins see them.
-- The item, exactly as Core served it, in the post meta `core_data`. `core_client_item($post_id)`
-- The CRM payload, exactly as Core served it, in the post meta `core_raw`; `core_client_item_raw($post_id)`
-  reads it (Patric, 2026-09-18): whatever `data` does not name yet.
-  returns it as an array; `display.*` are the strings to show.
+- The item, exactly as Core served it, in the post meta `core_data`: `core_client_item($post_id)`
+  returns it as an array; `display.*` are the strings to show. The CRM payload, exactly as Core
+  served it, in the post meta `core_raw`: `core_client_item_raw($post_id)` (Patric, 2026-09-18),
+  whatever `data` does not name yet. `core_client_items($datatype, $ids)` resolves the records an
+  item points at (its agents, its office).
 - `post_date` and `post_modified` are the CRM's `remote_updated_at`, never the local write time
   (SRS §7.1), so sitemaps and "updated" dates are right without any template logic.
 - Every item goes through `wp_insert_post`, `wp_update_post` and `wp_delete_post`, so WordPress
   fires what cache plugins listen for (`save_post`, `transition_post_status`, `clean_post_cache`,
   `deleted_post`), and the plugin adds `core_item_updated($post_id, $datatype)` and
   `core_item_deleted($post_id, $datatype)` for anything that wants the item itself.
-- The index table `wp_core_index` answers which post holds an item and its hash. Columns for the
-  search filters are added with the data model.
+- The index table `wp_core_index` answers which post holds an item and its hash, and carries the
+  search columns every list query reads: copies of universal names (`status.id`, `type.id`,
+  `tenure.id`, `price`, `living_space`, `rooms`, the area name, city and street, `project_id`,
+  the agent ids, `published_at`, `sold_at`, a name to sort by, the office ids of an agent, the
+  area id), filled on every write, never judged.
+
+## Templates: the query function, the list function, the sets
+
+**The query function.** `core_client_query(array $params)` takes one parameter set and answers
+one page: `items` (post id and item each), `total`, `has_more`, `page`, `per_page`. Parameters:
+`entity`; `status`, `type`, `tenure` (ids, comma-separated; for `status` the names `for_sale`,
+`coming` and `sold` stand for the ids the site named in its settings); `max_price`,
+`min_living_space`, `min_rooms`; `area` (free text against area name, city and street);
+`agent`, `office`, `project`, `area_id`; `include_project_homes` (a property that names a project
+is otherwise kept out of every list but its project's, question 55); `sort` (`newest`, `sold`,
+`price_asc`, `price_desc`, `updated`, `name`); `per_page`, `page`. A custom-design theme calls it
+directly and renders what it likes.
+
+**The one list function.** `core_client_list(array $params)` runs the query and renders
+`card-<entity>.php` per item and, unless `part` is `cards`, the wrapper `list-<entity>.php`
+around them, wrapped in a shadow root when the site's setting or `shadow` says so. The shortcode
+`[core_list entity="property" status="for_sale,coming" per_page="10"]`, the archive pages, the
+reload endpoint `GET /wp-json/core/v1/list?<the same parameters>` (which answers `html`,
+`total`, `has_more`, `page`) and any PHP call it with the same parameter set, passed through
+untouched: a parameter added to the query is at once available everywhere.
+
+**Template sets.** A set is a WordPress plugin under `templates/<slug>/` (its package is
+`core-client-templates-<slug>`): one main file that registers the set in one line
+(`core_client_register_template_set`), one file per view (`single-core_<datatype>.php`,
+`archive-core_<datatype>.php`, `list-<entity>.php`, `card-<entity>.php`), and
+`assets/<slug>.css` and `assets/<slug>.js`, enqueued on every public page (the stylesheet is
+linked inside each shadow root instead when shadow DOM is on). The site picks one set on the
+settings page; with one set installed, activating it is enough. `npm run new-template-set <slug>
+[<name>]` copies the default set into a new one.
+
+**The override rule.** `core_client_template($file)` looks in the theme first
+(`<theme>/core/<file>`, child theme before parent), then in the chosen set. Editing a view means
+copying it into the theme; the set's folder is never edited on a site, and an update never
+touches the theme, so a site that changed the card alone keeps getting every other view's updates.
+
+**Routing.** A single page or an archive of a `core_*` post type renders through
+`includes/view-page.php`: the theme's header, the view (with `$post_id`, `$item` and `$raw` in
+scope on a single page), the theme's footer. A view file is a PHP block on top that prepares the
+values and plain markup below.
 
 ## Safe update
 
-The must-use plugin tells WordPress's own updater where releases come from and enables auto-update
-for this plugin; WordPress shows the new version on the Plugins page, updates on request or by
-itself, and does the swap. The release JSON is:
+The must-use updater tells WordPress's own updater where releases come from and enables auto-update
+for every package on the site's list: the plugin and each template set. The plugin keeps that list
+in the option `core_client_packages` together with the update channel; the updater reads the option
+and never loads plugin code, so a broken release is replaced by the next one. Per package, the
+channel holds `<package>/<package>.json`:
 
 ```json
-{ "version": "1.2.0", "package": "https://…/core-client.zip" }
+{ "version": "1.2.0", "package": "https://…/core-client/core-client-1.2.0.zip" }
 ```
 
-Every `v*` tag of this repository builds both files (`release.php`), publishes them to the
-DigitalOcean Space named by the repository variables `DO_SPACES_BUCKET` and `DO_SPACES_REGION`
-(with the secrets `DO_SPACES_KEY` and `DO_SPACES_SECRET`), and attaches them to the GitHub Release
-as the record (`.github/workflows/release.yml`). Sites point at the Space:
+and `sets.json`, the index the settings page lists for installation. The channel's address travels
+inside the plugin's zip (`channel.json`, written by `release.php`); a site pins another channel,
+the staging one, with `define('CORE_CLIENT_CHANNEL', 'https://…/');` in `wp-config.php`.
 
-```php
-define('CORE_CLIENT_UPDATE_URL', 'https://<bucket>.<region>.digitaloceanspaces.com/core-client/core-client.json');
-```
-
-The updater never loads plugin code, so a broken release is replaced by the next one.
+Every `v*` tag of this repository packages the plugin and every set (`release.php`), publishes
+them to the DigitalOcean Space named by the repository variables `DO_SPACES_BUCKET` and
+`DO_SPACES_REGION` (with the secrets `DO_SPACES_KEY` and `DO_SPACES_SECRET`), and attaches them
+to the GitHub Release as the record (`.github/workflows/release.yml`).
 
 ## Checking it
 
-`npm run test:wordpress` runs the shared scenario suite against a real WordPress install plus the
-updater and WP-CLI tests; see [../README.md](../README.md) for the one-time setup. PHPStan runs in
-CI's warnings job: `composer install` and `vendor/bin/phpstan analyse`, both in this directory.
+`npm run test:wordpress` runs the shared scenario suite and the template suite against a real
+WordPress install (a classic theme, the plugin and the default set active) plus the updater and
+WP-CLI tests; see [../README.md](../README.md) for the one-time setup. PHPStan runs in CI's
+warnings job: `composer install` and `vendor/bin/phpstan analyse`, both in this directory.
 
 On the site itself, an administrator sees one notice on every admin page while the plugin cannot
 sync (Patric, 2026-09-18): the site is not linked (no Core URL or token), its licence is not
