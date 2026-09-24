@@ -6,17 +6,17 @@ the first item that is not done, and keep the file current. Decisions and open q
 
 ## Where to pick up (convergence point, 2026-09-23)
 
-Everything up to 2026-09-23 is combined into staging; no other saved session holds work. The one
-task in progress is **the default template set "Kowboy 2026"**, item 17, with item 18 inside it.
-"Resume next steps", "continue the templates" or "what remains" all mean item 17: read
-`docs/default-templates.md` (what the set is, the scaffolding, the master), `docs/field-tables.md`
-(the universal names and `display`), `rules-ledger/` (the fourteen display rules that exist), and
-`clients/wordpress/README.md` (the plugin the set plugs into). The strategy in one breath: the set
-is a separate WordPress plugin per style, one file per view with the logic on top, reading only
-`display` and `data` from the sync plugin; it must show what norbanmakleri.se shows, page by page,
-and every display string it needs that Core does not prepare yet is a ledger entry drafted for
-Patric's validation. Items 6, 11, 13, 14 and 16 wait on the things named in them and are not
-picked up by "resume". After the set: the client ports (item 16, first client by question 80).
+Everything up to 2026-09-23 is combined into staging. On 2026-09-24 one session built **the
+default template set "Kowboy 2026"**, item 17 steps 1 to 3 and item 18, on the local WordPress
+(`docs/default-templates.md`, "Built on 2026-09-24"), and it waits for Patric's answers 89 to 96
+and the tokens 87 and 88. "Resume next steps" means: act on whatever of 87 to 96 Patric has
+answered (each answer names its work), then item 17 step 4 on `v4.dev.kowboy.se` once the
+Cloudways token works, then step 5's live run. Read `docs/default-templates.md` first (what the
+set is, the scaffolding, the master, what stands, the comparison), `docs/field-tables.md` (the
+universal names and `display`), `rules-ledger/` (R-001 to R-014 approved, R-015 to R-019
+drafted), and `clients/wordpress/README.md` (the plugin the set plugs into). Items 6, 11, 13, 14
+and 16 wait on the things named in them and are not picked up by "resume". After the set: the
+client ports (item 16, first client by question 80).
 
 ## Now
 
@@ -283,10 +283,14 @@ picked up by "resume". After the set: the client ports (item 16, first client by
        cards, the object pages and the agent pages first, then the rest; every gap in the model
        or the helpers as one row of the numbered table in chat.
     5. AC 28 and AC 20's search half, the report regenerated.
-       **Resuming in a new session:** the token in the session of 2026-09-21 22:00 was still the
-       limited one (`GET /api/v2/server` answers `insufficient_scope`); a new session checks it
-       first, finds the server behind 165.22.87.59, makes `v4.dev.kowboy.se`, and writes id,
-       address and where the login lives into `docs/default-templates.md`; never a secret.
+       **State 2026-09-24:** steps 1, 2, 3 and 5 done, step 4 done against the master on the
+       local WordPress (the gaps are questions 91 to 96); `v4.dev.kowboy.se` waits on the
+       Cloudways token (question 88: the token in the environment still answers
+       `insufficient_scope`, most likely because the two tokens sit in each other's slot, 87). A
+       new session with a working token finds the server behind 165.22.87.59, makes
+       `v4.dev.kowboy.se`, installs the plugin and the set from the branch, links it to staging's
+       tenant `kowboy-test`, runs the comparison there, and writes id, address and where the login
+       lives into `docs/default-templates.md`; never a secret.
 
 18. **The display fields, first attempt** (Patric, 2026-09-23): for every value
     norbanmakleri.se shows on a card, a list or a single page, the prepared string `display`
@@ -294,7 +298,8 @@ picked up by "resume". After the set: the client ports (item 16, first client by
     another set, the intention is the same). An agent drafts the whole list from the site's
     output against staging's records for the same objects, as ledger entries and golden
     masters (`golden/vitec/`, question 52), and Patric validates every one himself, in one
-    review. Done together with item 17 step 3.
+    review. Done together with item 17 step 3. **Drafted 2026-09-24:** R-015 to R-019, eight
+    golden cases, question 90.
 
 19. **A porting factory, exploration only** (Patric, 2026-09-23): whether a skill or workflow
     inside Claude Code can run a port from two inputs, a source and a target, asking its

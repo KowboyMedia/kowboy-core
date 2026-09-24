@@ -215,17 +215,20 @@
         "the Lovable kit against Core misses no item while writes and bells keep coming (AC 19)",
         "the WordPress client against Core misses no item while writes and bells keep coming (AC 19)",
         "the Lovable kit against Core converges on its own schedule when bells never arrive (AC 22)",
-        "the WordPress client against Core converges on its own schedule when bells never arrive (AC 22)"
+        "the WordPress client against Core converges on its own schedule when bells never arrive (AC 22)",
+        "the set Kowboy 2026 on the WordPress client renders the property archive as the for-sale list, first page on the server, with the filter form",
+        "the set Kowboy 2026 on the WordPress client answers the reload endpoint with the cards of one page, the total and whether more follow",
+        "the set Kowboy 2026 on the WordPress client filters by status, price, size, rooms, free text, agent and office, and sorts sold ones by date"
       ],
-      "note": "The sync scenario suite (clients/sync-scenarios.ts), run as each real client against the real Core. The search/filter half needs the data model."
+      "note": "The sync scenario suite (clients/sync-scenarios.ts), run as each real client against the real Core. The search half (2026-09-24): the WordPress client's query function and list endpoint, proved on a real WordPress with records from the fake polling CRM (clients/wordpress/templates.test.ts); the Lovable kit's search half waits for its templates (next-steps item 10)."
     },
     {
       "ac": 21,
       "title": "A broken client release is replaced safely",
       "phase": "clients",
       "tests": [
-        "the WordPress client lets the must-use updater offer a newer release without touching the plugin (AC 21)",
-        "the WordPress client packages a release WordPress can install, with the version from the plugin header"
+        "the WordPress client lets the must-use updater offer a newer release of the plugin and of a set, and the settings page the sets on offer (AC 21)",
+        "the WordPress client packages the plugin and a set for WordPress, and indexes the sets, from the plugin headers"
       ],
       "note": "WordPress: the must-use updater and the release package are proved; WordPress itself swaps the plugin. Lovable: the function and the site deploy separately by construction, which no test can add to."
     },
@@ -290,8 +293,20 @@
       "ac": 28,
       "title": "Functional parity with the parity inventory",
       "phase": "real-data",
-      "tests": [],
-      "note": "Phase 5. The rules ledger opens with R-001 to R-014 and their tests (engine/rules/rules.test.ts, 2026-09-19); the parity inventory and the comparison against the old sites wait for the pairs of question 52."
+      "tests": [
+        "golden masters (vitec provider) property/for-sale",
+        "golden masters (vitec provider) property/sold",
+        "golden masters (vitec provider) property/coming-with-viewing",
+        "golden masters (vitec provider) agent/with-reviews",
+        "golden masters (vitec provider) office/basic",
+        "golden masters (vitec provider) area/basic",
+        "golden masters (vitec provider) association/basic",
+        "golden masters (vitec provider) project/basic",
+        "the set Kowboy 2026 on the WordPress client renders a property page from display and data: hero, facts, viewings, agents, sections, map",
+        "the set Kowboy 2026 on the WordPress client shows a sold property with its final price as \"Slutpris\", and no viewings",
+        "the set Kowboy 2026 on the WordPress client renders agent, office and area pages with their lists inside the same view"
+      ],
+      "note": "Phase 5. The parity inventory is norbanmakleri.se, the master of the default set (question 85): what its cards, lists and pages show was read on 2026-09-24 and laid against the same records on the test account (golden/vitec, drafted for question 90). The set shows every value Core carries; the gaps are questions 91 to 96 (docs/default-templates.md, \"The comparison\"). The page-by-page diff against the live master runs on v4.dev.kowboy.se once it stands (questions 87, 88); until then the local WordPress is the target."
     },
     {
       "ac": 29,

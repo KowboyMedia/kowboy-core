@@ -5,7 +5,7 @@ parameters:
     level: 6
     paths:
         - core-client
-        - mu-plugins
+        - templates
         - test
     excludePaths:
         - core-client/lib

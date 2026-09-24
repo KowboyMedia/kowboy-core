@@ -31,12 +31,15 @@
     function load(append) {
       var url = new URL(list.getAttribute('data-reload'), window.location.href);
       Object.keys(params).forEach(function (key) {
-        if (params[key] !== '' && params[key] !== null && params[key] !== undefined) url.searchParams.set(key, params[key]);
+        if (params[key] !== '' && params[key] !== null && params[key] !== undefined)
+          url.searchParams.set(key, params[key]);
       });
       url.searchParams.set('page', String(page));
       list.classList.add('is-loading');
       return fetch(url.toString())
-        .then(function (response) { return response.json(); })
+        .then(function (response) {
+          return response.json();
+        })
         .then(function (result) {
           if (append) cards.insertAdjacentHTML('beforeend', result.html);
           else cards.innerHTML = result.html;
@@ -44,20 +47,26 @@
           if (empty) empty.hidden = result.total > 0;
           cards.querySelectorAll('.k26-slider').forEach(setupSlider);
         })
-        .finally(function () { list.classList.remove('is-loading'); });
+        .finally(function () {
+          list.classList.remove('is-loading');
+        });
     }
 
     if (form) {
       form.addEventListener('submit', function (event) {
         event.preventDefault();
-        new FormData(form).forEach(function (value, key) { params[key] = value; });
+        new FormData(form).forEach(function (value, key) {
+          params[key] = value;
+        });
         page = 1;
         load(false);
       });
     }
     list.querySelectorAll('.k26-status-filter button').forEach(function (button) {
       button.addEventListener('click', function () {
-        list.querySelectorAll('.k26-status-filter button').forEach(function (other) { other.classList.remove('is-active'); });
+        list.querySelectorAll('.k26-status-filter button').forEach(function (other) {
+          other.classList.remove('is-active');
+        });
         button.classList.add('is-active');
         params.status = button.getAttribute('data-status');
         page = 1;
@@ -81,12 +90,22 @@
     var current = 0;
     function show(index) {
       current = (index + slides.length) % slides.length;
-      slides.forEach(function (slide, i) { slide.classList.toggle('is-active', i === current); });
+      slides.forEach(function (slide, i) {
+        slide.classList.toggle('is-active', i === current);
+      });
     }
     var prev = slider.querySelector('.k26-slider__prev');
     var next = slider.querySelector('.k26-slider__next');
-    if (prev) prev.addEventListener('click', function (event) { event.preventDefault(); show(current - 1); });
-    if (next) next.addEventListener('click', function (event) { event.preventDefault(); show(current + 1); });
+    if (prev)
+      prev.addEventListener('click', function (event) {
+        event.preventDefault();
+        show(current - 1);
+      });
+    if (next)
+      next.addEventListener('click', function (event) {
+        event.preventDefault();
+        show(current + 1);
+      });
   }
 
   function setupCarousel(carousel) {
@@ -104,7 +123,9 @@
     var button = gallery.querySelector('[data-gallery-more]');
     if (!button) return;
     button.addEventListener('click', function () {
-      gallery.querySelectorAll('.k26-gallery__item.is-hidden').forEach(function (item) { item.classList.remove('is-hidden'); });
+      gallery.querySelectorAll('.k26-gallery__item.is-hidden').forEach(function (item) {
+        item.classList.remove('is-hidden');
+      });
       button.hidden = true;
     });
   }

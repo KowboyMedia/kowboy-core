@@ -226,21 +226,81 @@ admin works. Decided (an agent's decision, within the rules):
    and no secret sits in GitHub; the tag workflow keeps attaching the files to the GitHub Release
    as the record.
 
+## Built on 2026-09-24: the set, the machinery, the drafted strings
+
+Steps 1 to 3 of next-steps item 17, and item 18, on the local WordPress of the test suite (the
+Cloudways site waits on questions 87 and 88). What stands:
+
+- **The sync plugin** (`clients/wordpress/core-client`, version 0.2.0): the query function
+  (`includes/query.php`), the sets' registry, the override rule, the one list function, the
+  shortcode `[core_list]`, the reload endpoint `GET /wp-json/core/v1/list`, the routing of single
+  pages and archives through `includes/view-page.php`, shadow DOM as a setting, and the installer:
+  the updater placed on activation, one option the updater watches (the channel and every
+  package), the sets on offer with an Install button, three settings naming which of the CRM's
+  status ids the site lists as for sale, as coming and as sold (`for_sale`, `coming`, `sold` in
+  every parameter set, until item 14's `state` replaces them). The loader lives in the plugin,
+  once, not in every set: a second set would otherwise carry a copy of it, and a custom-design
+  theme gets the list function without any set.
+- **The set** (`clients/wordpress/templates/kowboy-2026`, package
+  `core-client-templates-kowboy-2026`): one file per view (`single-core_property.php`,
+  `single-core_agent.php`, `single-core_office.php`, `single-core_area.php`,
+  `archive-core_property.php`, `archive-core_agent.php`, `list-property.php`, `list-agent.php`,
+  `card-property.php`, `card-agent.php`), the markup written from what the master shows (question
+  89, "from the site"), its stylesheet and script in `assets/`, one registration line in its
+  main file. `npm run new-template-set <slug>` copies it into a new set.
+- **The release** (`release.php`, `.github/workflows/release.yml`): every `v*` tag packages the
+  plugin and every set, each with its release JSON under `<channel>/<package>/`, plus `sets.json`,
+  and the plugin's zip carries `channel.json` so a fresh install knows its channel.
+- **The tests** (`clients/wordpress/templates.test.ts`, 9 cases on a real WordPress with a classic
+  theme): the archive as the for-sale list rendered on the server, the reload endpoint, every
+  filter and sort, the property, agent, office and area pages, the theme override, shadow DOM, the
+  selector. AC 20's search half and AC 28 name them (`acceptance/criteria.json`).
+- **The drafted strings** (item 18): R-015 to R-019 in `rules-ledger/`, implemented in
+  `engine/rules/` with tests, shown by the set, and `golden/vitec/` with eight cases from the test
+  account's real records, the same objects the master shows. All for question 90.
+
+### The comparison, page by page
+
+Read on 2026-09-24 from norbanmakleri.se over HTTPS (its lists come from its reload endpoint, its
+single pages carry their markup in a script), laid against the set's pages rendered from the same
+records on the local WordPress. Matching: the cards (label, images, street, price, tenure, rooms,
+size, "Avgift <amount>"), the property hero (street, price wording, status badge, price, area,
+rooms, size, fee), the selling text, the fact list (price, Område on a sold home, Rum, Avgift,
+Boarea, Byggnadsår, Våning with the elevator, Balkong/Uteplats/Bilplats, Typ), the floor plans,
+the viewings (date and time in the site's own zone and language), the agents at the side, the
+gallery with "Visa fler bilder", the map, a sold home without fact tables and with "Slutpris", the
+agent page (card, reviews, "Ett urval av mina objekt"), the office page (contact, map, agents,
+properties), the area page (name, "Experter på", agents, properties). The site's own rules, kept
+in the templates: the card's label is the next viewing when one is ahead, else the status; a
+floor plan is an image filed under "Planritning"; a sold home shows no fact tables; "Kontakta oss
+för visning." when no viewing is set and the office wrote no text.
+
+The gaps, each one register question: 91 decimals (the master's "1.5 rum" against the ledger's
+comma), 92 the fact tables (the master's eleven sections against R-013's seventeen; the
+"Föreningen" rows the set renders itself from the association's record), 93 enumerations Vitec
+sends as bare ids ("Buyer", "Undetermined", "PrivateHousingCompany") the master shows as words,
+94 the documents the master lists (not in the advertising payload), 95 the viewing's "Boka här"
+and the interest form (both post to the CRM; a Core capability), 96 an energy value the payload
+does not carry. Not ported, by design: the master's blocks outside the templates (the hero with
+buttons, the agents block on the home page, the lead form in the footer) are the site's pages, and
+its "Bor du redan här?" button leads to that lead form.
+
 ## What it needs from Patric
 
-- **85** the master among the four versions, once the comparison of the three apps and norban is
-  in front of him.
+- **89** attach the "kowboy-v4" package, or "from the site"; the set was written from the site.
+- **90** to **96**: the drafted strings and the gaps of the comparison, above.
+- **87** and **88**: the tokens, for `v4.dev.kowboy.se` and the release channel.
 - Already open: 54 (a) to (e) as the templates need them; 52 is untouched (golden masters come
   from the test account).
 
 ## Order of work
 
-Now, needing no answer: the three apps on `dev.kowboy.se` through the Cloudways API (the token
-of a wider scope reaches the next session), the comparison for question 85, the set package's
-skeleton (`kowboy-2026`), the selector, the override rule, the installer's four parts and the
-release per set, and the query function in the sync plugin. With 85: the loop, master against
-`v4.dev.kowboy.se`, until every page matches or is raised → AC 28 and AC 20's search half in
-`acceptance/criteria.json`, the report regenerated. Next-steps item 17 holds the order.
+Done on 2026-09-24 (above): the set, the selector, the override rule, the installer's four parts,
+the release per set, the query function, the drafted strings, the comparison against the master
+on the local WordPress, AC 28 and AC 20's search half, the report. Next: Patric's answers to 89
+to 96; `v4.dev.kowboy.se` once the Cloudways token works (88), the page-by-page diff there, and
+the staging channel written by the staging app (question 79's keys, 87). Next-steps item 17 holds
+the order.
 
 Not in this step: the Lovable example site (item 10's other half, the same universal names, later),
 a site's custom design, and which sites auto-update (WordPress's own per-site setting, which the

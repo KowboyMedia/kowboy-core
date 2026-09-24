@@ -47,7 +47,7 @@ all the loop needs too.
    and the admin login is enough.
 
 2. **How code reaches it: the update channel, the customer's own path.** The plugin's updater
-   exists (`mu-plugins/core-client-updater.php`, AC 21): WordPress asks a release JSON on the
+   exists (`core-client/updater/core-client-updater.php`, placed into `mu-plugins/` by the plugin on activation, AC 21): WordPress asks a release JSON on the
    DigitalOcean Space for a newer version and swaps the plugin itself. The staging site listens to
    a **staging channel** on the same Space (`core-client/staging/core-client.json`): every change
    that lands on staging is packaged with a build number appended to its version, so the site

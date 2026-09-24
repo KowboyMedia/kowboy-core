@@ -56,21 +56,25 @@ foreach (is_array($item['viewings'] ?? null) ? $item['viewings'] : [] as $viewin
 $no_viewings_text = (string) ($item['viewing_settings']['empty_text'] ?? 'Kontakta oss för visning.');
 
 $agents = core_client_items('agent', is_array($item['agent_ids'] ?? null) ? $item['agent_ids'] : []);
-$sections = is_array($display['sections'] ?? null) ? $display['sections'] : [];
+// This site's rule, as the master shows it: a sold home keeps its text, facts, plans and photos,
+// and shows no fact tables.
+$sections = !$sold && is_array($display['sections'] ?? null) ? $display['sections'] : [];
 // The housing cooperative is a record of its own; its rows are shown as sent, the fees prepared.
-$association = core_client_items('association', [$item['association_id'] ?? null])[0]['item'] ?? null;
+$association = $sold ? null : (core_client_items('association', [$item['association_id'] ?? null])[0]['item'] ?? null);
 if ($association !== null) {
     $economy = is_array($association['economy'] ?? null) ? $association['economy'] : [];
     $descriptions = is_array($association['descriptions'] ?? null) ? $association['descriptions'] : [];
     $rows = array_filter([
         'Namn' => $association['name'] ?? null,
         'Allmänt om föreningen' => $descriptions['general_about_association'] ?? null,
+        'Renoveringar - utförda och planerade' => $descriptions['renovations'] ?? null,
         'Parkering' => $descriptions['parking'] ?? null,
         'Tv och bredband' => $descriptions['tv_and_broadband'] ?? null,
         'Gårdsplats/innergård' => $descriptions['courtyard'] ?? null,
         'Gemensamma utrymmen' => $descriptions['shared_spaces'] ?? null,
         'Övrigt' => $descriptions['other'] ?? null,
         'Antal lägenheter' => $association['number_of_apartments'] ?? null,
+        'Föreningens ekonomi och planerade förändringar' => $economy['finances'] ?? null,
         'Överlåtelseavgift' => $association['display']['transfer_fee'] ?? null,
         'Pantsättningsavgift' => $association['display']['pledge_fee'] ?? null,
         'Organisationsnummer' => $association['corporate_number'] ?? null,
