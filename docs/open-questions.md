@@ -43,29 +43,28 @@ the set is done (next-steps item 17), through the automated workflow of
 `docs/template-porting.md`. When the set is done, name the first client by the name Cloudways
 lists its site, and give its CRM login if staging does not hold that account yet.
 
-## 87. `[core]` The DigitalOcean token in the session environment is refused
+## 87. `[core]` The two tokens are most likely in each other's slot in the session environment
 
-On 2026-09-23, after the release, the token stored as `DIGITALOCEAN_ACCESS_TOKEN` in the session
-environment answered "401 Unauthorized" to a plain read of the account's apps, so an agent can no
-longer see the live app's deployments, change either app's settings or ask for a deployment. The
-release itself did not need it: live deploys itself on every change to `main`. It is needed for
-the next settings change on either app (the Postmark token for live's sign-in link, question 79's
-Space keys, Sentry) and for reading deployment state. Make a new personal access token in the
-DigitalOcean account with read and write on apps, save it in the session environment's settings
-under the same name, then say "saved"; the next session picks it up.
+Both refusals of 2026-09-23 have one likely cause. The value stored as `DIGITALOCEAN_ACCESS_TOKEN`
+has the shape of a Cloudways token (67 characters, starting with `cw_`), not of a DigitalOcean
+one (those start with `dop_v1_`), so DigitalOcean refuses it with "401 Unauthorized". The value
+stored as `CLOUDWAYS_API_KEY` is also Cloudways-shaped but is still the limited token of
+2026-09-21 (question 81), so Cloudways answers "insufficient_scope". The simplest reading: on
+2026-09-21 the new, wider Cloudways token was saved into the DigitalOcean slot by mistake, and the
+DigitalOcean token was overwritten by it. Neither token "stopped working"; one is in the wrong
+place and the other is gone. An agent cannot test the swap itself: the session's safety rules
+refuse sending a credential to a service other than the one it is stored for. In the session
+environment's settings: move the value now in `DIGITALOCEAN_ACCESS_TOKEN` into `CLOUDWAYS_API_KEY`,
+then make a new DigitalOcean personal access token with read and write on apps and save it as
+`DIGITALOCEAN_ACCESS_TOKEN`, then say "saved"; the next session checks both.
 
-## 88. `[client-wordpress]` The Cloudways token in the session environment is still the limited one
+## 88. `[client-wordpress]` The Cloudways token: settled by 87 if the swap is right
 
-On 2026-09-23 a new session, the first after the token was replaced (question 81, 2026-09-21),
-sent the token stored as `CLOUDWAYS_API_KEY` to the account call that lists the servers, and
-Cloudways answered "insufficient_scope: this token does not have access to this endpoint", the
-same refusal as before. So either the environment still holds the old token or the new one was
-also made with a limited scope. Without it no agent can find the server behind 165.22.87.59 or
-make `v4.dev.kowboy.se`, the target of next-steps item 17; the local WordPress of the test suite
-stays the target meanwhile, so the set itself is not blocked. In Cloudways, make an API token
-with access to the whole account (servers and applications, not only the public catalogue),
-save it in the session environment's settings under the same name, then say "saved"; the next
-session picks it up.
+Registered on 2026-09-23 as a separate refusal before the shapes were compared. If 87's move
+gives Cloudways the wider token, nothing more is needed here and 88 closes with 87. If Cloudways
+still answers "insufficient_scope" after the move, the token of 2026-09-21 was also limited, and
+a new one with access to the whole account (servers and applications) is needed under
+`CLOUDWAYS_API_KEY`.
 
 ## 89. `[client-wordpress]` The "kowboy-v4" package is not in this repository
 
