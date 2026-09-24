@@ -1,0 +1,17 @@
+{
+  "address": {
+    "city": "Malmö",
+    "postal_code": "211 20",
+    "street": "Grimsbygatan 24A"
+  },
+  "brand_id": null,
+  "description": null,
+  "email": "hello@norbanmakleri.se",
+  "id": "M31529",
+  "lat": 55.6161728085,
+  "lng": 12.9981199621,
+  "name": "Norban Mäkleri",
+  "phone": null,
+  "provider_extras": {},
+  "seat": null
+}

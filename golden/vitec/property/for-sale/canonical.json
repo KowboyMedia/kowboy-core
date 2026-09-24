@@ -1,0 +1,516 @@
+{
+  "additional_space": null,
+  "address": {
+    "area_id": "SOM384562414DA2468284C236FE507E55BD",
+    "area_name": "Hyllie",
+    "city": "Malmö",
+    "country_code": "SE",
+    "county_municipality_code": "1280",
+    "directions": null,
+    "municipality": "Malmö",
+    "postal_code": "216 25",
+    "street": "Cyklopgatan 35B"
+  },
+  "agent_ids": [
+    "HAN348516190DD143E99771DE27DA5E0AB0"
+  ],
+  "area_description": null,
+  "area_ids": [
+    "SOM384562414DA2468284C236FE507E55BD"
+  ],
+  "area_source": "Föreningens information",
+  "assigned_at": "2026-07-09T22:00:00.000Z",
+  "association_id": "ORGBRF281706F1BCB046948BD84E5A8FB93A0D",
+  "bathrooms": null,
+  "bedrooms": null,
+  "bedrooms_max": null,
+  "bidding": {
+    "bids": [],
+    "is_active": false,
+    "is_verified": false
+  },
+  "building_area": null,
+  "building_permission": null,
+  "buildings": [
+    {
+      "additional_space": null,
+      "architecture": [
+        {
+          "description": "Fjärrvärme",
+          "type": {
+            "id": "Heating",
+            "name": "Uppvärmning"
+          }
+        },
+        {
+          "description": "3-glas",
+          "type": {
+            "id": "Windows",
+            "name": "Fönster"
+          }
+        }
+      ],
+      "area_description": null,
+      "area_source": "Föreningens information",
+      "bathrooms": null,
+      "bedrooms": null,
+      "bedrooms_max": null,
+      "building_area": null,
+      "description": null,
+      "electricity": {
+        "company": null,
+        "consumption": null,
+        "distributor": null
+      },
+      "elevator": true,
+      "elevator_description": null,
+      "energy_declaration": {
+        "class": "C",
+        "consumption": null,
+        "performed_at": "2023-06-13T14:22:33.000Z",
+        "status": {
+          "id": "Performed",
+          "name": "Utförd"
+        }
+      },
+      "exterior_features": [],
+      "floor": 2,
+      "floor_description": null,
+      "floors_total": 4,
+      "household_size": null,
+      "interior": null,
+      "living_space": 31,
+      "name": null,
+      "operating_cost": null,
+      "operating_cost_description": null,
+      "operating_costs": [],
+      "other_information": null,
+      "plot_description": null,
+      "renovation": null,
+      "room_list": [],
+      "room_list_text": null,
+      "rooms": 1,
+      "services": [],
+      "type": "Flerbostadshus",
+      "ventilation": {
+        "inspection": null,
+        "type": "FTX"
+      },
+      "year_built": 2023,
+      "year_built_description": null,
+      "year_built_text": "2023"
+    }
+  ],
+  "currency": "SEK",
+  "electricity": {
+    "company": null,
+    "consumption": null,
+    "distributor": null
+  },
+  "elevator": true,
+  "elevator_description": null,
+  "enrollments": null,
+  "extensions": {
+    "commercial_property": null,
+    "condominium": null,
+    "farm": null,
+    "foreign_property": null,
+    "housing_cooperative": {
+      "apartment_number": "B12A (1101)",
+      "apartment_registration_number": null,
+      "association": {
+        "id": "ORGBRF281706F1BCB046948BD84E5A8FB93A0D",
+        "override_description": null,
+        "override_economy": null
+      },
+      "description": null,
+      "finances": {
+        "annual_fee_share": 1.1515,
+        "indirect_net_debt": 499640,
+        "indirect_net_debt_comment": "Beräknad utifrån uppgifter från årsredovisning 2024",
+        "is_pledged": null,
+        "repair_fund_balance": 0,
+        "shares": 1.151,
+        "shares_comment": null
+      },
+      "included_land": {
+        "description": null,
+        "size": null
+      }
+    },
+    "premises": null,
+    "primary_agent": null,
+    "secondary_agent": null
+  },
+  "exterior_features": [
+    {
+      "description": null,
+      "is_available": false,
+      "size": null,
+      "type": {
+        "id": "Balcony",
+        "name": "Balkong"
+      }
+    },
+    {
+      "description": null,
+      "is_available": false,
+      "size": null,
+      "type": {
+        "id": "Patio",
+        "name": "Uteplats"
+      }
+    },
+    {
+      "description": null,
+      "is_available": false,
+      "size": null,
+      "type": {
+        "id": "Parking",
+        "name": "Parkering"
+      }
+    }
+  ],
+  "fee": {
+    "amount": 2882,
+    "comment": "Inkl. kallvatten, värme, bostadsrättstillägg och sophämtning. Oblig. tillägg 170 kr/mån för bredband och TV tillkommer.",
+    "frequency": "Monthly",
+    "type": "Månadsavgift"
+  },
+  "files": [],
+  "final_price": null,
+  "floor": 2,
+  "floor_description": null,
+  "floors_total": 4,
+  "heading": null,
+  "household_size": 1,
+  "id": "OBJ31529_2041198534",
+  "images": [
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:10.140Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDCC86F7B16B31420E9681586792237C89",
+      "name": null,
+      "order": 1,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MEDCC86F7B16B31420E9681586792237C89_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:09.700Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED90D2EA053FFA41359CC3448F14AA79A6",
+      "name": null,
+      "order": 2,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MED90D2EA053FFA41359CC3448F14AA79A6_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:11.310Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDF27191C98D2941DE954F10E0084CCBB6",
+      "name": null,
+      "order": 3,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MEDF27191C98D2941DE954F10E0084CCBB6_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:11.623Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDD39EFF58F8684FD2B75C1D4DC3C1793F",
+      "name": null,
+      "order": 4,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MEDD39EFF58F8684FD2B75C1D4DC3C1793F_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:12.733Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDD2FBCDEC719E40C0B02B08E159D7ED23",
+      "name": null,
+      "order": 5,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MEDD2FBCDEC719E40C0B02B08E159D7ED23_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:11.653Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDC86C40BAE9934F8E9E7D07ECA15C29B6",
+      "name": null,
+      "order": 6,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MEDC86C40BAE9934F8E9E7D07ECA15C29B6_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:10.797Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDFF5D858B1EB24C2DB7C316AC92891716",
+      "name": null,
+      "order": 7,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MEDFF5D858B1EB24C2DB7C316AC92891716_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:10.170Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED600C43003D774287A2D08D9FBF16B487",
+      "name": null,
+      "order": 8,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MED600C43003D774287A2D08D9FBF16B487_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:12.140Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED4841FD093B594CCFB6EE7448CC7C5345",
+      "name": null,
+      "order": 9,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MED4841FD093B594CCFB6EE7448CC7C5345_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:10.810Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED2D226AAFD1824014837435CF2D38EAB2",
+      "name": null,
+      "order": 10,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MED2D226AAFD1824014837435CF2D38EAB2_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:11.060Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDB57DDD8975E3412BA4D0E68CC7919D1C",
+      "name": null,
+      "order": 11,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MEDB57DDD8975E3412BA4D0E68CC7919D1C_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:09.843Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED3C964028287D44CC94851687B370D294",
+      "name": null,
+      "order": 12,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MED3C964028287D44CC94851687B370D294_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:10.640Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED350A989ECF19482F89EF8CE3B2848656",
+      "name": null,
+      "order": 13,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MED350A989ECF19482F89EF8CE3B2848656_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:10.560Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDDB4AC95E6A754C98ACF38801E8374486",
+      "name": null,
+      "order": 14,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MEDDB4AC95E6A754C98ACF38801E8374486_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:10.250Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED56A273F9010948C9B8298CBFD8765E07",
+      "name": null,
+      "order": 15,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MED56A273F9010948C9B8298CBFD8765E07_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:10.810Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDE80C117A07FD4004918995D804127D54",
+      "name": null,
+      "order": 16,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MEDE80C117A07FD4004918995D804127D54_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:12.547Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED081E51BF715342518C2C99CDFE18D741",
+      "name": null,
+      "order": 17,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MED081E51BF715342518C2C99CDFE18D741_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:12.653Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED49FC1170737D49D4BC036BBA4DEF28FC",
+      "name": null,
+      "order": 18,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MED49FC1170737D49D4BC036BBA4DEF28FC_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2023-12-12T14:00:12.700Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED1632DC793E4244CFA56A078F2FB7B263",
+      "name": null,
+      "order": 19,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MED1632DC793E4244CFA56A078F2FB7B263_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2024-05-15T13:37:04.300Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDC32E7EE4D08A492C88006E02F0A01037",
+      "name": null,
+      "order": 20,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MEDC32E7EE4D08A492C88006E02F0A01037_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2024-05-15T13:37:04.287Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDEDA73F02CCAF40479125C560C06A77D3",
+      "name": null,
+      "order": 21,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MEDEDA73F02CCAF40479125C560C06A77D3_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2024-05-15T13:37:04.300Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDF0A516E31CFC44BA897F60D8105BAA4E",
+      "name": null,
+      "order": 22,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MEDF0A516E31CFC44BA897F60D8105BAA4E_1920.jpg"
+    },
+    {
+      "category": "Planritning",
+      "changed_at": "2024-05-15T13:50:34.197Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDDB922D886C824DE58E3AF95FAC3F362F",
+      "name": null,
+      "order": 23,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2041198534/MEDDB922D886C824DE58E3AF95FAC3F362F_1920.jpg"
+    }
+  ],
+  "inspection": {
+    "has_been_performed": false
+  },
+  "is_new_build": false,
+  "is_preview": false,
+  "is_published": true,
+  "lat": 55.56841,
+  "lease": null,
+  "leasehold": null,
+  "links": [],
+  "living_space": 31,
+  "lng": 12.978617,
+  "long_text": null,
+  "office_id": "M31529",
+  "operating_cost": 3420,
+  "operating_cost_description": "Individuell mätning och debitering av hushållsel och uppvärmning av vatten. Angivna kostnader är enligt föreningens ekonomiska plan, dvs en ungefärligt uppskattad kostnad för bostadens storlek. Kostnad för försäkring tillkommer.",
+  "operating_costs": [
+    {
+      "type": {
+        "id": "WaterAndSewage",
+        "name": "VA"
+      },
+      "value": 690
+    },
+    {
+      "type": {
+        "id": "Electricity",
+        "name": "El"
+      },
+      "value": 2730
+    }
+  ],
+  "other_buildings": null,
+  "other_information": null,
+  "phrase": null,
+  "pledges": [],
+  "plot": {
+    "area": null,
+    "description": null,
+    "type": null
+  },
+  "possession_at": null,
+  "possession_estimate": null,
+  "price": 1200000,
+  "price_other_currency": null,
+  "price_text": "utgångspris",
+  "project_id": null,
+  "provider_extras": {},
+  "published_at": "2024-05-24T08:42:42.000Z",
+  "reference_number": "15165",
+  "rooms": 1,
+  "short_text": "Välkomna till denna ljusa etta med fransk balkong! Öppen planlösning mellan kök och allrum med gott om plats för både säng och sällskapsmöblemang. Det stora badrummet är utrustat med dusch och vask med kommod samt bekvämligheter som handdukstork och kombimaskin. Köket har rostfria vitvaror och är utrustat med integrerad diskmaskin, kyl/frys, fläkt, spishäll och integrerad ugn. Intill entrén i hallen finns plats för avhängning samt  ett förråd för god förvaring. Området kring Hyllie är optimalt för den som uppskattar stadslivet med närhet till både grönområden och exceptionella pendelmöjligheter. Här finns shoppingcenter, restauranger och kulturutbud inom bekvämt avstånd.",
+  "sold_at": null,
+  "status": {
+    "id": "ForSale",
+    "name": "Till salu"
+  },
+  "subtype": {
+    "id": "Apartment",
+    "name": "Lägenhet"
+  },
+  "surroundings": {
+    "area": null,
+    "communication": null,
+    "other": null,
+    "parking": null,
+    "service": null
+  },
+  "tags": [],
+  "taxation": {
+    "building_value": null,
+    "is_preliminary": false,
+    "land_value": null,
+    "property_designations": [
+      "Snorkeln 1"
+    ],
+    "tax_fee": null,
+    "total_value": null,
+    "units": null
+  },
+  "tenure": {
+    "id": "TenantOwnership",
+    "name": "Bostadsrätt"
+  },
+  "type": {
+    "id": "HousingCooperative",
+    "name": "Bostadsrätt"
+  },
+  "viewing_settings": {
+    "empty_text": null,
+    "visible_limit": null
+  },
+  "viewings": [],
+  "year_built": 2023,
+  "year_built_description": null,
+  "year_built_text": "2023"
+}

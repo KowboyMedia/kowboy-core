@@ -1,0 +1,233 @@
+{
+  "address_line": "Piggränd 3, 216 34 Limhamn",
+  "area": "103 kvm",
+  "elevator": "Nej",
+  "energy_class": "C",
+  "energy_declaration": "Utförd 2024-02-01",
+  "exterior_features": "Uteplats finns",
+  "fee": "6 177 kr/mån",
+  "fee_amount": "6 177 kr",
+  "fee_comment": "inkl. kallvatten, värme och bostadsrättstillägg. Ett obligatoriskt tillägg om 197 kr/månad tillkommer för kabel-TV/bredband.",
+  "living_space": "103 kvm",
+  "location": "Elinegård",
+  "operating_cost": "7 800 kr/år",
+  "price": "4 595 000 kr",
+  "rooms": "5 rum",
+  "rooms_and_bedrooms": "5 rum",
+  "sections": [
+    {
+      "header": "Bostaden",
+      "items": [
+        {
+          "label": "Objektnummer",
+          "value": "AV06691"
+        },
+        {
+          "label": "Bostadstyp",
+          "value": "Radhus"
+        },
+        {
+          "label": "Upplåtelseform",
+          "value": "Bostadsrätt"
+        },
+        {
+          "label": "Adress",
+          "value": "Piggränd 3, 216 34 Limhamn"
+        },
+        {
+          "label": "Område",
+          "value": "Elinegård"
+        },
+        {
+          "label": "Kommun",
+          "value": "Malmö"
+        },
+        {
+          "label": "Lägenhetsnummer",
+          "value": "R8"
+        }
+      ]
+    },
+    {
+      "header": "Interiör",
+      "items": [
+        {
+          "label": "Antal rum",
+          "value": "5 rum"
+        },
+        {
+          "label": "Boarea",
+          "value": "103 kvm"
+        },
+        {
+          "label": "Areakälla",
+          "value": "föreningens information"
+        },
+        {
+          "label": "Hall",
+          "value": "Välkomnande hall med ljust klinkergolv och vitmålade väggar samt platsbyggd garderob som erbjuder bra förvaringsmöjligheter. En praktisk entré som på ett naturligt sätt leder vidare in i bostadens övriga delar."
+        },
+        {
+          "label": "Kök",
+          "value": "Stilrent kök från Marbodal med vita fronter, bänkskiva och stänkskydd i kompositsten tillför en exklusiv känsla och skapar en vacker kontrast mot de vita snickerierna. Köket är utrustat med vitvaror från Siemens. Intill köket finns en generös matplats med plats för ca 6 personer."
+        },
+        {
+          "label": "Vardagsrum",
+          "value": "Ljust vardagsrum i öppen planlösning mot köket, vilket skapar en social och inbjudande miljö. Från vardagsrummet nås uteplatsen, som blir en självklar förlängning av bostadens sociala ytor under årets varmare månader. Här finns gott om plats för en loungemöblering och grill."
+        },
+        {
+          "label": "Badrum",
+          "value": "Praktiskt helkaklat badrum med wc, dusch och tvättställ samt både tvättmaskin och torktumlare. De platsbyggda garderoberna erbjuder dessutom generösa förvaringsmöjligheter."
+        },
+        {
+          "label": "Allrum",
+          "value": "Trivsamt allrum med ett härligt ljusinsläpp från takfönstren som ger rummet en luftig känsla. Ett flexibelt rum som passar utmärkt som familjens gemensamma yta, lekrum, arbetsplats eller extra tv-rum."
+        },
+        {
+          "label": "Sovrum",
+          "value": "Bostaden erbjuder tre rymliga och lättmöblerade sovrum, samtliga med ljusa parkettgolv och vita väggar."
+        },
+        {
+          "label": "Badrum",
+          "value": "Helkaklat badrum med wc, tvättställ och ett badkar som bjuder in till avkopplande stunder."
+        },
+        {
+          "label": "Ingår ej i köpet",
+          "value": "PAX-garderob i ett av rummen på plan 2."
+        }
+      ]
+    },
+    {
+      "header": "Byggnad",
+      "items": [
+        {
+          "label": "Byggnadstyp",
+          "value": "Radhus"
+        },
+        {
+          "label": "Byggår",
+          "value": "2022"
+        },
+        {
+          "label": "Uppvärmning",
+          "value": "Fjärrvärme"
+        },
+        {
+          "label": "Ventilation",
+          "value": "FTX"
+        }
+      ]
+    },
+    {
+      "header": "Våning och hiss",
+      "items": [
+        {
+          "label": "Hiss",
+          "value": "Nej"
+        }
+      ]
+    },
+    {
+      "header": "Energideklaration",
+      "items": [
+        {
+          "label": "Energideklaration",
+          "value": "Utförd 2024-02-01"
+        },
+        {
+          "label": "Energiklass",
+          "value": "C"
+        }
+      ]
+    },
+    {
+      "header": "Balkong, uteplats och parkering",
+      "items": [
+        {
+          "label": "Balkong",
+          "value": "Nej"
+        },
+        {
+          "label": "Uteplats",
+          "value": "Ja"
+        },
+        {
+          "label": "Parkering",
+          "value": "Nej"
+        }
+      ]
+    },
+    {
+      "header": "Avgift och driftskostnader",
+      "items": [
+        {
+          "label": "Avgift",
+          "value": "6 177 kr/mån"
+        },
+        {
+          "label": "Avgiftstyp",
+          "value": "Månadsavgift"
+        },
+        {
+          "label": "Kommentar till avgiften",
+          "value": "inkl. kallvatten, värme och bostadsrättstillägg. Ett obligatoriskt tillägg om 197 kr/månad tillkommer för kabel-TV/bredband."
+        },
+        {
+          "label": "Driftskostnad",
+          "value": "7 800 kr/år"
+        },
+        {
+          "label": "VA",
+          "value": "3 000 kr/år"
+        },
+        {
+          "label": "El",
+          "value": "4 800 kr/år"
+        },
+        {
+          "label": "Kommentar till driftskostnaden",
+          "value": "Föreningen har IMD-debitering av el och varmvatten."
+        },
+        {
+          "label": "Personer i hushållet",
+          "value": "3"
+        }
+      ]
+    },
+    {
+      "header": "Andelstal och ekonomi",
+      "items": [
+        {
+          "label": "Andelstal",
+          "value": "1,13 %"
+        },
+        {
+          "label": "Andel av årsavgiften",
+          "value": "1,13 %"
+        },
+        {
+          "label": "Indirekt nettoskuldsättning",
+          "value": "1 424 171 kr"
+        },
+        {
+          "label": "Kommentar till nettoskuldsättningen",
+          "value": "Beräknad av ekonomisk förvaltare."
+        },
+        {
+          "label": "Pantsatt",
+          "value": "Ja"
+        }
+      ]
+    },
+    {
+      "header": "Övrigt",
+      "items": [
+        {
+          "label": "Övrig information",
+          "value": "Till bostaden hör ett förråd och en uteplats. Förrådet  och uteplatsen är upplåtet med bostadsrätten.\r\n\r\nFöreningen har IMD-debitering av hushållsel och varmvatten utefter faktisk förbrukning."
+        }
+      ]
+    }
+  ],
+  "year_built": "2022"
+}

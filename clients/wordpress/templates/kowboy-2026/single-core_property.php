@@ -18,7 +18,7 @@ $hero_images = array_slice($photos, 0, 5);
 
 $sold = isset($display['final_price']);
 $price = $sold ? $display['final_price'] : ($display['price'] ?? null);
-$price_label = $sold ? 'Slutpris' : (isset($item['price_text']) && is_string($item['price_text']) ? ucfirst($item['price_text']) : null);
+$price_label = $sold ? 'Slutpris' : ($display['price_text'] ?? null);
 $status = (string) ($item['status']['name'] ?? '');
 $text = (string) ($item['long_text'] ?? $item['short_text'] ?? '');
 
@@ -26,24 +26,17 @@ $hero_facts = array_filter([
     $display['location'] ?? null,
     $display['rooms'] ?? null,
     $display['living_space'] ?? null,
-    isset($display['fee']) ? 'Avgift ' . $display['fee'] : null,
+    isset($display['fee_amount']) ? 'Avgift ' . $display['fee_amount'] : null,
 ]);
-$floor = isset($display['floor']) ? $display['floor'] . (isset($display['elevator']) && $display['elevator'] === 'Ja' ? ', hiss finns' : '') : null;
-$outdoors = [];
-foreach (is_array($item['exterior_features'] ?? null) ? $item['exterior_features'] : [] as $feature) {
-    if (($feature['is_available'] ?? null) === true && is_string($feature['type']['name'] ?? null)) {
-        $outdoors[] = $feature['type']['name'] . ' finns';
-    }
-}
 $facts = array_filter([
     $price_label ?? 'Pris' => $price,
     'Område' => $sold ? ($display['location'] ?? null) : null,
     'Rum' => $display['rooms'] ?? null,
-    'Avgift' => $sold ? null : ($display['fee'] ?? null),
+    'Avgift' => $sold ? null : ($display['fee_amount'] ?? null),
     'Boarea' => $display['area'] ?? null,
     'Byggnadsår' => $display['year_built'] ?? null,
-    'Våning' => $floor,
-    'Balkong/Uteplats/Bilplats' => $outdoors === [] ? null : implode(', ', $outdoors),
+    'Våning' => $display['floor_and_elevator'] ?? null,
+    'Balkong/Uteplats/Bilplats' => $display['exterior_features'] ?? null,
     'Typ' => $item['tenure']['name'] ?? null,
 ]);
 
@@ -64,6 +57,30 @@ $no_viewings_text = (string) ($item['viewing_settings']['empty_text'] ?? 'Kontak
 
 $agents = core_client_items('agent', is_array($item['agent_ids'] ?? null) ? $item['agent_ids'] : []);
 $sections = is_array($display['sections'] ?? null) ? $display['sections'] : [];
+// The housing cooperative is a record of its own; its rows are shown as sent, the fees prepared.
+$association = core_client_items('association', [$item['association_id'] ?? null])[0]['item'] ?? null;
+if ($association !== null) {
+    $economy = is_array($association['economy'] ?? null) ? $association['economy'] : [];
+    $descriptions = is_array($association['descriptions'] ?? null) ? $association['descriptions'] : [];
+    $rows = array_filter([
+        'Namn' => $association['name'] ?? null,
+        'Allmänt om föreningen' => $descriptions['general_about_association'] ?? null,
+        'Parkering' => $descriptions['parking'] ?? null,
+        'Tv och bredband' => $descriptions['tv_and_broadband'] ?? null,
+        'Gårdsplats/innergård' => $descriptions['courtyard'] ?? null,
+        'Gemensamma utrymmen' => $descriptions['shared_spaces'] ?? null,
+        'Övrigt' => $descriptions['other'] ?? null,
+        'Antal lägenheter' => $association['number_of_apartments'] ?? null,
+        'Överlåtelseavgift' => $association['display']['transfer_fee'] ?? null,
+        'Pantsättningsavgift' => $association['display']['pledge_fee'] ?? null,
+        'Organisationsnummer' => $association['corporate_number'] ?? null,
+        'Tillåter föreningen delat ägande' => $economy['allows_shared_ownership_info'] ?? null,
+        'Äger föreningen marken' => $economy['the_association_own_the_ground'] ?? null,
+    ], fn (mixed $value): bool => $value !== null && $value !== '');
+    if ($rows !== []) {
+        $sections[] = ['header' => 'Föreningen', 'items' => array_map(fn ($label, $value) => ['label' => (string) $label, 'value' => (string) $value], array_keys($rows), $rows)];
+    }
+}
 $lat = $item['lat'] ?? null;
 $lng = $item['lng'] ?? null;
 ?>

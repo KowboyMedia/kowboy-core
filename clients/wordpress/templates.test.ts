@@ -174,7 +174,8 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     const streets = [...body.matchAll(/<h3>(Kungsgatan \d+)<\/h3>/g)].map((match) => match[1]);
     expect(streets).toEqual(['Kungsgatan 3', 'Kungsgatan 2', 'Kungsgatan 1']);
     expect(body).toContain('7 250 000 kr');
-    expect(body).toContain('Avgift 4 100 kr/mån');
+    expect(body).toContain('Avgift 4 100 kr');
+    expect(body).not.toContain('kr/mån');
     expect(body).toContain('<li>Bostadsrätt</li>');
     expect(body).toContain('82 kvm');
     expect(body).toContain('Visning ');

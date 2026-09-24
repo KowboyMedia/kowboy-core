@@ -12,6 +12,7 @@
 //   php driver.php update-check <url of an update channel folder>
 //   php driver.php sets <url of an update channel folder>
 //   php driver.php option <name> [<json value>]
+//   php driver.php import '{"datatype":"property","data":{...},"raw":{...}}'   one item straight into the store
 
 declare(strict_types=1);
 
@@ -175,6 +176,32 @@ function core_driver_update_check(): array
 }
 
 /**
+ * Put one item into the local copy as if Core had served it, so a page can be rendered from a
+ * golden record without a Core in between (the comparison against the master site).
+ *
+ * @param array<string, mixed> $spec
+ * @return array<string, mixed>
+ */
+function core_driver_import(array $spec): array
+{
+    $datatype = (string) ($spec['datatype'] ?? 'property');
+    $data = json_decode((string) json_encode($spec['data'] ?? []));
+    $item = (object) [
+        'connection_id' => 'golden',
+        'remote_id' => (string) ($data->id ?? ''),
+        'office_id' => is_string($data->office_id ?? null) ? $data->office_id : null,
+        'seq' => (int) ($spec['seq'] ?? 1),
+        'content_hash' => md5((string) json_encode($spec['data'] ?? [])),
+        'remote_updated_at' => null,
+        'data' => $data,
+        'raw' => json_decode((string) json_encode($spec['raw'] ?? null)),
+    ];
+    $existing = core_client_index_row($datatype, 'golden', $item->remote_id);
+    $post_id = core_client_upsert_item($datatype, $item, $existing);
+    return ['post_id' => $post_id, 'permalink' => get_permalink($post_id)];
+}
+
+/**
  * Read or write one option, so a test can pick the template set or switch shadow DOM on.
  *
  * @return array<string, mixed>
@@ -199,6 +226,7 @@ $result = match ($command) {
     'update-check' => core_driver_update_check(),
     'sets' => ['sets' => core_client_available_sets()],
     'option' => core_driver_option($argument),
+    'import' => core_driver_import((array) json_decode($argument, true)),
     default => null,
 };
 if ($result === null) {

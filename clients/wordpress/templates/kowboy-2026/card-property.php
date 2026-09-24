@@ -16,7 +16,7 @@ $facts = array_filter([
     $item['tenure']['name'] ?? null,
     $display['rooms'] ?? null,
     $display['living_space'] ?? null,
-    isset($display['fee']) ? 'Avgift ' . $display['fee'] : null,
+    isset($display['fee_amount']) ? 'Avgift ' . $display['fee_amount'] : null,
 ]);
 
 $label = (string) ($item['status']['name'] ?? '');

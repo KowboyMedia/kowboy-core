@@ -150,6 +150,26 @@ describe('the property strings (R-001 to R-012)', () => {
     expect(display['location']).toBe('Vasastan');
   });
 
+  it('drafted for the default set (R-015 to R-018, question 90): price wording, fee amount, floor with elevator, exterior features', () => {
+    expect(display['price_text']).toBe('Utgångspris');
+    expect(display['fee_amount']).toBe(`3${N}500${N}kr`);
+    expect(display['floor_and_elevator']).toBe('3 av 5, hiss finns');
+    expect(display['exterior_features']).toBe('Balkong finns');
+    const plain = applyRules('property', {
+      ...home(),
+      price_text: 'utgångspris',
+      elevator: false,
+      exterior_features: [{ type: { id: 'Pool', name: 'Pool' }, is_available: false }],
+    })['display'] as Record<string, unknown>;
+    expect(plain['price_text']).toBe('Utgångspris');
+    expect(plain['floor_and_elevator']).toBe('3 av 5');
+    expect(plain).not.toHaveProperty('exterior_features');
+    const noFloor = applyRules('property', { ...home(), floor: null, floors_total: null })[
+      'display'
+    ] as Record<string, unknown>;
+    expect(noFloor).not.toHaveProperty('floor_and_elevator');
+  });
+
   it('never invents a string: an empty record shows nothing but its sections', () => {
     const empty = applyRules('property', { id: 'X', display: {}, provider_extras: {} });
     expect(empty['display']).toEqual({ sections: [] });
@@ -209,5 +229,23 @@ describe('R-014 project ranges', () => {
     })['display'] as Record<string, unknown>;
     expect(display['fee_range']).toBe(`2${N}000 – 3${N}000${N}kr/mån`);
     expect(display['rooms_range']).toBe(`2 – 4${N}rum`);
+  });
+});
+
+describe('R-019 association fees (drafted, question 90)', () => {
+  it('writes the transfer fee and the pledge fee in kr, and nothing when they are missing', () => {
+    const display = applyRules('association', {
+      id: 'BRF-1',
+      name: 'Brf Solen',
+      economy: { transfer_fee: 1480, pledge_fee: 592 },
+      display: {},
+      provider_extras: {},
+    })['display'] as Record<string, unknown>;
+    expect(display['transfer_fee']).toBe(`1${N}480${N}kr`);
+    expect(display['pledge_fee']).toBe(`592${N}kr`);
+    const bare = applyRules('association', { id: 'BRF-2', display: {}, provider_extras: {} })[
+      'display'
+    ] as Record<string, unknown>;
+    expect(bare).toEqual({});
   });
 });

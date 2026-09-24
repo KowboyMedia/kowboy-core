@@ -1,0 +1,739 @@
+{
+  "additional_space": 58,
+  "address": {
+    "area_id": "SOM278A745DD2A94C6797E9E5B0EC1B2124",
+    "area_name": "Hindby",
+    "city": "Malmö",
+    "country_code": "SE",
+    "county_municipality_code": "1280",
+    "directions": null,
+    "municipality": "Malmö",
+    "postal_code": "213 63",
+    "street": "Aglaiavägen 32"
+  },
+  "agent_ids": [
+    "HAN1CD37BD8D1AA4486B61BB73E65BED2AC",
+    "HAN0939E193EE0149F9B95887E6C7684B3D"
+  ],
+  "area_description": null,
+  "area_ids": [
+    "SOM278A745DD2A94C6797E9E5B0EC1B2124"
+  ],
+  "area_source": "Faktisk uppmätning (mätbevis)",
+  "assigned_at": "2024-02-15T12:48:02.000Z",
+  "association_id": null,
+  "bathrooms": null,
+  "bedrooms": 3,
+  "bedrooms_max": null,
+  "bidding": {
+    "bids": [],
+    "is_active": false,
+    "is_verified": false
+  },
+  "building_area": null,
+  "building_permission": null,
+  "buildings": [
+    {
+      "additional_space": 58,
+      "architecture": [
+        {
+          "description": "Betong/trä",
+          "type": {
+            "id": "Beam",
+            "name": "Bjälklag"
+          }
+        },
+        {
+          "description": "Plåt",
+          "type": {
+            "id": "ExternalMetalWork",
+            "name": "Utvändig plåtarbete"
+          }
+        },
+        {
+          "description": "Tegel",
+          "type": {
+            "id": "Facade",
+            "name": "Fasad"
+          }
+        },
+        {
+          "description": "Källargrund",
+          "type": {
+            "id": "Foundation",
+            "name": "Grund"
+          }
+        },
+        {
+          "description": "Betong",
+          "type": {
+            "id": "FoundationWall",
+            "name": "Grundmur"
+          }
+        },
+        {
+          "description": "Tegel",
+          "type": {
+            "id": "Frame",
+            "name": "Stomme"
+          }
+        },
+        {
+          "description": "Fjärrvärme",
+          "type": {
+            "id": "Heating",
+            "name": "Uppvärmning"
+          }
+        },
+        {
+          "description": "Plåt",
+          "type": {
+            "id": "Roof",
+            "name": "Tak"
+          }
+        },
+        {
+          "description": "Isolerglasfönster",
+          "type": {
+            "id": "Windows",
+            "name": "Fönster"
+          }
+        },
+        {
+          "description": "Kommunalt vatten året om. Kommunalt avlopp",
+          "type": {
+            "id": "WaterAndDrain",
+            "name": "Vatten/avlopp"
+          }
+        }
+      ],
+      "area_description": null,
+      "area_source": "Faktisk uppmätning (mätbevis)",
+      "bathrooms": null,
+      "bedrooms": 3,
+      "bedrooms_max": null,
+      "building_area": null,
+      "description": null,
+      "electricity": {
+        "company": null,
+        "consumption": null,
+        "distributor": null
+      },
+      "elevator": null,
+      "elevator_description": null,
+      "energy_declaration": {
+        "class": "C",
+        "consumption": 88,
+        "performed_at": "2024-09-29T22:00:00.000Z",
+        "status": {
+          "id": "Performed",
+          "name": "Utförd"
+        }
+      },
+      "exterior_features": [],
+      "floor": null,
+      "floor_description": null,
+      "floors_total": null,
+      "household_size": null,
+      "interior": null,
+      "living_space": 87,
+      "name": null,
+      "operating_cost": null,
+      "operating_cost_description": null,
+      "operating_costs": [],
+      "other_information": null,
+      "plot_description": null,
+      "renovation": null,
+      "room_list": [
+        {
+          "description": "› Välkomnande hall med tapetserade väggar och gott om plats för avhängning.\r\n\r\n› Välplanerat kök med gott om förvaring och goda arbetsytor. Köksinredning i träfärgade luckor, vit bänkskiva, ljusa väggar och parkettgolv. Utrustat med kyl/frys, induktionshäll, ugn (2021), diskmaskin, och köksfläkt (2022).\r\n\r\n› I anslutning till köket ligger bostadens vardagsrum. Ett rymligt och socialt rum med härlig takhöjd, ljusa väggar, parkettgolv och takrosetter. Rummet erbjuder plats för både soffa som större matbord. Fint ljusinsläpp och altandörr ut mot trädgården, placerad i söderläge. \r\n\r\n› På entréplan ligger ett av husets tre sovrum som har ljusa väggar och plats för både säng och förvaring om så önskas. \r\n\r\n› Helkaklat badrum på entréplan med vita väggar och grågrönt golv. Utrustat med toalett, dusch och handfat med kommod. Avlopp till toaletten relineades under 2022. \r\n\r\n› Inredd vind som blivit ett stort sovrum med synliga takbjälkar och fint ljusinsläpp från två takfönster. Här finns vita väggar och parkettgolv.  \r\n\r\n› Inredd källare med arbetsrum, allrum och förråd. Här finns putsade och vitmålade väggar som matchas med mörkt klinkergolv. Här finns även utgång till trädgården.\r\n\r\n› I källarplan ligger även ett rymligt och helkaklat badrum med vita väggar och grått golv. Utrustat med toalett, dusch med dörrar, badkar och tvättställ. Element installerat 2023.\r\n\r\n› Rymlig tvättstuga finns placerad i källaren och är utrustad med tvättmaskin och skåp/lådor för förvaring samt god arbetsyta.",
+          "name": "Allmänt om bostaden"
+        },
+        {
+          "description": "› Lummig och uppvuxen trädgård med fruktträd, bärbuskar och väldoftande kryddträdgård. Trädäck i solsäkert söderläge ligger i anslutning till trädgården och nås från bostadens vardagsrum. \r\n\r\n› Stort cykel/trädgårdsskjul byggt sommaren 2020.",
+          "name": "Utemiljö"
+        },
+        {
+          "description": "› Parkering finns på gatan framför huset.",
+          "name": "Parkering"
+        },
+        {
+          "description": "2022 Nytt plåttak. Relining av toalettens avlopp.\r\n2020 Nytt cykel- och trädgårdsskjul.",
+          "name": "Renoveringar"
+        }
+      ],
+      "room_list_text": null,
+      "rooms": 5,
+      "services": [],
+      "type": "Radhus",
+      "ventilation": {
+        "inspection": null,
+        "type": "Självdrag"
+      },
+      "year_built": 1936,
+      "year_built_description": null,
+      "year_built_text": "1936"
+    }
+  ],
+  "currency": "SEK",
+  "electricity": {
+    "company": null,
+    "consumption": null,
+    "distributor": null
+  },
+  "elevator": null,
+  "elevator_description": null,
+  "enrollments": {
+    "plan_regulations": "Tomtindelning (1937-09-06) Stadsplan (1936-06-12)",
+    "preferential_and_community": null
+  },
+  "extensions": {
+    "commercial_property": null,
+    "condominium": null,
+    "farm": null,
+    "foreign_property": null,
+    "housing_cooperative": null,
+    "premises": null,
+    "primary_agent": null,
+    "secondary_agent": null
+  },
+  "exterior_features": [],
+  "fee": null,
+  "files": [
+    {
+      "data_changed_at": "2025-04-30T09:35:02",
+      "extension": "pdf",
+      "id": "DOKECD0D9C3F2154E439749A523E111EF15",
+      "name": "Energideklaration"
+    },
+    {
+      "data_changed_at": "2025-04-30T09:35:32",
+      "extension": "pdf",
+      "id": "DOK2EDA7D50ACC14D32B8F54F1DE59FA154",
+      "name": "Bra att veta!"
+    }
+  ],
+  "final_price": 3325000,
+  "floor": null,
+  "floor_description": null,
+  "floors_total": null,
+  "heading": null,
+  "household_size": 4,
+  "id": "OBJ31529_2054041970",
+  "images": [
+    {
+      "category": "Övrigt",
+      "changed_at": "2024-10-03T06:54:41.860Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED38D07347460A42FEAEE5D69E20AE83BA",
+      "name": null,
+      "order": 1,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED38D07347460A42FEAEE5D69E20AE83BA_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.020Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDDED7394FD7F049C98E191409F8217ECB",
+      "name": "Lågupplöst",
+      "order": 2,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MEDDED7394FD7F049C98E191409F8217ECB_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.017Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDEED5748A9A574556A2A808544DF7E01C",
+      "name": "Lågupplöst",
+      "order": 3,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MEDEED5748A9A574556A2A808544DF7E01C_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.023Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED475CAC2AC7CA4D75BB2D570D095FBFBC",
+      "name": "Lågupplöst",
+      "order": 4,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED475CAC2AC7CA4D75BB2D570D095FBFBC_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.150Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED95BB8405CC934A4285E6BC6C214C733D",
+      "name": "Lågupplöst",
+      "order": 5,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED95BB8405CC934A4285E6BC6C214C733D_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.130Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDEFC29D76B5864B149A31667D2C03E55D",
+      "name": "Lågupplöst",
+      "order": 6,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MEDEFC29D76B5864B149A31667D2C03E55D_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.140Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDDD60B9EADD9E49FC93B5AD4151877081",
+      "name": "Lågupplöst",
+      "order": 7,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MEDDD60B9EADD9E49FC93B5AD4151877081_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.273Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED413DFD231ACA42E59842D7AA349BB2F8",
+      "name": "Lågupplöst",
+      "order": 8,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED413DFD231ACA42E59842D7AA349BB2F8_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.247Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDFE8FF106BFC445F582C4D7703D726DCE",
+      "name": "Lågupplöst",
+      "order": 9,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MEDFE8FF106BFC445F582C4D7703D726DCE_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.267Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED0BB0416DE43E4883806360AC7CC196AE",
+      "name": "Lågupplöst",
+      "order": 10,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED0BB0416DE43E4883806360AC7CC196AE_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.387Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDFF029AD05EEE4FF99AF39B5A9C382FC1",
+      "name": "Lågupplöst",
+      "order": 11,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MEDFF029AD05EEE4FF99AF39B5A9C382FC1_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.397Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDB3ABB17885B0404CA19C0104A11855B6",
+      "name": "Lågupplöst",
+      "order": 12,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MEDB3ABB17885B0404CA19C0104A11855B6_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.410Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED26F5E2642B614ADA9AB7EA02FBD4D943",
+      "name": "Lågupplöst",
+      "order": 13,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED26F5E2642B614ADA9AB7EA02FBD4D943_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.547Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED39828E0CFEAC454FB8C4B64EFBE6D4AC",
+      "name": "Lågupplöst",
+      "order": 14,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED39828E0CFEAC454FB8C4B64EFBE6D4AC_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.580Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDF45E4E051CC5402F805A07E71549A452",
+      "name": "Lågupplöst",
+      "order": 15,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MEDF45E4E051CC5402F805A07E71549A452_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.557Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDBBB61922935243689846F8EECC2F0F68",
+      "name": "Lågupplöst",
+      "order": 16,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MEDBBB61922935243689846F8EECC2F0F68_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.673Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDCAE5AADE2B2C491AA89E33CC2F36D265",
+      "name": "Lågupplöst",
+      "order": 17,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MEDCAE5AADE2B2C491AA89E33CC2F36D265_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.677Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED9D6EF738217C4A4F9FEACD244D609E15",
+      "name": "Lågupplöst",
+      "order": 18,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED9D6EF738217C4A4F9FEACD244D609E15_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.680Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDD9B7EF1B29504BE3B2DD3A614AB6B8E9",
+      "name": "Lågupplöst",
+      "order": 19,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MEDD9B7EF1B29504BE3B2DD3A614AB6B8E9_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.800Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED05E8B8BFDE674F48B56C7DD22FA41ED8",
+      "name": "Lågupplöst",
+      "order": 20,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED05E8B8BFDE674F48B56C7DD22FA41ED8_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.830Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED4F8035DE5D5A4F1497CCB8E3A2FD4594",
+      "name": "Lågupplöst",
+      "order": 21,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED4F8035DE5D5A4F1497CCB8E3A2FD4594_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.830Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDE6085FCF3CDE4E759D280E6676B39B35",
+      "name": "Lågupplöst",
+      "order": 22,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MEDE6085FCF3CDE4E759D280E6676B39B35_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.940Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED94F4B5195E5C4D399EDA43463BB646FC",
+      "name": "Lågupplöst",
+      "order": 23,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED94F4B5195E5C4D399EDA43463BB646FC_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.927Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDF4972E222C7F4C7AA047BF4EA128D4EB",
+      "name": "Lågupplöst",
+      "order": 24,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MEDF4972E222C7F4C7AA047BF4EA128D4EB_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:54.913Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED80A8F14D02074D318DDBE8A74B7505C6",
+      "name": "Lågupplöst",
+      "order": 25,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED80A8F14D02074D318DDBE8A74B7505C6_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:55.020Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED7C48A47FD8344F0C98D12F7C47618A64",
+      "name": "Lågupplöst",
+      "order": 26,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED7C48A47FD8344F0C98D12F7C47618A64_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:55.040Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED6FCAEDB238D142BE8A526735743160A3",
+      "name": "Lågupplöst",
+      "order": 27,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED6FCAEDB238D142BE8A526735743160A3_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:55.050Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED56D3B18C7EFE45B9AB886B257A768DA2",
+      "name": "Lågupplöst",
+      "order": 28,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED56D3B18C7EFE45B9AB886B257A768DA2_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:55.140Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED04DBE22E85234F269721A431C0053C6F",
+      "name": "Lågupplöst",
+      "order": 29,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED04DBE22E85234F269721A431C0053C6F_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:55.150Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED1B1F103014B94F2E907CA403077AF0D5",
+      "name": "Lågupplöst",
+      "order": 30,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED1B1F103014B94F2E907CA403077AF0D5_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:55.183Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED0B89E8031B094780879330621774F061",
+      "name": "Lågupplöst",
+      "order": 31,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED0B89E8031B094780879330621774F061_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:55.253Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED7411F0074D9E4C34B2B01B24CF3D7714",
+      "name": "Lågupplöst",
+      "order": 32,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED7411F0074D9E4C34B2B01B24CF3D7714_1920.jpg"
+    },
+    {
+      "category": "Övrigt",
+      "changed_at": "2025-12-30T16:46:55.280Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED61B2218E935E428CB80D57E6C4D2C19D",
+      "name": "Lågupplöst",
+      "order": 33,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED61B2218E935E428CB80D57E6C4D2C19D_1920.jpg"
+    },
+    {
+      "category": "Planritning",
+      "changed_at": "2025-12-30T16:46:55.280Z",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED2790DD250B3D4A0491B572F17F1777E6",
+      "name": "Lågupplöst",
+      "order": 34,
+      "url": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ31529_2054041970/MED2790DD250B3D4A0491B572F17F1777E6_1920.jpg"
+    }
+  ],
+  "inspection": {
+    "has_been_performed": false
+  },
+  "is_new_build": false,
+  "is_preview": false,
+  "is_published": true,
+  "lat": 55.5752856366,
+  "lease": null,
+  "leasehold": {
+    "fee": 13650,
+    "term": "2025-12-30T23:00:00.000Z"
+  },
+  "links": [],
+  "living_space": 87,
+  "lng": 13.0323440024,
+  "long_text": "Välkommen till ett hemtrevligt och lättskött radhus med charm från 30-talet och en planlösning som bjuder in till socialt umgänge. Här möts du av generös takhöjd, fint ljusinsläpp och väldisponerade ytor som passar såväl vardag som fest. Huset är energieffektivt och erbjuder ett bekvämt boende - perfekt för familjen eller paret! \r\n\r\nDen grönskande trädgården är en riktig oas – fylld av bärbuskar, odlingsmöjligheter och ett vackert fruktträd som även fungerar som klätterträd för de små. Perfekt för den som vill njuta av både grönska och egen skörd direkt utanför dörren.\r\n\r\nLäget är lugnt och familjevänligt med närhet till både förskola, skola och Ica Maxi. Du har cykelavstånd till centrala Malmö och utmärkta kommunikationer med både buss och tåg som snabbt tar dig dit du vill.",
+  "office_id": "M31529",
+  "operating_cost": 40640,
+  "operating_cost_description": "Fiber finns via Ownit. \n\nDen framtida tomträttsavgälden blir 23 400 kr/år och börjar gälla 2026-01-01.",
+  "operating_costs": [
+    {
+      "type": {
+        "id": "Heating",
+        "name": "Uppvärmning"
+      },
+      "value": 15000
+    },
+    {
+      "type": {
+        "id": "Insurance",
+        "name": "Försäkring"
+      },
+      "value": 7240
+    },
+    {
+      "type": {
+        "id": "WaterAndSewage",
+        "name": "VA"
+      },
+      "value": 6980
+    },
+    {
+      "type": {
+        "id": "Electricity",
+        "name": "El"
+      },
+      "value": 9000
+    },
+    {
+      "type": {
+        "id": "Cleaning",
+        "name": "Renhållning"
+      },
+      "value": 2420
+    }
+  ],
+  "other_buildings": null,
+  "other_information": "Enligt fastighetsutdraget har bostaden en registrerad boarea om 58 kvm och en biarea om 58 kvm, mätbevis finns på den nya arean.",
+  "phrase": null,
+  "pledges": [
+    {
+      "amount": 101000
+    },
+    {
+      "amount": 6300
+    },
+    {
+      "amount": 565000
+    },
+    {
+      "amount": 501700
+    },
+    {
+      "amount": 1108000
+    }
+  ],
+  "plot": {
+    "area": 300,
+    "description": null,
+    "type": null
+  },
+  "possession_at": "2025-11-14T08:45:00.000Z",
+  "possession_estimate": null,
+  "price": 2995000,
+  "price_other_currency": null,
+  "price_text": null,
+  "project_id": null,
+  "provider_extras": {},
+  "published_at": "2025-05-02T10:57:37.000Z",
+  "reference_number": "15832",
+  "rooms": 5,
+  "short_text": "Välkommen till ett hemtrevligt och lättskött radhus med charm från 30-talet och en planlösning som bjuder in till socialt umgänge. Här möts du av generös takhöjd, fint ljusinsläpp och väldisponerade ytor som passar såväl vardag som fest. Huset är energieffektivt och erbjuder ett bekvämt boende - perfekt för familjen eller paret! \r\n\r\nDen grönskande trädgården är en riktig oas – fylld av bärbuskar, odlingsmöjligheter och ett vackert fruktträd som även fungerar som klätterträd för de små. Perfekt för den som vill njuta av både grönska och egen skörd direkt utanför dörren.\r\n\r\nLäget är lugnt och familjevänligt med närhet till både förskola, skola och Ica Maxi. Du har cykelavstånd till centrala Malmö och utmärkta kommunikationer med både buss och tåg som snabbt tar dig dit du vill.",
+  "sold_at": "2025-05-12T14:00:00.000Z",
+  "status": {
+    "id": "Sold",
+    "name": "Såld"
+  },
+  "subtype": {
+    "id": "TownHouse",
+    "name": "Radhus"
+  },
+  "surroundings": {
+    "area": null,
+    "communication": null,
+    "other": null,
+    "parking": null,
+    "service": null
+  },
+  "tags": [
+    {
+      "names": [
+        "Pre-Market™"
+      ],
+      "type": {
+        "id": "SaleMethod",
+        "name": "Försäljningssätt"
+      }
+    }
+  ],
+  "taxation": {
+    "building_value": 1404000,
+    "is_preliminary": false,
+    "land_value": 1200000,
+    "property_designations": [
+      "Daggkåpan 3"
+    ],
+    "tax_fee": 10425,
+    "total_value": 2604000,
+    "units": [
+      {
+        "code": {
+          "id": "220",
+          "name": "Småhusenhet, bebyggd"
+        },
+        "description": null,
+        "tax_fee": 10425,
+        "valuation_units": [
+          {
+            "unit": {
+              "id": "46",
+              "name": "Småhusbyggnad"
+            },
+            "value": 1404000,
+            "year": 1936
+          },
+          {
+            "unit": {
+              "id": "41",
+              "name": "Småhusmark"
+            },
+            "value": 1200000,
+            "year": null
+          }
+        ],
+        "year": 2024
+      }
+    ]
+  },
+  "tenure": {
+    "id": "Leasehold",
+    "name": "Tomträtt"
+  },
+  "type": {
+    "id": "House",
+    "name": "Villa"
+  },
+  "viewing_settings": {
+    "empty_text": null,
+    "visible_limit": null
+  },
+  "viewings": [],
+  "year_built": 1936,
+  "year_built_description": null,
+  "year_built_text": "1936"
+}
