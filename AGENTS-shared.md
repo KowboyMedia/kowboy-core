@@ -230,6 +230,10 @@ reads the files. The rules below hold all the time; the playbook holds the proce
   are the only ones, and adding one needs approval. Everything else is a warning: reported, never
   blocking.
 - **Leave every file you touch free of warnings.**
+- **What must always happen is done by a hook, not by a reminder.** The kit's hooks format every
+  file the moment it is written and refuse to end a turn while saved work has not reached GitHub;
+  the routine commands (tests, lint, build, the check scripts, saving) are allowed in advance in
+  `.claude/settings.json`, so a session never stalls on a permission prompt.
 
 ## Definition of done
 

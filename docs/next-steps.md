@@ -20,14 +20,12 @@ picked up by "resume". After the set: the client ports (item 16, first client by
 
 ## Agent setup (from the 2026-09-27 review of how agents and Patric work together)
 
-- **Environment health at session start.** `.claude/hooks/context.sh` also asks each credential the
-  project needs whether it still answers (DigitalOcean, Cloudways, the Vitec test account, Postmark)
-  and prints the result, so a refused token (question 87) is the first line of a session, not a
-  surprise mid-task. One script, one line per credential.
-- **Skills for the repeated procedures**, one folder each under `.claude/skills/`: `status` (the four
-  memory files in the four blocks), `release` (staging to live with the checks and the record), and
-  later the template port of `docs/template-porting.md`. Each is a short procedure the agent follows
-  the same way every time.
+- ~~**Environment health at session start.**~~ Done 2026-09-27: `scripts/check-environment.mjs`
+  asks DigitalOcean, Cloudways, the Vitec test account and Postmark whether their credentials still
+  answer, and `.claude/hooks/context.sh` prints the result at session start.
+- ~~**Skills for the repeated procedures**~~ Done 2026-09-27 as the playbook: `status`, `release`
+  and six more phases under `.claude/skills/`; the template port of `docs/template-porting.md`
+  becomes a skill when the first port runs.
 - **If register numbers collide again** after the register check, move the counter out of the
   files: each question becomes a GitHub issue and takes its number, the register file stays the
   readable view. Not before a collision is seen with the check in place.
