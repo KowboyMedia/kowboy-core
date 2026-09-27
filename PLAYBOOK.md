@@ -1,13 +1,14 @@
 # Playbook - how a Kowboy project is built by agents
 
-`AGENTS-shared.md` holds the rules that hold all the time. This playbook holds the procedure for
-each phase of the work: what to read, what to produce, and what must be true at the end. Claude
+`AGENTS-shared.md` holds the rules that hold all the time; the first of them is that the agent
+leads and Patric decides. This playbook holds the procedure for each phase of the work: what to read, what to produce, and what must be true at the end. Claude
 Code loads a phase as a skill when it applies and when it is called by name (`/plan`, `/review`);
 any other agent reads the file before the phase.
 
 | Phase               | File                                   | Read it when                                                                                         |
 | ------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | Start a project     | `.claude/skills/start/SKILL.md`        | a repository is new, or lacks a strategy, acceptance criteria or the four memory files               |
+| Discover            | `.claude/skills/discover/SKILL.md`     | at the start of a project, before a feature larger than one item, whenever Patric describes a wish   |
 | Plan an item        | `.claude/skills/plan/SKILL.md`         | before any change that is more than one sentence, touches a protected path or spans components       |
 | Decide architecture | `.claude/skills/architecture/SKILL.md` | before a choice that later work builds on: a boundary, a data shape, a technology, a vendor, hosting |
 | Build               | `.claude/skills/build/SKILL.md`        | while writing code, tests and docs for a planned item                                                |

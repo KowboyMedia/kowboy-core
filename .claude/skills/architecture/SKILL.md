@@ -22,6 +22,10 @@ undoable where it can be.
 - **Reversible first.** Between two workable options, the one that can be undone wins; a choice
   that cannot be undone is a Decide however small.
 - **At most three options**, one clause of consequence each, the smaller recommended.
+- **The baseline every design meets**, written down when it is decided: every endpoint
+  authenticated and every token given the least it needs; personal data kept only where it is
+  needed and never in logs; backups exist and a restore has been rehearsed before the first
+  go-live; performance is measured against a criterion before anything is optimised for it.
 
 **Record.** A `docs/decisions.md` line: date · the decision · the options rejected and why, one
 clause each · the condition to revisit · the reference. A decision on boundaries, data or the stack
