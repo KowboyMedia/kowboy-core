@@ -101,8 +101,10 @@ A project that lacks any of them gets it from the shared template the first time
 - Raise an issue when you find it, not at the end. Do not sit on it and do not resolve it yourself.
 - Raise it as a **numbered list whose numbers are the register's**. Each item: the issue in one or
   two sentences, an optional suggested solution, and whether it needs approval.
-- **Tag every item with the part it concerns**, in brackets first. The project's `AGENTS.md` lists
-  its tags.
+- **Every line carries its component**, in brackets first: every question, Done line, Note,
+  next-steps item, decision and known bug starts with the tag of the component it concerns
+  (`[core]`, `[client-wordpress]`, `[agents]`), so Patric sees at a glance which part of the product
+  a line is about. The project's `AGENTS.md` lists its components and their tags.
 - Once an item is approved, act on it. That includes updating the project's plan: agents may
   change strategy documents when the change is approved, and note it in `docs/decisions.md`.
 
@@ -162,8 +164,23 @@ built on and believed.
   gets a number in `docs/known-bugs.md` and is fixed or held out with that number; it is never
   re-run into green, and never deleted.
 
+## The playbook
+
+`PLAYBOOK.md` lists the phases of the work (start a project, plan an item, decide architecture,
+build, review, release and operate, status) and the file to read before each; Claude Code loads
+them as skills when they apply and on `/plan`, `/review`, `/release` and the like, any other agent
+reads the files. The rules below hold all the time; the playbook holds the procedure for a phase.
+
 ## Principles and code
 
+- **One component at a time.** A project is a few named components with named interfaces between
+  them; an item of work changes one component, and the component is finished (its tests green,
+  its docs true) before the next is started. An interface is a protected path and changes only by
+  a Decide.
+- **Architecture is decided, not drifted into.** A choice later work builds on (a boundary, a data
+  shape, a technology, a vendor) is a Decide made by the architecture skill: at most three options,
+  one clause of consequence each, the smaller recommended, and a `docs/decisions.md` line that
+  names the options rejected and the condition to revisit.
 - **Simple beats clever.** When two designs work, the one with less code wins. Nothing is built
   for a need that doesn't exist yet.
 - **Market-leading solutions and patterns first** (Patric, 2026-09-20; a production strategy, not a
