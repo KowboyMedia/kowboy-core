@@ -47,6 +47,18 @@ answer never ends without saying what he does next). He reads the first block an
 rest is optional reading.
 
 1. **Questions.** One line per ask, numbered with the register's number, or the word "none".
+   - **Two kinds of ask: Decide and Default** (Patric, 2026-09-27). A gate (the stop-and-ask lists:
+     contract, money, something irreversible) is a _Decide_: it waits for his word. Everything else
+     is a _Default_: the agent names its pick, does it, and Patric answers only if he disagrees; his
+     silence is the answer. Each line starts with the word: "Decide 91: ..." or "Default 90: ...".
+   - **Each answer in one clause of consequence.** A question names what happens on each answer,
+     one clause each, nothing more: "91: a → I set it up, you create one empty repository; c →
+     nothing to set up, copies drift apart."
+   - **At most five per reply**, ordered by what blocks the most; the rest wait in the register
+     until these are answered (Patric, 2026-09-27; a round of twenty was unreadable).
+   - **Show before asking.** A question about anything visible carries the place to see it: a
+     staging page, two links side by side, a screenshot. Patric judges by looking, not by reading a
+     description.
    - **The number is the register's** (`docs/open-questions.md`): a question gets the next number
      there before it is asked, chat refers to that number, and Patric answers by number in any
      conversation. Never a fresh "1."; numbers keep counting across sessions and are never reused.
@@ -61,7 +73,10 @@ rest is optional reading.
      answer it (a paste, a yes or no, or a pick between two things named in plain words). The
      register entry carries the whole reasoning in complete sentences, and chat gives it when
      Patric asks.
-2. **Done.** One line per thing that changed.
+2. **Done.** One line per thing that changed, each saying how it was verified ("seen on staging",
+   "tests green", "not yet run against real Vitec") and, where it changed something people use,
+   how to take it back ("undo: say 'undo 12'"); the agent keeps the means to undo (Patric,
+   2026-09-27).
 3. **Notes.** Only when something matters for a decision, one line each; otherwise omitted.
 4. **Next.** One or two plain lines: what Patric does next. "Nothing, I carry on", "answer 74 with
    yes or no", or the one step only he can take, named. An agent never leaves the conversation, or
@@ -72,12 +87,12 @@ rest is optional reading.
 Every project keeps four files under `docs/`. They are how a decision made in one conversation
 reaches every later one, and they are kept current in the same change as the work.
 
-| File                     | Holds                                                                                                                                                                                                                                   |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `docs/open-questions.md` | The register: every question asked of Patric, numbered for good, tagged with its part, naming what is blocked and the smaller option. Its header says the next number. An answered question gets its line in `decisions.md` and leaves. |
-| `docs/decisions.md`      | One line per structural decision: date, decision, reference. Append only; a changed decision is a new line that says what it supersedes, never an edit.                                                                                 |
-| `docs/next-steps.md`     | The order of work, opening with "Where to pick up". "Resume next steps" means: read it, do the first item that is not done, keep it current.                                                                                            |
-| `docs/known-bugs.md`     | What is wrong and known, numbered for good: what happens, why, what fixing it takes. Not a question: nobody has to decide anything, someone has to do it.                                                                               |
+| File                     | Holds                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `docs/open-questions.md` | The register: every question asked of Patric, numbered for good, tagged with its part, naming what is blocked and the smaller option. Its header says the next number. An answered question gets its line in `decisions.md` and leaves.                                                                                                                      |
+| `docs/decisions.md`      | One line per structural decision: date, decision, reference. Append only; a changed decision is a new line that says what it supersedes, never an edit. A decision made under a constraint names it ("no Sentry, because Core is one instance · revisit if a second instance appears"), and the agent raises the decision again when the constraint changes. |
+| `docs/next-steps.md`     | The order of work, opening with "Where to pick up". "Resume next steps" means: read it, do the first item that is not done, keep it current.                                                                                                                                                                                                                 |
+| `docs/known-bugs.md`     | What is wrong and known, numbered for good: what happens, why, what fixing it takes. Not a question: nobody has to decide anything, someone has to do it.                                                                                                                                                                                                    |
 
 A project that lacks any of them gets it from the shared template the first time it is needed.
 
@@ -90,6 +105,14 @@ A project that lacks any of them gets it from the shared template the first time
   its tags.
 - Once an item is approved, act on it. That includes updating the project's plan: agents may
   change strategy documents when the change is approved, and note it in `docs/decisions.md`.
+
+## Twice is a rule
+
+The second time Patric corrects the same thing, the agent writes the rule in the same reply, with
+the date and the correction that caused it, and says where it now lives: `AGENTS-shared.md` if it
+holds everywhere, the project's `AGENTS.md` if it holds only there (Patric, 2026-09-27; the slug
+rule took six repeats and the reply format three). A rule nobody would break without it is deleted
+the same way.
 
 ## Stop and ask
 
@@ -112,12 +135,32 @@ built on and believed.
 
 - **Start** by reading "Where to pick up" in `docs/next-steps.md` and the open questions; the
   session-start hook prints both. Start from the converged state (staging) unless told otherwise.
+  The hook also checks that the credentials and services the project needs answer; a refused
+  token or an unreachable service is reported in the first reply, never discovered mid-task.
+- **"Status"**, said in any session, returns the four memory files in the four blocks: what waits on
+  Patric, what is in staging but not live, the known bugs, and what remains; nothing else.
 - **Finish** every piece of work with the memory current: `docs/next-steps.md` says what remains,
   `docs/decisions.md` has a line for any structural choice, and every question asked is in the
   register. Then save the work and report in the reply protocol.
 - **Sessions running side by side** each save their own work and are combined into staging. Two
   sessions can take the same register number; when that happens, both meanings stand and the
   register counts on (Patric, 2026-09-23). The register check reports duplicates at combine time.
+
+## Units of work
+
+- **One item per session.** A session takes one item of `docs/next-steps.md`, marks it "in
+  progress" there with the date, and ends with the item done or handed back with what was learned.
+  Two sessions never work the same item; a new session takes the first unmarked one.
+- **Plan before building** when a change touches more than a few files, a protected path or the
+  contract: the plan goes into the item in `docs/next-steps.md` first (what changes, what is
+  tested, what is a Decide), and code starts after it. A change that fits in one sentence skips
+  the plan.
+- **Two failed fixes end the attempt.** When the same problem has survived two fixes, stop, write
+  what was tried and learned into the item, and hand it to a fresh session; a clean start beats a
+  long session of corrections.
+- **A flaky test is a bug the day it is seen.** A test that fails and then passes without a change
+  gets a number in `docs/known-bugs.md` and is fixed or held out with that number; it is never
+  re-run into green, and never deleted.
 
 ## Principles and code
 
@@ -150,5 +193,9 @@ built on and believed.
 ## Definition of done
 
 1. The enforced checks are green, and the files you touched have no warnings.
-2. A `docs/decisions.md` line exists for any structural choice, and `docs/next-steps.md` is current.
-3. The project's own definition of done, in its `AGENTS.md`, is met.
+2. **A fresh pair of eyes before Patric's.** Before anything he can see is reported done, a second
+   agent with no memory of building it (a subagent) compares it with the acceptance criteria and
+   the reference it must match, and only what passes reaches him; what fails is fixed or listed
+   in Notes (Patric, 2026-09-27).
+3. A `docs/decisions.md` line exists for any structural choice, and `docs/next-steps.md` is current.
+4. The project's own definition of done, in its `AGENTS.md`, is met.

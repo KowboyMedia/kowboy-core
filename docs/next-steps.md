@@ -18,6 +18,22 @@ and every display string it needs that Core does not prepare yet is a ledger ent
 Patric's validation. Items 6, 11, 13, 14 and 16 wait on the things named in them and are not
 picked up by "resume". After the set: the client ports (item 16, first client by question 80).
 
+## Agent setup (from the 2026-09-27 review of how agents and Patric work together)
+
+- **Environment health at session start.** `.claude/hooks/context.sh` also asks each credential the
+  project needs whether it still answers (DigitalOcean, Cloudways, the Vitec test account, Postmark)
+  and prints the result, so a refused token (question 87) is the first line of a session, not a
+  surprise mid-task. One script, one line per credential.
+- **Skills for the repeated procedures**, one folder each under `.claude/skills/`: `status` (the four
+  memory files in the four blocks), `release` (staging to live with the checks and the record), and
+  later the template port of `docs/template-porting.md`. Each is a short procedure the agent follows
+  the same way every time.
+- **If register numbers collide again** after the register check, move the counter out of the
+  files: each question becomes a GitHub issue and takes its number, the register file stays the
+  readable view. Not before a collision is seen with the check in place.
+- **Unattended sessions**, later: a scheduled "resume next steps" run when the gates are quiet, so
+  work continues without Patric; the closed-gate rule already keeps such a run from inventing.
+
 ## Now
 
 1. ~~**Fetch the Vitec Connect documentation**~~ Done 2026-09-16: `docs/inputs/vitec/` holds the
