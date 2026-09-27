@@ -23,6 +23,11 @@ if [ -f docs/known-bugs.md ]; then
   grep -E '^## [0-9]+\.' docs/known-bugs.md | sed 's/^## /- /' || echo "- none"
   echo
 fi
+# The credentials and services the project needs, each asked whether it still answers.
+if [ -f scripts/check-environment.mjs ] && command -v node >/dev/null 2>&1; then
+  node scripts/check-environment.mjs 2>/dev/null || true
+  echo
+fi
 # How this copy relates to the converged state. Skipped quietly when the network is not there.
 if git fetch -q origin staging 2>/dev/null; then
   behind=$(git rev-list --count HEAD..origin/staging 2>/dev/null || echo "?")
