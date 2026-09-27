@@ -106,6 +106,9 @@ jobs:
       - name: Formatting
         run: npm run format:check
         continue-on-error: true
+      - name: Registers consistent
+        run: npm run check:register
+        continue-on-error: true
       - name: PHPStan (WordPress client)
         run: |
           composer install --no-interaction --no-progress --working-dir=clients/wordpress

@@ -2,6 +2,9 @@
 # Changes here need approval from Patric.
 
 /AGENTS.md            @patric-kowboy
+/AGENTS-shared.md     @patric-kowboy
+/PLAYBOOK.md          @patric-kowboy
+/.claude/skills/      @patric-kowboy
 /CLAUDE.md            @patric-kowboy
 /.github/CODEOWNERS   @patric-kowboy
 /engine/adapter-api/  @patric-kowboy
