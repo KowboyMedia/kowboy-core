@@ -27,13 +27,12 @@ if ($buttons !== '') {
     $content .= '<div class="k-hero__buttons">' . $buttons . '</div>';
 }
 $content .= '</div>';
-if (($attributes['height'] ?? '') === 'tall') {
-    $content .= '<span class="k-hero__scroll" aria-hidden="true"></span>';
-}
+// The scroll indicator sits on the hero itself, at its lower edge, not inside the centred text.
+$extra = ($attributes['height'] ?? '') === 'tall' ? '<span class="k-hero__scroll" aria-hidden="true"></span>' : '';
 echo kowboy_part('hero', [
     'media' => $media,
     'content' => $content,
-    'extra' => !empty($attributes['searchForm']) ? kowboy_part('search-form', []) : '',
+    'extra' => $extra . (!empty($attributes['searchForm']) ? kowboy_part('search-form', []) : ''),
     'variant' => ($attributes['height'] ?? 'default') === 'tall' ? 'page k-hero--tall' : 'page',
     'wrapper' => get_block_wrapper_attributes(['class' => 'k-hero k-hero--page' . (($attributes['height'] ?? '') === 'tall' ? ' k-hero--tall' : '') . (!empty($attributes['searchForm']) ? ' k-hero--with-form' : '')]),
 ]);

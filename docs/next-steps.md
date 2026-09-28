@@ -342,8 +342,10 @@ client ports (item 16, first client by question 80).
     look): `docs/kowboy-2026.md` holds the pages, the sections, the shape (one theme) and the
     order of work. **State 2026-09-28, night:** built, set to the file's values, reviewed by a
     second agent and fixed, combined into staging (the change #61); the review's fixes wait on
-    the session's line for the next combine. Open: 105 (the forms are dummies), the mobile frames
-    (Figma's API), and the site's own content (pictures, logotype, address).
+    the session's line for the next combine. The phone layout checked against the file's phone frames
+    and fixed. Open: 105 (the forms are dummies, and the phone frames draw the sell form's fields
+    differently from the desktop frames) and the site's own content (pictures, logotype,
+    address).
 
 ## Later, when Patric supplies them
 

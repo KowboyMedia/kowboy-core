@@ -84,8 +84,19 @@ design and listed 22 mismatches; the notable ones are fixed (the search card on 
 the tabs centred under it, the card and agent gradients as drawn, the section bands, the viewing
 card with its button inside, the side agent card's shape, the hero heights, the footer's three
 columns, the scroll indicator, the map's pin and controls). What remains is content the office
-adds (the hero pictures, the logotype, the address) and the mobile frames, which Figma's API has
-not yet answered.
+adds (the hero pictures, the logotype, the address).
+
+The phone layout was checked later the same night against the file's four phone frames (Till
+salu, the home page, Om oss and the property page), fetched as pictures through Figma's image
+endpoint because its node endpoint answers "rate limit exceeded" until early October. Fixed:
+the hero titles at the phone sizes the frames draw (40, 34 and 30 px), the tall hero a screen
+high with its buttons stacked and the scroll indicator on the hero's lower edge, the search card
+under the hero's text straddling its edge, the figures and the quote in the frames' sizes, the
+footer centred, and the site's name on one line in the header. One thing the frames disagree
+on: the phone frames draw the "Ska du sälja din bostad?" form with the fields "Ditt namn", "Din
+gatuadress", "E-post" and "Mobil", the desktop frames with "Förnamn", "Efternamn", "Mobil" and
+"E-post". The theme follows the desktop frames on every width; the field list is part of
+question 105 (where a submission goes) and is not settled here.
 
 ## Order of work
 

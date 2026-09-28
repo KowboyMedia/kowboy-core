@@ -284,6 +284,13 @@ button {
     flex-direction: column;
     gap: 16px;
   }
+  .k-logo__name {
+    max-width: 60vw;
+    overflow: hidden;
+    font-size: 18px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
 }
 
 /* ---- Hero ------------------------------------------------------------------------------- */
@@ -480,11 +487,31 @@ iframe.k-hero__video {
   .k-hero {
     min-height: 420px;
   }
+  .k-hero--tall {
+    min-height: min(100svh, 800px);
+  }
   .k-hero--property {
     min-height: 70vh;
   }
   .k-hero__text {
     padding-block: 100px 48px;
+  }
+  .k-hero__title {
+    font-size: 34px;
+  }
+  .k-hero--tall .k-hero__title {
+    font-size: 40px;
+  }
+  .k-hero--property .k-hero__title {
+    font-size: 30px;
+  }
+  .k-hero__buttons {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .k-hero__buttons .k-button {
+    width: 100%;
   }
 }
 
@@ -547,12 +574,15 @@ iframe.k-hero__video {
     grid-column: 1 / -1;
   }
   .k-hero > .k-search {
-    position: static;
-    margin: 32px var(--k-gutter) 0;
+    position: relative;
+    margin: 32px var(--k-gutter) -120px;
   }
   .k-hero--with-form {
-    margin-bottom: 0;
-    padding-bottom: 32px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    margin-bottom: 120px;
+    padding-bottom: 0;
   }
 }
 
@@ -770,6 +800,13 @@ iframe.k-hero__video {
 @media (max-width: 767px) {
   .k-figures {
     grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  .k-figure {
+    padding: 16px;
+  }
+  .k-figure__value {
+    font-size: 24px;
   }
   .k-intro__card {
     padding: 24px;
@@ -826,6 +863,9 @@ iframe.k-hero__video {
 @media (max-width: 767px) {
   .k-features__grid {
     grid-template-columns: 1fr;
+  }
+  .k-features__text {
+    font-size: 20px;
   }
 }
 
@@ -990,6 +1030,17 @@ iframe.k-hero__video {
   height: 6px;
   background: var(--k-ink);
 }
+@media (max-width: 767px) {
+  .k-testimonials__arrows {
+    display: none;
+  }
+  .k-testimonial {
+    padding: 24px;
+  }
+  .k-testimonial__quote {
+    font-size: 16px;
+  }
+}
 
 /* The dark form card */
 .k-lead {
@@ -1104,6 +1155,10 @@ iframe.k-hero__video {
   }
   .k-form__row {
     grid-template-columns: 1fr;
+  }
+  .k-lead__title {
+    font-size: 30px;
+    line-height: 1.16;
   }
   .k-form__foot {
     flex-direction: column;
@@ -1483,12 +1538,12 @@ iframe.k-hero__video {
 @media (max-width: 767px) {
   .k-footer__row {
     grid-template-columns: 1fr;
-  }
-  .k-footer__nav {
-    justify-content: flex-start;
+    justify-items: center;
+    text-align: center;
   }
   .k-footer .k-menu {
     flex-direction: column;
+    align-items: center;
     gap: 12px;
   }
   .k-footer__contact {
