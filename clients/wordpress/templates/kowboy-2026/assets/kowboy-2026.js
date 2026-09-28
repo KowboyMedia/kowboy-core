@@ -50,7 +50,9 @@
     var scope = list.getRootNode();
     var filter = scope.querySelector('[data-kowboy-filter-for="' + list.id + '"]');
     var form = filter ? filter.querySelector('.kowboy-filter-form') : null;
-    var statusButtons = scope.querySelectorAll('#filter_' + list.id + ' .status-filter-items button');
+    var statusButtons = scope.querySelectorAll(
+      '#filter_' + list.id + ' .status-filter-items button',
+    );
 
     function load(append) {
       var url = new URL(list.getAttribute('data-reload'), window.location.href);
@@ -176,7 +178,9 @@
     var section = button.closest('.agent-testimonials-section');
     var label = button.querySelector('.testimonial-show-label');
     var visible = Number(button.dataset.visibleCount || 3);
-    var cards = section ? Array.prototype.slice.call(section.querySelectorAll('.testimonial-card')) : [];
+    var cards = section
+      ? Array.prototype.slice.call(section.querySelectorAll('.testimonial-card'))
+      : [];
     button.addEventListener('click', function () {
       var expanded = button.dataset.expanded === 'true';
       cards.forEach(function (card, index) {
@@ -184,7 +188,8 @@
       });
       button.dataset.expanded = expanded ? 'false' : 'true';
       button.classList.toggle('is-expanded', !expanded);
-      if (label) label.textContent = expanded ? button.dataset.labelCollapsed : button.dataset.labelExpanded;
+      if (label)
+        label.textContent = expanded ? button.dataset.labelCollapsed : button.dataset.labelExpanded;
     });
   }
 
