@@ -302,11 +302,11 @@ its "Bor du redan här?" button leads to that lead form.
 Done on 2026-09-24 (above): the set, the selector, the override rule, the installer's four parts,
 the release per set, the query function, the drafted strings, the comparison against the master
 on the local WordPress, AC 28 and AC 20's search half, the report. Next: Patric's answers to 89
-to 96; `v4.dev.kowboy.se` once the Cloudways token reads (88) and staging Core's sign-in mail
-arrives (98): the app exists, `scripts/deploy-site.mjs` puts the plugin and the set on it through
-its WordPress admin, and the page-by-page diff runs there with screenshots from the live site
-(Patric, 2026-09-28: the set "does not look correct at all", so the loop moves to a real site).
-Next-steps item 17 holds the order.
+to 96; the loop on the staging site (`wordpress-1545003-6698706.cloudwaysapps.com`, the plugin
+and the set installed there on 2026-09-28 by `scripts/deploy-site.mjs`, records once the site
+is joined to staging Core, question 98), the page-by-page diff there with screenshots from the
+live site (Patric, 2026-09-28: the set "does not look correct at all", so the loop moves to a real
+site). Next-steps item 17 holds the order.
 
 Not in this step: the Lovable example site (item 10's other half, the same universal names, later),
 a site's custom design, and which sites auto-update (WordPress's own per-site setting, which the
