@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 97 (75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 98 (75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
@@ -142,3 +142,13 @@ norbanmakleri.se shows "Energiprestanda primärenergital: 59 kWh per kvm och år
 35B; the Connect payload's energy declaration for the same property has `consumption: null`, so
 Core has no value. The old site took it from somewhere else. Smaller: the set shows the row only
 when Core has the value (as now). Answer "as now", or say where the value comes from.
+
+## 97. `[crm-vitec]` An agent's picture at width 1920 weighs 6 MB; the old site shows it at 1024
+
+The field tables (approved 2026-09-19) build every image address on Kowboy's CDN at width 1920,
+agents' pictures included. On the test account an agent's picture at that width is a 6 MB PNG
+(the CDN scales the office's upload, a square PNG), while the same picture at width 1024, the
+width norbanmakleri.se uses for agents, is 0.6 MB. On the set's pages the agent pictures are the
+last to load, and a phone pays for 6 MB per agent shown. Smaller: the adapter builds an agent's
+picture at width 1024 (a field-table change for `image` on an agent, approval needed), the
+listings' photos stay at 1920. Or keep 1920 everywhere. Answer "1024" or "keep".
