@@ -194,3 +194,57 @@ measurements. Two ways in, both one step for Patric, ranked by what the agent ge
 Either way the file's link is needed too: paste the Figma file's URL. "Claude Design mode" (the
 Design artifact type this account has) is for making designs on a canvas, not for reading a
 Figma file, so it does not help here. Answer "connector" or "token", and paste the file's link.
+
+## 103. `[client-wordpress]` ACF PRO for the 2026.2 sections and the theme options
+
+Patric (2026-09-28) asked for the design's sections as ACF sections with configurable values,
+and for a theme options page. In ACF, sections as blocks, a flexible content field, repeaters
+and an options page are all PRO features (a paid licence per site or agency); the free version
+has none of them. Two ways: paste an ACF PRO licence key into the session environment as
+`ACF_PRO_KEY` (the deploy script then installs ACF PRO on the staging site from the licence's
+download address, and the theme ships the field groups as local JSON), then say "saved"; or say
+"native", and the sections become WordPress's own blocks (block.json with fields in the editor,
+no vendor, no licence), which look the same on the site and cost nothing, but are not ACF. The
+smaller option is native; the one Patric named is ACF.
+
+## 104. `[client-wordpress]` The single page's hero video: where the Vimeo link comes from
+
+The design's hero shows a video when there is one. Core carries no video link on a property:
+Vitec's advertising payload has none (checked in the test office's records and the
+documentation), and the field tables name none. Two ways: a field on the site, "Vimeo-länk", on
+the property's post (the site's own data, kept across syncs, entered by hand per listing),
+which needs nothing from Core or Vitec; or a CRM field, which means asking Vitec whether a
+listing carries a video address and, if it does, an adapter mapping and a field-table line
+(approval). Answer "site field" or "crm". The smaller option is the site field.
+
+## 105. `[client-wordpress]` The two forms in the design: where a submission goes
+
+"Ska du sälja din bostad?" (every page) and "Är du intresserad av bostaden?" (the single page)
+post a name, a phone, an e-mail and a consent. Question 95 already asks whether the interest
+form posts to the CRM. For 2026.2 the form block needs a destination now: an e-mail to an
+address in the theme options (WordPress's own mail, no plugin; the interest form adds the
+listing's address and agent), or the CRM per 95 when it is answered. Answer "email" or "crm".
+The smaller option is e-mail, and 95 can move it to the CRM later.
+
+## 106. `[client-wordpress]` The map on the single page: which map service
+
+The design's area section ends in a map with the listing's position. Core carries the
+coordinates. A map needs a tile service: OpenStreetMap tiles with Leaflet (no account, no key,
+no cost, the usual choice for a small site) or Google Maps (an API key, a billing account, the
+look of the design's grey map is closer). Answer "openstreetmap" or "google" (then save the key
+as `GOOGLE_MAPS_KEY`). The smaller option is OpenStreetMap.
+
+## 107. `[client-wordpress]` The 2026 set: shelved in the repository or deleted
+
+"Shelve the 2026" (Patric, 2026-09-28). Shelved means the folder stays under
+`clients/wordpress/templates-shelved/kowboy-2026/`, out of the deploy script's and the tests'
+way but there to read; deleted means it goes, and the saved history keeps it. Answer "shelve" or
+"delete". The smaller option is delete (less to maintain); shelve is what Patric said.
+
+## 108. `[client-wordpress]` The Figma file read is "Kowboy (Copy)": is it the current design?
+
+Patric's message carried two links: the file "Kowboy" (`CaUVDXVU1jibiUjS6PxQqL`), which refuses
+the connected Figma account ("no edit access"), and "Kowboy (Copy)" (`JbB2ehlq1bsDspjTGBK5tw`),
+which opens. The plan and the build read the copy. Is the copy the current design, and will it
+stay the one to read? Answer "yes", or share the original with patric@kowboy.se as an editor
+and say "original".

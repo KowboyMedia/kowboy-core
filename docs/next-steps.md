@@ -324,6 +324,12 @@ client ports (item 16, first client by question 80).
     questions, approvals and assumptions in batches and reporting the differences a client must
     know; how it would be packaged. Planned when Patric says so, after items 17 and 18.
 
+20. **The set "Kowboy 2026.2" from the Figma design** (Patric, 2026-09-28; supersedes item 17's
+    look): `docs/kowboy-2026-2.md` holds the pages, the sections, the shape (one theme) and the
+    order of work. Questions 103 to 108 gate the blocks' field engine, the video, the forms,
+    the map, the 2026 folder and the file; the skeleton, the tokens, the CRM views and the loop
+    on the staging site need no answer.
+
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health
