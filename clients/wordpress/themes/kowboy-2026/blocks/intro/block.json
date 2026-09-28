@@ -1,0 +1,34 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "kowboy/intro",
+  "title": "Introduktion med siffror",
+  "description": "Ett kort med etikett, rubrik, text och upp till fyra siffror, som på startsidan.",
+  "category": "kowboy",
+  "icon": "index-card",
+  "editorScript": "kowboy-2026-editor",
+  "render": "file:./render.php",
+  "supports": { "html": false, "anchor": true },
+  "attributes": {
+    "label": {
+      "type": "string",
+      "default": "",
+      "control": "text",
+      "label": "Etikett",
+      "help": "Den lilla versala raden ovanför rubriken."
+    },
+    "title": { "type": "string", "default": "", "control": "text", "label": "Rubrik" },
+    "text": { "type": "string", "default": "", "control": "textarea", "label": "Text" },
+    "figures": {
+      "type": "array",
+      "default": [],
+      "control": "repeater",
+      "label": "Siffror",
+      "max": 4,
+      "fields": {
+        "value": { "control": "text", "label": "Värde" },
+        "label": { "control": "text", "label": "Förklaring" }
+      }
+    }
+  }
+}

@@ -51,8 +51,14 @@ require_once ABSPATH . 'wp-settings.php';
 CONFIG
 
 ln -sfn "$repo/clients/wordpress/core-client" "$WP_ROOT/wp-content/plugins/core-client"
+# The theme "Kowboy 2026", the default set (docs/kowboy-2026.md), and a fixture set plugin
+# that proves the plugin's set machinery (the registry, the override rule, the sets on offer).
+ln -sfn "$repo/clients/wordpress/themes/kowboy-2026" "$WP_ROOT/wp-content/themes/kowboy-2026"
+ln -sfn "$repo/clients/wordpress/test/fixtures/core-client-templates-fixture" "$WP_ROOT/wp-content/plugins/core-client-templates-fixture"
 mkdir -p "$WP_ROOT/wp-content/mu-plugins"
-ln -sfn "$repo/clients/wordpress/mu-plugins/core-client-updater.php" "$WP_ROOT/wp-content/mu-plugins/core-client-updater.php"
+# The plugin places the updater itself on activation (includes/packages.php); a symlink keeps the
+# test install on the repository's copy.
+ln -sfn "$repo/clients/wordpress/core-client/updater/core-client-updater.php" "$WP_ROOT/wp-content/mu-plugins/core-client-updater.php"
 
 # In the test install, Action Scheduler runs actions only when the driver asks it to.
 cat > "$WP_ROOT/wp-content/mu-plugins/core-client-test-runner.php" <<'RUNNER'

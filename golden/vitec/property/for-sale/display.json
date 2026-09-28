@@ -1,0 +1,202 @@
+{
+  "address_line": "Cyklopgatan 35B, 216 25 Malmö",
+  "area": "31 kvm",
+  "elevator": "Ja",
+  "energy_class": "C",
+  "energy_declaration": "Utförd 2023-06-13",
+  "fee": "2 882 kr/mån",
+  "fee_amount": "2 882 kr",
+  "fee_comment": "Inkl. kallvatten, värme, bostadsrättstillägg och sophämtning. Oblig. tillägg 170 kr/mån för bredband och TV tillkommer.",
+  "floor": "2 av 4",
+  "floor_and_elevator": "2 av 4, hiss finns",
+  "living_space": "31 kvm",
+  "location": "Hyllie",
+  "operating_cost": "3 420 kr/år",
+  "price": "1 200 000 kr",
+  "price_text": "Utgångspris",
+  "rooms": "1 rum",
+  "rooms_and_bedrooms": "1 rum",
+  "sections": [
+    {
+      "header": "Bostaden",
+      "items": [
+        {
+          "label": "Objektnummer",
+          "value": "15165"
+        },
+        {
+          "label": "Bostadstyp",
+          "value": "Lägenhet"
+        },
+        {
+          "label": "Upplåtelseform",
+          "value": "Bostadsrätt"
+        },
+        {
+          "label": "Adress",
+          "value": "Cyklopgatan 35B, 216 25 Malmö"
+        },
+        {
+          "label": "Område",
+          "value": "Hyllie"
+        },
+        {
+          "label": "Kommun",
+          "value": "Malmö"
+        },
+        {
+          "label": "Lägenhetsnummer",
+          "value": "B12A (1101)"
+        },
+        {
+          "label": "Fastighetsbeteckning",
+          "value": "Snorkeln 1"
+        }
+      ]
+    },
+    {
+      "header": "Interiör",
+      "items": [
+        {
+          "label": "Antal rum",
+          "value": "1 rum"
+        },
+        {
+          "label": "Boarea",
+          "value": "31 kvm"
+        },
+        {
+          "label": "Areakälla",
+          "value": "Föreningens information"
+        }
+      ]
+    },
+    {
+      "header": "Byggnad",
+      "items": [
+        {
+          "label": "Byggnadstyp",
+          "value": "Flerbostadshus"
+        },
+        {
+          "label": "Byggår",
+          "value": "2023"
+        },
+        {
+          "label": "Uppvärmning",
+          "value": "Fjärrvärme"
+        },
+        {
+          "label": "Fönster",
+          "value": "3-glas"
+        },
+        {
+          "label": "Ventilation",
+          "value": "FTX"
+        }
+      ]
+    },
+    {
+      "header": "Våning och hiss",
+      "items": [
+        {
+          "label": "Våning",
+          "value": "2 av 4"
+        },
+        {
+          "label": "Hiss",
+          "value": "Ja"
+        }
+      ]
+    },
+    {
+      "header": "Energideklaration",
+      "items": [
+        {
+          "label": "Energideklaration",
+          "value": "Utförd 2023-06-13"
+        },
+        {
+          "label": "Energiklass",
+          "value": "C"
+        }
+      ]
+    },
+    {
+      "header": "Balkong, uteplats och parkering",
+      "items": [
+        {
+          "label": "Balkong",
+          "value": "Nej"
+        },
+        {
+          "label": "Uteplats",
+          "value": "Nej"
+        },
+        {
+          "label": "Parkering",
+          "value": "Nej"
+        }
+      ]
+    },
+    {
+      "header": "Avgift och driftskostnader",
+      "items": [
+        {
+          "label": "Avgift",
+          "value": "2 882 kr/mån"
+        },
+        {
+          "label": "Avgiftstyp",
+          "value": "Månadsavgift"
+        },
+        {
+          "label": "Kommentar till avgiften",
+          "value": "Inkl. kallvatten, värme, bostadsrättstillägg och sophämtning. Oblig. tillägg 170 kr/mån för bredband och TV tillkommer."
+        },
+        {
+          "label": "Driftskostnad",
+          "value": "3 420 kr/år"
+        },
+        {
+          "label": "VA",
+          "value": "690 kr/år"
+        },
+        {
+          "label": "El",
+          "value": "2 730 kr/år"
+        },
+        {
+          "label": "Kommentar till driftskostnaden",
+          "value": "Individuell mätning och debitering av hushållsel och uppvärmning av vatten. Angivna kostnader är enligt föreningens ekonomiska plan, dvs en ungefärligt uppskattad kostnad för bostadens storlek. Kostnad för försäkring tillkommer."
+        },
+        {
+          "label": "Personer i hushållet",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "header": "Andelstal och ekonomi",
+      "items": [
+        {
+          "label": "Andelstal",
+          "value": "1,15 %"
+        },
+        {
+          "label": "Andel av årsavgiften",
+          "value": "1,15 %"
+        },
+        {
+          "label": "Indirekt nettoskuldsättning",
+          "value": "499 640 kr"
+        },
+        {
+          "label": "Kommentar till nettoskuldsättningen",
+          "value": "Beräknad utifrån uppgifter från årsredovisning 2024"
+        }
+      ]
+    }
+  ],
+  "year_built": "2023"
+}

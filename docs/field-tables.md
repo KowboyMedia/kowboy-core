@@ -271,21 +271,26 @@ Prepared strings, computed by the engine from the fields above by the entries in
 never decides from a value: a string is there when its inputs are, and absent otherwise. Sites
 may show, ignore or replace any of them.
 
-| Key                                                                      | Datatype                                   | Ledger       |
-| ------------------------------------------------------------------------ | ------------------------------------------ | ------------ |
-| `price`, `final_price`, `price_other_currency`                           | property                                   | R-001        |
-| `price_range`, `fee_range`                                               | project                                    | R-001, R-014 |
-| `living_space`, `additional_space`, `area`, `plot_area`, `building_area` | property                                   | R-002        |
-| `living_space_range`, `plot_range`                                       | project                                    | R-002, R-014 |
-| `rooms`, `bedrooms`, `rooms_and_bedrooms`                                | property                                   | R-003        |
-| `rooms_range`                                                            | project                                    | R-003, R-014 |
-| `fee`, `fee_comment`                                                     | property                                   | R-004        |
-| `floor`                                                                  | property                                   | R-005        |
-| `elevator`                                                               | property                                   | R-006        |
-| `year_built`                                                             | property                                   | R-007        |
-| `highest_bid`                                                            | property                                   | R-008        |
-| `operating_cost`                                                         | property                                   | R-009        |
-| `lease`, `leasehold`                                                     | property                                   | R-010        |
-| `energy_declaration`                                                     | property                                   | R-011        |
-| `address_line`, `location`                                               | property, project, office (`address_line`) | R-012        |
-| `sections`                                                               | property                                   | R-013        |
+| Key                                                                      | Datatype                                   | Ledger                       |
+| ------------------------------------------------------------------------ | ------------------------------------------ | ---------------------------- |
+| `price`, `final_price`, `price_other_currency`                           | property                                   | R-001                        |
+| `price_range`, `fee_range`                                               | project                                    | R-001, R-014                 |
+| `living_space`, `additional_space`, `area`, `plot_area`, `building_area` | property                                   | R-002                        |
+| `living_space_range`, `plot_range`                                       | project                                    | R-002, R-014                 |
+| `rooms`, `bedrooms`, `rooms_and_bedrooms`                                | property                                   | R-003                        |
+| `rooms_range`                                                            | project                                    | R-003, R-014                 |
+| `fee`, `fee_comment`                                                     | property                                   | R-004                        |
+| `floor`                                                                  | property                                   | R-005                        |
+| `elevator`                                                               | property                                   | R-006                        |
+| `year_built`                                                             | property                                   | R-007                        |
+| `highest_bid`                                                            | property                                   | R-008                        |
+| `operating_cost`                                                         | property                                   | R-009                        |
+| `lease`, `leasehold`                                                     | property                                   | R-010                        |
+| `energy_declaration`                                                     | property                                   | R-011                        |
+| `address_line`, `location`                                               | property, project, office (`address_line`) | R-012                        |
+| `sections`                                                               | property                                   | R-013                        |
+| `price_text`                                                             | property                                   | R-015 (drafted, question 90) |
+| `fee_amount`                                                             | property                                   | R-016 (drafted, question 90) |
+| `floor_and_elevator`                                                     | property                                   | R-017 (drafted, question 90) |
+| `exterior_features`                                                      | property                                   | R-018 (drafted, question 90) |
+| `transfer_fee`, `pledge_fee`                                             | association                                | R-019 (drafted, question 90) |

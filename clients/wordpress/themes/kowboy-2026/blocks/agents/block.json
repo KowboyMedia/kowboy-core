@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "kowboy/agents",
+  "title": "Mäklare",
+  "description": "Mäklarna från Kowboy Core som kort, och ett valfritt textkort med knapp bredvid.",
+  "category": "kowboy",
+  "icon": "groups",
+  "editorScript": "kowboy-2026-editor",
+  "render": "file:./render.php",
+  "supports": { "html": false, "anchor": true },
+  "attributes": {
+    "title": { "type": "string", "default": "", "control": "text", "label": "Rubrik" },
+    "lead": { "type": "string", "default": "", "control": "text", "label": "Ingress" },
+    "limit": {
+      "type": "number",
+      "default": 12,
+      "control": "number",
+      "label": "Antal mäklare",
+      "help": "Hur många som visas, i den ordning Core levererar dem."
+    },
+    "cardLabel": {
+      "type": "string",
+      "default": "",
+      "control": "text",
+      "label": "Textkortets etikett"
+    },
+    "cardTitle": {
+      "type": "string",
+      "default": "",
+      "control": "text",
+      "label": "Textkortets rubrik",
+      "help": "Lämna tomt för att inte visa textkortet."
+    },
+    "cardText": {
+      "type": "string",
+      "default": "",
+      "control": "textarea",
+      "label": "Textkortets text"
+    },
+    "cardButtonLabel": { "type": "string", "default": "", "control": "text", "label": "Knapptext" },
+    "cardButtonUrl": { "type": "string", "default": "", "control": "url", "label": "Knapplänk" }
+  }
+}

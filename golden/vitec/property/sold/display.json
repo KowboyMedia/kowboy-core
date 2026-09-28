@@ -1,0 +1,277 @@
+{
+  "additional_space": "58 kvm",
+  "address_line": "Aglaiavägen 32, 213 63 Malmö",
+  "area": "87 kvm + 58 kvm biarea",
+  "bedrooms": "3 sovrum",
+  "energy_class": "C",
+  "energy_declaration": "Utförd 2024-09-30",
+  "final_price": "3 325 000 kr",
+  "leasehold": "13 650 kr/år (löper till 2025-12-31)",
+  "living_space": "87 kvm",
+  "location": "Hindby",
+  "operating_cost": "40 640 kr/år",
+  "plot_area": "300 kvm",
+  "price": "2 995 000 kr",
+  "rooms": "5 rum",
+  "rooms_and_bedrooms": "5 rum, varav 3 sovrum",
+  "sections": [
+    {
+      "header": "Bostaden",
+      "items": [
+        {
+          "label": "Objektnummer",
+          "value": "15832"
+        },
+        {
+          "label": "Bostadstyp",
+          "value": "Radhus"
+        },
+        {
+          "label": "Upplåtelseform",
+          "value": "Tomträtt"
+        },
+        {
+          "label": "Adress",
+          "value": "Aglaiavägen 32, 213 63 Malmö"
+        },
+        {
+          "label": "Område",
+          "value": "Hindby"
+        },
+        {
+          "label": "Kommun",
+          "value": "Malmö"
+        },
+        {
+          "label": "Fastighetsbeteckning",
+          "value": "Daggkåpan 3"
+        },
+        {
+          "label": "Tillträdesdatum",
+          "value": "2025-11-14"
+        }
+      ]
+    },
+    {
+      "header": "Interiör",
+      "items": [
+        {
+          "label": "Antal rum",
+          "value": "5 rum, varav 3 sovrum"
+        },
+        {
+          "label": "Boarea",
+          "value": "87 kvm"
+        },
+        {
+          "label": "Biarea",
+          "value": "58 kvm"
+        },
+        {
+          "label": "Areakälla",
+          "value": "Faktisk uppmätning (mätbevis)"
+        },
+        {
+          "label": "Allmänt om bostaden",
+          "value": "› Välkomnande hall med tapetserade väggar och gott om plats för avhängning.\r\n\r\n› Välplanerat kök med gott om förvaring och goda arbetsytor. Köksinredning i träfärgade luckor, vit bänkskiva, ljusa väggar och parkettgolv. Utrustat med kyl/frys, induktionshäll, ugn (2021), diskmaskin, och köksfläkt (2022).\r\n\r\n› I anslutning till köket ligger bostadens vardagsrum. Ett rymligt och socialt rum med härlig takhöjd, ljusa väggar, parkettgolv och takrosetter. Rummet erbjuder plats för både soffa som större matbord. Fint ljusinsläpp och altandörr ut mot trädgården, placerad i söderläge. \r\n\r\n› På entréplan ligger ett av husets tre sovrum som har ljusa väggar och plats för både säng och förvaring om så önskas. \r\n\r\n› Helkaklat badrum på entréplan med vita väggar och grågrönt golv. Utrustat med toalett, dusch och handfat med kommod. Avlopp till toaletten relineades under 2022. \r\n\r\n› Inredd vind som blivit ett stort sovrum med synliga takbjälkar och fint ljusinsläpp från två takfönster. Här finns vita väggar och parkettgolv.  \r\n\r\n› Inredd källare med arbetsrum, allrum och förråd. Här finns putsade och vitmålade väggar som matchas med mörkt klinkergolv. Här finns även utgång till trädgården.\r\n\r\n› I källarplan ligger även ett rymligt och helkaklat badrum med vita väggar och grått golv. Utrustat med toalett, dusch med dörrar, badkar och tvättställ. Element installerat 2023.\r\n\r\n› Rymlig tvättstuga finns placerad i källaren och är utrustad med tvättmaskin och skåp/lådor för förvaring samt god arbetsyta."
+        },
+        {
+          "label": "Utemiljö",
+          "value": "› Lummig och uppvuxen trädgård med fruktträd, bärbuskar och väldoftande kryddträdgård. Trädäck i solsäkert söderläge ligger i anslutning till trädgården och nås från bostadens vardagsrum. \r\n\r\n› Stort cykel/trädgårdsskjul byggt sommaren 2020."
+        },
+        {
+          "label": "Parkering",
+          "value": "› Parkering finns på gatan framför huset."
+        },
+        {
+          "label": "Renoveringar",
+          "value": "2022 Nytt plåttak. Relining av toalettens avlopp.\r\n2020 Nytt cykel- och trädgårdsskjul."
+        }
+      ]
+    },
+    {
+      "header": "Byggnad",
+      "items": [
+        {
+          "label": "Byggnadstyp",
+          "value": "Radhus"
+        },
+        {
+          "label": "Byggår",
+          "value": "1936"
+        },
+        {
+          "label": "Bjälklag",
+          "value": "Betong/trä"
+        },
+        {
+          "label": "Utvändig plåtarbete",
+          "value": "Plåt"
+        },
+        {
+          "label": "Fasad",
+          "value": "Tegel"
+        },
+        {
+          "label": "Grund",
+          "value": "Källargrund"
+        },
+        {
+          "label": "Grundmur",
+          "value": "Betong"
+        },
+        {
+          "label": "Stomme",
+          "value": "Tegel"
+        },
+        {
+          "label": "Uppvärmning",
+          "value": "Fjärrvärme"
+        },
+        {
+          "label": "Tak",
+          "value": "Plåt"
+        },
+        {
+          "label": "Fönster",
+          "value": "Isolerglasfönster"
+        },
+        {
+          "label": "Vatten/avlopp",
+          "value": "Kommunalt vatten året om. Kommunalt avlopp"
+        },
+        {
+          "label": "Ventilation",
+          "value": "Självdrag"
+        }
+      ]
+    },
+    {
+      "header": "Energideklaration",
+      "items": [
+        {
+          "label": "Energideklaration",
+          "value": "Utförd 2024-09-30"
+        },
+        {
+          "label": "Energiklass",
+          "value": "C"
+        },
+        {
+          "label": "Energiförbrukning",
+          "value": "88 kWh/m² och år"
+        }
+      ]
+    },
+    {
+      "header": "Tomt",
+      "items": [
+        {
+          "label": "Tomtarea",
+          "value": "300 kvm"
+        }
+      ]
+    },
+    {
+      "header": "Avgift och driftskostnader",
+      "items": [
+        {
+          "label": "Driftskostnad",
+          "value": "40 640 kr/år"
+        },
+        {
+          "label": "Uppvärmning",
+          "value": "15 000 kr/år"
+        },
+        {
+          "label": "Försäkring",
+          "value": "7 240 kr/år"
+        },
+        {
+          "label": "VA",
+          "value": "6 980 kr/år"
+        },
+        {
+          "label": "El",
+          "value": "9 000 kr/år"
+        },
+        {
+          "label": "Renhållning",
+          "value": "2 420 kr/år"
+        },
+        {
+          "label": "Kommentar till driftskostnaden",
+          "value": "Fiber finns via Ownit. \n\nDen framtida tomträttsavgälden blir 23 400 kr/år och börjar gälla 2026-01-01."
+        },
+        {
+          "label": "Personer i hushållet",
+          "value": "4"
+        },
+        {
+          "label": "Tomträttsavgäld",
+          "value": "13 650 kr/år (löper till 2025-12-31)"
+        }
+      ]
+    },
+    {
+      "header": "Taxering",
+      "items": [
+        {
+          "label": "Taxeringsvärde byggnad",
+          "value": "1 404 000 kr"
+        },
+        {
+          "label": "Taxeringsvärde mark",
+          "value": "1 200 000 kr"
+        },
+        {
+          "label": "Taxeringsvärde totalt",
+          "value": "2 604 000 kr"
+        },
+        {
+          "label": "Skatt/avgift",
+          "value": "10 425 kr"
+        }
+      ]
+    },
+    {
+      "header": "Pantbrev och inskrivningar",
+      "items": [
+        {
+          "label": "Pantbrev",
+          "value": "101 000 kr"
+        },
+        {
+          "label": "Pantbrev",
+          "value": "6 300 kr"
+        },
+        {
+          "label": "Pantbrev",
+          "value": "565 000 kr"
+        },
+        {
+          "label": "Pantbrev",
+          "value": "501 700 kr"
+        },
+        {
+          "label": "Pantbrev",
+          "value": "1 108 000 kr"
+        },
+        {
+          "label": "Planbestämmelser",
+          "value": "Tomtindelning (1937-09-06) Stadsplan (1936-06-12)"
+        }
+      ]
+    },
+    {
+      "header": "Övrigt",
+      "items": [
+        {
+          "label": "Övrig information",
+          "value": "Enligt fastighetsutdraget har bostaden en registrerad boarea om 58 kvm och en biarea om 58 kvm, mätbevis finns på den nya arean."
+        }
+      ]
+    }
+  ],
+  "year_built": "1936"
+}

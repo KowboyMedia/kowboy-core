@@ -1,0 +1,36 @@
+<?php
+// The one hero (docs/kowboy-2026.md): the media behind (a Vimeo video, an uploaded video, one
+// image, or several in a Swiper slider with a slight Ken Burns motion), the dark overlay, and
+// the content over it. A page's hero and a property's hero are this part with different content.
+//
+// In scope: $media (kowboy_hero_media), $content (HTML), $variant ('page' or 'property'),
+// $wrapper (the opening tag's attributes, optional), $eager (the first image loads at once).
+
+declare(strict_types=1);
+
+$variant = (string) ($variant ?? 'page');
+$wrapper = (string) ($wrapper ?? 'class="k-hero k-hero--' . esc_attr($variant) . '"');
+$eager = $eager ?? true;
+$alt = (string) ($alt ?? '');
+?>
+<section <?php echo $wrapper; ?>>
+    <div class="k-hero__media">
+        <?php if ($media['type'] === 'vimeo') : ?>
+            <iframe class="k-hero__video" src="https://player.vimeo.com/video/<?php echo esc_attr((string) $media['id']); ?>?background=1&autoplay=1&loop=1&muted=1&dnt=1" title="Film" allow="autoplay; fullscreen" loading="lazy"></iframe>
+        <?php elseif ($media['type'] === 'video') : ?>
+            <video class="k-hero__video" src="<?php echo esc_url((string) $media['src']); ?>" autoplay muted loop playsinline></video>
+        <?php elseif ($media['type'] === 'images' && count($media['images']) === 1) : ?>
+            <?php echo kowboy_image($media['images'][0], '100vw', $alt, ['class' => 'k-hero__image'], $eager); ?>
+        <?php elseif ($media['type'] === 'images') : ?>
+            <div class="swiper k-hero__slider" data-hero-slider>
+                <div class="swiper-wrapper">
+                    <?php foreach ($media['images'] as $index => $url) : ?>
+                        <div class="swiper-slide k-hero__slide"><?php echo kowboy_image($url, '100vw', $alt, ['class' => 'k-hero__image'], $eager && $index === 0); ?></div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+    <div class="k-hero__overlay"></div>
+    <div class="k-container k-hero__content"><?php echo $content; ?></div>
+</section>

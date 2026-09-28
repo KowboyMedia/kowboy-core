@@ -1,0 +1,69 @@
+{
+  "contact": null,
+  "corporate_number": "769640-3760",
+  "descriptions": {
+    "courtyard": "Gemensam innergård finns",
+    "general_about_association": "Informationen är hämtad från berörd förening via ekonomisk plan, årsredovisning, stadgar och projektbroschyr. Uppgifterna kan ändras och potentiella köpare uppmanas därför att kontrollera uppgifterna före köp.",
+    "insurance": null,
+    "other": "Ekonomisk förvaltning via ARC Fastighetspartner AB\n\nDen fasta egendomen belastas av gemensamhetsanläggningen Malmö Simfenan GA: 1, i vilken den fasta egendomen har två av tio andelar. Ytterligare sex fastigheter kommer att delta. Gemensamhetsanläggningen kommer vara i form av växthus, odlingsyta, vattenledningar, elcentral, belysningsarmaturer och utrymme för avfallshantering. Gemensamhetsanläggningen kommer förvaltas genom delägarförvaltning eller samfällighetsförening.",
+    "parking": "Parkeringsplats till bil kan hyras i Hyllieängs mobilitetshus, 22 st platser är avsedda/reserverade för föreningen. I mobilitetshuset finns också bilpool från OurGreenCar samt cykelpool med lådcyklar. I kvarteret finns också två parkeringsplatser till rörelsehindrade.",
+    "renovations": null,
+    "shared_spaces": "Gemensamt förråd för barnvagnar och rullstolar. Kallförråd på gården, ca 2 kvm kan hyras för c 200 kr/mån.",
+    "tv_and_broadband": "Via Telenor"
+  },
+  "documents": [
+    {
+      "category": null,
+      "date_changed_data": "2024-05-08T16:29:06",
+      "extension": ".pdf",
+      "id": "_F_ORG_T833_8605",
+      "name": "Ekonomisk plan",
+      "url": "https://connect.maklare.vitec.net/File/GetFile?customerId=M31529&fileId=_F_ORG_T833_8605"
+    },
+    {
+      "category": null,
+      "date_changed_data": "2024-05-15T16:21:38",
+      "extension": ".pdf",
+      "id": "_F_ORG_T833_8639",
+      "name": "Energideklaration",
+      "url": "https://connect.maklare.vitec.net/File/GetFile?customerId=M31529&fileId=_F_ORG_T833_8639"
+    },
+    {
+      "category": null,
+      "date_changed_data": "2024-05-16T11:00:28",
+      "extension": ".pdf",
+      "id": "_F_ORG_T833_8650",
+      "name": "Stadgar",
+      "url": "https://connect.maklare.vitec.net/File/GetFile?customerId=M31529&fileId=_F_ORG_T833_8650"
+    },
+    {
+      "category": null,
+      "date_changed_data": "2025-09-02T13:35:52",
+      "extension": ".pdf",
+      "id": "_F_ORG_T833_12541",
+      "name": "Årsredovisning 2024",
+      "url": "https://connect.maklare.vitec.net/File/GetFile?customerId=M31529&fileId=_F_ORG_T833_12541"
+    }
+  ],
+  "economy": {
+    "allow_legal_person_as_buyer": "Undetermined",
+    "allows_shared_ownership_info": "Delat ägande OK.",
+    "finances": null,
+    "monthly_fee_information": null,
+    "pledge_fee": 592,
+    "subletting_policy": null,
+    "the_association_own_the_ground": "Ja",
+    "transfer_fee": 1480,
+    "transfer_fee_paid_by": "Buyer"
+  },
+  "email": null,
+  "genuine_association": "PrivateHousingCompany",
+  "home_page": null,
+  "id": "ORGBRF281706F1BCB046948BD84E5A8FB93A0D",
+  "name": "BRF BoKlok Vattentornet",
+  "number_of_apartments": 49,
+  "number_of_premises": null,
+  "number_of_rental_apartments": null,
+  "organizational_form": "TenantOwnedAssociation",
+  "provider_extras": {}
+}

@@ -1,0 +1,23 @@
+{
+  "brandId": null,
+  "changedAt": "2026-03-29T03:00:15.927",
+  "coordinate": {
+    "latitude": 55.6161728085,
+    "longitude": 12.9981199621
+  },
+  "customerId": "M31529",
+  "description": null,
+  "emailAddress": "hello@norbanmakleri.se",
+  "id": "FIR31529",
+  "name": "Norban Mäkleri",
+  "postalTown": "Malmö",
+  "seat": null,
+  "streetAddress": "Grimsbygatan 24A",
+  "telephone": {
+    "switch": null
+  },
+  "zipCode": {
+    "numerical": 21120,
+    "value": "211 20"
+  }
+}

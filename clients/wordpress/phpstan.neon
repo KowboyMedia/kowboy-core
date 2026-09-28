@@ -2,10 +2,12 @@
 includes:
     - vendor/szepeviktor/phpstan-wordpress/extension.neon
 parameters:
+    # The lowest PHP the plugin runs on (question 99, 2026-09-28): the analysis holds the code to it.
+    phpVersion: 80200
     level: 6
     paths:
         - core-client
-        - mu-plugins
+        - templates
         - test
     excludePaths:
         - core-client/lib

@@ -50,6 +50,7 @@ const fee = (display: Display, data: Data): void => {
   const frequency = String(given['frequency'] ?? '').toLowerCase();
   const suffix = frequency === 'monthly' ? '/mån' : frequency === 'yearly' ? '/år' : '';
   put(display, 'fee', amount ? `${amount}${suffix}` : null);
+  put(display, 'fee_amount', amount);
   put(display, 'fee_comment', text(given['comment']));
 };
 
@@ -86,6 +87,27 @@ const energyDeclaration = (display: Display, data: Data): void => {
   put(display, 'energy_class', text(declaration['class']));
 };
 
+/** R-015 (drafted): the office's price wording with its first letter in upper case. */
+const priceText = (value: unknown): string | null => {
+  const given = text(value);
+  return given ? given.charAt(0).toLocaleUpperCase('sv-SE') + given.slice(1) : null;
+};
+
+/** R-017 (drafted): `2 av 4, hiss finns`; the floor alone unless the elevator is there. */
+const floorAndElevator = (floor: string | null, elevator: unknown): string | null =>
+  floor ? (elevator === true ? `${floor}, hiss finns` : floor) : null;
+
+/** R-018 (drafted): `Balkong finns, Uteplats finns`, the available features in the CRM's order. */
+const exteriorFeatures = (value: unknown): string | null => {
+  if (!Array.isArray(value)) return null;
+  const available = value
+    .filter((entry) => (entry as Data)['is_available'] === true)
+    .map((entry) => text(read(entry, 'type.name')))
+    .filter((name): name is string => name !== null)
+    .map((name) => `${name} finns`);
+  return join(available, ', ');
+};
+
 /** R-012: `Völundsgatan 3, 113 21 Stockholm` and the place a card names. */
 const addressLine = (data: Data): string | null => {
   const address = read(data, 'address') as Data | null;
@@ -104,6 +126,7 @@ export function propertyStrings(data: Data): Display {
   const code = currency(data);
   put(display, 'price', money(data['price'], code));
   put(display, 'final_price', money(data['final_price'], code));
+  put(display, 'price_text', priceText(data['price_text']));
   put(
     display,
     'price_other_currency',
@@ -119,11 +142,9 @@ export function propertyStrings(data: Data): Display {
   put(display, 'plot_area', withUnit(read(data, 'plot.area'), 'kvm'));
   rooms(display, data);
   fee(display, data);
-  put(
-    display,
-    'floor',
-    join([floorNumber(data['floor']), floorTotal(data['floors_total'])], ' av '),
-  );
+  const floor = join([floorNumber(data['floor']), floorTotal(data['floors_total'])], ' av ');
+  put(display, 'floor', floor);
+  put(display, 'floor_and_elevator', floorAndElevator(floor, data['elevator']));
   put(
     display,
     'elevator',
@@ -149,6 +170,7 @@ export function propertyStrings(data: Data): Display {
   put(display, 'lease', yearlyWithTerm(data['lease'], code));
   put(display, 'leasehold', yearlyWithTerm(data['leasehold'], code));
   energyDeclaration(display, data);
+  put(display, 'exterior_features', exteriorFeatures(data['exterior_features']));
   put(display, 'address_line', addressLine(data));
   put(display, 'location', location(data));
   return display;
@@ -198,5 +220,13 @@ export function projectStrings(data: Data): Display {
 export function officeStrings(data: Data): Display {
   const display: Display = {};
   put(display, 'address_line', addressLine(data));
+  return display;
+}
+
+/** R-019 (drafted): an association's transfer fee and pledge fee, in kr. */
+export function associationStrings(data: Data): Display {
+  const display: Display = {};
+  put(display, 'transfer_fee', money(read(data, 'economy.transfer_fee'), null));
+  put(display, 'pledge_fee', money(read(data, 'economy.pledge_fee'), null));
   return display;
 }

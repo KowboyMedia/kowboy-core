@@ -1,0 +1,112 @@
+{
+  "address": {
+    "area": null,
+    "countryCode": "SE",
+    "countyMunicipalityCode": "1265",
+    "directions": null,
+    "municipality": "Sjöbo",
+    "postalTown": "Blentarp",
+    "streetAddress": "Hemmestorp 3:3",
+    "wgs84Coordinate": {
+      "latitude": 55.6201330341,
+      "longitude": 13.5451049085
+    },
+    "zipCode": {
+      "numerical": 27563,
+      "value": "275 63"
+    }
+  },
+  "changedAt": "2025-12-19T14:59:03.74",
+  "currency": "SEK",
+  "estates": {
+    "livingSpace": null,
+    "monthlyFee": null,
+    "numberOfRooms": null,
+    "plot": null,
+    "price": null
+  },
+  "extensions": {
+    "primaryAgent": null,
+    "secondaryAgent": null
+  },
+  "files": [],
+  "id": "OBJ31529_1856365555",
+  "images": [
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2021-12-15T04:44:33.747",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED83DA8B3A765943FAAE7D0DC6841628C8",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2021-12-15T04:24:46.01",
+      "description": null,
+      "extension": "png",
+      "id": "MED24C550DDF5F14F9DAFFDD363D14EA77D",
+      "name": "Karta"
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2021-12-16T06:29:39.47",
+      "description": null,
+      "extension": "png",
+      "id": "MEDDA4496B8DA794BC38B51249E7E580044",
+      "name": "Talldungen"
+    }
+  ],
+  "links": [],
+  "marketing": {
+    "isNewHome": true,
+    "isPreview": false,
+    "isPublished": true,
+    "publishedAt": null,
+    "viewing": {
+      "emptyText": null,
+      "visibleLimit": null
+    }
+  },
+  "name": "Hemmestorp 3:3",
+  "office": {
+    "customerId": "M31529",
+    "id": "FIR31529"
+  },
+  "primaryAgentId": "HAN37E65545241947889C3CD6DA0A354C0A",
+  "producer": null,
+  "sale": {
+    "description": null,
+    "heading": null,
+    "otherInformation": null,
+    "phrase": null,
+    "possessionEstimation": null,
+    "shortDescription": "I Hemmestorps Fure endast 5 minuter från Veberöd planerar Skånska Fastigheter att utveckla ett helt nytt område med både bostadsrätter och friköpta villor. Området kommer erbjuda blandad bebyggelse i form friliggande 1-planhus och parhus i 2-plan. En naturskön miljö med närhet till allmänservice. Anmäl ditt intresse redan idag genom att \"följa bostad\" för löpande information samt att säkra din köplats inför kommande säljstart som är planerad till Q4 2021!",
+    "startsAt": null
+  },
+  "secondaryAgentId": null,
+  "status": {
+    "id": "NoAssignment",
+    "name": "Inget uppdrag"
+  },
+  "surroundings": {
+    "area": null,
+    "communication": null,
+    "other": null,
+    "parking": null,
+    "service": null
+  },
+  "viewings": []
+}
