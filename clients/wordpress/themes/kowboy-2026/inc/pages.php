@@ -37,7 +37,8 @@ add_action('after_switch_theme', function (): void {
             'post_status' => 'publish',
             'post_name' => $slug,
             'post_title' => $title,
-            'post_content' => $content,
+            // WordPress expects slashed content here; without it the "\n" in a block's JSON turns into "n".
+            'post_content' => wp_slash($content),
         ]);
     }
     // The front page: Hem, unless the site already shows a page of its own that still exists.
@@ -45,15 +46,20 @@ add_action('after_switch_theme', function (): void {
         update_option('show_on_front', 'page');
         update_option('page_on_front', $ids['hem']);
     }
+    // The menu: made when there is none, and filled again when its pages are gone.
     $menu = wp_get_nav_menu_object('Huvudmeny');
-    if ($menu === false) {
-        $menu_id = wp_create_nav_menu('Huvudmeny');
-        if (!is_wp_error($menu_id)) {
+    $menu_id = $menu === false ? wp_create_nav_menu('Huvudmeny') : (int) $menu->term_id;
+    if (!is_wp_error($menu_id)) {
+        $live = array_filter(wp_get_nav_menu_items($menu_id) ?: [], fn (WP_Post $item): bool => get_post((int) $item->object_id) !== null);
+        if ($live === []) {
+            foreach (wp_get_nav_menu_items($menu_id) ?: [] as $item) {
+                wp_delete_post((int) $item->ID, true);
+            }
             foreach (['till-salu', 'salda-bostader', 'om-oss'] as $slug) {
                 wp_update_nav_menu_item($menu_id, 0, ['menu-item-object-id' => $ids[$slug], 'menu-item-object' => 'page', 'menu-item-type' => 'post_type', 'menu-item-status' => 'publish']);
             }
-            set_theme_mod('nav_menu_locations', ['primary' => $menu_id, 'footer' => $menu_id]);
         }
+        set_theme_mod('nav_menu_locations', ['primary' => $menu_id, 'footer' => $menu_id]);
     }
 });
 

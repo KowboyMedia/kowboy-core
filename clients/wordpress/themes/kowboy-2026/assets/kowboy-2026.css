@@ -312,9 +312,8 @@ button {
 }
 .k-hero__media,
 .k-hero__overlay {
-  z-index: 1;
-  border-radius: inherit;
-  background: var(--k-overlay);
+  position: absolute;
+  inset: 0;
 }
 .k-hero__media {
   z-index: 0;
@@ -443,6 +442,8 @@ iframe.k-hero__video {
   gap: 12px;
 }
 .k-hero__head-main {
+  flex: 1 1 400px;
+  max-width: 800px;
   display: grid;
   gap: 8px;
 }
@@ -503,8 +504,9 @@ iframe.k-hero__video {
   color: var(--k-ink);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
 }
-.k-hero__content .k-search {
+.k-hero > .k-search {
   position: absolute;
+  z-index: 3;
   left: var(--k-gutter);
   right: var(--k-gutter);
   bottom: -39px;
@@ -544,9 +546,9 @@ iframe.k-hero__video {
   .k-search .k-button {
     grid-column: 1 / -1;
   }
-  .k-hero__content .k-search {
+  .k-hero > .k-search {
     position: static;
-    margin-top: 32px;
+    margin: 32px var(--k-gutter) 0;
   }
   .k-hero--with-form {
     margin-bottom: 0;

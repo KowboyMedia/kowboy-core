@@ -30,12 +30,10 @@ $content .= '</div>';
 if (($attributes['height'] ?? '') === 'tall') {
     $content .= '<span class="k-hero__scroll" aria-hidden="true"></span>';
 }
-if (!empty($attributes['searchForm'])) {
-    $content .= kowboy_part('search-form', []);
-}
 echo kowboy_part('hero', [
     'media' => $media,
     'content' => $content,
+    'extra' => !empty($attributes['searchForm']) ? kowboy_part('search-form', []) : '',
     'variant' => ($attributes['height'] ?? 'default') === 'tall' ? 'page k-hero--tall' : 'page',
     'wrapper' => get_block_wrapper_attributes(['class' => 'k-hero k-hero--page' . (($attributes['height'] ?? '') === 'tall' ? ' k-hero--tall' : '') . (!empty($attributes['searchForm']) ? ' k-hero--with-form' : '')]),
 ]);

@@ -4,7 +4,8 @@
 // the content over it. A page's hero and a property's hero are this part with different content.
 //
 // In scope: $media (kowboy_hero_media), $content (HTML), $variant ('page' or 'property'),
-// $wrapper (the opening tag's attributes, optional), $eager (the first image loads at once).
+// $wrapper (the opening tag's attributes, optional), $eager (the first image loads at once),
+// $extra (HTML placed on the hero itself, after the content: the search card on its lower edge).
 
 declare(strict_types=1);
 
@@ -33,4 +34,5 @@ $alt = (string) ($alt ?? '');
     </div>
     <div class="k-hero__overlay"></div>
     <div class="k-container k-hero__content"><?php echo $content; ?></div>
+    <?php echo $extra ?? ''; ?>
 </section>
