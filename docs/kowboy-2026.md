@@ -69,15 +69,14 @@ Everything above stands in `clients/wordpress/themes/kowboy-2026/` and runs on t
 the front page, Till salu, Sålda bostäder, Om oss), the theme options, header and footer, the
 hero part (a Vimeo link among a listing's links, an uploaded film, one image, or a Swiper slider
 with a slight zoom), the image function (`kowboy_image`: lazy, asynchronous, `sizes`, and a
-`srcset` as soon as the CDN serves more widths, question 109), the property card with its Swiper,
+`srcset` over the CDN's widths 480 to 1920, question 109), the property card with its Swiper,
 the list wrapper with tabs, search form and "Visa fler", the property page with chips, floor
 plan, viewings, agent, interest form, gallery, fact tables, area texts and the OpenStreetMap map
-(Leaflet, vendored), the agent, office and area pages, and the form entries (Förfrågningar, question
-105). The plugin's set registry now takes a theme (`core_client_register_template_set` from
+(Leaflet, vendored), the agent, office and area pages, and the forms as dummies (question 105). The plugin's set registry now takes a theme (`core_client_register_template_set` from
 `functions.php`; the active theme's set wins when none is chosen), shadow DOM is on by default,
 and the deploy script installs the theme too. The tests
 (`clients/wordpress/templates.test.ts`) cover the lists, the pages, the blocks and demo pages,
-the form entries, the theme options, and the set machinery with a fixture set plugin.
+the theme options, and the set machinery with a fixture set plugin.
 
 What is not from the design's file yet, because Figma's connector stopped after two section reads
 (question 102): the exact spacings, radii and type sizes of every section are read from the

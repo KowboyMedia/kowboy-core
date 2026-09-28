@@ -1,8 +1,9 @@
 <?php
 // The form card, dark: the lead form of every page and the interest form of a property page are
-// this part with a title, a text and what the submission is about (question 105).
+// this part with a title and a text. The form is a dummy until question 105 is answered: it
+// posts nowhere and its button does nothing (Patric, 2026-09-28).
 //
-// In scope: $title, $text, $subject (a listing's street, or '').
+// In scope: $title, $text, $subject (a listing's street, or ''; kept for the day 105 is answered).
 
 declare(strict_types=1);
 
@@ -16,10 +17,7 @@ $id = 'k-form-' . substr(md5($title . $subject), 0, 8);
         <span class="k-lead__rule"></span>
         <?php if ($text !== '') : ?><p class="k-lead__text"><?php echo esc_html($text); ?></p><?php endif; ?>
     </div>
-    <form class="k-form" data-lead-form action="<?php echo esc_url(rest_url('kowboy/v1/lead')); ?>" method="post">
-        <input type="hidden" name="subject" value="<?php echo esc_attr($subject); ?>">
-        <input type="hidden" name="page" value="<?php echo esc_url((string) (is_singular() ? get_permalink() : home_url(add_query_arg([])))); ?>">
-        <input class="k-visually-hidden" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <form class="k-form" data-subject="<?php echo esc_attr($subject); ?>" onsubmit="return false">
         <div class="k-form__row">
             <label class="k-field"><span class="k-field__label">Förnamn</span><input type="text" name="first_name" required autocomplete="given-name"></label>
             <label class="k-field"><span class="k-field__label">Efternamn</span><input type="text" name="last_name" required autocomplete="family-name"></label>
@@ -31,8 +29,7 @@ $id = 'k-form-' . substr(md5($title . $subject), 0, 8);
         <div class="k-form__foot">
             <label class="k-form__consent"><input type="checkbox" name="consent" value="1" required>
                 <span>Jag samtycker till <?php echo $privacy_url === '' ? 'integritetspolicy' : '<a href="' . esc_url($privacy_url) . '">integritetspolicyn</a>'; ?>.</span></label>
-            <button class="k-button k-button--light" type="submit">Skicka</button>
+            <button class="k-button k-button--light" type="button">Skicka</button>
         </div>
-        <p class="k-form__message" role="status" aria-live="polite" data-message hidden></p>
     </form>
 </div>

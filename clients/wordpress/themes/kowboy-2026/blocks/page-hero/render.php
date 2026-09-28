@@ -21,7 +21,7 @@ if (($attributes['title'] ?? '') !== '') {
     $content .= '<h1 class="k-hero__title">' . esc_html((string) $attributes['title']) . '</h1>';
 }
 if (($attributes['lead'] ?? '') !== '') {
-    $content .= '<p class="k-hero__lead">' . esc_html((string) $attributes['lead']) . '</p>';
+    $content .= '<p class="k-hero__lead">' . nl2br(esc_html((string) $attributes['lead'])) . '</p>';
 }
 if ($buttons !== '') {
     $content .= '<div class="k-hero__buttons">' . $buttons . '</div>';

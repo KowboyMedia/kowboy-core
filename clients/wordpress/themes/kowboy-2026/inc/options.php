@@ -16,7 +16,6 @@ const KOWBOY_OPTIONS = [
     'kowboy_address' => '',
     'kowboy_phone' => '',
     'kowboy_email' => '',
-    'kowboy_form_email' => '',
     'kowboy_privacy_page' => 0,
     'kowboy_copyright' => 'Alla rättigheter reserverade.',
 ];
@@ -56,8 +55,7 @@ add_action('customize_register', function (WP_Customize_Manager $customizer): vo
     $customizer->add_control('kowboy_email', ['label' => 'E-post', 'section' => 'kowboy_contact', 'type' => 'email']);
     $customizer->add_control('kowboy_copyright', ['label' => 'Copyrightrad', 'section' => 'kowboy_contact', 'type' => 'text', 'description' => 'Årtalet läggs till automatiskt.']);
 
-    $customizer->add_section('kowboy_forms', ['title' => 'Formulär', 'panel' => 'kowboy']);
-    $customizer->add_control('kowboy_form_email', ['label' => 'Mottagare av formulär', 'section' => 'kowboy_forms', 'type' => 'email', 'description' => 'Varje förfrågan sparas under Förfrågningar i adminpanelen och skickas hit när adressen är ifylld.']);
+    $customizer->add_section('kowboy_forms', ['title' => 'Formulär', 'panel' => 'kowboy', 'description' => 'Formulären är ännu inte kopplade: vart en förfrågan går bestäms senare (fråga 105).']);
     $customizer->add_control('kowboy_privacy_page', ['label' => 'Integritetspolicy', 'section' => 'kowboy_forms', 'type' => 'dropdown-pages', 'description' => 'Sidan som samtyckesrutan länkar till.']);
 });
 

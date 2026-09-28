@@ -16,7 +16,7 @@ $facts = array_filter([
     $display['final_price'] ?? $display['price'] ?? null,
     $display['rooms'] ?? null,
     $display['living_space'] ?? null,
-    isset($display['fee_amount']) ? 'Avgift ' . $display['fee_amount'] : null,
+    isset($display['fee_amount']) ? 'Avgift ' . $display['fee_amount'] . '/mån' : null,
 ]);
 $label = (string) ($item['status']['name'] ?? '');
 $next_viewing = null;

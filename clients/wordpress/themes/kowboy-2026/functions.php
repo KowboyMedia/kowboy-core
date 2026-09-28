@@ -1,8 +1,8 @@
 <?php
 // The theme "Kowboy 2026": the set 2026 of Kowboy Core (docs/kowboy-2026.md). It registers
 // itself as the client plugin's template set (the views under core/), adds the design's sections
-// as blocks (blocks/), the theme options (inc/options.php), the form entries (inc/leads.php) and
-// the demo pages (inc/pages.php). One stylesheet and one script, on the page and in the roots.
+// as blocks (blocks/), the theme options (inc/options.php) and the demo pages (inc/pages.php).
+// One stylesheet and one script, on the page and in the roots.
 
 declare(strict_types=1);
 
@@ -11,7 +11,6 @@ const KOWBOY_2026_VERSION = '1.0.0';
 require __DIR__ . '/inc/media.php';
 require __DIR__ . '/inc/options.php';
 require __DIR__ . '/inc/blocks.php';
-require __DIR__ . '/inc/leads.php';
 require __DIR__ . '/inc/pages.php';
 
 if (function_exists('core_client_register_template_set')) {

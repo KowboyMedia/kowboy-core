@@ -1,6 +1,6 @@
 // The theme's script, on the page and inside every shadow root: the menu, the sliders (Swiper,
 // in vendor/), the list reloads against the plugin's endpoint, the collapsibles, the gallery's
-// "Visa fler bilder", the forms, and the map (Leaflet, in vendor/).
+// "Visa fler bilder", and the map (Leaflet, in vendor/).
 (function () {
   'use strict';
 
@@ -161,48 +161,6 @@
     });
   }
 
-  /** A form: sent as JSON to the theme's endpoint; the answer replaces the form with a message. */
-  function setupForm(form) {
-    if (!once(form, 'ready')) return;
-    var message = form.querySelector('[data-message]');
-    form.addEventListener('submit', function (event) {
-      event.preventDefault();
-      var data = {};
-      new FormData(form).forEach(function (value, key) {
-        data[key] = value;
-      });
-      data.consent = data.consent === '1';
-      form.classList.add('is-sending');
-      fetch(form.action, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-        .then(function (response) {
-          return response.json().then(function (body) {
-            return { ok: response.ok, body: body };
-          });
-        })
-        .then(function (result) {
-          message.hidden = false;
-          message.textContent = result.ok
-            ? 'Tack! Vi hör av oss.'
-            : result.body.error || 'Något gick fel. Försök igen.';
-          if (result.ok)
-            form.querySelectorAll('input, button').forEach(function (field) {
-              field.disabled = true;
-            });
-        })
-        .catch(function () {
-          message.hidden = false;
-          message.textContent = 'Något gick fel. Försök igen.';
-        })
-        .finally(function () {
-          form.classList.remove('is-sending');
-        });
-    });
-  }
-
   function setupMap(element) {
     if (!once(element, 'ready') || typeof window.L !== 'object') return;
     var lat = parseFloat(element.dataset.lat);
@@ -231,7 +189,6 @@
     each('[data-list]', setupList);
     each('[data-accordion-button]', setupAccordion);
     each('[data-gallery]', setupGallery);
-    each('[data-lead-form]', setupForm);
     each('[data-map]', setupMap);
   }
 

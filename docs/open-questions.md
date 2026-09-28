@@ -173,37 +173,6 @@ slug, and the redirect rule already covers a slug that changes), about a day, an
 every address on the site once. Build it now, before the look is iterated on, or after? Answer
 "now" or "after".
 
-## 102. `[client-wordpress]` The updated design for the 2026 set lives in Figma: how an agent reads it
-
-Patric (2026-09-28): the single property page looks right, the list looks broken, and an
-updated design exists in Figma. An agent cannot open a `.fig` file or a Figma share link on its
-own (the file is a Figma application, not a page), and screenshots exported by hand lose the
-measurements. Two ways in, both one step for Patric, ranked by what the agent gets:
-
-1. **The Figma connector** (Figma's own MCP server, in claude.ai's connector directory, not yet
-   connected for this organisation): gives an agent each frame's structure, its layout and
-   style values as code-like output, the design's variables (colours, type, spacing) and a
-   rendered screenshot of any frame. In claude.ai, Settings, Connectors, connect Figma, then
-   turn it on for this chat, then say "connected".
-2. **A Figma personal access token** in the session environment as `FIGMA_TOKEN`: the agent
-   reads the file through Figma's REST API (reachable from the sessions), every node with its
-   sizes, fills and text styles, and renders any frame as an image. Less digested than the
-   connector, but it works in every session without a per-chat switch. In Figma, Settings,
-   Security, generate a token with file read access, save it as `FIGMA_TOKEN`, then say "saved".
-
-Either way the file's link is needed too: paste the Figma file's URL. "Claude Design mode" (the
-Design artifact type this account has) is for making designs on a canvas, not for reading a
-Figma file, so it does not help here. Answer "connector" or "token", and paste the file's link.
-
-**2026-09-28, evening:** Patric connected Figma and shared "Kowboy (Copy)"; the connector read
-the pages, the tokens and five screenshots, then Figma stopped it: "You've reached the Figma
-MCP tool call limit on the Starter plan" after the first two section reads. The Starter plan's
-allowance for the connector is small and the build needs one read per section, some forty. The
-token way has its own, wider allowance (Figma's REST API): in Figma, Settings, Security, make a
-personal access token with file read access, save it in the session environment's settings as
-`FIGMA_TOKEN`, then say "saved". Or upgrade the Figma plan for the connector. Answer "saved" or
-"upgraded".
-
 ## 105. `[client-wordpress]` The two forms in the design: where a submission goes
 
 "Ska du sälja din bostad?" (every page) and "Är du intresserad av bostaden?" (the single page)
@@ -214,21 +183,6 @@ listing's address and agent), or the CRM per 95 when it is answered. Answer "ema
 The smaller option is e-mail, and 95 can move it to the CRM later.
 
 **Patric, 2026-09-28:** "leave for now, they will send to CRM but we need to figure it out first
-without blocking this." Open. Until it is answered the form block stores each submission as an
-entry on the site (a private post type "Förfrågningar" in the admin, so nothing is lost) and
-mails the address in the theme options when one is set; the CRM path replaces the storing when
-this and 95 are answered.
-
-## 109. `[crm-vitec]` Kowboy's image CDN serves one width, so the sites cannot offer smaller images
-
-Patric asked for srcset and lazy loading on every CRM image (2026-09-28). Lazy loading needs
-nothing. A `srcset` needs the same image at several widths, and the CDN (`cdn-realestate.kowboy.se`)
-answers only width 1920: `_320`, `_480`, `_640`, `_800`, `_1024`, `_1280`, `_1600` and `_2560`
-all answer 404 for a listing's photo (checked on the test office). So a phone downloads the
-1920 file for a 384-pixel card, and question 97's 6 MB agent picture is the same problem. Two
-ways: the CDN serves more widths (whoever runs it adds the sizes, and the adapter builds the
-set of addresses per the field tables, approval needed for the field-table line), or the site
-downloads and resizes every image itself (WordPress's own media sizes; heavy, slow first sync,
-and the plugin becomes an image host, which decision 86's line on "no logic in the client" and
-strategy's thin client argue against). Which widths can the CDN serve, or who can add them?
-Answer with the widths, or "site resizes".
+without blocking this." Open. An agent first stored submissions on the site and mailed them,
+which Patric called a drift and had removed the same evening: the form is a dummy that posts
+nowhere and whose button does nothing, until this is answered.

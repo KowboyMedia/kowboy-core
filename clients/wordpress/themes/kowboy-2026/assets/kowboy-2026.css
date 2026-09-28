@@ -1019,12 +1019,6 @@ iframe.k-hero__video {
   margin: 0;
   accent-color: var(--k-white);
 }
-.k-form__message {
-  font-size: 14px;
-}
-.k-form.is-sending {
-  opacity: 0.6;
-}
 @media (max-width: 1023px) {
   .k-lead {
     grid-template-columns: 1fr;

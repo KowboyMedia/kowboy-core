@@ -36,7 +36,7 @@ const listing = (id: string, extra: Record<string, unknown>): Record<string, unk
   branch_id: 'B-1',
   staff: ['S-1'],
   coop_id: null,
-  images: [`https://img.test/${id}-1.jpg`, `https://img.test/${id}-2.jpg`],
+  images: [`https://img.test/${id}-1_1920.jpg`, `https://img.test/${id}-2_1920.jpg`],
   published_at: '2026-09-01T08:00:00.000Z',
   ...extra,
 });
@@ -187,8 +187,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     ].map((match) => match[1]);
     expect(streets).toEqual(['Kungsgatan 3', 'Kungsgatan 2', 'Kungsgatan 1']);
     expect(body).toContain('7 250 000 kr');
-    expect(body).toContain('Avgift 4 100 kr');
-    expect(body).not.toContain('kr/mån');
+    expect(body).toContain('Avgift 4 100 kr/mån');
     expect(body).toContain('<span class="k-card__tenure">Bostadsrätt</span>');
     expect(body).toContain('82 kvm');
     expect(body).toContain('<span class="k-card__status">Visning ');
@@ -198,8 +197,11 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('kowboy-2026.js');
     expect(body).toContain('kowboy-2026-vendor.js');
     expect(body).not.toContain('fonts.googleapis.com');
-    // Every CRM image is lazy and asynchronous.
+    // Every CRM image is lazy and asynchronous, with the CDN's widths as a srcset.
     expect(body).toContain('loading="lazy" decoding="async"');
+    expect(body).toContain(
+      'srcset="https://img.test/P-3-1_480.jpg 480w, https://img.test/P-3-1_640.jpg 640w',
+    );
   });
 
   it('answers the reload endpoint with the cards of one page, the total and whether more follow', async () => {
@@ -274,8 +276,9 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('<dt>Adress</dt><dd>Kungsgatan 3, 111 22 Stockholm</dd>');
     expect(body).toContain('class="k-gallery__item');
     expect(body).toContain('data-map data-lat="');
-    // The interest form names the listing.
-    expect(body).toContain('name="subject" value="Kungsgatan 3"');
+    // The interest form is a dummy that names the listing (question 105 open): it posts nowhere.
+    expect(body).toContain('data-subject="Kungsgatan 3"');
+    expect(body).not.toContain('kowboy/v1/lead');
     // The header lies over the hero, with the bright logotype.
     expect(body).toContain('k-has-hero');
   });
@@ -333,40 +336,6 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     // A page without a hero gets the solid header.
     const plain = await page(await permalink('agent', 'S-1'));
     expect(plain.body).toContain('k-no-hero');
-  });
-
-  it('stores a form entry under Förfrågningar and refuses one without consent', async () => {
-    const send = (body: Record<string, unknown>) =>
-      fetch(`${siteUrl}/?rest_route=/kowboy/v1/lead`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-    const refused = await send({
-      first_name: 'Eva',
-      last_name: 'Ek',
-      phone: '070',
-      email: 'eva@test.se',
-      consent: false,
-    });
-    expect(refused.status).toBe(400);
-    const stored = await send({
-      first_name: 'Eva',
-      last_name: 'Ek',
-      phone: '070-1',
-      email: 'eva@test.se',
-      consent: true,
-      subject: 'Kungsgatan 3',
-    });
-    expect(stored.status).toBe(200);
-    const { stdout } = await wp(
-      'post',
-      'list',
-      '--post_type=kowboy_lead',
-      '--post_status=private',
-      '--field=post_title',
-    );
-    expect(stdout).toContain('Eva Ek · Kungsgatan 3');
   });
 
   it('shows the theme options: the contact details in the footer and the typography as variables', async () => {

@@ -1,12 +1,14 @@
 <?php
 // Images and videos (docs/kowboy-2026.md): one image function for every CRM and site image,
-// and the media a hero shows. Core's CDN serves one width today (question 109); the width list
-// below is where more join, and the srcset follows it.
+// and the media a hero shows. The srcset follows the widths Kowboy's CDN serves (question 109).
 
 declare(strict_types=1);
 
-/** The widths the CDN serves an image at; a listing's address ends in `_<width>.<ext>`. */
-const KOWBOY_IMAGE_WIDTHS = [1920];
+/**
+ * The widths the CDN serves an image at (Patric, 2026-09-28, question 109: 480 to 3840); a
+ * listing's address ends in `_<width>.<ext>`, and 1920 is the largest the sites ask for.
+ */
+const KOWBOY_IMAGE_WIDTHS = [480, 640, 1024, 1280, 1600, 1920];
 
 /**
  * One `<img>`: lazy and asynchronous unless `$eager` (the first hero image), with a `srcset` over
