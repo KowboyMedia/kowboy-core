@@ -195,27 +195,14 @@ Either way the file's link is needed too: paste the Figma file's URL. "Claude De
 Design artifact type this account has) is for making designs on a canvas, not for reading a
 Figma file, so it does not help here. Answer "connector" or "token", and paste the file's link.
 
-## 103. `[client-wordpress]` ACF PRO for the 2026.2 sections and the theme options
-
-Patric (2026-09-28) asked for the design's sections as ACF sections with configurable values,
-and for a theme options page. In ACF, sections as blocks, a flexible content field, repeaters
-and an options page are all PRO features (a paid licence per site or agency); the free version
-has none of them. Two ways: paste an ACF PRO licence key into the session environment as
-`ACF_PRO_KEY` (the deploy script then installs ACF PRO on the staging site from the licence's
-download address, and the theme ships the field groups as local JSON), then say "saved"; or say
-"native", and the sections become WordPress's own blocks (block.json with fields in the editor,
-no vendor, no licence), which look the same on the site and cost nothing, but are not ACF. The
-smaller option is native; the one Patric named is ACF.
-
-## 104. `[client-wordpress]` The single page's hero video: where the Vimeo link comes from
-
-The design's hero shows a video when there is one. Core carries no video link on a property:
-Vitec's advertising payload has none (checked in the test office's records and the
-documentation), and the field tables name none. Two ways: a field on the site, "Vimeo-länk", on
-the property's post (the site's own data, kept across syncs, entered by hand per listing),
-which needs nothing from Core or Vitec; or a CRM field, which means asking Vitec whether a
-listing carries a video address and, if it does, an adapter mapping and a field-table line
-(approval). Answer "site field" or "crm". The smaller option is the site field.
+**2026-09-28, evening:** Patric connected Figma and shared "Kowboy (Copy)"; the connector read
+the pages, the tokens and five screenshots, then Figma stopped it: "You've reached the Figma
+MCP tool call limit on the Starter plan" after the first two section reads. The Starter plan's
+allowance for the connector is small and the build needs one read per section, some forty. The
+token way has its own, wider allowance (Figma's REST API): in Figma, Settings, Security, make a
+personal access token with file read access, save it in the session environment's settings as
+`FIGMA_TOKEN`, then say "saved". Or upgrade the Figma plan for the connector. Answer "saved" or
+"upgraded".
 
 ## 105. `[client-wordpress]` The two forms in the design: where a submission goes
 
@@ -226,25 +213,22 @@ address in the theme options (WordPress's own mail, no plugin; the interest form
 listing's address and agent), or the CRM per 95 when it is answered. Answer "email" or "crm".
 The smaller option is e-mail, and 95 can move it to the CRM later.
 
-## 106. `[client-wordpress]` The map on the single page: which map service
+**Patric, 2026-09-28:** "leave for now, they will send to CRM but we need to figure it out first
+without blocking this." Open. Until it is answered the form block stores each submission as an
+entry on the site (a private post type "Förfrågningar" in the admin, so nothing is lost) and
+mails the address in the theme options when one is set; the CRM path replaces the storing when
+this and 95 are answered.
 
-The design's area section ends in a map with the listing's position. Core carries the
-coordinates. A map needs a tile service: OpenStreetMap tiles with Leaflet (no account, no key,
-no cost, the usual choice for a small site) or Google Maps (an API key, a billing account, the
-look of the design's grey map is closer). Answer "openstreetmap" or "google" (then save the key
-as `GOOGLE_MAPS_KEY`). The smaller option is OpenStreetMap.
+## 109. `[crm-vitec]` Kowboy's image CDN serves one width, so the sites cannot offer smaller images
 
-## 107. `[client-wordpress]` The 2026 set: shelved in the repository or deleted
-
-"Shelve the 2026" (Patric, 2026-09-28). Shelved means the folder stays under
-`clients/wordpress/templates-shelved/kowboy-2026/`, out of the deploy script's and the tests'
-way but there to read; deleted means it goes, and the saved history keeps it. Answer "shelve" or
-"delete". The smaller option is delete (less to maintain); shelve is what Patric said.
-
-## 108. `[client-wordpress]` The Figma file read is "Kowboy (Copy)": is it the current design?
-
-Patric's message carried two links: the file "Kowboy" (`CaUVDXVU1jibiUjS6PxQqL`), which refuses
-the connected Figma account ("no edit access"), and "Kowboy (Copy)" (`JbB2ehlq1bsDspjTGBK5tw`),
-which opens. The plan and the build read the copy. Is the copy the current design, and will it
-stay the one to read? Answer "yes", or share the original with patric@kowboy.se as an editor
-and say "original".
+Patric asked for srcset and lazy loading on every CRM image (2026-09-28). Lazy loading needs
+nothing. A `srcset` needs the same image at several widths, and the CDN (`cdn-realestate.kowboy.se`)
+answers only width 1920: `_320`, `_480`, `_640`, `_800`, `_1024`, `_1280`, `_1600` and `_2560`
+all answer 404 for a listing's photo (checked on the test office). So a phone downloads the
+1920 file for a 384-pixel card, and question 97's 6 MB agent picture is the same problem. Two
+ways: the CDN serves more widths (whoever runs it adds the sizes, and the adapter builds the
+set of addresses per the field tables, approval needed for the field-table line), or the site
+downloads and resizes every image itself (WordPress's own media sizes; heavy, slow first sync,
+and the plugin becomes an image host, which decision 86's line on "no logic in the client" and
+strategy's thin client argue against). Which widths can the CDN serve, or who can add them?
+Answer with the widths, or "site resizes".

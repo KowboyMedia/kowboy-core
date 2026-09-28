@@ -9,16 +9,16 @@
 
 declare(strict_types=1);
 
-/** @var array<string, array{slug: string, name: string, file: string, dir: string, version: string, shadow: bool}> */
+/** @var array<string, array{slug: string, name: string, file: string, dir: string, version: string}> */
 $GLOBALS['core_client_template_sets'] = [];
 
 /**
- * The one line a set's main file calls, on `plugins_loaded`. `$file` is the set's main plugin
- * file; its folder holds the views, `assets/<slug>.css` and `assets/<slug>.js`, and any
- * `assets/vendor/<slug>-vendor.css` and `.js` the set brings. `$shadow` is what the set is
- * written for: the site's own shadow DOM setting wins once it is set.
+ * The one line a set calls: a set plugin's main file on `plugins_loaded`, or a theme's
+ * `functions.php`. `$file` is that file; its folder holds the views (a theme keeps them under
+ * `core/`, where the override rule looks first), `assets/<slug>.css` and `assets/<slug>.js`, and
+ * any `assets/vendor/<slug>-vendor.css` and `.js` the set brings.
  */
-function core_client_register_template_set(string $slug, string $name, string $file, string $version, bool $shadow = false): void
+function core_client_register_template_set(string $slug, string $name, string $file, string $version): void
 {
     $GLOBALS['core_client_template_sets'][$slug] = [
         'slug' => $slug,
@@ -26,22 +26,22 @@ function core_client_register_template_set(string $slug, string $name, string $f
         'file' => $file,
         'dir' => dirname($file),
         'version' => $version,
-        'shadow' => $shadow,
     ];
 }
 
-/** @return array<string, array{slug: string, name: string, file: string, dir: string, version: string, shadow: bool}> */
+/** @return array<string, array{slug: string, name: string, file: string, dir: string, version: string}> */
 function core_client_template_sets(): array
 {
     return $GLOBALS['core_client_template_sets'];
 }
 
 /**
- * The set the site chose, while it is installed and active. With one set installed and none
- * chosen, that one, so activating a set is enough. Null when there is none: a custom-design theme
- * renders from the plugin's functions on its own.
+ * The set the site chose, while it is installed and active. With none chosen: the set the active
+ * theme is (a theme is the site's declared choice), else the one installed set, so activating a
+ * set is enough. Null when there is none: a custom-design theme renders from the plugin's
+ * functions on its own.
  *
- * @return array{slug: string, name: string, file: string, dir: string, version: string, shadow: bool}|null
+ * @return array{slug: string, name: string, file: string, dir: string, version: string}|null
  */
 function core_client_template_set(): ?array
 {
@@ -50,7 +50,24 @@ function core_client_template_set(): ?array
     if ($slug !== '' && isset($sets[$slug])) {
         return $sets[$slug];
     }
+    foreach ($sets as $set) {
+        if (core_client_set_is_theme($set)) {
+            return $set;
+        }
+    }
     return count($sets) === 1 ? reset($sets) : null;
+}
+
+/**
+ * Whether a set is the active theme (its folder is the theme's, symbolic links resolved).
+ *
+ * @param array{slug: string, name: string, file: string, dir: string, version: string} $set
+ */
+function core_client_set_is_theme(array $set): bool
+{
+    $theme = realpath(get_stylesheet_directory());
+    $dir = realpath($set['dir']);
+    return $theme !== false && $dir !== false && $dir === $theme;
 }
 
 /** The override rule: the theme's copy wins (`<theme>/core/<file>`), then the chosen set's file. */
@@ -102,18 +119,17 @@ function core_client_set_asset(string $extension, bool $vendor = false): ?string
     if (!is_file($set['dir'] . '/' . $relative)) {
         return null;
     }
-    return add_query_arg('ver', $set['version'], plugins_url($relative, $set['file']));
+    $url = core_client_set_is_theme($set)
+        ? get_stylesheet_directory_uri() . '/' . $relative
+        : plugins_url($relative, $set['file']);
+    return add_query_arg('ver', $set['version'], $url);
 }
 
-/** The site's shadow DOM setting; until the site sets it, what the chosen set is written for. */
+/** The site's shadow DOM setting: on until the site turns it off (Patric, 2026-09-28). */
 function core_client_shadow_dom(): bool
 {
     $option = get_option('core_client_shadow_dom', 'unset');
-    if ($option !== 'unset') {
-        return (bool) $option;
-    }
-    $set = core_client_template_set();
-    return $set !== null && $set['shadow'];
+    return $option === 'unset' || (bool) $option;
 }
 
 /**

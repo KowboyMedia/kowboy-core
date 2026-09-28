@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "kowboy/feature-list",
+  "title": "Text med numrerade kort",
+  "description": "En inledande text, numrerade kort med rubrik och text, och en avslutande rad, som på Om oss.",
+  "category": "kowboy",
+  "icon": "editor-ol",
+  "editorScript": "kowboy-2026-editor",
+  "render": "file:./render.php",
+  "supports": { "html": false, "anchor": true },
+  "attributes": {
+    "text": { "type": "string", "default": "", "control": "textarea", "label": "Inledande text" },
+    "items": {
+      "type": "array",
+      "default": [],
+      "control": "repeater",
+      "label": "Kort",
+      "max": 6,
+      "fields": {
+        "title": { "control": "text", "label": "Rubrik" },
+        "text": { "control": "textarea", "label": "Text" }
+      }
+    },
+    "closing": {
+      "type": "string",
+      "default": "",
+      "control": "textarea",
+      "label": "Avslutande text"
+    }
+  }
+}

@@ -141,8 +141,7 @@ What an agent needs to run this end to end on any host, and the one thing that i
 
 **The deploy script** (2026-09-28). `scripts/deploy-site.mjs` is the first install and every
 iteration until the channel's job exists: with `SITE_URL`, `WP_USER` and `WP_PASSWORD` it signs
-in to the site's WordPress admin, packages the plugin and every set under
-`clients/wordpress/templates/` with `release.php`, uploads each package (WordPress's own "replace
+in to the site's WordPress admin, packages the plugin and the theme under `clients/wordpress/themes/` with `release.php`, uploads each package (WordPress's own "replace
 current with uploaded" when it is there already), activates it, and with `--settings '{…}'`
 writes any of the plugin's settings while keeping the rest. It is plain web traffic, so it runs
 from a session against any host. Proved 2026-09-28 on a copy of the local test install: install,
@@ -165,7 +164,7 @@ agent signs in with it.
 **The loop as it runs** (2026-09-28, night). Two scripts and one sign-in, all from a session:
 
 1. `SITE_URL=… WP_USER=… WP_PASSWORD=… node scripts/deploy-site.mjs [--settings '{…}']` puts the
-   branch's plugin and every set on the site (the packages' versions are checked through the
+   branch's plugin and the theme on the site (the packages' versions are checked through the
    WordPress REST API afterwards, so the site's language plays no part), and writes settings.
 2. `SITE_URL=… node scripts/shoot-site.mjs <folder> [path …]` screenshots the property list, the
    first property it links to and the agent list at desktop and phone widths; an agent reads the

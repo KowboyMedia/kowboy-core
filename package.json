@@ -20,7 +20,6 @@
     "lint": "eslint . && npm run lint:deno",
     "lint:deno": "deno lint --config clients/lovable-kit/supabase/functions/core-sync/deno.json clients/lovable-kit/supabase/functions/core-sync",
     "report": "node scripts/acceptance-report.mjs",
-    "new-template-set": "node scripts/new-template-set.mjs",
     "start:web": "node --env-file-if-exists=.env dist/main.js web",
     "start:worker": "node --env-file-if-exists=.env dist/main.js worker",
     "test": "vitest run",

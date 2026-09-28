@@ -49,7 +49,10 @@ function core_client_place_updater(): void
 add_action('plugins_loaded', function (): void {
     $packages = ['core-client' => plugin_basename(CORE_CLIENT_FILE)];
     foreach (core_client_template_sets() as $set) {
-        $packages['core-client-templates-' . $set['slug']] = plugin_basename($set['file']);
+        // A set that is a plugin travels the channel; a theme is installed and updated as a theme.
+        if (!core_client_set_is_theme($set)) {
+            $packages['core-client-templates-' . $set['slug']] = plugin_basename($set['file']);
+        }
     }
     $watched = ['channel' => core_client_channel(), 'packages' => $packages];
     if (get_option('core_client_packages') !== $watched) {

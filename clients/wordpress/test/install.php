@@ -22,12 +22,13 @@ if (!is_blog_installed()) {
     echo "WordPress installed\n";
 }
 
-// A classic theme, as the client sites run (the set's views call get_header and get_footer).
-if (get_option('stylesheet') !== 'twentytwentyone') {
-    switch_theme('twentytwentyone');
+// The theme "Kowboy 2026" is the set under test; the tests switch to twentytwentyone for the
+// set-plugin cases.
+if (get_option('stylesheet') !== 'kowboy-2026') {
+    switch_theme('kowboy-2026');
 }
 
-foreach (['core-client/core-client.php', 'core-client-templates-kowboy-2026/core-client-templates-kowboy-2026.php'] as $plugin) {
+foreach (['core-client/core-client.php', 'core-client-templates-fixture/core-client-templates-fixture.php'] as $plugin) {
     $result = activate_plugin($plugin);
     if (is_wp_error($result)) {
         fwrite(STDERR, "could not activate $plugin: " . $result->get_error_message() . "\n");

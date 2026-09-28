@@ -10,7 +10,7 @@ export default tseslint.config(
       'node_modules/**',
       'clients/lovable-kit/supabase/**',
       'clients/wordpress/core-client/lib/**',
-      'clients/wordpress/templates/**/assets/vendor/**',
+      'clients/wordpress/themes/**/assets/vendor/**',
     ],
   },
   js.configs.recommended,
@@ -41,8 +41,8 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.browser } },
   },
   {
-    // The template sets' scripts run in the visitor's browser, without a build step.
-    files: ['clients/wordpress/templates/**/assets/*.js'],
+    // The theme's scripts run in the visitor's browser and the editor, without a build step.
+    files: ['clients/wordpress/themes/**/assets/*.js'],
     languageOptions: { globals: { ...globals.browser }, sourceType: 'script' },
   },
 );

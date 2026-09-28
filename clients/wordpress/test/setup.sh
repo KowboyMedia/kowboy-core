@@ -51,11 +51,10 @@ require_once ABSPATH . 'wp-settings.php';
 CONFIG
 
 ln -sfn "$repo/clients/wordpress/core-client" "$WP_ROOT/wp-content/plugins/core-client"
-# Every template set, under the folder name its package has (docs/default-templates.md).
-for set in "$repo"/clients/wordpress/templates/*/; do
-  set=${set%/}
-  ln -sfn "$set" "$WP_ROOT/wp-content/plugins/core-client-templates-$(basename "$set")"
-done
+# The theme "Kowboy 2026", the default set (docs/kowboy-2026.md), and a fixture set plugin
+# that proves the plugin's set machinery (the registry, the override rule, the sets on offer).
+ln -sfn "$repo/clients/wordpress/themes/kowboy-2026" "$WP_ROOT/wp-content/themes/kowboy-2026"
+ln -sfn "$repo/clients/wordpress/test/fixtures/core-client-templates-fixture" "$WP_ROOT/wp-content/plugins/core-client-templates-fixture"
 mkdir -p "$WP_ROOT/wp-content/mu-plugins"
 # The plugin places the updater itself on activation (includes/packages.php); a symlink keeps the
 # test install on the repository's copy.

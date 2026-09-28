@@ -24,11 +24,11 @@ core-client/                     the plugin
   includes/report.php            error reporting through Core
   updater/core-client-updater.php  the must-use updater the plugin places itself; never loads plugin code
   lib/action-scheduler/          Action Scheduler 4.1.0, bundled (GPLv3)
-templates/kowboy-2026/           the default template set "Kowboy 2026", a plugin of its own
-release.php                      packages a plugin or a set, and writes the index of sets
+themes/kowboy-2026/              the default template set "Kowboy 2026", a theme (docs/kowboy-2026.md)
+release.php                      packages the plugin, the theme or a set, and writes the index of sets
 test/                            setup.sh, install.php, driver.php and site.ts for the suites
 sync.test.ts                     the shared sync scenarios, the updater, the packaging, WP-CLI
-templates.test.ts                the set and the template machinery on a real WordPress
+templates.test.ts                the theme, its blocks and the template machinery on a real WordPress
 ```
 
 ## Installing it on a site
@@ -107,14 +107,15 @@ reload endpoint `GET /wp-json/core/v1/list?<the same parameters>` (which answers
 `total`, `has_more`, `page`) and any PHP call it with the same parameter set, passed through
 untouched: a parameter added to the query is at once available everywhere.
 
-**Template sets.** A set is a WordPress plugin under `templates/<slug>/` (its package is
-`core-client-templates-<slug>`): one main file that registers the set in one line
-(`core_client_register_template_set`), one file per view (`single-core_<datatype>.php`,
-`archive-core_<datatype>.php`, `list-<entity>.php`, `card-<entity>.php`), and
-`assets/<slug>.css` and `assets/<slug>.js`, enqueued on every public page (the stylesheet is
-linked inside each shadow root instead when shadow DOM is on). The site picks one set on the
-settings page; with one set installed, activating it is enough. `npm run new-template-set <slug>
-[<name>]` copies the default set into a new one.
+**Template sets.** A set is a theme (the default, `themes/kowboy-2026/`, docs/kowboy-2026.md)
+or a plugin: one file that registers the set in one line (`core_client_register_template_set`,
+from a theme's `functions.php` or a plugin's main file), one file per view
+(`single-core_<datatype>.php`, `archive-core_<datatype>.php`, `list-<entity>.php`,
+`card-<entity>.php`; a theme keeps them under `core/`), and `assets/<slug>.css` and
+`assets/<slug>.js`, enqueued on every public page and linked inside each shadow root (shadow DOM
+is on unless the site turns it off). The site picks one set on the settings page; with none
+chosen, the active theme's set, else the one installed set. A client's own set is a copy of the
+theme under its own name.
 
 **The override rule.** `core_client_template($file)` looks in the theme first
 (`<theme>/core/<file>`, child theme before parent), then in the chosen set. Editing a view means

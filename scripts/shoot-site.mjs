@@ -50,6 +50,15 @@ async function shoot(path, width) {
     }
   });
   const response = await page.goto(`${site}${path}`, { waitUntil: 'networkidle', timeout: 90000 });
+  // Scroll through the page so every lazy image has loaded before the picture is taken.
+  await page.evaluate(async () => {
+    for (let y = 0; y < document.body.scrollHeight; y += 600) {
+      window.scrollTo(0, y);
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }
+    window.scrollTo(0, 0);
+  });
+  await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1500);
   const file = join(folder, `${fileName(path)}-${width}.jpg`);
   await page.screenshot({ path: file, fullPage: true, type: 'jpeg', quality: 70 });

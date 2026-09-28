@@ -1,0 +1,43 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "kowboy/property-list",
+  "title": "Bostadslista",
+  "description": "Bostäderna från Kowboy Core som kort, tre i bredd, med statusflikar, filter och Visa fler.",
+  "category": "kowboy",
+  "icon": "grid-view",
+  "editorScript": "kowboy-2026-editor",
+  "render": "file:./render.php",
+  "supports": { "html": false, "anchor": true },
+  "attributes": {
+    "title": { "type": "string", "default": "", "control": "text", "label": "Rubrik" },
+    "lead": { "type": "string", "default": "", "control": "text", "label": "Ingress" },
+    "status": {
+      "type": "string",
+      "default": "for_sale,coming",
+      "control": "select",
+      "label": "Vilka bostäder",
+      "options": {
+        "for_sale,coming": "Till salu och kommande",
+        "for_sale": "Till salu",
+        "coming": "Kommande",
+        "sold": "Sålda"
+      }
+    },
+    "perPage": { "type": "number", "default": 9, "control": "number", "label": "Antal per sida" },
+    "statusTabs": {
+      "type": "boolean",
+      "default": true,
+      "control": "toggle",
+      "label": "Statusflikar",
+      "help": "Alla, Till salu, Kommande."
+    },
+    "filters": {
+      "type": "boolean",
+      "default": false,
+      "control": "toggle",
+      "label": "Filter",
+      "help": "Max pris, minst boarea, minst antal rum och område. Sidan Till salu har dem i hjältebilden i stället."
+    }
+  }
+}

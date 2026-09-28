@@ -10,6 +10,5 @@ clients/wordpress/core-client/lib
 docs/data-model-reference.md
 admin/e2e/report.json
 
-# A template set's stylesheet is the package's build, its vendor folder third-party code.
-clients/wordpress/templates/*/assets/*.css
-clients/wordpress/templates/*/assets/vendor
+# The theme's vendor folder is third-party code.
+clients/wordpress/themes/*/assets/vendor

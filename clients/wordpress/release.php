@@ -26,8 +26,10 @@ function core_release_header(string $dir): array
 {
     // The main file is the one with a plugin header, whatever the folder is called.
     $main = null;
-    foreach (glob("$dir/*.php") ?: [] as $candidate) {
-        if (str_contains((string) file_get_contents($candidate), 'Plugin Name:')) {
+    foreach (array_merge(glob("$dir/*.php") ?: [], glob("$dir/style.css") ?: []) as $candidate) {
+        $contents = (string) file_get_contents($candidate);
+        // A set plugin's main file, or a theme's style.css: the header names the package.
+        if (str_contains($contents, 'Plugin Name:') || str_contains($contents, 'Theme Name:')) {
             $main = $candidate;
             break;
         }
@@ -36,10 +38,10 @@ function core_release_header(string $dir): array
         core_release_fail("no plugin file in $dir");
     }
     $header = (string) file_get_contents($main);
-    if (preg_match('/^\s*\*\s*Version:\s*(\S+)/m', $header, $version) !== 1) {
+    if (preg_match('/^\s*\*?\s*Version:\s*(\S+)/m', $header, $version) !== 1) {
         core_release_fail("no Version in the header of $main");
     }
-    preg_match('/^\s*\*\s*Plugin Name:\s*(.+?)\s*$/m', $header, $name);
+    preg_match('/^\s*\*?\s*(?:Plugin|Theme) Name:\s*(.+?)\s*$/m', $header, $name);
     return ['name' => $name[1] ?? basename($dir), 'version' => $version[1]];
 }
 

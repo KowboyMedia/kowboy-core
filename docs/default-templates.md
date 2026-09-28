@@ -1,3 +1,9 @@
+> **2026-09-28:** the set built on the 2025 package is gone (question 107), and the default set
+> "Kowboy 2026" is the theme in `clients/wordpress/themes/kowboy-2026/`, described in
+> [kowboy-2026.md](kowboy-2026.md). What follows is the scaffolding and the history that led
+> there; where it names `clients/wordpress/templates/`, a set plugin or `new-template-set`, the
+> theme and a copy of its folder have taken their place.
+
 # The default templates: one package, three ways to use it, parity with the reference site
 
 Step 2 of two. Proposed 2026-09-20 and revised the same day for Patric's answers: a separate

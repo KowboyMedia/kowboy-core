@@ -1,6 +1,7 @@
-// The template set "Kowboy 2026" and the plugin's template machinery against the real WordPress
-// (test/site.ts) with records from the fake polling CRM through the real Core: the lists with
-// their filters and reloads, the single pages, the override rule, the selector and shadow DOM.
+// The theme "Kowboy 2026" (the default set) and the plugin's template machinery against the real
+// WordPress (test/site.ts) with records from the fake polling CRM through the real Core: the lists
+// with their filters and reloads, the single pages, the section blocks and the demo pages, the
+// form entries, the override rule with a set plugin, the selector and shadow DOM.
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -8,7 +9,7 @@ import { harness, TOKEN, type Harness } from '../../acceptance/harness.js';
 import { fakePollingAdapter, poll } from '../../adapters/fake-polling/index.js';
 import * as crm from '../../adapters/fake-polling/crm.js';
 import { BELL_SECRET, CONNECTION, type ClientDriver } from '../sync-scenarios.js';
-import { driver, siteUrl, start, stop, WP_ROOT } from './test/site.js';
+import { driver, siteUrl, start, stop, wp, WP_ROOT } from './test/site.js';
 
 const THEME_OVERRIDES = join(WP_ROOT, 'wp-content', 'themes', 'twentytwentyone', 'core');
 
@@ -43,10 +44,14 @@ const listing = (id: string, extra: Record<string, unknown>): Record<string, unk
 let core: Harness;
 let site: ClientDriver;
 
+/** A page's HTML, its non-breaking spaces (the display strings' thousands) read as spaces. */
 const page = async (path: string): Promise<{ status: number; body: string }> => {
   const response = await fetch(`${siteUrl}${path}`);
-  return { status: response.status, body: await response.text() };
+  return { status: response.status, body: (await response.text()).replace(/\u00a0/g, ' ') };
 };
+
+/** The path and query of an address on the site, as `page` takes it. */
+const pathOf = (url: string): string => new URL(url).pathname + new URL(url).search;
 
 const reload = async (
   params: Record<string, string>,
@@ -54,7 +59,8 @@ const reload = async (
   const query = new URLSearchParams({ rest_route: '/core/v1/list', ...params });
   const response = await fetch(`${siteUrl}/?${query.toString()}`);
   expect(response.status).toBe(200);
-  return (await response.json()) as { html: string; total: number; has_more: boolean };
+  const result = (await response.json()) as { html: string; total: number; has_more: boolean };
+  return { ...result, html: result.html.replace(/\u00a0/g, ' ') };
 };
 
 const permalink = async (datatype: string, remoteId: string): Promise<string> => {
@@ -76,6 +82,9 @@ beforeAll(async () => {
   await driver('option', 'core_client_status_for_sale "active"');
   await driver('option', 'core_client_status_coming "pre"');
   await driver('option', 'core_client_status_sold "done"');
+  // The site's own shadow DOM and set choices: none, so the defaults are what is tested.
+  await driver('option', 'core_client_shadow_dom null');
+  await driver('option', 'core_client_template_set null');
 
   crm.put('office', 'B-1', {
     branch_id: 'B-1',
@@ -128,6 +137,8 @@ beforeAll(async () => {
       rooms: 4,
       living_space: 110,
       viewings: [{ starts_at: soon(48), ends_at: soon(49), comment: 'Föranmälan krävs' }],
+      lat: 59.34,
+      lng: 18.05,
       published_at: '2026-09-12T08:00:00.000Z',
     }),
   );
@@ -168,24 +179,27 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
   it('renders the property archive as the for-sale list, first page on the server, with the filter form', async () => {
     const { status, body } = await page('/?post_type=core_property');
     expect(status).toBe(200);
-    expect(body).toContain('kowboy-property-list-wrapper');
+    expect(body).toContain('class="k-list"');
     expect(body).toContain('name="max_price"');
     // For sale and coming, newest first; sold ones and a project's homes stay out.
-    const streets = [...body.matchAll(/<h3 class="text-black[^"]*">(Kungsgatan \d+)<\/h3>/g)].map(
-      (match) => match[1],
-    );
+    const streets = [
+      ...body.matchAll(/<span class="k-card__street">(Kungsgatan \d+)<\/span>/g),
+    ].map((match) => match[1]);
     expect(streets).toEqual(['Kungsgatan 3', 'Kungsgatan 2', 'Kungsgatan 1']);
-    expect(body).toContain('7 250 000 kr');
-    expect(body).toContain('Avgift 4 100 kr');
+    expect(body).toContain('7 250 000 kr');
+    expect(body).toContain('Avgift 4 100 kr');
     expect(body).not.toContain('kr/mån');
-    expect(body).toContain('<li>Bostadsrätt</li>');
-    expect(body).toContain('82 kvm');
-    expect(body).toContain('<span class="sold_label">Visning ');
+    expect(body).toContain('<span class="k-card__tenure">Bostadsrätt</span>');
+    expect(body).toContain('82 kvm');
+    expect(body).toContain('<span class="k-card__status">Visning ');
+    // The theme's assets, and no font from a third party: Manrope is self-hosted.
     expect(body).toContain('kowboy-2026.css');
     expect(body).toContain('kowboy-2026-vendor.css');
     expect(body).toContain('kowboy-2026.js');
     expect(body).toContain('kowboy-2026-vendor.js');
-    expect(body).toContain('fonts.googleapis.com');
+    expect(body).not.toContain('fonts.googleapis.com');
+    // Every CRM image is lazy and asynchronous.
+    expect(body).toContain('loading="lazy" decoding="async"');
   });
 
   it('answers the reload endpoint with the cards of one page, the total and whether more follow', async () => {
@@ -197,9 +211,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     });
     expect(first.total).toBe(3);
     expect(first.has_more).toBe(true);
-    expect(
-      first.html.match(/<div class="w-full bg-white shadow-lg rounded-lg overflow-hidden">/g),
-    ).toHaveLength(2);
+    expect(first.html.match(/<article class="k-card">/g)).toHaveLength(2);
     const second = await reload({
       entity: 'property',
       status: 'active,pre',
@@ -213,11 +225,11 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
   it('filters by status, price, size, rooms, free text, agent and office, and sorts sold ones by date', async () => {
     const sold = await reload({ entity: 'property', status: 'sold', sort: 'sold' });
     expect(
-      [...sold.html.matchAll(/<h3 class="text-black[^"]*">(Kungsgatan \d+)<\/h3>/g)].map(
+      [...sold.html.matchAll(/<span class="k-card__street">(Kungsgatan \d+)<\/span>/g)].map(
         (match) => match[1],
       ),
     ).toEqual(['Kungsgatan 5', 'Kungsgatan 4']);
-    expect(sold.html).toContain('4 200 000 kr');
+    expect(sold.html).toContain('4 200 000 kr');
     expect(
       (await reload({ entity: 'property', status: 'active,pre', max_price: '4000000' })).total,
     ).toBe(1);
@@ -239,129 +251,190 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect((await reload({ entity: 'property', office: 'B-1' })).total).toBe(5);
     expect((await reload({ entity: 'property', project: 'PR-1' })).total).toBe(1);
     expect((await reload({ entity: 'agent', office: 'B-1' })).total).toBe(2);
-    expect(
-      (await reload({ entity: 'property', status: 'active', sort: 'price_asc' })).html.indexOf(
-        'Kungsgatan 2',
-      ),
-    ).toBeLessThan(
-      (await reload({ entity: 'property', status: 'active', sort: 'price_asc' })).html.indexOf(
-        'Kungsgatan 1',
-      ),
-    );
+    const byPrice = (await reload({ entity: 'property', status: 'active', sort: 'price_asc' }))
+      .html;
+    expect(byPrice.indexOf('Kungsgatan 2')).toBeLessThan(byPrice.indexOf('Kungsgatan 1'));
   });
 
   it('renders a property page from display and data: hero, facts, viewings, agents, sections, map', async () => {
     const { status, body } = await page(await permalink('property', 'P-3'));
     expect(status).toBe(200);
-    expect(body).toContain('hero-banner-title">Kungsgatan 3</h1>');
+    expect(body).toContain('k-hero__title--left">Kungsgatan 3</h1>');
     expect(body).toContain('Utgångspris');
-    expect(body).toContain('5 000 000 kr');
-    expect(body).toContain('<span class="sold_label">Kommande</span>');
-    expect(body).toContain('<li>Vasastan</li>');
+    expect(body).toContain('5 000 000 kr');
+    expect(body).toContain('class="k-hero__status">Kommande</li>');
+    expect(body).toContain('k-label--bright">Vasastan</p>');
     expect(body).toContain('Ljus trea med balkong.');
-    expect(body).toContain(
-      '<span class="text-base">Rum</span><strong class="text-lg font-bold text-right">4 rum</strong>',
-    );
-    expect(body).toContain(
-      '<span class="text-base">Typ</span><strong class="text-lg font-bold text-right">Bostadsrätt</strong>',
-    );
+    expect(body).toContain('<li class="k-chip">4 rum</li>');
+    expect(body).toContain('<li class="k-chip">Bostadsrätt</li>');
     expect(body).toContain('Föranmälan krävs');
     expect(body).toContain('Anna Andersson');
     expect(body).toContain('070-123 45 67');
-    expect(body).toContain('class="collapsible-item"');
-    expect(body).toContain(
-      '<strong class="block font-bold mb-1">Adress</strong><span>Kungsgatan 3, 111 22 Stockholm</span>',
-    );
-    expect(body).toContain('property-gallery-item');
+    expect(body).toContain('class="k-accordion__button"');
+    expect(body).toContain('<dt>Adress</dt><dd>Kungsgatan 3, 111 22 Stockholm</dd>');
+    expect(body).toContain('class="k-gallery__item');
+    expect(body).toContain('data-map data-lat="');
+    // The interest form names the listing.
+    expect(body).toContain('name="subject" value="Kungsgatan 3"');
+    // The header lies over the hero, with the bright logotype.
+    expect(body).toContain('k-has-hero');
   });
 
   it('shows a sold property with its final price as "Slutpris", and no viewings', async () => {
     const { body } = await page(await permalink('property', 'P-4'));
     expect(body).toContain('Slutpris');
-    expect(body).toContain('3 325 000 kr');
+    expect(body).toContain('3 325 000 kr');
     expect(body).not.toContain('Visningar');
   });
 
   it('renders agent, office and area pages with their lists inside the same view', async () => {
     const agent = await page(await permalink('agent', 'S-1'));
     expect(agent.status).toBe(200);
-    expect(agent.body).toContain('agent-card-title text-4xl font-bold">Anna Andersson</h2>');
-    expect(agent.body).toContain('Kundomdömen');
+    expect(agent.body).toContain('<h1 class="k-section__title">Anna Andersson</h1>');
     expect(agent.body).toContain('Säljare på Kungsgatan 1');
-    expect(agent.body).toContain('Ett urval av mina objekt');
-    expect(
-      agent.body.match(/<div class="w-full bg-white shadow-lg rounded-lg overflow-hidden">/g),
-    ).toHaveLength(4); // P-1, P-3, P-4, P-5 are Anna's; P-2 is Bertil's
+    expect(agent.body.match(/<article class="k-card">/g)).toHaveLength(4); // P-1, P-3, P-4, P-5 are Anna's; P-2 is Bertil's
 
     const office = await page(await permalink('office', 'B-1'));
-    expect(office.body).toContain('area-banner-title mb-8">Kowboy Mäkleri</h1>');
+    expect(office.body).toContain('<h1 class="k-section__title">Kowboy Mäkleri</h1>');
     expect(office.body).toContain('Storgatan 1, Stockholm');
     expect(office.body).toContain('Bertil Berg');
-    expect(office.body).toContain('google.com/maps');
 
     const area = await page(await permalink('area', 'D-1'));
-    expect(area.body).toContain('area-banner-title mb-8">Vasastan</h1>');
-    expect(area.body).toContain('Experter på Vasastan');
+    expect(area.body).toContain('<h1 class="k-section__title">Vasastan</h1>');
     expect(area.body).toContain('Bostäder i Vasastan');
 
     const agents = await page('/?post_type=core_agent');
-    expect(agents.body.match(/<div class="overflow-hidden agents-list-item">/g)).toHaveLength(2);
+    expect(agents.body.match(/<article class="k-agent-card">/g)).toHaveLength(2);
   });
 
-  it('lets a copy in the theme override one view while every other view stays the set’s', async () => {
-    mkdirSync(THEME_OVERRIDES, { recursive: true });
-    writeFileSync(
-      join(THEME_OVERRIDES, 'card-property.php'),
-      '<?php ?><article class="theme-card"><?php echo esc_html((string) $item["address"]["street"]); ?></article>',
+  it('makes the demo pages from the section blocks on activation, and renders them', async () => {
+    const { pages, front } = await driver<{ pages: Record<string, string | null>; front: number }>(
+      'demo-pages',
     );
+    expect(Object.values(pages).every((url) => typeof url === 'string')).toBe(true);
+    expect(front).toBeGreaterThan(0);
+    const home = await page('/');
+    expect(home.status).toBe(200);
+    expect(home.body).toContain('k-has-hero');
+    expect(home.body).toContain('k-hero--tall');
+    expect(home.body).toContain('Rätt timing ger bättre affärer');
+    expect(home.body).toContain('<span class="k-figure__value">150+</span>');
+    expect(home.body.match(/<article class="k-agent-card">/g)).toHaveLength(2);
+    expect(home.body).toContain('class="k-list"');
+    expect(home.body).toContain('<h2 class="k-lead__title">Ska du sälja din bostad?</h2>');
+    expect(home.body).toContain('class="k-footer"');
+    const forSale = await page(pathOf(pages['till-salu']!));
+    expect(forSale.body).toContain('Hitta din nya bostad');
+    expect(forSale.body).toContain('k-hero--with-form');
+    expect(forSale.body).toContain('name="max_price"');
+    const about = await page(pathOf(pages['om-oss']!));
+    expect(about.body).toContain('<span class="k-feature__badge">01</span>');
+    expect(about.body).toContain('data-testimonials');
+    // A page without a hero gets the solid header.
+    const plain = await page(await permalink('agent', 'S-1'));
+    expect(plain.body).toContain('k-no-hero');
+  });
+
+  it('stores a form entry under Förfrågningar and refuses one without consent', async () => {
+    const send = (body: Record<string, unknown>) =>
+      fetch(`${siteUrl}/?rest_route=/kowboy/v1/lead`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    const refused = await send({
+      first_name: 'Eva',
+      last_name: 'Ek',
+      phone: '070',
+      email: 'eva@test.se',
+      consent: false,
+    });
+    expect(refused.status).toBe(400);
+    const stored = await send({
+      first_name: 'Eva',
+      last_name: 'Ek',
+      phone: '070-1',
+      email: 'eva@test.se',
+      consent: true,
+      subject: 'Kungsgatan 3',
+    });
+    expect(stored.status).toBe(200);
+    const { stdout } = await wp(
+      'post',
+      'list',
+      '--post_type=kowboy_lead',
+      '--post_status=private',
+      '--field=post_title',
+    );
+    expect(stdout).toContain('Eva Ek · Kungsgatan 3');
+  });
+
+  it('shows the theme options: the contact details in the footer and the typography as variables', async () => {
+    await wp('theme', 'mod', 'set', 'kowboy_address', 'Grimsbygatan 24A, Malmö');
+    await wp('theme', 'mod', 'set', 'kowboy_display_size', '40');
     try {
-      const { body } = await page('/?post_type=core_property');
-      expect(body).toContain('<article class="theme-card">Kungsgatan 3</article>');
-      expect(body).not.toContain(
-        '<div class="w-full bg-white shadow-lg rounded-lg overflow-hidden">',
+      const { body } = await page('/');
+      expect(body).toContain('Grimsbygatan 24A, Malmö');
+      expect(body).toContain('--k-display-size:40px');
+    } finally {
+      await wp('theme', 'mod', 'remove', 'kowboy_address', 'kowboy_display_size');
+    }
+  });
+});
+
+describe('the plugin’s set machinery, with a set plugin', () => {
+  it('lets a set plugin serve the views under another theme, and a copy in that theme override one of them', async () => {
+    await driver('theme', 'twentytwentyone');
+    await driver('option', 'core_client_template_set "fixture"');
+    mkdirSync(THEME_OVERRIDES, { recursive: true });
+    try {
+      let { body } = await page('/?post_type=core_property');
+      expect(body).toContain('<article class="fixture-card">Kungsgatan 3</article>');
+      expect(body).not.toContain('class="k-card"');
+      expect(body).toContain('fixture.css');
+      writeFileSync(
+        join(THEME_OVERRIDES, 'card-property.php'),
+        '<?php ?><article class="theme-card"><?php echo esc_html((string) $item["address"]["street"]); ?></article>',
       );
-      expect(body).toContain('kowboy-property-list-wrapper'); // the wrapper is still the set's
+      ({ body } = await page('/?post_type=core_property'));
+      expect(body).toContain('<article class="theme-card">Kungsgatan 3</article>');
+      expect(body).not.toContain('fixture-card');
     } finally {
       rmSync(THEME_OVERRIDES, { recursive: true, force: true });
+      await driver('option', 'core_client_template_set ""');
+      await driver('theme', 'kowboy-2026');
     }
   });
 
-  it('renders inside a shadow root when the site asks for it, or by the set’s default, with the stylesheets linked inside', async () => {
-    await driver('option', 'core_client_shadow_dom true');
+  it('renders inside a shadow root by default, with the stylesheets linked inside, and on the page when the site turns it off', async () => {
+    const { body } = await page(await permalink('property', 'P-1'));
+    expect(body).toContain(
+      '<core-view><template shadowrootmode="open"><link rel="stylesheet" href="',
+    );
+    expect(body).toContain('kowboy-2026-vendor.css');
+    expect(body).toContain('kowboy-2026.css');
+    // The list inside an agent page opens no second root.
+    const agent = await page(await permalink('agent', 'S-1'));
+    expect(agent.body.match(/<template shadowrootmode="open">/g)).toHaveLength(1);
+    await driver('option', 'core_client_shadow_dom "0"');
     try {
-      const { body } = await page(await permalink('property', 'P-1'));
-      expect(body).toContain(
-        '<core-view><template shadowrootmode="open"><link rel="stylesheet" href="',
-      );
-      expect(body).toContain('kowboy-2026-vendor.css');
-      expect(body).toContain('kowboy-2026.css');
-      // The list inside an agent page opens no second root.
-      const agent = await page(await permalink('agent', 'S-1'));
-      expect(agent.body.match(/<template shadowrootmode="open">/g)).toHaveLength(1);
-      // Off: the stylesheets go on the page instead.
-      await driver('option', 'core_client_shadow_dom false');
       const plain = await page(await permalink('property', 'P-1'));
       expect(plain.body).not.toContain('<template shadowrootmode="open">');
       expect(plain.body).toContain("id='core-client-set-css'");
     } finally {
-      await driver('option', 'core_client_shadow_dom false');
+      await driver('option', 'core_client_shadow_dom null');
     }
   });
 
-  it('uses the one installed set when none is chosen, or when the chosen one is not there', async () => {
+  it('uses the active theme’s set when none is chosen, or when the chosen one is not there', async () => {
     await driver('option', 'core_client_template_set "no-such-set"');
     try {
-      expect((await page('/?post_type=core_property')).body).toContain(
-        'kowboy-property-list-wrapper',
-      );
+      expect((await page('/?post_type=core_property')).body).toContain('class="k-list"');
     } finally {
       await driver('option', 'core_client_template_set ""');
     }
-    expect((await page('/?post_type=core_property')).body).toContain(
-      'kowboy-property-list-wrapper',
-    );
-    expect((await page('/?post_type=core_property')).body).toContain(
-      'data-status="for_sale">Till salu',
-    );
+    const { body } = await page('/?post_type=core_property');
+    expect(body).toContain('class="k-list"');
+    expect(body).toContain('data-tab="for_sale">Till salu');
   });
 });

@@ -1,4 +1,4 @@
-// Deploy the WordPress client and every template set to a site over HTTPS, the way a person
+// Deploy the WordPress client and the theme (the template set) to a site over HTTPS, the way a person
 // would through the WordPress admin: sign in, upload each package's zip (replacing what is there),
 // activate it, and write the plugin's settings. Nothing but web traffic leaves the machine, so an
 // agent's session can run it against any host (docs/staging-site.md, "Access, the whole workflow").
@@ -108,7 +108,9 @@ async function pageHtml(path) {
 
 /** The version a package's main file declares. */
 const versionOf = (dir, name) =>
-  /^\s*\*\s*Version:\s*(\S+)/m.exec(readFileSync(join(dir, `${name}.php`), 'utf8'))?.[1] ?? '';
+  /^\s*\*?\s*Version:\s*(\S+)/m.exec(
+    readFileSync(join(dir, name === 'style' ? 'style.css' : `${name}.php`), 'utf8'),
+  )?.[1] ?? '';
 
 /**
  * Upload one package's zip; when the plugin is there already, replace it with the upload. The
@@ -173,6 +175,67 @@ async function activate(pkg) {
   console.log(`${pkg.name}: activated`);
 }
 
+/** Upload a theme's zip the same way, replacing it when it is there; the proof is the REST API's word on the version. */
+async function uploadTheme(pkg, zipPath) {
+  const installPage = await pageHtml('/wp-admin/theme-install.php?browse=featured');
+  const nonce = nonceIn(installPage, /name="_wpnonce" value="([^"]+)"/);
+  const form = new FormData();
+  form.set('_wpnonce', nonce);
+  form.set('_wp_http_referer', '/wp-admin/theme-install.php');
+  form.set('install-theme-submit', 'Install Now');
+  form.set(
+    'themezip',
+    new Blob([readFileSync(zipPath)], { type: 'application/zip' }),
+    `${pkg.name}.zip`,
+  );
+  const response = await follow(
+    await call('/wp-admin/update.php?action=upload-theme', { method: 'POST', body: form }),
+  );
+  const html = await response.text();
+  const replace =
+    /update\.php\?action=upload-theme&amp;package=([^&"]+)&amp;overwrite=update-theme&amp;_wpnonce=([^"&]+)/.exec(
+      html,
+    );
+  if (replace) {
+    await follow(
+      await call(
+        `/wp-admin/update.php?action=upload-theme&package=${replace[1]}&overwrite=update-theme&_wpnonce=${replace[2]}`,
+      ),
+    );
+  }
+  const installed = await rest(`/themes/${pkg.name}`);
+  if (installed.body?.version !== pkg.version) {
+    const content = html.slice(html.indexOf('id="wpbody-content"'));
+    const notice = content
+      .replace(/<script[\s\S]*?<\/script>|<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    throw new Error(
+      `${pkg.name}: ${pkg.version} is not what the site holds after the upload: ${notice.slice(0, 400)}`,
+    );
+  }
+  console.log(`${pkg.name} ${pkg.version}: uploaded`);
+}
+
+async function activateTheme(pkg) {
+  const current = await rest(`/themes/${pkg.name}`);
+  if (current.body?.status === 'active') {
+    console.log(`${pkg.name}: already active`);
+    return;
+  }
+  const html = await pageHtml('/wp-admin/themes.php');
+  const link = new RegExp(
+    `themes\\.php\\?action=activate&amp;stylesheet=${pkg.name}&amp;_wpnonce=([^"&]+)`,
+  ).exec(html);
+  if (!link) throw new Error(`${pkg.name}: no activation link on the themes page`);
+  await follow(
+    await call(`/wp-admin/themes.php?action=activate&stylesheet=${pkg.name}&_wpnonce=${link[1]}`),
+  );
+  const after = await rest(`/themes/${pkg.name}`);
+  if (after.body?.status !== 'active') throw new Error(`${pkg.name}: the activation did not take`);
+  console.log(`${pkg.name}: activated`);
+}
+
 const TEXT_SETTINGS = [
   'core_client_url',
   'core_client_token',
@@ -224,29 +287,35 @@ const release = join(root, 'clients', 'wordpress', 'release.php');
 const channel = process.env['CORE_CLIENT_CHANNEL'] ?? 'https://example.invalid/channel';
 const packages = [
   {
+    kind: 'plugin',
     name: 'core-client',
     dir: join(root, 'clients', 'wordpress', 'core-client'),
     file: 'core-client/core-client.php',
   },
 ];
-for (const slug of readdirSync(join(root, 'clients', 'wordpress', 'templates'))) {
-  const name = `core-client-templates-${slug}`;
+for (const slug of readdirSync(join(root, 'clients', 'wordpress', 'themes'))) {
   packages.push({
-    name,
-    dir: join(root, 'clients', 'wordpress', 'templates', slug),
-    file: `${name}/${name}.php`,
+    kind: 'theme',
+    name: slug,
+    dir: join(root, 'clients', 'wordpress', 'themes', slug),
+    file: 'style.css',
   });
 }
 for (const pkg of packages) {
-  pkg.version = versionOf(pkg.dir, pkg.name);
+  pkg.version = versionOf(pkg.dir, pkg.kind === 'theme' ? 'style' : pkg.name);
   execFileSync('php', [release, 'package', pkg.dir, pkg.name, out, channel], { stdio: 'inherit' });
 }
 
 await signIn();
 restNonce = nonceIn(await pageHtml('/wp-admin/'), /createNonceMiddleware\(\s*"([^"]+)"\s*\)/);
 for (const pkg of packages) {
-  await upload(pkg, join(out, `${pkg.name}.zip`));
-  await activate(pkg);
+  if (pkg.kind === 'theme') {
+    await uploadTheme(pkg, join(out, `${pkg.name}.zip`));
+    await activateTheme(pkg);
+  } else {
+    await upload(pkg, join(out, `${pkg.name}.zip`));
+    await activate(pkg);
+  }
 }
 if (settings) await writeSettings(settings);
 console.log(`deployed to ${site}`);

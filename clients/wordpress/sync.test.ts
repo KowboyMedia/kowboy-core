@@ -84,24 +84,17 @@ describe('the WordPress client', () => {
     const out = mkdtempSync(join(tmpdir(), 'core-client-release-'));
     const release = join(import.meta.dirname, 'release.php');
     const plugin = join(import.meta.dirname, 'core-client');
-    const set = join(import.meta.dirname, 'templates', 'kowboy-2026');
-    await run('php', [
-      release,
-      'package',
-      plugin,
-      'core-client',
-      out,
-      'https://example.test/channel',
-    ]);
-    await run('php', [
-      release,
-      'package',
-      set,
-      'core-client-templates-kowboy-2026',
-      out,
-      'https://example.test/channel',
-    ]);
-    await run('php', [release, 'index', out, 'https://example.test/channel', `kowboy-2026=${set}`]);
+    const theme = join(import.meta.dirname, 'themes', 'kowboy-2026');
+    const set = join(import.meta.dirname, 'test', 'fixtures', 'core-client-templates-fixture');
+    const targets: [string, string][] = [
+      [plugin, 'core-client'],
+      [theme, 'kowboy-2026'],
+      [set, 'core-client-templates-fixture'],
+    ];
+    for (const [dir, name] of targets) {
+      await run('php', [release, 'package', dir, name, out, 'https://example.test/channel']);
+    }
+    await run('php', [release, 'index', out, 'https://example.test/channel', `fixture=${set}`]);
 
     const { stdout } = await run('unzip', ['-Z1', join(out, 'core-client.zip')]);
     const files = stdout.trim().split('\n').sort();
@@ -119,24 +112,34 @@ describe('the WordPress client', () => {
       package: `https://example.test/channel/core-client/core-client-${version}.zip`,
     });
 
+    // The theme's package is named by its style.css header and holds the views and the assets.
+    const themeFiles = (await run('unzip', ['-Z1', join(out, 'kowboy-2026.zip')])).stdout
+      .trim()
+      .split('\n');
+    expect(themeFiles).toContain('kowboy-2026/style.css');
+    expect(themeFiles).toContain('kowboy-2026/core/single-core_property.php');
+    expect(themeFiles).toContain('kowboy-2026/assets/kowboy-2026.css');
+    const themeVersion = /^Version:\s*(\S+)/m.exec(
+      readFileSync(join(theme, 'style.css'), 'utf8'),
+    )?.[1];
+    expect(JSON.parse(readFileSync(join(out, 'kowboy-2026.json'), 'utf8'))).toEqual({
+      version: themeVersion,
+      package: `https://example.test/channel/kowboy-2026/kowboy-2026-${themeVersion}.zip`,
+    });
+
     const setFiles = (
-      await run('unzip', ['-Z1', join(out, 'core-client-templates-kowboy-2026.zip')])
+      await run('unzip', ['-Z1', join(out, 'core-client-templates-fixture.zip')])
     ).stdout
       .trim()
       .split('\n');
-    expect(setFiles).toContain(
-      'core-client-templates-kowboy-2026/core-client-templates-kowboy-2026.php',
-    );
-    expect(setFiles).toContain('core-client-templates-kowboy-2026/single-core_property.php');
-    const setVersion = /^\s*\*\s*Version:\s*(\S+)/m.exec(
-      readFileSync(join(set, 'core-client-templates-kowboy-2026.php'), 'utf8'),
-    )?.[1];
+    expect(setFiles).toContain('core-client-templates-fixture/core-client-templates-fixture.php');
+    expect(setFiles).toContain('core-client-templates-fixture/card-property.php');
     expect(JSON.parse(readFileSync(join(out, 'sets.json'), 'utf8'))).toEqual([
       {
-        slug: 'kowboy-2026',
-        name: 'Kowboy Core templates: Kowboy 2026',
-        version: setVersion,
-        package: `https://example.test/channel/core-client-templates-kowboy-2026/core-client-templates-kowboy-2026-${setVersion}.zip`,
+        slug: 'fixture',
+        name: 'Core client templates: fixture',
+        version: '0.1.0',
+        package: `https://example.test/channel/core-client-templates-fixture/core-client-templates-fixture-0.1.0.zip`,
       },
     ]);
   });
@@ -147,7 +150,8 @@ describe('the WordPress client', () => {
       (file) =>
         file.endsWith('.php') &&
         !file.startsWith('vendor/') &&
-        !file.startsWith('core-client/lib/'),
+        !file.startsWith('core-client/lib/') &&
+        !file.startsWith('themes/kowboy-2026/assets/'),
     );
     expect(files.length).toBeGreaterThan(5);
     for (const file of files) await run('php', ['-l', join(import.meta.dirname, file)]);
@@ -160,16 +164,16 @@ describe('the WordPress client', () => {
           version: '9.9.9',
           package: 'https://kowboy.se/core-client-9.9.9.zip',
         },
-        '/core-client-templates-kowboy-2026/core-client-templates-kowboy-2026.json': {
+        '/core-client-templates-fixture/core-client-templates-fixture.json': {
           version: '9.9.9',
-          package: 'https://kowboy.se/core-client-templates-kowboy-2026-9.9.9.zip',
+          package: 'https://kowboy.se/core-client-templates-fixture-9.9.9.zip',
         },
         '/sets.json': [
           {
-            slug: 'kowboy-2026',
-            name: 'Kowboy 2026',
+            slug: 'fixture',
+            name: 'Fixture set',
             version: '9.9.9',
-            package: 'https://kowboy.se/core-client-templates-kowboy-2026-9.9.9.zip',
+            package: 'https://kowboy.se/core-client-templates-fixture-9.9.9.zip',
           },
           {
             slug: 'kowboy-2027',
@@ -191,13 +195,13 @@ describe('the WordPress client', () => {
       }>('update-check', url);
       expect(result.offered).toEqual({
         'core-client': { version: '9.9.9', package: 'https://kowboy.se/core-client-9.9.9.zip' },
-        'core-client-templates-kowboy-2026': {
+        'core-client-templates-fixture': {
           version: '9.9.9',
-          package: 'https://kowboy.se/core-client-templates-kowboy-2026-9.9.9.zip',
+          package: 'https://kowboy.se/core-client-templates-fixture-9.9.9.zip',
         },
       });
       const { sets } = await driver<{ sets: { slug: string }[] }>('sets', url);
-      expect(sets.map((set) => set.slug)).toEqual(['kowboy-2026', 'kowboy-2027']);
+      expect(sets.map((set) => set.slug)).toEqual(['fixture', 'kowboy-2027']);
     } finally {
       channel.close();
     }

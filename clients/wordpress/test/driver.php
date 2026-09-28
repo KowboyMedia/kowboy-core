@@ -175,6 +175,38 @@ function core_driver_update_check(): array
     return ['update' => $offered['core-client'] ?? null, 'offered' => $offered];
 }
 
+/** `theme <stylesheet>`: switch the test install's theme. */
+function core_driver_theme(string $argument): array
+{
+    switch_theme(trim($argument));
+    return ['theme' => get_option('stylesheet')];
+}
+
+/** `demo-pages`: what the theme does on activation (its demo pages and menus), and the pages' addresses. */
+function core_driver_demo_pages(): array
+{
+    do_action('after_switch_theme');
+    $pages = [];
+    foreach (['hem', 'till-salu', 'salda-bostader', 'om-oss'] as $slug) {
+        $page = get_page_by_path($slug);
+        $pages[$slug] = $page instanceof WP_Post ? get_permalink($page) : null;
+    }
+    return ['pages' => $pages, 'front' => (int) get_option('page_on_front')];
+}
+
+/** `plugin activate|deactivate <plugin file>`: a test plugin (the fixture set) on or off. */
+function core_driver_plugin(string $argument): array
+{
+    require_once ABSPATH . 'wp-admin/includes/plugin.php';
+    [$action, $plugin] = explode(' ', trim($argument), 2) + ['', ''];
+    if ($action === 'activate') {
+        $result = activate_plugin($plugin);
+        return ['active' => !is_wp_error($result), 'error' => is_wp_error($result) ? $result->get_error_message() : null];
+    }
+    deactivate_plugins($plugin);
+    return ['active' => false, 'error' => null];
+}
+
 /**
  * Put one item into the local copy as if Core had served it, so a page can be rendered from a
  * golden record without a Core in between (the comparison against the master site).
@@ -209,7 +241,9 @@ function core_driver_import(array $spec): array
 function core_driver_option(string $argument): array
 {
     [$name, $json] = explode(' ', $argument, 2) + ['', null];
-    if ($json !== null) {
+    if ($json === 'null') {
+        delete_option($name);
+    } elseif ($json !== null) {
         update_option($name, json_decode($json, true));
     }
     return ['value' => get_option($name)];
@@ -226,6 +260,9 @@ $result = match ($command) {
     'update-check' => core_driver_update_check(),
     'sets' => ['sets' => core_client_available_sets()],
     'option' => core_driver_option($argument),
+    'plugin' => core_driver_plugin($argument),
+    'theme' => core_driver_theme($argument),
+    'demo-pages' => core_driver_demo_pages(),
     'import' => core_driver_import((array) json_decode($argument, true)),
     default => null,
 };
