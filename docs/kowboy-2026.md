@@ -78,10 +78,14 @@ and the deploy script installs the theme too. The tests
 (`clients/wordpress/templates.test.ts`) cover the lists, the pages, the blocks and demo pages,
 the theme options, and the set machinery with a fixture set plugin.
 
-What is not from the design's file yet, because Figma's connector stopped after two section reads
-(question 102): the exact spacings, radii and type sizes of every section are read from the
-design's screenshots and the frames' geometry, not from the file's values; the next pass with a
-token reads them section by section.
+On the same night the sections were set to the file's exact values through Figma's API (question
+102), and a second agent with no memory of the build compared the rendered pages with the
+design and listed 22 mismatches; the notable ones are fixed (the search card on the hero's edge,
+the tabs centred under it, the card and agent gradients as drawn, the section bands, the viewing
+card with its button inside, the side agent card's shape, the hero heights, the footer's three
+columns, the scroll indicator, the map's pin and controls). What remains is content the office
+adds (the hero pictures, the logotype, the address) and the mobile frames, which Figma's API has
+not yet answered.
 
 ## Order of work
 
