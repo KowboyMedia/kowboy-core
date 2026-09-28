@@ -1,3 +1,4 @@
+/* global document, window */
 // Screenshots of a site's pages, for iterating on a template set against a live site
 // (docs/staging-site.md, "The loop as it runs"): the property list, the first property it links
 // to, and the agent list, at desktop and phone widths, as JPEG files in a folder.
