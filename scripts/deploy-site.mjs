@@ -123,7 +123,15 @@ async function upload(name, zipPath) {
     html = await response.text();
   }
   if (!/(Plugin installed successfully|Plugin updated successfully|Plugin replaced)/i.test(html)) {
-    throw new Error(`${name}: the upload did not end in an installed plugin`);
+    // WordPress's own words for what went wrong (a PHP version too old, a broken zip), from the page's content.
+    const content = html.slice(html.indexOf('id="wpbody-content"'));
+    const notice = content
+      .replace(/<script[\s\S]*?<\/script>|<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    throw new Error(
+      `${name}: the upload did not end in an installed plugin: ${notice.slice(0, 400)}`,
+    );
   }
   console.log(`${name}: uploaded`);
 }

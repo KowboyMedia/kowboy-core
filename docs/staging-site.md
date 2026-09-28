@@ -146,13 +146,16 @@ writes any of the plugin's settings while keeping the rest. It is plain web traf
 from a session against any host. Proved 2026-09-28 on a copy of the local test install: install,
 replace, activate, the updater placed, the settings kept across a partial write.
 
-**Where it stands** (2026-09-28). The app "v4-staging" exists on Kowboy's Cloudways dev server
-(application 6698706 on server 1545003, created through the API on Patric's word), and
-`*.dev.kowboy.se` points at that server (165.22.87.59). The Cloudways token creates applications
-and reads nothing, so the app's address and login are unknown here and `v4.dev.kowboy.se` cannot
-be attached to it (question 88). Staging Core's admin API is entered by a mailed link that an
-agent reads from the mailbox; on 2026-09-28 the mail did not arrive (question 98). Both gates are
-Patric's; nothing else is missing.
+**Where it stands** (2026-09-28, evening). The app "v4-staging" exists on Kowboy's Cloudways dev
+server (application 6698706 on server 1545003, created through the API on Patric's word) and
+answers at `https://wordpress-1545003-6698706.cloudwaysapps.com/`; its WordPress admin login
+lives in Cloudways (the app's access details) and in the chat Patric pasted it in, never here.
+`*.dev.kowboy.se` points at that server (165.22.87.59), but the Cloudways token creates
+applications and reads nothing, so `v4.dev.kowboy.se` cannot be attached to the app from here
+(question 88). The site runs PHP 8.2 and WordPress refuses the plugin's package, which asks for
+8.3 (question 99). Staging Core's admin API is entered by a mailed link that an agent reads from
+the mailbox; Gmail delays the mail about nine minutes because kowboy.se has no email
+authentication for Postmark (question 100), so an agent asks for a link and waits.
 
 ## Cache invalidation: the WordPress way, and nothing else
 

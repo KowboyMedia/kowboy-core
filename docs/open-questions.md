@@ -181,3 +181,31 @@ the server that sends staging's mail, find the two mails "Sign in to Kowboy Core
 2026-09-28 after 16:00 UTC, and paste what it says about them (delivered, bounced, or not there),
 then say "pasted". Until this is answered, the staging site cannot be joined to staging Core, and
 the set's pages on it show no records.
+
+**Answered 2026-09-28** (Patric pasted Postmark's record): the mail is delivered, nine minutes
+late. Gmail's server refused it twice ("unable to accept the message") and took it on the third
+try, because kowboy.se has no email authentication set up for Postmark (Postmark says so on the
+same page). A link lives fifteen minutes, so nine minutes of delay still leaves an agent time,
+and an agent now asks for a link and waits for it. What remains is the delay's cause, question 100. 98 moves to the decisions.
+
+## 99. `[client-wordpress]` The staging site runs PHP 8.2 and the plugin asks for 8.3
+
+The site Patric named (application 6698706, `wordpress-1545003-6698706.cloudwaysapps.com`) runs
+PHP 8.2.34, and WordPress refuses the plugin's package on upload: "the uploaded plugin requires
+8.3". The plugin's requirement of PHP 8.3 is written down (staging-site.md, "what the plugin
+needs from any host"), and the Cloudways token cannot change the app's PHP version (every such
+call is refused). Two ways: in Cloudways, open the app "v4-staging", set its PHP version to 8.3
+(Application Settings), then say "8.3", which is one click and keeps the requirement; or approve
+the plugin running on PHP 8.2 (the requirement lowered to 8.2 in both packages, the test suite
+run once on 8.2), which makes the plugin serve more hosts but loosens what was decided. The
+smaller option is the click. Answer "8.3" or "8.2".
+
+## 100. `[core]` kowboy.se has no email authentication for Postmark, so Gmail delays Core's mail
+
+Postmark's page for the sign-in mail of 2026-09-28 says: "we recommend that you set up email
+authentication for kowboy.se". Without it Gmail's server refuses Core's mail at first and takes
+it minutes later (98). The fix is two DNS records on kowboy.se, which Postmark shows under Sender
+Signatures, kowboy.se (a DKIM record and a Return-Path record). Only someone with access to
+kowboy.se's DNS can add them; the agents have no such access. Add the two records Postmark shows,
+then say "added"; or give an agent a way to write kowboy.se's DNS records (the name of the DNS
+provider and a token limited to DNS), then say "token saved".
