@@ -172,3 +172,25 @@ other kinds. Building it is the client's work (the site reads its own stored val
 slug, and the redirect rule already covers a slug that changes), about a day, and it changes
 every address on the site once. Build it now, before the look is iterated on, or after? Answer
 "now" or "after".
+
+## 102. `[client-wordpress]` The updated design for the 2026 set lives in Figma: how an agent reads it
+
+Patric (2026-09-28): the single property page looks right, the list looks broken, and an
+updated design exists in Figma. An agent cannot open a `.fig` file or a Figma share link on its
+own (the file is a Figma application, not a page), and screenshots exported by hand lose the
+measurements. Two ways in, both one step for Patric, ranked by what the agent gets:
+
+1. **The Figma connector** (Figma's own MCP server, in claude.ai's connector directory, not yet
+   connected for this organisation): gives an agent each frame's structure, its layout and
+   style values as code-like output, the design's variables (colours, type, spacing) and a
+   rendered screenshot of any frame. In claude.ai, Settings, Connectors, connect Figma, then
+   turn it on for this chat, then say "connected".
+2. **A Figma personal access token** in the session environment as `FIGMA_TOKEN`: the agent
+   reads the file through Figma's REST API (reachable from the sessions), every node with its
+   sizes, fills and text styles, and renders any frame as an image. Less digested than the
+   connector, but it works in every session without a per-chat switch. In Figma, Settings,
+   Security, generate a token with file read access, save it as `FIGMA_TOKEN`, then say "saved".
+
+Either way the file's link is needed too: paste the Figma file's URL. "Claude Design mode" (the
+Design artifact type this account has) is for making designs on a canvas, not for reading a
+Figma file, so it does not help here. Answer "connector" or "token", and paste the file's link.
