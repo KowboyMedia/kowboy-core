@@ -264,7 +264,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('k-hero__title--left">Kungsgatan 3</h1>');
     expect(body).toContain('Utgångspris');
     expect(body).toContain('5 000 000 kr');
-    expect(body).toContain('class="k-hero__status">Kommande</li>');
+    expect(body).toContain('k-hero__status">Kommande</li>');
     expect(body).toContain('k-label--bright">Vasastan</p>');
     expect(body).toContain('Ljus trea med balkong.');
     expect(body).toContain('<li class="k-chip">4 rum</li>');

@@ -26,7 +26,7 @@ $location = (string) ($display['location'] ?? '');
 $text = (string) ($item['long_text'] ?? $item['short_text'] ?? '');
 
 $chips = array_filter([
-    $price,
+    $price === null ? null : trim(($sold ? 'Slutpris ' : (($price_label ?? '') === '' ? '' : $price_label . ' ')) . $price),
     $display['rooms'] ?? null,
     isset($display['fee_amount']) ? $display['fee_amount'] . '/mån' : null,
     $display['living_space'] ?? null,
@@ -106,17 +106,17 @@ $hero_content = '<div class="k-hero__head">'
     . '<h1 class="k-hero__title k-hero__title--left">' . esc_html($street) . '</h1>'
     . '</div>'
     . '<ul class="k-hero__facts">'
-    . ($price !== null ? '<li><strong>' . esc_html((string) $price) . '</strong>' . ($sold ? ' <span class="k-hero__price-label">Slutpris</span>' : '') . '</li>' : '')
-    . (isset($display['rooms']) ? '<li>' . esc_html((string) $display['rooms']) . '</li>' : '')
-    . (isset($display['living_space']) ? '<li>' . esc_html((string) $display['living_space']) . '</li>' : '')
-    . ($status !== '' ? '<li class="k-hero__status">' . esc_html($status) . '</li>' : '')
+    . ($price !== null ? '<li class="k-pill">' . esc_html((string) $price) . ($sold ? ' <span class="k-hero__price-label">Slutpris</span>' : '') . '</li>' : '')
+    . (isset($display['rooms']) ? '<li class="k-pill">' . esc_html((string) $display['rooms']) . '</li>' : '')
+    . (isset($display['living_space']) ? '<li class="k-pill">' . esc_html((string) $display['living_space']) . '</li>' : '')
+    . ($status !== '' ? '<li class="k-pill k-hero__status">' . esc_html($status) . '</li>' : '')
     . '</ul></div>';
 echo kowboy_part('hero', ['media' => $hero, 'content' => $hero_content, 'variant' => 'property', 'alt' => $street]);
 ?>
 <div class="k-property">
     <div class="k-container k-property__grid">
         <div class="k-property__main">
-            <?php if ($price_label !== null && !$sold) : ?><p class="k-label"><?php echo esc_html((string) $price_label); ?></p><?php endif; ?>
+            <p class="k-label">Om bostaden</p>
             <?php if ($text !== '') : ?><div class="k-property__text"><?php echo wp_kses_post(wpautop(esc_html($text))); ?></div><?php endif; ?>
             <?php if ($chips !== []) : ?>
                 <ul class="k-chips"><?php foreach ($chips as $chip) : ?><li class="k-chip"><?php echo esc_html((string) $chip); ?></li><?php endforeach; ?></ul>
@@ -145,7 +145,7 @@ echo kowboy_part('hero', ['media' => $hero, 'content' => $hero_content, 'variant
                             </div>
                         <?php endforeach; ?>
                     <?php endif; ?>
-                    <a class="k-button" href="#k-interest">Boka visning</a>
+                    <a class="k-button" href="#k-interest">Boka här</a>
                 </div>
             <?php endif; ?>
             <?php if ($agents !== []) : ?>
