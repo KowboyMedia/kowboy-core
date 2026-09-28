@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 88 (75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 89 (75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
@@ -53,3 +53,18 @@ the next settings change on either app (the Postmark token for live's sign-in li
 Space keys, Sentry) and for reading deployment state. Make a new personal access token in the
 DigitalOcean account with read and write on apps, save it in the session environment's settings
 under the same name, then say "saved"; the next session picks it up.
+
+## 88. `[client-wordpress]` The Kowboy design file in Figma cannot be read by an agent
+
+On 2026-09-28 Patric asked for the pages of the Kowboy design file (Figma, the file named
+"Kowboy", node 2601-2) to be built as static HTML, CSS and JavaScript. Every read of that file
+through the Figma connection ("Looks like you don't have edit access to this file") is refused,
+although the connection signs in as Patric's own account (patric@kowboy.se, a Full seat on the
+team "Patric Landstrom's team", Starter plan). The Starter plan allows twenty reads a month
+through the connection, and a file that lives outside that team (another person's file shared
+for viewing, or a draft in another workspace) is not readable through it. Nothing can be built
+before the file is readable: the pages, their words, colours and pictures all come from it, and
+guessing them would be inventing the design. Move the file into "Patric Landstrom's team" (in
+Figma: open the file, use "Move to project" and pick that team), or if it is someone else's
+file, have its owner give patric@kowboy.se edit access; then say "moved" or "shared" and give
+the same link again. Smaller: move the file, which needs no one else.
