@@ -162,6 +162,24 @@ takes those mails and shows them nowhere until kowboy.se's DNS carries the recor
 for (question 100), so until then Patric pastes the link from Postmark's message page and the
 agent signs in with it.
 
+**The loop as it runs** (2026-09-28, night). Two scripts and one sign-in, all from a session:
+
+1. `SITE_URL=… WP_USER=… WP_PASSWORD=… node scripts/deploy-site.mjs [--settings '{…}']` puts the
+   branch's plugin and every set on the site (the packages' versions are checked through the
+   WordPress REST API afterwards, so the site's language plays no part), and writes settings.
+2. `SITE_URL=… node scripts/shoot-site.mjs <folder> [path …]` screenshots the property list, the
+   first property it links to and the agent list at desktop and phone widths; an agent reads the
+   files and compares them with the master's pages.
+3. Staging Core's admin API, for the tenant page, a ring and the timeline: `POST /v1/admin/sign-in`
+   with Patric's address mails a link; until question 100 is answered Patric pastes it from
+   Postmark's message page and the agent opens it once to get its session cookie.
+
+The site's own settings, set once on 2026-09-28 through its admin and recorded here: language
+Swedish (`sv_SE`, so dates and weekdays read as on the master), time zone Europe/Stockholm,
+permalinks `/%postname%/`. The plugin registers its post types before it rebuilds the rewrite
+rules on activation and again once after an update (version 0.2.1), so record pages answer
+without a permalink save.
+
 ## Cache invalidation: the WordPress way, and nothing else
 
 Decided 2026-09-20 (questions 67 and 68 closed: an agent's decision, not Patric's). The plugin

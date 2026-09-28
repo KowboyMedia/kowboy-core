@@ -231,7 +231,7 @@ admin works. Decided (an agent's decision, within the rules):
 Steps 1 to 3 of next-steps item 17, and item 18, on the local WordPress of the test suite (the
 Cloudways site waits on questions 87 and 88). What stands:
 
-- **The sync plugin** (`clients/wordpress/core-client`, version 0.2.0): the query function
+- **The sync plugin** (`clients/wordpress/core-client`, version 0.2.1): the query function
   (`includes/query.php`), the sets' registry, the override rule, the one list function, the
   shortcode `[core_list]`, the reload endpoint `GET /wp-json/core/v1/list`, the routing of single
   pages and archives through `includes/view-page.php`, shadow DOM as a setting, and the installer:

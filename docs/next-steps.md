@@ -305,8 +305,10 @@ client ports (item 16, first client by question 80).
        taken by Google and shown nowhere (98; the fix is the DNS records of 100), so the site is
        joined to `kowboy-test` as soon as Patric pastes a sign-in link from Postmark's message
        page: add the site, write token and bell secret into its settings with the deploy script,
-       ring it, then the page-by-page loop against norbanmakleri.se with screenshots from the
-       live site.
+       ring it: all done the same night, with the pasted link. The site holds every record of
+       the test office, speaks Swedish, and its pages answer (`docs/staging-site.md`, "The loop
+       as it runs"). Next: the page-by-page loop against norbanmakleri.se with
+       `scripts/shoot-site.mjs`, and question 101 (the slug rule) when Patric answers it.
 
 18. **The display fields, first attempt** (Patric, 2026-09-23): for every value
     norbanmakleri.se shows on a card, a list or a single page, the prepared string `display`

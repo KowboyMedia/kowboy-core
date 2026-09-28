@@ -86,14 +86,35 @@ const nonceIn = (html, pattern) => {
   return found[1];
 };
 
+/** The REST nonce the admin pages carry, so the WordPress REST API answers for the signed-in user. */
+let restNonce = '';
+async function rest(path, init = {}) {
+  const response = await call(`/wp-json/wp/v2${path}`, {
+    ...init,
+    headers: {
+      ...(init.headers ?? {}),
+      'x-wp-nonce': restNonce,
+      'content-type': 'application/json',
+    },
+  });
+  return { status: response.status, body: await response.json().catch(() => null) };
+}
+
 async function pageHtml(path) {
   const response = await follow(await call(path));
   if (response.status !== 200) throw new Error(`${path} answered http ${response.status}`);
   return response.text();
 }
 
-/** Upload one package's zip; when the plugin is there already, replace it with the upload. */
-async function upload(name, zipPath) {
+/** The version a package's main file declares. */
+const versionOf = (dir, name) =>
+  /^\s*\*\s*Version:\s*(\S+)/m.exec(readFileSync(join(dir, `${name}.php`), 'utf8'))?.[1] ?? '';
+
+/**
+ * Upload one package's zip; when the plugin is there already, replace it with the upload. The
+ * proof is the REST API's word on the installed version, so the site's language plays no part.
+ */
+async function upload(pkg, zipPath) {
   const installPage = await pageHtml('/wp-admin/plugin-install.php?tab=upload');
   const nonce = nonceIn(installPage, /name="_wpnonce" value="([^"]+)"/);
   const form = new FormData();
@@ -103,26 +124,26 @@ async function upload(name, zipPath) {
   form.set(
     'pluginzip',
     new Blob([readFileSync(zipPath)], { type: 'application/zip' }),
-    `${name}.zip`,
+    `${pkg.name}.zip`,
   );
-  let response = await follow(
+  const response = await follow(
     await call('/wp-admin/update.php?action=upload-plugin', { method: 'POST', body: form }),
   );
-  let html = await response.text();
+  const html = await response.text();
   const replace =
     /update\.php\?action=upload-plugin&amp;package=([^&"]+)&amp;overwrite=update-plugin&amp;_wpnonce=([^"&]+)/.exec(
       html,
     );
   if (replace) {
     // The plugin exists: WordPress offers "Replace current with uploaded"; take it.
-    response = await follow(
+    await follow(
       await call(
         `/wp-admin/update.php?action=upload-plugin&package=${replace[1]}&overwrite=update-plugin&_wpnonce=${replace[2]}`,
       ),
     );
-    html = await response.text();
   }
-  if (!/(Plugin installed successfully|Plugin updated successfully|Plugin replaced)/i.test(html)) {
+  const installed = await rest(`/plugins/${pkg.file.replace(/\.php$/, '')}`);
+  if (installed.body?.version !== pkg.version) {
     // WordPress's own words for what went wrong (a PHP version too old, a broken zip), from the page's content.
     const content = html.slice(html.indexOf('id="wpbody-content"'));
     const notice = content
@@ -130,30 +151,26 @@ async function upload(name, zipPath) {
       .replace(/\s+/g, ' ')
       .trim();
     throw new Error(
-      `${name}: the upload did not end in an installed plugin: ${notice.slice(0, 400)}`,
+      `${pkg.name}: ${pkg.version} is not what the site holds after the upload: ${notice.slice(0, 400)}`,
     );
   }
-  console.log(`${name}: uploaded`);
+  console.log(`${pkg.name} ${pkg.version}: uploaded`);
 }
 
-async function activate(pluginFile) {
-  const html = await pageHtml('/wp-admin/plugins.php');
-  const escaped = pluginFile.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\//g, '(?:/|%2F)');
-  const link =
-    new RegExp(
-      `plugins\\.php\\?action=activate&amp;plugin=${escaped}&amp;plugin_status=all&amp;paged=1&amp;s(?:=)?&amp;_wpnonce=([^"&]+)`,
-    ).exec(html) ??
-    new RegExp(`action=activate&amp;plugin=${escaped}[^"]*_wpnonce=([^"&]+)`).exec(html);
-  if (!link) {
-    console.log(`${pluginFile}: already active`);
+async function activate(pkg) {
+  const plugin = pkg.file.replace(/\.php$/, '');
+  const current = await rest(`/plugins/${plugin}`);
+  if (current.body?.status === 'active') {
+    console.log(`${pkg.name}: already active`);
     return;
   }
-  await follow(
-    await call(
-      `/wp-admin/plugins.php?action=activate&plugin=${encodeURIComponent(pluginFile)}&_wpnonce=${link[1]}`,
-    ),
-  );
-  console.log(`${pluginFile}: activated`);
+  const activated = await rest(`/plugins/${plugin}`, {
+    method: 'POST',
+    body: JSON.stringify({ status: 'active' }),
+  });
+  if (activated.body?.status !== 'active')
+    throw new Error(`${pkg.name}: the activation was refused (http ${activated.status})`);
+  console.log(`${pkg.name}: activated`);
 }
 
 const TEXT_SETTINGS = [
@@ -220,13 +237,16 @@ for (const slug of readdirSync(join(root, 'clients', 'wordpress', 'templates')))
     file: `${name}/${name}.php`,
   });
 }
-for (const pkg of packages)
+for (const pkg of packages) {
+  pkg.version = versionOf(pkg.dir, pkg.name);
   execFileSync('php', [release, 'package', pkg.dir, pkg.name, out, channel], { stdio: 'inherit' });
+}
 
 await signIn();
+restNonce = nonceIn(await pageHtml('/wp-admin/'), /createNonceMiddleware\(\s*"([^"]+)"\s*\)/);
 for (const pkg of packages) {
-  await upload(pkg.name, join(out, `${pkg.name}.zip`));
-  await activate(pkg.file);
+  await upload(pkg, join(out, `${pkg.name}.zip`));
+  await activate(pkg);
 }
 if (settings) await writeSettings(settings);
 console.log(`deployed to ${site}`);

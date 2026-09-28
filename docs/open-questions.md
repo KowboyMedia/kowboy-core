@@ -145,33 +145,6 @@ last to load, and a phone pays for 6 MB per agent shown. Smaller: the adapter bu
 picture at width 1024 (a field-table change for `image` on an agent, approval needed), the
 listings' photos stay at 1920. Or keep 1920 everywhere. Answer "1024" or "keep".
 
-## 98. `[core]` Staging Core's sign-in mail does not arrive, so no agent can reach its admin API
-
-Staging Core's admin area, and the admin API behind it, are entered by a link mailed to
-patric@kowboy.se; that is the only way in (a shared secret for agents was proposed on 2026-09-28
-and refused by the session's safety rules, so it is not on the table). An agent can read the
-mailbox through the Gmail connection, so a link that arrives is enough: the agent opens it and
-works on its own, and nothing is pasted. On 2026-09-28 an agent asked for a link twice (16:01
-and 16:05 UTC). Core answered "the link is on its way" both times, the address is on the allowed
-list, the sender and the mail service (Postmark) are configured, and Core's answer means Postmark
-accepted the mail; nothing reached the mailbox in the following twenty minutes, not in spam
-either, while the two links of 2026-09-21 arrived within a minute. So the mail stops between
-Postmark and Gmail, and only Postmark's own record says where. Open Postmark's Activity page for
-the server that sends staging's mail, find the two mails "Sign in to Kowboy Core (staging)" of
-2026-09-28 after 16:00 UTC, and paste what it says about them (delivered, bounced, or not there),
-then say "pasted". Until this is answered, the staging site cannot be joined to staging Core, and
-the set's pages on it show no records.
-
-**Answered 2026-09-28** (Patric pasted Postmark's record): the mail is delivered, nine minutes
-late. Gmail's server refused it twice ("unable to accept the message") and took it on the third
-try, because kowboy.se has no email authentication set up for Postmark (Postmark says so on the
-same page). A link lives fifteen minutes, so nine minutes of delay still leaves an agent time,
-and an agent now asks for a link and waits for it. Later the same evening the picture changed: Postmark shows
-the mail of 16:05 UTC delivered to Google at 16:14, and neither it nor the one of 16:20 is in
-the mailbox an hour later, not in spam either. Google takes the mail and does not show it. The
-cause and the fix are question 100's; until then an agent asks for a link and Patric pastes it
-from Postmark's message page within fifteen minutes.
-
 ## 100. `[core]` kowboy.se has no email authentication for Postmark, so Gmail delays Core's mail
 
 Postmark's page for the sign-in mail of 2026-09-28 says: "we recommend that you set up email
@@ -188,3 +161,14 @@ records (a DKIM record and a Return-Path record) to add at kowboy.se's DNS provi
 runs `dev.kowboy.se`'s names, most likely the whole domain); add them, then say "added". Or give
 an agent a Cloudflare token limited to DNS for kowboy.se in the session environment's settings
 as `CLOUDFLARE_DNS_TOKEN`, then say "token saved", and the agent adds them.
+
+## 101. `[client-wordpress]` The site's slugs are `<connection>-<record id>`, the rule says `<status>-<area>-<street>-<id>`
+
+On the staging site a property lives at `objekt/vitec-test-obj31529_2115054844/`: the plugin
+names a post after its connection and the CRM's record id (`includes/store.php`), which is
+enough to find it and to keep the 301 rule of 2026-09-19. AGENTS.md's permanent rule reads
+`objekt/<status>-<area name>-<street address>-<id>` for a property, and the same shape for the
+other kinds. Building it is the client's work (the site reads its own stored values to make a
+slug, and the redirect rule already covers a slug that changes), about a day, and it changes
+every address on the site once. Build it now, before the look is iterated on, or after? Answer
+"now" or "after".

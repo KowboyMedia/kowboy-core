@@ -39,7 +39,9 @@ function core_client_state_table(): string
     return $wpdb->prefix . 'core_sync_state';
 }
 
-add_action('init', function (): void {
+/** One post type per datatype, under its Swedish path. Called on `init`, and by the activation hook before it flushes the rewrite rules. */
+function core_client_register_post_types(): void
+{
     foreach (core_client_datatypes() as $datatype) {
         register_post_type(core_client_post_type($datatype), [
             'label' => ucfirst($datatype),
@@ -50,6 +52,10 @@ add_action('init', function (): void {
             'show_in_rest' => false,
         ]);
     }
+}
+
+add_action('init', function (): void {
+    core_client_register_post_types();
 });
 
 /** Create or update the plugin's tables. Runs on activation and after a plugin update. */
@@ -104,12 +110,17 @@ function core_client_install(): void
 register_activation_hook(CORE_CLIENT_FILE, function (): void {
     core_client_install();
     core_client_place_updater();
+    // The activation request is past `init`, so the post types are registered here before the
+    // rewrite rules are rebuilt; otherwise every record page answers 404 until the permalinks are saved.
+    core_client_register_post_types();
     flush_rewrite_rules();
 });
 
 add_action('plugins_loaded', function (): void {
     if (get_option('core_client_db_version') !== CORE_CLIENT_VERSION) {
         core_client_install();
+        // An update arrives without the activation hook: rebuild the rewrite rules once the post types are registered.
+        add_action('init', 'flush_rewrite_rules', 20);
     }
 });
 
