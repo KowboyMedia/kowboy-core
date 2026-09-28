@@ -10,6 +10,7 @@
     "build": "tsc -p tsconfig.json && cp -r schemas dist/ && cp -r engine/storage/migrations dist/engine/storage/ && npm run build:admin",
     "build:admin": "vite build --config admin/vite.config.ts",
     "check": "npm run typecheck && npm run check:seam && npm run check:tests && npm run check:secrets && npm run build && npm run test",
+    "check:register": "node scripts/check-register.mjs",
     "check:seam": "node scripts/check-seam.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
     "check:tests": "node scripts/check-no-skipped-tests.mjs",
