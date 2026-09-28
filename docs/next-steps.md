@@ -296,13 +296,14 @@ client ports (item 16, first client by question 80).
        right, and the loop is to run on a real site so an agent can iterate on the look. The
        app "v4-staging" was made on the dev server (application 6698706 on server 1545003), and
        `scripts/deploy-site.mjs` installs the plugin and every set on any site through its
-       WordPress admin (proved on a local copy). Two gates, both Patric's: the Cloudways token
-       reads nothing, so the app's address and login are unknown (88), and staging Core's
-       sign-in mail does not arrive, so the site cannot be joined to the tenant (98). With 88:
-       point `v4.dev.kowboy.se` at the app, run the deploy script against it, then the
-       page-by-page loop against norbanmakleri.se with screenshots from the live site. With 98:
-       sign in, add the site to `kowboy-test`, write token and bell secret into the site's
-       settings with the same script, ring it.
+       WordPress admin (proved on a local copy). The same evening Patric pasted the app's
+       address (`wordpress-1545003-6698706.cloudwaysapps.com`) and its login, and Postmark's
+       record: the sign-in mail arrives, nine minutes late (98 closed, 100 registered). The
+       deploy failed on the site's PHP 8.2 (question 99). With 99: run the deploy script against
+       the site, sign in to staging Core by the mailed link, add the site to `kowboy-test`, write
+       token and bell secret into the site's settings with the same script, ring it, then the
+       page-by-page loop against norbanmakleri.se with screenshots from the live site. With 88:
+       point `v4.dev.kowboy.se` at the app.
 
 18. **The display fields, first attempt** (Patric, 2026-09-23): for every value
     norbanmakleri.se shows on a card, a list or a single page, the prepared string `display`
