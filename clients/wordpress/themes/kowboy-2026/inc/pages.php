@@ -35,7 +35,8 @@ add_action('after_switch_theme', function (): void {
             'post_content' => $content,
         ]);
     }
-    if ((int) get_option('page_on_front') === 0 && $ids['hem'] > 0) {
+    // The front page: Hem, unless the site already shows a page of its own that still exists.
+    if (get_post((int) get_option('page_on_front')) === null && $ids['hem'] > 0) {
         update_option('show_on_front', 'page');
         update_option('page_on_front', $ids['hem']);
     }
