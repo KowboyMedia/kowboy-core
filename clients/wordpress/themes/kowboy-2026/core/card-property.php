@@ -36,13 +36,13 @@ if (!$sold && $next_viewing !== null) {
             <div class="swiper k-card__slider" data-card-slider>
                 <div class="swiper-wrapper">
                     <?php foreach ($images as $image) : ?>
-                        <div class="swiper-slide"><?php echo kowboy_image($image, '(min-width: 1024px) 384px, 100vw', $street, ['class' => 'k-card__image']); ?></div>
+                        <div class="swiper-slide"><?php echo kowboy_image($image, '(min-width: 1024px) 384px, (min-width: 640px) 50vw, 100vw', $street, ['class' => 'k-card__image']); ?></div>
                     <?php endforeach; ?>
                 </div>
                 <div class="swiper-pagination k-card__dots"></div>
             </div>
         <?php elseif ($images !== []) : ?>
-            <?php echo kowboy_image($images[0], '(min-width: 1024px) 384px, 100vw', $street, ['class' => 'k-card__image']); ?>
+            <?php echo kowboy_image($images[0], '(min-width: 1024px) 384px, (min-width: 640px) 50vw, 100vw', $street, ['class' => 'k-card__image']); ?>
         <?php endif; ?>
         <?php if ($label !== '') : ?><span class="k-card__status"><?php echo esc_html($label); ?></span><?php endif; ?>
     </div>

@@ -12,7 +12,9 @@ const KOWBOY_IMAGE_WIDTHS = [480, 640, 1024, 1280, 1600, 1920];
 
 /**
  * One `<img>`: lazy and asynchronous unless `$eager` (the first hero image), with a `srcset` over
- * the CDN's widths when the address is a CDN one, and `sizes` for the slot.
+ * the CDN's widths when the address is a CDN one, and `sizes` for the slot. Width descriptors
+ * with `sizes` are how the browser weighs the screen's pixel ratio in: a 384 px slot on a 2x
+ * screen picks the 1024 file, on a 1x screen the 480 one (Patric, 2026-09-28).
  *
  * @param array<string, mixed>|string $image a CRM image (`url`, `name`, `description`) or a plain address
  * @param array<string, string> $attributes extra attributes (class, style, width, height)

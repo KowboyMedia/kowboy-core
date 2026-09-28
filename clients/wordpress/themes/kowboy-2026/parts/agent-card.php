@@ -17,7 +17,7 @@ $office = $office_id === '' ? '' : (string) (core_client_items('office', [$offic
 ?>
 <article class="k-agent-card">
     <a class="k-agent-card__image" href="<?php echo esc_url($url); ?>">
-        <?php echo $image === null ? '<span class="k-agent-card__placeholder"></span>' : kowboy_image($image, '(min-width: 1024px) 298px, 50vw', $name); ?>
+        <?php echo $image === null ? '<span class="k-agent-card__placeholder"></span>' : kowboy_image($image, '(min-width: 1024px) 298px, (min-width: 480px) 50vw, 100vw', $name); ?>
     </a>
     <div class="k-agent-card__body">
         <h3 class="k-agent-card__name"><a href="<?php echo esc_url($url); ?>"><?php echo esc_html($name); ?></a></h3>

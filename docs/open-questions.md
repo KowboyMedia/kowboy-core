@@ -186,3 +186,20 @@ The smaller option is e-mail, and 95 can move it to the CRM later.
 without blocking this." Open. An agent first stored submissions on the site and mailed them,
 which Patric called a drift and had removed the same evening: the form is a dummy that posts
 nowhere and whose button does nothing, until this is answered.
+
+## 111. `[crm-vitec]` Documents (the marketing PDFs) into the universal model, for a listing and its association
+
+Patric (2026-09-28, answering 110 with "keep"): the documents are PDFs used for marketing, most
+listings have them, they are delivered by the CDN like the images, and they exist in two places,
+the listing's payload and the association's. Today the universal model carries `files[]` on a
+property (the field tables, "as sent") and nothing on an association, and neither has a CDN
+address: the association's payload lists `documents[]` with Vitec's own `GetFile` addresses
+(behind Vitec's login), and every listing of the test office has an empty `files` list, so the
+address pattern for a document on the CDN could not be read from the data; the guesses
+`/r2/<customer>/<record>/<file id>.pdf` and `/r2/<customer>/<file id>.pdf` answer 400 or 500,
+and norbanmakleri.se did not answer the session's fetch. Needed for the field-table lines (a
+contract change, approval): the CDN's address for one document, for example the "Ekonomisk plan"
+of the test office's association (file `_F_ORG_T833_8605`). Paste one document address from
+norbanmakleri.se, then the adapter maps `files[]` (listing) and `documents[]` (association) to
+`{id, name, category, extension, url}` on the CDN pattern, the field tables gain the lines, and
+the theme's "Dokument" section lists both.

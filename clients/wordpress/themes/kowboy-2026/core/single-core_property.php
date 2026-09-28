@@ -165,7 +165,7 @@ echo kowboy_part('hero', ['media' => $hero, 'content' => $hero_content, 'variant
         <div class="k-container k-gallery" data-gallery>
             <div class="k-gallery__grid">
                 <?php foreach ($photos as $index => $photo) : ?>
-                    <figure class="k-gallery__item<?php echo $index >= 6 ? ' is-collapsed' : ''; ?>"><?php echo kowboy_image($photo, '(min-width: 1024px) 384px, 100vw', $street, ['class' => 'k-gallery__image']); ?></figure>
+                    <figure class="k-gallery__item<?php echo $index >= 6 ? ' is-collapsed' : ''; ?>"><?php echo kowboy_image($photo, '(min-width: 1024px) 384px, (min-width: 640px) 50vw, 100vw', $street, ['class' => 'k-gallery__image']); ?></figure>
                 <?php endforeach; ?>
             </div>
             <?php if (count($photos) > 6) : ?><p class="k-gallery__more"><button class="k-button" type="button" data-gallery-more>Visa fler bilder</button></p><?php endif; ?>
