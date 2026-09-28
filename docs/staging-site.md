@@ -125,17 +125,34 @@ all the loop needs too.
 What an agent needs to run this end to end on any host, and the one thing that is Patric's
 (question 79, the Cloudways API key):
 
-| What                             | Why                                                                                                                | How the agent gets in                                                   | Patric's part                                                                  |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| The repository                   | the code, the checks, the releases; the template sets too                                                          | has it (`GITHUB_TOKEN`)                                                 | nothing                                                                        |
-| DigitalOcean                     | staging Core's job and admin API, the Space                                                                        | has it (`DIGITALOCEAN_ACCESS_TOKEN`); the Space and its key are its own | nothing                                                                        |
-| The site's WordPress admin       | the first install of the plugin and the driver, and the settings; afterwards the REST API with a password it makes | the admin login, from the host's API, over HTTPS                        | nothing, once the host's API key is in hand                                    |
-| The update channel               | every change after the first install                                                                               | the job publishes, the site pulls                                       | nothing                                                                        |
-| The host's git deployment        | an alternative to the login for the first install and for every change                                             | a build branch of plugin folders, pulled by the host                    | a deploy key on GitHub, which only an admin can add; not needed with the login |
-| SFTP or SSH                      | not used: port 22 is blocked from where agents run (verified 2026-09-20); a person can still use it                | —                                                                       | nothing                                                                        |
-| The host's API, where it has one | convenience: the login, the cron, a Varnish purge, logs                                                            | an API key                                                              | optional                                                                       |
-| The source site (step 2)         | read its pages and its theme's template files for the port                                                         | a copy the agent makes; its WordPress admin from the host's API         | nothing                                                                        |
-| Staging Core's admin secret      | ring, resync, read the timeline                                                                                    | set anew by an agent through the DigitalOcean API                       | nothing                                                                        |
+| What                             | Why                                                                                                                                             | How the agent gets in                                                   | Patric's part                                                                  |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| The repository                   | the code, the checks, the releases; the template sets too                                                                                       | has it (`GITHUB_TOKEN`)                                                 | nothing                                                                        |
+| DigitalOcean                     | staging Core's job and admin API, the Space                                                                                                     | has it (`DIGITALOCEAN_ACCESS_TOKEN`); the Space and its key are its own | nothing                                                                        |
+| The site's WordPress admin       | the first install of the plugin and every set, and the settings, by `scripts/deploy-site.mjs`; afterwards the REST API with a password it makes | the admin login, from the host's API, over HTTPS                        | nothing, once the host's API key is in hand                                    |
+| The update channel               | every change after the first install                                                                                                            | the job publishes, the site pulls                                       | nothing                                                                        |
+| The host's git deployment        | an alternative to the login for the first install and for every change                                                                          | a build branch of plugin folders, pulled by the host                    | a deploy key on GitHub, which only an admin can add; not needed with the login |
+| SFTP or SSH                      | not used: port 22 is blocked from where agents run (verified 2026-09-20); a person can still use it                                             | —                                                                       | nothing                                                                        |
+| The host's API, where it has one | convenience: the login, the cron, a Varnish purge, logs                                                                                         | an API key                                                              | optional                                                                       |
+| The source site (step 2)         | read its pages and its theme's template files for the port                                                                                      | a copy the agent makes; its WordPress admin from the host's API         | nothing                                                                        |
+| Staging Core's admin secret      | ring, resync, read the timeline                                                                                                                 | set anew by an agent through the DigitalOcean API                       | nothing                                                                        |
+
+**The deploy script** (2026-09-28). `scripts/deploy-site.mjs` is the first install and every
+iteration until the channel's job exists: with `SITE_URL`, `WP_USER` and `WP_PASSWORD` it signs
+in to the site's WordPress admin, packages the plugin and every set under
+`clients/wordpress/templates/` with `release.php`, uploads each package (WordPress's own "replace
+current with uploaded" when it is there already), activates it, and with `--settings '{…}'`
+writes any of the plugin's settings while keeping the rest. It is plain web traffic, so it runs
+from a session against any host. Proved 2026-09-28 on a copy of the local test install: install,
+replace, activate, the updater placed, the settings kept across a partial write.
+
+**Where it stands** (2026-09-28). The app "v4-staging" exists on Kowboy's Cloudways dev server
+(application 6698706 on server 1545003, created through the API on Patric's word), and
+`*.dev.kowboy.se` points at that server (165.22.87.59). The Cloudways token creates applications
+and reads nothing, so the app's address and login are unknown here and `v4.dev.kowboy.se` cannot
+be attached to it (question 88). Staging Core's admin API is entered by a mailed link that an
+agent reads from the mailbox; on 2026-09-28 the mail did not arrive (question 98). Both gates are
+Patric's; nothing else is missing.
 
 ## Cache invalidation: the WordPress way, and nothing else
 

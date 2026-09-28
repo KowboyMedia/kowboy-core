@@ -11,7 +11,8 @@ default template set "Kowboy 2026"**, item 17 steps 1 to 3 and item 18, on the l
 (`docs/default-templates.md`, "Built on 2026-09-24"), and it waits for Patric's answers 90 to 96 (89 closed on 2026-09-28: the set was rebuilt on the attached package)
 and the tokens 87 and 88. "Resume next steps" means: act on whatever of 87 to 96 Patric has
 answered (each answer names its work), then item 17 step 4 on `v4.dev.kowboy.se` once the
-Cloudways token works, then step 5's live run. Read `docs/default-templates.md` first (what the
+Cloudways token reads (88) and the sign-in mail arrives (98; the state of 2026-09-28 is under
+item 17), then step 5's live run. Read `docs/default-templates.md` first (what the
 set is, the scaffolding, the master, what stands, the comparison), `docs/field-tables.md` (the
 universal names and `display`), `rules-ledger/` (R-001 to R-014 approved, R-015 to R-019
 drafted), and `clients/wordpress/README.md` (the plugin the set plugs into). Items 6, 11, 13, 14
@@ -291,6 +292,17 @@ client ports (item 16, first client by question 80).
        `v4.dev.kowboy.se`, installs the plugin and the set from the branch, links it to staging's
        tenant `kowboy-test`, runs the comparison there, and writes id, address and where the login
        lives into `docs/default-templates.md`; never a secret.
+       **State 2026-09-28:** Patric: the set "does not look correct at all", the fields might be
+       right, and the loop is to run on a real site so an agent can iterate on the look. The
+       app "v4-staging" was made on the dev server (application 6698706 on server 1545003), and
+       `scripts/deploy-site.mjs` installs the plugin and every set on any site through its
+       WordPress admin (proved on a local copy). Two gates, both Patric's: the Cloudways token
+       reads nothing, so the app's address and login are unknown (88), and staging Core's
+       sign-in mail does not arrive, so the site cannot be joined to the tenant (98). With 88:
+       point `v4.dev.kowboy.se` at the app, run the deploy script against it, then the
+       page-by-page loop against norbanmakleri.se with screenshots from the live site. With 98:
+       sign in, add the site to `kowboy-test`, write token and bell secret into the site's
+       settings with the same script, ring it.
 
 18. **The display fields, first attempt** (Patric, 2026-09-23): for every value
     norbanmakleri.se shows on a card, a list or a single page, the prepared string `display`

@@ -66,6 +66,18 @@ still answers "insufficient_scope" after the move, the token of 2026-09-21 was a
 a new one with access to the whole account (servers and applications) is needed under
 `CLOUDWAYS_API_KEY`.
 
+**2026-09-28.** The move of 87 was made: the DigitalOcean slot holds a working DigitalOcean
+token (it reads and writes staging Core's app). The Cloudways token creates applications and
+nothing else: an agent made the WordPress app "v4-staging" (application 6698706 on the dev server 1545003) through it, and then every read the loop needs (the server, the application, its
+address, its WordPress login, the operation's progress, the domain list) and the call that
+attaches `v4.dev.kowboy.se` to it answer `insufficient_scope`. So the site exists, and nothing can
+be found out about it from here. What is needed is a token with every permission, read and write
+on servers and applications. In Cloudways, make a new API token with every permission ticked,
+save it in the session environment's settings as `CLOUDWAYS_API_KEY`, then say "saved". The
+other way, one paste that unblocks only this one site: open the app "v4-staging" in Cloudways and
+paste its address, its WordPress admin user and its password here; that puts a password in the
+chat, so the token is the smaller option.
+
 ## 90. `[core]` The display fields drafted for the default set: validate R-015 to R-019 and Vitec's golden masters
 
 Next-steps item 18: every value norbanmakleri.se shows that `display` did not carry was drafted
@@ -152,3 +164,20 @@ width norbanmakleri.se uses for agents, is 0.6 MB. On the set's pages the agent 
 last to load, and a phone pays for 6 MB per agent shown. Smaller: the adapter builds an agent's
 picture at width 1024 (a field-table change for `image` on an agent, approval needed), the
 listings' photos stay at 1920. Or keep 1920 everywhere. Answer "1024" or "keep".
+
+## 98. `[core]` Staging Core's sign-in mail does not arrive, so no agent can reach its admin API
+
+Staging Core's admin area, and the admin API behind it, are entered by a link mailed to
+patric@kowboy.se; that is the only way in (a shared secret for agents was proposed on 2026-09-28
+and refused by the session's safety rules, so it is not on the table). An agent can read the
+mailbox through the Gmail connection, so a link that arrives is enough: the agent opens it and
+works on its own, and nothing is pasted. On 2026-09-28 an agent asked for a link twice (16:01
+and 16:05 UTC). Core answered "the link is on its way" both times, the address is on the allowed
+list, the sender and the mail service (Postmark) are configured, and Core's answer means Postmark
+accepted the mail; nothing reached the mailbox in the following twenty minutes, not in spam
+either, while the two links of 2026-09-21 arrived within a minute. So the mail stops between
+Postmark and Gmail, and only Postmark's own record says where. Open Postmark's Activity page for
+the server that sends staging's mail, find the two mails "Sign in to Kowboy Core (staging)" of
+2026-09-28 after 16:00 UTC, and paste what it says about them (delivered, bounced, or not there),
+then say "pasted". Until this is answered, the staging site cannot be joined to staging Core, and
+the set's pages on it show no records.
