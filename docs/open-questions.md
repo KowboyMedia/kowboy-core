@@ -145,7 +145,7 @@ last to load, and a phone pays for 6 MB per agent shown. Smaller: the adapter bu
 picture at width 1024 (a field-table change for `image` on an agent, approval needed), the
 listings' photos stay at 1920. Or keep 1920 everywhere. Answer "1024" or "keep".
 
-## 100. `[core]` kowboy.se has no email authentication for Postmark, so Gmail delays Core's mail
+## 100. `[core]` kowboy.se has no email authentication for Postmark, so Gmail delays Core's mail (parked: Patric, 2026-09-28, "save this for later, this session is for template 2026 only"; his lead is to send from kowboy.cloud instead)
 
 Postmark's page for the sign-in mail of 2026-09-28 says: "we recommend that you set up email
 authentication for kowboy.se". Without it Gmail's server refuses Core's mail at first and takes
@@ -162,7 +162,7 @@ runs `dev.kowboy.se`'s names, most likely the whole domain); add them, then say 
 an agent a Cloudflare token limited to DNS for kowboy.se in the session environment's settings
 as `CLOUDFLARE_DNS_TOKEN`, then say "token saved", and the agent adds them.
 
-## 101. `[client-wordpress]` The site's slugs are `<connection>-<record id>`, the rule says `<status>-<area>-<street>-<id>`
+## 101. `[client-wordpress]` The site's slugs are `<connection>-<record id>`, the rule says `<status>-<area>-<street>-<id>` (parked: Patric, 2026-09-28, later)
 
 On the staging site a property lives at `objekt/vitec-test-obj31529_2115054844/`: the plugin
 names a post after its connection and the CRM's record id (`includes/store.php`), which is
