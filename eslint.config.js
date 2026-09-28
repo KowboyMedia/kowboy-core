@@ -10,6 +10,7 @@ export default tseslint.config(
       'node_modules/**',
       'clients/lovable-kit/supabase/**',
       'clients/wordpress/core-client/lib/**',
+      'clients/wordpress/templates/**/assets/vendor/**',
     ],
   },
   js.configs.recommended,

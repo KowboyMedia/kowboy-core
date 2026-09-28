@@ -8,7 +8,7 @@ the first item that is not done, and keep the file current. Decisions and open q
 
 Everything up to 2026-09-23 is combined into staging. On 2026-09-24 one session built **the
 default template set "Kowboy 2026"**, item 17 steps 1 to 3 and item 18, on the local WordPress
-(`docs/default-templates.md`, "Built on 2026-09-24"), and it waits for Patric's answers 89 to 96
+(`docs/default-templates.md`, "Built on 2026-09-24"), and it waits for Patric's answers 90 to 96 (89 closed on 2026-09-28: the set was rebuilt on the attached package)
 and the tokens 87 and 88. "Resume next steps" means: act on whatever of 87 to 96 Patric has
 answered (each answer names its work), then item 17 step 4 on `v4.dev.kowboy.se` once the
 Cloudways token works, then step 5's live run. Read `docs/default-templates.md` first (what the

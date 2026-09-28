@@ -245,9 +245,14 @@ Cloudways site waits on questions 87 and 88). What stands:
   `core-client-templates-kowboy-2026`): one file per view (`single-core_property.php`,
   `single-core_agent.php`, `single-core_office.php`, `single-core_area.php`,
   `archive-core_property.php`, `archive-core_agent.php`, `list-property.php`, `list-agent.php`,
-  `card-property.php`, `card-agent.php`), the markup written from what the master shows (question
-  89, "from the site"), its stylesheet and script in `assets/`, one registration line in its
-  main file. `npm run new-template-set <slug>` copies it into a new set.
+  `card-property.php`, `card-agent.php`). Since 2026-09-28 the markup, the stylesheet
+  (`assets/kowboy-2026.css`: the package's Tailwind build and component stylesheets) and the
+  behaviours (`assets/kowboy-2026.js`, with Swiper and the Ken Burns carousel vendored under
+  `assets/vendor/`) come from the "kowboy-templates-v2-v3" package Patric attached, its 2025
+  template, on his word (question 89 closed; before that the markup was written from the site).
+  The package's stylesheet is written for a shadow root, so the set registers with shadow DOM on;
+  its typeface Manrope comes from Google Fonts. One registration line in its main file.
+  `npm run new-template-set <slug>` copies it into a new set.
 - **The release** (`release.php`, `.github/workflows/release.yml`): every `v*` tag packages the
   plugin and every set, each with its release JSON under `<channel>/<package>/`, plus `sets.json`,
   and the plugin's zip carries `channel.json` so a fresh install knows its channel.
@@ -287,7 +292,6 @@ its "Bor du redan här?" button leads to that lead form.
 
 ## What it needs from Patric
 
-- **89** attach the "kowboy-v4" package, or "from the site"; the set was written from the site.
 - **90** to **96**: the drafted strings and the gaps of the comparison, above.
 - **87** and **88**: the tokens, for `v4.dev.kowboy.se` and the release channel.
 - Already open: 54 (a) to (e) as the templates need them; 52 is untouched (golden masters come

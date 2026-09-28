@@ -9,14 +9,16 @@
 
 declare(strict_types=1);
 
-/** @var array<string, array{slug: string, name: string, file: string, dir: string, version: string}> */
+/** @var array<string, array{slug: string, name: string, file: string, dir: string, version: string, shadow: bool}> */
 $GLOBALS['core_client_template_sets'] = [];
 
 /**
  * The one line a set's main file calls, on `plugins_loaded`. `$file` is the set's main plugin
- * file; its folder holds the views and `assets/<slug>.css` and `assets/<slug>.js`.
+ * file; its folder holds the views, `assets/<slug>.css` and `assets/<slug>.js`, and any
+ * `assets/vendor/<slug>-vendor.css` and `.js` the set brings. `$shadow` is what the set is
+ * written for: the site's own shadow DOM setting wins once it is set.
  */
-function core_client_register_template_set(string $slug, string $name, string $file, string $version): void
+function core_client_register_template_set(string $slug, string $name, string $file, string $version, bool $shadow = false): void
 {
     $GLOBALS['core_client_template_sets'][$slug] = [
         'slug' => $slug,
@@ -24,10 +26,11 @@ function core_client_register_template_set(string $slug, string $name, string $f
         'file' => $file,
         'dir' => dirname($file),
         'version' => $version,
+        'shadow' => $shadow,
     ];
 }
 
-/** @return array<string, array{slug: string, name: string, file: string, dir: string, version: string}> */
+/** @return array<string, array{slug: string, name: string, file: string, dir: string, version: string, shadow: bool}> */
 function core_client_template_sets(): array
 {
     return $GLOBALS['core_client_template_sets'];
@@ -38,7 +41,7 @@ function core_client_template_sets(): array
  * chosen, that one, so activating a set is enough. Null when there is none: a custom-design theme
  * renders from the plugin's functions on its own.
  *
- * @return array{slug: string, name: string, file: string, dir: string, version: string}|null
+ * @return array{slug: string, name: string, file: string, dir: string, version: string, shadow: bool}|null
  */
 function core_client_template_set(): ?array
 {
@@ -85,23 +88,32 @@ function core_client_render(string $file, array $vars = []): string
     return $render($path, $vars);
 }
 
-/** The address of a set's stylesheet or script, or null when the set has none. */
-function core_client_set_asset(string $extension): ?string
+/**
+ * The address of a set's stylesheet or script (`assets/<slug>.css`), or of what it vendors
+ * (`assets/vendor/<slug>-vendor.css`), or null when the set has none.
+ */
+function core_client_set_asset(string $extension, bool $vendor = false): ?string
 {
     $set = core_client_template_set();
     if ($set === null) {
         return null;
     }
-    $relative = 'assets/' . $set['slug'] . '.' . $extension;
+    $relative = $vendor ? 'assets/vendor/' . $set['slug'] . '-vendor.' . $extension : 'assets/' . $set['slug'] . '.' . $extension;
     if (!is_file($set['dir'] . '/' . $relative)) {
         return null;
     }
     return add_query_arg('ver', $set['version'], plugins_url($relative, $set['file']));
 }
 
+/** The site's shadow DOM setting; until the site sets it, what the chosen set is written for. */
 function core_client_shadow_dom(): bool
 {
-    return (bool) get_option('core_client_shadow_dom', false);
+    $option = get_option('core_client_shadow_dom', 'unset');
+    if ($option !== 'unset') {
+        return (bool) $option;
+    }
+    $set = core_client_template_set();
+    return $set !== null && $set['shadow'];
 }
 
 /**
@@ -114,9 +126,11 @@ function core_client_wrap(string $html, ?bool $shadow = null): string
     if (!($shadow ?? core_client_shadow_dom())) {
         return '<div class="core-view">' . $html . '</div>';
     }
-    $css = core_client_set_asset('css');
-    $link = $css === null ? '' : '<link rel="stylesheet" href="' . esc_url($css) . '">';
-    return '<core-view><template shadowrootmode="open">' . $link . $html . '</template></core-view>';
+    $links = '';
+    foreach ([core_client_set_asset('css', true), core_client_set_asset('css')] as $css) {
+        $links .= $css === null ? '' : '<link rel="stylesheet" href="' . esc_url($css) . '">';
+    }
+    return '<core-view><template shadowrootmode="open">' . $links . $html . '</template></core-view>';
 }
 
 /**
@@ -193,12 +207,19 @@ add_action('wp_enqueue_scripts', function (): void {
     if ($set === null) {
         return;
     }
-    $css = core_client_set_asset('css');
-    if ($css !== null && !core_client_shadow_dom()) {
-        wp_enqueue_style('core-client-set', $css, [], null);
+    if (!core_client_shadow_dom()) {
+        foreach (['vendor' => core_client_set_asset('css', true), 'set' => core_client_set_asset('css')] as $name => $css) {
+            if ($css !== null) {
+                wp_enqueue_style("core-client-$name", $css, [], null);
+            }
+        }
+    }
+    $vendor = core_client_set_asset('js', true);
+    if ($vendor !== null) {
+        wp_enqueue_script('core-client-vendor', $vendor, [], null, ['in_footer' => true]);
     }
     $js = core_client_set_asset('js');
     if ($js !== null) {
-        wp_enqueue_script('core-client-set', $js, [], null, ['in_footer' => true]);
+        wp_enqueue_script('core-client-set', $js, $vendor === null ? [] : ['core-client-vendor'], null, ['in_footer' => true]);
     }
 });

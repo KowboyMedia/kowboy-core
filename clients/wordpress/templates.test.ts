@@ -168,19 +168,24 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
   it('renders the property archive as the for-sale list, first page on the server, with the filter form', async () => {
     const { status, body } = await page('/?post_type=core_property');
     expect(status).toBe(200);
-    expect(body).toContain('class="k26-list"');
+    expect(body).toContain('kowboy-property-list-wrapper');
     expect(body).toContain('name="max_price"');
     // For sale and coming, newest first; sold ones and a project's homes stay out.
-    const streets = [...body.matchAll(/<h3>(Kungsgatan \d+)<\/h3>/g)].map((match) => match[1]);
+    const streets = [...body.matchAll(/<h3 class="text-black[^"]*">(Kungsgatan \d+)<\/h3>/g)].map(
+      (match) => match[1],
+    );
     expect(streets).toEqual(['Kungsgatan 3', 'Kungsgatan 2', 'Kungsgatan 1']);
     expect(body).toContain('7 250 000 kr');
     expect(body).toContain('Avgift 4 100 kr');
     expect(body).not.toContain('kr/mån');
     expect(body).toContain('<li>Bostadsrätt</li>');
     expect(body).toContain('82 kvm');
-    expect(body).toContain('Visning ');
+    expect(body).toContain('<span class="sold_label">Visning ');
     expect(body).toContain('kowboy-2026.css');
+    expect(body).toContain('kowboy-2026-vendor.css');
     expect(body).toContain('kowboy-2026.js');
+    expect(body).toContain('kowboy-2026-vendor.js');
+    expect(body).toContain('fonts.googleapis.com');
   });
 
   it('answers the reload endpoint with the cards of one page, the total and whether more follow', async () => {
@@ -192,7 +197,9 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     });
     expect(first.total).toBe(3);
     expect(first.has_more).toBe(true);
-    expect(first.html.match(/<article class="k26-card">/g)).toHaveLength(2);
+    expect(
+      first.html.match(/<div class="w-full bg-white shadow-lg rounded-lg overflow-hidden">/g),
+    ).toHaveLength(2);
     const second = await reload({
       entity: 'property',
       status: 'active,pre',
@@ -205,9 +212,11 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
 
   it('filters by status, price, size, rooms, free text, agent and office, and sorts sold ones by date', async () => {
     const sold = await reload({ entity: 'property', status: 'sold', sort: 'sold' });
-    expect([...sold.html.matchAll(/<h3>(Kungsgatan \d+)<\/h3>/g)].map((match) => match[1])).toEqual(
-      ['Kungsgatan 5', 'Kungsgatan 4'],
-    );
+    expect(
+      [...sold.html.matchAll(/<h3 class="text-black[^"]*">(Kungsgatan \d+)<\/h3>/g)].map(
+        (match) => match[1],
+      ),
+    ).toEqual(['Kungsgatan 5', 'Kungsgatan 4']);
     expect(sold.html).toContain('4 200 000 kr');
     expect(
       (await reload({ entity: 'property', status: 'active,pre', max_price: '4000000' })).total,
@@ -244,20 +253,26 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
   it('renders a property page from display and data: hero, facts, viewings, agents, sections, map', async () => {
     const { status, body } = await page(await permalink('property', 'P-3'));
     expect(status).toBe(200);
-    expect(body).toContain('<h1>Kungsgatan 3</h1>');
+    expect(body).toContain('hero-banner-title">Kungsgatan 3</h1>');
     expect(body).toContain('Utgångspris');
     expect(body).toContain('5 000 000 kr');
-    expect(body).toContain('<span class="k26-label">Kommande</span>');
+    expect(body).toContain('<span class="sold_label">Kommande</span>');
     expect(body).toContain('<li>Vasastan</li>');
     expect(body).toContain('Ljus trea med balkong.');
-    expect(body).toContain('<span>Rum</span><strong>4 rum</strong>');
-    expect(body).toContain('<span>Typ</span><strong>Bostadsrätt</strong>');
+    expect(body).toContain(
+      '<span class="text-base">Rum</span><strong class="text-lg font-bold text-right">4 rum</strong>',
+    );
+    expect(body).toContain(
+      '<span class="text-base">Typ</span><strong class="text-lg font-bold text-right">Bostadsrätt</strong>',
+    );
     expect(body).toContain('Föranmälan krävs');
     expect(body).toContain('Anna Andersson');
     expect(body).toContain('070-123 45 67');
-    expect(body).toContain('<details class="k26-section">');
-    expect(body).toContain('<dt>Adress</dt><dd>Kungsgatan 3, 111 22 Stockholm</dd>');
-    expect(body).toContain('class="k26-gallery__item"');
+    expect(body).toContain('class="collapsible-item"');
+    expect(body).toContain(
+      '<strong class="block font-bold mb-1">Adress</strong><span>Kungsgatan 3, 111 22 Stockholm</span>',
+    );
+    expect(body).toContain('property-gallery-item');
   });
 
   it('shows a sold property with its final price as "Slutpris", and no viewings', async () => {
@@ -270,25 +285,27 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
   it('renders agent, office and area pages with their lists inside the same view', async () => {
     const agent = await page(await permalink('agent', 'S-1'));
     expect(agent.status).toBe(200);
-    expect(agent.body).toContain('<h2>Anna Andersson</h2>');
+    expect(agent.body).toContain('agent-card-title text-4xl font-bold">Anna Andersson</h2>');
     expect(agent.body).toContain('Kundomdömen');
     expect(agent.body).toContain('Säljare på Kungsgatan 1');
     expect(agent.body).toContain('Ett urval av mina objekt');
-    expect(agent.body.match(/<article class="k26-card">/g)).toHaveLength(4); // P-1, P-3, P-4, P-5 are Anna's; P-2 is Bertil's
+    expect(
+      agent.body.match(/<div class="w-full bg-white shadow-lg rounded-lg overflow-hidden">/g),
+    ).toHaveLength(4); // P-1, P-3, P-4, P-5 are Anna's; P-2 is Bertil's
 
     const office = await page(await permalink('office', 'B-1'));
-    expect(office.body).toContain('<h1>Kowboy Mäkleri</h1>');
+    expect(office.body).toContain('area-banner-title mb-8">Kowboy Mäkleri</h1>');
     expect(office.body).toContain('Storgatan 1, Stockholm');
     expect(office.body).toContain('Bertil Berg');
-    expect(office.body).toContain('maps.google.com');
+    expect(office.body).toContain('google.com/maps');
 
     const area = await page(await permalink('area', 'D-1'));
-    expect(area.body).toContain('<h1>Vasastan</h1>');
+    expect(area.body).toContain('area-banner-title mb-8">Vasastan</h1>');
     expect(area.body).toContain('Experter på Vasastan');
     expect(area.body).toContain('Bostäder i Vasastan');
 
     const agents = await page('/?post_type=core_agent');
-    expect(agents.body.match(/<article class="k26-agent-item">/g)).toHaveLength(2);
+    expect(agents.body.match(/<div class="overflow-hidden agents-list-item">/g)).toHaveLength(2);
   });
 
   it('lets a copy in the theme override one view while every other view stays the set’s', async () => {
@@ -300,24 +317,32 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     try {
       const { body } = await page('/?post_type=core_property');
       expect(body).toContain('<article class="theme-card">Kungsgatan 3</article>');
-      expect(body).not.toContain('<article class="k26-card">');
-      expect(body).toContain('class="k26-list"'); // the wrapper is still the set's
+      expect(body).not.toContain(
+        '<div class="w-full bg-white shadow-lg rounded-lg overflow-hidden">',
+      );
+      expect(body).toContain('kowboy-property-list-wrapper'); // the wrapper is still the set's
     } finally {
       rmSync(THEME_OVERRIDES, { recursive: true, force: true });
     }
   });
 
-  it('renders inside a shadow root when the site asks for it, with the stylesheet linked inside', async () => {
+  it('renders inside a shadow root when the site asks for it, or by the set’s default, with the stylesheets linked inside', async () => {
     await driver('option', 'core_client_shadow_dom true');
     try {
       const { body } = await page(await permalink('property', 'P-1'));
       expect(body).toContain(
         '<core-view><template shadowrootmode="open"><link rel="stylesheet" href="',
       );
+      expect(body).toContain('kowboy-2026-vendor.css');
       expect(body).toContain('kowboy-2026.css');
       // The list inside an agent page opens no second root.
       const agent = await page(await permalink('agent', 'S-1'));
       expect(agent.body.match(/<template shadowrootmode="open">/g)).toHaveLength(1);
+      // Off: the stylesheets go on the page instead.
+      await driver('option', 'core_client_shadow_dom false');
+      const plain = await page(await permalink('property', 'P-1'));
+      expect(plain.body).not.toContain('<template shadowrootmode="open">');
+      expect(plain.body).toContain("id='core-client-set-css'");
     } finally {
       await driver('option', 'core_client_shadow_dom false');
     }
@@ -326,11 +351,15 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
   it('uses the one installed set when none is chosen, or when the chosen one is not there', async () => {
     await driver('option', 'core_client_template_set "no-such-set"');
     try {
-      expect((await page('/?post_type=core_property')).body).toContain('class="k26-list"');
+      expect((await page('/?post_type=core_property')).body).toContain(
+        'kowboy-property-list-wrapper',
+      );
     } finally {
       await driver('option', 'core_client_template_set ""');
     }
-    expect((await page('/?post_type=core_property')).body).toContain('class="k26-list"');
+    expect((await page('/?post_type=core_property')).body).toContain(
+      'kowboy-property-list-wrapper',
+    );
     expect((await page('/?post_type=core_property')).body).toContain(
       'data-status="for_sale">Till salu',
     );

@@ -1,6 +1,9 @@
-// The set's script: list hydration and reloads, the status buttons, "Visa fler", the card
-// sliders, the hero carousel and the gallery's "Visa fler bilder". It looks inside shadow roots
-// too (the site's shadow DOM setting), so the same file serves both modes.
+// The set's script: the behaviours of the package's 2025 template (kowboy-templates-v2-v3, on
+// Patric's word, 2026-09-28) written against the set's own markup: the card and plan sliders
+// (Swiper, in vendor/), the hero carousel (ken-burns-carousel, in vendor/), the collapsible fact
+// tables, the gallery's "Visa fler bilder", the bid history, the reviews' "show all", and the
+// list reloads against the plugin's endpoint. It looks inside shadow roots too, so the same file
+// serves both modes.
 (function () {
   'use strict';
 
@@ -19,36 +22,61 @@
     });
   }
 
-  /** A list: reload its cards from the reload endpoint with its parameter set. */
+  function setupSwiper(container) {
+    if (container.getAttribute('data-swiper-ready') || typeof window.Swiper !== 'function') return;
+    container.setAttribute('data-swiper-ready', '1');
+    new window.Swiper(container, {
+      loop: container.querySelectorAll('.swiper-slide').length > 1,
+      autoplay: false,
+      pagination: { el: container.querySelector('.swiper-pagination'), clickable: true },
+      navigation: {
+        nextEl: container.querySelector('.swiper-button-next'),
+        prevEl: container.querySelector('.swiper-button-prev'),
+      },
+      effect: 'slide',
+      speed: 500,
+    });
+  }
+
+  /** A list: reload its cards from the plugin's endpoint with its parameter set. */
   function setupList(list) {
+    if (list.getAttribute('data-list-ready')) return;
+    list.setAttribute('data-list-ready', '1');
     var params = JSON.parse(list.getAttribute('data-params') || '{}');
-    var cards = list.querySelector('.k26-cards');
-    var more = list.querySelector('.k26-list__more-button');
-    var empty = list.querySelector('.k26-list__empty');
-    var form = list.querySelector('.k26-filter');
+    var wrapper = list.closest('.kowboy-property-list-wrapper') || list;
+    var row = list.querySelector('.row');
+    var more = wrapper.querySelector('.load-more-button');
     var page = parseInt(list.getAttribute('data-page') || '1', 10);
+    var scope = list.getRootNode();
+    var filter = scope.querySelector('[data-kowboy-filter-for="' + list.id + '"]');
+    var form = filter ? filter.querySelector('.kowboy-filter-form') : null;
+    var statusButtons = scope.querySelectorAll('#filter_' + list.id + ' .status-filter-items button');
 
     function load(append) {
       var url = new URL(list.getAttribute('data-reload'), window.location.href);
       Object.keys(params).forEach(function (key) {
-        if (params[key] !== '' && params[key] !== null && params[key] !== undefined)
+        if (params[key] !== '' && params[key] !== null && params[key] !== undefined) {
           url.searchParams.set(key, params[key]);
+        }
       });
       url.searchParams.set('page', String(page));
-      list.classList.add('is-loading');
+      wrapper.classList.add('is-loading');
       return fetch(url.toString())
         .then(function (response) {
           return response.json();
         })
         .then(function (result) {
-          if (append) cards.insertAdjacentHTML('beforeend', result.html);
-          else cards.innerHTML = result.html;
+          if (append) row.insertAdjacentHTML('beforeend', result.html);
+          else row.innerHTML = result.html;
+          if (!result.total) {
+            row.innerHTML =
+              '<div class="no-results-message">Ingen fastighet hittades med dina angivna sökkriterier.</div>';
+          }
           if (more) more.hidden = !result.has_more;
-          if (empty) empty.hidden = result.total > 0;
-          cards.querySelectorAll('.k26-slider').forEach(setupSlider);
+          row.querySelectorAll('.swiper').forEach(setupSwiper);
         })
         .finally(function () {
-          list.classList.remove('is-loading');
+          wrapper.classList.remove('is-loading');
         });
     }
 
@@ -62,12 +90,12 @@
         load(false);
       });
     }
-    list.querySelectorAll('.k26-status-filter button').forEach(function (button) {
+    statusButtons.forEach(function (button) {
       button.addEventListener('click', function () {
-        list.querySelectorAll('.k26-status-filter button').forEach(function (other) {
-          other.classList.remove('is-active');
+        statusButtons.forEach(function (other) {
+          other.classList.remove('active');
         });
-        button.classList.add('is-active');
+        button.classList.add('active');
         params.status = button.getAttribute('data-status');
         page = 1;
         load(false);
@@ -80,60 +108,95 @@
       });
     }
     // The first page came from the server; one reload on load keeps it current.
-    load(false);
+    if (list.getAttribute('data-hydrate') === '1') load(false);
   }
 
-  function setupSlider(slider) {
-    if (slider.getAttribute('data-ready')) return;
-    slider.setAttribute('data-ready', '1');
-    var slides = slider.querySelectorAll('.k26-slider__slide');
-    var current = 0;
-    function show(index) {
-      current = (index + slides.length) % slides.length;
-      slides.forEach(function (slide, i) {
-        slide.classList.toggle('is-active', i === current);
-      });
-    }
-    var prev = slider.querySelector('.k26-slider__prev');
-    var next = slider.querySelector('.k26-slider__next');
-    if (prev)
-      prev.addEventListener('click', function (event) {
-        event.preventDefault();
-        show(current - 1);
-      });
-    if (next)
-      next.addEventListener('click', function (event) {
-        event.preventDefault();
-        show(current + 1);
-      });
-  }
-
-  function setupCarousel(carousel) {
-    var images = carousel.querySelectorAll('img');
-    if (images.length < 2) return;
-    var current = 0;
-    setInterval(function () {
-      images[current].classList.remove('is-active');
-      current = (current + 1) % images.length;
-      images[current].classList.add('is-active');
-    }, 6000);
-  }
-
-  function setupGallery(gallery) {
-    var button = gallery.querySelector('[data-gallery-more]');
-    if (!button) return;
+  /** The fact tables: one open at a time is not required; each button toggles its own content. */
+  function setupCollapsible(button) {
+    if (button.getAttribute('data-toggle-ready')) return;
+    button.setAttribute('data-toggle-ready', '1');
     button.addEventListener('click', function () {
-      gallery.querySelectorAll('.k26-gallery__item.is-hidden').forEach(function (item) {
-        item.classList.remove('is-hidden');
-      });
-      button.hidden = true;
+      var content = button.nextElementSibling;
+      var icon = button.querySelector('[data-icon]');
+      var item = button.closest('.collapsible-item');
+      if (!content) return;
+      var open = content.dataset.open === 'true';
+      content.classList.toggle('hidden', open);
+      content.dataset.open = open ? 'false' : 'true';
+      if (item) item.classList.toggle('is-open', !open);
+      if (icon) icon.classList.toggle('rotate-180', !open);
     });
   }
 
-  document.addEventListener('DOMContentLoaded', function () {
-    query('.k26-list', setupList);
-    query('.k26-slider', setupSlider);
-    query('.k26-hero__images', setupCarousel);
-    query('.k26-gallery', setupGallery);
-  });
+  /** The gallery: a few rows first, "Visa fler bilder" shows the rest. */
+  function setupGallery(gallery) {
+    if (gallery.getAttribute('data-gallery-ready')) return;
+    gallery.setAttribute('data-gallery-ready', '1');
+    var items = gallery.querySelectorAll('.masonry-item');
+    var width = gallery.clientWidth || window.innerWidth;
+    var columns = width <= 768 ? 1 : width <= 1024 ? 2 : 3;
+    var maxVisible = columns * (width <= 768 ? 6 : 3);
+    var toggle = gallery.getRootNode().querySelector('[data-gallery-toggle="' + gallery.id + '"]');
+    items.forEach(function (item, index) {
+      item.classList.toggle('is-collapsed', index >= maxVisible);
+    });
+    if (!toggle) return;
+    toggle.classList.toggle('is-hidden', items.length <= maxVisible);
+    toggle.addEventListener('click', function () {
+      items.forEach(function (item) {
+        item.classList.remove('is-collapsed');
+      });
+      toggle.classList.add('is-hidden');
+      toggle.setAttribute('aria-expanded', 'true');
+    });
+  }
+
+  /** The bid history: three rows, then "Visa all budhistorik". */
+  function setupBidding(button) {
+    if (button.getAttribute('data-bids-ready')) return;
+    button.setAttribute('data-bids-ready', '1');
+    var block = button.closest('.bidding-block');
+    var text = button.querySelector('#buttonText');
+    var arrow = button.querySelector('#arrowIcon');
+    var expanded = false;
+    button.addEventListener('click', function () {
+      expanded = !expanded;
+      block.querySelectorAll('.extra-row').forEach(function (rowEl) {
+        rowEl.classList.toggle('hidden', !expanded);
+      });
+      if (arrow) arrow.classList.toggle('rotate-180', expanded);
+      if (text) text.textContent = expanded ? 'Visa mindre' : 'Visa all budhistorik';
+    });
+  }
+
+  /** The reviews: three cards, then "Show all". */
+  function setupTestimonials(button) {
+    if (button.getAttribute('data-reviews-ready')) return;
+    button.setAttribute('data-reviews-ready', '1');
+    var section = button.closest('.agent-testimonials-section');
+    var label = button.querySelector('.testimonial-show-label');
+    var visible = Number(button.dataset.visibleCount || 3);
+    var cards = section ? Array.prototype.slice.call(section.querySelectorAll('.testimonial-card')) : [];
+    button.addEventListener('click', function () {
+      var expanded = button.dataset.expanded === 'true';
+      cards.forEach(function (card, index) {
+        card.classList.toggle('is-hidden', expanded && index >= visible);
+      });
+      button.dataset.expanded = expanded ? 'false' : 'true';
+      button.classList.toggle('is-expanded', !expanded);
+      if (label) label.textContent = expanded ? button.dataset.labelCollapsed : button.dataset.labelExpanded;
+    });
+  }
+
+  function setup() {
+    query('.swiper', setupSwiper);
+    query('.property-list[data-reload]', setupList);
+    query('[data-toggle]', setupCollapsible);
+    query('.property-gallery-masonry', setupGallery);
+    query('#toggleButton', setupBidding);
+    query('.testimonial-show-btn', setupTestimonials);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
+  else setup();
 })();

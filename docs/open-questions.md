@@ -66,16 +66,6 @@ still answers "insufficient_scope" after the move, the token of 2026-09-21 was a
 a new one with access to the whole account (servers and applications) is needed under
 `CLOUDWAYS_API_KEY`.
 
-## 89. `[client-wordpress]` The "kowboy-v4" package is not in this repository
-
-Next-steps item 17 step 2 takes the package's rendered markup, flattened to plain HTML and sliced
-one file per view, and its CSS and JavaScript (question 86). The package was attached in a
-conversation outside this repository, and nothing of it is saved here: no zip, no folder, no
-file named after it. On Patric's "go ahead" of 2026-09-24 the set was written from what
-norbanmakleri.se shows (the smaller option; the master is the only acceptance), with the set's own
-stylesheet and script. Answer "from the site" to close this, or attach the package's zip if its
-markup and assets should replace the set's, and an agent swaps them in.
-
 ## 90. `[core]` The display fields drafted for the default set: validate R-015 to R-019 and Vitec's golden masters
 
 Next-steps item 18: every value norbanmakleri.se shows that `display` did not carry was drafted
