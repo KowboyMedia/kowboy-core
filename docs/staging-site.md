@@ -35,8 +35,10 @@ repository; agents drive it over HTTPS (the WordPress API, the plugin's update c
 staging-only driver), so nothing needs a console or a shell; secrets never leave DigitalOcean; and
 the site runs the branch's own plugin through the real update channel, so what is tested is what
 a customer gets. Nothing here is specific to a host. What the plugin needs from any host is PHP
-8.3, MySQL or MariaDB, WordPress 6.8 or later, outbound HTTPS to Core and a cron tick, and that is
-all the loop needs too.
+8.2 or later (question 99, 2026-09-28: the lowest version PHP still supports, so the plugin
+serves every host that keeps up with security fixes; the code uses nothing newer, and PHPStan
+holds it to 8.2), MySQL or MariaDB, WordPress 6.8 or later, outbound HTTPS to Core and a cron
+tick, and that is all the loop needs too.
 
 1. **Where it runs.** On the porting server of [template-porting.md](template-porting.md)
    (question 78): the test site is the target of a client's pair, a copy of the client's site

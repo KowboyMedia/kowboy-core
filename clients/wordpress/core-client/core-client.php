@@ -5,7 +5,7 @@
  * Description: Keeps this site's copy of its Kowboy Core data current, and renders only from that copy.
  * Version: 0.2.0
  * Requires at least: 6.8
- * Requires PHP: 8.3
+ * Requires PHP: 8.2
  * Author: Kowboy Media
  * Update URI: https://kowboy.se/core-client
  */

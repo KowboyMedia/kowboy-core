@@ -299,11 +299,14 @@ client ports (item 16, first client by question 80).
        WordPress admin (proved on a local copy). The same evening Patric pasted the app's
        address (`wordpress-1545003-6698706.cloudwaysapps.com`) and its login, and Postmark's
        record: the sign-in mail arrives, nine minutes late (98 closed, 100 registered). The
-       deploy failed on the site's PHP 8.2 (question 99). With 99: run the deploy script against
-       the site, sign in to staging Core by the mailed link, add the site to `kowboy-test`, write
-       token and bell secret into the site's settings with the same script, ring it, then the
-       page-by-page loop against norbanmakleri.se with screenshots from the live site. With 88:
-       point `v4.dev.kowboy.se` at the app.
+       plugin's PHP requirement is now 8.2, Patric's pick of compatibility over a newer floor
+       (99 closed), and the plugin and the set are installed and active on the site, the settings
+       written. `v4.dev.kowboy.se` is not needed (88 closed). Staging Core's sign-in mail is
+       taken by Google and shown nowhere (98; the fix is the DNS records of 100), so the site is
+       joined to `kowboy-test` as soon as Patric pastes a sign-in link from Postmark's message
+       page: add the site, write token and bell secret into its settings with the deploy script,
+       ring it, then the page-by-page loop against norbanmakleri.se with screenshots from the
+       live site.
 
 18. **The display fields, first attempt** (Patric, 2026-09-23): for every value
     norbanmakleri.se shows on a card, a list or a single page, the prepared string `display`

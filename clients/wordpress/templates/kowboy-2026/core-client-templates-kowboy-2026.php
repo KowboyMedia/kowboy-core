@@ -5,7 +5,7 @@
  * Description: The default template set "Kowboy 2026" for the Kowboy Core client: the cards, lists and single pages, showing what Core delivers.
  * Version: 0.1.0
  * Requires at least: 6.8
- * Requires PHP: 8.3
+ * Requires PHP: 8.2
  * Requires Plugins: core-client
  * Author: Kowboy Media
  * Update URI: https://kowboy.se/core-client-templates-kowboy-2026

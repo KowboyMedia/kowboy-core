@@ -58,26 +58,6 @@ environment's settings: move the value now in `DIGITALOCEAN_ACCESS_TOKEN` into `
 then make a new DigitalOcean personal access token with read and write on apps and save it as
 `DIGITALOCEAN_ACCESS_TOKEN`, then say "saved"; the next session checks both.
 
-## 88. `[client-wordpress]` The Cloudways token: settled by 87 if the swap is right
-
-Registered on 2026-09-23 as a separate refusal before the shapes were compared. If 87's move
-gives Cloudways the wider token, nothing more is needed here and 88 closes with 87. If Cloudways
-still answers "insufficient_scope" after the move, the token of 2026-09-21 was also limited, and
-a new one with access to the whole account (servers and applications) is needed under
-`CLOUDWAYS_API_KEY`.
-
-**2026-09-28.** The move of 87 was made: the DigitalOcean slot holds a working DigitalOcean
-token (it reads and writes staging Core's app). The Cloudways token creates applications and
-nothing else: an agent made the WordPress app "v4-staging" (application 6698706 on the dev server 1545003) through it, and then every read the loop needs (the server, the application, its
-address, its WordPress login, the operation's progress, the domain list) and the call that
-attaches `v4.dev.kowboy.se` to it answer `insufficient_scope`. So the site exists, and nothing can
-be found out about it from here. What is needed is a token with every permission, read and write
-on servers and applications. In Cloudways, make a new API token with every permission ticked,
-save it in the session environment's settings as `CLOUDWAYS_API_KEY`, then say "saved". The
-other way, one paste that unblocks only this one site: open the app "v4-staging" in Cloudways and
-paste its address, its WordPress admin user and its password here; that puts a password in the
-chat, so the token is the smaller option.
-
 ## 90. `[core]` The display fields drafted for the default set: validate R-015 to R-019 and Vitec's golden masters
 
 Next-steps item 18: every value norbanmakleri.se shows that `display` did not carry was drafted
@@ -186,19 +166,11 @@ the set's pages on it show no records.
 late. Gmail's server refused it twice ("unable to accept the message") and took it on the third
 try, because kowboy.se has no email authentication set up for Postmark (Postmark says so on the
 same page). A link lives fifteen minutes, so nine minutes of delay still leaves an agent time,
-and an agent now asks for a link and waits for it. What remains is the delay's cause, question 100. 98 moves to the decisions.
-
-## 99. `[client-wordpress]` The staging site runs PHP 8.2 and the plugin asks for 8.3
-
-The site Patric named (application 6698706, `wordpress-1545003-6698706.cloudwaysapps.com`) runs
-PHP 8.2.34, and WordPress refuses the plugin's package on upload: "the uploaded plugin requires
-8.3". The plugin's requirement of PHP 8.3 is written down (staging-site.md, "what the plugin
-needs from any host"), and the Cloudways token cannot change the app's PHP version (every such
-call is refused). Two ways: in Cloudways, open the app "v4-staging", set its PHP version to 8.3
-(Application Settings), then say "8.3", which is one click and keeps the requirement; or approve
-the plugin running on PHP 8.2 (the requirement lowered to 8.2 in both packages, the test suite
-run once on 8.2), which makes the plugin serve more hosts but loosens what was decided. The
-smaller option is the click. Answer "8.3" or "8.2".
+and an agent now asks for a link and waits for it. Later the same evening the picture changed: Postmark shows
+the mail of 16:05 UTC delivered to Google at 16:14, and neither it nor the one of 16:20 is in
+the mailbox an hour later, not in spam either. Google takes the mail and does not show it. The
+cause and the fix are question 100's; until then an agent asks for a link and Patric pastes it
+from Postmark's message page within fifteen minutes.
 
 ## 100. `[core]` kowboy.se has no email authentication for Postmark, so Gmail delays Core's mail
 
@@ -206,6 +178,13 @@ Postmark's page for the sign-in mail of 2026-09-28 says: "we recommend that you 
 authentication for kowboy.se". Without it Gmail's server refuses Core's mail at first and takes
 it minutes later (98). The fix is two DNS records on kowboy.se, which Postmark shows under Sender
 Signatures, kowboy.se (a DKIM record and a Return-Path record). Only someone with access to
-kowboy.se's DNS can add them; the agents have no such access. Add the two records Postmark shows,
-then say "added"; or give an agent a way to write kowboy.se's DNS records (the name of the DNS
-provider and a token limited to DNS), then say "token saved".
+kowboy.se's DNS can add them; the agents have no such access.
+
+**Patric, 2026-09-28:** mail must arrive, a delay is acceptable; "do I need to add the headers?"
+The answer: yes, and they are DNS records, not headers, and nothing in Core changes. Without
+them Google now takes the mail and shows it nowhere (98), so the records are what makes the mail
+arrive at all, delayed or not. In Postmark, open Sender Signatures, kowboy.se, and it shows two
+records (a DKIM record and a Return-Path record) to add at kowboy.se's DNS provider (Cloudflare
+runs `dev.kowboy.se`'s names, most likely the whole domain); add them, then say "added". Or give
+an agent a Cloudflare token limited to DNS for kowboy.se in the session environment's settings
+as `CLOUDFLARE_DNS_TOKEN`, then say "token saved", and the agent adds them.
