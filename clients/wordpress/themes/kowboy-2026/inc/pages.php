@@ -14,6 +14,11 @@ function kowboy_menu_fallback(array $args): void
         $url = $page instanceof WP_Post ? (string) get_permalink($page) : home_url('/' . $slug . '/');
         $items .= '<li class="menu-item"><a href="' . esc_url($url) . '">' . esc_html($label) . '</a></li>';
     }
+    // The footer's menu ends with the privacy page when the theme options name one.
+    $privacy = (int) kowboy_option('kowboy_privacy_page');
+    if (($args['theme_location'] ?? '') === 'footer' && $privacy > 0) {
+        $items .= '<li class="menu-item"><a href="' . esc_url((string) get_permalink($privacy)) . '">' . esc_html(get_the_title($privacy)) . '</a></li>';
+    }
     echo '<ul class="' . esc_attr((string) ($args['menu_class'] ?? '')) . '">' . $items . '</ul>';
 }
 
@@ -32,7 +37,8 @@ add_action('after_switch_theme', function (): void {
             'post_status' => 'publish',
             'post_name' => $slug,
             'post_title' => $title,
-            'post_content' => $content,
+            // WordPress expects slashed content here; without it the "\n" in a block's JSON turns into "n".
+            'post_content' => wp_slash($content),
         ]);
     }
     // The front page: Hem, unless the site already shows a page of its own that still exists.
@@ -40,15 +46,20 @@ add_action('after_switch_theme', function (): void {
         update_option('show_on_front', 'page');
         update_option('page_on_front', $ids['hem']);
     }
+    // The menu: made when there is none, and filled again when its pages are gone.
     $menu = wp_get_nav_menu_object('Huvudmeny');
-    if ($menu === false) {
-        $menu_id = wp_create_nav_menu('Huvudmeny');
-        if (!is_wp_error($menu_id)) {
+    $menu_id = $menu === false ? wp_create_nav_menu('Huvudmeny') : (int) $menu->term_id;
+    if (!is_wp_error($menu_id)) {
+        $live = array_filter(wp_get_nav_menu_items($menu_id) ?: [], fn (WP_Post $item): bool => get_post((int) $item->object_id) !== null);
+        if ($live === []) {
+            foreach (wp_get_nav_menu_items($menu_id) ?: [] as $item) {
+                wp_delete_post((int) $item->ID, true);
+            }
             foreach (['till-salu', 'salda-bostader', 'om-oss'] as $slug) {
                 wp_update_nav_menu_item($menu_id, 0, ['menu-item-object-id' => $ids[$slug], 'menu-item-object' => 'page', 'menu-item-type' => 'post_type', 'menu-item-status' => 'publish']);
             }
-            set_theme_mod('nav_menu_locations', ['primary' => $menu_id, 'footer' => $menu_id]);
         }
+        set_theme_mod('nav_menu_locations', ['primary' => $menu_id, 'footer' => $menu_id]);
     }
 });
 
@@ -68,7 +79,7 @@ function kowboy_demo_home(): string
     return kowboy_block('page-hero', ['title' => 'Rätt timing ger bättre affärer', 'lead' => 'Vill du köpa eller sälja?', 'height' => 'tall', 'buttons' => [['label' => 'Till salu', 'url' => '/till-salu/'], ['label' => 'Sälj med oss', 'url' => '/om-oss/']]])
         . kowboy_block('intro', ['label' => 'Norban Mäkleri', 'title' => 'Vi vet vad som får ett hem att sälja', 'text' => 'Personlig rådgivning, lokal marknadskunskap och en process byggd för bästa möjliga resultat – oavsett om du köper eller säljer.', 'figures' => [['value' => '150+', 'label' => 'Sålda bostäder'], ['value' => '21 dagar', 'label' => 'Snitt till kontrakt'], ['value' => '4.9/5', 'label' => 'Kundbetyg'], ['value' => '15 år', 'label' => 'I branschen']]])
         . kowboy_block('agents', ['title' => 'Fastighetsmäklare', 'lead' => 'Vårt team – lokala experter som finns med dig hela vägen.', 'limit' => 2, 'cardLabel' => 'Om oss', 'cardTitle' => 'Möt teamet bakom varje affär', 'cardText' => 'Lär dig mer om vår historia, vårt arbetssätt och varför våra kunder väljer oss om och om igen.', 'cardButtonLabel' => 'Läs mer', 'cardButtonUrl' => '/om-oss/'])
-        . kowboy_block('property-list', ['title' => 'Till salu', 'lead' => 'Nya bostäder varje vecka – bläddra bland allt till salu just nu.', 'status' => 'for_sale,coming', 'perPage' => 9, 'statusTabs' => true, 'filters' => false])
+        . kowboy_block('property-list', ['title' => 'Till salu', 'lead' => 'Nya bostäder varje vecka – bläddra bland allt till salu just nu.', 'status' => 'for_sale,coming', 'perPage' => 9, 'statusTabs' => true, 'filters' => false, 'background' => 'subtle'])
         . kowboy_demo_lead_form();
 }
 

@@ -78,10 +78,25 @@ and the deploy script installs the theme too. The tests
 (`clients/wordpress/templates.test.ts`) cover the lists, the pages, the blocks and demo pages,
 the theme options, and the set machinery with a fixture set plugin.
 
-What is not from the design's file yet, because Figma's connector stopped after two section reads
-(question 102): the exact spacings, radii and type sizes of every section are read from the
-design's screenshots and the frames' geometry, not from the file's values; the next pass with a
-token reads them section by section.
+On the same night the sections were set to the file's exact values through Figma's API (question
+102), and a second agent with no memory of the build compared the rendered pages with the
+design and listed 22 mismatches; the notable ones are fixed (the search card on the hero's edge,
+the tabs centred under it, the card and agent gradients as drawn, the section bands, the viewing
+card with its button inside, the side agent card's shape, the hero heights, the footer's three
+columns, the scroll indicator, the map's pin and controls). What remains is content the office
+adds (the hero pictures, the logotype, the address).
+
+The phone layout was checked later the same night against the file's four phone frames (Till
+salu, the home page, Om oss and the property page), fetched as pictures through Figma's image
+endpoint because its node endpoint answers "rate limit exceeded" until early October. Fixed:
+the hero titles at the phone sizes the frames draw (40, 34 and 30 px), the tall hero a screen
+high with its buttons stacked and the scroll indicator on the hero's lower edge, the search card
+under the hero's text straddling its edge, the figures and the quote in the frames' sizes, the
+footer centred, and the site's name on one line in the header. One thing the frames disagree
+on: the phone frames draw the "Ska du sälja din bostad?" form with the fields "Ditt namn", "Din
+gatuadress", "E-post" and "Mobil", the desktop frames with "Förnamn", "Efternamn", "Mobil" and
+"E-post". The theme follows the desktop frames on every width; the field list is part of
+question 105 (where a submission goes) and is not settled here.
 
 ## Order of work
 
