@@ -109,7 +109,6 @@ $hero_content = '<div class="k-hero__head">'
     . ($price !== null ? '<li class="k-pill">' . esc_html((string) $price) . ($sold ? ' <span class="k-hero__price-label">Slutpris</span>' : '') . '</li>' : '')
     . (isset($display['rooms']) ? '<li class="k-pill">' . esc_html((string) $display['rooms']) . '</li>' : '')
     . (isset($display['living_space']) ? '<li class="k-pill">' . esc_html((string) $display['living_space']) . '</li>' : '')
-    . ($status !== '' ? '<li class="k-pill k-hero__status">' . esc_html($status) . '</li>' : '')
     . '</ul></div>';
 echo kowboy_part('hero', ['media' => $hero, 'content' => $hero_content, 'variant' => 'property', 'alt' => $street]);
 ?>
@@ -135,17 +134,20 @@ echo kowboy_part('hero', ['media' => $hero, 'content' => $hero_content, 'variant
             <?php if (!$sold) : ?>
                 <div class="k-viewings">
                     <h2 class="k-heading">Visningar</h2>
-                    <?php if ($viewings === []) : ?>
-                        <p class="k-viewings__empty"><?php echo esc_html($no_viewings_text); ?></p>
-                    <?php else : ?>
-                        <?php foreach ($viewings as $viewing) : ?>
-                            <div class="k-viewing">
-                                <div class="k-viewing__date"><span class="k-viewing__weekday"><?php echo esc_html($viewing['weekday']); ?></span><span class="k-viewing__day"><?php echo esc_html($viewing['day']); ?></span><span class="k-viewing__month"><?php echo esc_html($viewing['month']); ?></span></div>
-                                <div class="k-viewing__body"><span class="k-viewing__time"><?php echo esc_html($viewing['time']); ?></span><?php if ($viewing['comment'] !== '') : ?><span class="k-viewing__comment"><?php echo esc_html($viewing['comment']); ?></span><?php endif; ?></div>
+                    <div class="k-viewing">
+                        <?php if ($viewings !== []) : ?>
+                            <div class="k-viewing__dates">
+                                <?php foreach ($viewings as $viewing) : ?>
+                                    <div class="k-viewing__date"><span class="k-viewing__weekday"><?php echo esc_html($viewing['weekday']); ?></span><span class="k-viewing__day"><?php echo esc_html($viewing['day']); ?></span><span class="k-viewing__month"><?php echo esc_html($viewing['month']); ?></span><span class="k-viewing__time"><?php echo esc_html($viewing['time']); ?></span></div>
+                                <?php endforeach; ?>
                             </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                    <a class="k-button" href="#k-interest">Boka här</a>
+                        <?php endif; ?>
+                        <div class="k-viewing__body">
+                            <?php $viewing_texts = array_values(array_unique(array_filter(array_column($viewings, 'comment')))); ?>
+                            <?php if ($viewing_texts !== []) : ?><?php foreach ($viewing_texts as $viewing_text) : ?><span class="k-viewing__comment"><?php echo esc_html($viewing_text); ?></span><?php endforeach; ?><?php else : ?><span><?php echo esc_html($no_viewings_text); ?></span><?php endif; ?>
+                        </div>
+                        <a class="k-button" href="#k-interest">Boka här</a>
+                    </div>
                 </div>
             <?php endif; ?>
             <?php if ($agents !== []) : ?>
@@ -212,7 +214,7 @@ echo kowboy_part('hero', ['media' => $hero, 'content' => $hero_content, 'variant
     <?php endif; ?>
 
     <?php if ($lat !== null && $lng !== null) : ?>
-        <div class="k-map" data-map data-lat="<?php echo esc_attr((string) $lat); ?>" data-lng="<?php echo esc_attr((string) $lng); ?>" data-title="<?php echo esc_attr($street); ?>" data-marker="<?php echo esc_url(get_theme_file_uri('assets/vendor/images/marker-icon.png')); ?>"></div>
+        <div class="k-map" data-map data-lat="<?php echo esc_attr((string) $lat); ?>" data-lng="<?php echo esc_attr((string) $lng); ?>" data-title="<?php echo esc_attr($street); ?>"></div>
     <?php endif; ?>
 
     <div class="k-container k-property__lead"><?php echo kowboy_part('lead-form', ['title' => 'Ska du sälja din bostad?', 'text' => 'Fyll i dina uppgifter så hör vi av oss!', 'subject' => '']); ?></div>

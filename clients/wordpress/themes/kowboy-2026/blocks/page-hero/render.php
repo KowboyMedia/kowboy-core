@@ -27,6 +27,9 @@ if ($buttons !== '') {
     $content .= '<div class="k-hero__buttons">' . $buttons . '</div>';
 }
 $content .= '</div>';
+if (($attributes['height'] ?? '') === 'tall') {
+    $content .= '<span class="k-hero__scroll" aria-hidden="true"></span>';
+}
 if (!empty($attributes['searchForm'])) {
     $content .= kowboy_part('search-form', []);
 }

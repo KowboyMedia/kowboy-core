@@ -14,6 +14,11 @@ function kowboy_menu_fallback(array $args): void
         $url = $page instanceof WP_Post ? (string) get_permalink($page) : home_url('/' . $slug . '/');
         $items .= '<li class="menu-item"><a href="' . esc_url($url) . '">' . esc_html($label) . '</a></li>';
     }
+    // The footer's menu ends with the privacy page when the theme options name one.
+    $privacy = (int) kowboy_option('kowboy_privacy_page');
+    if (($args['theme_location'] ?? '') === 'footer' && $privacy > 0) {
+        $items .= '<li class="menu-item"><a href="' . esc_url((string) get_permalink($privacy)) . '">' . esc_html(get_the_title($privacy)) . '</a></li>';
+    }
     echo '<ul class="' . esc_attr((string) ($args['menu_class'] ?? '')) . '">' . $items . '</ul>';
 }
 
@@ -68,7 +73,7 @@ function kowboy_demo_home(): string
     return kowboy_block('page-hero', ['title' => 'Rätt timing ger bättre affärer', 'lead' => 'Vill du köpa eller sälja?', 'height' => 'tall', 'buttons' => [['label' => 'Till salu', 'url' => '/till-salu/'], ['label' => 'Sälj med oss', 'url' => '/om-oss/']]])
         . kowboy_block('intro', ['label' => 'Norban Mäkleri', 'title' => 'Vi vet vad som får ett hem att sälja', 'text' => 'Personlig rådgivning, lokal marknadskunskap och en process byggd för bästa möjliga resultat – oavsett om du köper eller säljer.', 'figures' => [['value' => '150+', 'label' => 'Sålda bostäder'], ['value' => '21 dagar', 'label' => 'Snitt till kontrakt'], ['value' => '4.9/5', 'label' => 'Kundbetyg'], ['value' => '15 år', 'label' => 'I branschen']]])
         . kowboy_block('agents', ['title' => 'Fastighetsmäklare', 'lead' => 'Vårt team – lokala experter som finns med dig hela vägen.', 'limit' => 2, 'cardLabel' => 'Om oss', 'cardTitle' => 'Möt teamet bakom varje affär', 'cardText' => 'Lär dig mer om vår historia, vårt arbetssätt och varför våra kunder väljer oss om och om igen.', 'cardButtonLabel' => 'Läs mer', 'cardButtonUrl' => '/om-oss/'])
-        . kowboy_block('property-list', ['title' => 'Till salu', 'lead' => 'Nya bostäder varje vecka – bläddra bland allt till salu just nu.', 'status' => 'for_sale,coming', 'perPage' => 9, 'statusTabs' => true, 'filters' => false])
+        . kowboy_block('property-list', ['title' => 'Till salu', 'lead' => 'Nya bostäder varje vecka – bläddra bland allt till salu just nu.', 'status' => 'for_sale,coming', 'perPage' => 9, 'statusTabs' => true, 'filters' => false, 'background' => 'subtle'])
         . kowboy_demo_lead_form();
 }
 

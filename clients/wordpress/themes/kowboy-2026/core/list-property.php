@@ -15,12 +15,15 @@ $default_status = (string) ($params['status'] ?? '');
 ?>
 <div class="k-list" id="<?php echo esc_attr($uid); ?>" data-list data-reload="<?php echo esc_url(rest_url('core/v1/list')); ?>" data-params="<?php echo esc_attr((string) wp_json_encode($reload)); ?>" data-page="<?php echo (int) $result['page']; ?>">
     <div class="k-container">
-        <?php if (($params['title'] ?? '') !== '' || ($params['lead'] ?? '') !== '' || $tabs !== []) : ?>
-            <div class="k-list__head">
-                <div>
-                    <?php if (($params['title'] ?? '') !== '') : ?><h2 class="k-section__title"><?php echo esc_html((string) $params['title']); ?></h2><?php endif; ?>
-                    <?php if (($params['lead'] ?? '') !== '') : ?><p class="k-section__lead"><?php echo esc_html((string) $params['lead']); ?></p><?php endif; ?>
-                </div>
+        <?php $has_text = ($params['title'] ?? '') !== '' || ($params['lead'] ?? '') !== ''; ?>
+        <?php if ($has_text || $tabs !== []) : ?>
+            <div class="k-list__head<?php echo $has_text ? '' : ' k-list__head--tabs'; ?>">
+                <?php if ($has_text) : ?>
+                    <div>
+                        <?php if (($params['title'] ?? '') !== '') : ?><h2 class="k-section__title"><?php echo esc_html((string) $params['title']); ?></h2><?php endif; ?>
+                        <?php if (($params['lead'] ?? '') !== '') : ?><p class="k-section__lead"><?php echo esc_html((string) $params['lead']); ?></p><?php endif; ?>
+                    </div>
+                <?php endif; ?>
                 <?php if ($tabs !== []) : ?>
                     <div class="k-tabs" role="tablist">
                         <?php foreach ($tabs as $value => $label) : ?>

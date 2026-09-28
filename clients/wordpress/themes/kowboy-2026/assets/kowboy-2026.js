@@ -165,7 +165,7 @@
     if (!once(element, 'ready') || typeof window.L !== 'object') return;
     var lat = parseFloat(element.dataset.lat);
     var lng = parseFloat(element.dataset.lng);
-    var map = window.L.map(element, { scrollWheelZoom: false, zoomControl: true }).setView(
+    var map = window.L.map(element, { scrollWheelZoom: false, zoomControl: false }).setView(
       [lat, lng],
       14,
     );
@@ -173,10 +173,10 @@
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
-    var icon = window.L.icon({
-      iconUrl: element.dataset.marker,
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
+    var icon = window.L.divIcon({
+      className: 'k-map__pin',
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
     });
     window.L.marker([lat, lng], { icon: icon, title: element.dataset.title }).addTo(map);
   }
