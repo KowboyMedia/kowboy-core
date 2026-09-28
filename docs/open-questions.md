@@ -187,7 +187,7 @@ without blocking this." Open. An agent first stored submissions on the site and 
 which Patric called a drift and had removed the same evening: the form is a dummy that posts
 nowhere and whose button does nothing, until this is answered.
 
-## 111. `[crm-vitec]` Documents (the marketing PDFs) into the universal model, for a listing and its association
+## 111. `[crm-vitec]` Documents (the marketing PDFs) into the universal model, for a listing and its association (shelved: Patric, 2026-09-28, "out of scope for this session"; picked up with the CRM mapping)
 
 Patric (2026-09-28, answering 110 with "keep"): the documents are PDFs used for marketing, most
 listings have them, they are delivered by the CDN like the images, and they exist in two places,
