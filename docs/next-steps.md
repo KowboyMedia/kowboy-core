@@ -27,6 +27,11 @@ client ports (item 16, first client by question 80).
 - ~~**Skills for the repeated procedures**~~ Done 2026-09-27 as the playbook: `status`, `release`
   and six more phases under `.claude/skills/`; the template port of `docs/template-porting.md`
   becomes a skill when the first port runs.
+- ~~**The handbook as one place for every repository.**~~ Done 2026-09-29: the shared rules are
+  `KOWBOY-HANDBOOK.md`, kept in `KowboyMedia/kowboy-handbook` as a Claude Code plugin (rules,
+  playbook, nine skills, four hooks, the starting kit); this repository carries a copy until the
+  plugin is enabled on the account (Default 115) and the copy is refreshed by the sync once
+  `SYNC_TOKEN` exists, by hand until then.
 - **If register numbers collide again** after the register check, move the counter out of the
   files: each question becomes a GitHub issue and takes its number, the register file stays the
   readable view. Not before a collision is seen with the check in place.
