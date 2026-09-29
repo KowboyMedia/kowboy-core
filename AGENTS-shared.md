@@ -68,43 +68,73 @@ instead of you figuring out these things").
 Every reply to Patric is four labelled blocks, in this order, and nothing outside them (Patric,
 2026-09-20 and 2026-09-21: a page of prose per reply had to be searched for the questions; and an
 answer never ends without saying what he does next). He reads the first block and answers; the
-rest is optional reading.
+rest is optional reading. The measure of every block is the effort it costs him: a question he can
+answer in one word without reading anything else, a Done he can stop reading after the first line.
 
-1. **Questions.** One line per ask, numbered with the register's number, or the word "none".
-   - **Two kinds of ask: Decide and Default** (Patric, 2026-09-27). A gate (the stop-and-ask lists:
-     contract, money, something irreversible) is a _Decide_: it waits for his word. Everything else
-     is a _Default_: the agent names its pick, does it, and Patric answers only if he disagrees; his
-     silence is the answer. Each line starts with the word: "Decide 91: ..." or "Default 90: ...".
-   - **Each answer in one clause of consequence.** A question names what happens on each answer,
-     one clause each, nothing more: "91: a → I set it up, you create one empty repository; c →
-     nothing to set up, copies drift apart."
-   - **At most five per reply**, ordered by what blocks the most; the rest wait in the register
-     until these are answered (Patric, 2026-09-27; a round of twenty was unreadable).
-   - **Show before asking.** A question about anything visible carries the place to see it: a
-     staging page, two links side by side, a screenshot. Patric judges by looking, not by reading a
-     description.
-   - **The number is the register's** (`docs/open-questions.md`): a question gets the next number
-     there before it is asked, chat refers to that number, and Patric answers by number in any
-     conversation. Never a fresh "1."; numbers keep counting across sessions and are never reused.
-   - **Every ask is a real question or a real instruction** (Patric, 2026-09-23: two asks read as
-     statements of state and he could not tell what to do). A question ends with a question mark
-     and names its answers, with the smaller option named: "Is norbanmakleri.se the master? Answer
-     yes or no." An instruction starts with the verb of the one step and says when it is done:
-     "Save the new token in the environment's settings, then say 'saved'." A line that only
-     describes a situation, or tells Patric what the agent assumed, is not an ask: it goes in
-     Notes, and if an answer is needed, a question follows it.
-   - **One line per ask, the reasoning in the register.** Chat gets what is needed and how to
-     answer it (a paste, a yes or no, or a pick between two things named in plain words). The
-     register entry carries the whole reasoning in complete sentences, and chat gives it when
-     Patric asks.
-2. **Done.** One line per thing that changed, each saying how it was verified ("seen on staging",
-   "tests green", "not yet run against real Vitec") and, where it changed something people use,
-   how to take it back ("undo: say 'undo 12'"); the agent keeps the means to undo (Patric,
-   2026-09-27).
-3. **Notes.** Only when something matters for a decision, one line each; otherwise omitted.
-4. **Next.** One or two plain lines: what Patric does next. "Nothing, I carry on", "answer 74 with
-   yes or no", or the one step only he can take, named. An agent never leaves the conversation, or
-   pauses to wait, without them.
+### Questions
+
+Only what Patric alone can decide (product, money, contract, priority, anything irreversible), as a
+numbered list whose numbers are the register's. Nothing else goes here: no background, no
+reasoning, no status. Never tooling, never what the agent can find out itself, never what the memory
+files already answer.
+
+- **One decision per question.** The question is one short sentence in plain words that ends with
+  a question mark and holds no options and no reasoning (Patric, 2026-09-29: three options folded
+  into one sentence could not be read as a question).
+- **The options under it, one per line, at most three.** Each starts with the word he answers
+  with, in bold, followed by one short consequence in his words; the recommended option comes first
+  and is marked "(recommended)". A yes/no question whose outcomes are obvious needs no option lines.
+- **The last line says how to reply, with the exact words**: "Reply: copy, fetch or managed." An
+  open answer (a name, a paste) says exactly what to paste and where he finds it.
+- **A Default** is asked the same way, its question starting with "Default:" and stating what the
+  agent does, and its reply line reading "Reply only if you disagree: no". Silence is the answer
+  (Patric, 2026-09-27). A gate (the stop-and-ask lists) is never a Default.
+- **An instruction** (a step only he can take) is one imperative sentence that names when it is
+  done: "Save the token as SYNC_TOKEN, then say 'saved'."
+- **At most three per reply**, the one that blocks most first; five only when all five block today;
+  the rest wait in the register (Patric, 2026-09-27; a round of twenty was unreadable).
+- **Show before asking.** A question about anything visible carries the place to see it: a staging
+  page, two links side by side, a screenshot.
+- **Every question is a register entry first** (`docs/open-questions.md`); chat carries the number
+  and the answers, the register carries the reasoning, and Patric answers by number in any
+  conversation. Numbers are never reused (Patric, 2026-09-23: an ask that only described a
+  situation could not be answered; it belongs in Notes, with a question after it if one is needed).
+
+The shape, always the same:
+
+```
+**Questions**
+1. [handbook] 113 · How does the handbook reach each repository?
+   - **copy** (recommended): a synced copy in each repository; nothing to do after the token.
+   - **fetch**: the handbook becomes public and sessions read it live; no token.
+   - **managed**: needs a Team plan; you paste every rule change yourself.
+   Reply: copy, fetch or managed.
+2. [agents] 92 · Default: I keep the four units-of-work rules.
+   Reply only if you disagree: no, and which rule.
+```
+
+### Done
+
+What changed, for the product, one line each, the most important first, so he may stop reading
+after the first line. Each line: the component tag, a verb, what it means for the product in his
+words, how it was verified in brackets ("tests green", "seen on staging", "not yet run against
+real Vitec"), and the undo word where something people use changed ("undo: say 'undo 12'"); the
+agent keeps the means to undo (Patric, 2026-09-27). Never a description of the process, never a
+list of files, never reasoning: "[core] Bells now retry three times before giving up (tests
+green; not yet against real Vitec). Undo: say 'undo 12'."
+
+### Notes
+
+Only what changes a decision he has to make now or soon, one line each, the component tag first.
+A Note never asks anything: if an answer is needed, it becomes a question. Never background, never
+the agent's reasoning, which live in the register and the documents. Most replies have no Notes,
+and the block is then left out.
+
+### Next
+
+One line, imperative, the single thing Patric does now, naming the reply words: "Reply to 93 with
+copy, fetch or managed." Or "Nothing, I carry on." Never a list, never more than two lines, and
+never a reply without it (Patric, 2026-09-20).
 
 ## The project's memory
 
