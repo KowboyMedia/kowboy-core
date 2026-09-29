@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 115 (75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 116 (75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
@@ -227,30 +227,15 @@ questions become issues with their texts, the file lists them by issue number, `
 reads the issues' numbers). Smaller: keep counting in the file and accept collisions. Answer
 "no" to keep the file.
 
-## 113. `[agents]` How the handbook reaches each repository: copy, fetch or managed
+## 115. `[handbook]` Default: the handbook reaches every repository as a plugin on the claude.ai account, and the copy stays only for repositories read by other agents
 
-Claude Code reads instructions only from files inside the repository it works in, or from
-server-managed settings on Team and Enterprise plans. Its `@import` takes no web address; a cloud
-session's GitHub access reaches only the repositories attached to it, so a private handbook cannot be
-read from another repository's session; public files on raw.githubusercontent.com are reachable under
-the default network level (Claude Code documentation, read 2026-09-29). That leaves three ways.
-**Copy** (recommended): the sync action keeps a copy in each repository; versioned with the code,
-read by every agent tool, reloaded after compaction, zero human steps once the token exists; cost:
-one save per repository per handbook change. **Fetch**: the handbook repository is made public and a
-session-start hook prints the rules live from GitHub; no copy, no token; cost: the rules are public,
-the playbook phases stop loading by themselves as skills, and the hooks and settings still need one
-copy per repository. **Managed**: only on a Team or Enterprise plan, an Owner pastes the rules into
-Admin settings and every session, cloud included, gets them within an hour; cost: every rule change
-is a paste by Patric, and skills cannot travel that way. Whatever the choice, every repository keeps
-its own `CLAUDE.md`, `AGENTS.md`, memory files, hooks and settings.
-
-## 114. `[agents]` The name of the shared setup, its repository, its file and its tag
-
-"agents" is too generic (Patric, 2026-09-29). Recommended **handbook**: the repository
-`KowboyMedia/handbook`, the shared rules file `HANDBOOK.md` (replacing `AGENTS-shared.md`), the
-tag `[handbook]`, and "the handbook" in chat; it is the established name for the repository that
-says how a company works, and it pairs with `PLAYBOOK.md` (the procedures) and each project's
-`AGENTS.md` (the standard name, kept). Alternative **ranch**: the brand word, on-brand and opaque to
-anyone new. Renaming the repository itself is the one step only Patric can take (repository
-settings cannot be changed from a session); GitHub keeps the old address working; everything else
-an agent renames in one pass.
+Question 113 chose the copy (a synced copy of the handbook in each repository). The same day the
+plugin form was found: Claude Code plugins enabled on the claude.ai account (Customize, then
+Plugins) are loaded by every session of that account, in the terminal, in Cowork and on the web,
+and the `KowboyMedia/kowboy-handbook` repository is now such a plugin (its rules, its playbook, its
+skills and its four hooks). One place to update, every repository and every customer repository
+follows, and nothing is copied. The copy path (the sync in `.github/sync.yml`, question 113) stays
+for a repository read by an agent that does not load plugins. Not yet tried on a real account: the
+first session with the plugin enabled shows whether the hooks and the skills load as documented.
+Default: enable the plugin on the account and use the copy only where an agent cannot load it.
+Smaller: keep the copy everywhere and never enable the plugin. Answer "no" to keep the copy.

@@ -1,0 +1,7 @@
+# Protected paths: changes here need approval from Patric.
+/AGENTS.md            @patric-kowboy
+/KOWBOY-HANDBOOK.md   @patric-kowboy
+/PLAYBOOK.md          @patric-kowboy
+/.claude/skills/      @patric-kowboy
+/CLAUDE.md            @patric-kowboy
+/.github/CODEOWNERS   @patric-kowboy

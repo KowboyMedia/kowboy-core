@@ -4,6 +4,8 @@
 # refuses (exit 2) and the agent gets the message, so the work is sent before the turn ends.
 # Work in progress that is not yet saved is allowed: a session may pause to ask a question.
 set -uo pipefail
+# When the repository carries its own copy of this hook, that copy runs and this one steps aside.
+[ -x "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/stop.sh" ] && [ "${BASH_SOURCE[0]}" != "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/stop.sh" ] && exit 0
 cd "${CLAUDE_PROJECT_DIR:-.}" || exit 0
 input=$(cat)
 # A second pass after this hook already spoke: let the turn end, never loop.

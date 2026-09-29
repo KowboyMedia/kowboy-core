@@ -3,7 +3,7 @@
 Kowboy Core is the central service that reads real estate CRMs, normalizes their data into one
 model and serves it to thin website clients.
 
-- Plan: [docs/strategy.md](docs/strategy.md) · Agent instructions: [AGENTS-shared.md](AGENTS-shared.md) (every Kowboy project) and [AGENTS.md](AGENTS.md) (this one)
+- Plan: [docs/strategy.md](docs/strategy.md) · Agent instructions: [KOWBOY-HANDBOOK.md](KOWBOY-HANDBOOK.md) (every Kowboy project) and [AGENTS.md](AGENTS.md) (this one)
 - Decisions: [docs/decisions.md](docs/decisions.md) · Open questions: [docs/open-questions.md](docs/open-questions.md)
 - Contract: [schemas/](schemas/) and [docs/field-tables.md](docs/field-tables.md)
 - Acceptance: [acceptance/report.md](acceptance/report.md)
