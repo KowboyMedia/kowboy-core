@@ -69,7 +69,16 @@ Every reply to Patric is four labelled blocks, in this order, and nothing outsid
 2026-09-20 and 2026-09-21: a page of prose per reply had to be searched for the questions; and an
 answer never ends without saying what he does next). He reads the first block and answers; the
 rest is optional reading. The measure of every block is the effort it costs him: a question he can
-answer in one word without reading anything else, a Done he can stop reading after the first line.
+answer with one letter without reading anything else, a Done he can stop reading after the first
+bullet.
+
+### How every block is written
+
+- **Bullets, not paragraphs.** One idea per bullet; details go in sub-bullets under it, never in a
+  longer line. A reader scans the first words of each bullet and stops when he has enough (Patric,
+  2026-09-29).
+- **The component tag first, in backticks**, so it stands out: `` `[core]` ``, `` `[handbook]` ``.
+- **Plain words**, complete sentences, every term explained the first time.
 
 ### Questions
 
@@ -81,10 +90,11 @@ files already answer.
 - **One decision per question.** The question is one short sentence in plain words that ends with
   a question mark and holds no options and no reasoning (Patric, 2026-09-29: three options folded
   into one sentence could not be read as a question).
-- **The options under it, one per line, at most three.** Each starts with the word he answers
-  with, in bold, followed by one short consequence in his words; the recommended option comes first
-  and is marked "(recommended)". A yes/no question whose outcomes are obvious needs no option lines.
-- **The last line says how to reply, with the exact words**: "Reply: copy, fetch or managed." An
+- **The options under it, lettered a), b), c), one per line, at most three.** Each starts with
+  its letter, then the answer word in bold, then one short consequence in his words; the
+  recommended option comes first and is marked "(recommended)" (Patric, 2026-09-29). A yes/no
+  question whose outcomes are obvious needs no option lines.
+- **The last line says how to reply, with the exact letters or words**: "Reply: a, b or c." An
   open answer (a name, a paste) says exactly what to paste and where he finds it.
 - **A Default** is asked the same way, its question starting with "Default:" and stating what the
   agent does, and its reply line reading "Reply only if you disagree: no". Silence is the answer
@@ -104,37 +114,45 @@ The shape, always the same:
 
 ```
 **Questions**
-1. [handbook] 113 · How does the handbook reach each repository?
-   - **copy** (recommended): a synced copy in each repository; nothing to do after the token.
-   - **fetch**: the handbook becomes public and sessions read it live; no token.
-   - **managed**: needs a Team plan; you paste every rule change yourself.
-   Reply: copy, fetch or managed.
-2. [agents] 92 · Default: I keep the four units-of-work rules.
+1. `[handbook]` 113 · How does the handbook reach each repository?
+   - a) **copy** (recommended): a synced copy in each repository; nothing to do after the token.
+   - b) **fetch**: the handbook becomes public and sessions read it live; no token.
+   - c) **managed**: needs a Team plan; you paste every rule change yourself.
+   Reply: a, b or c.
+2. `[agents]` 92 · Default: I keep the four units-of-work rules.
    Reply only if you disagree: no, and which rule.
 ```
 
 ### Done
 
-What changed, for the product, one line each, the most important first, so he may stop reading
-after the first line. Each line: the component tag, a verb, what it means for the product in his
-words, how it was verified in brackets ("tests green", "seen on staging", "not yet run against
-real Vitec"), and the undo word where something people use changed ("undo: say 'undo 12'"); the
-agent keeps the means to undo (Patric, 2026-09-27). Never a description of the process, never a
-list of files, never reasoning: "[core] Bells now retry three times before giving up (tests
-green; not yet against real Vitec). Undo: say 'undo 12'."
+What changed, for the product, one bullet each, the most important first, so he may stop reading
+after the first bullet.
+
+- The bullet: the component tag, a verb, what it means for the product in his words.
+- Sub-bullets: how it was verified ("tests green", "seen on staging", "not yet run against real
+  Vitec") and, where something people use changed, the undo word ("undo: say 'undo 12'"); the
+  agent keeps the means to undo (Patric, 2026-09-27).
+- Never a description of the process, never a list of files, never reasoning.
+
+```
+**Done**
+- `[core]` Bells now retry three times before giving up.
+  - Verified: tests green; not yet against real Vitec.
+  - Undo: say "undo 12".
+```
 
 ### Notes
 
-Only what changes a decision he has to make now or soon, one line each, the component tag first.
-A Note never asks anything: if an answer is needed, it becomes a question. Never background, never
-the agent's reasoning, which live in the register and the documents. Most replies have no Notes,
-and the block is then left out.
+Only what changes a decision he has to make now or soon, one bullet each, the component tag first,
+details as sub-bullets. A Note never asks anything: if an answer is needed, it becomes a question.
+Never background, never the agent's reasoning, which live in the register and the documents. Most
+replies have no Notes, and the block is then left out.
 
 ### Next
 
-One line, imperative, the single thing Patric does now, naming the reply words: "Reply to 93 with
-copy, fetch or managed." Or "Nothing, I carry on." Never a list, never more than two lines, and
-never a reply without it (Patric, 2026-09-20).
+A short bullet list, normally one bullet: the thing Patric does now, imperative, naming the reply
+letters or words ("Reply to 113 with a, b or c"), or "Nothing, I carry on." Never more than three
+bullets, and never a reply without the block (Patric, 2026-09-20).
 
 ## The project's memory
 
