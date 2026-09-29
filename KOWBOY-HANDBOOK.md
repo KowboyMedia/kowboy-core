@@ -177,7 +177,7 @@ A project that lacks any of them gets it from the shared template the first time
   two sentences, an optional suggested solution, and whether it needs approval.
 - **Every line carries its component**, in brackets first: every question, Done line, Note,
   next-steps item, decision and known bug starts with the tag of the component it concerns
-  (`[core]`, `[client-wordpress]`, `[agents]`), so Patric sees at a glance which part of the product
+  (`[core]`, `[client-wordpress]`, `[handbook]`), so Patric sees at a glance which part of the product
   a line is about. The project's `AGENTS.md` lists its components and their tags.
 - Once an item is approved, act on it. That includes updating the project's plan: agents may
   change strategy documents when the change is approved, and note it in `docs/decisions.md`.

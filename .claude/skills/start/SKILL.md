@@ -14,7 +14,9 @@ places, and the first thing Patric decides is the plan, not a detail.
    the four memory files under `docs/`, `scripts/check-register.mjs` and `.github/CODEOWNERS`.
    With the plugin on, the handbook, the playbook, the skills and the hooks need no copy; without
    it, copy `KOWBOY-HANDBOOK.md`, `PLAYBOOK.md`, `skills/` into `.claude/skills/` and `hooks/` into
-   `.claude/hooks/` as well. Write `AGENTS.md` from the skeleton with only what is true in this
+   `.claude/hooks/` as well, and add the line `@KOWBOY-HANDBOOK.md` above `@AGENTS.md` in
+   `CLAUDE.md`, so the copy is read at session start (the kit's `CLAUDE.md` imports only
+   `AGENTS.md`, because with the plugin on there is no copy to import). Write `AGENTS.md` from the skeleton with only what is true in this
    project: its components and tags, its commands, its hard blocks.
 2. **The inputs.** Put what Patric has (a concept, a spec, reference sites, existing data, old
    documents) under `docs/inputs/`, unchanged.
