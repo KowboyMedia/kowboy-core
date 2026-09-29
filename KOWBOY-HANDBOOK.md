@@ -1,9 +1,10 @@
-# AGENTS-shared.md - how agents work at Kowboy
+# KOWBOY-HANDBOOK.md - how agents work at Kowboy
 
-The rules that are the same in every Kowboy repository. Read this before the project's own
-`AGENTS.md`, which holds what is true only there; where the two differ, the project's file wins.
-This file is protected: changes need Patric's approval, and they are made in the shared source and
-copied to every repository, never edited in one repository alone.
+The rules that are the same in every Kowboy repository, and in every session where the
+kowboy-handbook plugin is on. Read this before the project's own `AGENTS.md`, which holds what is
+true only there; where the two differ, the project's file wins. This file is protected: changes
+need Patric's approval, and they are made in the source repository `KowboyMedia/kowboy-handbook`,
+never in a copy.
 
 ## Who decides
 
@@ -82,9 +83,10 @@ bullet.
 
 ### Questions
 
-Only what Patric alone can decide (product, money, contract, priority, anything irreversible), as a
-numbered list whose numbers are the register's. Nothing else goes here: no background, no
-reasoning, no status. Never tooling, never what the agent can find out itself, never what the memory
+Only what Patric alone can decide (product, money, contract, priority, anything irreversible), one
+bullet per question, each labelled with its register number in bold and never with a list position
+(Patric, 2026-09-29: "1." and "2." read as the numbers while they were 113 and 114). Nothing else
+goes here: no background, no reasoning, no status. Never tooling, never what the agent can find out itself, never what the memory
 files already answer.
 
 - **One decision per question.** The question is one short sentence in plain words that ends with
@@ -114,13 +116,13 @@ The shape, always the same:
 
 ```
 **Questions**
-1. `[handbook]` 113 · How does the handbook reach each repository?
-   - a) **copy** (recommended): a synced copy in each repository; nothing to do after the token.
-   - b) **fetch**: the handbook becomes public and sessions read it live; no token.
-   - c) **managed**: needs a Team plan; you paste every rule change yourself.
-   Reply: a, b or c.
-2. `[agents]` 92 · Default: I keep the four units-of-work rules.
-   Reply only if you disagree: no, and which rule.
+- **113** `[handbook]` How does the handbook reach each repository?
+  - a) **copy** (recommended): a synced copy in each repository; nothing to do after the token.
+  - b) **fetch**: the handbook becomes public and sessions read it live; no token.
+  - c) **managed**: needs a Team plan; you paste every rule change yourself.
+  - Reply: a, b or c.
+- **92** `[handbook]` Default: I keep the four units-of-work rules.
+  - Reply only if you disagree: no, and which rule.
 ```
 
 ### Done
@@ -183,7 +185,7 @@ A project that lacks any of them gets it from the shared template the first time
 ## Twice is a rule
 
 The second time Patric corrects the same thing, the agent writes the rule in the same reply, with
-the date and the correction that caused it, and says where it now lives: `AGENTS-shared.md` if it
+the date and the correction that caused it, and says where it now lives: `KOWBOY-HANDBOOK.md` if it
 holds everywhere, the project's `AGENTS.md` if it holds only there (Patric, 2026-09-27; the slug
 rule took six repeats and the reply format three). A rule nobody would break without it is deleted
 the same way.
@@ -238,8 +240,8 @@ built on and believed.
 
 ## The playbook
 
-`PLAYBOOK.md` lists the phases of the work (start a project, discover, plan an item, decide
-architecture, build, review, release and operate, status) and the file to read before each; Claude Code loads
+`PLAYBOOK.md` lists the phases of the work (start a project, discover, plan an item, design,
+decide architecture, build, review, release and operate, status) and the file to read before each; Claude Code loads
 them as skills when they apply and on `/plan`, `/review`, `/release` and the like, any other agent
 reads the files. The rules below hold all the time; the playbook holds the procedure for a phase.
 

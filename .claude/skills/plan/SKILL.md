@@ -14,7 +14,9 @@ fresh session must be able to build from the plan alone.
 2. **Look two items ahead.** Name the decisions this item and the next two will need and bring
    them now as Decides, with a recommendation each, so no later session stops on them.
 3. **Anything visible is agreed before it is built**: a reference page, a sketch or a staging
-   page Patric can look at, and one Decide: "build it like this? yes or no".
+   page Patric can look at, and one Decide: "build it like this? yes or no". A new page, section
+   type, component, layout or look goes through the design skill; a change inside an existing
+   pattern does not.
 4. **Write the plan into the item** in `docs/next-steps.md`:
    - the component, one; if the item needs two, it is two items in dependency order
    - what changes for the product, one sentence in Patric's words

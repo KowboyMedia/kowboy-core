@@ -1,6 +1,6 @@
 # AGENTS.md - Kowboy Core
 
-Every agent reads `AGENTS-shared.md` (how agents work at Kowboy) and then this file (what is true
+Every agent reads `KOWBOY-HANDBOOK.md` (how agents work at Kowboy) and then this file (what is true
 only here) before doing any work; where they differ, this file wins. `CLAUDE.md` only imports the
 two. This file is protected, and changes need approval.
 
@@ -18,7 +18,9 @@ Kowboy Core ("Core") is one central service. It reads real estate CRMs, normaliz
 | [docs/next-steps.md](docs/next-steps.md)                                   | The order of work. "Resume next steps" means: do the first item that is not done.                          |
 | [docs/known-bugs.md](docs/known-bugs.md)                                   | What is wrong and known, with what fixing it takes.                                                        |
 
-Components and their tags: `[core]` the engine, `[crm]` any adapter, `[crm-vitec]`, `[crm-mspecs]`, `[client-wordpress]`, `[client-lovable]`, `[admin]` the admin area, `[agents]` the agent setup itself (these files, the hooks, the registers, the playbook).
+Components and their tags: `[core]` the engine, `[crm]` any adapter, `[crm-vitec]`, `[crm-mspecs]`, `[client-wordpress]`, `[client-lovable]`, `[admin]` the admin area, `[handbook]` the agent setup itself (these files, the hooks, the registers, the playbook; `[agents]` in older entries).
+
+Design: `DESIGN.md` for the admin area and the WordPress templates once one is derived (the design skill); until then, the reference is norbanmakleri.se for the templates and the framework's defaults for the admin area.
 
 ## Enforced: CI blocks merge or deploy
 
@@ -26,7 +28,7 @@ These are the only hard blocks. Don't add more without approval.
 
 1. **Build, typecheck and all tests pass.** A skipped test counts as a failure.
 2. **The seam.** The engine never imports or calls adapter code, and no CRM name appears in `engine/` or `clients/`. Adapters import only `engine/adapter-api/` and nothing else from the engine. Only the entrypoint `main.ts` imports both.
-3. **Protected paths need approval** (CODEOWNERS): `engine/adapter-api/`, `schemas/`, `acceptance/`, `rules-ledger/`, `golden/` (until go-live), `AGENTS-shared.md`, `PLAYBOOK.md`, `.claude/skills/` and this file. `golden/fake/` is dummy data that agents own.
+3. **Protected paths need approval** (CODEOWNERS): `engine/adapter-api/`, `schemas/`, `acceptance/`, `rules-ledger/`, `golden/` (until go-live), `KOWBOY-HANDBOOK.md`, `PLAYBOOK.md`, `.claude/skills/` and this file. `golden/fake/` is dummy data that agents own.
 4. **No committed secrets.**
 5. **Release:** the impact preview finds no item failing the schema or invariants.
 6. **Production:** human approval, and a passing health check.

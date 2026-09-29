@@ -8,10 +8,14 @@ description: Start a repository for agent-driven work, or bring an existing one 
 **Intention.** From the first session on, every later session finds the same things in the same
 places, and the first thing Patric decides is the plan, not a detail.
 
-1. **The kit.** Copy the template into the repository root: `AGENTS-shared.md`, `CLAUDE.md`,
-   `PLAYBOOK.md`, `.claude/` (hooks, skills, settings), the four memory files under `docs/`,
-   `scripts/check-register.mjs` and `.github/CODEOWNERS`. Write `AGENTS.md` from the skeleton with
-   only what is true in this project: its components and tags, its commands, its hard blocks.
+1. **The kit.** Copy the starting kit into the repository root from the handbook's `template/`
+   folder (the session-start line "Kowboy handbook plugin root" says where it is; in a repository
+   that carries a copy, from `.handbook/template/`): `CLAUDE.md`, `AGENTS.md`, `.claude/settings.json`,
+   the four memory files under `docs/`, `scripts/check-register.mjs` and `.github/CODEOWNERS`.
+   With the plugin on, the handbook, the playbook, the skills and the hooks need no copy; without
+   it, copy `KOWBOY-HANDBOOK.md`, `PLAYBOOK.md`, `skills/` into `.claude/skills/` and `hooks/` into
+   `.claude/hooks/` as well. Write `AGENTS.md` from the skeleton with only what is true in this
+   project: its components and tags, its commands, its hard blocks.
 2. **The inputs.** Put what Patric has (a concept, a spec, reference sites, existing data, old
    documents) under `docs/inputs/`, unchanged.
 3. **Discover** (the discover skill): the feature map, the decision list with a recommendation per
