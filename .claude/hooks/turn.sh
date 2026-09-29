@@ -8,5 +8,5 @@ next=""
 if [ -f docs/open-questions.md ]; then
   next=$(grep -oE 'Next number: [0-9]+' docs/open-questions.md | head -1 | grep -oE '[0-9]+')
 fi
-echo "Reply protocol: four blocks, Questions (register numbers${next:+, next is $next}) / Done / Notes / Next; one line each, reasoning in the register."
+echo "Reply protocol: Questions (register numbers${next:+, next is $next}; one decision per question ending in ?, options one per line with the answer word in bold, last line 'Reply: ...') / Done (one line per change, verified, undo) / Notes (only if a decision needs it) / Next (one imperative line)."
 exit 0
