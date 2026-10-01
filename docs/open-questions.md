@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 116 (75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 118 (116 was asked in chat only on 2026-09-29 and answered by Patric on 2026-10-01; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
@@ -226,3 +226,23 @@ the register file stays the readable view. Default: the next session makes that 
 questions become issues with their texts, the file lists them by issue number, `check-register`
 reads the issues' numbers). Smaller: keep counting in the file and accept collisions. Answer
 "no" to keep the file.
+
+## 117. `[handbook]` How the shared rules reach every session: a plugin on the account that reads the handbook live from the public repository
+
+Patric, 2026-10-01: the shared rules (the handbook and the playbook) are to be generalized and
+set at the global or user level of Claude Code, reading an external file that lives in a public
+repository; only project-specific details stay in each repository. What the sessions showed: a
+copy in every repository (the state of 2026-09-29) drifts and fills the project's register with
+the handbook's own questions; a user-level file on Patric's own computer (`~/.claude/CLAUDE.md`)
+reaches only sessions on that computer, never a web session, whose container starts empty (this
+session loads no plugin and no user file; the handbook reached it only through Core's copy). The
+one place that reaches web, desktop and terminal sessions alike is a Claude Code plugin enabled on
+the claude.ai account. Options: a) plugin (recommended): `KowboyMedia/kowboy-handbook` is made
+public and is the plugin; its session-start hook fetches the handbook from the public repository
+and prints it, so every session reads the latest text and nothing is copied; the skills and the
+hooks come with the plugin; each repository keeps only `CLAUDE.md` (importing `AGENTS.md`),
+`AGENTS.md` and the four memory files. b) user file: a `~/.claude/CLAUDE.md` on Patric's computer
+importing the public file; nothing for web sessions. c) copy: the current state. Blocked: the
+plugin's fetch hook (a session on the handbook repository), the repository being made public and
+the plugin enabled on the account (Patric's two clicks), and the removal of the copies from Core
+(pull request 68, half done) and from every other repository.
