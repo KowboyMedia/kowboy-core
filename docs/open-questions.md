@@ -226,16 +226,3 @@ the register file stays the readable view. Default: the next session makes that 
 questions become issues with their texts, the file lists them by issue number, `check-register`
 reads the issues' numbers). Smaller: keep counting in the file and accept collisions. Answer
 "no" to keep the file.
-
-## 115. `[handbook]` Default: the handbook reaches every repository as a plugin on the claude.ai account, and the copy stays only for repositories read by other agents
-
-Question 113 chose the copy (a synced copy of the handbook in each repository). The same day the
-plugin form was found: Claude Code plugins enabled on the claude.ai account (Customize, then
-Plugins) are loaded by every session of that account, in the terminal, in Cowork and on the web,
-and the `KowboyMedia/kowboy-handbook` repository is now such a plugin (its rules, its playbook, its
-skills and its four hooks). One place to update, every repository and every customer repository
-follows, and nothing is copied. The copy path (the sync in `.github/sync.yml`, question 113) stays
-for a repository read by an agent that does not load plugins. Not yet tried on a real account: the
-first session with the plugin enabled shows whether the hooks and the skills load as documented.
-Default: enable the plugin on the account and use the copy only where an agent cannot load it.
-Smaller: keep the copy everywhere and never enable the plugin. Answer "no" to keep the copy.
