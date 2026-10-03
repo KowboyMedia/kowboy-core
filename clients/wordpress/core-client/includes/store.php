@@ -88,6 +88,22 @@ function core_client_register_post_types(): void
     }
 }
 
+// WordPress maps `edit_post` and `delete_post` by their literal names, past the type's own caps, so the
+// records' read-only state is enforced here: no one edits or deletes a synced record from the admin.
+add_filter('map_meta_cap', function (array $caps, string $cap, int $user_id, array $args): array {
+    if (!in_array($cap, ['edit_post', 'delete_post', 'publish_post'], true) || !isset($args[0])) {
+        return $caps;
+    }
+    $type = get_post_type((int) $args[0]);
+    return is_string($type) && str_starts_with($type, 'core_') ? ['do_not_allow'] : $caps;
+}, 10, 4);
+
+add_action('admin_init', function (): void {
+    foreach (core_client_datatypes() as $datatype) {
+        add_filter('bulk_actions-edit-' . core_client_post_type($datatype), '__return_empty_array');
+    }
+});
+
 /** The list tables' row actions: the page and the record's data (`?debugpl`), nothing that writes. */
 add_filter('post_row_actions', function (array $actions, WP_Post $post): array {
     if (!str_starts_with($post->post_type, 'core_')) {

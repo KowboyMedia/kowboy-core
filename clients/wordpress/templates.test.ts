@@ -495,6 +495,12 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
       ['Properties', 'core-client', 'do_not_allow', 'do_not_allow', 'do_not_allow'],
       ['Associations', 'core-client', 'do_not_allow', 'do_not_allow', 'do_not_allow'],
     ]);
+    // Even the administrator may only read a record (WordPress maps edit_post past the type's caps).
+    const caps = await wp(
+      'eval',
+      '$p = get_posts(["post_type" => "core_property", "numberposts" => 1])[0]; wp_set_current_user(1); echo json_encode([current_user_can("edit_post", $p->ID), current_user_can("delete_post", $p->ID), current_user_can("read_post", $p->ID)]);',
+    );
+    expect(JSON.parse(caps.stdout.trim())).toEqual([false, false, true]);
   });
 
   it('renders agent, office and area pages with their lists inside the same view', async () => {
