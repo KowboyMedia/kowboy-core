@@ -30,7 +30,11 @@ add_action('after_setup_theme', function (): void {
 /** The address of one of the theme's files, with the theme's version. */
 function kowboy_asset(string $relative): string
 {
-    return add_query_arg('ver', KOWBOY_2026_VERSION, get_theme_file_uri($relative));
+    // The file's own time as the version, so a browser and the page cache fetch every change
+    // (the set's version alone stayed the same across deploys and left the old file in place).
+    $path = get_theme_file_path($relative);
+    $time = is_file($path) ? (string) filemtime($path) : KOWBOY_2026_VERSION;
+    return add_query_arg('ver', KOWBOY_2026_VERSION . '.' . $time, get_theme_file_uri($relative));
 }
 
 /**
