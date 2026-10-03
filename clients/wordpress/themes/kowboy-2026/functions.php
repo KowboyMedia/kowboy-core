@@ -7,7 +7,7 @@
 
 declare(strict_types=1);
 
-const KOWBOY_2026_VERSION = '1.0.13';
+const KOWBOY_2026_VERSION = '1.0.14';
 
 require __DIR__ . '/inc/media.php';
 require __DIR__ . '/inc/association.php';
@@ -19,6 +19,16 @@ require __DIR__ . '/inc/seo.php';
 if (function_exists('core_client_register_template_set')) {
     core_client_register_template_set('kowboy-2026', 'Kowboy 2026', __FILE__, KOWBOY_2026_VERSION);
 }
+
+/** Cards a page on the areas and associations archives (parts/paging.php carries the page numbers). */
+const KOWBOY_ARCHIVE_PER_PAGE = 24;
+
+// The archives page by WordPress's own /page/N/, so its main query must count the same pages as the list.
+add_action('pre_get_posts', function (WP_Query $query): void {
+    if ($query->is_main_query() && !is_admin() && $query->is_post_type_archive(['core_area', 'core_association'])) {
+        $query->set('posts_per_page', KOWBOY_ARCHIVE_PER_PAGE);
+    }
+});
 
 add_action('after_setup_theme', function (): void {
     add_theme_support('title-tag');

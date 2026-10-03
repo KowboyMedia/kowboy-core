@@ -149,6 +149,7 @@ beforeAll(async () => {
     economy: { finances: 'God ekonomi.' },
     documents: [{ name: 'Stadgar', url: 'https://docs.test/stadgar.pdf' }],
   });
+  crm.put('association', 'A-2', { coop_id: 'A-2', coop_name: 'Brf Månen' });
   crm.put('area', 'D-1', { district_id: 'D-1', district_name: 'Vasastan', branch_id: 'B-1' });
   crm.put('property', 'P-1', listing('P-1', { price: 7_250_000, rooms: 3, living_space: 82 }));
   crm.put(
@@ -547,6 +548,18 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(associations.body).toContain('<span class="k-card__area">Förening</span>');
     expect(associations.body).toContain('<span class="k-card__street">Brf Solgården</span>');
     expect(associations.body).toContain('placeholder.svg');
+    expect(associations.body).not.toContain('k-paging'); // two associations, one page
+    // Page numbers, not "Visa fler": one card a page makes two pages, the second as WordPress's own /page/2/.
+    const paged = await wp(
+      'eval',
+      'echo core_client_list(["entity" => "association", "per_page" => 1, "page" => 2, "shadow" => false])["html"];',
+    );
+    expect(paged.stdout).toContain('<nav class="k-paging" aria-label="Sidor">');
+    expect(paged.stdout).toContain(
+      '<span aria-current="page" class="page-numbers current">2</span>',
+    );
+    expect(paged.stdout).toMatch(/page-numbers" href="[^"]*\/">1</);
+    expect(paged.stdout).not.toContain('Visa fler');
     const areas = await page('/?post_type=core_area');
     expect(areas.body).toContain('<article class="k-card k-card--area" data-card-url="');
     expect(areas.body).toContain('placeholder.svg');
