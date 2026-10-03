@@ -24,16 +24,16 @@ client ports (item 16, first client by question 80).
 - ~~**Environment health at session start.**~~ Done 2026-09-27: `scripts/check-environment.mjs`
   asks DigitalOcean, Cloudways, the Vitec test account and Postmark whether their credentials still
   answer, and `.claude/hooks/context.sh` prints the result at session start.
-- ~~**Skills for the repeated procedures**~~ Done 2026-09-27 as the playbook: `status`, `release`
-  and six more phases under `.claude/skills/`; the template port of `docs/template-porting.md`
-  becomes a skill when the first port runs.
-- **The handbook comes from the account, not from a copy** (decision of 2026-10-01, question
-  117). In progress 2026-10-01, pull request 68: Core's register and decisions are cleaned; still
-  to delete here are `KOWBOY-HANDBOOK.md`, `PLAYBOOK.md`, `.handbook/` and the nine skill folders
-  under `.claude/skills/`, and `CLAUDE.md` and `AGENTS.md` still name the handbook file. Order:
-  first the handbook repository's plugin reads the handbook live and is enabled on the account,
-  then this pull request is combined into staging; combined earlier, sessions on Core would have
-  no shared rules. The 2026-09-29 session was stopped by the permission check on the deletions.
+- ~~**Skills for the repeated procedures**~~ Done 2026-09-27 as the playbook, which since
+  2026-10-03 comes with the handbook plugin instead of living here; the template port of
+  `docs/template-porting.md` becomes a skill when the first port runs.
+- ~~**The handbook comes from the account, not from a copy**~~ (decision of 2026-10-01, question
+  117). Done 2026-10-03: `KOWBOY-HANDBOOK.md`, `PLAYBOOK.md`, `.handbook/` and the nine skill
+  folders under `.claude/skills/` are deleted, `CLAUDE.md` imports only `AGENTS.md`, and
+  `AGENTS.md` and `README.md` no longer name the handbook file. Core's own hooks and
+  `.claude/settings.json` stay. Combined into staging only once the handbook plugin reads the
+  handbook live and is enabled on the account; combined earlier, sessions on Core would have no
+  shared rules.
 - **If register numbers collide again** after the register check, move the counter out of the
   files: each question becomes a GitHub issue and takes its number, the register file stays the
   readable view. Not before a collision is seen with the check in place.

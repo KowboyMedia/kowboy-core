@@ -1,8 +1,9 @@
 # AGENTS.md - Kowboy Core
 
-Every agent reads `KOWBOY-HANDBOOK.md` (how agents work at Kowboy) and then this file (what is true
-only here) before doing any work; where they differ, this file wins. `CLAUDE.md` only imports the
-two. This file is protected, and changes need approval.
+Every agent reads this file before doing any work. The company handbook (how agents work at
+Kowboy) is not a file here: it reaches every session from the claude.ai account as a plugin
+(decision of 2026-10-01, question 117); where the two differ, this file wins. `CLAUDE.md` only
+imports this file. This file is protected, and changes need approval.
 
 ## What this is
 
@@ -18,7 +19,7 @@ Kowboy Core ("Core") is one central service. It reads real estate CRMs, normaliz
 | [docs/next-steps.md](docs/next-steps.md)                                   | The order of work. "Resume next steps" means: do the first item that is not done.                          |
 | [docs/known-bugs.md](docs/known-bugs.md)                                   | What is wrong and known, with what fixing it takes.                                                        |
 
-Components and their tags: `[core]` the engine, `[crm]` any adapter, `[crm-vitec]`, `[crm-mspecs]`, `[client-wordpress]`, `[client-lovable]`, `[admin]` the admin area, `[handbook]` the agent setup itself (these files, the hooks, the registers, the playbook; `[agents]` in older entries).
+Components and their tags: `[core]` the engine, `[crm]` any adapter, `[crm-vitec]`, `[crm-mspecs]`, `[client-wordpress]`, `[client-lovable]`, `[admin]` the admin area, `[handbook]` the agent setup itself (this file, the hooks, the registers; `[agents]` in older entries).
 
 Design: `DESIGN.md` for the admin area and the WordPress templates once one is derived (the design skill); until then, the reference is norbanmakleri.se for the templates and the framework's defaults for the admin area.
 
@@ -28,7 +29,7 @@ These are the only hard blocks. Don't add more without approval.
 
 1. **Build, typecheck and all tests pass.** A skipped test counts as a failure.
 2. **The seam.** The engine never imports or calls adapter code, and no CRM name appears in `engine/` or `clients/`. Adapters import only `engine/adapter-api/` and nothing else from the engine. Only the entrypoint `main.ts` imports both.
-3. **Protected paths need approval** (CODEOWNERS): `engine/adapter-api/`, `schemas/`, `acceptance/`, `rules-ledger/`, `golden/` (until go-live), `KOWBOY-HANDBOOK.md`, `PLAYBOOK.md`, `.claude/skills/` and this file. `golden/fake/` is dummy data that agents own.
+3. **Protected paths need approval** (CODEOWNERS): `engine/adapter-api/`, `schemas/`, `acceptance/`, `rules-ledger/`, `golden/` (until go-live) and this file. `golden/fake/` is dummy data that agents own.
 4. **No committed secrets.**
 5. **Release:** the impact preview finds no item failing the schema or invariants.
 6. **Production:** human approval, and a passing health check.
@@ -81,14 +82,14 @@ docs/                 strategy, decisions, inputs
 
 ## Stop and ask
 
-In addition to the shared list, stop and ask when a task needs any of these:
+In addition to the handbook's list, stop and ask when a task needs any of these:
 
 - a change to the adapter API, a contract, schema, rules ledger, golden master or acceptance criterion
 - a decision the Concept doesn't settle. First ask which side of the seam it belongs on, then pick the smaller option. If both still look reasonable, ask.
 
 ## Definition of done
 
-In addition to the shared definition:
+In addition to the handbook's definition:
 
 1. The acceptance report is updated if an acceptance criterion's status changed.
 2. Strategy §9 is updated if the phase moved.
