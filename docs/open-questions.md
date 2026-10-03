@@ -4,10 +4,33 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 125 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 127 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 125. `[client-wordpress]` Offices and agents typed on the site: where they live
+
+- 2026-10-03 · Patric asked for offices and agents added in the WordPress admin that no CRM
+  carries. `docs/site-records.md` lays out the two homes with their trade-offs. (a) On the site:
+  the site's own records in the same post types and the same index as the CRM's, editable in the
+  Kowboy Estates menu, never touched by a pull, listed and ordered by the one rule that already
+  applies to CRM agents. (b) In Core, as a source of its own: a manual adapter whose records every
+  site and client of the tenant pulls, typed in Core's panel by Kowboy, or typed in the WordPress
+  admin and sent to Core through a new write contract. Blocked: the whole feature.
+- Smaller option: (a), recommended; plugin only, no protected path, the portrait from the media
+  library, an edit visible at once. (b) costs a new adapter, a portrait host Core does not have,
+  and, for typing in the WordPress admin, a new contract with approval; it gives one picture in
+  Core and the same people on every site of a brokerage. Answer a or b.
+
+## 126. `[client-wordpress]` A typed agent the CRM later carries: who goes
+
+- 2026-10-03 · A typed agent and a CRM agent are two records, and the site never matches them on
+  its own, so when the CRM later carries the same person both show until one goes. Blocked:
+  nothing; waits on 125, and the smaller option is built unless (b) is picked.
+- Smaller option: nothing automatic, a person deletes the typed agent in the admin (a). Else:
+  when a CRM agent arrives with the same e-mail as a typed one, the site hides the typed agent and
+  the typed agent's old address answers 301 to the CRM agent's page (b). Answer a or b.
 
 ## 123. `[crm-vitec]` A whole-day viewing: what the CRM sends, so the page shows no time
 
