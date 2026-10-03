@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 121 (116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 122 (116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
@@ -102,6 +102,16 @@ association share is sent with three or four ("1.151 %", "1.1515 %" for Cyklopga
 master shows them all; the set now shows "1,15 %" for both rows, so the two shares read the same.
 Amend R-001 so that a percentage keeps the decimals the CRM sends (the comma stays, question 91),
 or keep two decimals everywhere? Answer "keep decimals" or "two".
+
+## 121. `[client-wordpress]` The staging site's WordPress login, so a session can put a change on it
+The staging WordPress site (the app "v4-staging" on Cloudways) changes only when a session runs
+`scripts/deploy-site.mjs` against it with the site's admin login, or when a `v*` tag publishes a
+release to the update channel. A push to the `staging` branch alone changes nothing on the site
+(2026-10-03: the punch list was in staging for half an hour and the site showed none of it). The
+login lives in Cloudways, not in the agents' environment. Default: the login goes into the
+project's cloud environment as `SITE_URL`, `WP_USER` and `WP_PASSWORD`, and a session puts every
+change on the site right after saving it to staging. Smaller: Patric runs the script himself, or
+asks for a release tag each time.
 
 ## 120. `[core]` The Cloudways token: the pair answers "incorrect credentials"
 
