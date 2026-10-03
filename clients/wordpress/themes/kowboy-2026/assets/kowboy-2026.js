@@ -259,24 +259,55 @@
     });
   }
 
+  /** Every ring of a GeoJSON polygon or multipolygon, as Leaflet's [lat, lng] pairs. */
+  function rings(shape, out) {
+    if (!Array.isArray(shape)) return out;
+    if (shape.length && Array.isArray(shape[0]) && typeof shape[0][0] === 'number') {
+      out.push(
+        shape.map(function (point) {
+          return [point[1], point[0]];
+        }),
+      );
+      return out;
+    }
+    shape.forEach(function (part) {
+      rings(part, out);
+    });
+    return out;
+  }
+
   function setupMap(element) {
     if (!once(element, 'ready') || typeof window.L !== 'object') return;
     var lat = parseFloat(element.dataset.lat);
     var lng = parseFloat(element.dataset.lng);
-    var map = window.L.map(element, { scrollWheelZoom: false, zoomControl: false }).setView(
-      [lat, lng],
-      14,
-    );
+    var outline = [];
+    try {
+      outline = rings(JSON.parse(element.dataset.polygon || 'null'), []);
+    } catch {
+      outline = [];
+    }
+    var map = window.L.map(element, { scrollWheelZoom: false, zoomControl: false });
     window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
-    var icon = window.L.divIcon({
-      className: 'k-map__pin',
-      iconSize: [16, 16],
-      iconAnchor: [8, 8],
-    });
-    window.L.marker([lat, lng], { icon: icon, title: element.dataset.title }).addTo(map);
+    if (outline.length) {
+      var area = window.L.polygon(outline, {
+        color: '#111111',
+        weight: 2,
+        fillOpacity: 0.08,
+      }).addTo(map);
+      map.fitBounds(area.getBounds(), { padding: [24, 24] });
+    }
+    if (!isNaN(lat) && !isNaN(lng)) {
+      var icon = window.L.divIcon({
+        className: 'k-map__pin',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      });
+      window.L.marker([lat, lng], { icon: icon, title: element.dataset.title }).addTo(map);
+      if (!outline.length) map.setView([lat, lng], 14);
+    }
   }
 
   function setup() {

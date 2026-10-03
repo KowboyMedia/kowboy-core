@@ -1596,11 +1596,6 @@ iframe.k-hero__video {
     grid-template-columns: 1fr;
   }
 }
-@media (max-width: 639px) {
-  .k-gallery__grid {
-    grid-template-columns: 1fr;
-  }
-}
 
 /* Agent, office, area pages */
 .k-agent {

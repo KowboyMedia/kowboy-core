@@ -351,6 +351,8 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(home.status).toBe(200);
     expect(home.body).toContain('k-has-hero');
     expect(home.body).toContain('k-hero--tall');
+    // The page has no pictures of its own, so the hero shows the newest listing's photo.
+    expect(home.body).toContain('class="k-hero__image"');
     expect(home.body).toContain('Rätt timing ger bättre affärer');
     expect(home.body).toContain('<span class="k-figure__value">150+</span>');
     expect(home.body.match(/<article class="k-agent-card">/g)).toHaveLength(2);

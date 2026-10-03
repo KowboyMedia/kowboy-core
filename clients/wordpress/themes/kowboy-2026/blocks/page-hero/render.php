@@ -10,6 +10,18 @@ $media = match ((string) ($attributes['mediaType'] ?? 'images')) {
     'video' => kowboy_hero_media([], [], '', (string) ($attributes['video']['url'] ?? '')),
     default => kowboy_hero_media([], $images),
 };
+// A hero without media of its own shows the newest listing for sale, so no page opens on a bare
+// colour before the editor has chosen pictures.
+if ($media['type'] === 'none' && function_exists('core_client_query')) {
+    $latest = core_client_query(['entity' => 'property', 'status' => 'for_sale', 'per_page' => 1]);
+    $photos = is_array($latest['items'][0]['item']['images'] ?? null) ? $latest['items'][0]['item']['images'] : [];
+    foreach ($photos as $photo) {
+        if (($photo['category'] ?? null) !== 'Planritning' && is_string($photo['url'] ?? null) && $photo['url'] !== '') {
+            $media = kowboy_hero_media([], [$photo['url']]);
+            break;
+        }
+    }
+}
 $buttons = '';
 foreach (is_array($attributes['buttons'] ?? null) ? $attributes['buttons'] : [] as $button) {
     if (($button['label'] ?? '') !== '') {

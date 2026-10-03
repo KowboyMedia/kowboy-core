@@ -1,5 +1,6 @@
 <?php
-// An area's page: its name and pictures, the texts about it, and the properties in it.
+// An area's page: its name and pictures, the texts about it, its outline on a map, and the
+// properties in it (the list says itself when there are none).
 //
 // In scope: $post_id, $item, $raw.
 
@@ -7,6 +8,7 @@ declare(strict_types=1);
 
 $name = (string) ($item['name'] ?? '');
 $area_id = (string) ($item['id'] ?? '');
+$polygon = is_array($item['polygon'] ?? null) ? $item['polygon'] : [];
 $images = array_slice(is_array($item['images'] ?? null) ? $item['images'] : [], 0, 2);
 $texts = array_filter([
     'Läge' => $item['surroundings']['area'] ?? null,
@@ -25,4 +27,5 @@ $properties = core_client_list(['entity' => 'property', 'area_id' => $area_id, '
         <?php if ($texts !== []) : ?><?php echo kowboy_part('accordion', ['items' => kowboy_text_items($texts)]); ?><?php endif; ?>
     </div>
 </section>
-<?php if ($properties['total'] > 0) : ?><?php echo $properties['html']; ?><?php endif; ?>
+<?php if ($polygon !== []) : ?><div class="k-map" data-map data-polygon="<?php echo esc_attr((string) wp_json_encode($polygon)); ?>" data-title="<?php echo esc_attr($name); ?>"></div><?php endif; ?>
+<?php echo $properties['html']; ?>
