@@ -16,18 +16,6 @@ function core_client_site_id(int $post_id): string
     return core_client_site_connection() . '-' . $post_id;
 }
 
-/** The index row of a post the site typed itself, or null: a CRM record, or a post not saved yet. */
-function core_client_site_row(int $post_id): ?object
-{
-    global $wpdb;
-    $row = $wpdb->get_row($wpdb->prepare(
-        'SELECT * FROM ' . core_client_index_table() . ' WHERE post_id = %d AND connection_id = %s',
-        $post_id,
-        core_client_site_connection(),
-    ));
-    return is_object($row) ? $row : null;
-}
-
 /** What the admin says of a CRM record wherever someone could try to change it. */
 function core_client_crm_record_notice(): string
 {
@@ -58,7 +46,7 @@ function core_client_site_form(WP_Post $post): void
 {
     $item = core_client_item($post->ID) ?? [];
     $agent = $post->post_type === core_client_post_type('agent');
-    wp_nonce_field(CORE_CLIENT_SITE_NONCE, 'core_site_nonce');
+    wp_nonce_field(CORE_CLIENT_SITE_NONCE . $post->ID, 'core_site_nonce');
     echo '<p>' . esc_html($agent
         ? 'An agent this site adds itself, not from the CRM. The name is the title above, the portrait the featured image.'
         : 'An office this site adds itself, not from the CRM. The name is the title above.') . '</p>';
@@ -123,19 +111,29 @@ function core_client_site_field(string $key, string $label, string $value, strin
 }
 
 /**
- * Every office the site holds, CRM or its own, for the agent form: id and name, by name.
+ * Every office the site holds, CRM or its own, published or a draft, for the agent form: id and
+ * name, by name. Straight from the index, not the site's list query: an office the site does not
+ * show (its kind unpublished, a draft of the site's own) is still one an agent belongs to.
  *
  * @return list<array{id: string, name: string}>
  */
 function core_client_site_offices(): array
 {
+    global $wpdb;
     $offices = [];
-    foreach (core_client_query(['entity' => 'office', 'per_page' => 500, 'sort' => 'name'])['items'] as $row) {
-        $id = $row['item']['id'] ?? null;
+    $post_ids = $wpdb->get_col($wpdb->prepare(
+        'SELECT i.post_id FROM ' . core_client_index_table() . " i JOIN {$wpdb->posts} p ON p.ID = i.post_id
+         WHERE i.datatype = %s AND p.post_status IN ('publish', 'draft')",
+        'office',
+    ));
+    foreach ($post_ids as $post_id) {
+        $item = core_client_item((int) $post_id);
+        $id = $item['id'] ?? null;
         if (is_string($id) && $id !== '') {
-            $offices[] = ['id' => $id, 'name' => (string) ($row['item']['name'] ?? $id)];
+            $offices[] = ['id' => $id, 'name' => (string) ($item['name'] ?? $id)];
         }
     }
+    usort($offices, fn (array $a, array $b): int => strcasecmp($a['name'], $b['name']));
     return $offices;
 }
 
@@ -144,49 +142,53 @@ foreach (['agent', 'office'] as $core_site_datatype) {
 }
 unset($core_site_datatype);
 
+// The slug of a record the site types, set before the post is written (`erik-egen-site-12`, by the
+// one function every record's address comes from), so no second write follows the save.
+add_filter('wp_insert_post_data', function (array $data, array $postarr): array {
+    $post_id = (int) ($postarr['ID'] ?? 0);
+    $datatype = substr((string) ($data['post_type'] ?? ''), 5);
+    if ($post_id > 0 && str_starts_with((string) ($data['post_type'] ?? ''), 'core_') && core_client_site_datatype($datatype)
+        && !core_client_is_crm_post($post_id) && !core_client_sync_writing()) {
+        $name = (object) ['name' => wp_unslash((string) ($data['post_title'] ?? ''))];
+        $data['post_name'] = core_client_slug($datatype, $name, core_client_site_id($post_id));
+    }
+    return $data;
+}, 10, 2);
+
 /**
- * Write a record the site typed itself: the universal record from the form, the index row under
- * the site's connection, and the slug built like every record's. Nothing happens for an autosave, for a CRM
- * record, or for a post without the form and without the site's row (the sync's own insert, or a
- * post just opened for adding).
+ * Write a record the site typed itself: the universal record from the form, or from the title and
+ * the portrait alone when the form was not sent (a quick edit, a status change, a post made some
+ * other way), under the site's connection. Nothing happens for an autosave, for a post still being
+ * added, for a CRM record, or for the sync's own writes.
  */
 function core_client_save_site_record(int $post_id, WP_Post $post): void
 {
-    if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id) || $post->post_status === 'auto-draft' || core_client_is_crm_post($post_id)) {
-        return;
-    }
-    $submitted = isset($_POST['core_site_nonce']) && wp_verify_nonce((string) $_POST['core_site_nonce'], CORE_CLIENT_SITE_NONCE) !== false;
-    if (!$submitted && core_client_site_row($post_id) === null) {
+    if (wp_is_post_autosave($post_id) || $post->post_status === 'auto-draft' || core_client_is_crm_post($post_id) || core_client_sync_writing()) {
         return;
     }
     $datatype = substr($post->post_type, 5);
+    $submitted = isset($_POST['core_site_nonce'])
+        && wp_verify_nonce((string) $_POST['core_site_nonce'], CORE_CLIENT_SITE_NONCE . $post_id) !== false
+        && current_user_can('edit_post', $post_id);
     $fields = $submitted && is_array($_POST['core_site'] ?? null) ? (array) wp_unslash($_POST['core_site']) : null;
     $data = core_client_site_record($datatype, $post, $fields, core_client_item($post_id) ?? []);
     $json = (string) wp_json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    update_post_meta($post_id, 'core_data', wp_slash($json));
-    update_post_meta($post_id, 'core_raw', 'null');
-    $decoded = json_decode($json);
-    core_client_replace_index_row([
-        'post_id' => $post_id,
-        'datatype' => $datatype,
+    core_client_store_record($post_id, $datatype, $json, 'null', [
         'connection_id' => core_client_site_connection(),
         'remote_id' => (string) $data['id'],
         'office_id' => $datatype === 'office' ? (string) $data['id'] : null,
         'seq' => 0,
         'content_hash' => hash('sha256', $json),
         'remote_updated_at' => null,
-        'synced_at' => 'now',
-        ...core_client_search_columns(is_object($decoded) ? $decoded : new stdClass()),
     ]);
-    // The slug as every record's: the name, then the id (`erik-egen-site-12`), by the one function.
-    $slug = core_client_slug($datatype, is_object($decoded) ? $decoded : new stdClass(), (string) $data['id']);
+    // A post made without an id to hand (wp post create): the slug the filter above could not set.
+    $slug = core_client_slug($datatype, json_decode($json) ?: new stdClass(), (string) $data['id']);
     if ($post->post_name !== $slug) {
         remove_action('save_post_' . $post->post_type, 'core_client_save_site_record');
         wp_update_post(['ID' => $post_id, 'post_name' => $slug]);
         add_action('save_post_' . $post->post_type, 'core_client_save_site_record', 10, 2);
+        clean_post_cache($post_id);
     }
-    clean_post_cache($post_id);
-    do_action('core_item_updated', $post_id, $datatype);
 }
 
 /**

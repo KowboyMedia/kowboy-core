@@ -257,12 +257,16 @@ function core_driver_import(array $spec): array
  */
 function core_driver_typed(array $spec): array
 {
-    wp_set_current_user(1);
+    wp_set_current_user((int) ($spec['user'] ?? 1));
+    $post = ['post_type' => core_client_post_type((string) ($spec['datatype'] ?? 'agent')), ...(array) ($spec['post'] ?? [])];
+    if (!isset($post['ID']) && isset($spec['fields'])) {
+        // The admin's own flow: "Add New" makes the auto-draft whose id the form's nonce carries.
+        $post['ID'] = (int) wp_insert_post(['post_type' => $post['post_type'], 'post_status' => 'auto-draft']);
+    }
     if (isset($spec['fields'])) {
-        $_POST['core_site_nonce'] = wp_create_nonce(CORE_CLIENT_SITE_NONCE);
+        $_POST['core_site_nonce'] = wp_create_nonce(CORE_CLIENT_SITE_NONCE . $post['ID']);
         $_POST['core_site'] = (array) $spec['fields'];
     }
-    $post = ['post_type' => core_client_post_type((string) ($spec['datatype'] ?? 'agent')), ...(array) ($spec['post'] ?? [])];
     $post_id = isset($post['ID']) ? wp_update_post($post, true) : wp_insert_post($post, true);
     unset($_POST['core_site_nonce'], $_POST['core_site']);
     if (is_wp_error($post_id)) {

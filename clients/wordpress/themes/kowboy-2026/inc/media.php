@@ -46,10 +46,16 @@ function kowboy_image(array|string $image, string $sizes, string $alt = '', arra
     return $html . '>';
 }
 
+/** Whether an address is the CDN's, with the width in its file name; the site's own uploads (a typed agent's portrait) are not. */
+function kowboy_cdn_address(string $url): bool
+{
+    return preg_match('/_\d+\.(\w+)$/', $url) === 1 && !str_starts_with($url, (string) wp_get_upload_dir()['baseurl']);
+}
+
 /** The CDN's widths of one address as a `srcset`, or nothing when the address is not the CDN's or it has one width. */
 function kowboy_srcset(string $url): string
 {
-    if (count(KOWBOY_IMAGE_WIDTHS) < 2 || preg_match('/_(\d+)\.(\w+)$/', $url, $found) !== 1) {
+    if (count(KOWBOY_IMAGE_WIDTHS) < 2 || !kowboy_cdn_address($url)) {
         return '';
     }
     $candidates = [];
@@ -62,7 +68,7 @@ function kowboy_srcset(string $url): string
 /** The CDN's file of one address at this width, or the address itself when it is not the CDN's. */
 function kowboy_image_at(string $url, int $width): string
 {
-    return preg_match('/_\d+\.(\w+)$/', $url) === 1 ? (string) preg_replace('/_\d+\.(\w+)$/', '_' . $width . '.$1', $url) : $url;
+    return kowboy_cdn_address($url) ? (string) preg_replace('/_\d+\.(\w+)$/', '_' . $width . '.$1', $url) : $url;
 }
 
 /**

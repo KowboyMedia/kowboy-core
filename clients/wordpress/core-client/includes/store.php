@@ -107,22 +107,45 @@ function core_client_site_datatype(string $datatype): bool
 }
 
 /**
- * Whether a post is a CRM record: its index row came from a connection other than the site's own.
- * A post without a row (one being added) or with the site's own row is the site's to edit.
+ * The connection a post's record came from: a CRM's, the site's own, or null for a post without a
+ * row (one being added). Only a CRM's answer is remembered: a no can turn into a yes within the
+ * request (the sync writing a new post's row).
  */
+function core_client_connection_of(int $post_id): ?string
+{
+    static $crm = [];
+    if (isset($crm[$post_id])) {
+        return $crm[$post_id];
+    }
+    global $wpdb;
+    $connection = $wpdb->get_var($wpdb->prepare('SELECT connection_id FROM ' . core_client_index_table() . ' WHERE post_id = %d', $post_id));
+    if (!is_string($connection)) {
+        return null;
+    }
+    if ($connection !== core_client_site_connection()) {
+        $crm[$post_id] = $connection;
+    }
+    return $connection;
+}
+
+/** Whether a post is a CRM record: its row came from a connection other than the site's own. */
 function core_client_is_crm_post(int $post_id): bool
 {
-    // Only a yes is remembered: a no can turn into a yes within the request (the sync writing a new post's row).
-    static $crm = [];
-    if (!isset($crm[$post_id])) {
-        global $wpdb;
-        $connection = $wpdb->get_var($wpdb->prepare('SELECT connection_id FROM ' . core_client_index_table() . ' WHERE post_id = %d', $post_id));
-        if (!is_string($connection) || $connection === core_client_site_connection()) {
-            return false;
-        }
-        $crm[$post_id] = true;
+    $connection = core_client_connection_of($post_id);
+    return $connection !== null && $connection !== core_client_site_connection();
+}
+
+/**
+ * Whether the sync is writing a post right now, so the hook that turns a post into one of the
+ * site's own records (includes/site-records.php) leaves the sync's inserts alone.
+ */
+function core_client_sync_writing(?bool $set = null): bool
+{
+    static $writing = false;
+    if ($set !== null) {
+        $writing = $set;
     }
-    return true;
+    return $writing;
 }
 
 /**
@@ -148,9 +171,12 @@ function core_client_register_post_types(): void
             'show_ui' => true,
             'show_in_menu' => 'core-client',
             'rewrite' => ['slug' => core_client_path($datatype)],
-            'supports' => $own ? ['title', 'thumbnail'] : ['title'],
+            'supports' => $datatype === 'agent' ? ['title', 'thumbnail'] : ['title'],
             'show_in_rest' => false,
             'map_meta_cap' => true,
+            // The site's own records: editors and administrators (the page capabilities), per post
+            // through the filter below; a CRM record: nobody.
+            'capability_type' => $own ? 'page' : 'post',
             'capabilities' => $own ? [] : [
                 'create_posts' => 'do_not_allow',
                 'edit_post' => 'do_not_allow',
@@ -274,8 +300,9 @@ register_activation_hook(CORE_CLIENT_FILE, function (): void {
 add_action('plugins_loaded', function (): void {
     if (get_option('core_client_db_version') !== CORE_CLIENT_VERSION) {
         core_client_install();
-        // The search columns are copied anew from every post's data, so a column this version adds is filled.
-        core_client_reindex();
+        // The search columns are copied anew from every post's data, so a column this version adds is
+        // filled, and every slug is rebuilt: at `init`, once the post types and the rewrite rules exist.
+        add_action('init', 'core_client_reindex', 15);
         // An update arrives without the activation hook: rebuild the rewrite rules once the post types are registered.
         add_action('init', 'flush_rewrite_rules', 20);
     }
@@ -348,32 +375,55 @@ function core_client_upsert_item(string $datatype, object $item, ?object $existi
     if ($existing !== null) {
         $post['ID'] = (int) $existing->post_id;
     }
-    $post_id = $existing !== null ? wp_update_post($post, true) : wp_insert_post($post, true);
+    core_client_sync_writing(true);
+    try {
+        $post_id = $existing !== null ? wp_update_post($post, true) : wp_insert_post($post, true);
+    } finally {
+        core_client_sync_writing(false);
+    }
     if (is_wp_error($post_id)) {
         throw new RuntimeException($post_id->get_error_message());
     }
+    core_client_store_record(
+        $post_id,
+        $datatype,
+        (string) wp_json_encode($item->data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        // The CRM payload exactly as Core served it, next to the data (Patric, 2026-09-18).
+        (string) wp_json_encode($item->raw ?? null, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        [
+            'connection_id' => $item->connection_id,
+            'remote_id' => $item->remote_id,
+            'office_id' => $item->office_id,
+            'seq' => $item->seq,
+            'content_hash' => $item->content_hash,
+            'remote_updated_at' => $remote === false ? null : gmdate('Y-m-d H:i:s', $remote),
+        ],
+    );
+    return $post_id;
+}
 
-    update_post_meta($post_id, 'core_data', wp_slash((string) wp_json_encode($item->data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)));
-    // The CRM payload exactly as Core served it, next to the data (Patric, 2026-09-18).
-    update_post_meta($post_id, 'core_raw', wp_slash((string) wp_json_encode($item->raw ?? null, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)));
-
-    // `synced_at` is bookkeeping for the rebuild sweep only; nothing else may key on it.
+/**
+ * The one write of a record next to its post, from the sync and from the site's own records
+ * alike: the data and the raw payload as meta, the index row with the search columns, and the
+ * word to cache plugins. `synced_at` is bookkeeping for the rebuild sweep only; nothing else may
+ * key on it.
+ *
+ * @param array<string, mixed> $row the row's own columns: connection, remote id, office, seq, hash, remote time
+ */
+function core_client_store_record(int $post_id, string $datatype, string $json, string $raw_json, array $row): void
+{
+    update_post_meta($post_id, 'core_data', wp_slash($json));
+    update_post_meta($post_id, 'core_raw', wp_slash($raw_json));
+    $data = json_decode($json);
     core_client_replace_index_row([
         'post_id' => $post_id,
         'datatype' => $datatype,
-        'connection_id' => $item->connection_id,
-        'remote_id' => $item->remote_id,
-        'office_id' => $item->office_id,
-        'seq' => $item->seq,
-        'content_hash' => $item->content_hash,
-        'remote_updated_at' => $remote === false ? null : gmdate('Y-m-d H:i:s', $remote),
+        ...$row,
         'synced_at' => 'now',
-        ...core_client_search_columns(is_object($item->data) ? $item->data : new stdClass()),
+        ...core_client_search_columns(is_object($data) ? $data : new stdClass()),
     ]);
-
     clean_post_cache($post_id);
     do_action('core_item_updated', $post_id, $datatype);
-    return $post_id;
 }
 
 /**

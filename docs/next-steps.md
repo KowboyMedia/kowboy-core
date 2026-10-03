@@ -382,13 +382,13 @@ client ports (item 16, first client by question 80).
     - **What changes for the product:** an administrator adds an office or an agent the CRM does
       not carry, in the Kowboy Estates menu, and the site shows it in the same lists and pages as
       the CRM's, ordered and hidden by the same staff-list rule; CRM records stay read-only.
-    - **The tests that prove it** (`clients/wordpress/templates.test.ts`, against the real
-      WordPress): "a typed agent lists among the CRM agents by its order number and on its
-      office's page"; "a typed agent hidden by its staff-list switch is in no list and on its own
-      page"; "a rebuild keeps every typed record and deletes nothing of the site's own"; "an
-      administrator adds and edits a typed agent and cannot edit a CRM agent" (through the
-      admin's capabilities); "a deleted typed record is gone from the index". The acceptance
-      criterion is proposed with the item and numbered on approval.
+    - **The test that proves it** (`clients/wordpress/templates.test.ts`, against the real
+      WordPress, one test): a typed agent lists among the CRM agents by its order number and on
+      its office's page; a typed agent hidden by its staff-list switch is in no list and on its
+      own page; a rebuild and a plugin update keep every typed record; an administrator and an
+      editor add and edit a typed agent and nobody edits a CRM agent (the admin's capabilities,
+      the edit screen's 403); a deleted typed record is gone from the index; the address follows
+      the name. The acceptance criterion is proposed with the item and numbered on approval.
     - **Interface touched:** none of Core's. The plugin's index gains no column: the site's own
       rows use the connection `site`, and the rebuild's sweep skips them.
     - **Unknowns, a time-boxed spike first:** whether WordPress's capability map lets a type allow

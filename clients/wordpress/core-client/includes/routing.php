@@ -43,7 +43,7 @@ add_action('template_redirect', function (): void {
     }
 });
 
-/** The post of the record whose id the name is, or ends with after a dash; null when none. */
+/** The published post of the record whose id the name is, or ends with after a dash; null when none. */
 function core_client_post_id_by_slug(string $datatype, string $name): ?int
 {
     global $wpdb;
@@ -56,7 +56,8 @@ function core_client_post_id_by_slug(string $datatype, string $name): ?int
     }
     foreach ($candidates as $candidate) {
         $post_id = $wpdb->get_var($wpdb->prepare(
-            "SELECT post_id FROM $index WHERE datatype = %s AND remote_id = %s",
+            "SELECT i.post_id FROM $index i JOIN {$wpdb->posts} p ON p.ID = i.post_id
+             WHERE i.datatype = %s AND i.remote_id = %s AND p.post_status = 'publish'",
             $datatype,
             $candidate,
         ));

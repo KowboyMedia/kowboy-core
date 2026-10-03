@@ -666,11 +666,31 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
       const erikPage = await page(pathOf(erik.permalink));
       expect(erikPage.body).toContain('Erik är ny.');
       expect(erikPage.body).toContain('Köpare på Kungsgatan');
-      // The admin: the administrator edits and deletes the typed agent and not the CRM's, adds agents and offices and no property;
-      // the Source column says whose a record is; the CRM record's edit screen is answered by the plugin's own sentence.
+      // The admin: an administrator and an editor edit and delete the typed agent and not the CRM's, an author neither;
+      // agents and offices can be added, properties not; the Source column says whose a record is; the CRM record's
+      // edit screen is answered with the plugin's own sentence and 403; the form lists every office, published or not.
       const caps = await wp(
         'eval',
-        `global $wpdb; wp_set_current_user(1); $crm = (int) $wpdb->get_var("SELECT post_id FROM " . core_client_index_table() . " WHERE remote_id = 'S-1'"); echo json_encode([current_user_can("edit_post", $crm), current_user_can("delete_post", $crm), current_user_can("edit_post", ${erik.post_id}), current_user_can("delete_post", ${erik.post_id}), current_user_can(get_post_type_object("core_agent")->cap->create_posts), current_user_can(get_post_type_object("core_office")->cap->create_posts), get_post_type_object("core_property")->cap->create_posts, core_client_source_label($crm), core_client_source_label(${erik.post_id}), has_action("load-post.php") !== false, core_client_crm_record_notice()]);`,
+        `global $wpdb; require_once ABSPATH . "wp-admin/includes/user.php";
+        $crm = (int) $wpdb->get_var("SELECT post_id FROM " . core_client_index_table() . " WHERE remote_id = 'S-1'");
+        $editor = wp_insert_user(["user_login" => "editor-" . wp_generate_password(6, false), "user_pass" => wp_generate_password(), "role" => "editor"]);
+        $author = wp_insert_user(["user_login" => "author-" . wp_generate_password(6, false), "user_pass" => wp_generate_password(), "role" => "author"]);
+        $can = function (int $user, string $cap, int $post = 0): bool { wp_set_current_user($user); return $post > 0 ? current_user_can($cap, $post) : current_user_can($cap); };
+        $died = null;
+        $handler = function ($message, $title, $args) use (&$died) { $died = [$message, $args["response"] ?? null]; };
+        add_filter("wp_die_handler", fn () => $handler);
+        wp_set_current_user(1); $_GET["post"] = $crm; do_action("load-post.php");
+        update_option("core_client_publish_office", "0");
+        $offices = array_column(core_client_site_offices(), "id");
+        delete_option("core_client_publish_office");
+        $out = [
+          $can(1, "edit_post", $crm), $can(1, "delete_post", $crm), $can(1, "edit_post", ${erik.post_id}), $can(1, "delete_post", ${erik.post_id}),
+          $can($editor, "edit_post", ${erik.post_id}), $can($editor, "delete_post", ${erik.post_id}), $can($editor, "edit_post", $crm), $can($author, "edit_post", ${erik.post_id}),
+          $can(1, get_post_type_object("core_agent")->cap->create_posts), $can($editor, get_post_type_object("core_office")->cap->create_posts), $can($author, get_post_type_object("core_agent")->cap->create_posts),
+          get_post_type_object("core_property")->cap->create_posts, core_client_source_label($crm), core_client_source_label(${erik.post_id}), $died, $offices,
+        ];
+        wp_delete_user($editor); wp_delete_user($author);
+        echo json_encode($out);`,
       );
       expect(JSON.parse(caps.stdout.trim())).toEqual([
         false,
@@ -679,14 +699,20 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
         true,
         true,
         true,
+        false,
+        false,
+        true,
+        true,
+        false,
         'do_not_allow',
         'The CRM (edited there)',
         'This site',
-        true,
-        'This record comes from the CRM and is edited there. This site only shows it.',
+        ['This record comes from the CRM and is edited there. This site only shows it.', 403],
+        expect.arrayContaining(['B-1', office.id]),
       ]);
       // A rebuild (everything pulled again from the start) keeps the site's own records and the CRM's.
       await site.trigger('forcerefresh');
+      expect((await site.status()).last_error).toBeNull();
       const ids = (await driver<{ remote_id: string }[]>('items', 'agent')).map(
         (one) => one.remote_id,
       );
@@ -696,7 +722,10 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
       ).toHaveLength(4);
       // The rebuild a plugin update runs keeps them too, with the same address; the id alone and an
       // old address answer 301 to the current page, and a new name gives a new address.
-      await wp('eval', 'core_client_reindex();');
+      await wp(
+        'eval',
+        `global $wpdb; $wpdb->update($wpdb->posts, ["post_name" => "wrong"], ["ID" => ${erik.post_id}]); clean_post_cache(${erik.post_id}); core_client_reindex();`,
+      );
       expect(await driver('items', 'agent')).toEqual(
         expect.arrayContaining([expect.objectContaining({ remote_id: erik.id })]),
       );
@@ -732,6 +761,15 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
       expect(kept?.data.title).toBe('Assistent');
       await typed({ datatype: 'agent', post: { ID: fia.post_id, post_status: 'publish' } });
       expect((await page('/?post_type=core_agent')).body).toContain('Fia Ny');
+      // A post published without the form (a quick edit, wp post create) is a typed record from its title alone.
+      const hans = await typed({
+        datatype: 'agent',
+        post: { post_title: 'Hans Hastig', post_status: 'publish' },
+      });
+      typedPosts.push(hans.post_id);
+      expect(hans.id).toBe(`site-${hans.post_id}`);
+      expect(pathOf(hans.permalink)).toBe(`/?core_agent=hans-hastig-site-${hans.post_id}`);
+      expect(hans.data).toMatchObject({ name: 'Hans Hastig', image: null });
       // Deleted in the admin, a typed record is gone from the index too.
       await wp('eval', `wp_delete_post(${gun.post_id}, true);`);
       expect(

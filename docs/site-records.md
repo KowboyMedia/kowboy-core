@@ -53,7 +53,8 @@ cards, single pages, `?debugpl`, the viewers in the admin) sees both kinds throu
 path, because nothing downstream reads the connection.
 
 **The admin.** In the Kowboy Estates menu, the agent and office lists show both kinds with a
-"Source" column: "CRM" or "This site". A CRM record opens read-only, as it does today. A typed
+"Source" column: "The CRM (edited there)" or "This site". A CRM record does not open: its row
+has no Edit action, and its edit address answers with the plugin's own sentence. A typed
 record opens with a form, and can be deleted. The post types refuse every write today; the
 plugin lifts that for the site's own posts of the agent and office types only (WordPress's
 `map_meta_cap` filter, keyed on the index row's connection), so "Add new" exists for agents and
@@ -121,8 +122,9 @@ records search and timeline never see typed records, so Core is no longer the wh
 what a site shows.
 
 **Work.** Plugin only: the form and the list column in the admin, the id and connection for typed
-rows, the sweep condition, the delete hook, the office page's fallback, and tests for a typed
-agent in a list, in an office's staff and through a rebuild. No contract, schema, adapter API or
+rows, the sweep condition, the delete hook, the address line the form fills in, and one test
+for a typed agent in a list, in an office's staff, through a rebuild and locked against the
+CRM's (built 2026-10-03). No contract, schema, adapter API or
 Core change, so no protected path and no approval beyond Patric's pick.
 
 ## Option B: Core carries them as a source of its own
@@ -242,8 +244,10 @@ edited only in the CRM, and the admin says so), 128 (the Default stood).
 ## Risks and unknowns
 
 - `[client-wordpress]` WordPress's capability map: "Add New" needs `create_posts` allowed for the
-  agent and office types while every CRM post of those types stays locked per post. The cheapest
-  check is the admin test named in item 22, run as a time-boxed spike before the form is built.
+  agent and office types while every CRM post of those types stays locked per post. Settled
+  2026-10-03: the types allow the page capabilities and the capability filter answers per post
+  from the index row; the test proves an administrator and an editor edit a typed record and
+  nobody edits a CRM one.
 - `[client-wordpress]` The rebuild sweep: without its one condition a rebuild deletes every typed
   record. Covered by the named test; nothing to find out.
 - `[client-wordpress]` A library portrait shows at one size until the image helper asks WordPress
