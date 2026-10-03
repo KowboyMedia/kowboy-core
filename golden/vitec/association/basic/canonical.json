@@ -14,39 +14,42 @@
   "documents": [
     {
       "category": null,
-      "date_changed_data": "2024-05-08T16:29:06",
+      "changed_at": "2024-05-08T14:29:06.000Z",
       "extension": ".pdf",
       "id": "_F_ORG_T833_8605",
       "name": "Ekonomisk plan",
-      "url": "https://connect.maklare.vitec.net/File/GetFile?customerId=M31529&fileId=_F_ORG_T833_8605"
+      "url": "https://cdn-realestate.kowboy.se/v310/vitec/files/M31529/ORGBRF281706F1BCB046948BD84E5A8FB93A0D/_F_ORG_T833_8605.pdf"
     },
     {
       "category": null,
-      "date_changed_data": "2024-05-15T16:21:38",
+      "changed_at": "2024-05-15T14:21:38.000Z",
       "extension": ".pdf",
       "id": "_F_ORG_T833_8639",
       "name": "Energideklaration",
-      "url": "https://connect.maklare.vitec.net/File/GetFile?customerId=M31529&fileId=_F_ORG_T833_8639"
+      "url": "https://cdn-realestate.kowboy.se/v310/vitec/files/M31529/ORGBRF281706F1BCB046948BD84E5A8FB93A0D/_F_ORG_T833_8639.pdf"
     },
     {
       "category": null,
-      "date_changed_data": "2024-05-16T11:00:28",
+      "changed_at": "2024-05-16T09:00:28.000Z",
       "extension": ".pdf",
       "id": "_F_ORG_T833_8650",
       "name": "Stadgar",
-      "url": "https://connect.maklare.vitec.net/File/GetFile?customerId=M31529&fileId=_F_ORG_T833_8650"
+      "url": "https://cdn-realestate.kowboy.se/v310/vitec/files/M31529/ORGBRF281706F1BCB046948BD84E5A8FB93A0D/_F_ORG_T833_8650.pdf"
     },
     {
       "category": null,
-      "date_changed_data": "2025-09-02T13:35:52",
+      "changed_at": "2025-09-02T11:35:52.000Z",
       "extension": ".pdf",
       "id": "_F_ORG_T833_12541",
       "name": "Årsredovisning 2024",
-      "url": "https://connect.maklare.vitec.net/File/GetFile?customerId=M31529&fileId=_F_ORG_T833_12541"
+      "url": "https://cdn-realestate.kowboy.se/v310/vitec/files/M31529/ORGBRF281706F1BCB046948BD84E5A8FB93A0D/_F_ORG_T833_12541.pdf"
     }
   ],
   "economy": {
-    "allow_legal_person_as_buyer": "Undetermined",
+    "allow_legal_person_as_buyer": {
+      "id": "Undetermined",
+      "name": "Ej angivet"
+    },
     "allows_shared_ownership_info": "Delat ägande OK.",
     "finances": null,
     "monthly_fee_information": null,
@@ -54,10 +57,16 @@
     "subletting_policy": null,
     "the_association_own_the_ground": "Ja",
     "transfer_fee": 1480,
-    "transfer_fee_paid_by": "Buyer"
+    "transfer_fee_paid_by": {
+      "id": "Buyer",
+      "name": "Köpare"
+    }
   },
   "email": null,
-  "genuine_association": "PrivateHousingCompany",
+  "genuine_association": {
+    "id": "PrivateHousingCompany",
+    "name": "Äkta (privatbostadsföretag)"
+  },
   "home_page": null,
   "id": "ORGBRF281706F1BCB046948BD84E5A8FB93A0D",
   "name": "BRF BoKlok Vattentornet",

@@ -64,6 +64,7 @@ $association = $sold ? null : (core_client_items('association', [$item['associat
 if ($association !== null) {
     $economy = is_array($association['economy'] ?? null) ? $association['economy'] : [];
     $descriptions = is_array($association['descriptions'] ?? null) ? $association['descriptions'] : [];
+    // The master's order (norbanmakleri.se, question 92); the three coded values carry the CRM's names (question 93).
     $rows = array_filter([
         'Namn' => $association['name'] ?? null,
         'Allmänt om föreningen' => $descriptions['general_about_association'] ?? null,
@@ -78,6 +79,9 @@ if ($association !== null) {
         'Överlåtelseavgift' => $association['display']['transfer_fee'] ?? null,
         'Pantsättningsavgift' => $association['display']['pledge_fee'] ?? null,
         'Organisationsnummer' => $association['corporate_number'] ?? null,
+        'Överlåtelseavgift betalas av' => $economy['transfer_fee_paid_by']['name'] ?? null,
+        'Äkta/Oäkta förening' => $association['genuine_association']['name'] ?? null,
+        'Tillåter föreningen juridisk person som köpare' => $economy['allow_legal_person_as_buyer']['name'] ?? null,
         'Tillåter föreningen delat ägande' => $economy['allows_shared_ownership_info'] ?? null,
         'Äger föreningen marken' => $economy['the_association_own_the_ground'] ?? null,
     ], fn (mixed $value): bool => $value !== null && $value !== '');
@@ -85,9 +89,18 @@ if ($association !== null) {
         $sections[] = ['header' => 'Föreningen', 'items' => array_map(fn ($label, $value) => ['label' => (string) $label, 'value' => (string) $value], array_keys($rows), $rows)];
     }
 }
-$documents = array_values(array_filter(is_array($item['files'] ?? null) ? $item['files'] : [], fn (array $file): bool => is_string($file['url'] ?? null)));
+// The documents the CRM lists on the home and on its association, read from both and deduplicated by name
+// (question 94, Patric 2026-10-03), each opened from the address Core carries.
+$documents = [];
+foreach (array_merge(is_array($item['documents'] ?? null) ? $item['documents'] : [], is_array($association['documents'] ?? null) ? $association['documents'] : []) as $document) {
+    $name = is_string($document['name'] ?? null) ? trim($document['name']) : '';
+    if ($name === '' || !is_string($document['url'] ?? null) || isset($documents[mb_strtolower($name)])) {
+        continue;
+    }
+    $documents[mb_strtolower($name)] = ['name' => $name, 'url' => $document['url']];
+}
 if ($documents !== [] && !$sold) {
-    $sections[] = ['header' => 'Dokument', 'items' => array_map(fn (array $file): array => ['label' => (string) ($file['name'] ?? 'Dokument'), 'value' => '<a href="' . esc_url((string) $file['url']) . '" target="_blank" rel="noopener">Öppna</a>', 'html' => true], $documents)];
+    $sections[] = ['header' => 'Dokument', 'items' => array_values(array_map(fn (array $document): array => ['label' => $document['name'], 'value' => '<a href="' . esc_url($document['url']) . '" target="_blank" rel="noopener">Öppna</a>', 'html' => true], $documents))];
 }
 
 $area = core_client_items('area', is_array($item['area_ids'] ?? null) ? $item['area_ids'] : [])[0]['item'] ?? null;

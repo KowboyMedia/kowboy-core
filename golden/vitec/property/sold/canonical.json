@@ -176,6 +176,24 @@
     }
   ],
   "currency": "SEK",
+  "documents": [
+    {
+      "category": null,
+      "changed_at": "2025-04-30T07:35:02.000Z",
+      "extension": "pdf",
+      "id": "DOKECD0D9C3F2154E439749A523E111EF15",
+      "name": "Energideklaration",
+      "url": "https://cdn-realestate.kowboy.se/v310/vitec/files/M31529/OBJ31529_2054041970/DOKECD0D9C3F2154E439749A523E111EF15.pdf"
+    },
+    {
+      "category": null,
+      "changed_at": "2025-04-30T07:35:32.000Z",
+      "extension": "pdf",
+      "id": "DOK2EDA7D50ACC14D32B8F54F1DE59FA154",
+      "name": "Bra att veta!",
+      "url": "https://cdn-realestate.kowboy.se/v310/vitec/files/M31529/OBJ31529_2054041970/DOK2EDA7D50ACC14D32B8F54F1DE59FA154.pdf"
+    }
+  ],
   "electricity": {
     "company": null,
     "consumption": null,
@@ -199,20 +217,6 @@
   },
   "exterior_features": [],
   "fee": null,
-  "files": [
-    {
-      "data_changed_at": "2025-04-30T09:35:02",
-      "extension": "pdf",
-      "id": "DOKECD0D9C3F2154E439749A523E111EF15",
-      "name": "Energideklaration"
-    },
-    {
-      "data_changed_at": "2025-04-30T09:35:32",
-      "extension": "pdf",
-      "id": "DOK2EDA7D50ACC14D32B8F54F1DE59FA154",
-      "name": "Bra att veta!"
-    }
-  ],
   "final_price": 3325000,
   "floor": null,
   "floor_description": null,

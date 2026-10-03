@@ -16,31 +16,23 @@
   "rooms_and_bedrooms": "5 rum, varav 3 sovrum",
   "sections": [
     {
-      "header": "Bostaden",
+      "header": "Grundinformation",
       "items": [
         {
-          "label": "Objektnummer",
-          "value": "15832"
+          "label": "Upplåtelseform",
+          "value": "Tomträtt"
         },
         {
           "label": "Bostadstyp",
           "value": "Radhus"
         },
         {
-          "label": "Upplåtelseform",
-          "value": "Tomträtt"
-        },
-        {
           "label": "Adress",
-          "value": "Aglaiavägen 32, 213 63 Malmö"
+          "value": "Aglaiavägen 32 213 63 Malmö"
         },
         {
           "label": "Område",
           "value": "Hindby"
-        },
-        {
-          "label": "Kommun",
-          "value": "Malmö"
         },
         {
           "label": "Fastighetsbeteckning",
@@ -56,20 +48,20 @@
       "header": "Interiör",
       "items": [
         {
-          "label": "Antal rum",
-          "value": "5 rum, varav 3 sovrum"
-        },
-        {
           "label": "Boarea",
           "value": "87 kvm"
         },
         {
-          "label": "Biarea",
-          "value": "58 kvm"
+          "label": "Antal rum",
+          "value": "5"
         },
         {
           "label": "Areakälla",
           "value": "Faktisk uppmätning (mätbevis)"
+        },
+        {
+          "label": "Biarea",
+          "value": "58 kvm"
         },
         {
           "label": "Allmänt om bostaden",
@@ -86,6 +78,15 @@
         {
           "label": "Renoveringar",
           "value": "2022 Nytt plåttak. Relining av toalettens avlopp.\r\n2020 Nytt cykel- och trädgårdsskjul."
+        }
+      ]
+    },
+    {
+      "header": "Beskrivning",
+      "items": [
+        {
+          "label": "Beskrivning",
+          "value": "Välkommen till ett hemtrevligt och lättskött radhus med charm från 30-talet och en planlösning som bjuder in till socialt umgänge. Här möts du av generös takhöjd, fint ljusinsläpp och väldisponerade ytor som passar såväl vardag som fest. Huset är energieffektivt och erbjuder ett bekvämt boende - perfekt för familjen eller paret! \r\n\r\nDen grönskande trädgården är en riktig oas – fylld av bärbuskar, odlingsmöjligheter och ett vackert fruktträd som även fungerar som klätterträd för de små. Perfekt för den som vill njuta av både grönska och egen skörd direkt utanför dörren.\r\n\r\nLäget är lugnt och familjevänligt med närhet till både förskola, skola och Ica Maxi. Du har cykelavstånd till centrala Malmö och utmärkta kommunikationer med både buss och tåg som snabbt tar dig dit du vill."
         }
       ]
     },
@@ -139,9 +140,14 @@
         {
           "label": "Vatten/avlopp",
           "value": "Kommunalt vatten året om. Kommunalt avlopp"
-        },
+        }
+      ]
+    },
+    {
+      "header": "Ventilation",
+      "items": [
         {
-          "label": "Ventilation",
+          "label": "Typ",
           "value": "Självdrag"
         }
       ]
@@ -154,31 +160,27 @@
           "value": "Utförd 2024-09-30"
         },
         {
+          "label": "Energiprestanda primärenergital",
+          "value": "88 kWh per kvm och år"
+        },
+        {
           "label": "Energiklass",
           "value": "C"
-        },
-        {
-          "label": "Energiförbrukning",
-          "value": "88 kWh/m² och år"
         }
       ]
     },
     {
-      "header": "Tomt",
+      "header": "Andelstal, avgifter och insats",
       "items": [
         {
-          "label": "Tomtarea",
-          "value": "300 kvm"
+          "label": "Tomträttsavgäld",
+          "value": "13 650 kr/år (löper till 2025-12-31)"
         }
       ]
     },
     {
-      "header": "Avgift och driftskostnader",
+      "header": "Driftskostnader",
       "items": [
-        {
-          "label": "Driftskostnad",
-          "value": "40 640 kr/år"
-        },
         {
           "label": "Uppvärmning",
           "value": "15 000 kr/år"
@@ -200,16 +202,25 @@
           "value": "2 420 kr/år"
         },
         {
-          "label": "Kommentar till driftskostnaden",
-          "value": "Fiber finns via Ownit. \n\nDen framtida tomträttsavgälden blir 23 400 kr/år och börjar gälla 2026-01-01."
-        },
-        {
           "label": "Personer i hushållet",
           "value": "4"
         },
         {
-          "label": "Tomträttsavgäld",
-          "value": "13 650 kr/år (löper till 2025-12-31)"
+          "label": "Kommentar driftskostnader",
+          "value": "Fiber finns via Ownit. \n\nDen framtida tomträttsavgälden blir 23 400 kr/år och börjar gälla 2026-01-01."
+        },
+        {
+          "label": "Summa per år",
+          "value": "40 640 kr/år"
+        }
+      ]
+    },
+    {
+      "header": "Tomt",
+      "items": [
+        {
+          "label": "Tomtarea",
+          "value": "300 kvm"
         }
       ]
     },

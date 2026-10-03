@@ -16,35 +16,23 @@
   "rooms_and_bedrooms": "5 rum",
   "sections": [
     {
-      "header": "Bostaden",
+      "header": "Grundinformation",
       "items": [
         {
-          "label": "Objektnummer",
-          "value": "AV06691"
+          "label": "Upplåtelseform",
+          "value": "Bostadsrätt"
         },
         {
           "label": "Bostadstyp",
           "value": "Radhus"
         },
         {
-          "label": "Upplåtelseform",
-          "value": "Bostadsrätt"
-        },
-        {
           "label": "Adress",
-          "value": "Piggränd 3, 216 34 Limhamn"
+          "value": "Piggränd 3 216 34 Limhamn"
         },
         {
           "label": "Område",
           "value": "Elinegård"
-        },
-        {
-          "label": "Kommun",
-          "value": "Malmö"
-        },
-        {
-          "label": "Lägenhetsnummer",
-          "value": "R8"
         }
       ]
     },
@@ -52,12 +40,12 @@
       "header": "Interiör",
       "items": [
         {
-          "label": "Antal rum",
-          "value": "5 rum"
-        },
-        {
           "label": "Boarea",
           "value": "103 kvm"
+        },
+        {
+          "label": "Antal rum",
+          "value": "5"
         },
         {
           "label": "Areakälla",
@@ -98,6 +86,15 @@
       ]
     },
     {
+      "header": "Beskrivning",
+      "items": [
+        {
+          "label": "Beskrivning",
+          "value": "Välkommen till ett hem med ett av Elinegårds mest eftertraktade lägen. Här bor du alldeles intill det vackra kalkbrottet – en placering som ger radhuset en alldeles särskild känsla av avskildhet och närhet till naturen. Just dessa radhus tillhör de få i området som har denna unika position, med kalkbrottet som närmaste granne och en fantastisk utsikt som ständigt skiftar med årstiderna.\r\n\r\nHär kan du njuta av den rofyllda omgivningen och den öppna vy som kalkbrottet erbjuder. Ett extra plus är möjligheten att följa dagens första och sista ljus – med vackra soluppgångar och solnedgångar som en naturlig del av boendemiljön.\r\n\r\nHuset är dessutom omsorgsfullt planerat med familjelivet i fokus. De sociala ytorna återkommer på både entréplan och övre plan och skapar fina möjligheter för familjen att samlas, umgås och samtidigt ha utrymme för vardagens olika behov. På övre plan är rummens placering genomtänkt på ett sätt som gör planlösningen både praktisk och social, samtidigt som den känns varm och trivsam.\r\n\r\nDet här är ett hem där det unika läget verkligen får stå i centrum – kombinerat med en genomtänkt planlösning som passar livet som familj."
+        }
+      ]
+    },
+    {
       "header": "Byggnad",
       "items": [
         {
@@ -111,19 +108,15 @@
         {
           "label": "Uppvärmning",
           "value": "Fjärrvärme"
-        },
-        {
-          "label": "Ventilation",
-          "value": "FTX"
         }
       ]
     },
     {
-      "header": "Våning och hiss",
+      "header": "Ventilation",
       "items": [
         {
-          "label": "Hiss",
-          "value": "Nej"
+          "label": "Typ",
+          "value": "FTX"
         }
       ]
     },
@@ -141,41 +134,37 @@
       ]
     },
     {
-      "header": "Balkong, uteplats och parkering",
+      "header": "Andelstal, avgifter och insats",
       "items": [
         {
-          "label": "Balkong",
-          "value": "Nej"
+          "label": "Andel i förening",
+          "value": "1,13 %"
         },
         {
-          "label": "Uteplats",
+          "label": "Andel av årsavgift",
+          "value": "1,13 %"
+        },
+        {
+          "label": "Månadsavgift",
+          "value": "6 177 kr"
+        },
+        {
+          "label": "Kommentar till månadsavgift",
+          "value": "inkl. kallvatten, värme och bostadsrättstillägg. Ett obligatoriskt tillägg om 197 kr/månad tillkommer för kabel-TV/bredband."
+        },
+        {
+          "label": "Bostadens indirekta nettoskuldsättning",
+          "value": "1 424 171 kr, Beräknad av ekonomisk förvaltare."
+        },
+        {
+          "label": "Pantsatt",
           "value": "Ja"
-        },
-        {
-          "label": "Parkering",
-          "value": "Nej"
         }
       ]
     },
     {
-      "header": "Avgift och driftskostnader",
+      "header": "Driftskostnader",
       "items": [
-        {
-          "label": "Avgift",
-          "value": "6 177 kr/mån"
-        },
-        {
-          "label": "Avgiftstyp",
-          "value": "Månadsavgift"
-        },
-        {
-          "label": "Kommentar till avgiften",
-          "value": "inkl. kallvatten, värme och bostadsrättstillägg. Ett obligatoriskt tillägg om 197 kr/månad tillkommer för kabel-TV/bredband."
-        },
-        {
-          "label": "Driftskostnad",
-          "value": "7 800 kr/år"
-        },
         {
           "label": "VA",
           "value": "3 000 kr/år"
@@ -185,37 +174,16 @@
           "value": "4 800 kr/år"
         },
         {
-          "label": "Kommentar till driftskostnaden",
+          "label": "Personer i hushållet",
+          "value": "3"
+        },
+        {
+          "label": "Kommentar driftskostnader",
           "value": "Föreningen har IMD-debitering av el och varmvatten."
         },
         {
-          "label": "Personer i hushållet",
-          "value": "3"
-        }
-      ]
-    },
-    {
-      "header": "Andelstal och ekonomi",
-      "items": [
-        {
-          "label": "Andelstal",
-          "value": "1,13 %"
-        },
-        {
-          "label": "Andel av årsavgiften",
-          "value": "1,13 %"
-        },
-        {
-          "label": "Indirekt nettoskuldsättning",
-          "value": "1 424 171 kr"
-        },
-        {
-          "label": "Kommentar till nettoskuldsättningen",
-          "value": "Beräknad av ekonomisk förvaltare."
-        },
-        {
-          "label": "Pantsatt",
-          "value": "Ja"
+          "label": "Summa per år",
+          "value": "7 800 kr/år"
         }
       ]
     },

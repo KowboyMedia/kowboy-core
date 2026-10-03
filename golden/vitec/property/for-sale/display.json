@@ -18,35 +18,23 @@
   "rooms_and_bedrooms": "1 rum",
   "sections": [
     {
-      "header": "Bostaden",
+      "header": "Grundinformation",
       "items": [
         {
-          "label": "Objektnummer",
-          "value": "15165"
+          "label": "Upplåtelseform",
+          "value": "Bostadsrätt"
         },
         {
           "label": "Bostadstyp",
           "value": "Lägenhet"
         },
         {
-          "label": "Upplåtelseform",
-          "value": "Bostadsrätt"
-        },
-        {
           "label": "Adress",
-          "value": "Cyklopgatan 35B, 216 25 Malmö"
+          "value": "Cyklopgatan 35B 216 25 Malmö"
         },
         {
           "label": "Område",
           "value": "Hyllie"
-        },
-        {
-          "label": "Kommun",
-          "value": "Malmö"
-        },
-        {
-          "label": "Lägenhetsnummer",
-          "value": "B12A (1101)"
         },
         {
           "label": "Fastighetsbeteckning",
@@ -58,16 +46,25 @@
       "header": "Interiör",
       "items": [
         {
-          "label": "Antal rum",
-          "value": "1 rum"
-        },
-        {
           "label": "Boarea",
           "value": "31 kvm"
         },
         {
+          "label": "Antal rum",
+          "value": "1"
+        },
+        {
           "label": "Areakälla",
           "value": "Föreningens information"
+        }
+      ]
+    },
+    {
+      "header": "Beskrivning",
+      "items": [
+        {
+          "label": "Beskrivning",
+          "value": "Välkomna till denna ljusa etta med fransk balkong! Öppen planlösning mellan kök och allrum med gott om plats för både säng och sällskapsmöblemang. Det stora badrummet är utrustat med dusch och vask med kommod samt bekvämligheter som handdukstork och kombimaskin. Köket har rostfria vitvaror och är utrustat med integrerad diskmaskin, kyl/frys, fläkt, spishäll och integrerad ugn. Intill entrén i hallen finns plats för avhängning samt  ett förråd för god förvaring. Området kring Hyllie är optimalt för den som uppskattar stadslivet med närhet till både grönområden och exceptionella pendelmöjligheter. Här finns shoppingcenter, restauranger och kulturutbud inom bekvämt avstånd."
         }
       ]
     },
@@ -89,23 +86,15 @@
         {
           "label": "Fönster",
           "value": "3-glas"
-        },
-        {
-          "label": "Ventilation",
-          "value": "FTX"
         }
       ]
     },
     {
-      "header": "Våning och hiss",
+      "header": "Ventilation",
       "items": [
         {
-          "label": "Våning",
-          "value": "2 av 4"
-        },
-        {
-          "label": "Hiss",
-          "value": "Ja"
+          "label": "Typ",
+          "value": "FTX"
         }
       ]
     },
@@ -123,41 +112,42 @@
       ]
     },
     {
-      "header": "Balkong, uteplats och parkering",
+      "header": "Andelstal, avgifter och insats",
       "items": [
         {
-          "label": "Balkong",
-          "value": "Nej"
+          "label": "Andel i förening",
+          "value": "1,15 %"
         },
         {
-          "label": "Uteplats",
-          "value": "Nej"
+          "label": "Andel av årsavgift",
+          "value": "1,15 %"
         },
         {
-          "label": "Parkering",
-          "value": "Nej"
+          "label": "Månadsavgift",
+          "value": "2 882 kr"
+        },
+        {
+          "label": "Kommentar till månadsavgift",
+          "value": "Inkl. kallvatten, värme, bostadsrättstillägg och sophämtning. Oblig. tillägg 170 kr/mån för bredband och TV tillkommer."
+        },
+        {
+          "label": "Bostadens indirekta nettoskuldsättning",
+          "value": "499 640 kr, Beräknad utifrån uppgifter från årsredovisning 2024"
         }
       ]
     },
     {
-      "header": "Avgift och driftskostnader",
+      "header": "Våning/hiss",
       "items": [
         {
-          "label": "Avgift",
-          "value": "2 882 kr/mån"
-        },
-        {
-          "label": "Avgiftstyp",
-          "value": "Månadsavgift"
-        },
-        {
-          "label": "Kommentar till avgiften",
-          "value": "Inkl. kallvatten, värme, bostadsrättstillägg och sophämtning. Oblig. tillägg 170 kr/mån för bredband och TV tillkommer."
-        },
-        {
-          "label": "Driftskostnad",
-          "value": "3 420 kr/år"
-        },
+          "label": "Våning",
+          "value": "2 av 4, hiss finns"
+        }
+      ]
+    },
+    {
+      "header": "Driftskostnader",
+      "items": [
         {
           "label": "VA",
           "value": "690 kr/år"
@@ -167,33 +157,16 @@
           "value": "2 730 kr/år"
         },
         {
-          "label": "Kommentar till driftskostnaden",
+          "label": "Personer i hushållet",
+          "value": "1"
+        },
+        {
+          "label": "Kommentar driftskostnader",
           "value": "Individuell mätning och debitering av hushållsel och uppvärmning av vatten. Angivna kostnader är enligt föreningens ekonomiska plan, dvs en ungefärligt uppskattad kostnad för bostadens storlek. Kostnad för försäkring tillkommer."
         },
         {
-          "label": "Personer i hushållet",
-          "value": "1"
-        }
-      ]
-    },
-    {
-      "header": "Andelstal och ekonomi",
-      "items": [
-        {
-          "label": "Andelstal",
-          "value": "1,15 %"
-        },
-        {
-          "label": "Andel av årsavgiften",
-          "value": "1,15 %"
-        },
-        {
-          "label": "Indirekt nettoskuldsättning",
-          "value": "499 640 kr"
-        },
-        {
-          "label": "Kommentar till nettoskuldsättningen",
-          "value": "Beräknad utifrån uppgifter från årsredovisning 2024"
+          "label": "Summa per år",
+          "value": "3 420 kr/år"
         }
       ]
     }

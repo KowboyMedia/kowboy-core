@@ -87,17 +87,17 @@ const energyDeclaration = (display: Display, data: Data): void => {
   put(display, 'energy_class', text(declaration['class']));
 };
 
-/** R-015 (drafted): the office's price wording with its first letter in upper case. */
+/** R-015: the office's price wording with its first letter in upper case. */
 const priceText = (value: unknown): string | null => {
   const given = text(value);
   return given ? given.charAt(0).toLocaleUpperCase('sv-SE') + given.slice(1) : null;
 };
 
-/** R-017 (drafted): `2 av 4, hiss finns`; the floor alone unless the elevator is there. */
+/** R-017: `2 av 4, hiss finns`; the floor alone unless the elevator is there. */
 const floorAndElevator = (floor: string | null, elevator: unknown): string | null =>
   floor ? (elevator === true ? `${floor}, hiss finns` : floor) : null;
 
-/** R-018 (drafted): `Balkong finns, Uteplats finns`, the available features in the CRM's order. */
+/** R-018: `Balkong finns, Uteplats finns`, the available features in the CRM's order. */
 const exteriorFeatures = (value: unknown): string | null => {
   if (!Array.isArray(value)) return null;
   const available = value
@@ -223,7 +223,7 @@ export function officeStrings(data: Data): Display {
   return display;
 }
 
-/** R-019 (drafted): an association's transfer fee and pledge fee, in kr. */
+/** R-019: an association's transfer fee and pledge fee, in kr. */
 export function associationStrings(data: Data): Display {
   const display: Display = {};
   put(display, 'transfer_fee', money(read(data, 'economy.transfer_fee'), null));

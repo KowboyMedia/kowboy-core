@@ -290,7 +290,8 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('<meta property="og:image" content="https://img.test/P-3-1_1200.jpg">');
     expect(body).toContain('<meta name="description" content="Ljus trea med balkong.">');
     expect(body).toContain('<meta property="og:type" content="article">');
-    expect(body).toContain('<dt>Adress</dt><dd>Kungsgatan 3, 111 22 Stockholm</dd>');
+    // The master's address row: street, postal code and city with spaces only (R-013, question 92).
+    expect(body).toContain('<dt>Adress</dt><dd>Kungsgatan 3 111 22 Stockholm</dd>');
     expect(body).toContain('class="k-gallery__item');
     expect(body).toContain('data-map data-lat="');
     // The interest form is a dummy that names the listing (question 105 open): it posts nowhere.
