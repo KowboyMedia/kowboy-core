@@ -1060,7 +1060,8 @@ iframe.k-hero__video {
   .k-agents__grid--with-card {
     grid-template-columns: repeat(2, 1fr);
   }
-  .k-info-card {
+  .k-info-card,
+  .k-agents__grid--with-card .k-info-card {
     grid-column: 1 / -1;
   }
 }

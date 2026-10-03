@@ -180,10 +180,10 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
             <?php if ($plans !== []) : ?>
                 <div class="k-plan">
                     <h2 class="k-heading">Planlösning</h2>
-                    <?php // Several plans slide, with dots (Patric, 2026-10-03); the files follow the screen's density like every image (srcset). ?>
+                    <?php // Several plans slide, with dots (Patric, 2026-10-03); the files follow the screen's density like every image (srcset) and load at once, so the slider has its height before it is reached. ?>
                     <?php if (count($plans) > 1) : ?><div class="swiper k-plan__slider" data-plan-slider aria-label="Planlösningar"><div class="swiper-wrapper"><?php endif; ?>
                     <?php foreach ($plans as $plan) : ?>
-                        <figure class="k-plan__figure<?php echo count($plans) > 1 ? ' swiper-slide' : ''; ?>"><?php echo kowboy_image($plan, '(min-width: 1024px) 780px, 100vw', 'Planlösning ' . $street, ['class' => 'k-plan__image']); ?>
+                        <figure class="k-plan__figure<?php echo count($plans) > 1 ? ' swiper-slide' : ''; ?>"><?php echo kowboy_image($plan, '(min-width: 1024px) 780px, 100vw', 'Planlösning ' . $street, ['class' => 'k-plan__image', 'loading' => 'eager']); ?>
                             <?php if (is_string($plan['description'] ?? null) && $plan['description'] !== '') : ?><figcaption><?php echo esc_html($plan['description']); ?></figcaption><?php endif; ?></figure>
                     <?php endforeach; ?>
                     <?php if (count($plans) > 1) : ?></div><div class="swiper-pagination k-plan__dots"></div></div><?php endif; ?>

@@ -7,7 +7,7 @@
 
 declare(strict_types=1);
 
-const KOWBOY_2026_VERSION = '1.0.10';
+const KOWBOY_2026_VERSION = '1.0.11';
 
 require __DIR__ . '/inc/media.php';
 require __DIR__ . '/inc/options.php';
