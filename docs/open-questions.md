@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 118 (116 was asked in chat only on 2026-09-29 and answered by Patric on 2026-10-01; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 119 (116 was asked in chat only on 2026-09-29 and answered by Patric on 2026-10-01; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
@@ -226,3 +226,14 @@ the register file stays the readable view. Default: the next session makes that 
 questions become issues with their texts, the file lists them by issue number, `check-register`
 reads the issues' numbers). Smaller: keep counting in the file and accept collisions. Answer
 "no" to keep the file.
+
+## 118. `[handbook]` May the removal of the handbook copies go into staging now, or only once the plugin reads the handbook live?
+
+Pull request 69 deletes the handbook copy, the playbook, the nine skills and the starting kit
+from Core and points `CLAUDE.md`, `AGENTS.md` and `README.md` at Core's own files, finishing
+decision 117a. The order that decision set is: first the handbook plugin reads the handbook live
+and is enabled on the account, then this change goes into staging. On 2026-10-03 the public
+handbook address (`raw.githubusercontent.com/KowboyMedia/kowboy-handbook/main/HANDBOOK.md`) still
+answered "not found", so a session on Core would have no shared rules if the change landed today.
+Smaller: wait, and combine when the address answers. Answer "now" to combine today anyway, or
+"wait" to hold it until the handbook is reachable.
