@@ -125,6 +125,13 @@ a database of its own; production deploys `main` on every merge. Branch protecti
 branches makes a pull request with green checks the only way in, for agents and humans alike; an
 agent merges on Patric's word, a dev with the merge button (Patric, 2026-09-18).
 
+**Until the final release, the pull request is off for `staging`** (Patric, 2026-10-03: it slowed
+the work with clashes between branches). Every session works on `staging` itself: it fetches the
+latest, runs the checks locally (build, typecheck, the tests), and pushes straight to `staging`;
+CI still runs on what lands there. `main` keeps its protection, and the protected paths of E3 are
+still changed only on Patric's word, asked in chat. The pull request returns with the final
+release.
+
 ## 5. Engine and adapters
 
 ### 5.1 The seam
