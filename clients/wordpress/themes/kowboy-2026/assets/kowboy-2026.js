@@ -252,21 +252,6 @@
   /** The phone's photo slider (parts/gallery.php): one photo a screen, a count, and a tap opens the full-screen slider. */
   function setupPhotoSlider(container) {
     var gallery = container.closest('[data-gallery]');
-    // The device's visible height in pixels (the admin bar off), set at load and when the phone turns:
-    // the viewport units differ between browsers with the address bar in and out.
-    function size() {
-      var bar =
-        parseFloat(
-          getComputedStyle(document.documentElement).getPropertyValue(
-            '--wp-admin--admin-bar--height',
-          ),
-        ) || 0;
-      container.style.height = Math.max(240, window.innerHeight - bar) + 'px';
-    }
-    size();
-    window.addEventListener('orientationchange', function () {
-      window.setTimeout(size, 300);
-    });
     var instance = swiper(container, {
       pagination: { el: container.querySelector('.swiper-pagination'), type: 'fraction' },
       on: {
@@ -347,8 +332,10 @@
       outline = [];
     }
     var map = window.L.map(element, { scrollWheelZoom: false, zoomControl: false });
+    // On a high-density screen the tiles of one zoom level in are drawn at half size, so the map is sharp (Patric, 2026-10-03).
     window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
+      detectRetina: true,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
     if (outline.length) {

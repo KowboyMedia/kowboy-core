@@ -1469,8 +1469,11 @@ iframe.k-hero__video {
   }
   .k-photos {
     display: block;
-    /* The device's visible height: the script sets the exact pixels, this is the start. */
-    height: calc(100svh - var(--wp-admin--admin-bar--height, 0px));
+    /* The screen's visible height as it is right now: `dvh` follows the address bar in and out, so the
+       slider fills the screen whichever way the page snapped to it. A fixed pixel height measured at
+       load matched only one of the two states. No admin bar here: on a phone it scrolls away with the page. */
+    height: 100svh;
+    height: 100dvh;
     margin: 0 calc(-1 * var(--k-gutter));
     scroll-snap-align: start;
     background: var(--k-ink);
