@@ -370,6 +370,86 @@ const exteriorOf = (value: unknown): Raw => {
   };
 };
 
+/**
+ * Enumerations Connect sends as a bare code, named from Vitec's own documentation
+ * (docs/inputs/vitec/models/Association_*.md; question 93, Patric 2026-10-03). The code is kept
+ * as the id; a code the documentation does not list gets no name.
+ */
+const TRANSFER_FEE_PAID_BY: Record<string, string> = {
+  Undetermined: 'Ej angivet',
+  Seller: 'Säljare',
+  Buyer: 'Köpare',
+};
+const ALLOW_LEGAL_PERSON_AS_BUYER: Record<string, string> = {
+  Undetermined: 'Ej angivet',
+  Yes: 'Ja',
+  No: 'Nej',
+};
+const ASSOCIATION_TAXATION: Record<string, string> = {
+  Undetermined: 'Ej angivet',
+  PrivateHousingCompany: 'Äkta (privatbostadsföretag)',
+  NotPrivateHousingCompany: 'Oäkta',
+};
+
+const coded = (value: unknown, names: Record<string, string>): Named | null => {
+  const id = text(value);
+  return id === null ? null : { id, name: names[id] ?? null };
+};
+
+/**
+ * Kowboy's CDN serves the marketing documents too, by customer, record and file id (read off
+ * norbanmakleri.se on 2026-10-03: the master opens `/v310/vitec/files/<customer>/<record>/<file
+ * id>.pdf`, which answers for a property's file and for an association's document alike; question
+ * 111). Connect's own address on an association's document needs the API key, so it is replaced.
+ */
+const DOCUMENT_BASE = 'https://cdn-realestate.kowboy.se/v310/vitec/files';
+
+const documentUrl = (customerId: string | null, recordId: string, document: Raw): string | null => {
+  const id = text(document['id']);
+  const extension = text(document['extension'])?.replace(/^\./, '');
+  if (!customerId || !id || !extension) return null;
+  return `${DOCUMENT_BASE}/${customerId}/${recordId}/${id}.${extension}`;
+};
+
+/**
+ * A document as Connect lists it: on a property under `files`, on an association under
+ * `documents`. Both become `documents[]` of one shape (question 94, Patric 2026-10-03), with the
+ * CDN address built above.
+ */
+const documentOf =
+  (customerId: string | null, recordId: string) =>
+  (value: unknown): Raw => {
+    const document = record(value);
+    return {
+      id: text(document['id']),
+      name: text(document['name']),
+      extension: text(document['extension']),
+      category: text(document['category']),
+      url: documentUrl(customerId, recordId, document),
+      changed_at: isoDate(document['dataChangedAt'] ?? document['dateChangedData']),
+    };
+  };
+
+const documentsOf = (customerId: string | null, recordId: string, value: unknown): Raw[] =>
+  list(value).map(documentOf(customerId, recordId));
+
+/**
+ * An association's payload names no office; Connect's address on its documents does
+ * (`File/GetFile?customerId=M31529&fileId=…`), so the customer id is read from the first one.
+ */
+const customerIdOfDocuments = (value: unknown): string | null => {
+  for (const entry of list(value)) {
+    const url = text(record(entry)['url']);
+    if (!url) continue;
+    try {
+      return new URL(url).searchParams.get('customerId');
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
 const biddingOf = (value: unknown): Raw => {
   const bidding = record(value);
   return {
@@ -414,6 +494,7 @@ const PROPERTY_CONSUMED = [
   'exterior',
   'expenses',
   'images',
+  'files',
   'viewings',
   'bidding',
   'marketing',
@@ -449,6 +530,7 @@ const property = (input: unknown): MappedRecord => {
     ...exteriorOf(raw['exterior']),
     ...operationOf(record(raw['expenses'])['operation']),
     images: imagesOf(officeId, id, raw['images']),
+    documents: documentsOf(officeId, id, raw['files']),
     viewings: list(raw['viewings']).map(viewingOf),
     bidding: biddingOf(raw['bidding']),
   };
@@ -633,13 +715,32 @@ const area = (input: unknown): MappedRecord => {
   };
 };
 
-const ASSOCIATION_CONSUMED = ['publicContact', 'changedAt'] as const;
+const ASSOCIATION_CONSUMED = [
+  'publicContact',
+  'genuineAssociation',
+  'economy',
+  'documents',
+  'changedAt',
+] as const;
 
 const association = (input: unknown): MappedRecord => {
   const raw = record(input);
   const id = requireId(raw);
   const contact = record(raw['publicContact']);
+  const economy = record(raw['economy']);
   const universal: Raw = {
+    genuine_association: coded(raw['genuineAssociation'], ASSOCIATION_TAXATION),
+    economy: present(raw['economy'])
+      ? {
+          ...record(mirror(economy)),
+          transfer_fee_paid_by: coded(economy['transferFeePaidBy'], TRANSFER_FEE_PAID_BY),
+          allow_legal_person_as_buyer: coded(
+            economy['allowLegalPersonAsBuyer'],
+            ALLOW_LEGAL_PERSON_AS_BUYER,
+          ),
+        }
+      : null,
+    documents: documentsOf(customerIdOfDocuments(raw['documents']), id, raw['documents']),
     contact: present(raw['publicContact'])
       ? {
           name: text(contact['name']),
