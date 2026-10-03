@@ -1,7 +1,8 @@
 <?php
 // The photos of a record (a property, an area), one component for both (Patric, 2026-10-03):
-// on a phone a full-height Swiper slider of every photo first (a trial beside the grid), then
-// the grid with "Visa fler bilder"; a tap or click on a photo opens the full-screen slider.
+// on a phone a Swiper slider of every photo, fitted whole, at the device's visible height, in
+// the grid's place; wider, the grid with "Visa fler bilder". A tap or click opens the
+// full-screen slider.
 // Every file at the CDN's widths, the slot's size per width, so the browser weighs the pixel
 // density in; a phone's cover-cropped landscape photo needs about two and a half screen widths.
 //
@@ -19,7 +20,7 @@ if ($photos === []) {
     <div class="swiper k-photos" data-photo-slider aria-label="Bilder">
         <div class="swiper-wrapper">
             <?php foreach ($photos as $index => $photo) : ?>
-                <div class="swiper-slide k-photos__slide" data-lightbox="<?php echo (int) $index; ?>"><?php echo kowboy_image($photo, '250vw', $alt, ['class' => 'k-photos__image']); ?></div>
+                <div class="swiper-slide k-photos__slide" data-lightbox="<?php echo (int) $index; ?>"><?php echo kowboy_image($photo, '100vw', $alt, ['class' => 'k-photos__image']); ?></div>
             <?php endforeach; ?>
         </div>
         <div class="swiper-pagination k-photos__count"></div>

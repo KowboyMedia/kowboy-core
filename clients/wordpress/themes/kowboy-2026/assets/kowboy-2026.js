@@ -252,6 +252,21 @@
   /** The phone's photo slider (parts/gallery.php): one photo a screen, a count, and a tap opens the full-screen slider. */
   function setupPhotoSlider(container) {
     var gallery = container.closest('[data-gallery]');
+    // The device's visible height in pixels (the admin bar off), set at load and when the phone turns:
+    // the viewport units differ between browsers with the address bar in and out.
+    function size() {
+      var bar =
+        parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue(
+            '--wp-admin--admin-bar--height',
+          ),
+        ) || 0;
+      container.style.height = Math.max(240, window.innerHeight - bar) + 'px';
+    }
+    size();
+    window.addEventListener('orientationchange', function () {
+      window.setTimeout(size, 300);
+    });
     var instance = swiper(container, {
       pagination: { el: container.querySelector('.swiper-pagination'), type: 'fraction' },
       on: {

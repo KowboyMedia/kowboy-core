@@ -1469,18 +1469,25 @@ iframe.k-hero__video {
   }
   .k-photos {
     display: block;
+    /* The device's visible height: the script sets the exact pixels, this is the start. */
     height: calc(100svh - var(--wp-admin--admin-bar--height, 0px));
-    margin: 0 calc(-1 * var(--k-gutter)) 24px;
+    margin: 0 calc(-1 * var(--k-gutter));
     scroll-snap-align: start;
     background: var(--k-ink);
   }
   .k-photos__slide {
     cursor: zoom-in;
   }
+  /* A photo is fitted whole, never cropped (Patric, 2026-10-03). */
   .k-photos__image {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+  }
+  /* The slider replaces the grid on a phone. */
+  .k-gallery__grid,
+  .k-gallery__more {
+    display: none;
   }
   .k-photos__count {
     bottom: 16px;

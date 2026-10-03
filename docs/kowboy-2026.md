@@ -169,9 +169,10 @@ Patric's list after the first round reached the staging site, done straight on `
 - **Bids.** "Budgivning" at the side: `display.highest_bid` (R-008) and the bids as the CRM
   allows them, latest first, a cancelled one struck through.
 - **Photos (Patric's fourth list).** One gallery part (`parts/gallery.php`) for a property and
-  an area: on a phone a full-height Swiper slider of every photo first, the page snapping to it
-  (`scroll-snap-type: y proximity`, a trial beside the grid), then the grid, one column on a
-  phone. The hero's and the slider's files are sized for a portrait screen (`sizes` 250vw: a
+  an area: on a phone a Swiper slider of every photo, fitted whole, at the device's visible
+  height (the script sets the pixels: viewport units differ with the address bar), the page
+  snapping to it (`scroll-snap-type: y proximity`), in the grid's place (Patric kept the slider
+  after the trial); wider, the grid. The hero's and the slider's files are sized for a portrait screen (`sizes` 250vw: a
   landscape photo covering a portrait screen is about two and a half widths), so the 1920 file
   serves a phone; every CRM image carries the CDN's widths as `srcset`, which is how the pixel
   density counts. The fact tables start closed.
