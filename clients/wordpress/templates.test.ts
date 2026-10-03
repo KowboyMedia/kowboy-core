@@ -137,6 +137,8 @@ beforeAll(async () => {
       rooms: 4,
       living_space: 110,
       viewings: [{ starts_at: soon(48), ends_at: soon(49), comment: 'Föranmälan krävs' }],
+      heading: 'Högst upp med balkong i söderläge',
+      staff: ['S-1', 'S-2'],
       lat: 59.34,
       lng: 18.05,
       published_at: '2026-09-12T08:00:00.000Z',
@@ -213,7 +215,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     });
     expect(first.total).toBe(3);
     expect(first.has_more).toBe(true);
-    expect(first.html.match(/<article class="k-card">/g)).toHaveLength(2);
+    expect(first.html.match(/<article class="k-card[ "]/g)).toHaveLength(2);
     const second = await reload({
       entity: 'property',
       status: 'active,pre',
@@ -248,7 +250,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
       (await reload({ entity: 'property', status: 'active,pre', area: 'kungsgatan 2' })).total,
     ).toBe(1);
     expect((await reload({ entity: 'property', status: 'active,pre', agent: 'S-2' })).total).toBe(
-      1,
+      2, // P-2 is Bertil's, and he is the second agent on P-3
     );
     expect((await reload({ entity: 'property', office: 'B-1' })).total).toBe(5);
     expect((await reload({ entity: 'property', project: 'PR-1' })).total).toBe(1);
@@ -269,9 +271,25 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('<li class="k-chip">4 rum</li>');
     expect(body).toContain('<li class="k-chip">Bostadsrätt</li>');
     expect(body).toContain('Föranmälan krävs');
-    expect(body).toContain('Anna Andersson');
+    // The selling heading stands where "Om bostaden" would; the first agent is the responsible one.
+    expect(body).toContain('<h2 class="k-heading">Högst upp med balkong i söderläge</h2>');
+    expect(body).not.toContain('Om bostaden');
+    expect(body).toContain('Ansvarig mäklare');
+    expect(body).toContain('Kontakta även');
+    expect(body.indexOf('Anna Andersson')).toBeLessThan(body.indexOf('Bertil Berg'));
     expect(body).toContain('070-123 45 67');
     expect(body).toContain('class="k-accordion__button"');
+    expect(body).toContain('class="k-accordion__panel"><div class="k-accordion__inner">');
+    // The hero and every gallery photo open the full-screen slider, with the files at full width.
+    expect(body).toContain('k-hero--property" data-lightbox="0"');
+    expect(body).toContain('data-images="[&quot;https://img.test/P-3-1_1920.jpg&quot;');
+    expect(body).toContain('data-lightbox="1"');
+    // The page title and the sharing tags, as the master site carries them.
+    expect(body).toContain('<title>Kungsgatan 3 - ');
+    expect(body).toContain('<meta property="og:title" content="Kungsgatan 3 - ');
+    expect(body).toContain('<meta property="og:image" content="https://img.test/P-3-1_1200.jpg">');
+    expect(body).toContain('<meta name="description" content="Ljus trea med balkong.">');
+    expect(body).toContain('<meta property="og:type" content="article">');
     expect(body).toContain('<dt>Adress</dt><dd>Kungsgatan 3, 111 22 Stockholm</dd>');
     expect(body).toContain('class="k-gallery__item');
     expect(body).toContain('data-map data-lat="');
@@ -287,6 +305,10 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('Slutpris');
     expect(body).toContain('3 325 000 kr');
     expect(body).not.toContain('Visningar');
+    // No selling heading: the label stands, and the one agent is the responsible one.
+    expect(body).toContain('<p class="k-label">Om bostaden</p>');
+    expect(body).toContain('Ansvarig mäklare');
+    expect(body).not.toContain('Kontakta även');
   });
 
   it('renders agent, office and area pages with their lists inside the same view', async () => {
@@ -294,7 +316,15 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(agent.status).toBe(200);
     expect(agent.body).toContain('<h1 class="k-section__title">Anna Andersson</h1>');
     expect(agent.body).toContain('Säljare på Kungsgatan 1');
-    expect(agent.body.match(/<article class="k-card">/g)).toHaveLength(4); // P-1, P-3, P-4, P-5 are Anna's; P-2 is Bertil's
+    expect(agent.body.match(/<article class="k-card/g)).toHaveLength(4); // P-1, P-3, P-4, P-5 are Anna's; P-2 is Bertil's
+    // The list carries the status tabs like the home page's, and a card with several photos is a slider the link leaves free.
+    expect(agent.body).toContain('class="k-tabs"');
+    expect(agent.body).toContain('<article class="k-card k-card--slider" data-card-url="');
+    // The title, and the footer's form on every page, with the fields' names as placeholders.
+    expect(agent.body).toContain('<title>Anna Andersson - ');
+    expect(agent.body).toContain('<h2 class="k-lead__title">Ska du sälja din bostad?</h2>');
+    expect(agent.body).toContain('placeholder="Förnamn"');
+    expect(agent.body).not.toContain('k-field__label');
 
     const office = await page(await permalink('office', 'B-1'));
     expect(office.body).toContain('<h1 class="k-section__title">Kowboy Mäkleri</h1>');
@@ -324,7 +354,10 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(home.body.match(/<article class="k-agent-card">/g)).toHaveLength(2);
     expect(home.body).toContain('class="k-list"');
     expect(home.body).toContain('<h2 class="k-lead__title">Ska du sälja din bostad?</h2>');
+    expect(home.body.match(/k-lead__title/g)).toHaveLength(1); // the footer's form, once
     expect(home.body).toContain('class="k-footer"');
+    expect(home.body).toContain('<title>Hem - ');
+    expect(home.body).toContain('<meta property="og:type" content="website">');
     const forSale = await page(pathOf(pages['till-salu']!));
     expect(forSale.body).toContain('Hitta din nya bostad');
     expect(forSale.body).toContain('k-hero--with-form');

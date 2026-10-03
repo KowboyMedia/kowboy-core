@@ -8,7 +8,7 @@ declare(strict_types=1);
 $name = (string) ($item['name'] ?? '');
 $description = (string) ($item['description'] ?? '');
 $reviews = is_array($item['reviews'] ?? null) ? $item['reviews'] : [];
-$properties = core_client_list(['entity' => 'property', 'agent' => (string) ($item['id'] ?? ''), 'status' => 'for_sale,coming,sold', 'per_page' => 6, 'title' => 'Bostäder', 'shadow' => false]);
+$properties = core_client_list(['entity' => 'property', 'agent' => (string) ($item['id'] ?? ''), 'status' => 'for_sale,coming,sold', 'status_filter' => '1', 'per_page' => 6, 'title' => 'Bostäder', 'shadow' => false]);
 ?>
 <div class="k-page-top"></div>
 <div class="k-container k-agent">

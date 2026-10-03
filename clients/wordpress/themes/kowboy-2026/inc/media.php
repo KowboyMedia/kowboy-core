@@ -59,6 +59,23 @@ function kowboy_srcset(string $url): string
     return implode(', ', $candidates);
 }
 
+/** The CDN's file of one address at this width, or the address itself when it is not the CDN's. */
+function kowboy_image_at(string $url, int $width): string
+{
+    return preg_match('/_\d+\.(\w+)$/', $url) === 1 ? (string) preg_replace('/_\d+\.(\w+)$/', '_' . $width . '.$1', $url) : $url;
+}
+
+/**
+ * Texts as accordion items (parts/accordion.php): a label and a text each, the text as paragraphs.
+ *
+ * @param array<string, string> $texts label => text
+ * @return list<array{label: string, html: string}>
+ */
+function kowboy_text_items(array $texts): array
+{
+    return array_map(fn (string $label, string $text): array => ['label' => $label, 'html' => '<div class="k-prose">' . wp_kses_post(wpautop(esc_html($text))) . '</div>'], array_keys($texts), $texts);
+}
+
 /** The video id of a Vimeo address, or null when the address is not one. */
 function kowboy_vimeo_id(string $url): ?string
 {

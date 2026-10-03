@@ -18,7 +18,7 @@ declare(strict_types=1);
         <?php echo kowboy_logo(kowboy_has_hero()); ?>
         <button class="k-header__toggle" type="button" aria-expanded="false" aria-controls="k-menu" data-menu-toggle>
             <span class="k-visually-hidden">Meny</span>
-            <span class="k-header__bar"></span><span class="k-header__bar"></span>
+            <span class="k-header__bar k-header__bar--top"></span><span class="k-header__bar k-header__bar--bottom"></span>
         </button>
         <nav class="k-header__nav" id="k-menu" aria-label="Huvudmeny">
             <?php wp_nav_menu(['theme_location' => 'primary', 'container' => false, 'menu_class' => 'k-menu', 'fallback_cb' => 'kowboy_menu_fallback', 'depth' => 1]); ?>

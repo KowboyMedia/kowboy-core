@@ -67,6 +67,7 @@ const property = (raw: unknown): MappedRecord => {
       lat: number(record['lat']),
       lng: number(record['lng']),
       short_text: text(record['blurb']),
+      heading: text(record['heading']),
       price: number(record['price']),
       final_price: number(record['final_price']),
       sold_at: text(record['sold_at']),

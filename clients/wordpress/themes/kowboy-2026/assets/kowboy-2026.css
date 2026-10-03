@@ -140,9 +140,6 @@ button {
 .k-section {
   padding-block: 72px;
 }
-.k-section + .k-section {
-  padding-top: 0;
-}
 
 /* Buttons and controls */
 .k-button {
@@ -205,6 +202,18 @@ button {
   right: 0;
   color: var(--k-white);
 }
+/* A shade from the top edge, so the bright logotype and menu read over a bright photo. */
+.k-has-hero .k-header::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: -1;
+  height: 180px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+}
 .k-no-hero .k-header {
   background: var(--k-white);
   border-bottom: 1px solid var(--k-border);
@@ -247,27 +256,44 @@ button {
   text-decoration: underline;
   text-underline-offset: 4px;
 }
+/* The hamburger: two bars that fold into a cross when the menu is open. */
 .k-header__toggle {
   display: none;
+  position: relative;
   width: 40px;
   height: 40px;
-  padding: 8px;
+  padding: 0;
   border: 0;
   background: transparent;
   cursor: pointer;
 }
 .k-header__bar {
-  display: block;
+  position: absolute;
+  left: 9px;
+  right: 9px;
+  top: 19px;
   height: 2px;
   background: currentColor;
-  margin: 6px 0;
+  transition: transform 0.3s ease;
+}
+.k-header__bar--top {
+  transform: translateY(-4px);
+}
+.k-header__bar--bottom {
+  transform: translateY(4px);
+}
+.k-menu-open .k-header__bar--top {
+  transform: rotate(45deg);
+}
+.k-menu-open .k-header__bar--bottom {
+  transform: rotate(-45deg);
 }
 @media (max-width: 767px) {
   .k-header__toggle {
     display: block;
   }
+  /* The menu slides down and fades in; the items follow one after the other. */
   .k-header__nav {
-    display: none;
     position: absolute;
     top: var(--k-header);
     left: 0;
@@ -276,13 +302,45 @@ button {
     background: var(--k-white);
     color: var(--k-ink);
     border-bottom: 1px solid var(--k-border);
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-12px);
+    transition:
+      opacity 0.3s ease,
+      transform 0.3s ease,
+      visibility 0s linear 0.3s;
   }
   .k-menu-open .k-header__nav {
-    display: block;
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 0.3s ease,
+      transform 0.3s ease;
   }
   .k-menu {
     flex-direction: column;
     gap: 16px;
+  }
+  .k-menu li {
+    opacity: 0;
+    transform: translateY(8px);
+    transition:
+      opacity 0.3s ease,
+      transform 0.3s ease;
+  }
+  .k-menu-open .k-menu li {
+    opacity: 1;
+    transform: none;
+  }
+  .k-menu-open .k-menu li:nth-child(2) {
+    transition-delay: 0.06s;
+  }
+  .k-menu-open .k-menu li:nth-child(3) {
+    transition-delay: 0.12s;
+  }
+  .k-menu-open .k-menu li:nth-child(n + 4) {
+    transition-delay: 0.18s;
   }
   .k-logo__name {
     max-width: 60vw;
@@ -304,14 +362,18 @@ button {
   color: var(--k-white);
   background: var(--k-ink);
 }
+/* The tall hero and a property's hero fill the screen (Patric, 2026-10-03). */
 .k-hero--tall {
-  min-height: clamp(560px, 50vw, 960px);
+  min-height: 100svh;
   border-radius: 0 0 28px 28px;
 }
 .k-hero--property {
-  min-height: clamp(480px, 47.5vw, 911px);
+  min-height: 100svh;
   align-items: flex-end;
   padding: 72px 0 40px;
+}
+.k-hero--property .k-hero__media {
+  cursor: zoom-in;
 }
 .k-hero--with-form {
   padding-bottom: 87px;
@@ -384,9 +446,6 @@ iframe.k-hero__video {
   display: grid;
   gap: 16px;
   justify-items: center;
-}
-.k-hero--property .k-hero__content {
-  padding-bottom: 40px;
 }
 .k-hero__title {
   font-size: var(--k-display-size);
@@ -487,11 +546,9 @@ iframe.k-hero__video {
   .k-hero {
     min-height: 420px;
   }
-  .k-hero--tall {
-    min-height: min(100svh, 800px);
-  }
+  .k-hero--tall,
   .k-hero--property {
-    min-height: 70vh;
+    min-height: 100svh;
   }
   .k-hero__text {
     padding-block: 24px 48px;
@@ -674,16 +731,18 @@ iframe.k-hero__video {
   height: 100%;
   object-fit: cover;
 }
+/* The dark fade at the bottom, over the photo and over the slider (Swiper puts its root at z-index 1). */
 .k-card__media::after {
   content: '';
   position: absolute;
+  z-index: 2;
   inset: 0;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.78) 100%);
   pointer-events: none;
 }
 .k-card__status {
   position: absolute;
-  z-index: 2;
+  z-index: 4;
   top: 16px;
   left: 16px;
   padding: 6px 12px;
@@ -695,7 +754,7 @@ iframe.k-hero__video {
 }
 .k-card__dots {
   position: absolute;
-  z-index: 2;
+  z-index: 3;
   bottom: 92px !important;
   left: 0;
   right: 0;
@@ -711,19 +770,25 @@ iframe.k-hero__video {
 .k-card .swiper-pagination-bullet-active {
   opacity: 1;
 }
+/* The link covers the card; on a card with a slider only its text, so the photos can be swiped. */
 .k-card__link {
   position: absolute;
   inset: 0;
-  z-index: 1;
-  display: flex;
-  align-items: flex-end;
-  padding: 16px;
-  text-decoration: none;
+  z-index: 3;
+}
+.k-card--slider .k-card__link {
+  top: auto;
+  height: 96px;
 }
 .k-card__body {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 4;
   display: grid;
   gap: 6px;
-  width: 100%;
+  pointer-events: none;
 }
 .k-card__tenure {
   font-size: var(--k-label-size);
@@ -1089,25 +1154,11 @@ iframe.k-hero__video {
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
+/* A field: its name as the placeholder, a line underneath. */
 .k-field {
-  display: block;
-  position: relative;
-}
-.k-field__label {
-  position: absolute;
-  left: 0;
-  top: 14px;
-  font-size: var(--k-label-size);
-  color: rgba(255, 255, 255, 0.6);
-  pointer-events: none;
-  transition:
-    top 0.15s,
-    font-size 0.15s;
-}
-.k-field input {
   width: 100%;
   height: 44px;
-  padding: 12px 0 0;
+  padding: 0;
   border: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 0;
@@ -1116,22 +1167,13 @@ iframe.k-hero__video {
   font: inherit;
   font-size: 14px;
 }
-.k-field input:focus {
+.k-field::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+  opacity: 1;
+}
+.k-field:focus {
   outline: none;
   border-bottom-color: rgba(255, 255, 255, 0.6);
-}
-.k-field input:focus + .k-field__label,
-.k-field input:not(:placeholder-shown) + .k-field__label {
-  top: -2px;
-  font-size: 10px;
-}
-.k-field input {
-  order: 2;
-}
-.k-field:focus-within .k-field__label,
-.k-field:has(input:not(:placeholder-shown)) .k-field__label {
-  top: -2px;
-  font-size: 10px;
 }
 .k-form__foot {
   display: flex;
@@ -1298,7 +1340,6 @@ iframe.k-hero__video {
 .k-property__agents .k-agent-card {
   aspect-ratio: 450 / 403;
 }
-.k-property__lead,
 #k-interest {
   padding-block: 40px;
 }
@@ -1313,6 +1354,15 @@ iframe.k-hero__video {
   border-radius: var(--k-radius);
   overflow: hidden;
 }
+.k-gallery__button {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
 .k-gallery__item.is-collapsed {
   display: none;
 }
@@ -1326,8 +1376,7 @@ iframe.k-hero__video {
   justify-content: center;
   padding-top: 32px;
 }
-.k-accordion {
-  margin-top: 0;
+.k-property__tables {
   padding-block: 40px;
 }
 .k-accordion__item {
@@ -1374,22 +1423,39 @@ iframe.k-hero__video {
   border-right: 1.5px solid currentColor;
   border-bottom: 1.5px solid currentColor;
   transform: rotate(45deg);
+  transition:
+    transform 0.3s ease,
+    top 0.3s ease;
 }
 .k-accordion__button[aria-expanded='true'] .k-accordion__chevron::after {
   transform: rotate(225deg);
   top: 13px;
 }
+/* The panel opens and closes by its height, animated from nothing to its content. */
 .k-accordion__panel {
-  padding: 0 16px 16px;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.35s ease;
+}
+.k-accordion__inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.k-accordion__inner > * {
+  margin: 0 16px 16px;
+}
+.k-accordion__item.is-open .k-accordion__panel {
+  grid-template-rows: 1fr;
 }
 .k-kv {
   display: grid;
   gap: 8px;
   margin: 0;
 }
+/* The design's rows: the label in the left half, the value in the right. */
 .k-kv__row {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   font-size: 14px;
   line-height: 1.5;
@@ -1436,6 +1502,64 @@ iframe.k-hero__video {
 .k-map {
   height: 420px;
   background: var(--k-subtle);
+}
+
+/* The full-screen slider a photo opens (the script builds it on the page). */
+.k-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  background: rgba(0, 0, 0, 0.94);
+  animation: k-fade-in 0.25s ease;
+}
+@keyframes k-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.k-lightbox-open {
+  overflow: hidden;
+}
+.k-lightbox__slider {
+  width: 100%;
+  height: 100%;
+}
+.k-lightbox .swiper-slide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.k-lightbox img {
+  max-width: 100%;
+  max-height: 100vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+.k-lightbox__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--k-white);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+.k-lightbox .swiper-button-prev,
+.k-lightbox .swiper-button-next {
+  color: var(--k-white);
+}
+.k-lightbox .swiper-pagination {
+  bottom: 16px;
+  color: var(--k-white);
+  font-size: var(--k-label-size);
 }
 .k-map .leaflet-tile {
   filter: grayscale(1) contrast(0.9);
@@ -1505,8 +1629,11 @@ iframe.k-hero__video {
 }
 
 /* ---- Footer ----------------------------------------------------------------------------- */
+.k-footer__lead {
+  padding-bottom: 72px;
+}
 .k-footer {
-  padding: 32px 0;
+  padding: 72px 0 32px;
   background: var(--k-white);
   font-size: var(--k-label-size);
   line-height: 1.37;

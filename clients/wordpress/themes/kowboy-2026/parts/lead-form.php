@@ -1,6 +1,7 @@
 <?php
-// The form card, dark: the lead form of every page and the interest form of a property page are
-// this part with a title and a text. The form is a dummy until question 105 is answered: it
+// The form card, dark: the lead form in the footer of every page and the interest form of a
+// property page are this part with a title and a text. The fields show their names as
+// placeholders (Patric, 2026-10-03). The form is a dummy until question 105 is answered: it
 // posts nowhere and its button does nothing (Patric, 2026-09-28).
 //
 // In scope: $title, $text, $subject (a listing's street, or ''; kept for the day 105 is answered).
@@ -9,7 +10,6 @@ declare(strict_types=1);
 
 $privacy = (int) kowboy_option('kowboy_privacy_page');
 $privacy_url = $privacy > 0 ? (string) get_permalink($privacy) : '';
-$id = 'k-form-' . substr(md5($title . $subject), 0, 8);
 ?>
 <div class="k-lead">
     <div class="k-lead__intro">
@@ -19,12 +19,12 @@ $id = 'k-form-' . substr(md5($title . $subject), 0, 8);
     </div>
     <form class="k-form" data-subject="<?php echo esc_attr($subject); ?>" onsubmit="return false">
         <div class="k-form__row">
-            <label class="k-field"><span class="k-field__label">Förnamn</span><input type="text" name="first_name" required autocomplete="given-name"></label>
-            <label class="k-field"><span class="k-field__label">Efternamn</span><input type="text" name="last_name" required autocomplete="family-name"></label>
+            <input class="k-field" type="text" name="first_name" placeholder="Förnamn" aria-label="Förnamn" required autocomplete="given-name">
+            <input class="k-field" type="text" name="last_name" placeholder="Efternamn" aria-label="Efternamn" required autocomplete="family-name">
         </div>
         <div class="k-form__row">
-            <label class="k-field"><span class="k-field__label">Mobil</span><input type="tel" name="phone" required autocomplete="tel"></label>
-            <label class="k-field"><span class="k-field__label">E-post</span><input type="email" name="email" required autocomplete="email"></label>
+            <input class="k-field" type="tel" name="phone" placeholder="Mobil" aria-label="Mobil" required autocomplete="tel">
+            <input class="k-field" type="email" name="email" placeholder="E-post" aria-label="E-post" required autocomplete="email">
         </div>
         <div class="k-form__foot">
             <label class="k-form__consent"><input type="checkbox" name="consent" value="1" required>

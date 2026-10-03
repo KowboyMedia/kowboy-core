@@ -1,5 +1,7 @@
 <?php
-// The footer: the dark logotype, the footer menu, the office's contact details, the copyright line.
+// The footer: the lead form ("Ska du sälja din bostad?", its words from the theme options) on
+// every page (Patric, 2026-10-03), then the dark logotype, the footer menu, the office's contact
+// details and the copyright line.
 
 declare(strict_types=1);
 
@@ -9,6 +11,7 @@ $kowboy_email = (string) kowboy_option('kowboy_email');
 ?>
 </main>
 <footer class="k-footer">
+    <div class="k-container k-footer__lead"><?php echo kowboy_part('lead-form', ['title' => (string) kowboy_option('kowboy_form_title'), 'text' => (string) kowboy_option('kowboy_form_text'), 'subject' => '']); ?></div>
     <div class="k-container k-footer__row">
         <div class="k-footer__logo"><?php echo kowboy_logo(false); ?></div>
         <nav class="k-footer__nav" aria-label="Sidfotsmeny">
