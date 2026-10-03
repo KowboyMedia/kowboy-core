@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 116 (75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 119 (116 was asked in chat only on 2026-09-29 and answered by Patric on 2026-10-01; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
@@ -203,16 +203,3 @@ the register file stays the readable view. Default: the next session makes that 
 questions become issues with their texts, the file lists them by issue number, `check-register`
 reads the issues' numbers). Smaller: keep counting in the file and accept collisions. Answer
 "no" to keep the file.
-
-## 115. `[handbook]` Default: the handbook reaches every repository as a plugin on the claude.ai account, and the copy stays only for repositories read by other agents
-
-Question 113 chose the copy (a synced copy of the handbook in each repository). The same day the
-plugin form was found: Claude Code plugins enabled on the claude.ai account (Customize, then
-Plugins) are loaded by every session of that account, in the terminal, in Cowork and on the web,
-and the `KowboyMedia/kowboy-handbook` repository is now such a plugin (its rules, its playbook, its
-skills and its four hooks). One place to update, every repository and every customer repository
-follows, and nothing is copied. The copy path (the sync in `.github/sync.yml`, question 113) stays
-for a repository read by an agent that does not load plugins. Not yet tried on a real account: the
-first session with the plugin enabled shows whether the hooks and the skills load as documented.
-Default: enable the plugin on the account and use the copy only where an agent cannot load it.
-Smaller: keep the copy everywhere and never enable the plugin. Answer "no" to keep the copy.
