@@ -7,10 +7,11 @@ parameters:
     level: 6
     paths:
         - core-client
-        - templates
+        - themes
         - test
     excludePaths:
-        - core-client/lib
+        analyse:
+            - core-client/lib
     scanDirectories:
         - core-client/lib/action-scheduler
     scanFiles:

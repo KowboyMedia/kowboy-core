@@ -13,6 +13,7 @@
 //   php driver.php sets <url of an update channel folder>
 //   php driver.php option <name> [<json value>]
 //   php driver.php import '{"datatype":"property","data":{...},"raw":{...}}'   one item straight into the store
+//   php driver.php typed '{"datatype":"agent","post":{"post_title":"…","post_status":"publish"},"fields":{...}}'   a record the site types itself
 
 declare(strict_types=1);
 
@@ -175,14 +176,22 @@ function core_driver_update_check(): array
     return ['update' => $offered['core-client'] ?? null, 'offered' => $offered];
 }
 
-/** `theme <stylesheet>`: switch the test install's theme. */
+/**
+ * `theme <stylesheet>`: switch the test install's theme.
+ *
+ * @return array<string, mixed>
+ */
 function core_driver_theme(string $argument): array
 {
     switch_theme(trim($argument));
     return ['theme' => get_option('stylesheet')];
 }
 
-/** `demo-pages`: what the theme does on activation (its demo pages and menus), and the pages' addresses. */
+/**
+ * `demo-pages`: what the theme does on activation (its demo pages and menus), and the pages' addresses.
+ *
+ * @return array<string, mixed>
+ */
 function core_driver_demo_pages(): array
 {
     do_action('after_switch_theme');
@@ -194,7 +203,11 @@ function core_driver_demo_pages(): array
     return ['pages' => $pages, 'front' => (int) get_option('page_on_front')];
 }
 
-/** `plugin activate|deactivate <plugin file>`: a test plugin (the fixture set) on or off. */
+/**
+ * `plugin activate|deactivate <plugin file>`: a test plugin (the fixture set) on or off.
+ *
+ * @return array<string, mixed>
+ */
 function core_driver_plugin(string $argument): array
 {
     require_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -234,6 +247,32 @@ function core_driver_import(array $spec): array
 }
 
 /**
+ * A record the site types itself, saved the way the admin's form saves it: the form's fields in
+ * $_POST with its nonce, as the administrator, through wp_insert_post (or wp_update_post with an
+ * ID), so the plugin's own save path is what is proved. Without `fields` the post is saved as a
+ * quick edit or a status change would save it: no form, the stored record kept.
+ *
+ * @param array<string, mixed> $spec
+ * @return array<string, mixed>
+ */
+function core_driver_typed(array $spec): array
+{
+    wp_set_current_user(1);
+    if (isset($spec['fields'])) {
+        $_POST['core_site_nonce'] = wp_create_nonce(CORE_CLIENT_SITE_NONCE);
+        $_POST['core_site'] = (array) $spec['fields'];
+    }
+    $post = ['post_type' => core_client_post_type((string) ($spec['datatype'] ?? 'agent')), ...(array) ($spec['post'] ?? [])];
+    $post_id = isset($post['ID']) ? wp_update_post($post, true) : wp_insert_post($post, true);
+    unset($_POST['core_site_nonce'], $_POST['core_site']);
+    if (is_wp_error($post_id)) {
+        return ['error' => $post_id->get_error_message()];
+    }
+    $item = core_client_item((int) $post_id);
+    return ['post_id' => (int) $post_id, 'id' => $item['id'] ?? null, 'permalink' => get_permalink((int) $post_id), 'data' => $item];
+}
+
+/**
  * Read or write one option, so a test can pick the template set or switch shadow DOM on.
  *
  * @return array<string, mixed>
@@ -264,6 +303,7 @@ $result = match ($command) {
     'theme' => core_driver_theme($argument),
     'demo-pages' => core_driver_demo_pages(),
     'import' => core_driver_import((array) json_decode($argument, true)),
+    'typed' => core_driver_typed((array) json_decode($argument, true)),
     default => null,
 };
 if ($result === null) {

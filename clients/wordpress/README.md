@@ -82,10 +82,18 @@ or `wp action-scheduler run`.
   `deleted_post`), and the plugin adds `core_item_updated($post_id, $datatype)` and
   `core_item_deleted($post_id, $datatype)` for anything that wants the item itself.
 - The admin lists every kind of record under one menu, Kowboy Estates, with the settings as its
-  last item. The records are the sync's: a row opens as its page (View) or its data (Data,
-  `?debugpl`), and nothing adds, edits or deletes one from the admin. The settings page's
-  Publishing section turns each kind on or off for the site: off, its pages answer 404, its
-  archive is gone and every list of it is empty, while the local copy and the sync go on.
+  last item. A CRM record is the sync's: a row opens as its page (View) or its data (Data,
+  `?debugpl`), nothing adds, edits or deletes one from the admin, and the list's Source column
+  and the edit screen say so. Agents and offices the site adds itself (question 125,
+  `includes/site-records.php`) are the site's own: added, edited and deleted in the same lists,
+  "This site" in the Source column, with a form for the fields the templates show (the name is the
+  title, the portrait the featured image, an office's address one line as shown) and WordPress's
+  draft as "not shown". They sit in the same post types and the same index under the connection
+  `site` with ids `site-<post number>`, so lists, cards and pages see both kinds through one
+  path, ordered and hidden by the one staff-list rule; a pull never names them and the rebuild's
+  sweep leaves them. The settings page's Publishing section turns each kind on or off for the
+  site: off, its pages answer 404, its archive is gone and every list of it is empty, while the
+  local copy and the sync go on.
 - The index table `wp_core_index` answers which post holds an item and its hash, and carries the
   search columns every list query reads: copies of universal names (`status.id`, `type.id`,
   `tenure.id`, `price`, `living_space`, `rooms`, the area name, city and street, `project_id`,

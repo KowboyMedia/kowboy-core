@@ -30,7 +30,8 @@ function core_client_query(array $params): array
     global $wpdb;
     $index = core_client_index_table();
     $entity = (string) ($params['entity'] ?? 'property');
-    $where = ['i.datatype = %s'];
+    // A draft (the site's own records, includes/site-records.php) is not on the site; a CRM record is always published.
+    $where = ['i.datatype = %s', "p.post_status = 'publish'"];
     $args = [$entity];
 
     foreach (['status' => 'status_id', 'type' => 'type_id', 'tenure' => 'tenure_id'] as $param => $column) {
@@ -132,7 +133,7 @@ function core_client_query(array $params): array
 function core_client_query_list(mixed $value): array
 {
     $values = is_array($value) ? $value : explode(',', (string) $value);
-    return array_values(array_filter(array_map(fn ($one): string => trim((string) $one), $values), 'strlen'));
+    return array_values(array_filter(array_map(fn ($one): string => trim((string) $one), $values), fn (string $one): bool => $one !== ''));
 }
 
 function core_client_query_order(string $sort, string $entity): string

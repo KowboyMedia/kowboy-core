@@ -28,16 +28,3 @@ counts. The test then holds the window, sends the burst, counts one, releases th
 one fetch. Four lines in the test, a handful in each adapter; `acceptance/` is a protected path, so
 the change goes through review like any other. Out of scope of the admin-area session that found
 it (Patric, 2026-09-21).
-
-## 2. `[client-wordpress]` The agent card never shows the office name
-
-**What happens.** An agent card (the agents page, the home page block, a home's agent card) shows
-the agent's title alone; the office name meant to follow it never appears.
-
-**Why.** `clients/wordpress/themes/kowboy-2026/parts/agent-card.php` reads `office_id` on the
-agent record, and an agent carries `office_ids` (a list) and `offices[]`, never `office_id`
-(`docs/data-model-reference.md`, agent; `golden/vitec/agent/with-reviews/canonical.json`).
-
-**What fixing it takes.** Read the office with the smallest order in `offices[]` (or the first of
-`office_ids`) and look its name up as the card does now, and a test that a card names the office.
-Found 2026-10-03 while planning typed records (`docs/site-records.md`).

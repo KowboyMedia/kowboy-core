@@ -15,8 +15,8 @@ Cloudways token reads (88) and the sign-in mail arrives (98; the state of 2026-0
 item 17), then step 5's live run. Read `docs/default-templates.md` first (what the
 set is, the scaffolding, the master, what stands, the comparison), `docs/field-tables.md` (the
 universal names and `display`), `rules-ledger/` (R-001 to R-014 approved, R-015 to R-019
-drafted), and `clients/wordpress/README.md` (the plugin the set plugs into). Items 6, 11, 13, 14,
-16 and 22 wait on the things named in them and are not picked up by "resume". After the set: the
+drafted), and `clients/wordpress/README.md` (the plugin the set plugs into). Items 6, 11, 13, 14
+and 16 wait on the things named in them and are not picked up by "resume". After the set: the
 client ports (item 16, first client by question 80).
 
 ## Agent setup (from the 2026-09-27 review of how agents and Patric work together)
@@ -371,11 +371,12 @@ client ports (item 16, first client by question 80).
     shows viewings without a button and no form until then. Question 105 (the design's two forms)
     is settled in the same item.
 
-22. **Offices and agents typed on the site** (Patric, 2026-10-03: "add offices and agents inside
-    the wp admin, not fetched from the CRM"; the strategy with both homes in
-    `docs/site-records.md`). Waits on question 125 (where they live); 126 (a typed agent the CRM
-    later carries) and the Default 128 are taken as their smaller option unless answered; 127 (a
-    CRM record changed on the site) is the look-ahead and waits in the register. Not started.
+22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
+    inside the wp admin, not fetched from the CRM"; the strategy with both homes in
+    `docs/site-records.md`). Done 2026-10-03, plugin 0.4.0 and theme 1.0.14: Patric answered 125
+    (a, on the site), 126 (no matching, own id format) and 127 (a CRM record is edited only in
+    the CRM, said in the admin), and the Default 128 stood. Left for later: responsive sizes for
+    a library portrait; the Lovable kit when a Lovable site needs typed records.
     - **Component:** `[client-wordpress]`, the sync plugin. With 125 (b) the item is reshaped into
       a `[core]` item (a manual adapter) and a plugin item, in that order.
     - **What changes for the product:** an administrator adds an office or an agent the CRM does

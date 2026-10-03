@@ -566,6 +566,146 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect((await page(await permalink('agent', 'S-3'))).status).toBe(200);
   });
 
+  it('lets the site add its own agents and offices in the admin, lists them with the CRM’s, keeps them through a rebuild, and locks the CRM’s', async () => {
+    type Typed = { post_id: number; id: string; permalink: string; data: Record<string, unknown> };
+    const typed = (spec: Record<string, unknown>): Promise<Typed> =>
+      driver<Typed>('typed', JSON.stringify(spec));
+    const office = await typed({
+      datatype: 'office',
+      post: { post_title: 'Kowboy Norr', post_status: 'publish' },
+      fields: {
+        address: 'Norra vägen 2, 111 22 Stockholm',
+        phone: '08-100 200',
+        email: 'norr@kowboy.test',
+        description: 'Vårt norra kontor.',
+      },
+    });
+    const erik = await typed({
+      datatype: 'agent',
+      post: { post_title: 'Erik Egen', post_status: 'publish' },
+      fields: {
+        title: 'Mäklare',
+        email: 'erik@kowboy.test',
+        phone: '+46 70 111 22 33',
+        description: 'Erik är ny.',
+        reviews: 'Toppen | Köpare på Kungsgatan',
+        visible: '1',
+        offices: { 'B-1': { on: '1', order: '0', visible: '1' } },
+      },
+    });
+    const fia = await typed({
+      datatype: 'agent',
+      post: { post_title: 'Fia Ny', post_status: 'publish' },
+      fields: {
+        title: 'Assistent',
+        visible: '1',
+        offices: { [office.id]: { on: '1', order: '', visible: '1' } },
+      },
+    });
+    const gun = await typed({
+      datatype: 'agent',
+      post: { post_title: 'Gun Gömd', post_status: 'publish' },
+      fields: { title: 'Koordinator', visible: '', offices: {} },
+    });
+    const typedPosts = [office, erik, fia, gun].map((one) => one.post_id);
+    try {
+      // The record under the universal names, the id behind the site's prefix, the slug ending in it.
+      expect(office.id).toBe(`site-${office.post_id}`);
+      expect(pathOf(office.permalink)).toContain(`site-${office.post_id}`);
+      expect(office.data).toMatchObject({
+        name: 'Kowboy Norr',
+        display: { address_line: 'Norra vägen 2, 111 22 Stockholm' },
+        phone: { number: '08100200', display: '08-100 200' },
+        email: 'norr@kowboy.test',
+      });
+      expect(erik.data).toMatchObject({
+        id: `site-${erik.post_id}`,
+        name: 'Erik Egen',
+        title: 'Mäklare',
+        email: 'erik@kowboy.test',
+        phones: { mobile: { number: '+46701112233', display: '+46 70 111 22 33' }, public: null },
+        image: null,
+        office_ids: ['B-1'],
+        offices: [{ office_id: 'B-1', order: 0, is_visible_in_staff_list: true, phone: null }],
+        reviews: [{ text: 'Toppen', author: 'Köpare på Kungsgatan' }],
+        is_visible_in_staff_list: true,
+      });
+      expect(fia.data).toMatchObject({ offices: [{ office_id: office.id, order: null }] });
+      // The agents page: Erik first (order 0), Bertil (1), Anna (2), then Fia without a number, by name; Gun is hidden, her page answers.
+      const agents = await page('/?post_type=core_agent');
+      expect(agents.body.match(/<article class="k-agent-card">/g)).toHaveLength(4);
+      const at = (name: string): number => agents.body.indexOf(name);
+      expect(at('Erik Egen')).toBeLessThan(at('Bertil Berg'));
+      expect(at('Bertil Berg')).toBeLessThan(at('Anna Andersson'));
+      expect(at('Anna Andersson')).toBeLessThan(at('Fia Ny'));
+      expect(agents.body).not.toContain('Gun Gömd');
+      expect((await page(pathOf(gun.permalink))).status).toBe(200);
+      // A card shows the title alone, never an office name (Patric, 2026-10-03).
+      expect(agents.body).toContain('<p class="k-agent-card__title">Mäklare</p>');
+      expect(agents.body).toContain('<p class="k-agent-card__title">Fastighetsmäklare</p>');
+      // Erik among the CRM office's staff; Fia on the typed office's page, with its address line as typed.
+      expect((await page(await permalink('office', 'B-1'))).body).toContain('Erik Egen');
+      const norr = await page(pathOf(office.permalink));
+      expect(norr.body).toContain('<h1 class="k-section__title">Kowboy Norr</h1>');
+      expect(norr.body).toContain('Norra vägen 2, 111 22 Stockholm');
+      expect(norr.body).toContain('Fia Ny');
+      const erikPage = await page(pathOf(erik.permalink));
+      expect(erikPage.body).toContain('Erik är ny.');
+      expect(erikPage.body).toContain('Köpare på Kungsgatan');
+      // The admin: the administrator edits and deletes the typed agent and not the CRM's, adds agents and offices and no property;
+      // the Source column says whose a record is; the CRM record's edit screen is answered by the plugin's own sentence.
+      const caps = await wp(
+        'eval',
+        `global $wpdb; wp_set_current_user(1); $crm = (int) $wpdb->get_var("SELECT post_id FROM " . core_client_index_table() . " WHERE remote_id = 'S-1'"); echo json_encode([current_user_can("edit_post", $crm), current_user_can("delete_post", $crm), current_user_can("edit_post", ${erik.post_id}), current_user_can("delete_post", ${erik.post_id}), current_user_can(get_post_type_object("core_agent")->cap->create_posts), current_user_can(get_post_type_object("core_office")->cap->create_posts), get_post_type_object("core_property")->cap->create_posts, core_client_source_label($crm), core_client_source_label(${erik.post_id}), has_action("load-post.php") !== false, core_client_crm_record_notice()]);`,
+      );
+      expect(JSON.parse(caps.stdout.trim())).toEqual([
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        'do_not_allow',
+        'The CRM (edited there)',
+        'This site',
+        true,
+        'This record comes from the CRM and is edited there. This site only shows it.',
+      ]);
+      // A rebuild (everything pulled again from the start) keeps the site's own records and the CRM's.
+      await site.trigger('forcerefresh');
+      const ids = (await driver<{ remote_id: string }[]>('items', 'agent')).map(
+        (one) => one.remote_id,
+      );
+      expect(ids).toEqual(expect.arrayContaining(['S-1', 'S-2', erik.id, fia.id, gun.id]));
+      expect(
+        (await page('/?post_type=core_agent')).body.match(/<article class="k-agent-card">/g),
+      ).toHaveLength(4);
+      // A draft is not on the site and keeps its fields; published again, it is back.
+      await typed({ datatype: 'agent', post: { ID: fia.post_id, post_status: 'draft' } });
+      expect((await page('/?post_type=core_agent')).body).not.toContain('Fia Ny');
+      expect((await page(pathOf(office.permalink))).body).not.toContain('Fia Ny');
+      const kept = (
+        await driver<{ remote_id: string; data: { title: string } }[]>('items', 'agent')
+      ).find((one) => one.remote_id === fia.id);
+      expect(kept?.data.title).toBe('Assistent');
+      await typed({ datatype: 'agent', post: { ID: fia.post_id, post_status: 'publish' } });
+      expect((await page('/?post_type=core_agent')).body).toContain('Fia Ny');
+      // Deleted in the admin, a typed record is gone from the index too.
+      await wp('eval', `wp_delete_post(${gun.post_id}, true);`);
+      expect(
+        (await driver<{ remote_id: string }[]>('items', 'agent')).map((one) => one.remote_id),
+      ).not.toContain(gun.id);
+    } finally {
+      await wp(
+        'eval',
+        `foreach ([${typedPosts.join(', ')}] as $id) { wp_delete_post($id, true); }`,
+      );
+    }
+    expect(
+      (await page('/?post_type=core_agent')).body.match(/<article class="k-agent-card">/g),
+    ).toHaveLength(2);
+  });
+
   it('makes the demo pages from the section blocks on activation, and renders them', async () => {
     const { pages, front } = await driver<{ pages: Record<string, string | null>; front: number }>(
       'demo-pages',

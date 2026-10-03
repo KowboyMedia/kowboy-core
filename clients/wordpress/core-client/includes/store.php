@@ -54,15 +54,49 @@ function core_client_published(string $datatype): bool
     return (string) get_option("core_client_publish_$datatype", '1') !== '0';
 }
 
+/** The connection of the records the site types itself (includes/site-records.php); never a CRM's. */
+function core_client_site_connection(): string
+{
+    return 'site';
+}
+
+/** The kinds of record a site may add itself: agents and offices (Patric, 2026-10-03, question 125). */
+function core_client_site_datatype(string $datatype): bool
+{
+    return $datatype === 'agent' || $datatype === 'office';
+}
+
 /**
- * One post type per datatype, under its Swedish path, listed under the Kowboy Estates menu. The
- * posts are the sync's: the admin can open and look (the page, the record's data), never add,
- * edit or delete one (Patric, 2026-10-03). Called on `init`, and by the activation hook before it
- * flushes the rewrite rules.
+ * Whether a post is a CRM record: its index row came from a connection other than the site's own.
+ * A post without a row (one being added) or with the site's own row is the site's to edit.
+ */
+function core_client_is_crm_post(int $post_id): bool
+{
+    // Only a yes is remembered: a no can turn into a yes within the request (the sync writing a new post's row).
+    static $crm = [];
+    if (!isset($crm[$post_id])) {
+        global $wpdb;
+        $connection = $wpdb->get_var($wpdb->prepare('SELECT connection_id FROM ' . core_client_index_table() . ' WHERE post_id = %d', $post_id));
+        if (!is_string($connection) || $connection === core_client_site_connection()) {
+            return false;
+        }
+        $crm[$post_id] = true;
+    }
+    return true;
+}
+
+/**
+ * One post type per datatype, under its Swedish path, listed under the Kowboy Estates menu. A
+ * CRM record is the sync's: the admin can open and look (the page, the record's data), never add,
+ * edit or delete one (Patric, 2026-10-03). Agents and offices are also the site's to add itself
+ * (question 125, includes/site-records.php): those two types take new posts, with the featured
+ * image as the portrait, and the filter below keeps every CRM post of theirs locked one by one.
+ * Called on `init`, and by the activation hook before it flushes the rewrite rules.
  */
 function core_client_register_post_types(): void
 {
     foreach (core_client_datatypes() as $datatype) {
+        $own = core_client_site_datatype($datatype);
         // An unpublished datatype keeps its routes (routing.php answers 404 for them, so the request
         // never falls through to the home page) and leaves the search.
         register_post_type(core_client_post_type($datatype), [
@@ -74,10 +108,10 @@ function core_client_register_post_types(): void
             'show_ui' => true,
             'show_in_menu' => 'core-client',
             'rewrite' => ['slug' => core_client_path($datatype)],
-            'supports' => ['title'],
+            'supports' => $own ? ['title', 'thumbnail'] : ['title'],
             'show_in_rest' => false,
             'map_meta_cap' => true,
-            'capabilities' => [
+            'capabilities' => $own ? [] : [
                 'create_posts' => 'do_not_allow',
                 'edit_post' => 'do_not_allow',
                 'delete_post' => 'do_not_allow',
@@ -95,8 +129,20 @@ add_filter('map_meta_cap', function (array $caps, string $cap, int $user_id, arr
         return $caps;
     }
     $type = get_post_type((int) $args[0]);
-    return is_string($type) && str_starts_with($type, 'core_') ? ['do_not_allow'] : $caps;
+    if (!is_string($type) || !str_starts_with($type, 'core_')) {
+        return $caps;
+    }
+    // A CRM record is locked for everyone; a post of a kind the site adds itself is the site's own.
+    return core_client_site_datatype(substr($type, 5)) && !core_client_is_crm_post((int) $args[0]) ? $caps : ['do_not_allow'];
 }, 10, 4);
+
+/** A post deleted from the admin (the site's own records) takes its index row with it; the sync's own deletes did already. */
+add_action('deleted_post', function (int $post_id, WP_Post $post): void {
+    if (str_starts_with($post->post_type, 'core_')) {
+        global $wpdb;
+        $wpdb->delete(core_client_index_table(), ['post_id' => $post_id]);
+    }
+}, 10, 2);
 
 add_action('admin_init', function (): void {
     foreach (core_client_datatypes() as $datatype) {
@@ -104,16 +150,20 @@ add_action('admin_init', function (): void {
     }
 });
 
-/** The list tables' row actions: the page and the record's data (`?debugpl`), nothing that writes. */
+/**
+ * The list tables' row actions: the page and the record's data (`?debugpl`) for every record, and
+ * for a CRM record nothing that writes; the site's own records keep WordPress's edit and trash.
+ */
 add_filter('post_row_actions', function (array $actions, WP_Post $post): array {
     if (!str_starts_with($post->post_type, 'core_')) {
         return $actions;
     }
     $link = (string) get_permalink($post);
-    return [
+    $look = [
         'view' => '<a href="' . esc_url($link) . '">View</a>',
         'data' => '<a href="' . esc_url(add_query_arg('debugpl', '', $link)) . '">Data</a>',
     ];
+    return core_client_is_crm_post($post->ID) ? $look : $actions + $look;
 }, 10, 2);
 
 add_action('init', function (): void {
@@ -414,6 +464,11 @@ function core_client_prime(array $post_ids): void
     }
 }
 
+/**
+ * One stored record's universal data, or null when the post holds none.
+ *
+ * @return array<string, mixed>|null
+ */
 function core_client_item(int $post_id): ?array
 {
     $json = get_post_meta($post_id, 'core_data', true);
@@ -434,15 +489,16 @@ function core_client_item_raw(int $post_id): ?array
 }
 
 /**
- * The post that holds an item, by datatype and the CRM's id, in any connection; null when the
- * site has none. What a single page uses to reach the records an item points at.
+ * The post that holds an item, by datatype and the record's id, in any connection; null when the
+ * site has none, or holds it as a draft (the site's own records). What a single page uses to
+ * reach the records an item points at.
  */
 function core_client_post_id(string $datatype, string $remote_id): ?int
 {
     global $wpdb;
     $index = core_client_index_table();
     $post_id = $wpdb->get_var($wpdb->prepare(
-        "SELECT i.post_id FROM $index i JOIN {$wpdb->posts} p ON p.ID = i.post_id WHERE i.datatype = %s AND i.remote_id = %s",
+        "SELECT i.post_id FROM $index i JOIN {$wpdb->posts} p ON p.ID = i.post_id WHERE i.datatype = %s AND i.remote_id = %s AND p.post_status = 'publish'",
         $datatype,
         $remote_id,
     ));

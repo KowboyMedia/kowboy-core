@@ -9,52 +9,6 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 127. `[client-wordpress]` A CRM agent's text or portrait changed on the site: later or now
-
-- 2026-10-03 · The look-ahead of item 22 (`docs/site-records.md`): once the CRM carries a person,
-  the site cannot change their page, because a CRM record is read-only on the site and a pull
-  would overwrite an edit. A per-field override on CRM records would let a site keep its own
-  text or portrait over the CRM's through every pull. Blocked: nothing; it is the item after
-  typed records, if at all.
-- Smaller option: later (a), a "Later" item in `docs/next-steps.md`. Else now (b), inside item
-  22, which doubles it. Answer a or b.
-
-## 128. `[client-wordpress]` Default: the choices inside typed records on the site
-
-- 2026-10-03 · The Default for item 22 under 125 (a), taken unless Patric disagrees: the form
-  holds the fields the Kowboy 2026 pages show and no other, an office's address as one field
-  typed as it is to be shown; a typed agent may belong to any
-  office the site holds, CRM or typed, and shows among that office's staff; the typed order
-  number places the agent among the CRM agents by the one rule, and without one the agent sorts
-  after the numbered ones by name; administrators and editors add, edit and delete typed records
-  while CRM records stay locked for everyone; WordPress's draft status means "not shown on the
-  site". Blocked: nothing.
-- Smaller option: these choices as they stand; the alternative to each is named in
-  `docs/site-records.md`. Reply only if you disagree: no, and which choice.
-
-## 125. `[client-wordpress]` Offices and agents typed on the site: where they live
-
-- 2026-10-03 · Patric asked for offices and agents added in the WordPress admin that no CRM
-  carries. `docs/site-records.md` lays out the two homes with their trade-offs. (a) On the site:
-  the site's own records in the same post types and the same index as the CRM's, editable in the
-  Kowboy Estates menu, never touched by a pull, listed and ordered by the one rule that already
-  applies to CRM agents. (b) In Core, as a source of its own: a manual adapter whose records every
-  site and client of the tenant pulls, typed in Core's panel by Kowboy, or typed in the WordPress
-  admin and sent to Core through a new write contract. Blocked: the whole feature.
-- Smaller option: (a), recommended; plugin only, no protected path, the portrait from the media
-  library, an edit visible at once. (b) costs a new adapter, a portrait host Core does not have,
-  and, for typing in the WordPress admin, a new contract with approval; it gives one picture in
-  Core and the same people on every site of a brokerage. Answer a or b.
-
-## 126. `[client-wordpress]` A typed agent the CRM later carries: who goes
-
-- 2026-10-03 · A typed agent and a CRM agent are two records, and the site never matches them on
-  its own, so when the CRM later carries the same person both show until one goes. Blocked:
-  nothing; waits on 125, and the smaller option is built unless (b) is picked.
-- Smaller option: nothing automatic, a person deletes the typed agent in the admin (a). Else:
-  when a CRM agent arrives with the same e-mail as a typed one, the site hides the typed agent and
-  the typed agent's old address sends the visitor on to the CRM agent's page (b). Answer a or b.
-
 ## 123. `[crm-vitec]` A whole-day viewing: what the CRM sends, so the page shows no time
 
 - 2026-10-03 · Patric's list says a viewing has an "entire day" flag that hides the time. Vitec's

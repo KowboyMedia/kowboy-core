@@ -1,10 +1,10 @@
 # Offices and agents typed on the site
 
-**Status:** proposal, 2026-10-03, waiting on question 125 in `docs/open-questions.md`; 126 and the
-Default 128 are taken as their smaller option unless answered; the plan is item 22 in
-`docs/next-steps.md`. Nothing is built until
-Patric picks a direction. **The ask** (Patric, 2026-10-03): add offices
-and agents inside the WordPress admin that are not fetched from the CRM.
+**Status:** built, 2026-10-03, as option A (Patric answered 125 with a, 126 with "no collision,
+typed agents get their own id format", 127 with "CRM entities can only be edited by the CRM,
+make this clear in the UI"; the Default 128 stood). Plugin 0.4.0 carries it; the decisions are
+in `docs/decisions.md` and item 22 in `docs/next-steps.md` is done. **The ask** (Patric,
+2026-10-03): add offices and agents inside the WordPress admin that are not fetched from the CRM.
 
 ## Terms
 
@@ -196,8 +196,9 @@ manual source in Core can take over without touching the CRM rows.
 ## The decisions (the discover list)
 
 Each decision: the question, at most three options with one consequence each, whether it can be
-undone later, and the recommended answer with its reason. 125 and 126 are asked now, 128 is a
-Default, and 127 is the look-ahead for the item after this one and waits in the register.
+undone later, and the recommended answer with its reason. All four were settled on 2026-10-03:
+125 (a), 126 (a, and typed records carry their own id format), 127 (neither: a CRM record is
+edited only in the CRM, and the admin says so), 128 (the Default stood).
 
 - **125** `[client-wordpress]` Where do typed offices and agents live?
   - a) **on the site** (recommended): the site's own records in WordPress, edited there, never
