@@ -46,10 +46,13 @@
     return new window.Swiper(container, options);
   }
 
-  /** A property's floor plans, when it has several: one a slide, the slider as tall as the plan shown, with dots. */
+  /**
+   * A property's floor plans, when it has several: one a slide, with dots. The slider is as
+   * tall as the tallest plan (no measured height: the files load lazily, and a height measured
+   * before they load would be a few pixels).
+   */
   function setupPlanSlider(container) {
     swiper(container, {
-      autoHeight: true,
       speed: 500,
       pagination: { el: container.querySelector('.swiper-pagination'), clickable: true },
     });

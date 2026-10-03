@@ -186,8 +186,9 @@ Patric's list after the first round reached the staging site, done straight on `
   a tap opens the full-screen slider at the photo shown. The hero part takes `swipe`, and the slides carry their index. The plans
   come last in every gallery (the phone slider, the grid and the full-screen slider), after the
   photos, so a hero index is a gallery index.
-- **Several floor plans slide** with dots (Patric, 2026-10-03), the slider as tall as the plan
-  shown; one plan stands as before. The files carry the CDN's widths in `srcset` like every image.
+- **Several floor plans slide** with dots (Patric, 2026-10-03), the slider as tall as the tallest
+  plan (a height measured at start, Swiper's `autoHeight`, was a few pixels: the files load
+  lazily); one plan stands as before. The files carry the CDN's widths in `srcset` like every image.
 - **`?debugpl` for everyone** (Patric, 2026-10-03): the sign-in check is gone.
 - **"Dokument och länkar"** (Patric, 2026-10-03): the documents and the links of the home and of
   its association as one list, an icon per kind, no dividers, deduplicated by address and then by
