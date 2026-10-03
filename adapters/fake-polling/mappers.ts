@@ -11,6 +11,7 @@ const text = (value: unknown): string | null => (typeof value === 'string' && va
 const number = (value: unknown): number | null =>
   typeof value === 'number' ? value : typeof value === 'string' && value ? Number(value) : null;
 const strings = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
+const flag = (value: unknown): boolean | null => (typeof value === 'boolean' ? value : null);
 const named = (value: unknown): { id: string; name: string } | null =>
   typeof value === 'string' && value ? { id: value, name: value } : null;
 
@@ -167,6 +168,8 @@ const agent = (raw: unknown): MappedRecord => {
       title: text(record['title']),
       description: text(record['bio']),
       email: text(record['email']),
+      // The CRM's two staff-list toggles: on the record (`visible`) and on the office (`office_visible`).
+      is_visible_in_staff_list: flag(record['visible']),
       phones: { mobile: mobile ? { number: mobile, display: mobile } : null, public: null },
       image: photo ? image(photo, 1) : null,
       offices: officeId
@@ -174,7 +177,7 @@ const agent = (raw: unknown): MappedRecord => {
             {
               office_id: officeId,
               order: number(record['order']),
-              is_visible_in_staff_list: null,
+              is_visible_in_staff_list: flag(record['office_visible']),
               phone: null,
             },
           ]

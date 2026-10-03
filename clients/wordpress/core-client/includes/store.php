@@ -95,6 +95,7 @@ function core_client_install(): void
         sort_order int DEFAULT NULL,
         office_ids text DEFAULT NULL,
         area_id varchar(191) DEFAULT NULL,
+        listed tinyint(1) NOT NULL DEFAULT 1,
         PRIMARY KEY  (post_id),
         UNIQUE KEY item (datatype, connection_id, remote_id),
         KEY listing (datatype, status_id, published_at),
@@ -274,6 +275,19 @@ function core_client_search_columns(object $data): array
         }
         return $orders === [] ? null : min($orders);
     };
+    // The site's rule (Patric, 2026-10-03): an agent whose CRM record says "not in the staff list", on the
+    // record or on any of its offices, stays out of every list; a page that names the agent (a home's card) shows them.
+    $listed = function (object $data): int {
+        if (($data->is_visible_in_staff_list ?? null) === false) {
+            return 0;
+        }
+        foreach (is_array($data->offices ?? null) ? $data->offices : [] as $office) {
+            if (is_object($office) && ($office->is_visible_in_staff_list ?? null) === false) {
+                return 0;
+            }
+        }
+        return 1;
+    };
     $address = is_object($data->address ?? null) ? $data->address : new stdClass();
     return [
         'status_id' => $id($data->status ?? null),
@@ -294,6 +308,7 @@ function core_client_search_columns(object $data): array
         'sort_order' => $order($data->offices ?? null),
         'office_ids' => $ids($data->office_ids ?? null),
         'area_id' => $text($address->area_id ?? null),
+        'listed' => $listed($data),
     ];
 }
 

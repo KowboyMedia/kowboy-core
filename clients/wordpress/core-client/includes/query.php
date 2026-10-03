@@ -19,6 +19,7 @@ const CORE_CLIENT_PER_PAGE = 10;
  *   area            free text against the area name, the city and the street
  *   agent, office, project, area_id   the id of the agent, office, project or area the items belong to
  *   include_project_homes         properties that name a project are otherwise kept out (question 55)
+ *   include_hidden                agents the CRM keeps out of the staff list (on the record or an office) are otherwise kept out
  *   sort            newest (default for properties), sold, price_asc, price_desc, updated, name (default
  *                   otherwise: the CRM's order where it gives one, an agent's place in the staff list, then the name)
  *   per_page, page  paging, from page 1
@@ -79,6 +80,9 @@ function core_client_query(array $params): array
         $args[] = $project;
     } elseif ($entity === 'property' && empty($params['include_project_homes'])) {
         $where[] = 'i.project_id IS NULL';
+    }
+    if (empty($params['include_hidden'])) {
+        $where[] = 'i.listed = 1';
     }
 
     $per_page = max(1, (int) ($params['per_page'] ?? CORE_CLIENT_PER_PAGE));

@@ -85,7 +85,8 @@ or `wp action-scheduler run`.
   search columns every list query reads: copies of universal names (`status.id`, `type.id`,
   `tenure.id`, `price`, `living_space`, `rooms`, the area name, city and street, `project_id`,
   the agent ids, `published_at`, `sold_at`, a name to sort by, the office ids of an agent, the
-  area id), filled on every write, never judged.
+  area id, and `listed`: 0 for an agent the CRM keeps out of the staff list on the record or on
+  any office, the site's one rule over the data), filled on every write.
 
 ## Templates: the query function, the list function, the sets
 
@@ -95,7 +96,9 @@ one page: `items` (post id and item each), `total`, `has_more`, `page`, `per_pag
 `coming` and `sold` stand for the ids the site named in its settings); `max_price`,
 `min_living_space`, `min_rooms`; `area` (free text against area name, city and street);
 `agent`, `office`, `project`, `area_id`; `include_project_homes` (a property that names a project
-is otherwise kept out of every list but its project's, question 55); `sort` (`newest`, `sold`,
+is otherwise kept out of every list but its project's, question 55); `include_hidden` (an agent
+the CRM keeps out of the staff list is otherwise kept out of every list, while a page that names
+the agent, such as a home's card, shows them; Patric, 2026-10-03); `sort` (`newest`, `sold`,
 `price_asc`, `price_desc`, `updated`, `name`); `per_page`, `page`. A custom-design theme calls it
 directly and renders what it likes.
 

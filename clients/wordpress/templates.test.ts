@@ -114,6 +114,24 @@ beforeAll(async () => {
     title: 'Mäklarassistent',
     order: 1,
   });
+  // Two agents the CRM keeps out of the staff list, one by the record's toggle and one by the office's.
+  crm.put('agent', 'S-3', {
+    staff_id: 'S-3',
+    branch_id: 'B-1',
+    full_name: 'Cecilia Dold',
+    title: 'Säljkoordinator',
+    order: 3,
+    visible: false,
+  });
+  crm.put('agent', 'S-4', {
+    staff_id: 'S-4',
+    branch_id: 'B-1',
+    full_name: 'David Dold',
+    title: 'Fastighetsmäklare',
+    order: 4,
+    visible: true,
+    office_visible: false,
+  });
   crm.put('area', 'D-1', { district_id: 'D-1', district_name: 'Vasastan', branch_id: 'B-1' });
   crm.put('property', 'P-1', listing('P-1', { price: 7_250_000, rooms: 3, living_space: 82 }));
   crm.put(
@@ -206,6 +224,7 @@ beforeAll(async () => {
       price: 4_000_000,
       final_price: 4_200_000,
       sold_at: '2026-08-15T12:00:00.000Z',
+      staff: ['S-1', 'S-3', 'S-4'],
     }),
   );
   crm.put('property', 'P-6', listing('P-6', { project_id: 'PR-1', price: 9_000_000 }));
@@ -437,6 +456,13 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     const agents = await page('/?post_type=core_agent');
     expect(agents.body.match(/<article class="k-agent-card">/g)).toHaveLength(2);
     expect(agents.body.indexOf('Bertil Berg')).toBeLessThan(agents.body.indexOf('Anna Andersson'));
+    // An agent the CRM keeps out of the staff list, by either toggle, is in no list, but a home's page shows them.
+    expect(agents.body).not.toContain('Cecilia Dold');
+    expect(agents.body).not.toContain('David Dold');
+    const sold = await page(await permalink('property', 'P-5'));
+    expect(sold.body).toContain('Cecilia Dold');
+    expect(sold.body).toContain('David Dold');
+    expect((await page(await permalink('agent', 'S-3'))).status).toBe(200);
   });
 
   it('makes the demo pages from the section blocks on activation, and renders them', async () => {
