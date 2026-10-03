@@ -142,6 +142,10 @@ button {
 }
 
 /* Buttons and controls */
+/* The hidden attribute wins over every display rule below (a list's empty line and its "Visa fler"). */
+[hidden] {
+  display: none !important;
+}
 .k-button {
   display: inline-flex;
   align-items: center;
