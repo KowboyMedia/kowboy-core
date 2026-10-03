@@ -314,8 +314,10 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('Kontakta även');
     expect(body.indexOf('Anna Andersson')).toBeLessThan(body.indexOf('Bertil Berg'));
     expect(body).toContain('070-123 45 67');
-    expect(body).toContain('class="k-accordion__item is-open"');
-    expect(body).toContain('class="k-accordion__button" type="button" aria-expanded="true"');
+    // The fact tables start closed (Patric, 2026-10-03).
+    expect(body).toContain('class="k-accordion__item"');
+    expect(body).not.toContain('k-accordion__item is-open');
+    expect(body).toContain('class="k-accordion__button" type="button" aria-expanded="false"');
     expect(body).toContain('class="k-accordion__panel"><div class="k-accordion__inner">');
     // The hero and every gallery photo open the full-screen slider, with the files at full width.
     expect(body).toContain('k-hero--property" data-lightbox="0"');
@@ -330,6 +332,10 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     // The master's address row: street, postal code and city with spaces only (R-013, question 92).
     expect(body).toContain('<dt>Adress</dt><dd>Kungsgatan 3 111 22 Stockholm</dd>');
     expect(body).toContain('class="k-gallery__item');
+    // The phone's full-height photo slider before the grid, every photo a slide, and the hero's files sized for a portrait screen.
+    expect(body).toContain('<div class="swiper k-photos" data-photo-slider');
+    expect(body.match(/class="swiper-slide k-photos__slide"/g)).toHaveLength(2);
+    expect(body).toContain('sizes="(max-width: 767px) 250vw, 100vw"');
     expect(body).toContain('data-map data-lat="');
     // The interest form is a dummy that names the listing (question 105 open): it posts nowhere.
     expect(body).toContain('data-subject="Kungsgatan 3"');

@@ -1,9 +1,9 @@
 <?php
 // A property page (the design's Single Property): the hero (a Vimeo link among the links, else
 // the photos), the description with fact chips and the floor plan, the viewings, the bids and
-// the agent at the side, the interest form, the photo grid with "Visa fler bilder", the fact tables
-// (`display.sections`, the association's rows added), the area with its texts, the map, and the
-// lead form of the footer. Every string is `display`'s or a value shown as sent; this site's own
+// the agent at the side, the interest form, the photos (parts/gallery.php), the fact tables
+// (`display.sections`, the association's rows added) closed at first (Patric, 2026-10-03), the
+// area with its texts, the map, and the lead form of the footer. Every string is `display`'s or a value shown as sent; this site's own
 // rules are named where they apply.
 //
 // In scope: $post_id, $item (the record as Core delivered it), $raw (the CRM payload).
@@ -17,8 +17,6 @@ $images = is_array($item['images'] ?? null) ? $item['images'] : [];
 $plans = array_values(array_filter($images, fn (array $image): bool => ($image['category'] ?? null) === 'Planritning'));
 $photos = array_values(array_filter($images, fn (array $image): bool => ($image['category'] ?? null) !== 'Planritning'));
 $hero = kowboy_hero_media(is_array($item['links'] ?? null) ? $item['links'] : [], array_map(fn (array $image): string => (string) $image['url'], array_slice($photos, 0, 5)));
-// Every photo at the CDN's largest width, for the full-screen slider a click on a photo opens.
-$full_photos = array_map(fn (array $image): string => kowboy_image_at((string) $image['url'], 1920), $photos);
 
 $sold = isset($display['final_price']);
 $price = $sold ? $display['final_price'] : ($display['price'] ?? null);
@@ -146,7 +144,7 @@ $hero_content = '<div class="k-hero__head">'
     . (isset($display['living_space']) ? '<li class="k-pill">' . esc_html((string) $display['living_space']) . '</li>' : '')
     . '</ul></div>';
 // A click on the hero's photo opens the full-screen slider (the script finds the gallery's photos).
-echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $street, 'wrapper' => 'class="k-hero k-hero--property"' . ($full_photos === [] ? '' : ' data-lightbox="0"')]);
+echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $street, 'wrapper' => 'class="k-hero k-hero--property"' . ($photos === [] ? '' : ' data-lightbox="0"')]);
 ?>
 <div class="k-property">
     <div class="k-container k-property__grid">
@@ -221,16 +219,7 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
         <div class="k-container" id="k-interest"><?php echo kowboy_part('lead-form', ['title' => 'Är du intresserad av bostaden?', 'text' => 'Ange dina uppgifter här så kontaktar vi dig.', 'subject' => $street]); ?></div>
     <?php endif; ?>
 
-    <?php if ($photos !== []) : ?>
-        <div class="k-container k-gallery" data-gallery data-images="<?php echo esc_attr((string) wp_json_encode($full_photos, JSON_UNESCAPED_SLASHES)); ?>">
-            <div class="k-gallery__grid">
-                <?php foreach ($photos as $index => $photo) : ?>
-                    <figure class="k-gallery__item<?php echo $index >= 6 ? ' is-collapsed' : ''; ?>"><button class="k-gallery__button" type="button" data-lightbox="<?php echo (int) $index; ?>" aria-label="Visa bild <?php echo (int) $index + 1; ?> i helskärm"><?php echo kowboy_image($photo, '(min-width: 1024px) 384px, (min-width: 640px) 50vw, 100vw', $street, ['class' => 'k-gallery__image']); ?></button></figure>
-                <?php endforeach; ?>
-            </div>
-            <?php if (count($photos) > 6) : ?><p class="k-gallery__more"><button class="k-button" type="button" data-gallery-more>Visa fler bilder</button></p><?php endif; ?>
-        </div>
-    <?php endif; ?>
+    <?php echo kowboy_part('gallery', ['photos' => $photos, 'alt' => $street]); ?>
 
     <?php
     // Every fact table as one accordion item: a definition list of its rows.
@@ -248,7 +237,7 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
     }
     ?>
     <?php if ($tables !== []) : ?>
-        <div class="k-container k-property__tables"><?php echo kowboy_part('accordion', ['items' => $tables, 'open' => true]); ?></div>
+        <div class="k-container k-property__tables"><?php echo kowboy_part('accordion', ['items' => $tables]); ?></div>
     <?php endif; ?>
 
     <?php if ($area_texts !== [] || $area_images !== []) : ?>

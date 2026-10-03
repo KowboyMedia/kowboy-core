@@ -1456,6 +1456,39 @@ iframe.k-hero__video {
   justify-content: center;
   padding-top: 32px;
 }
+/* The phone's photo slider: a screen's height, edge to edge, and the page may snap to it (a trial beside the grid). */
+.k-photos {
+  display: none;
+}
+.k-area__gallery {
+  padding-top: 72px;
+}
+@media (max-width: 767px) {
+  html {
+    scroll-snap-type: y proximity;
+  }
+  .k-photos {
+    display: block;
+    height: calc(100svh - var(--wp-admin--admin-bar--height, 0px));
+    margin: 0 calc(-1 * var(--k-gutter)) 24px;
+    scroll-snap-align: start;
+    background: var(--k-ink);
+  }
+  .k-photos__slide {
+    cursor: zoom-in;
+  }
+  .k-photos__image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .k-photos__count {
+    bottom: 16px;
+    color: var(--k-white);
+    font-size: var(--k-label-size);
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  }
+}
 .k-property__tables {
   padding-block: 40px;
 }
@@ -1670,7 +1703,7 @@ iframe.k-hero__video {
     grid-template-columns: repeat(2, 1fr);
   }
   .k-gallery__grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
   }
   .k-area__images {
     grid-template-columns: 1fr;

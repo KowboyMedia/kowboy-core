@@ -234,7 +234,7 @@
   function setupGallery(gallery) {
     if (!once(gallery, 'ready')) return;
     var urls = JSON.parse(gallery.dataset.images || '[]');
-    gallery.querySelectorAll('[data-lightbox]').forEach(function (button) {
+    gallery.querySelectorAll('button[data-lightbox]').forEach(function (button) {
       button.addEventListener('click', function () {
         openLightbox(urls, parseInt(button.dataset.lightbox, 10) || 0);
       });
@@ -247,6 +247,25 @@
       });
       button.parentElement.hidden = true;
     });
+  }
+
+  /** The phone's photo slider (parts/gallery.php): one photo a screen, a count, and a tap opens the full-screen slider. */
+  function setupPhotoSlider(container) {
+    var gallery = container.closest('[data-gallery]');
+    var instance = swiper(container, {
+      pagination: { el: container.querySelector('.swiper-pagination'), type: 'fraction' },
+      on: {
+        click: function (self, event) {
+          var slide = event.target.closest('[data-lightbox]');
+          if (slide && gallery)
+            openLightbox(
+              JSON.parse(gallery.dataset.images || '[]'),
+              parseInt(slide.dataset.lightbox, 10) || 0,
+            );
+        },
+      },
+    });
+    return instance;
   }
 
   /** A property's hero: a click on the photo (not on the text, a link or a button) opens the slider. */
@@ -344,6 +363,7 @@
     each('[data-list]', setupList);
     each('[data-accordion-button]', setupAccordion);
     each('[data-gallery]', setupGallery);
+    each('[data-photo-slider]', setupPhotoSlider);
     each('[data-viewings]', setupViewings);
     each('.k-hero[data-lightbox]', setupHeroLightbox);
     each('[data-map]', setupMap);

@@ -13,6 +13,8 @@ $variant = (string) ($variant ?? 'page');
 $wrapper = (string) ($wrapper ?? 'class="k-hero k-hero--' . esc_attr($variant) . '"');
 $eager = $eager ?? true;
 $alt = (string) ($alt ?? '');
+// A landscape photo covering a portrait phone screen is about two and a half screen widths wide, so the file must be too.
+$sizes = '(max-width: 767px) 250vw, 100vw';
 ?>
 <section <?php echo $wrapper; ?>>
     <div class="k-hero__media">
@@ -21,12 +23,12 @@ $alt = (string) ($alt ?? '');
         <?php elseif ($media['type'] === 'video') : ?>
             <video class="k-hero__video" src="<?php echo esc_url((string) $media['src']); ?>" autoplay muted loop playsinline></video>
         <?php elseif ($media['type'] === 'images' && count($media['images']) === 1) : ?>
-            <?php echo kowboy_image($media['images'][0], '100vw', $alt, ['class' => 'k-hero__image'], $eager); ?>
+            <?php echo kowboy_image($media['images'][0], $sizes, $alt, ['class' => 'k-hero__image'], $eager); ?>
         <?php elseif ($media['type'] === 'images') : ?>
             <div class="swiper k-hero__slider" data-hero-slider>
                 <div class="swiper-wrapper">
                     <?php foreach ($media['images'] as $index => $url) : ?>
-                        <div class="swiper-slide k-hero__slide"><?php echo kowboy_image($url, '100vw', $alt, ['class' => 'k-hero__image'], $eager && $index === 0); ?></div>
+                        <div class="swiper-slide k-hero__slide"><?php echo kowboy_image($url, $sizes, $alt, ['class' => 'k-hero__image'], $eager && $index === 0); ?></div>
                     <?php endforeach; ?>
                 </div>
             </div>
