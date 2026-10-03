@@ -559,6 +559,10 @@ iframe.k-hero__video {
   .k-hero {
     min-height: 420px;
   }
+  .k-hero--tall,
+  .k-hero--property {
+    min-height: calc(100svh - var(--wp-admin--admin-bar--height, 0px));
+  }
   .k-hero--property {
     padding-bottom: 24px;
   }
