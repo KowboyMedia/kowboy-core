@@ -181,9 +181,9 @@ Patric's list after the first round reached the staging site, done straight on `
   zoom level in are drawn at half size, so OpenStreetMap is sharp.
 - **`?debugpl`.** The viewer's script moved from the head to the end of the page: defined
   before the elements were parsed, it read each one empty and showed nothing.
-- **The property hero swipes** (Patric, 2026-10-03). It slides every photo (the plans left out),
-  moves on a swipe or a drag, and a swipe stops the autoplay; a tap opens the full-screen slider
-  at the photo shown. The hero part takes `swipe`, and the slides carry their index. The plans
+- **The property hero swipes** (Patric, 2026-10-03). It carries every photo (the plans left out)
+  with the same slow fade and Ken Burns zoom as every hero, and also moves on a swipe or a drag;
+  a tap opens the full-screen slider at the photo shown. The hero part takes `swipe`, and the slides carry their index. The plans
   come last in every gallery (the phone slider, the grid and the full-screen slider), after the
   photos, so a hero index is a gallery index.
 

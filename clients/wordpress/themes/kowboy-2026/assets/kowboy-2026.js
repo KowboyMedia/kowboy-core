@@ -65,29 +65,18 @@
 
   /**
    * The hero's images: a slow crossfade with a slight zoom on the active slide (CSS). A hero
-   * marked `data-hero-swipe` (a property's) slides instead, so a swipe or a drag moves it, and
-   * a swipe stops the autoplay.
+   * marked `data-hero-swipe` (a property's) also moves on a swipe or a drag, with the same fade.
    */
   function setupHeroSlider(container) {
-    var swipe = container.hasAttribute('data-hero-swipe');
-    swiper(
-      container,
-      swipe
-        ? {
-            loop: container.querySelectorAll('.swiper-slide').length > 1,
-            speed: 500,
-            autoplay: { delay: 6000, disableOnInteraction: true },
-            grabCursor: true,
-          }
-        : {
-            loop: true,
-            effect: 'fade',
-            fadeEffect: { crossFade: true },
-            speed: 2000,
-            autoplay: { delay: 6000, disableOnInteraction: false },
-            allowTouchMove: false,
-          },
-    );
+    swiper(container, {
+      loop: container.querySelectorAll('.swiper-slide').length > 1,
+      effect: 'fade',
+      fadeEffect: { crossFade: true },
+      speed: 2000,
+      autoplay: { delay: 6000, disableOnInteraction: false },
+      allowTouchMove: container.hasAttribute('data-hero-swipe'),
+      grabCursor: container.hasAttribute('data-hero-swipe'),
+    });
   }
 
   function setupTestimonials(container) {
