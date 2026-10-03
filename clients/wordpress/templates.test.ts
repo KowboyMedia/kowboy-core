@@ -149,6 +149,7 @@ beforeAll(async () => {
     economy: { finances: 'God ekonomi.' },
     documents: [{ name: 'Stadgar', url: 'https://docs.test/stadgar.pdf' }],
   });
+  crm.put('association', 'A-2', { coop_id: 'A-2', coop_name: 'Brf Månen' });
   crm.put('area', 'D-1', { district_id: 'D-1', district_name: 'Vasastan', branch_id: 'B-1' });
   crm.put('property', 'P-1', listing('P-1', { price: 7_250_000, rooms: 3, living_space: 82 }));
   crm.put(
@@ -547,6 +548,18 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(associations.body).toContain('<span class="k-card__area">Förening</span>');
     expect(associations.body).toContain('<span class="k-card__street">Brf Solgården</span>');
     expect(associations.body).toContain('placeholder.svg');
+    expect(associations.body).not.toContain('k-paging'); // two associations, one page
+    // Page numbers, not "Visa fler": one card a page makes two pages, the second as WordPress's own /page/2/.
+    const paged = await wp(
+      'eval',
+      'echo core_client_list(["entity" => "association", "per_page" => 1, "page" => 2, "shadow" => false])["html"];',
+    );
+    expect(paged.stdout).toContain('<nav class="k-paging" aria-label="Sidor">');
+    expect(paged.stdout).toContain(
+      '<span aria-current="page" class="page-numbers current">2</span>',
+    );
+    expect(paged.stdout).toMatch(/page-numbers" href="[^"]*\/">1</);
+    expect(paged.stdout).not.toContain('Visa fler');
     const areas = await page('/?post_type=core_area');
     expect(areas.body).toContain('<article class="k-card k-card--area" data-card-url="');
     expect(areas.body).toContain('placeholder.svg');
@@ -609,9 +622,10 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     });
     const typedPosts = [office, erik, fia, gun].map((one) => one.post_id);
     try {
-      // The record under the universal names, the id behind the site's prefix, the slug ending in it.
+      // The record under the universal names, the id behind the site's prefix, the address like every record's (101).
       expect(office.id).toBe(`site-${office.post_id}`);
-      expect(pathOf(office.permalink)).toContain(`site-${office.post_id}`);
+      expect(pathOf(office.permalink)).toBe(`/?core_office=kowboy-norr-site-${office.post_id}`);
+      expect(pathOf(erik.permalink)).toBe(`/?core_agent=erik-egen-site-${erik.post_id}`);
       expect(office.data).toMatchObject({
         name: 'Kowboy Norr',
         display: { address_line: 'Norra vägen 2, 111 22 Stockholm' },
@@ -680,6 +694,34 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
       expect(
         (await page('/?post_type=core_agent')).body.match(/<article class="k-agent-card">/g),
       ).toHaveLength(4);
+      // The rebuild a plugin update runs keeps them too, with the same address; the id alone and an
+      // old address answer 301 to the current page, and a new name gives a new address.
+      await wp('eval', 'core_client_reindex();');
+      expect(await driver('items', 'agent')).toEqual(
+        expect.arrayContaining([expect.objectContaining({ remote_id: erik.id })]),
+      );
+      const erikNow = await typed({ datatype: 'agent', post: { ID: erik.post_id } });
+      expect(pathOf(erikNow.permalink)).toBe(pathOf(erik.permalink));
+      for (const name of [erik.id, `erik-gammal-${erik.id}`]) {
+        const response = await fetch(`${siteUrl}/?core_agent=${name}`, { redirect: 'manual' });
+        expect(response.status).toBe(301);
+        expect(response.headers.get('location')).toContain(
+          `core_agent=erik-egen-site-${erik.post_id}`,
+        );
+      }
+      const renamed = await typed({
+        datatype: 'agent',
+        post: { ID: erik.post_id, post_title: 'Erik Ensam' },
+      });
+      expect(pathOf(renamed.permalink)).toBe(`/?core_agent=erik-ensam-site-${erik.post_id}`);
+      expect(renamed.data).toMatchObject({
+        name: 'Erik Ensam',
+        title: 'Mäklare',
+        email: 'erik@kowboy.test',
+      });
+      const oldAddress = await fetch(`${siteUrl}${pathOf(erik.permalink)}`, { redirect: 'manual' });
+      expect(oldAddress.status).toBe(301);
+      expect(oldAddress.headers.get('location')).toContain(`erik-ensam-site-${erik.post_id}`);
       // A draft is not on the site and keeps its fields; published again, it is back.
       await typed({ datatype: 'agent', post: { ID: fia.post_id, post_status: 'draft' } });
       expect((await page('/?post_type=core_agent')).body).not.toContain('Fia Ny');
@@ -797,6 +839,31 @@ describe('the plugin’s set machinery, with a set plugin', () => {
       expect(plain.body).toContain("id='core-client-set-css'");
     } finally {
       await driver('option', 'core_client_shadow_dom null');
+    }
+  });
+
+  it('names every page the way norbanmakleri.se does, ending in the id, and answers an id alone with 301 for every kind (101)', async () => {
+    // The test site has plain permalinks, so the slug shows as the kind's query var; on a site
+    // with pretty permalinks the same slug sits under the kind's path (/objekt/, /maklare/, ...).
+    // Property: the site's list word for the status, then city, area, street, id; the others: name, id.
+    expect(await permalink('property', 'P-3')).toBe(
+      '/?core_property=kommande-stockholm-vasastan-kungsgatan-3-p-3',
+    );
+    expect(await permalink('property', 'P-1')).toBe(
+      '/?core_property=till-salu-stockholm-vasastan-kungsgatan-1-p-1',
+    );
+    expect(await permalink('property', 'P-5')).toBe(
+      '/?core_property=sold-stockholm-vasastan-kungsgatan-5-p-5',
+    );
+    expect(await permalink('agent', 'S-1')).toBe('/?core_agent=anna-andersson-s-1');
+    expect(await permalink('office', 'B-1')).toBe('/?core_office=kowboy-makleri-b-1');
+    expect(await permalink('area', 'D-1')).toBe('/?core_area=vasastan-d-1');
+    expect(await permalink('association', 'A-1')).toBe('/?core_association=brf-solgarden-a-1');
+    // An agent by id alone, and by a slug from before a name change: 301 to the current page.
+    for (const name of ['S-1', 'anna-svensson-S-1']) {
+      const response = await fetch(`${siteUrl}/?core_agent=${name}`, { redirect: 'manual' });
+      expect(response.status).toBe(301);
+      expect(response.headers.get('location')).toContain('core_agent=anna-andersson-s-1');
     }
   });
 

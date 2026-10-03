@@ -9,4 +9,5 @@ declare(strict_types=1);
     <?php if (($params['title'] ?? '') !== '') : ?><h2 class="k-section__title"><?php echo esc_html((string) $params['title']); ?></h2><?php endif; ?>
     <?php if ($result['total'] === 0) : ?><p class="k-list__empty">Inga föreningar ännu.</p><?php endif; ?>
     <div class="k-cards"><?php echo $cards; ?></div>
+    <?php echo kowboy_part('paging', ['result' => $result]); ?>
 </div></div>

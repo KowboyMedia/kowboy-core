@@ -819,6 +819,47 @@ iframe.k-hero__video {
 .k-list--areas .k-section__title {
   margin-bottom: 24px;
 }
+/* Page numbers under an archive's cards. */
+.k-paging {
+  margin-top: 40px;
+}
+.k-paging .page-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.k-paging .page-numbers li {
+  margin: 0;
+}
+.k-paging a.page-numbers,
+.k-paging span.page-numbers {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--k-border);
+  border-radius: 999px;
+  color: var(--k-ink);
+  text-decoration: none;
+  font-size: 14px;
+}
+.k-paging a.page-numbers:hover {
+  border-color: var(--k-ink);
+}
+.k-paging span.page-numbers.current {
+  background: var(--k-ink);
+  border-color: var(--k-ink);
+  color: var(--k-white);
+}
+.k-paging span.page-numbers.dots {
+  border-color: transparent;
+}
 .k-card__street {
   font-size: 16px;
   font-weight: 600;

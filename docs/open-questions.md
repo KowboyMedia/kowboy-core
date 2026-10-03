@@ -79,17 +79,6 @@ runs `dev.kowboy.se`'s names, most likely the whole domain); add them, then say 
 an agent a Cloudflare token limited to DNS for kowboy.se in the session environment's settings
 as `CLOUDFLARE_DNS_TOKEN`, then say "token saved", and the agent adds them.
 
-## 101. `[client-wordpress]` The site's slugs are `<connection>-<record id>`, the rule says `<status>-<area>-<street>-<id>` (parked: Patric, 2026-09-28, later)
-
-On the staging site a property lives at `objekt/vitec-test-obj31529_2115054844/`: the plugin
-names a post after its connection and the CRM's record id (`includes/store.php`), which is
-enough to find it and to keep the 301 rule of 2026-09-19. AGENTS.md's permanent rule reads
-`objekt/<status>-<area name>-<street address>-<id>` for a property, and the same shape for the
-other kinds. Building it is the client's work (the site reads its own stored values to make a
-slug, and the redirect rule already covers a slug that changes), about a day, and it changes
-every address on the site once. Build it now, before the look is iterated on, or after? Answer
-"now" or "after".
-
 ## 105. `[client-wordpress]` The two forms in the design: where a submission goes
 
 "Ska du sälja din bostad?" (every page) and "Är du intresserad av bostaden?" (the single page)

@@ -27,6 +27,46 @@ function core_client_path(string $datatype): string
     return ['property' => 'objekt', 'office' => 'kontor', 'project' => 'projekt', 'association' => 'forening', 'agent' => 'maklare', 'area' => 'omrade'][$datatype] ?? $datatype;
 }
 
+/**
+ * The post's slug, from the record's own stored values and ending in the record's id, the way
+ * norbanmakleri.se names its pages (Patric, 2026-10-03, closes question 101): property and project
+ * `<status>-<city>-<area>-<street>-<id>`, every other kind `<name>-<id>`. The status word is the
+ * list the site's settings put the status in (`till-salu`, `kommande`, `sold`: the old site's
+ * words), else the CRM's own status name. An empty part is left out, and the id is always last, so
+ * routing.php finds the record by it whatever the words were when a link was made.
+ */
+function core_client_slug(string $datatype, object $data, string $remote_id): string
+{
+    $address = is_object($data->address ?? null) ? $data->address : new stdClass();
+    $parts = match ($datatype) {
+        'property', 'project' => [
+            core_client_slug_status($data->status ?? null),
+            $address->city ?? null,
+            $address->area_name ?? null,
+            ($address->street ?? null) ?: ($data->name ?? null),
+        ],
+        default => [$data->name ?? null],
+    };
+    $words = array_filter(array_map(fn (mixed $part): string => is_string($part) ? sanitize_title($part) : '', $parts));
+    return implode('-', [...$words, sanitize_title($remote_id)]);
+}
+
+/** The slug's word for a status: the site's list it is in, else the CRM's name for it; null without a status. */
+function core_client_slug_status(mixed $status): ?string
+{
+    $id = is_object($status) && is_string($status->id ?? null) ? $status->id : null;
+    if ($id === null) {
+        return null;
+    }
+    $lists = core_client_statuses();
+    foreach (['for_sale' => 'till-salu', 'coming' => 'kommande', 'sold' => 'sold'] as $list => $word) {
+        if (in_array($id, $lists[$list], true)) {
+            return $word;
+        }
+    }
+    return is_string($status->name ?? null) && $status->name !== '' ? $status->name : $id;
+}
+
 function core_client_index_table(): string
 {
     global $wpdb;
@@ -243,7 +283,8 @@ add_action('plugins_loaded', function (): void {
 
 /**
  * Every index row written again from its post's data: the search columns as this version copies
- * them. Run once on an update; the sync keeps them current from then on.
+ * them, and the post's slug as this version builds it. Run once on an update; the sync keeps them
+ * current from then on.
  */
 function core_client_reindex(): void
 {
@@ -251,6 +292,11 @@ function core_client_reindex(): void
     $index = core_client_index_table();
     foreach ($wpdb->get_results("SELECT * FROM $index") ?: [] as $row) {
         $data = json_decode((string) get_post_meta((int) $row->post_id, 'core_data', true));
+        $slug = core_client_slug((string) $row->datatype, is_object($data) ? $data : new stdClass(), (string) $row->remote_id);
+        if (get_post_field('post_name', (int) $row->post_id) !== $slug) {
+            wp_update_post(['ID' => (int) $row->post_id, 'post_name' => $slug]);
+            clean_post_cache((int) $row->post_id);
+        }
         $columns = (array) $row;
         unset($columns['synced_at']);
         $columns = array_map(fn (mixed $value): mixed => is_numeric($value) && !is_string($value) ? $value : $value, $columns);
@@ -297,7 +343,7 @@ function core_client_upsert_item(string $datatype, object $item, ?object $existi
         'post_type' => core_client_post_type($datatype),
         'post_status' => 'publish',
         'post_title' => (string) ($item->data->id ?? $item->remote_id),
-        'post_name' => sanitize_title($item->connection_id . '-' . $item->remote_id),
+        'post_name' => core_client_slug($datatype, is_object($item->data) ? $item->data : new stdClass(), $item->remote_id),
     ];
     if ($existing !== null) {
         $post['ID'] = (int) $existing->post_id;

@@ -146,7 +146,7 @@ unset($core_site_datatype);
 
 /**
  * Write a record the site typed itself: the universal record from the form, the index row under
- * the site's connection, and the slug ending in its id. Nothing happens for an autosave, for a CRM
+ * the site's connection, and the slug built like every record's. Nothing happens for an autosave, for a CRM
  * record, or for a post without the form and without the site's row (the sync's own insert, or a
  * post just opened for adding).
  */
@@ -178,10 +178,11 @@ function core_client_save_site_record(int $post_id, WP_Post $post): void
         'synced_at' => 'now',
         ...core_client_search_columns(is_object($decoded) ? $decoded : new stdClass()),
     ]);
-    // The slug ends in the record's id, as every record's does.
-    if ($post->post_name !== core_client_site_id($post_id)) {
+    // The slug as every record's: the name, then the id (`erik-egen-site-12`), by the one function.
+    $slug = core_client_slug($datatype, is_object($decoded) ? $decoded : new stdClass(), (string) $data['id']);
+    if ($post->post_name !== $slug) {
         remove_action('save_post_' . $post->post_type, 'core_client_save_site_record');
-        wp_update_post(['ID' => $post_id, 'post_name' => core_client_site_id($post_id)]);
+        wp_update_post(['ID' => $post_id, 'post_name' => $slug]);
         add_action('save_post_' . $post->post_type, 'core_client_save_site_record', 10, 2);
     }
     clean_post_cache($post_id);
