@@ -537,6 +537,16 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(area.body).toContain('Bostäder i Vasastan');
     expect(area.body).toContain('k-has-hero');
     // The areas archive: cards like the properties', the placeholder when the area has no picture.
+    // The associations archive: cards in the areas' shape, with the placeholder and the count for sale.
+    const associations = await page('/?post_type=core_association');
+    expect(associations.status).toBe(200);
+    expect(associations.body).toContain('<h2 class="k-section__title">Föreningar</h2>');
+    expect(associations.body).toContain(
+      '<article class="k-card k-card--area k-card--association" data-card-url="',
+    );
+    expect(associations.body).toContain('<span class="k-card__area">Förening</span>');
+    expect(associations.body).toContain('<span class="k-card__street">Brf Solgården</span>');
+    expect(associations.body).toContain('placeholder.svg');
     const areas = await page('/?post_type=core_area');
     expect(areas.body).toContain('<article class="k-card k-card--area" data-card-url="');
     expect(areas.body).toContain('placeholder.svg');

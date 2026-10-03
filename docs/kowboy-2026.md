@@ -197,7 +197,8 @@ Patric's list after the first round reached the staging site, done straight on `
 - **An association's page** (`core/single-core_association.php`, Patric 2026-10-03): the name
   and contact, the rows a home's page shows in its "Föreningen" table (`inc/association.php`
   carries them for both), the documents as the home's list, and the association's homes. An
-  area's page has listed its homes since the first round.
+  area's page has listed its homes since the first round. The associations archive (/forening/)
+  is the areas archive's twin: cards with the placeholder, the name and the count for sale.
 - **Two layout breaks of the same hour, fixed.** The plan slider's row of slides widened the
   property column without end on a phone (a grid column's minimum is its content unless
   `min-width: 0`), so both property columns now shrink below their content. The agents grid with
