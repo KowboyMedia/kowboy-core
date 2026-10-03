@@ -427,6 +427,35 @@ describe('the plugin’s set machinery, with a set plugin', () => {
     }
   });
 
+  it('shows a record’s JSON to a signed-in editor on ?debugpl, and the page to everyone else', async () => {
+    const path = await permalink('property', 'P-3');
+    const debug = `${path}${path.includes('?') ? '&' : '?'}debugpl`;
+    const anonymous = await page(debug);
+    expect(anonymous.status).toBe(200);
+    expect(anonymous.body).not.toContain('andypf-json-viewer');
+    // Sign in as the install's admin, the way a browser does, and read the page with the cookies.
+    await wp('user', 'update', 'admin', '--user_pass=debugpl-test', '--skip-email');
+    const login = await fetch(`${siteUrl}/wp-login.php`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ log: 'admin', pwd: 'debugpl-test', testcookie: '1' }),
+      redirect: 'manual',
+    });
+    const cookies = login.headers
+      .getSetCookie()
+      .map((line) => line.split(';')[0]!)
+      .join('; ');
+    expect(cookies).toContain('wordpress_logged_in');
+    const response = await fetch(`${siteUrl}${debug}`, { headers: { cookie: cookies } });
+    const html = (await response.text()).replace(/\u00a0/g, ' ');
+    expect(html).toContain('<andypf-json-viewer');
+    expect(html).toContain('lib/json-viewer/json-viewer.js');
+    expect(html).toContain('<h2>item</h2>');
+    expect(html).toContain('<h2>raw</h2>');
+    expect(html).toContain('&quot;street&quot;:&quot;Kungsgatan 3&quot;');
+    expect(html).toContain('&quot;blurb&quot;:&quot;Ljus trea med balkong.&quot;');
+  });
+
   it('uses the active theme’s set when none is chosen, or when the chosen one is not there', async () => {
     await driver('option', 'core_client_template_set "no-such-set"');
     try {
