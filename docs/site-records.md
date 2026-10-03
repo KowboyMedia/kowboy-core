@@ -1,7 +1,8 @@
 # Offices and agents typed on the site
 
-**Status:** proposal, 2026-10-03, waiting on questions 125 and 126 in `docs/open-questions.md`.
-Nothing is built until Patric picks a direction. **The ask** (Patric, 2026-10-03): add offices
+**Status:** proposal, 2026-10-03, waiting on questions 125 and 126 and the Default 128 in
+`docs/open-questions.md`; the plan is item 22 in `docs/next-steps.md`. Nothing is built until
+Patric picks a direction. **The ask** (Patric, 2026-10-03): add offices
 and agents inside the WordPress admin that are not fetched from the CRM.
 
 ## Terms
@@ -185,10 +186,60 @@ only when a second site or a Lovable site of the same brokerage needs the same p
 does not stand in the way of B then: a typed record sits in its own connection row, so a later
 manual source in Core can take over without touching the CRM rows.
 
-## Questions
+## The decisions (the discover list)
 
-- **125** `[client-wordpress]` Where do typed offices and agents live: on the site (a, smaller,
-  recommended) or in Core (b)?
-- **126** `[client-wordpress]` When the CRM later carries a typed agent: nothing automatic, a
-  person deletes the typed one (a, smaller), or the site hides the typed agent when a CRM agent
-  with the same e-mail arrives and redirects the old address (b)?
+Each decision: the question, at most three options with one consequence each, whether it can be
+undone later, and the recommended answer with its reason. 125 and 126 are asked now, 128 is a
+Default, and 127 is the look-ahead for the item after this one and waits in the register.
+
+- **125** `[client-wordpress]` Where do typed offices and agents live?
+  - a) **on the site** (recommended): the site's own records in WordPress, edited there, never
+    touched by a pull; plugin only, no protected path.
+  - b) **in Core**: a manual source every site of the tenant pulls; typing happens in Core's
+    panel by Kowboy, or needs a new write contract for the WordPress admin, and a portrait host.
+  - Undoable: yes, both ways. Typed records sit in their own connection row, and a later move to
+    Core means typing them once more or a one-off import.
+  - Why (a): it is what was asked, the smallest change, and the site already owns the rules
+    these records need.
+- **126** `[client-wordpress]` When the CRM later carries a typed agent, who removes the typed one?
+  - a) **a person** (recommended): both show until the typed one is deleted in the admin;
+    nothing automatic, nothing to get wrong.
+  - b) **the site, by e-mail**: a CRM agent arriving with the same e-mail hides the typed one,
+    and the typed one's old address answers 301 to the CRM agent's page; a site rule, cheap, but
+    a shared mailbox hides the wrong person.
+  - Undoable: yes; (b) is one comparison that can be removed.
+  - Why (a): smaller, and the case is rare: an agent is typed because the CRM lacks them, and
+    once the CRM has them the person who typed them knows.
+- **127** `[client-wordpress]` Should a site also change a CRM agent's text or portrait, kept
+  through every pull? The look-ahead for the item after this one.
+  - a) **later** (recommended): a "Later" item; today a CRM record is the CRM's alone on the site.
+  - b) **now**: item 22 grows a per-field override on CRM records, a second place a value can
+    come from in every template.
+  - Undoable: yes.
+  - Why (a): nothing is built for a need that does not exist yet (AGENTS.md), and it doubles
+    the item.
+- **128** `[client-wordpress]` Default: the choices inside (a) that I take unless told otherwise.
+  - The form holds the fields the Kowboy 2026 pages show ("The form" above) and no other.
+  - A typed agent may belong to any office the site holds, CRM or typed, and shows among that
+    office's staff.
+  - The typed order number places the agent among the CRM agents by the one rule; without a
+    number the agent sorts after the numbered ones by name.
+  - Administrators and editors add, edit and delete typed records; CRM records stay locked for
+    everyone.
+  - WordPress's draft status means "not shown on the site"; publishing shows it.
+  - Undoable: yes, each is a few lines.
+
+## Risks and unknowns
+
+- `[client-wordpress]` WordPress's capability map: "Add New" needs `create_posts` allowed for the
+  agent and office types while every CRM post of those types stays locked per post. The cheapest
+  check is the admin test named in item 22, run as a time-boxed spike before the form is built.
+- `[client-wordpress]` The rebuild sweep: without its one condition a rebuild deletes every typed
+  record. Covered by the named test; nothing to find out.
+- `[client-wordpress]` A library portrait shows at one size until the image helper asks WordPress
+  for the attachment's sizes. Known and small; in the item's "does not do".
+
+## The plan
+
+Item 22 in `docs/next-steps.md` carries the plan: the component, the tests named, the interface
+touched, the unknowns, the Decides and the Default, what it does not do, and its size.

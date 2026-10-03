@@ -510,3 +510,22 @@ Examples: golden/vitec/property/price-on-request
 | Sequence jump per engine start  | 1,000,000,000                                                                               |
 | Lifecycle events delivered      | every 2 s; an event waiting 5 min turns `lifecycle` red                                     |
 | Adapter health recorded         | every 30 s; a record older than 2 min counts as failed                                      |
+
+## 14. Features (the feature map, from 2026-10-03)
+
+The handbook's feature map: each feature in one sentence of user value, marked now (the smallest
+useful version) or later, with the acceptance it needs. The sections above are the plan as
+approved; this map grows as Patric describes wishes and is settled through the register.
+
+- `[client-wordpress]` **Offices and agents typed on the site** (Patric, 2026-10-03; question 125;
+  the strategy in `docs/site-records.md`; item 22): a site shows people and offices its CRM does
+  not carry, typed in the WordPress admin, in the same lists and pages as the CRM's. Now, once 125
+  is answered. Acceptance: a typed agent and office appear in the lists, on an office's page and
+  through a rebuild, ordered and hidden by the staff-list rule, and a CRM record stays read-only;
+  numbered as a criterion with the item, on approval.
+- `[client-wordpress]` **A CRM agent's text or portrait changed on the site** (question 127): a
+  site keeps its own text or portrait over the CRM's through every pull. Later, unless 127 says now.
+- `[client-lovable]` **The same typed records on a Lovable site**: later, when a Lovable site needs
+  them; with 125 (b) it comes with the pull.
+- Out: typed properties, areas, associations and projects; for those the CRM's list defines what
+  exists (AGENTS.md).

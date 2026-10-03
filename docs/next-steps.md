@@ -15,8 +15,8 @@ Cloudways token reads (88) and the sign-in mail arrives (98; the state of 2026-0
 item 17), then step 5's live run. Read `docs/default-templates.md` first (what the
 set is, the scaffolding, the master, what stands, the comparison), `docs/field-tables.md` (the
 universal names and `display`), `rules-ledger/` (R-001 to R-014 approved, R-015 to R-019
-drafted), and `clients/wordpress/README.md` (the plugin the set plugs into). Items 6, 11, 13, 14
-and 16 wait on the things named in them and are not picked up by "resume". After the set: the
+drafted), and `clients/wordpress/README.md` (the plugin the set plugs into). Items 6, 11, 13, 14,
+16 and 22 wait on the things named in them and are not picked up by "resume". After the set: the
 client ports (item 16, first client by question 80).
 
 ## Agent setup (from the 2026-09-27 review of how agents and Patric work together)
@@ -370,6 +370,37 @@ client ports (item 16, first client by question 80).
     (a generic engine capability any adapter could use, approval needed), then build; the set
     shows viewings without a button and no form until then. Question 105 (the design's two forms)
     is settled in the same item.
+
+22. **Offices and agents typed on the site** (Patric, 2026-10-03: "add offices and agents inside
+    the wp admin, not fetched from the CRM"; the strategy with both homes in
+    `docs/site-records.md`). Waits on questions 125 (where they live), 126 (a typed agent the CRM
+    later carries) and the Default 128; 127 (a CRM record changed on the site) is the look-ahead
+    and waits in the register. Not started.
+    - **Component:** `[client-wordpress]`, the sync plugin. With 125 (b) the item is reshaped into
+      a `[core]` item (a manual adapter) and a plugin item, in that order.
+    - **What changes for the product:** an administrator adds an office or an agent the CRM does
+      not carry, in the Kowboy Estates menu, and the site shows it in the same lists and pages as
+      the CRM's, ordered and hidden by the same staff-list rule; CRM records stay read-only.
+    - **The tests that prove it** (`clients/wordpress/templates.test.ts`, against the real
+      WordPress): "a typed agent lists among the CRM agents by its order number and on its
+      office's page"; "a typed agent hidden by its staff-list switch is in no list and on its own
+      page"; "a rebuild keeps every typed record and deletes nothing of the site's own"; "an
+      administrator adds and edits a typed agent and cannot edit a CRM agent" (through the
+      admin's capabilities); "a deleted typed record is gone from the index". The acceptance
+      criterion is proposed with the item and numbered on approval.
+    - **Interface touched:** none of Core's. The plugin's index gains no column: the site's own
+      rows use the connection `site`, and the rebuild's sweep skips them.
+    - **Unknowns, a time-boxed spike first:** whether WordPress's capability map lets a type allow
+      "Add New" while every CRM post of the same type stays locked per post (`create_posts` is per
+      type, `edit_post` per post through `map_meta_cap`); proved by the admin test above before the
+      form is built.
+    - **Decides:** 125, 126. **Defaults:** 128 (the form's fields, any office for a typed agent,
+      the typed order number places the agent among the CRM agents, administrators and editors
+      edit, draft means not shown).
+    - **Does not do:** a CRM record changed on the site (127, later); the Lovable kit; responsive
+      sizes for a library portrait (one size first, WordPress's own sizes a few lines later);
+      typed properties, areas, associations or projects.
+    - **Size:** one session.
 
 ## Later, when Patric supplies them
 

@@ -4,10 +4,31 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 127 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 129 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 127. `[client-wordpress]` A CRM agent's text or portrait changed on the site: later or now
+
+- 2026-10-03 · The look-ahead of item 22 (`docs/site-records.md`): once the CRM carries a person,
+  the site cannot change their page, because a CRM record is read-only on the site and a pull
+  would overwrite an edit. A per-field override on CRM records would let a site keep its own
+  text or portrait over the CRM's through every pull. Blocked: nothing; it is the item after
+  typed records, if at all.
+- Smaller option: later (a), a "Later" item in `docs/next-steps.md`. Else now (b), inside item
+  22, which doubles it. Answer a or b.
+
+## 128. `[client-wordpress]` Default: the choices inside typed records on the site
+
+- 2026-10-03 · The Default for item 22 under 125 (a), taken unless Patric disagrees: the form
+  holds the fields the Kowboy 2026 pages show and no other; a typed agent may belong to any
+  office the site holds, CRM or typed, and shows among that office's staff; the typed order
+  number places the agent among the CRM agents by the one rule, and without one the agent sorts
+  after the numbered ones by name; administrators and editors add, edit and delete typed records
+  while CRM records stay locked for everyone; WordPress's draft status means "not shown on the
+  site". Blocked: nothing.
+- Reply only if you disagree: no, and which choice.
 
 ## 125. `[client-wordpress]` Offices and agents typed on the site: where they live
 
