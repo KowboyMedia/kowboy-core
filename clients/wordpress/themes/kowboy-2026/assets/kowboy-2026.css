@@ -974,8 +974,9 @@ iframe.k-hero__video {
   gap: 24px;
   margin-top: 24px;
 }
-.k-agents__grid--with-card {
-  grid-template-columns: 282px 282px 1fr;
+/* With the text card: every agent a column like the rest, the card two columns wide after them (any number of agents). */
+.k-agents__grid--with-card .k-info-card {
+  grid-column: span 2;
 }
 .k-agent-card {
   position: relative;

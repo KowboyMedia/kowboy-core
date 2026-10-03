@@ -193,6 +193,12 @@ Patric's list after the first round reached the staging site, done straight on `
   its association as one list, an icon per kind, no dividers, deduplicated by address and then by
   name. The association carries `documents` in the contract and no `links`; the view reads
   `links` on it all the same, so a contract that adds them needs no change here.
+- **Two layout breaks of the same hour, fixed.** The plan slider's row of slides widened the
+  property column without end on a phone (a grid column's minimum is its content unless
+  `min-width: 0`), so both property columns now shrink below their content. The agents grid with
+  the text card was three columns (two fixed, one wide) for two agents; with every agent listed,
+  each third agent fell in the wide column. The card now spans two columns after the agents in
+  the four-column grid. The card dots are lighter (opacity 0.55).
 
 ## Order of work
 
