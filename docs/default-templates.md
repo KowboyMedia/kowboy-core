@@ -301,8 +301,7 @@ its "Bor du redan här?" button leads to that lead form.
 - ~~**90** to **96**: the drafted strings and the gaps of the comparison, above.~~ Answered
   2026-10-03 (`docs/decisions.md`); 119 (the decimals of an association's share) is what remains
   from that round.
-- **87**: the Cloudways token (the DigitalOcean half is closed; 88 is closed, `v4.dev.kowboy.se`
-  is not needed).
+- **120**: the Cloudways token (87 and 88 are closed; `v4.dev.kowboy.se` is not needed).
 - Already open: 54 (a) to (e) as the templates need them; 52 is untouched (golden masters come
   from the test account).
 
