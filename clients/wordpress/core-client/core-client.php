@@ -33,6 +33,7 @@ require __DIR__ . '/includes/store.php';
 require __DIR__ . '/includes/routing.php';
 require __DIR__ . '/includes/query.php';
 require __DIR__ . '/includes/templates.php';
+require __DIR__ . '/includes/debug.php';
 require __DIR__ . '/includes/packages.php';
 require __DIR__ . '/includes/sync.php';
 require __DIR__ . '/includes/bell.php';
