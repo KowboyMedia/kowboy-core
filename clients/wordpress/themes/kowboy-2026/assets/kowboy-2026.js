@@ -63,16 +63,31 @@
     });
   }
 
-  /** The hero's images: a slow crossfade with a slight zoom on the active slide (CSS). */
+  /**
+   * The hero's images: a slow crossfade with a slight zoom on the active slide (CSS). A hero
+   * marked `data-hero-swipe` (a property's) slides instead, so a swipe or a drag moves it, and
+   * a swipe stops the autoplay.
+   */
   function setupHeroSlider(container) {
-    swiper(container, {
-      loop: true,
-      effect: 'fade',
-      fadeEffect: { crossFade: true },
-      speed: 2000,
-      autoplay: { delay: 6000, disableOnInteraction: false },
-      allowTouchMove: false,
-    });
+    var swipe = container.hasAttribute('data-hero-swipe');
+    swiper(
+      container,
+      swipe
+        ? {
+            loop: container.querySelectorAll('.swiper-slide').length > 1,
+            speed: 500,
+            autoplay: { delay: 6000, disableOnInteraction: true },
+            grabCursor: true,
+          }
+        : {
+            loop: true,
+            effect: 'fade',
+            fadeEffect: { crossFade: true },
+            speed: 2000,
+            autoplay: { delay: 6000, disableOnInteraction: false },
+            allowTouchMove: false,
+          },
+    );
   }
 
   function setupTestimonials(container) {
@@ -268,14 +283,18 @@
     return instance;
   }
 
-  /** A property's hero: a click on the photo (not on the text, a link or a button) opens the slider. */
+  /** A property's hero: a click on the photo (not on the text, a link or a button) opens the slider at the photo shown. */
   function setupHeroLightbox(hero) {
     if (!once(hero, 'lightboxReady')) return;
     hero.addEventListener('click', function (event) {
       if (event.target.closest('a, button, .k-hero__content')) return;
       var gallery = hero.getRootNode().querySelector('[data-gallery]');
       if (!gallery) return;
-      openLightbox(JSON.parse(gallery.dataset.images || '[]'), 0);
+      var active = hero.querySelector('.swiper-slide-active');
+      openLightbox(
+        JSON.parse(gallery.dataset.images || '[]'),
+        active ? parseInt(active.dataset.index || '0', 10) || 0 : 0,
+      );
     });
   }
 

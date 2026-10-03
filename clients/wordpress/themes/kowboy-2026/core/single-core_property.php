@@ -16,7 +16,9 @@ $images = is_array($item['images'] ?? null) ? $item['images'] : [];
 // This site's rule: an image the office filed under "Planritning" is a floor plan, the rest are photos.
 $plans = array_values(array_filter($images, fn (array $image): bool => ($image['category'] ?? null) === 'Planritning'));
 $photos = array_values(array_filter($images, fn (array $image): bool => ($image['category'] ?? null) !== 'Planritning'));
-$hero = kowboy_hero_media(is_array($item['links'] ?? null) ? $item['links'] : [], array_map(fn (array $image): string => (string) $image['url'], array_slice($photos, 0, 5)));
+$hero = kowboy_hero_media(is_array($item['links'] ?? null) ? $item['links'] : [], array_map(fn (array $image): string => (string) $image['url'], $photos));
+// Every gallery (the phone slider, the grid, the full-screen slider) shows the photos first and the plans last (Patric, 2026-10-03).
+$gallery = array_merge($photos, $plans);
 
 $sold = isset($display['final_price']);
 $price = $sold ? $display['final_price'] : ($display['price'] ?? null);
@@ -143,8 +145,8 @@ $hero_content = '<div class="k-hero__head">'
     . (isset($display['rooms']) ? '<li class="k-pill">' . esc_html((string) $display['rooms']) . '</li>' : '')
     . (isset($display['living_space']) ? '<li class="k-pill">' . esc_html((string) $display['living_space']) . '</li>' : '')
     . '</ul></div>';
-// A click on the hero's photo opens the full-screen slider (the script finds the gallery's photos).
-echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $street, 'wrapper' => 'class="k-hero k-hero--property"' . ($photos === [] ? '' : ' data-lightbox="0"')]);
+// The hero slides every photo and swipes; a click on it opens the full-screen slider at that photo (the script finds the gallery's images).
+echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $street, 'swipe' => true, 'wrapper' => 'class="k-hero k-hero--property"' . ($photos === [] ? '' : ' data-lightbox="0"')]);
 ?>
 <div class="k-property">
     <div class="k-container k-property__grid">
@@ -219,7 +221,7 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
         <div class="k-container" id="k-interest"><?php echo kowboy_part('lead-form', ['title' => 'Är du intresserad av bostaden?', 'text' => 'Ange dina uppgifter här så kontaktar vi dig.', 'subject' => $street]); ?></div>
     <?php endif; ?>
 
-    <?php echo kowboy_part('gallery', ['photos' => $photos, 'alt' => $street]); ?>
+    <?php echo kowboy_part('gallery', ['photos' => $gallery, 'alt' => $street]); ?>
 
     <?php
     // Every fact table as one accordion item: a definition list of its rows.

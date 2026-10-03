@@ -5,7 +5,8 @@
 //
 // In scope: $media (kowboy_hero_media), $content (HTML), $variant ('page' or 'property'),
 // $wrapper (the opening tag's attributes, optional), $eager (the first image loads at once),
-// $extra (HTML placed on the hero itself, after the content: the search card on its lower edge).
+// $extra (HTML placed on the hero itself, after the content: the search card on its lower edge),
+// $swipe (the slider slides on a swipe instead of fading by itself; the slides carry their index).
 
 declare(strict_types=1);
 
@@ -13,6 +14,7 @@ $variant = (string) ($variant ?? 'page');
 $wrapper = (string) ($wrapper ?? 'class="k-hero k-hero--' . esc_attr($variant) . '"');
 $eager = $eager ?? true;
 $alt = (string) ($alt ?? '');
+$swipe = (bool) ($swipe ?? false);
 // A landscape photo covering a portrait phone screen is about two and a half screen widths wide, so the file must be too.
 $sizes = '(max-width: 767px) 250vw, 100vw';
 ?>
@@ -25,10 +27,10 @@ $sizes = '(max-width: 767px) 250vw, 100vw';
         <?php elseif ($media['type'] === 'images' && count($media['images']) === 1) : ?>
             <?php echo kowboy_image($media['images'][0], $sizes, $alt, ['class' => 'k-hero__image'], $eager); ?>
         <?php elseif ($media['type'] === 'images') : ?>
-            <div class="swiper k-hero__slider" data-hero-slider>
+            <div class="swiper k-hero__slider" data-hero-slider<?php echo $swipe ? ' data-hero-swipe' : ''; ?>>
                 <div class="swiper-wrapper">
                     <?php foreach ($media['images'] as $index => $url) : ?>
-                        <div class="swiper-slide k-hero__slide"><?php echo kowboy_image($url, $sizes, $alt, ['class' => 'k-hero__image'], $eager && $index === 0); ?></div>
+                        <div class="swiper-slide k-hero__slide" data-index="<?php echo (int) $index; ?>"><?php echo kowboy_image($url, $sizes, $alt, ['class' => 'k-hero__image'], $eager && $index === 0); ?></div>
                     <?php endforeach; ?>
                 </div>
             </div>

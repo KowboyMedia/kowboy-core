@@ -22,10 +22,11 @@ const require_ = (record: Raw, field: string): string => {
   return id;
 };
 
-const image = (url: string, order: number): Raw => ({
+// An image is a URL, or a record with `url` and the office's `category` (a floor plan, say).
+const image = (value: unknown, order: number): Raw => ({
   id: `img-${order}`,
-  url,
-  category: null,
+  url: typeof value === 'string' ? value : String((value as Raw)['url'] ?? ''),
+  category: typeof value === 'string' ? null : text((value as Raw)['category']),
   name: null,
   description: null,
   extension: 'jpg',
@@ -78,7 +79,9 @@ const property = (raw: unknown): MappedRecord => {
       additional_space: null,
       rooms: number(record['rooms']),
       buildings: [],
-      images: strings(record['images']).map((url, index) => image(url, index + 1)),
+      images: (Array.isArray(record['images']) ? record['images'] : []).map((value, index) =>
+        image(value, index + 1),
+      ),
       viewings: (Array.isArray(record['viewings']) ? record['viewings'] : []).map(
         (viewing, index) => ({
           id: `viewing-${index + 1}`,

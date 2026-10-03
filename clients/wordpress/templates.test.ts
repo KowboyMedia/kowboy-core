@@ -142,6 +142,11 @@ beforeAll(async () => {
         { starts_at: soon(48), ends_at: soon(49), comment: 'Föranmälan krävs', bookable: true },
         { starts_at: soon(-30), ends_at: soon(-29), comment: 'Visningen som var' },
       ],
+      images: [
+        'https://img.test/P-3-1_1920.jpg',
+        'https://img.test/P-3-2_1920.jpg',
+        { url: 'https://img.test/P-3-plan_1920.jpg', category: 'Planritning' },
+      ],
       bidding_active: true,
       bids: [
         {
@@ -321,6 +326,12 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('class="k-accordion__panel"><div class="k-accordion__inner">');
     // The hero and every gallery photo open the full-screen slider, with the files at full width.
     expect(body).toContain('k-hero--property" data-lightbox="0"');
+    // The hero slides every photo (not the plan) and swipes; the plan comes last in every gallery.
+    expect(body).toContain('data-hero-slider data-hero-swipe');
+    expect(body.match(/class="swiper-slide k-hero__slide" data-index="/g)).toHaveLength(2);
+    expect(body).toContain(
+      '&quot;https://img.test/P-3-2_1920.jpg&quot;,&quot;https://img.test/P-3-plan_1920.jpg&quot;]',
+    );
     expect(body).toContain('data-images="[&quot;https://img.test/P-3-1_1920.jpg&quot;');
     expect(body).toContain('data-lightbox="1"');
     // The page title and the sharing tags, as the master site carries them.
@@ -334,7 +345,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('class="k-gallery__item');
     // The phone's full-height photo slider before the grid, every photo a slide, and the hero's files sized for a portrait screen.
     expect(body).toContain('<div class="swiper k-photos" data-photo-slider');
-    expect(body.match(/class="swiper-slide k-photos__slide"/g)).toHaveLength(2);
+    expect(body.match(/class="swiper-slide k-photos__slide"/g)).toHaveLength(3);
     expect(body).toContain('sizes="(max-width: 767px) 250vw, 100vw"');
     expect(body).toContain('data-map data-lat="');
     // The interest form is a dummy that names the listing (question 105 open): it posts nowhere.
