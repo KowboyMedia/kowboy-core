@@ -92,6 +92,7 @@ function core_client_install(): void
         published_at datetime DEFAULT NULL,
         sold_at datetime DEFAULT NULL,
         sort_name varchar(191) DEFAULT NULL,
+        sort_order int DEFAULT NULL,
         office_ids text DEFAULT NULL,
         area_id varchar(191) DEFAULT NULL,
         PRIMARY KEY  (post_id),
@@ -119,10 +120,29 @@ register_activation_hook(CORE_CLIENT_FILE, function (): void {
 add_action('plugins_loaded', function (): void {
     if (get_option('core_client_db_version') !== CORE_CLIENT_VERSION) {
         core_client_install();
+        // The search columns are copied anew from every post's data, so a column this version adds is filled.
+        core_client_reindex();
         // An update arrives without the activation hook: rebuild the rewrite rules once the post types are registered.
         add_action('init', 'flush_rewrite_rules', 20);
     }
 });
+
+/**
+ * Every index row written again from its post's data: the search columns as this version copies
+ * them. Run once on an update; the sync keeps them current from then on.
+ */
+function core_client_reindex(): void
+{
+    global $wpdb;
+    $index = core_client_index_table();
+    foreach ($wpdb->get_results("SELECT * FROM $index") ?: [] as $row) {
+        $data = json_decode((string) get_post_meta((int) $row->post_id, 'core_data', true));
+        $columns = (array) $row;
+        unset($columns['synced_at']);
+        $columns = array_map(fn (mixed $value): mixed => is_numeric($value) && !is_string($value) ? $value : $value, $columns);
+        core_client_replace_index_row([...$columns, 'synced_at' => 'now', ...core_client_search_columns(is_object($data) ? $data : new stdClass())]);
+    }
+}
 
 /**
  * The index row for one item, only while its post still exists: a post deleted behind the
@@ -245,6 +265,15 @@ function core_client_search_columns(object $data): array
         return $time === false ? null : gmdate('Y-m-d H:i:s', $time);
     };
     $ids = fn (mixed $list): ?string => is_array($list) && $list !== [] ? ',' . implode(',', array_filter($list, 'is_string')) . ',' : null;
+    $order = function (mixed $offices): ?int {
+        $orders = [];
+        foreach (is_array($offices) ? $offices : [] as $office) {
+            if (is_object($office) && (is_int($office->order ?? null) || is_float($office->order ?? null))) {
+                $orders[] = (int) $office->order;
+            }
+        }
+        return $orders === [] ? null : min($orders);
+    };
     $address = is_object($data->address ?? null) ? $data->address : new stdClass();
     return [
         'status_id' => $id($data->status ?? null),
@@ -261,6 +290,8 @@ function core_client_search_columns(object $data): array
         'published_at' => $moment($data->published_at ?? null),
         'sold_at' => $moment($data->sold_at ?? null),
         'sort_name' => $text($data->name ?? null) ?? $text($address->street ?? null),
+        // An agent's place in the CRM's staff list: the smallest `order` over the offices (Patric, 2026-10-03).
+        'sort_order' => $order($data->offices ?? null),
         'office_ids' => $ids($data->office_ids ?? null),
         'area_id' => $text($address->area_id ?? null),
     ];
@@ -290,6 +321,20 @@ function core_client_delete_item(string $datatype, string $connection_id, string
  *
  * @return array<string, mixed>|null
  */
+/**
+ * The posts and the meta of these items in two queries instead of two per item, before a list's
+ * cards read them (Patric, 2026-10-03: the list's speed).
+ *
+ * @param list<int> $post_ids
+ */
+function core_client_prime(array $post_ids): void
+{
+    if ($post_ids !== []) {
+        _prime_post_caches($post_ids, false, false);
+        update_meta_cache('post', $post_ids);
+    }
+}
+
 function core_client_item(int $post_id): ?array
 {
     $json = get_post_meta($post_id, 'core_data', true);

@@ -96,7 +96,7 @@ const property = (raw: unknown): MappedRecord => {
       viewing_settings: { visible_limit: null, empty_text: null },
       exterior_features: [],
       bidding: {
-        is_active: null,
+        is_active: typeof record['bidding_active'] === 'boolean' ? record['bidding_active'] : null,
         is_verified: null,
         bids: (Array.isArray(record['bids']) ? record['bids'] : []).map((bid) => ({
           placed_at: text((bid as Raw)['placed_at']),
@@ -153,7 +153,14 @@ const agent = (raw: unknown): MappedRecord => {
       phones: { mobile: mobile ? { number: mobile, display: mobile } : null, public: null },
       image: photo ? image(photo, 1) : null,
       offices: officeId
-        ? [{ office_id: officeId, order: null, is_visible_in_staff_list: null, phone: null }]
+        ? [
+            {
+              office_id: officeId,
+              order: number(record['order']),
+              is_visible_in_staff_list: null,
+              phone: null,
+            },
+          ]
         : [],
       reviews: (Array.isArray(record['reviews']) ? record['reviews'] : []).map((review) => ({
         text: text((review as Raw)['text']),

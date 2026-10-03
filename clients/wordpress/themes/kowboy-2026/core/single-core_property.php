@@ -67,9 +67,11 @@ $visible_limit = is_numeric($item['viewing_settings']['visible_limit'] ?? null) 
 $no_viewings_text = (string) (($item['viewing_settings']['empty_text'] ?? '') !== '' ? $item['viewing_settings']['empty_text'] : 'Kontakta mäklaren eller boka visning nedan.');
 $upcoming = count(array_filter($viewings, fn (array $viewing): bool => !$viewing['past']));
 
-// The bids as the CRM allows the site to show them (field tables: none, the highest, or the
-// history); the highest is `display.highest_bid` (R-008), the list is the site's.
-$bids = !$sold && is_array($item['bidding']['bids'] ?? null) ? $item['bidding']['bids'] : [];
+// The bids as Vitec's three settings reach the site (advertising-migration: BidSetting became
+// `isActive` and `bids`): bidding off, nothing; the highest only, one bid; the history, every
+// bid. The highest is `display.highest_bid` (R-008); `is_verified` names a verified bidding.
+$bidding = is_array($item['bidding'] ?? null) ? $item['bidding'] : [];
+$bids = !$sold && ($bidding['is_active'] ?? null) === true && is_array($bidding['bids'] ?? null) ? $bidding['bids'] : [];
 usort($bids, fn (array $a, array $b): int => strcmp((string) ($b['placed_at'] ?? ''), (string) ($a['placed_at'] ?? '')));
 $highest_bid = $display['highest_bid'] ?? null;
 
@@ -188,6 +190,8 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
                         <h2 class="k-heading">Budgivning</h2>
                         <div class="k-bids__box">
                             <?php if ($highest_bid !== null) : ?><p class="k-bids__highest"><span class="k-label">Högsta bud</span><strong><?php echo esc_html((string) $highest_bid); ?></strong></p><?php endif; ?>
+                            <?php if (($bidding['is_verified'] ?? null) === true) : ?><p class="k-bids__verified">Verifierad budgivning</p><?php endif; ?>
+                            <?php if (count($bids) > 1) : ?>
                             <ol class="k-bids__list">
                                 <?php foreach ($bids as $bid) : ?>
                                     <?php $placed = is_string($bid['placed_at'] ?? null) ? strtotime($bid['placed_at']) : false; ?>
@@ -197,6 +201,7 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
                                     </li>
                                 <?php endforeach; ?>
                             </ol>
+                            <?php endif; ?>
                         </div>
                     </div>
                 <?php endif; ?>

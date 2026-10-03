@@ -128,10 +128,10 @@ scope on a single page), the theme's footer. A view file is a PHP block on top t
 values and plain markup below.
 
 **Looking at a record's data.** `?debugpl` on any record's page (a property, an agent, an
-office, an area, a project, an association) shows the record as the local copy holds it, in a
-foldable JSON viewer (`lib/json-viewer`, the `@andypf/json-viewer` web component, MIT): `item`
-(the universal record with `display`) and `raw` (the CRM's payload). For signed-in users who may
-edit the site, since the payload may hold what the page does not show.
+office, an area, a project, an association) answers the record as the local copy holds it, as
+plain JSON (`application/json`, the browser shows it): `item` (the universal record with
+`display`) and `raw` (the CRM's payload). For signed-in users who may edit the site, since the
+payload may hold what the page does not show.
 
 ## Safe update
 

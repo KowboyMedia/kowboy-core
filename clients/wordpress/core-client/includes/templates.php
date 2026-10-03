@@ -193,8 +193,15 @@ add_action('rest_api_init', function (): void {
     register_rest_route('core/v1', '/list', [
         'methods' => 'GET',
         'permission_callback' => '__return_true',
-        'callback' => function (WP_REST_Request $request): array {
-            return core_client_list($request->get_query_params() + ['part' => 'cards']);
+        'callback' => function (WP_REST_Request $request): WP_REST_Response {
+            $started = microtime(true);
+            $result = core_client_list($request->get_query_params() + ['part' => 'cards']);
+            $response = new WP_REST_Response($result);
+            // A page may hold the answer for a minute (the cards change by the sync, seldom within a minute),
+            // and the browser's timing panel shows what the list itself took, apart from WordPress's start.
+            $response->header('Cache-Control', 'public, max-age=60');
+            $response->header('Server-Timing', sprintf('list;dur=%.1f', (microtime(true) - $started) * 1000));
+            return $response;
         },
     ]);
 });

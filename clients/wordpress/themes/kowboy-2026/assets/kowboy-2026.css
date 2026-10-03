@@ -1379,6 +1379,11 @@ iframe.k-hero__video {
   font-weight: 600;
   line-height: 1.37;
 }
+.k-bids__verified {
+  margin: 0;
+  color: var(--k-secondary);
+  font-size: var(--k-label-size);
+}
 .k-bids__list {
   display: grid;
   gap: 8px;

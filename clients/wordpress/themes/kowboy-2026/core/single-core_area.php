@@ -19,7 +19,7 @@ $texts = array_filter([
     'Övrigt' => $item['surroundings']['other'] ?? null,
 ], fn (mixed $value): bool => is_string($value) && $value !== '');
 $properties = core_client_list(['entity' => 'property', 'area_id' => $area_id, 'status' => 'for_sale,coming,sold', 'status_filter' => '1', 'per_page' => 9, 'title' => 'Bostäder i ' . $name, 'shadow' => false]);
-$hero_content = '<div class="k-hero__head"><div class="k-hero__head-main"><p class="k-label k-label--bright">Område</p><h1 class="k-hero__title k-hero__title--left">' . esc_html($name) . '</h1></div></div>';
+$hero_content = '<div class="k-hero__head"><div class="k-hero__head-main"><h1 class="k-hero__title k-hero__title--left">' . esc_html($name) . '</h1></div></div>';
 echo kowboy_hero(kowboy_hero_media([], $images), $hero_content, ['variant' => 'property', 'alt' => $name, 'wrapper' => 'class="k-hero k-hero--property k-hero--area"', 'fallback' => ['area_id' => $area_id]]);
 ?>
 <?php if ($texts !== []) : ?>

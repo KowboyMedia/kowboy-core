@@ -105,12 +105,14 @@ beforeAll(async () => {
     photo: 'https://img.test/anna.jpg',
     bio: 'Anna har sålt bostäder sedan 2011.',
     reviews: [{ text: 'Mycket nöjd.', author: 'Säljare på Kungsgatan 1' }],
+    order: 2,
   });
   crm.put('agent', 'S-2', {
     staff_id: 'S-2',
     branch_id: 'B-1',
     full_name: 'Bertil Berg',
     title: 'Mäklarassistent',
+    order: 1,
   });
   crm.put('area', 'D-1', { district_id: 'D-1', district_name: 'Vasastan', branch_id: 'B-1' });
   crm.put('property', 'P-1', listing('P-1', { price: 7_250_000, rooms: 3, living_space: 82 }));
@@ -140,6 +142,7 @@ beforeAll(async () => {
         { starts_at: soon(48), ends_at: soon(49), comment: 'Föranmälan krävs', bookable: true },
         { starts_at: soon(-30), ends_at: soon(-29), comment: 'Visningen som var' },
       ],
+      bidding_active: true,
       bids: [
         {
           placed_at: '2026-09-20T10:00:00.000Z',
@@ -387,8 +390,10 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(areas.body).toContain('<span class="k-card__street">Vasastan</span>');
     expect(areas.body).toContain('bostäder till salu');
 
+    // The agents in the CRM's order (the staff list's order numbers), not by name.
     const agents = await page('/?post_type=core_agent');
     expect(agents.body.match(/<article class="k-agent-card">/g)).toHaveLength(2);
+    expect(agents.body.indexOf('Bertil Berg')).toBeLessThan(agents.body.indexOf('Anna Andersson'));
   });
 
   it('makes the demo pages from the section blocks on activation, and renders them', async () => {
@@ -488,9 +493,9 @@ describe('the plugin’s set machinery, with a set plugin', () => {
   it('shows a record’s JSON to a signed-in editor on ?debugpl, and the page to everyone else', async () => {
     const path = await permalink('property', 'P-3');
     const debug = `${path}${path.includes('?') ? '&' : '?'}debugpl`;
-    const anonymous = await page(debug);
+    const anonymous = await fetch(`${siteUrl}${debug}`);
     expect(anonymous.status).toBe(200);
-    expect(anonymous.body).not.toContain('andypf-json-viewer');
+    expect(anonymous.headers.get('content-type')).toContain('text/html');
     // Sign in as the install's admin, the way a browser does, and read the page with the cookies.
     await wp('user', 'update', 'admin', '--user_pass=debugpl-test', '--skip-email');
     const login = await fetch(`${siteUrl}/wp-login.php`, {
@@ -504,16 +509,15 @@ describe('the plugin’s set machinery, with a set plugin', () => {
       .map((line) => line.split(';')[0]!)
       .join('; ');
     expect(cookies).toContain('wordpress_logged_in');
+    // Plain JSON under its own media type (Patric, 2026-10-03): the browser shows it itself.
     const response = await fetch(`${siteUrl}${debug}`, { headers: { cookie: cookies } });
-    const html = (await response.text()).replace(/\u00a0/g, ' ');
-    expect(html).toContain('<andypf-json-viewer');
-    expect(html).toContain('lib/json-viewer/json-viewer.js');
-    expect(html).toContain('<h2>item</h2>');
-    expect(html).toContain('<h2>raw</h2>');
-    expect(html).toContain('&quot;street&quot;:&quot;Kungsgatan 3&quot;');
-    expect(html).toContain('&quot;blurb&quot;:&quot;Ljus trea med balkong.&quot;');
-    // The viewer's script comes after the JSON: it reads each element's text when it is defined.
-    expect(html.indexOf('json-viewer.js')).toBeGreaterThan(html.indexOf('<h2>raw</h2>'));
+    expect(response.headers.get('content-type')).toContain('application/json');
+    const json = (await response.json()) as {
+      item: { address: { street: string } };
+      raw: { blurb: string };
+    };
+    expect(json.item.address.street).toBe('Kungsgatan 3');
+    expect(json.raw.blurb).toBe('Ljus trea med balkong.');
   });
 
   it('uses the active theme’s set when none is chosen, or when the chosen one is not there', async () => {

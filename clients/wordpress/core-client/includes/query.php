@@ -19,7 +19,8 @@ const CORE_CLIENT_PER_PAGE = 10;
  *   area            free text against the area name, the city and the street
  *   agent, office, project, area_id   the id of the agent, office, project or area the items belong to
  *   include_project_homes         properties that name a project are otherwise kept out (question 55)
- *   sort            newest (default for properties), sold, price_asc, price_desc, updated, name (default otherwise)
+ *   sort            newest (default for properties), sold, price_asc, price_desc, updated, name (default
+ *                   otherwise: the CRM's order where it gives one, an agent's place in the staff list, then the name)
  *   per_page, page  paging, from page 1
  * @return array{items: list<array{post_id: int, item: array<string, mixed>}>, total: int, has_more: bool, page: int, per_page: int}
  */
@@ -94,6 +95,7 @@ function core_client_query(array $params): array
         ...[...$args, $per_page, ($page - 1) * $per_page],
     ));
     $items = [];
+    core_client_prime(array_map('intval', $rows));
     foreach ($rows as $post_id) {
         $item = core_client_item((int) $post_id);
         if ($item !== null) {
@@ -127,7 +129,8 @@ function core_client_query_order(string $sort, string $entity): string
         'price_asc' => 'i.price ASC, i.post_id ASC',
         'price_desc' => 'i.price DESC, i.post_id ASC',
         'updated' => 'i.remote_updated_at DESC, i.post_id ASC',
-        'name' => 'i.sort_name ASC, i.post_id ASC',
+        // The CRM's own order first (an agent's place in the staff list), the name where it gives none.
+        'name' => 'ISNULL(i.sort_order), i.sort_order ASC, i.sort_name ASC, i.post_id ASC',
         default => 'i.published_at DESC, i.remote_updated_at DESC, i.post_id ASC',
     };
 }
