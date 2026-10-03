@@ -373,9 +373,9 @@ client ports (item 16, first client by question 80).
 
 22. **Offices and agents typed on the site** (Patric, 2026-10-03: "add offices and agents inside
     the wp admin, not fetched from the CRM"; the strategy with both homes in
-    `docs/site-records.md`). Waits on questions 125 (where they live), 126 (a typed agent the CRM
-    later carries) and the Default 128; 127 (a CRM record changed on the site) is the look-ahead
-    and waits in the register. Not started.
+    `docs/site-records.md`). Waits on question 125 (where they live); 126 (a typed agent the CRM
+    later carries) and the Default 128 are taken as their smaller option unless answered; 127 (a
+    CRM record changed on the site) is the look-ahead and waits in the register. Not started.
     - **Component:** `[client-wordpress]`, the sync plugin. With 125 (b) the item is reshaped into
       a `[core]` item (a manual adapter) and a plugin item, in that order.
     - **What changes for the product:** an administrator adds an office or an agent the CRM does
@@ -394,9 +394,13 @@ client ports (item 16, first client by question 80).
       "Add New" while every CRM post of the same type stays locked per post (`create_posts` is per
       type, `edit_post` per post through `map_meta_cap`); proved by the admin test above before the
       form is built.
-    - **Decides:** 125, 126. **Defaults:** 128 (the form's fields, any office for a typed agent,
-      the typed order number places the agent among the CRM agents, administrators and editors
-      edit, draft means not shown).
+    - **Visible, agreed before it is built:** the form is WordPress's own edit screen with the
+      fields listed in `docs/site-records.md` ("The form"), and the list's "Source" column is
+      WordPress's own list table: a change inside an existing pattern, so no design loop; the
+      Default 128 is the "build it with these fields?" question.
+    - **Decides:** 125, 126. **Defaults:** 128 (the form's fields, the office's address as one
+      field, any office for a typed agent, the typed order number places the agent among the CRM
+      agents, administrators and editors edit, draft means not shown).
     - **Does not do:** a CRM record changed on the site (127, later); the Lovable kit; responsive
       sizes for a library portrait (one size first, WordPress's own sizes a few lines later);
       typed properties, areas, associations or projects.

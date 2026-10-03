@@ -1,7 +1,8 @@
 # Offices and agents typed on the site
 
-**Status:** proposal, 2026-10-03, waiting on questions 125 and 126 and the Default 128 in
-`docs/open-questions.md`; the plan is item 22 in `docs/next-steps.md`. Nothing is built until
+**Status:** proposal, 2026-10-03, waiting on question 125 in `docs/open-questions.md`; 126 and the
+Default 128 are taken as their smaller option unless answered; the plan is item 22 in
+`docs/next-steps.md`. Nothing is built until
 Patric picks a direction. **The ask** (Patric, 2026-10-03): add offices
 and agents inside the WordPress admin that are not fetched from the CRM.
 
@@ -13,6 +14,8 @@ and agents inside the WordPress admin that are not fetched from the CRM.
 - **A site** is one WordPress install with Core's plugin. It **pulls**: it asks Core for what
   changed since its last pull and writes those records into its own database. Templates read
   that local copy and never Core.
+- **A tenant** is one brokerage as Core knows it. **A connection** is one CRM login Core holds
+  for a tenant, with the offices it covers. **A bell** is Core's call telling a site to pull now.
 - **A record** is one office, agent, property, area, association or project as a site stores it.
 - **A CRM record** came through Core from the CRM. **A typed record** is one a person wrote in
   an admin form and that no CRM carries. "Manual" in chat means typed.
@@ -44,8 +47,8 @@ and agents inside the WordPress admin that are not fetched from the CRM.
 
 **Where they live.** In the same two post types the plugin already uses for offices and agents,
 with the record as the same JSON and one index row each. A typed record's connection is the site
-itself (`site`) and its id is one the site makes from the post's number, so it can never collide
-with a CRM id. The raw CRM payload meta is empty for it. Everything that reads records (lists,
+itself (`site`) and its id is `site-<post number>`: the site looks a record up by type and id in
+any connection, so a bare number could meet a numeric CRM id, and the prefix keeps the two apart. The raw CRM payload meta is empty for it. Everything that reads records (lists,
 cards, single pages, `?debugpl`, the viewers in the admin) sees both kinds through one code
 path, because nothing downstream reads the connection.
 
@@ -61,26 +64,27 @@ status serves as "not shown yet", which CRM records never need.
 need no second path. Agent: name, title, e-mail, mobile phone, portrait (from the media
 library), description, the offices the agent belongs to (any office the site holds, CRM or
 typed) with per office an order number and a "show in the staff list" switch, the record-level
-"show in the staff list" switch, and reviews (text and author). Office: name, street, postal
-code, city, phone, e-mail, description, and the map position. A phone is stored as typed, the
+"show in the staff list" switch, and reviews (text and author). Office: name, the address as one
+line as it is to be shown, phone, e-mail and description. A phone is stored as typed, the
 display text as written and the number without spaces.
 
 **Display strings.** Core computes `display` for CRM records from the rules ledger (for an
-office, the address line of R-012). A typed record has no `display`. The office page falls back
-to the street, postal code and city joined the same way, three lines in the template; the site
-renders its own typed fields, which is template work, not data logic. The alternative is one
-more form field, "address as shown", which a person would type twice.
+office, the address line of R-012). A typed record has no `display`, and the plugin writes no
+ledger rule a second time: the office form asks for the address as one line, as it is to be
+shown, and stores it where the office page already reads the address line. The alternative,
+three address fields joined by the template, would put R-012's rule in a second place.
 
 **The portrait.** The media library hosts it. The theme's image helper builds responsive sizes
 only for Core's CDN addresses, so a library portrait shows at one size until the helper also asks
 WordPress for the attachment's sizes (a few lines, later).
 
-**How typed and CRM records meet.** They do not merge: a record is the CRM's or the site's,
+**How typed and CRM records meet.** They are never combined into one record: a record is the
+CRM's or the site's,
 never both, and lists simply hold both. The site never matches a typed agent to a CRM agent on
 its own. When the CRM later carries the same person, two records show until a person deletes
 the typed one (question 126 names a cheap automatic variant: when a CRM agent arrives with the
-same e-mail, the site hides the typed one and its old address answers 301 to the CRM agent's
-page).
+same e-mail, the site hides the typed one and its old address sends the visitor on to the CRM
+agent's page).
 
 **Who edits what.** The site owns typed records in full and a pull never touches them. CRM
 records stay read-only on the site; a site that wants to change a CRM agent's text or portrait
@@ -96,7 +100,7 @@ its index row for good, where a CRM post deleted behind the plugin's back comes 
 pull.
 
 **Order and the staff list.** The form carries the same two things the CRM carries, so the one
-rule in the index applies to both kinds without a branch: the smallest order number over the
+rule in the index applies to both kinds with no second case: the smallest order number over the
 agent's offices sorts them among the CRM agents, a typed agent without a number sorts after the
 numbered ones by name, and either staff-list switch off keeps the agent out of every list. Note
 that no property names a typed agent, since properties come from the CRM, so a hidden typed
@@ -106,8 +110,10 @@ agent is reachable only by their own address.
 lists them among its staff. A typed office holds typed agents only, because a CRM agent's office
 list is the CRM's. Properties never point at typed agents or offices.
 
-**Addresses.** Typed records live under the same paths (`maklare/`, `kontor/`), end in their own
-id like every record, and the 301 rule by id applies as it does today.
+**Addresses.** Typed records live under the same paths (`maklare/`, `kontor/`) and end in their
+own id like every record. The rule that sends a visitor from an old address to the current page
+by its id covers properties only today; agent and office pages, typed or not, do not have it, and
+this item does not add it.
 
 **What it does not give.** Each site types its own; two sites of one brokerage type an agent
 twice, and a Lovable site gets nothing until its kit grows the same feature. Core's panel,
@@ -136,7 +142,8 @@ pull. B2 is a new contract (a site writing records with the tenant's token), a n
 endpoint, and a plugin form, so it touches protected paths and needs approval; an edit shows on
 the site only after the round trip, and one site's edit changes every site of the tenant.
 
-**How typed and CRM records meet.** As in A: different connections, different ids, never merged.
+**How typed and CRM records meet.** As in A: different connections, different ids, never
+combined into one record.
 Core may not even suggest a duplicate, since Core draws no decision from a value; only a person
 removes the typed one in the panel.
 
@@ -205,7 +212,7 @@ Default, and 127 is the look-ahead for the item after this one and waits in the 
   - a) **a person** (recommended): both show until the typed one is deleted in the admin;
     nothing automatic, nothing to get wrong.
   - b) **the site, by e-mail**: a CRM agent arriving with the same e-mail hides the typed one,
-    and the typed one's old address answers 301 to the CRM agent's page; a site rule, cheap, but
+    and the typed one's old address sends the visitor on to the CRM agent's page; a site rule, cheap, but
     a shared mailbox hides the wrong person.
   - Undoable: yes; (b) is one comparison that can be removed.
   - Why (a): smaller, and the case is rare: an agent is typed because the CRM lacks them, and
@@ -220,6 +227,8 @@ Default, and 127 is the look-ahead for the item after this one and waits in the 
     the item.
 - **128** `[client-wordpress]` Default: the choices inside (a) that I take unless told otherwise.
   - The form holds the fields the Kowboy 2026 pages show ("The form" above) and no other.
+  - An office's address is one field, typed as it is to be shown; no ledger rule is written a
+    second time.
   - A typed agent may belong to any office the site holds, CRM or typed, and shows among that
     office's staff.
   - The typed order number places the agent among the CRM agents by the one rule; without a

@@ -22,13 +22,15 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 ## 128. `[client-wordpress]` Default: the choices inside typed records on the site
 
 - 2026-10-03 · The Default for item 22 under 125 (a), taken unless Patric disagrees: the form
-  holds the fields the Kowboy 2026 pages show and no other; a typed agent may belong to any
+  holds the fields the Kowboy 2026 pages show and no other, an office's address as one field
+  typed as it is to be shown; a typed agent may belong to any
   office the site holds, CRM or typed, and shows among that office's staff; the typed order
   number places the agent among the CRM agents by the one rule, and without one the agent sorts
   after the numbered ones by name; administrators and editors add, edit and delete typed records
   while CRM records stay locked for everyone; WordPress's draft status means "not shown on the
   site". Blocked: nothing.
-- Reply only if you disagree: no, and which choice.
+- Smaller option: these choices as they stand; the alternative to each is named in
+  `docs/site-records.md`. Reply only if you disagree: no, and which choice.
 
 ## 125. `[client-wordpress]` Offices and agents typed on the site: where they live
 
@@ -51,7 +53,7 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   nothing; waits on 125, and the smaller option is built unless (b) is picked.
 - Smaller option: nothing automatic, a person deletes the typed agent in the admin (a). Else:
   when a CRM agent arrives with the same e-mail as a typed one, the site hides the typed agent and
-  the typed agent's old address answers 301 to the CRM agent's page (b). Answer a or b.
+  the typed agent's old address sends the visitor on to the CRM agent's page (b). Answer a or b.
 
 ## 123. `[crm-vitec]` A whole-day viewing: what the CRM sends, so the page shows no time
 
