@@ -278,7 +278,8 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('Kontakta även');
     expect(body.indexOf('Anna Andersson')).toBeLessThan(body.indexOf('Bertil Berg'));
     expect(body).toContain('070-123 45 67');
-    expect(body).toContain('class="k-accordion__button"');
+    expect(body).toContain('class="k-accordion__item is-open"');
+    expect(body).toContain('class="k-accordion__button" type="button" aria-expanded="true"');
     expect(body).toContain('class="k-accordion__panel"><div class="k-accordion__inner">');
     // The hero and every gallery photo open the full-screen slider, with the files at full width.
     expect(body).toContain('k-hero--property" data-lightbox="0"');

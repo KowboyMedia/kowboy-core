@@ -1442,30 +1442,41 @@ iframe.k-hero__video {
   overflow: hidden;
 }
 .k-accordion__inner > * {
-  margin: 0 16px 16px;
+  margin: 0;
 }
 .k-accordion__item.is-open .k-accordion__panel {
   grid-template-rows: 1fr;
 }
+/* The design's rows: the label in small capitals over the value, a line under each row, the
+   whole table on the pale ground. */
 .k-kv {
   display: grid;
-  gap: 8px;
+  gap: 0;
   margin: 0;
+  padding: 8px 16px 16px;
+  background: var(--k-subtle);
 }
-/* The design's rows: the label in the left half, the value in the right. */
 .k-kv__row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  font-size: 14px;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--k-border);
+  font-size: 15px;
   line-height: 1.5;
 }
 .k-kv dt {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--k-secondary);
 }
 .k-kv dd {
   margin: 0;
   white-space: pre-line;
+}
+.k-accordion__inner > .k-prose {
+  padding: 8px 16px 16px;
 }
 .k-area {
   padding-block: 72px;
@@ -1580,10 +1591,6 @@ iframe.k-hero__video {
   }
   .k-gallery__grid {
     grid-template-columns: repeat(2, 1fr);
-  }
-  .k-kv__row {
-    grid-template-columns: 1fr;
-    gap: 2px;
   }
   .k-area__images {
     grid-template-columns: 1fr;

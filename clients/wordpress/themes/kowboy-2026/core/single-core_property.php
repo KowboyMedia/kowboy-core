@@ -209,7 +209,7 @@ echo kowboy_part('hero', ['media' => $hero, 'content' => $hero_content, 'variant
     }
     ?>
     <?php if ($tables !== []) : ?>
-        <div class="k-container k-property__tables"><?php echo kowboy_part('accordion', ['items' => $tables]); ?></div>
+        <div class="k-container k-property__tables"><?php echo kowboy_part('accordion', ['items' => $tables, 'open' => true]); ?></div>
     <?php endif; ?>
 
     <?php if ($area_texts !== [] || $area_images !== []) : ?>
