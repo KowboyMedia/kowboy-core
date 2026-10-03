@@ -67,9 +67,9 @@ $visible_limit = is_numeric($item['viewing_settings']['visible_limit'] ?? null) 
 $no_viewings_text = (string) (($item['viewing_settings']['empty_text'] ?? '') !== '' ? $item['viewing_settings']['empty_text'] : 'Kontakta mäklaren eller boka visning nedan.');
 $upcoming = count(array_filter($viewings, fn (array $viewing): bool => !$viewing['past']));
 
-// The bids as Vitec's three settings reach the site (advertising-migration: BidSetting became
-// `isActive` and `bids`): bidding off, nothing; the highest only, one bid; the history, every
-// bid. The highest is `display.highest_bid` (R-008); `is_verified` names a verified bidding.
+// The bids as the CRM's three settings reach the site (field tables, `bidding`): bidding off,
+// nothing; the highest only, one bid; the history, every bid. The highest is
+// `display.highest_bid` (R-008); `is_verified` names a verified bidding.
 $bidding = is_array($item['bidding'] ?? null) ? $item['bidding'] : [];
 $bids = !$sold && ($bidding['is_active'] ?? null) === true && is_array($bidding['bids'] ?? null) ? $bidding['bids'] : [];
 usort($bids, fn (array $a, array $b): int => strcmp((string) ($b['placed_at'] ?? ''), (string) ($a['placed_at'] ?? '')));
