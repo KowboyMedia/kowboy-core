@@ -2,8 +2,9 @@
 
 Vitec's golden masters (Gate 3, AC 1; question 52): real records of the test account on staging
 (Norban's office, `M31529`), the same objects norbanmakleri.se shows, so a case's `display.json` can
-be read against that page. Drafted by an agent on 2026-09-24 for Patric's approval (this folder is
-protected; question 90). Each case is one directory:
+be read against that page. Drafted by an agent on 2026-09-24 and approved by Patric on 2026-10-03 (question 90; this
+folder is protected). The three property cases were regenerated the same day when R-013 took the
+master's sections (question 92) and `documents[]` arrived (question 94). Each case is one directory:
 
 ```
 golden/vitec/<datatype>/<case>/

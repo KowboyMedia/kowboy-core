@@ -128,6 +128,7 @@
     }
   ],
   "currency": "SEK",
+  "documents": [],
   "electricity": {
     "company": null,
     "consumption": null,
@@ -203,7 +204,6 @@
     "frequency": "Monthly",
     "type": "Månadsavgift"
   },
-  "files": [],
   "final_price": null,
   "floor": null,
   "floor_description": null,

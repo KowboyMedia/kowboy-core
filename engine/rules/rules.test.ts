@@ -150,7 +150,7 @@ describe('the property strings (R-001 to R-012)', () => {
     expect(display['location']).toBe('Vasastan');
   });
 
-  it('drafted for the default set (R-015 to R-018, question 90): price wording, fee amount, floor with elevator, exterior features', () => {
+  it('validated for the default set (R-015 to R-018, question 90): price wording, fee amount, floor with elevator, exterior features', () => {
     expect(display['price_text']).toBe('Utgångspris');
     expect(display['fee_amount']).toBe(`3${N}500${N}kr`);
     expect(display['floor_and_elevator']).toBe('3 av 5, hiss finns');
@@ -183,9 +183,13 @@ describe('R-013 sections', () => {
       sections: { header: string; items: { label: string; value: string }[] }[];
     };
     const byHeader = Object.fromEntries(sections.sections.map((s) => [s.header, s.items]));
+    expect(byHeader['Grundinformation']).toEqual([
+      { label: 'Adress', value: 'Storgatan 1 111 22 Stockholm' },
+      { label: 'Område', value: 'Vasastan' },
+    ]);
     expect(byHeader['Interiör']).toEqual([
-      { label: 'Antal rum', value: `3${N}rum, varav 2 – 3${N}sovrum` },
       { label: 'Boarea', value: `82${N}kvm` },
+      { label: 'Antal rum', value: '3' },
       { label: 'Biarea', value: `12${N}kvm` },
       { label: 'Kök', value: 'Renoverat 2020' },
     ]);
@@ -193,15 +197,21 @@ describe('R-013 sections', () => {
       { label: 'Byggår', value: '1936' },
       { label: 'Uppvärmning', value: 'Fjärrvärme' },
     ]);
-    expect(byHeader['Balkong, uteplats och parkering']).toEqual([
-      { label: 'Balkong', value: `Ja, 8${N}kvm, Söder` },
-      { label: 'Pool', value: 'Nej' },
-    ]);
     expect(byHeader['Energideklaration']).toEqual([
       { label: 'Energideklaration', value: 'Utförd 2021-02-26' },
+      { label: 'Energiprestanda primärenergital', value: `92${N}kWh per kvm och år` },
       { label: 'Energiklass', value: 'C' },
-      { label: 'Energiförbrukning', value: `92${N}kWh/m² och år` },
     ]);
+    expect(byHeader['Andelstal, avgifter och insats']).toEqual([
+      { label: 'Månadsavgift', value: `3${N}500${N}kr` },
+      { label: 'Kommentar till månadsavgift', value: 'inkl. värme' },
+      { label: 'Tomträttsavgäld', value: `6${N}646${N}kr/år (löper till 2029-12-31)` },
+    ]);
+    expect(byHeader['Våning/hiss']).toEqual([{ label: 'Våning', value: '3 av 5, hiss finns' }]);
+    expect(byHeader['Driftskostnader']).toEqual([
+      { label: 'Summa per år', value: `28${N}500${N}kr/år` },
+    ]);
+    expect(byHeader).not.toHaveProperty('Balkong, uteplats och parkering');
     expect(byHeader).not.toHaveProperty('Gård');
     expect(byHeader).not.toHaveProperty('Taxering');
     expect(renderSections({}, PROPERTY_SECTIONS)).toEqual([]);
@@ -232,7 +242,7 @@ describe('R-014 project ranges', () => {
   });
 });
 
-describe('R-019 association fees (drafted, question 90)', () => {
+describe('R-019 association fees (validated 2026-10-03, question 90)', () => {
   it('writes the transfer fee and the pledge fee in kr, and nothing when they are missing', () => {
     const display = applyRules('association', {
       id: 'BRF-1',

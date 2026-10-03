@@ -1,4 +1,4 @@
-R-018 Exterior features that exist (drafted 2026-09-24, awaiting Patric's validation, question 90)
+R-018 Exterior features that exist (drafted 2026-09-24, validated by Patric 2026-10-03, question 90)
 When: a card or a fact list says which of balcony, patio and parking the home has
 Then: display.exterior_features lists the exterior features whose is_available is true, in the
 CRM's order, each as its own name followed by " finns", joined by ", ": "Balkong finns,

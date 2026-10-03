@@ -298,8 +298,10 @@ its "Bor du redan här?" button leads to that lead form.
 
 ## What it needs from Patric
 
-- **90** to **96**: the drafted strings and the gaps of the comparison, above.
-- **87** and **88**: the tokens, for `v4.dev.kowboy.se` and the release channel.
+- ~~**90** to **96**: the drafted strings and the gaps of the comparison, above.~~ Answered
+  2026-10-03 (`docs/decisions.md`); 119 (the decimals of an association's share) is what remains
+  from that round.
+- **120**: the Cloudways token (87 and 88 are closed; `v4.dev.kowboy.se` is not needed).
 - Already open: 54 (a) to (e) as the templates need them; 52 is untouched (golden masters come
   from the test account).
 
@@ -307,8 +309,7 @@ its "Bor du redan här?" button leads to that lead form.
 
 Done on 2026-09-24 (above): the set, the selector, the override rule, the installer's four parts,
 the release per set, the query function, the drafted strings, the comparison against the master
-on the local WordPress, AC 28 and AC 20's search half, the report. Next: Patric's answers to 89
-to 96; the loop on the staging site (`wordpress-1545003-6698706.cloudwaysapps.com`, the plugin
+on the local WordPress, AC 28 and AC 20's search half, the report. Next: the loop on the staging site (`wordpress-1545003-6698706.cloudwaysapps.com`, the plugin
 and the set installed there on 2026-09-28 by `scripts/deploy-site.mjs`, records once the site
 is joined to staging Core, question 98), the page-by-page diff there with screenshots from the
 live site (Patric, 2026-09-28: the set "does not look correct at all", so the loop moves to a real

@@ -137,6 +137,38 @@
         "$ref": "#/$defs/image"
       }
     },
+    "document": {
+      "description": "A document the CRM lists on a property or an association (docs/field-tables.md `documents[]`); `url` is the CRM's own address when it sends one.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "name": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "extension": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "category": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "url": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "changed_at": {
+          "$ref": "#/$defs/moment"
+        }
+      },
+      "required": ["id", "name", "extension", "category", "url", "changed_at"],
+      "additionalProperties": false
+    },
+    "documents": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/document"
+      }
+    },
     "viewing": {
       "type": "object",
       "properties": {

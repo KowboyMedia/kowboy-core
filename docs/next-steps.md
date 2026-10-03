@@ -329,6 +329,14 @@ client ports (item 16, first client by question 80).
        the test office, speaks Swedish, and its pages answer (`docs/staging-site.md`, "The loop
        as it runs"). Next: the page-by-page loop against norbanmakleri.se with
        `scripts/shoot-site.mjs`, and question 101 (the slug rule) when Patric answers it.
+       **State 2026-10-03:** Patric answered 90 to 96: the drafted strings and the golden
+       masters are validated, the comma stays, the fact tables follow the master's sections
+       (R-013 rewritten, the three property golden masters regenerated), the three coded
+       association values carry their names, documents come from both the home and its
+       association with their CDN address and the set lists them under "Dokument", the energy
+       row shows only with a value, and the booking button and the lead form are item 21. Open
+       from this round: 119 (the decimals of an association's share). Next: the page-by-page
+       loop on the staging site.
 
 18. **The display fields, first attempt** (Patric, 2026-09-23): for every value
     norbanmakleri.se shows on a card, a list or a single page, the prepared string `display`
@@ -337,7 +345,7 @@ client ports (item 16, first client by question 80).
     output against staging's records for the same objects, as ledger entries and golden
     masters (`golden/vitec/`, question 52), and Patric validates every one himself, in one
     review. Done together with item 17 step 3. **Drafted 2026-09-24:** R-015 to R-019, eight
-    golden cases, question 90.
+    golden cases, question 90. **Validated 2026-10-03** (Patric, "90 a"): done.
 
 19. **A porting factory, exploration only** (Patric, 2026-09-23): whether a skill or workflow
     inside Claude Code can run a port from two inputs, a source and a target, asking its
@@ -352,6 +360,16 @@ client ports (item 16, first client by question 80).
     and fixed. Open: 105 (the forms are dummies, and the phone frames draw the sell form's fields
     differently from the desktop frames) and the site's own content (pictures, logotype,
     address).
+
+21. **The booking button and the interest form** (Patric, 2026-10-03, question 95: "separate, add
+    them to todo list"): on norbanmakleri.se a viewing has a "Boka här" button that opens the
+    CRM's booking page for that viewing, and every property page ends in a form that posts a lead
+    to the CRM. Neither is data the adapter copies: the booking address is built from the CRM's
+    ids, and the lead needs a Core endpoint that forwards to the CRM (Connect has `POST
+…/interest`), an adapter capability nothing in `engine/adapter-api/` offers yet. Plan first
+    (a generic engine capability any adapter could use, approval needed), then build; the set
+    shows viewings without a button and no form until then. Question 105 (the design's two forms)
+    is settled in the same item.
 
 ## Later, when Patric supplies them
 

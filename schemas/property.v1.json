@@ -287,6 +287,9 @@
     "images": {
       "$ref": "_shared.v1.json#/$defs/images"
     },
+    "documents": {
+      "$ref": "_shared.v1.json#/$defs/documents"
+    },
     "viewings": {
       "$ref": "_shared.v1.json#/$defs/viewings"
     },
