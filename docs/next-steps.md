@@ -31,9 +31,8 @@ client ports (item 16, first client by question 80).
   117). Done 2026-10-03: `KOWBOY-HANDBOOK.md`, `PLAYBOOK.md`, `.handbook/` and the nine skill
   folders under `.claude/skills/` are deleted, `CLAUDE.md` imports only `AGENTS.md`, and
   `AGENTS.md` and `README.md` no longer name the handbook file. Core's own hooks and
-  `.claude/settings.json` stay. Combined into staging only once the handbook plugin reads the
-  handbook live and is enabled on the account; combined earlier, sessions on Core would have no
-  shared rules.
+  `.claude/settings.json` stay. Patric chose to combine it into staging at once (question 118,
+  2026-10-03), so the account's plugin is the only path for the shared rules from here on.
 - **If register numbers collide again** after the register check, move the counter out of the
   files: each question becomes a GitHub issue and takes its number, the register file stays the
   readable view. Not before a collision is seen with the check in place.

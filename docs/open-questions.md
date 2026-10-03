@@ -226,14 +226,3 @@ the register file stays the readable view. Default: the next session makes that 
 questions become issues with their texts, the file lists them by issue number, `check-register`
 reads the issues' numbers). Smaller: keep counting in the file and accept collisions. Answer
 "no" to keep the file.
-
-## 118. `[handbook]` May the removal of the handbook copies go into staging now, or only once the plugin reads the handbook live?
-
-Pull request 69 deletes the handbook copy, the playbook, the nine skills and the starting kit
-from Core and points `CLAUDE.md`, `AGENTS.md` and `README.md` at Core's own files, finishing
-decision 117a. The order that decision set is: first the handbook plugin reads the handbook live
-and is enabled on the account, then this change goes into staging. On 2026-10-03 the public
-handbook address (`raw.githubusercontent.com/KowboyMedia/kowboy-handbook/main/HANDBOOK.md`) still
-answered "not found", so a session on Core would have no shared rules if the change landed today.
-Smaller: wait, and combine when the address answers. Answer "now" to combine today anyway, or
-"wait" to hold it until the handbook is reachable.
