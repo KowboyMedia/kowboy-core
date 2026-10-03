@@ -3,8 +3,8 @@
 // the photos), the description with fact chips and the floor plan, the viewings and the agent at
 // the side, the interest form, the photo grid with "Visa fler bilder", the fact tables
 // (`display.sections`, the association's rows added), the area with its texts, the map, and the
-// lead form. Every string is `display`'s or a value shown as sent; this site's own rules are
-// named where they apply.
+// lead form of the footer. Every string is `display`'s or a value shown as sent; this site's own
+// rules are named where they apply.
 //
 // In scope: $post_id, $item (the record as Core delivered it), $raw (the CRM payload).
 
@@ -17,6 +17,8 @@ $images = is_array($item['images'] ?? null) ? $item['images'] : [];
 $plans = array_values(array_filter($images, fn (array $image): bool => ($image['category'] ?? null) === 'Planritning'));
 $photos = array_values(array_filter($images, fn (array $image): bool => ($image['category'] ?? null) !== 'Planritning'));
 $hero = kowboy_hero_media(is_array($item['links'] ?? null) ? $item['links'] : [], array_map(fn (array $image): string => (string) $image['url'], array_slice($photos, 0, 5)));
+// Every photo at the CDN's largest width, for the full-screen slider a click on a photo opens.
+$full_photos = array_map(fn (array $image): string => kowboy_image_at((string) $image['url'], 1920), $photos);
 
 $sold = isset($display['final_price']);
 $price = $sold ? $display['final_price'] : ($display['price'] ?? null);
@@ -24,6 +26,7 @@ $price_label = $sold ? 'Slutpris' : ($display['price_text'] ?? null);
 $status = (string) ($item['status']['name'] ?? '');
 $location = (string) ($display['location'] ?? '');
 $text = (string) ($item['long_text'] ?? $item['short_text'] ?? '');
+$heading = (string) ($item['heading'] ?? '');
 
 $chips = array_filter([
     $price === null ? null : trim(($sold ? 'Slutpris ' : (($price_label ?? '') === '' ? '' : $price_label . ' ')) . $price),
@@ -110,12 +113,13 @@ $hero_content = '<div class="k-hero__head">'
     . (isset($display['rooms']) ? '<li class="k-pill">' . esc_html((string) $display['rooms']) . '</li>' : '')
     . (isset($display['living_space']) ? '<li class="k-pill">' . esc_html((string) $display['living_space']) . '</li>' : '')
     . '</ul></div>';
-echo kowboy_part('hero', ['media' => $hero, 'content' => $hero_content, 'variant' => 'property', 'alt' => $street]);
+// A click on the hero's photo opens the full-screen slider (the script finds the gallery's photos).
+echo kowboy_part('hero', ['media' => $hero, 'content' => $hero_content, 'variant' => 'property', 'alt' => $street, 'wrapper' => 'class="k-hero k-hero--property"' . ($full_photos === [] ? '' : ' data-lightbox="0"')]);
 ?>
 <div class="k-property">
     <div class="k-container k-property__grid">
         <div class="k-property__main">
-            <p class="k-label">Om bostaden</p>
+            <?php if ($heading !== '') : ?><h2 class="k-heading"><?php echo esc_html($heading); ?></h2><?php else : ?><p class="k-label">Om bostaden</p><?php endif; ?>
             <?php if ($text !== '') : ?><div class="k-property__text"><?php echo wp_kses_post(wpautop(esc_html($text))); ?></div><?php endif; ?>
             <?php if ($chips !== []) : ?>
                 <ul class="k-chips"><?php foreach ($chips as $chip) : ?><li class="k-chip"><?php echo esc_html((string) $chip); ?></li><?php endforeach; ?></ul>
@@ -150,12 +154,14 @@ echo kowboy_part('hero', ['media' => $hero, 'content' => $hero_content, 'variant
                     </div>
                 </div>
             <?php endif; ?>
-            <?php if ($agents !== []) : ?>
-                <div class="k-property__agents">
-                    <h2 class="k-heading">Mäklare</h2>
-                    <?php foreach ($agents as $agent) : ?><?php echo kowboy_part('agent-card', ['item' => $agent['item'], 'post_id' => $agent['post_id']]); ?><?php endforeach; ?>
-                </div>
-            <?php endif; ?>
+            <?php foreach (['Ansvarig mäklare' => array_slice($agents, 0, 1), 'Kontakta även' => array_slice($agents, 1)] as $agents_title => $agents_group) : ?>
+                <?php if ($agents_group !== []) : ?>
+                    <div class="k-property__agents">
+                        <h2 class="k-heading"><?php echo esc_html($agents_title); ?></h2>
+                        <?php foreach ($agents_group as $agent) : ?><?php echo kowboy_part('agent-card', ['item' => $agent['item'], 'post_id' => $agent['post_id']]); ?><?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            <?php endforeach; ?>
         </aside>
     </div>
 
@@ -164,32 +170,33 @@ echo kowboy_part('hero', ['media' => $hero, 'content' => $hero_content, 'variant
     <?php endif; ?>
 
     <?php if ($photos !== []) : ?>
-        <div class="k-container k-gallery" data-gallery>
+        <div class="k-container k-gallery" data-gallery data-images="<?php echo esc_attr((string) wp_json_encode($full_photos, JSON_UNESCAPED_SLASHES)); ?>">
             <div class="k-gallery__grid">
                 <?php foreach ($photos as $index => $photo) : ?>
-                    <figure class="k-gallery__item<?php echo $index >= 6 ? ' is-collapsed' : ''; ?>"><?php echo kowboy_image($photo, '(min-width: 1024px) 384px, (min-width: 640px) 50vw, 100vw', $street, ['class' => 'k-gallery__image']); ?></figure>
+                    <figure class="k-gallery__item<?php echo $index >= 6 ? ' is-collapsed' : ''; ?>"><button class="k-gallery__button" type="button" data-lightbox="<?php echo (int) $index; ?>" aria-label="Visa bild <?php echo (int) $index + 1; ?> i helskärm"><?php echo kowboy_image($photo, '(min-width: 1024px) 384px, (min-width: 640px) 50vw, 100vw', $street, ['class' => 'k-gallery__image']); ?></button></figure>
                 <?php endforeach; ?>
             </div>
             <?php if (count($photos) > 6) : ?><p class="k-gallery__more"><button class="k-button" type="button" data-gallery-more>Visa fler bilder</button></p><?php endif; ?>
         </div>
     <?php endif; ?>
 
-    <?php if ($sections !== []) : ?>
-        <div class="k-container k-accordion" data-accordion>
-            <?php foreach ($sections as $index => $section) : ?>
-                <?php $items = is_array($section['items'] ?? null) ? $section['items'] : []; if ($items === []) { continue; } ?>
-                <div class="k-accordion__item">
-                    <h3 class="k-accordion__heading"><button class="k-accordion__button" type="button" aria-expanded="false" data-accordion-button><?php echo esc_html((string) ($section['header'] ?? '')); ?><span class="k-accordion__chevron" aria-hidden="true"></span></button></h3>
-                    <div class="k-accordion__panel" hidden>
-                        <dl class="k-kv">
-                            <?php foreach ($items as $row) : ?>
-                                <div class="k-kv__row"><dt><?php echo esc_html((string) ($row['label'] ?? '')); ?></dt><dd><?php echo !empty($row['html']) ? wp_kses_post((string) $row['value']) : esc_html((string) ($row['value'] ?? '')); ?></dd></div>
-                            <?php endforeach; ?>
-                        </dl>
-                    </div>
-                </div>
-            <?php endforeach; ?>
-        </div>
+    <?php
+    // Every fact table as one accordion item: a definition list of its rows.
+    $tables = [];
+    foreach ($sections as $section) {
+        $items = is_array($section['items'] ?? null) ? $section['items'] : [];
+        if ($items === []) {
+            continue;
+        }
+        $rows = '';
+        foreach ($items as $row) {
+            $rows .= '<div class="k-kv__row"><dt>' . esc_html((string) ($row['label'] ?? '')) . '</dt><dd>' . (!empty($row['html']) ? wp_kses_post((string) $row['value']) : esc_html((string) ($row['value'] ?? ''))) . '</dd></div>';
+        }
+        $tables[] = ['label' => (string) ($section['header'] ?? ''), 'html' => '<dl class="k-kv">' . $rows . '</dl>'];
+    }
+    ?>
+    <?php if ($tables !== []) : ?>
+        <div class="k-container k-property__tables"><?php echo kowboy_part('accordion', ['items' => $tables]); ?></div>
     <?php endif; ?>
 
     <?php if ($area_texts !== [] || $area_images !== []) : ?>
@@ -199,16 +206,7 @@ echo kowboy_part('hero', ['media' => $hero, 'content' => $hero_content, 'variant
                 <?php if ($area_images !== []) : ?>
                     <div class="k-area__images"><?php foreach ($area_images as $image) : ?><figure><?php echo kowboy_image($image, '(min-width: 1024px) 588px, 100vw', (string) ($area['name'] ?? '')); ?></figure><?php endforeach; ?></div>
                 <?php endif; ?>
-                <?php if ($area_texts !== []) : ?>
-                    <div class="k-accordion" data-accordion>
-                        <?php foreach ($area_texts as $label => $value) : ?>
-                            <div class="k-accordion__item">
-                                <h3 class="k-accordion__heading"><button class="k-accordion__button" type="button" aria-expanded="false" data-accordion-button><?php echo esc_html((string) $label); ?><span class="k-accordion__chevron" aria-hidden="true"></span></button></h3>
-                                <div class="k-accordion__panel" hidden><div class="k-prose"><?php echo wp_kses_post(wpautop(esc_html((string) $value))); ?></div></div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
+                <?php if ($area_texts !== []) : ?><?php echo kowboy_part('accordion', ['items' => kowboy_text_items($area_texts)]); ?><?php endif; ?>
             </div>
         </section>
     <?php endif; ?>
@@ -216,6 +214,4 @@ echo kowboy_part('hero', ['media' => $hero, 'content' => $hero_content, 'variant
     <?php if ($lat !== null && $lng !== null) : ?>
         <div class="k-map" data-map data-lat="<?php echo esc_attr((string) $lat); ?>" data-lng="<?php echo esc_attr((string) $lng); ?>" data-title="<?php echo esc_attr($street); ?>"></div>
     <?php endif; ?>
-
-    <div class="k-container k-property__lead"><?php echo kowboy_part('lead-form', ['title' => 'Ska du sälja din bostad?', 'text' => 'Fyll i dina uppgifter så hör vi av oss!', 'subject' => '']); ?></div>
 </div>

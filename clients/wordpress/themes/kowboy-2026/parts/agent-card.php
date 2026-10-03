@@ -1,6 +1,7 @@
 <?php
 // One agent as a card: the picture with the name, the title and the contact on a dark fade at
-// the bottom. Used by the agents block, the agent list and a property page's side.
+// the bottom. Used by the agents block, the agent list and a property page's side. The portrait
+// is cropped to 3:4, so the file the browser picks is about twice the card's width.
 //
 // In scope: $item (the agent record), $post_id.
 
@@ -17,7 +18,7 @@ $office = $office_id === '' ? '' : (string) (core_client_items('office', [$offic
 ?>
 <article class="k-agent-card">
     <a class="k-agent-card__image" href="<?php echo esc_url($url); ?>">
-        <?php echo $image === null ? '<span class="k-agent-card__placeholder"></span>' : kowboy_image($image, '(min-width: 1024px) 298px, (min-width: 480px) 50vw, 100vw', $name); ?>
+        <?php echo $image === null ? '<span class="k-agent-card__placeholder"></span>' : kowboy_image($image, '(min-width: 1024px) 600px, (min-width: 480px) 100vw, 150vw', $name); ?>
     </a>
     <div class="k-agent-card__body">
         <h3 class="k-agent-card__name"><a href="<?php echo esc_url($url); ?>"><?php echo esc_html($name); ?></a></h3>

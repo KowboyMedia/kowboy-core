@@ -98,6 +98,48 @@ gatuadress", "E-post" and "Mobil", the desktop frames with "Förnamn", "Efternam
 "E-post". The theme follows the desktop frames on every width; the field list is part of
 question 105 (where a submission goes) and is not settled here.
 
+## Patric's punch list, 2026-10-03
+
+Patric's list after walking the set on the dev site, done in one round (pull request into
+staging; the fact-table rows themselves are pull request 71's):
+
+- **The lists.** The card and agent pictures were blurry on desktop: the slot's `sizes` asked
+  for the card's width, and a photo wider than tall is scaled up to cover a 3:4 card. The slots
+  now ask for about twice the card's width. The card's dark fade was under the slider (Swiper
+  puts its root at z-index 1); it is above it now. The card's link covered the slider, so the
+  photos could not be swiped: the link covers the text only on a card with a slider, and a plain
+  click on a photo follows the link through Swiper's click event (a swipe does not).
+- **Forms.** The fields show their names as placeholders; the floating labels are gone.
+- **Header.** Over a hero the header carries a shade from the top edge, so the bright logotype
+  and menu read over a bright photo. The hamburger's bars fold into a cross and the menu slides
+  in, the items one after the other; CSS transitions, no library.
+- **Heroes.** The tall hero and a property's hero fill the screen on every width (`100svh`).
+  The property hero's spacing under the title matched the spacing above it (40 px; the content's
+  own 40 px padding was the excess).
+- **The property page.** The selling heading (`heading`) stands where "Om bostaden" stood when
+  the listing has one. The first agent is "Ansvarig mäklare", the rest "Kontakta även". A click
+  on the hero photo or a gallery photo opens a full-screen slider (Swiper, already vendored:
+  arrows, keys, pinch zoom, the files at the CDN's full width). The fact tables and the area
+  texts are one accordion part (`parts/accordion.php`) whose panels open with an animation
+  (CSS `grid-template-rows`, no library), the rows in the design's two equal columns.
+- **The lists on an agent's and an area's page** carry the status tabs like the home page's.
+- **Spacing.** Every section keeps its 72 px above and below; the rule that cut the top padding
+  of a following section made the home page uneven.
+- **The footer form.** "Ska du sälja din bostad?" is the footer's, on every page, its words
+  theme options (Formulär); the lead-form block and the property page's own copy are gone.
+- **Page titles and sharing.** `<what the page is about> - <site name>`, as the master site:
+  a listing's street, an agent's or area's name, a page's title. `inc/seo.php` writes the
+  description and the Open Graph and Twitter tags from the record (its text and first photo at
+  width 1200) or the page (its excerpt and the hero's first picture). A site running an SEO
+  plugin would print a second set; none is on the dev site.
+- **Against the design again.** The single-property frame was fetched and compared: the
+  accordion list, the two-column rows and the agent block match it now; the Home frame too.
+  Figma's plan allowed two frames before its call limit; the remaining frames wait for the
+  limit to reset or a paid plan.
+
+The plugin got `?debugpl` on every record's page (its own pull request): the record's JSON in a
+foldable viewer, for signed-in editors.
+
 ## Order of work
 
 1. The plan and the questions (this page), the plugin's shadow DOM default, the 2026 set shelved.

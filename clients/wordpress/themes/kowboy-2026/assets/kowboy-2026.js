@@ -1,6 +1,6 @@
 // The theme's script, on the page and inside every shadow root: the menu, the sliders (Swiper,
 // in vendor/), the list reloads against the plugin's endpoint, the collapsibles, the gallery's
-// "Visa fler bilder", and the map (Leaflet, in vendor/).
+// "Visa fler bilder" and the full-screen slider a photo opens, and the map (Leaflet, in vendor/).
 (function () {
   'use strict';
 
@@ -25,12 +25,18 @@
     return true;
   }
 
+  /** The hamburger: the bars fold into a cross and the menu slides in (both in the stylesheet). */
   function setupMenu(button) {
     if (!once(button, 'ready')) return;
+    function toggle(open) {
+      button.setAttribute('aria-expanded', open ? 'true' : 'false');
+      document.body.classList.toggle('k-menu-open', open);
+    }
     button.addEventListener('click', function () {
-      var open = button.getAttribute('aria-expanded') === 'true';
-      button.setAttribute('aria-expanded', open ? 'false' : 'true');
-      document.body.classList.toggle('k-menu-open', !open);
+      toggle(button.getAttribute('aria-expanded') !== 'true');
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && button.getAttribute('aria-expanded') === 'true') toggle(false);
     });
   }
 
@@ -39,11 +45,20 @@
     return new window.Swiper(container, options);
   }
 
+  /** A card's photos: swipeable, with dots; a plain click on a photo (no swipe) follows the card's link. */
   function setupCardSlider(container) {
+    var card = container.closest('[data-card-url]');
     swiper(container, {
       loop: container.querySelectorAll('.swiper-slide').length > 1,
       pagination: { el: container.querySelector('.swiper-pagination'), clickable: true },
       speed: 500,
+      on: {
+        click: function (instance, event) {
+          if (card && !event.target.closest('.swiper-pagination')) {
+            window.location.href = card.dataset.cardUrl;
+          }
+        },
+      },
     });
   }
 
@@ -139,18 +154,90 @@
     }
   }
 
+  /** A collapsible: the item's `is-open` class, which the stylesheet animates. */
   function setupAccordion(button) {
     if (!once(button, 'ready')) return;
     button.addEventListener('click', function () {
-      var panel = button.closest('.k-accordion__item').querySelector('.k-accordion__panel');
-      var open = button.getAttribute('aria-expanded') === 'true';
-      button.setAttribute('aria-expanded', open ? 'false' : 'true');
-      panel.hidden = open;
+      var open = button.getAttribute('aria-expanded') !== 'true';
+      button.setAttribute('aria-expanded', open ? 'true' : 'false');
+      button.closest('.k-accordion__item').classList.toggle('is-open', open);
     });
   }
 
+  /** The full-screen slider over the page: every photo, arrows, keys, pinch zoom, a close button. */
+  function openLightbox(urls, index) {
+    var box = document.createElement('div');
+    box.className = 'k-lightbox';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-label', 'Bilder');
+    var close = document.createElement('button');
+    close.className = 'k-lightbox__close';
+    close.type = 'button';
+    close.setAttribute('aria-label', 'Stäng');
+    close.innerHTML = '&times;';
+    var slider = document.createElement('div');
+    slider.className = 'swiper k-lightbox__slider';
+    var wrapper = document.createElement('div');
+    wrapper.className = 'swiper-wrapper';
+    urls.forEach(function (url) {
+      var slide = document.createElement('div');
+      slide.className = 'swiper-slide';
+      var zoom = document.createElement('div');
+      zoom.className = 'swiper-zoom-container';
+      var image = document.createElement('img');
+      image.src = url;
+      image.alt = '';
+      zoom.appendChild(image);
+      slide.appendChild(zoom);
+      wrapper.appendChild(slide);
+    });
+    slider.appendChild(wrapper);
+    ['swiper-button-prev', 'swiper-button-next', 'swiper-pagination'].forEach(function (name) {
+      var part = document.createElement('div');
+      part.className = name;
+      slider.appendChild(part);
+    });
+    box.appendChild(close);
+    box.appendChild(slider);
+    document.body.appendChild(box);
+    document.body.classList.add('k-lightbox-open');
+    var instance = new window.Swiper(slider, {
+      initialSlide: index,
+      loop: urls.length > 1,
+      keyboard: { enabled: true },
+      zoom: true,
+      navigation: {
+        nextEl: slider.querySelector('.swiper-button-next'),
+        prevEl: slider.querySelector('.swiper-button-prev'),
+      },
+      pagination: { el: slider.querySelector('.swiper-pagination'), type: 'fraction' },
+    });
+    function shut() {
+      instance.destroy(true, true);
+      box.remove();
+      document.body.classList.remove('k-lightbox-open');
+      document.removeEventListener('keydown', onKey);
+    }
+    function onKey(event) {
+      if (event.key === 'Escape') shut();
+    }
+    close.addEventListener('click', shut);
+    box.addEventListener('click', function (event) {
+      if (event.target.classList.contains('swiper-slide')) shut();
+    });
+    document.addEventListener('keydown', onKey);
+    close.focus();
+  }
+
+  /** The gallery's photos (data-images, the full files): "Visa fler bilder", and a photo opens the slider. */
   function setupGallery(gallery) {
     if (!once(gallery, 'ready')) return;
+    var urls = JSON.parse(gallery.dataset.images || '[]');
+    gallery.querySelectorAll('[data-lightbox]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        openLightbox(urls, parseInt(button.dataset.lightbox, 10) || 0);
+      });
+    });
     var button = gallery.querySelector('[data-gallery-more]');
     if (!button) return;
     button.addEventListener('click', function () {
@@ -158,6 +245,17 @@
         item.classList.remove('is-collapsed');
       });
       button.parentElement.hidden = true;
+    });
+  }
+
+  /** A property's hero: a click on the photo (not on the text, a link or a button) opens the slider. */
+  function setupHeroLightbox(hero) {
+    if (!once(hero, 'lightboxReady')) return;
+    hero.addEventListener('click', function (event) {
+      if (event.target.closest('a, button, .k-hero__content')) return;
+      var gallery = hero.getRootNode().querySelector('[data-gallery]');
+      if (!gallery) return;
+      openLightbox(JSON.parse(gallery.dataset.images || '[]'), 0);
     });
   }
 
@@ -189,6 +287,7 @@
     each('[data-list]', setupList);
     each('[data-accordion-button]', setupAccordion);
     each('[data-gallery]', setupGallery);
+    each('.k-hero[data-lightbox]', setupHeroLightbox);
     each('[data-map]', setupMap);
   }
 

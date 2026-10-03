@@ -1,7 +1,7 @@
 <?php
 // The theme options, in WordPress's own Customizer (Utseende, Anpassa), with Swedish labels: the
 // logotype in a bright and a dark variant, the main typography, the office's contact details
-// for the footer, and the form's receiving address and privacy page.
+// for the footer, the footer form's words, and the form's receiving address and privacy page.
 
 declare(strict_types=1);
 
@@ -17,6 +17,8 @@ const KOWBOY_OPTIONS = [
     'kowboy_phone' => '',
     'kowboy_email' => '',
     'kowboy_privacy_page' => 0,
+    'kowboy_form_title' => 'Ska du sälja din bostad?',
+    'kowboy_form_text' => 'Fyll i dina uppgifter så hör vi av oss!',
     'kowboy_copyright' => 'Alla rättigheter reserverade.',
 ];
 
@@ -55,7 +57,9 @@ add_action('customize_register', function (WP_Customize_Manager $customizer): vo
     $customizer->add_control('kowboy_email', ['label' => 'E-post', 'section' => 'kowboy_contact', 'type' => 'email']);
     $customizer->add_control('kowboy_copyright', ['label' => 'Copyrightrad', 'section' => 'kowboy_contact', 'type' => 'text', 'description' => 'Årtalet läggs till automatiskt.']);
 
-    $customizer->add_section('kowboy_forms', ['title' => 'Formulär', 'panel' => 'kowboy', 'description' => 'Formulären är ännu inte kopplade: vart en förfrågan går bestäms senare (fråga 105).']);
+    $customizer->add_section('kowboy_forms', ['title' => 'Formulär', 'panel' => 'kowboy', 'description' => 'Formuläret i sidfoten visas på alla sidor. Formulären är ännu inte kopplade: vart en förfrågan går bestäms senare (fråga 105).']);
+    $customizer->add_control('kowboy_form_title', ['label' => 'Rubrik i sidfotens formulär', 'section' => 'kowboy_forms', 'type' => 'text']);
+    $customizer->add_control('kowboy_form_text', ['label' => 'Text i sidfotens formulär', 'section' => 'kowboy_forms', 'type' => 'text']);
     $customizer->add_control('kowboy_privacy_page', ['label' => 'Integritetspolicy', 'section' => 'kowboy_forms', 'type' => 'dropdown-pages', 'description' => 'Sidan som samtyckesrutan länkar till.']);
 });
 
