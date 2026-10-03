@@ -19,7 +19,7 @@ core-client/                     the plugin
   includes/sync.php              the SRS §8 loop
   includes/bell.php              POST /wp-json/core/v1/bell
   includes/schedule.php          the 15 minute backstop, an Action Scheduler recurring action
-  includes/routing.php           /objekt/<id> and old slugs answer 301 to the current permalink
+  includes/routing.php           /<path>/<id> and old slugs answer 301 to the current permalink
   includes/cli.php               wp core-client sync [--force], wp core-client status
   includes/report.php            error reporting through Core
   updater/core-client-updater.php  the must-use updater the plugin places itself; never loads plugin code
@@ -54,13 +54,16 @@ or `wp action-scheduler run`.
 
 ## What the site gets
 
-- Permalinks are the site's, never Core's (strategy §12.23 and §12.26), under Swedish paths:
-  `objekt/<status>-<area name>-<street address>-<id>` for properties and `projekt/` the same for
-  projects, `kontor/<office name>-<id>`, `forening/<association name>-<id>`, `maklare/<first name>-<last name>-<id>`
-  and `omrade/<municipality>-<area name>-<id>`. Every entity ends in `-<id>`. A request by id alone (`/objekt/<id>`) or by an old
-  slug (`/objekt/<old slug>-<id>`) answers 301 to the current permalink, and a removed or unknown
-  id answers 301 to the property archive (`includes/routing.php`). Until the slugs are built the
-  placeholder slug is connection plus id.
+- Permalinks are the site's, never Core's (strategy §12.23 and §12.26), under Swedish paths and
+  built from the site's own stored values the way norbanmakleri.se names its pages (question 101):
+  `objekt/<status>-<city>-<area name>-<street address>-<id>` for properties and `projekt/` the
+  same for projects (the name when there is no street), `kontor/<office name>-<id>`,
+  `forening/<association name>-<id>`, `maklare/<agent name>-<id>` and `omrade/<area name>-<id>`.
+  The status word is the list the settings page puts the status in (`till-salu`, `kommande`,
+  `sold`), else the CRM's own status name. Every entity ends in `-<id>`, and the slug is rebuilt on
+  every sync write and once on a plugin update. A request by id alone (`/objekt/<id>`) or by an
+  old slug (`/objekt/<old slug>-<id>`) answers 301 to the current permalink, and a removed or
+  unknown id answers 301 to the kind's archive (`includes/routing.php`), for every kind.
 - The sitemap's change date is the post's modified time, which WordPress sets on every write; a
   write happens only when the content changed (question 43). The CRM's own change time is in the
   record for the templates.

@@ -67,10 +67,10 @@ describe('the WordPress client', () => {
 
       const byId = await at('P-1');
       expect(byId.status).toBe(301);
-      expect(byId.headers.get('location')).toContain('polling-acme-p-1');
+      expect(byId.headers.get('location')).toContain('kungsgatan-p-1-p-1');
       const oldSlug = await at('storgatan-1-P-1');
       expect(oldSlug.status).toBe(301);
-      expect(oldSlug.headers.get('location')).toContain('polling-acme-p-1');
+      expect(oldSlug.headers.get('location')).toContain('kungsgatan-p-1-p-1');
       const gone = await at('P-9');
       expect(gone.status).toBe(301);
       expect(gone.headers.get('location')).toContain('post_type=core_property');

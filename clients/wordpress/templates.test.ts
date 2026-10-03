@@ -673,6 +673,31 @@ describe('the plugin’s set machinery, with a set plugin', () => {
     }
   });
 
+  it('names every page the way norbanmakleri.se does, ending in the id, and answers an id alone with 301 for every kind (101)', async () => {
+    // The test site has plain permalinks, so the slug shows as the kind's query var; on a site
+    // with pretty permalinks the same slug sits under the kind's path (/objekt/, /maklare/, ...).
+    // Property: the site's list word for the status, then city, area, street, id; the others: name, id.
+    expect(await permalink('property', 'P-3')).toBe(
+      '/?core_property=kommande-stockholm-vasastan-kungsgatan-3-p-3',
+    );
+    expect(await permalink('property', 'P-1')).toBe(
+      '/?core_property=till-salu-stockholm-vasastan-kungsgatan-1-p-1',
+    );
+    expect(await permalink('property', 'P-5')).toBe(
+      '/?core_property=sold-stockholm-vasastan-kungsgatan-5-p-5',
+    );
+    expect(await permalink('agent', 'S-1')).toBe('/?core_agent=anna-andersson-s-1');
+    expect(await permalink('office', 'B-1')).toBe('/?core_office=kowboy-makleri-b-1');
+    expect(await permalink('area', 'D-1')).toBe('/?core_area=vasastan-d-1');
+    expect(await permalink('association', 'A-1')).toBe('/?core_association=brf-solgarden-a-1');
+    // An agent by id alone, and by a slug from before a name change: 301 to the current page.
+    for (const name of ['S-1', 'anna-svensson-S-1']) {
+      const response = await fetch(`${siteUrl}/?core_agent=${name}`, { redirect: 'manual' });
+      expect(response.status).toBe(301);
+      expect(response.headers.get('location')).toContain('core_agent=anna-andersson-s-1');
+    }
+  });
+
   it('shows a record’s JSON to anyone on ?debugpl', async () => {
     const path = await permalink('property', 'P-3');
     const debug = `${path}${path.includes('?') ? '&' : '?'}debugpl`;
