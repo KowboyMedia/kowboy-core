@@ -81,21 +81,34 @@ or `wp action-scheduler run`.
   fires what cache plugins listen for (`save_post`, `transition_post_status`, `clean_post_cache`,
   `deleted_post`), and the plugin adds `core_item_updated($post_id, $datatype)` and
   `core_item_deleted($post_id, $datatype)` for anything that wants the item itself.
+- The admin lists every kind of record under one menu, Kowboy Estates, with the settings as its
+  last item. The records are the sync's: a row opens as its page (View) or its data (Data,
+  `?debugpl`), and nothing adds, edits or deletes one from the admin. The settings page's
+  Publishing section turns each kind on or off for the site: off, its pages answer 404, its
+  archive is gone and every list of it is empty, while the local copy and the sync go on.
 - The index table `wp_core_index` answers which post holds an item and its hash, and carries the
   search columns every list query reads: copies of universal names (`status.id`, `type.id`,
   `tenure.id`, `price`, `living_space`, `rooms`, the area name, city and street, `project_id`,
   the agent ids, `published_at`, `sold_at`, a name to sort by, the office ids of an agent, the
-  area id, and `listed`: 0 for an agent the CRM keeps out of the staff list on the record or on
+  area id, the association id, and `listed`: 0 for an agent the CRM keeps out of the staff list on the record or on
   any office, the site's one rule over the data), filled on every write.
 
 ## Templates: the query function, the list function, the sets
 
+One parameter set runs through three layers that hand it on untouched: the endpoint
+`GET /wp-json/core/v1/list?<the parameter set>` calls `core_client_list($params)` (the
+shortcode `[core_list <the parameter set>]` calls the same), which renders the cards of
+`core_client_query($params)`, which reads the index. Every parameter is read in that last
+function and nowhere else, so a parameter the query knows works from the endpoint, the
+shortcode, a view and a block alike.
+
 **The query function.** `core_client_query(array $params)` takes one parameter set and answers
 one page: `items` (post id and item each), `total`, `has_more`, `page`, `per_page`. Parameters:
 `entity`; `status`, `type`, `tenure` (ids, comma-separated; for `status` the names `for_sale`,
-`coming` and `sold` stand for the ids the site named in its settings); `max_price`,
-`min_living_space`, `min_rooms`; `area` (free text against area name, city and street);
-`agent`, `office`, `project`, `area_id`; `include_project_homes` (a property that names a project
+`coming` and `sold` stand for the ids the site named in its settings); `min_price`, `max_price`,
+`min_living_space`, `max_living_space`, `min_rooms`; `area` (free text against area name, city
+and street); `agent`, `office`, `project`, `area_id`, `association` (the id of the record the
+items belong to); `include_project_homes` (a property that names a project
 is otherwise kept out of every list but its project's, question 55); `include_hidden` (an agent
 the CRM keeps out of the staff list is otherwise kept out of every list, while a page that names
 the agent, such as a home's card, shows them; Patric, 2026-10-03); `sort` (`newest`, `sold`,

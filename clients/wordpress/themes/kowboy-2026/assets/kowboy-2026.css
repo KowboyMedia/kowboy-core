@@ -1807,6 +1807,17 @@ iframe.k-hero__video {
   margin: 12px 0 24px;
   color: var(--k-secondary);
 }
+/* An association's page: its rows as a fact table, its documents as the list on a home's page. */
+.k-association__rows {
+  margin-top: 24px;
+  border-radius: var(--k-radius);
+}
+.k-association .k-heading {
+  margin-top: 32px;
+}
+.k-association__docs {
+  padding-left: 0;
+}
 .k-area--page {
   padding-block: 72px 0;
 }

@@ -14,10 +14,10 @@ const CORE_CLIENT_PER_PAGE = 10;
  *   status          ids, comma-separated or a list: `status.id` in; `for_sale`, `coming` and `sold`
  *                   stand for the ids the site named on its settings page (core_client_statuses)
  *   type, tenure    ids the same way: `type.id`, `tenure.id` in
- *   max_price       price at most this
- *   min_living_space, min_rooms   at least this
+ *   max_price, max_living_space   at most this
+ *   min_price, min_living_space, min_rooms   at least this
  *   area            free text against the area name, the city and the street
- *   agent, office, project, area_id   the id of the agent, office, project or area the items belong to
+ *   agent, office, project, area_id, association   the id of the agent, office, project, area or association the items belong to
  *   include_project_homes         properties that name a project are otherwise kept out (question 55)
  *   include_hidden                agents the CRM keeps out of the staff list (on the record or an office) are otherwise kept out
  *   sort            newest (default for properties), sold, price_asc, price_desc, updated, name (default
@@ -43,7 +43,7 @@ function core_client_query(array $params): array
             array_push($args, ...$values);
         }
     }
-    foreach (['max_price' => 'i.price <= %f', 'min_living_space' => 'i.living_space >= %f', 'min_rooms' => 'i.rooms >= %f'] as $param => $clause) {
+    foreach (['max_price' => 'i.price <= %f', 'min_price' => 'i.price >= %f', 'max_living_space' => 'i.living_space <= %f', 'min_living_space' => 'i.living_space >= %f', 'min_rooms' => 'i.rooms >= %f'] as $param => $clause) {
         $value = $params[$param] ?? null;
         if (is_numeric($value) && (float) $value > 0) {
             $where[] = $clause;
@@ -74,6 +74,11 @@ function core_client_query(array $params): array
         $where[] = 'i.area_id = %s';
         $args[] = $area_id;
     }
+    $association = trim((string) ($params['association'] ?? ''));
+    if ($association !== '') {
+        $where[] = 'i.association_id = %s';
+        $args[] = $association;
+    }
     $project = trim((string) ($params['project'] ?? ''));
     if ($project !== '') {
         $where[] = 'i.project_id = %s';
@@ -83,6 +88,10 @@ function core_client_query(array $params): array
     }
     if (empty($params['include_hidden'])) {
         $where[] = 'i.listed = 1';
+    }
+    // A datatype the site does not publish (the settings page) lists nothing.
+    if (!core_client_published($entity)) {
+        $where[] = '1 = 0';
     }
 
     $per_page = max(1, (int) ($params['per_page'] ?? CORE_CLIENT_PER_PAGE));

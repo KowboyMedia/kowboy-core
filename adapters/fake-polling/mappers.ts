@@ -216,5 +216,35 @@ export const mappers: Mappers = {
   office,
   agent,
   area: namedRecord('district_id', 'district_name', { polygon: null, images: [] }),
-  association: namedRecord('coop_id', 'coop_name', { contact: null }),
+  association: (raw: unknown): MappedRecord => {
+    const record = raw as Raw;
+    const base = namedRecord('coop_id', 'coop_name', { contact: null })(raw);
+    // The association's texts, numbers and documents as the office writes them, for a site's association page.
+    return {
+      ...base,
+      data: {
+        ...base.data,
+        contact:
+          typeof record['contact'] === 'object' && record['contact'] ? record['contact'] : null,
+        organizational_form: text(record['form']),
+        corporate_number: text(record['corporate_number']),
+        home_page: text(record['home_page']),
+        number_of_apartments: number(record['apartments']),
+        descriptions:
+          typeof record['descriptions'] === 'object' && record['descriptions']
+            ? record['descriptions']
+            : null,
+        economy:
+          typeof record['economy'] === 'object' && record['economy'] ? record['economy'] : null,
+        documents: (Array.isArray(record['documents']) ? record['documents'] : []).map((value) => ({
+          id: null,
+          name: text((value as Raw)['name']),
+          extension: null,
+          category: null,
+          url: text((value as Raw)['url']),
+          changed_at: null,
+        })),
+      },
+    };
+  },
 };

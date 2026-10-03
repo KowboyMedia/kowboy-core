@@ -6,6 +6,17 @@
 
 declare(strict_types=1);
 
+// A kind of record the site does not publish (the settings page) answers 404, page and archive alike.
+add_action('template_redirect', function (): void {
+    $type = is_singular() || is_post_type_archive() ? (string) (is_singular() ? get_post_type() : get_query_var('post_type')) : '';
+    if (str_starts_with($type, 'core_') && !core_client_published(substr($type, 5))) {
+        global $wp_query;
+        $wp_query->set_404();
+        status_header(404);
+        nocache_headers();
+    }
+}, 5);
+
 add_action('template_redirect', function (): void {
     if (!is_404()) {
         return;

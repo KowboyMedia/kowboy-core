@@ -27,8 +27,16 @@ add_action('admin_init', function (): void {
     }
 });
 
+add_action('admin_init', function (): void {
+    foreach (core_client_datatypes() as $datatype) {
+        register_setting('core_client', "core_client_publish_$datatype", ['type' => 'string', 'sanitize_callback' => fn (mixed $value): string => (string) $value === '0' ? '0' : '1']);
+    }
+});
+
+// One menu, Kowboy Estates, holds every post type (store.php: `show_in_menu`) and the settings (Patric, 2026-10-03).
 add_action('admin_menu', function (): void {
-    add_options_page('Kowboy Core', 'Kowboy Core', 'manage_options', 'core-client', 'core_client_settings_page');
+    add_menu_page('Kowboy Estates', 'Kowboy Estates', 'edit_posts', 'core-client', 'core_client_settings_page', 'dashicons-admin-multisite', 25);
+    add_submenu_page('core-client', 'Settings', 'Settings', 'manage_options', 'core-client', 'core_client_settings_page');
 });
 
 /**
@@ -65,6 +73,9 @@ add_action('admin_notices', function (): void {
 
 function core_client_settings_page(): void
 {
+    if (!current_user_can('manage_options')) {
+        wp_die('Sorry, you are not allowed to manage these settings.');
+    }
     $status = core_client_status();
     $sets = core_client_template_sets();
     $chosen = core_client_template_set();
@@ -119,6 +130,23 @@ function core_client_settings_page(): void
                             <?php if ($list === 'for_sale') : ?><p class="description">The CRM's status ids (<code>status.id</code> on a record) this site lists as for sale, as coming and as sold. The templates ask for <code>for_sale</code>, <code>coming</code> and <code>sold</code> and get these.</p><?php endif; ?></td>
                     </tr>
                 <?php endforeach; ?>
+            </table>
+
+            <h2>Publishing</h2>
+            <p class="description">What the site shows of each kind of record. Off, its pages answer 404, its archive is gone and every list of it is empty; the local copy and the sync go on as before.</p>
+            <table class="form-table" role="presentation">
+                <?php foreach (core_client_datatypes() as $datatype) : ?>
+                    <tr>
+                        <th scope="row"><label for="core_client_publish_<?php echo esc_attr($datatype); ?>"><?php echo esc_html(core_client_datatype_label($datatype)); ?></label></th>
+                        <td><select id="core_client_publish_<?php echo esc_attr($datatype); ?>" name="core_client_publish_<?php echo esc_attr($datatype); ?>">
+                                <option value="1" <?php selected(core_client_published($datatype)); ?>>Published</option>
+                                <option value="0" <?php selected(!core_client_published($datatype)); ?>>Not published</option>
+                            </select></td>
+                    </tr>
+                <?php endforeach; ?>
+            </table>
+
+            <table class="form-table" role="presentation">
                 <tr>
                     <th scope="row">Shadow DOM</th>
                     <td><label><input type="checkbox" name="core_client_shadow_dom" value="1" <?php checked(core_client_shadow_dom()); ?>>

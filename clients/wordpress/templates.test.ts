@@ -132,6 +132,23 @@ beforeAll(async () => {
     visible: true,
     office_visible: false,
   });
+  crm.put('association', 'A-1', {
+    coop_id: 'A-1',
+    coop_name: 'Brf Solgården',
+    form: 'Bostadsrättsförening',
+    corporate_number: '769600-1234',
+    home_page: 'https://brfsolgarden.test/',
+    apartments: 48,
+    contact: {
+      name: 'Styrelsen',
+      phone: '08-123 45 67',
+      mobile: null,
+      email: 'info@brfsolgarden.test',
+    },
+    descriptions: { general_about_association: 'En trevlig förening.' },
+    economy: { finances: 'God ekonomi.' },
+    documents: [{ name: 'Stadgar', url: 'https://docs.test/stadgar.pdf' }],
+  });
   crm.put('area', 'D-1', { district_id: 'D-1', district_name: 'Vasastan', branch_id: 'B-1' });
   crm.put('property', 'P-1', listing('P-1', { price: 7_250_000, rooms: 3, living_space: 82 }));
   crm.put(
@@ -153,6 +170,7 @@ beforeAll(async () => {
     listing('P-3', {
       stage: 'pre',
       stage_label: 'Kommande',
+      coop_id: 'A-1',
       price: 5_000_000,
       rooms: 4,
       living_space: 110,
@@ -370,7 +388,8 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('<figcaption>Plan 2</figcaption>');
     // The documents and the links as one list with an icon each, the duplicated address once.
     expect(body).toContain('>Dokument och länkar<');
-    expect(body.match(/class="k-docs__item"/g)).toHaveLength(3);
+    expect(body.match(/class="k-docs__item"/g)).toHaveLength(4); // the home's one document and the association's, and the two links
+    expect(body).toContain('<span class="k-docs__name">Stadgar</span>');
     expect(body).toContain(
       'href="https://docs.test/arsredovisning.pdf" target="_blank" rel="noopener"><svg class="k-docs__icon"',
     );
@@ -410,6 +429,72 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('<p class="k-label">Om bostaden</p>');
     expect(body).toContain('Ansvarig mäklare');
     expect(body).not.toContain('Kontakta även');
+  });
+
+  it('renders an association page with its rows, documents and homes, and answers the list parameters', async () => {
+    const association = await page(await permalink('association', 'A-1'));
+    expect(association.status).toBe(200);
+    expect(association.body).toContain('<h1 class="k-section__title">Brf Solgården</h1>');
+    expect(association.body).toContain('<p class="k-label">Bostadsrättsförening</p>');
+    expect(association.body).toContain(
+      '<dt>Allmänt om föreningen</dt><dd>En trevlig förening.</dd>',
+    );
+    expect(association.body).toContain('<dt>Organisationsnummer</dt><dd>769600-1234</dd>');
+    expect(association.body).toContain('href="https://docs.test/stadgar.pdf"');
+    expect(association.body).toContain('href="mailto:info@brfsolgarden.test"');
+    // Its homes: P-3 names the association, no other home does.
+    expect(association.body).toContain('Bostäder i Brf Solgården');
+    expect(association.body.match(/<article class="k-card/g)).toHaveLength(1);
+    expect(association.body).toContain('Kungsgatan 3');
+    // The home's page keeps the association's rows.
+    expect((await page(await permalink('property', 'P-3'))).body).toContain(
+      '<dt>Namn</dt><dd>Brf Solgården</dd>',
+    );
+    // The parameters a list takes, through the endpoint that hands them on untouched: association, office, min and max price, min and max living space.
+    const all = await reload({ entity: 'property', status: 'active,pre' });
+    expect(
+      (await reload({ entity: 'property', status: 'active,pre', association: 'A-1' })).total,
+    ).toBe(1);
+    expect((await reload({ entity: 'property', status: 'active,pre', office: 'B-1' })).total).toBe(
+      all.total,
+    );
+    const cheap = await reload({ entity: 'property', status: 'active,pre', max_price: '5000000' });
+    const dear = await reload({ entity: 'property', status: 'active,pre', min_price: '5000001' });
+    expect(cheap.total + dear.total).toBe(all.total);
+    expect(cheap.total).toBeGreaterThan(0);
+    expect(dear.total).toBeGreaterThan(0);
+    const exact = await reload({
+      entity: 'property',
+      status: 'active,pre',
+      min_living_space: '82',
+      max_living_space: '82',
+    });
+    expect(exact.total).toBeGreaterThan(0);
+    expect(exact.total).toBeLessThan(all.total);
+    expect(exact.html).toContain('82');
+  });
+
+  it('keeps a kind of record off the site when its publishing is off, and lists it read-only under one menu', async () => {
+    const area = await permalink('area', 'D-1');
+    expect((await page(area)).status).toBe(200);
+    await driver('option', 'core_client_publish_area "0"');
+    try {
+      expect((await page(area)).status).toBe(404);
+      expect((await reload({ entity: 'area' })).total).toBe(0);
+      expect((await page('/?post_type=core_area')).status).toBe(404);
+    } finally {
+      await driver('option', 'core_client_publish_area null');
+    }
+    expect((await page(area)).status).toBe(200);
+    // The post types: no adding, editing or deleting from the admin, all under the Kowboy Estates menu.
+    const { stdout } = await wp(
+      'eval',
+      'echo json_encode(array_map(fn ($type) => [$type->label, $type->show_in_menu, $type->cap->create_posts, $type->cap->edit_post, $type->cap->delete_post], array_map("get_post_type_object", ["core_property", "core_association"])));',
+    );
+    expect(JSON.parse(stdout.trim())).toEqual([
+      ['Properties', 'core-client', 'do_not_allow', 'do_not_allow', 'do_not_allow'],
+      ['Associations', 'core-client', 'do_not_allow', 'do_not_allow', 'do_not_allow'],
+    ]);
   });
 
   it('renders agent, office and area pages with their lists inside the same view', async () => {

@@ -39,20 +39,66 @@ function core_client_state_table(): string
     return $wpdb->prefix . 'core_sync_state';
 }
 
-/** One post type per datatype, under its Swedish path. Called on `init`, and by the activation hook before it flushes the rewrite rules. */
+/** The admin's name for a datatype (the menu, the list tables). */
+function core_client_datatype_label(string $datatype): string
+{
+    return ['property' => 'Properties', 'office' => 'Offices', 'project' => 'Projects', 'association' => 'Associations', 'agent' => 'Agents', 'area' => 'Areas'][$datatype] ?? ucfirst($datatype);
+}
+
+/**
+ * Whether the site publishes a datatype (the settings page, Patric 2026-10-03): off, its pages
+ * answer 404, its archive is gone and every list of it is empty, while the local copy stays.
+ */
+function core_client_published(string $datatype): bool
+{
+    return (string) get_option("core_client_publish_$datatype", '1') !== '0';
+}
+
+/**
+ * One post type per datatype, under its Swedish path, listed under the Kowboy Estates menu. The
+ * posts are the sync's: the admin can open and look (the page, the record's data), never add,
+ * edit or delete one (Patric, 2026-10-03). Called on `init`, and by the activation hook before it
+ * flushes the rewrite rules.
+ */
 function core_client_register_post_types(): void
 {
     foreach (core_client_datatypes() as $datatype) {
+        // An unpublished datatype keeps its routes (routing.php answers 404 for them, so the request
+        // never falls through to the home page) and leaves the search.
         register_post_type(core_client_post_type($datatype), [
-            'label' => ucfirst($datatype),
+            'label' => core_client_datatype_label($datatype),
+            'labels' => ['name' => core_client_datatype_label($datatype), 'singular_name' => ucfirst($datatype)],
             'public' => true,
             'has_archive' => true,
+            'exclude_from_search' => !core_client_published($datatype),
+            'show_ui' => true,
+            'show_in_menu' => 'core-client',
             'rewrite' => ['slug' => core_client_path($datatype)],
             'supports' => ['title'],
             'show_in_rest' => false,
+            'map_meta_cap' => true,
+            'capabilities' => [
+                'create_posts' => 'do_not_allow',
+                'edit_post' => 'do_not_allow',
+                'delete_post' => 'do_not_allow',
+                'delete_posts' => 'do_not_allow',
+                'publish_posts' => 'do_not_allow',
+            ],
         ]);
     }
 }
+
+/** The list tables' row actions: the page and the record's data (`?debugpl`), nothing that writes. */
+add_filter('post_row_actions', function (array $actions, WP_Post $post): array {
+    if (!str_starts_with($post->post_type, 'core_')) {
+        return $actions;
+    }
+    $link = (string) get_permalink($post);
+    return [
+        'view' => '<a href="' . esc_url($link) . '">View</a>',
+        'data' => '<a href="' . esc_url(add_query_arg('debugpl', '', $link)) . '">Data</a>',
+    ];
+}, 10, 2);
 
 add_action('init', function (): void {
     core_client_register_post_types();
@@ -96,6 +142,7 @@ function core_client_install(): void
         office_ids text DEFAULT NULL,
         area_id varchar(191) DEFAULT NULL,
         listed tinyint(1) NOT NULL DEFAULT 1,
+        association_id varchar(191) DEFAULT NULL,
         PRIMARY KEY  (post_id),
         UNIQUE KEY item (datatype, connection_id, remote_id),
         KEY listing (datatype, status_id, published_at),
@@ -309,6 +356,7 @@ function core_client_search_columns(object $data): array
         'office_ids' => $ids($data->office_ids ?? null),
         'area_id' => $text($address->area_id ?? null),
         'listed' => $listed($data),
+        'association_id' => $text($data->association_id ?? null),
     ];
 }
 
