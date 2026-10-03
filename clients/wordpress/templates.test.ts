@@ -146,6 +146,17 @@ beforeAll(async () => {
         'https://img.test/P-3-1_1920.jpg',
         'https://img.test/P-3-2_1920.jpg',
         { url: 'https://img.test/P-3-plan_1920.jpg', category: 'Planritning' },
+        {
+          url: 'https://img.test/P-3-plan2_1920.jpg',
+          category: 'Planritning',
+          description: 'Plan 2',
+        },
+      ],
+      documents: [{ name: 'Årsredovisning 2025', url: 'https://docs.test/arsredovisning.pdf' }],
+      links: [
+        { name: 'Föreningens hemsida', url: 'https://brf.test/' },
+        { name: 'Hemsidan igen', url: 'https://brf.test/' },
+        { name: 'Energideklaration', url: 'https://docs.test/energi.pdf' },
       ],
       bidding_active: true,
       bids: [
@@ -330,8 +341,23 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('data-hero-slider data-hero-swipe');
     expect(body.match(/class="swiper-slide k-hero__slide" data-index="/g)).toHaveLength(2);
     expect(body).toContain(
-      '&quot;https://img.test/P-3-2_1920.jpg&quot;,&quot;https://img.test/P-3-plan_1920.jpg&quot;]',
+      '&quot;https://img.test/P-3-2_1920.jpg&quot;,&quot;https://img.test/P-3-plan_1920.jpg&quot;,&quot;https://img.test/P-3-plan2_1920.jpg&quot;]',
     );
+    // Two plans slide with dots, each file in every CDN width so a dense screen gets a sharp one.
+    expect(body).toContain('<div class="swiper k-plan__slider" data-plan-slider');
+    expect(body.match(/class="k-plan__figure swiper-slide"/g)).toHaveLength(2);
+    expect(body).toContain('class="swiper-pagination k-plan__dots"');
+    expect(body).toContain('srcset="https://img.test/P-3-plan2_480.jpg 480w');
+    expect(body).toContain('<figcaption>Plan 2</figcaption>');
+    // The documents and the links as one list with an icon each, the duplicated address once.
+    expect(body).toContain('>Dokument och länkar<');
+    expect(body.match(/class="k-docs__item"/g)).toHaveLength(3);
+    expect(body).toContain(
+      'href="https://docs.test/arsredovisning.pdf" target="_blank" rel="noopener"><svg class="k-docs__icon"',
+    );
+    expect(body).toContain('<span class="k-docs__name">Föreningens hemsida</span>');
+    expect(body).not.toContain('Hemsidan igen');
+    expect(body).not.toContain('>Dokument<');
     expect(body).toContain('data-images="[&quot;https://img.test/P-3-1_1920.jpg&quot;');
     expect(body).toContain('data-lightbox="1"');
     // The page title and the sharing tags, as the master site carries them.
@@ -345,7 +371,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('class="k-gallery__item');
     // The phone's full-height photo slider before the grid, every photo a slide, and the hero's files sized for a portrait screen.
     expect(body).toContain('<div class="swiper k-photos" data-photo-slider');
-    expect(body.match(/class="swiper-slide k-photos__slide"/g)).toHaveLength(3);
+    expect(body.match(/class="swiper-slide k-photos__slide"/g)).toHaveLength(4);
     expect(body).toContain('sizes="(max-width: 767px) 250vw, 100vw"');
     expect(body).toContain('data-map data-lat="');
     // The interest form is a dummy that names the listing (question 105 open): it posts nowhere.
@@ -507,27 +533,12 @@ describe('the plugin’s set machinery, with a set plugin', () => {
     }
   });
 
-  it('shows a record’s JSON to a signed-in editor on ?debugpl, and the page to everyone else', async () => {
+  it('shows a record’s JSON to anyone on ?debugpl', async () => {
     const path = await permalink('property', 'P-3');
     const debug = `${path}${path.includes('?') ? '&' : '?'}debugpl`;
-    const anonymous = await fetch(`${siteUrl}${debug}`);
-    expect(anonymous.status).toBe(200);
-    expect(anonymous.headers.get('content-type')).toContain('text/html');
-    // Sign in as the install's admin, the way a browser does, and read the page with the cookies.
-    await wp('user', 'update', 'admin', '--user_pass=debugpl-test', '--skip-email');
-    const login = await fetch(`${siteUrl}/wp-login.php`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ log: 'admin', pwd: 'debugpl-test', testcookie: '1' }),
-      redirect: 'manual',
-    });
-    const cookies = login.headers
-      .getSetCookie()
-      .map((line) => line.split(';')[0]!)
-      .join('; ');
-    expect(cookies).toContain('wordpress_logged_in');
-    // Plain JSON under its own media type (Patric, 2026-10-03): the browser shows it itself.
-    const response = await fetch(`${siteUrl}${debug}`, { headers: { cookie: cookies } });
+    // Plain JSON under its own media type, without a sign-in (Patric, 2026-10-03): the browser shows it itself.
+    const response = await fetch(`${siteUrl}${debug}`);
+    expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('application/json');
     const json = (await response.json()) as {
       item: { address: { street: string } };

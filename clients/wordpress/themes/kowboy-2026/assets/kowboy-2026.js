@@ -46,6 +46,15 @@
     return new window.Swiper(container, options);
   }
 
+  /** A property's floor plans, when it has several: one a slide, the slider as tall as the plan shown, with dots. */
+  function setupPlanSlider(container) {
+    swiper(container, {
+      autoHeight: true,
+      speed: 500,
+      pagination: { el: container.querySelector('.swiper-pagination'), clickable: true },
+    });
+  }
+
   /** A card's photos: swipeable, with dots; a plain click on a photo (no swipe) follows the card's link. */
   function setupCardSlider(container) {
     var card = container.closest('[data-card-url]');
@@ -368,6 +377,7 @@
   function setup() {
     each('[data-menu-toggle]', setupMenu);
     each('[data-card-slider]', setupCardSlider);
+    each('[data-plan-slider]', setupPlanSlider);
     each('[data-hero-slider]', setupHeroSlider);
     each('[data-testimonials]', setupTestimonials);
     each('[data-list]', setupList);

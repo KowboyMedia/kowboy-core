@@ -108,18 +108,39 @@ if ($association !== null) {
         $sections[] = ['header' => 'Föreningen', 'items' => array_map(fn ($label, $value) => ['label' => (string) $label, 'value' => (string) $value], array_keys($rows), $rows)];
     }
 }
-// The documents the CRM lists on the home and on its association, read from both and deduplicated by name
-// (question 94, Patric 2026-10-03), each opened from the address Core carries.
-$documents = [];
-foreach (array_merge(is_array($item['documents'] ?? null) ? $item['documents'] : [], is_array($association['documents'] ?? null) ? $association['documents'] : []) as $document) {
-    $name = is_string($document['name'] ?? null) ? trim($document['name']) : '';
-    if ($name === '' || !is_string($document['url'] ?? null) || isset($documents[mb_strtolower($name)])) {
-        continue;
+// The documents and the links the CRM lists on the home and on its association, read from both
+// and deduplicated by address, then by name (question 94, Patric 2026-10-03), each opened from the
+// address Core carries, as one list with an icon per kind (Patric, 2026-10-03: "Dokument och länkar").
+$resources = [];
+$seen = [];
+foreach ([
+    ['document', is_array($item['documents'] ?? null) ? $item['documents'] : []],
+    ['document', is_array($association['documents'] ?? null) ? $association['documents'] : []],
+    ['link', is_array($item['links'] ?? null) ? $item['links'] : []],
+    ['link', is_array($association['links'] ?? null) ? $association['links'] : []],
+] as [$kind, $entries]) {
+    foreach ($entries as $entry) {
+        $name = is_string($entry['name'] ?? null) ? trim($entry['name']) : '';
+        $url = is_string($entry['url'] ?? null) ? trim($entry['url']) : '';
+        $key = $url !== '' ? 'url:' . mb_strtolower($url) : 'name:' . $kind . ':' . mb_strtolower($name);
+        if ($url === '' || isset($seen[$key]) || isset($seen['name:' . $kind . ':' . mb_strtolower($name)])) {
+            continue;
+        }
+        $seen[$key] = true;
+        $seen['name:' . $kind . ':' . mb_strtolower($name)] = true;
+        $resources[] = ['kind' => $kind, 'name' => $name !== '' ? $name : $url, 'url' => $url];
     }
-    $documents[mb_strtolower($name)] = ['name' => $name, 'url' => $document['url']];
 }
-if ($documents !== [] && !$sold) {
-    $sections[] = ['header' => 'Dokument', 'items' => array_values(array_map(fn (array $document): array => ['label' => $document['name'], 'value' => '<a href="' . esc_url($document['url']) . '" target="_blank" rel="noopener">Öppna</a>', 'html' => true], $documents))];
+$resources_html = '';
+if ($resources !== [] && !$sold) {
+    $icons = [
+        'document' => '<svg class="k-docs__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>',
+        'link' => '<svg class="k-docs__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>',
+    ];
+    foreach ($resources as $resource) {
+        $resources_html .= '<li class="k-docs__item"><a class="k-docs__link" href="' . esc_url($resource['url']) . '" target="_blank" rel="noopener">' . $icons[$resource['kind']] . '<span class="k-docs__name">' . esc_html($resource['name']) . '</span></a></li>';
+    }
+    $resources_html = '<ul class="k-docs">' . $resources_html . '</ul>';
 }
 
 $area = core_client_items('area', is_array($item['area_ids'] ?? null) ? $item['area_ids'] : [])[0]['item'] ?? null;
@@ -159,10 +180,13 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
             <?php if ($plans !== []) : ?>
                 <div class="k-plan">
                     <h2 class="k-heading">Planlösning</h2>
+                    <?php // Several plans slide, with dots (Patric, 2026-10-03); the files follow the screen's density like every image (srcset). ?>
+                    <?php if (count($plans) > 1) : ?><div class="swiper k-plan__slider" data-plan-slider aria-label="Planlösningar"><div class="swiper-wrapper"><?php endif; ?>
                     <?php foreach ($plans as $plan) : ?>
-                        <figure class="k-plan__figure"><?php echo kowboy_image($plan, '(min-width: 1024px) 780px, 100vw', 'Planlösning ' . $street, ['class' => 'k-plan__image']); ?>
+                        <figure class="k-plan__figure<?php echo count($plans) > 1 ? ' swiper-slide' : ''; ?>"><?php echo kowboy_image($plan, '(min-width: 1024px) 780px, 100vw', 'Planlösning ' . $street, ['class' => 'k-plan__image']); ?>
                             <?php if (is_string($plan['description'] ?? null) && $plan['description'] !== '') : ?><figcaption><?php echo esc_html($plan['description']); ?></figcaption><?php endif; ?></figure>
                     <?php endforeach; ?>
+                    <?php if (count($plans) > 1) : ?></div><div class="swiper-pagination k-plan__dots"></div></div><?php endif; ?>
                 </div>
             <?php endif; ?>
         </div>
@@ -236,6 +260,9 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
             $rows .= '<div class="k-kv__row"><dt>' . esc_html((string) ($row['label'] ?? '')) . '</dt><dd>' . (!empty($row['html']) ? wp_kses_post((string) $row['value']) : esc_html((string) ($row['value'] ?? ''))) . '</dd></div>';
         }
         $tables[] = ['label' => (string) ($section['header'] ?? ''), 'html' => '<dl class="k-kv">' . $rows . '</dl>'];
+    }
+    if ($resources_html !== '') {
+        $tables[] = ['label' => 'Dokument och länkar', 'html' => $resources_html];
     }
     ?>
     <?php if ($tables !== []) : ?>

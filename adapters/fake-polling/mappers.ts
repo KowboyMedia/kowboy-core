@@ -28,7 +28,7 @@ const image = (value: unknown, order: number): Raw => ({
   url: typeof value === 'string' ? value : String((value as Raw)['url'] ?? ''),
   category: typeof value === 'string' ? null : text((value as Raw)['category']),
   name: null,
-  description: null,
+  description: typeof value === 'string' ? null : text((value as Raw)['description']),
   extension: 'jpg',
   changed_at: null,
   order,
@@ -79,6 +79,20 @@ const property = (raw: unknown): MappedRecord => {
       additional_space: null,
       rooms: number(record['rooms']),
       buildings: [],
+      // The documents and the links the office lists for the website: `{name, url}` records.
+      documents: (Array.isArray(record['documents']) ? record['documents'] : []).map((value) => ({
+        id: null,
+        name: text((value as Raw)['name']),
+        extension: null,
+        category: null,
+        url: text((value as Raw)['url']),
+        changed_at: null,
+      })),
+      links: (Array.isArray(record['links']) ? record['links'] : []).map((value) => ({
+        name: text((value as Raw)['name']),
+        category: null,
+        url: text((value as Raw)['url']),
+      })),
       images: (Array.isArray(record['images']) ? record['images'] : []).map((value, index) =>
         image(value, index + 1),
       ),

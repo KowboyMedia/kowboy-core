@@ -1288,6 +1288,31 @@ iframe.k-hero__video {
   max-width: 100%;
   height: auto;
 }
+.k-plan__slider {
+  margin-top: 16px;
+}
+.k-plan__slider .k-plan__figure {
+  margin-top: 0;
+  padding-bottom: 28px;
+}
+.k-plan__dots {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  line-height: 0;
+}
+.k-plan .swiper-pagination-bullet {
+  width: 8px;
+  height: 8px;
+  margin: 0 4px !important;
+  background: var(--k-ink);
+  opacity: 0.25;
+}
+.k-plan .swiper-pagination-bullet-active {
+  opacity: 1;
+}
 .k-plan figcaption {
   margin-top: 8px;
   font-size: var(--k-label-size);
@@ -1597,6 +1622,33 @@ iframe.k-hero__video {
 .k-kv dd {
   margin: 0;
   white-space: pre-line;
+}
+/* The documents and links: one line each with an icon, no dividers. */
+.k-docs {
+  list-style: none;
+  margin: 0;
+  padding: 8px 16px 16px;
+  display: grid;
+  gap: 4px;
+}
+.k-docs__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--k-ink);
+  text-decoration: none;
+}
+.k-docs__link:hover .k-docs__name {
+  text-decoration: underline;
+}
+.k-docs__icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: var(--k-secondary);
 }
 .k-accordion__inner > .k-prose {
   padding: 8px 16px 16px;

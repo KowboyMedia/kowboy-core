@@ -130,8 +130,7 @@ values and plain markup below.
 **Looking at a record's data.** `?debugpl` on any record's page (a property, an agent, an
 office, an area, a project, an association) answers the record as the local copy holds it, as
 plain JSON (`application/json`, the browser shows it): `item` (the universal record with
-`display`) and `raw` (the CRM's payload). For signed-in users who may edit the site, since the
-payload may hold what the page does not show.
+`display`) and `raw` (the CRM's payload), for everyone, signed in or not.
 
 ## Safe update
 
