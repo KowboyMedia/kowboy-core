@@ -781,7 +781,7 @@ iframe.k-hero__video {
   height: 6px;
   margin: 0 4px !important;
   background: var(--k-white);
-  opacity: 0.3;
+  opacity: 0.55;
 }
 .k-card .swiper-pagination-bullet-active {
   opacity: 1;
@@ -1252,6 +1252,11 @@ iframe.k-hero__video {
   gap: 40px;
   padding-block: 40px;
 }
+/* A grid column shrinks below its content (a slider's row of slides would otherwise widen it without end). */
+.k-property__main,
+.k-property__aside {
+  min-width: 0;
+}
 .k-property__text {
   margin-top: 14px;
   color: var(--k-ink);
@@ -1289,7 +1294,11 @@ iframe.k-hero__video {
   height: auto;
 }
 .k-plan__slider {
+  width: 100%;
   margin-top: 16px;
+}
+.k-plan__slider .k-plan__image {
+  width: 100%;
 }
 .k-plan__slider .k-plan__figure {
   margin-top: 0;
