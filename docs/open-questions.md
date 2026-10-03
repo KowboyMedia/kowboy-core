@@ -4,10 +4,19 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 123 (116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 124 (116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 123. `[crm-vitec]` A whole-day viewing: what the CRM sends, so the page shows no time
+
+- 2026-10-03 · Patric's list says a viewing has an "entire day" flag that hides the time. Vitec's
+  viewing carries `id`, `startsAt`, `endsAt`, `comment`, `isDigital`, `isSelfRegistrationEnabled`
+  and `isProjectViewing` (field tables, `viewings[]`); no such flag. The page now treats a viewing
+  from midnight to midnight, or starting at midnight without an end, as a whole day and shows the
+  date alone. Blocked: nothing; a whole-day viewing with other times would show those times.
+- Smaller option: keep the midnight rule (a). Else: name the field (b), and the adapter maps it.
 
 ## 52. The pairs for the Vitec mapping: no longer needed for the mapping; what remains is Vitec's golden masters
 
@@ -104,6 +113,7 @@ Amend R-001 so that a percentage keeps the decimals the CRM sends (the comma sta
 or keep two decimals everywhere? Answer "keep decimals" or "two".
 
 ## 122. `[crm-vitec]` The area texts ("Område": läge, kommunikation, service, parkering) are empty for every record on the staging site
+
 Every property and every area on the staging site (Vitec test office M31529) carries `surroundings`
 with all five texts null, so the "Område" section of the property page and the texts of the area
 pages never show (seen 2026-10-03 on Vildgåsvägen 19B and the area Dalhem through `?debugpl`).
@@ -113,6 +123,7 @@ wrong field. Default: the adapter session checks Vitec's payload for the area te
 them; until then the section stays hidden, as it does now. Smaller: leave them out.
 
 ## 121. `[client-wordpress]` The staging site's WordPress login, so a session can put a change on it
+
 The staging WordPress site (the app "v4-staging" on Cloudways) changes only when a session runs
 `scripts/deploy-site.mjs` against it with the site's admin login, or when a `v*` tag publishes a
 release to the update channel. A push to the `staging` branch alone changes nothing on the site

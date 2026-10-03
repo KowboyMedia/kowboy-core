@@ -8,20 +8,10 @@ $images = array_map(fn (array $image): string => (string) ($image['url'] ?? ''),
 $media = match ((string) ($attributes['mediaType'] ?? 'images')) {
     'vimeo' => kowboy_hero_media([], [], (string) ($attributes['vimeoUrl'] ?? '')),
     'video' => kowboy_hero_media([], [], '', (string) ($attributes['video']['url'] ?? '')),
+    // The listings' photos: up to five, sliding (Patric, 2026-10-03); also what a hero without media of its own shows.
+    'properties' => kowboy_hero_media([], kowboy_listing_photos(5)),
     default => kowboy_hero_media([], $images),
 };
-// A hero without media of its own shows the newest listing for sale, so no page opens on a bare
-// colour before the editor has chosen pictures.
-if ($media['type'] === 'none' && function_exists('core_client_query')) {
-    $latest = core_client_query(['entity' => 'property', 'status' => 'for_sale', 'per_page' => 1]);
-    $photos = is_array($latest['items'][0]['item']['images'] ?? null) ? $latest['items'][0]['item']['images'] : [];
-    foreach ($photos as $photo) {
-        if (($photo['category'] ?? null) !== 'Planritning' && is_string($photo['url'] ?? null) && $photo['url'] !== '') {
-            $media = kowboy_hero_media([], [$photo['url']]);
-            break;
-        }
-    }
-}
 $buttons = '';
 foreach (is_array($attributes['buttons'] ?? null) ? $attributes['buttons'] : [] as $button) {
     if (($button['label'] ?? '') !== '') {
@@ -41,9 +31,7 @@ if ($buttons !== '') {
 $content .= '</div>';
 // The scroll indicator sits on the hero itself, at its lower edge, not inside the centred text.
 $extra = ($attributes['height'] ?? '') === 'tall' ? '<span class="k-hero__scroll" aria-hidden="true"></span>' : '';
-echo kowboy_part('hero', [
-    'media' => $media,
-    'content' => $content,
+echo kowboy_hero($media, $content, [
     'extra' => $extra . (!empty($attributes['searchForm']) ? kowboy_part('search-form', []) : ''),
     'variant' => ($attributes['height'] ?? 'default') === 'tall' ? 'page k-hero--tall' : 'page',
     'wrapper' => get_block_wrapper_attributes(['class' => 'k-hero k-hero--page' . (($attributes['height'] ?? '') === 'tall' ? ' k-hero--tall' : '') . (!empty($attributes['searchForm']) ? ' k-hero--with-form' : '')]),

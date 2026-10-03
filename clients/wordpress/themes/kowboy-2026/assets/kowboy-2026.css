@@ -366,15 +366,18 @@ button {
   color: var(--k-white);
   background: var(--k-ink);
 }
-/* The tall hero and a property's hero fill the screen (Patric, 2026-10-03). */
+/* The tall hero and a property's hero reach exactly the fold (Patric, 2026-10-03): the screen's
+   height less WordPress's admin bar when a signed-in user sees one. */
+.k-hero--tall,
+.k-hero--property {
+  min-height: calc(100svh - var(--wp-admin--admin-bar--height, 0px));
+}
 .k-hero--tall {
-  min-height: 100svh;
   border-radius: 0 0 28px 28px;
 }
 .k-hero--property {
-  min-height: 100svh;
   align-items: flex-end;
-  padding: 72px 0 40px;
+  padding: 72px 0 28px;
 }
 .k-hero--property .k-hero__media {
   cursor: zoom-in;
@@ -397,8 +400,14 @@ button {
   z-index: 1;
   background: var(--k-overlay);
 }
+/* Only the lower part darkens (the header's own shade takes the top); the photo stays bright between. */
 .k-hero--property .k-hero__overlay {
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.75) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0) 50%,
+    rgba(0, 0, 0, 0.7) 100%
+  );
 }
 .k-hero__image,
 .k-hero__video {
@@ -550,9 +559,8 @@ iframe.k-hero__video {
   .k-hero {
     min-height: 420px;
   }
-  .k-hero--tall,
   .k-hero--property {
-    min-height: 100svh;
+    padding-bottom: 24px;
   }
   .k-hero__text {
     padding-block: 24px 48px;
@@ -794,9 +802,18 @@ iframe.k-hero__video {
   gap: 6px;
   pointer-events: none;
 }
-.k-card__tenure {
+.k-card__area {
   font-size: var(--k-label-size);
   line-height: 1.37;
+}
+.k-card__image--placeholder {
+  object-fit: cover;
+}
+.k-list--areas {
+  padding-block: 0 72px;
+}
+.k-list--areas .k-section__title {
+  margin-bottom: 24px;
 }
 .k-card__street {
   font-size: 16px;
@@ -1330,12 +1347,62 @@ iframe.k-hero__video {
   color: var(--k-secondary);
   font-size: var(--k-label-size);
 }
-.k-viewings__empty {
+.k-viewing--empty {
   color: var(--k-secondary);
   font-size: 14px;
 }
 .k-viewings .k-button {
   flex: none;
+}
+.k-bids {
+  display: grid;
+  gap: 16px;
+}
+.k-bids__box {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--k-radius);
+  background: var(--k-subtle);
+}
+.k-bids__highest {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+.k-bids__highest strong {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.37;
+}
+.k-bids__list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.k-bid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--k-white);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.k-bid__amount {
+  font-weight: 600;
+}
+.k-bid__meta {
+  color: var(--k-secondary);
+  font-size: var(--k-label-size);
+}
+.k-bid--cancelled .k-bid__amount {
+  text-decoration: line-through;
+  color: var(--k-secondary);
 }
 .k-property__agents {
   display: grid;
@@ -1626,7 +1693,14 @@ iframe.k-hero__video {
   color: var(--k-secondary);
 }
 .k-area--page {
-  padding-top: 48px;
+  padding-block: 72px 0;
+}
+/* An area's page: the map and the list keep a section's spacing between them. */
+.k-map--area {
+  margin-top: 72px;
+}
+.k-area__list {
+  padding-block: 72px;
 }
 @media (max-width: 767px) {
   .k-agent__grid {

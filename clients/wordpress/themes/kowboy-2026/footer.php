@@ -1,7 +1,7 @@
 <?php
 // The footer: the lead form ("Ska du sälja din bostad?", its words from the theme options) on
-// every page (Patric, 2026-10-03), then the dark logotype, the footer menu, the office's contact
-// details and the copyright line.
+// every page (Patric, 2026-10-03), then the dark logotype, the footer menu (with the areas
+// archive, Patric, 2026-10-03), the office's contact details and the copyright line.
 
 declare(strict_types=1);
 

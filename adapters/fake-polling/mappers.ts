@@ -86,13 +86,28 @@ const property = (raw: unknown): MappedRecord => {
           ends_at: text((viewing as Raw)['ends_at']),
           comment: text((viewing as Raw)['comment']),
           is_digital: null,
-          self_registration: null,
+          self_registration:
+            typeof (viewing as Raw)['bookable'] === 'boolean'
+              ? ((viewing as Raw)['bookable'] as boolean)
+              : null,
           is_project_viewing: null,
         }),
       ),
       viewing_settings: { visible_limit: null, empty_text: null },
       exterior_features: [],
-      bidding: { is_active: null, is_verified: null, bids: [] },
+      bidding: {
+        is_active: null,
+        is_verified: null,
+        bids: (Array.isArray(record['bids']) ? record['bids'] : []).map((bid) => ({
+          placed_at: text((bid as Raw)['placed_at']),
+          amount: number((bid as Raw)['amount']),
+          is_cancelled:
+            typeof (bid as Raw)['is_cancelled'] === 'boolean'
+              ? ((bid as Raw)['is_cancelled'] as boolean)
+              : null,
+          alias: text((bid as Raw)['alias']),
+        })),
+      },
       display: {},
       provider_extras: { 'fake-polling': { object_type: String(record['object_type']) } },
     },

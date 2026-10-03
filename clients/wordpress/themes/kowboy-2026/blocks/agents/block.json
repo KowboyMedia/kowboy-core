@@ -3,7 +3,7 @@
   "apiVersion": 3,
   "name": "kowboy/agents",
   "title": "Mäklare",
-  "description": "Mäklarna från Kowboy Core som kort, och ett valfritt textkort med knapp bredvid.",
+  "description": "Alla mäklare från Kowboy Core som kort, och ett valfritt textkort med knapp bredvid.",
   "category": "kowboy",
   "icon": "groups",
   "editorScript": "kowboy-2026-editor",
@@ -12,13 +12,6 @@
   "attributes": {
     "title": { "type": "string", "default": "", "control": "text", "label": "Rubrik" },
     "lead": { "type": "string", "default": "", "control": "text", "label": "Ingress" },
-    "limit": {
-      "type": "number",
-      "default": 12,
-      "control": "number",
-      "label": "Antal mäklare",
-      "help": "Hur många som visas, i den ordning Core levererar dem."
-    },
     "cardLabel": {
       "type": "string",
       "default": "",

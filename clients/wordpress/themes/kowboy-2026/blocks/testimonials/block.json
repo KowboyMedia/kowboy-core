@@ -3,7 +3,7 @@
   "apiVersion": 3,
   "name": "kowboy/testimonials",
   "title": "Omdömen",
-  "description": "Citat från säljare i ett bildspel, två i bredd.",
+  "description": "Mäklarnas omdömen från Kowboy Core i ett bildspel, två i bredd. Egna citat visas bara när Core inte har några.",
   "category": "kowboy",
   "icon": "format-quote",
   "editorScript": "kowboy-2026-editor",
@@ -15,7 +15,8 @@
       "type": "array",
       "default": [],
       "control": "repeater",
-      "label": "Omdömen",
+      "label": "Egna omdömen",
+      "help": "Visas bara när mäklarna i Kowboy Core saknar omdömen.",
       "max": 20,
       "fields": {
         "quote": { "control": "textarea", "label": "Citat" },

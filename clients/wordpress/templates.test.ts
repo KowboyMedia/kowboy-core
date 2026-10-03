@@ -136,7 +136,30 @@ beforeAll(async () => {
       price: 5_000_000,
       rooms: 4,
       living_space: 110,
-      viewings: [{ starts_at: soon(48), ends_at: soon(49), comment: 'Föranmälan krävs' }],
+      viewings: [
+        { starts_at: soon(48), ends_at: soon(49), comment: 'Föranmälan krävs', bookable: true },
+        { starts_at: soon(-30), ends_at: soon(-29), comment: 'Visningen som var' },
+      ],
+      bids: [
+        {
+          placed_at: '2026-09-20T10:00:00.000Z',
+          amount: 5_050_000,
+          is_cancelled: false,
+          alias: 'Budgivare 1',
+        },
+        {
+          placed_at: '2026-09-21T10:00:00.000Z',
+          amount: 5_100_000,
+          is_cancelled: false,
+          alias: 'Budgivare 2',
+        },
+        {
+          placed_at: '2026-09-22T10:00:00.000Z',
+          amount: 5_300_000,
+          is_cancelled: true,
+          alias: 'Budgivare 1',
+        },
+      ],
       heading: 'Högst upp med balkong i söderläge',
       staff: ['S-1', 'S-2'],
       lat: 59.34,
@@ -189,8 +212,9 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     ].map((match) => match[1]);
     expect(streets).toEqual(['Kungsgatan 3', 'Kungsgatan 2', 'Kungsgatan 1']);
     expect(body).toContain('7 250 000 kr');
-    expect(body).toContain('Avgift 4 100 kr/mån');
-    expect(body).toContain('<span class="k-card__tenure">Bostadsrätt</span>');
+    // The area's name, not the tenure, and no fee on a card (Patric, 2026-10-03).
+    expect(body).not.toContain('Avgift');
+    expect(body).toContain('<span class="k-card__area">Södermalm</span>');
     expect(body).toContain('82 kvm');
     expect(body).toContain('<span class="k-card__status">Visning ');
     // The theme's assets, and no font from a third party: Manrope is self-hosted.
@@ -270,7 +294,16 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('Ljus trea med balkong.');
     expect(body).toContain('<li class="k-chip">4 rum</li>');
     expect(body).toContain('<li class="k-chip">Bostadsrätt</li>');
+    // Every viewing is on the page; the one that is over is hidden at render, and the script keeps that fresh.
+    expect(body).toContain('<div class="k-viewings" data-viewings data-limit="0">');
     expect(body).toContain('Föranmälan krävs');
+    expect(body).toContain('Visningen som var');
+    expect(body).toMatch(/<div class="k-viewing" data-viewing data-until="[^"]+" hidden>/);
+    expect(body.match(/<a class="k-button" href="#k-interest">Boka här<\/a>/g)).toHaveLength(1);
+    // The bids, latest first, the cancelled one marked, and the highest standing bid from display (R-008).
+    expect(body).toContain('<span class="k-label">Högsta bud</span><strong>5 100 000 kr</strong>');
+    expect(body.indexOf('5 300 000 kr')).toBeLessThan(body.indexOf('5 050 000 kr'));
+    expect(body).toContain('<li class="k-bid k-bid--cancelled">');
     // The selling heading stands where "Om bostaden" would; the first agent is the responsible one.
     expect(body).toContain('<h2 class="k-heading">Högst upp med balkong i söderläge</h2>');
     expect(body).not.toContain('Om bostaden');
@@ -307,6 +340,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('Slutpris');
     expect(body).toContain('3 325 000 kr');
     expect(body).not.toContain('Visningar');
+    expect(body).not.toContain('Budgivning');
     // No selling heading: the label stands, and the one agent is the responsible one.
     expect(body).toContain('<p class="k-label">Om bostaden</p>');
     expect(body).toContain('Ansvarig mäklare');
@@ -322,6 +356,12 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     // The list carries the status tabs like the home page's, and a card with several photos is a slider the link leaves free.
     expect(agent.body).toContain('class="k-tabs"');
     expect(agent.body).toContain('<article class="k-card k-card--slider" data-card-url="');
+    // A card names the area, not the tenure, and carries no fee (Patric, 2026-10-03).
+    expect(agent.body).toContain('<span class="k-card__area">Vasastan</span>');
+    expect(agent.body).not.toContain('k-card__tenure');
+    expect(agent.body).not.toContain('Avgift');
+    // The footer's menu ends with the areas archive.
+    expect(agent.body).toContain('>Områden</a>');
     // The title, and the footer's form on every page, with the fields' names as placeholders.
     expect(agent.body).toContain('<title>Anna Andersson - ');
     expect(agent.body).toContain('<h2 class="k-lead__title">Ska du sälja din bostad?</h2>');
@@ -333,9 +373,19 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(office.body).toContain('Storgatan 1, Stockholm');
     expect(office.body).toContain('Bertil Berg');
 
+    // An area's page opens with a hero (its listings' photos: the area has none) and lists its homes.
     const area = await page(await permalink('area', 'D-1'));
-    expect(area.body).toContain('<h1 class="k-section__title">Vasastan</h1>');
+    expect(area.body).toContain('k-hero--area');
+    expect(area.body).toContain('data-hero-slider');
+    expect(area.body).toContain('k-hero__title--left">Vasastan</h1>');
     expect(area.body).toContain('Bostäder i Vasastan');
+    expect(area.body).toContain('k-has-hero');
+    // The areas archive: cards like the properties', the placeholder when the area has no picture.
+    const areas = await page('/?post_type=core_area');
+    expect(areas.body).toContain('<article class="k-card k-card--area" data-card-url="');
+    expect(areas.body).toContain('placeholder.svg');
+    expect(areas.body).toContain('<span class="k-card__street">Vasastan</span>');
+    expect(areas.body).toContain('bostäder till salu');
 
     const agents = await page('/?post_type=core_agent');
     expect(agents.body.match(/<article class="k-agent-card">/g)).toHaveLength(2);
@@ -351,7 +401,8 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(home.status).toBe(200);
     expect(home.body).toContain('k-has-hero');
     expect(home.body).toContain('k-hero--tall');
-    // The page has no pictures of its own, so the hero shows the newest listing's photo.
+    // The page has no pictures of its own, so the hero slides the newest listings' photos.
+    expect(home.body).toContain('data-hero-slider');
     expect(home.body).toContain('class="k-hero__image"');
     expect(home.body).toContain('Rätt timing ger bättre affärer');
     expect(home.body).toContain('<span class="k-figure__value">150+</span>');
@@ -368,7 +419,10 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(forSale.body).toContain('name="max_price"');
     const about = await page(pathOf(pages['om-oss']!));
     expect(about.body).toContain('<span class="k-feature__badge">01</span>');
+    // The testimonials are the agents' reviews from Core, not the block's own quotes.
     expect(about.body).toContain('data-testimonials');
+    expect(about.body).toContain('Mycket nöjd.');
+    expect(about.body).not.toContain('Sara är professionell');
     // A page without a hero gets the solid header.
     const plain = await page(await permalink('agent', 'S-1'));
     expect(plain.body).toContain('k-no-hero');
@@ -458,6 +512,8 @@ describe('the plugin’s set machinery, with a set plugin', () => {
     expect(html).toContain('<h2>raw</h2>');
     expect(html).toContain('&quot;street&quot;:&quot;Kungsgatan 3&quot;');
     expect(html).toContain('&quot;blurb&quot;:&quot;Ljus trea med balkong.&quot;');
+    // The viewer's script comes after the JSON: it reads each element's text when it is defined.
+    expect(html.indexOf('json-viewer.js')).toBeGreaterThan(html.indexOf('<h2>raw</h2>'));
   });
 
   it('uses the active theme’s set when none is chosen, or when the chosen one is not there', async () => {

@@ -3,7 +3,7 @@
   "apiVersion": 3,
   "name": "kowboy/page-hero",
   "title": "Hjältebild",
-  "description": "Sidans topp: en bild, flera bilder, en Vimeo-länk eller en uppladdad film, med rubrik, ingress och knappar. Samma komponent som objektsidans topp.",
+  "description": "Sidans topp: en bild, flera bilder, bostädernas bilder, en Vimeo-länk eller en uppladdad film, med rubrik, ingress och knappar. Samma komponent som objektsidans topp.",
   "category": "kowboy",
   "icon": "cover-image",
   "editorScript": "kowboy-2026-editor",
@@ -15,7 +15,13 @@
       "default": "images",
       "control": "select",
       "label": "Media",
-      "options": { "images": "Bild eller bilder", "vimeo": "Vimeo-länk", "video": "Uppladdad film" }
+      "options": {
+        "images": "Bild eller bilder",
+        "properties": "Bostädernas bilder",
+        "vimeo": "Vimeo-länk",
+        "video": "Uppladdad film"
+      },
+      "help": "Bostädernas bilder: upp till fem foton från de senaste bostäderna till salu, som bildspel. Utan egna bilder visas de ändå."
     },
     "images": {
       "type": "array",
@@ -63,7 +69,7 @@
       "default": "default",
       "control": "select",
       "label": "Höjd",
-      "options": { "default": "Standard (500 px)", "tall": "Hög (startsidan)" }
+      "options": { "default": "Standard (500 px)", "tall": "Till vikningen (startsidan)" }
     }
   }
 }

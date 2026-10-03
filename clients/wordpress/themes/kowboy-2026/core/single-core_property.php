@@ -1,7 +1,7 @@
 <?php
 // A property page (the design's Single Property): the hero (a Vimeo link among the links, else
-// the photos), the description with fact chips and the floor plan, the viewings and the agent at
-// the side, the interest form, the photo grid with "Visa fler bilder", the fact tables
+// the photos), the description with fact chips and the floor plan, the viewings, the bids and
+// the agent at the side, the interest form, the photo grid with "Visa fler bilder", the fact tables
 // (`display.sections`, the association's rows added), the area with its texts, the map, and the
 // lead form of the footer. Every string is `display`'s or a value shown as sent; this site's own
 // rules are named where they apply.
@@ -39,22 +39,39 @@ $chips = array_filter([
     $item['tenure']['name'] ?? null,
 ]);
 
+// Every viewing, past ones too: the script hides a viewing once it is over, so a cached page
+// never freezes one (Patric, 2026-10-03). A viewing's booking button follows its own
+// `self_registration`; a viewing from midnight to midnight, or without an end, is a whole day
+// and shows no time (the CRM sends no flag for that: question 123).
 $viewings = [];
 foreach (is_array($item['viewings'] ?? null) ? $item['viewings'] : [] as $viewing) {
     $starts = is_string($viewing['starts_at'] ?? null) ? strtotime($viewing['starts_at']) : false;
     $ends = is_string($viewing['ends_at'] ?? null) ? strtotime($viewing['ends_at']) : false;
-    if ($starts === false || $starts < time()) {
+    if ($starts === false) {
         continue;
     }
+    $whole_day = wp_date('H:i', $starts) === '00:00' && ($ends === false || wp_date('H:i', $ends) === '00:00');
+    $until = $ends === false ? strtotime(wp_date('Y-m-d', $starts) . ' 23:59:59 ' . wp_timezone_string()) : $ends;
     $viewings[] = [
         'weekday' => wp_date('D', $starts),
         'day' => wp_date('j', $starts),
         'month' => wp_date('M', $starts),
-        'time' => wp_date('H:i', $starts) . ($ends === false ? '' : ' – ' . wp_date('H:i', $ends)),
+        'time' => $whole_day ? '' : wp_date('H:i', $starts) . ($ends === false ? '' : ' – ' . wp_date('H:i', $ends)),
         'comment' => (string) ($viewing['comment'] ?? ''),
+        'bookable' => ($viewing['self_registration'] ?? null) === true,
+        'until' => gmdate('c', $until === false ? $starts : $until),
+        'past' => ($until === false ? $starts : $until) < time(),
     ];
 }
-$no_viewings_text = (string) ($item['viewing_settings']['empty_text'] ?? 'Kontakta mäklaren eller boka visning nedan.');
+$visible_limit = is_numeric($item['viewing_settings']['visible_limit'] ?? null) ? (int) $item['viewing_settings']['visible_limit'] : 0;
+$no_viewings_text = (string) (($item['viewing_settings']['empty_text'] ?? '') !== '' ? $item['viewing_settings']['empty_text'] : 'Kontakta mäklaren eller boka visning nedan.');
+$upcoming = count(array_filter($viewings, fn (array $viewing): bool => !$viewing['past']));
+
+// The bids as the CRM allows the site to show them (field tables: none, the highest, or the
+// history); the highest is `display.highest_bid` (R-008), the list is the site's.
+$bids = !$sold && is_array($item['bidding']['bids'] ?? null) ? $item['bidding']['bids'] : [];
+usort($bids, fn (array $a, array $b): int => strcmp((string) ($b['placed_at'] ?? ''), (string) ($a['placed_at'] ?? '')));
+$highest_bid = $display['highest_bid'] ?? null;
 
 $agents = core_client_items('agent', is_array($item['agent_ids'] ?? null) ? $item['agent_ids'] : []);
 
@@ -127,7 +144,7 @@ $hero_content = '<div class="k-hero__head">'
     . (isset($display['living_space']) ? '<li class="k-pill">' . esc_html((string) $display['living_space']) . '</li>' : '')
     . '</ul></div>';
 // A click on the hero's photo opens the full-screen slider (the script finds the gallery's photos).
-echo kowboy_part('hero', ['media' => $hero, 'content' => $hero_content, 'variant' => 'property', 'alt' => $street, 'wrapper' => 'class="k-hero k-hero--property"' . ($full_photos === [] ? '' : ' data-lightbox="0"')]);
+echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $street, 'wrapper' => 'class="k-hero k-hero--property"' . ($full_photos === [] ? '' : ' data-lightbox="0"')]);
 ?>
 <div class="k-property">
     <div class="k-container k-property__grid">
@@ -149,23 +166,40 @@ echo kowboy_part('hero', ['media' => $hero, 'content' => $hero_content, 'variant
         </div>
         <aside class="k-property__aside">
             <?php if (!$sold) : ?>
-                <div class="k-viewings">
+                <div class="k-viewings" data-viewings data-limit="<?php echo (int) $visible_limit; ?>">
                     <h2 class="k-heading">Visningar</h2>
-                    <div class="k-viewing">
-                        <?php if ($viewings !== []) : ?>
-                            <div class="k-viewing__dates">
-                                <?php foreach ($viewings as $viewing) : ?>
-                                    <div class="k-viewing__date"><span class="k-viewing__weekday"><?php echo esc_html($viewing['weekday']); ?></span><span class="k-viewing__day"><?php echo esc_html($viewing['day']); ?></span><span class="k-viewing__month"><?php echo esc_html($viewing['month']); ?></span><span class="k-viewing__time"><?php echo esc_html($viewing['time']); ?></span></div>
-                                <?php endforeach; ?>
+                    <?php foreach ($viewings as $viewing) : ?>
+                        <div class="k-viewing" data-viewing data-until="<?php echo esc_attr($viewing['until']); ?>" <?php echo $viewing['past'] ? 'hidden' : ''; ?>>
+                            <div class="k-viewing__date"><span class="k-viewing__weekday"><?php echo esc_html($viewing['weekday']); ?></span><span class="k-viewing__day"><?php echo esc_html($viewing['day']); ?></span><span class="k-viewing__month"><?php echo esc_html($viewing['month']); ?></span></div>
+                            <div class="k-viewing__body">
+                                <?php if ($viewing['time'] !== '') : ?><span class="k-viewing__time"><?php echo esc_html($viewing['time']); ?></span><?php endif; ?>
+                                <?php if ($viewing['comment'] !== '') : ?><span class="k-viewing__comment"><?php echo esc_html($viewing['comment']); ?></span><?php endif; ?>
                             </div>
-                        <?php endif; ?>
-                        <div class="k-viewing__body">
-                            <?php $viewing_texts = array_values(array_unique(array_filter(array_column($viewings, 'comment')))); ?>
-                            <?php if ($viewing_texts !== []) : ?><?php foreach ($viewing_texts as $viewing_text) : ?><span class="k-viewing__comment"><?php echo esc_html($viewing_text); ?></span><?php endforeach; ?><?php else : ?><span><?php echo esc_html($no_viewings_text); ?></span><?php endif; ?>
+                            <?php if ($viewing['bookable']) : ?><a class="k-button" href="#k-interest">Boka här</a><?php endif; ?>
                         </div>
-                        <a class="k-button" href="#k-interest">Boka här</a>
+                    <?php endforeach; ?>
+                    <div class="k-viewing k-viewing--empty" data-viewings-empty <?php echo $upcoming > 0 ? 'hidden' : ''; ?>>
+                        <div class="k-viewing__body"><span><?php echo esc_html($no_viewings_text); ?></span></div>
+                        <a class="k-button" href="#k-interest">Kontakta oss</a>
                     </div>
                 </div>
+                <?php if ($bids !== []) : ?>
+                    <div class="k-bids">
+                        <h2 class="k-heading">Budgivning</h2>
+                        <div class="k-bids__box">
+                            <?php if ($highest_bid !== null) : ?><p class="k-bids__highest"><span class="k-label">Högsta bud</span><strong><?php echo esc_html((string) $highest_bid); ?></strong></p><?php endif; ?>
+                            <ol class="k-bids__list">
+                                <?php foreach ($bids as $bid) : ?>
+                                    <?php $placed = is_string($bid['placed_at'] ?? null) ? strtotime($bid['placed_at']) : false; ?>
+                                    <li class="k-bid<?php echo ($bid['is_cancelled'] ?? null) === true ? ' k-bid--cancelled' : ''; ?>">
+                                        <span class="k-bid__amount"><?php echo esc_html(is_numeric($bid['amount'] ?? null) ? number_format((float) $bid['amount'], 0, ',', ' ') . ' kr' : ''); ?></span>
+                                        <span class="k-bid__meta"><?php echo esc_html(implode(' · ', array_filter([(string) ($bid['alias'] ?? ''), $placed === false ? '' : wp_date('j M H:i', $placed), ($bid['is_cancelled'] ?? null) === true ? 'Återkallat' : '']))); ?></span>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ol>
+                        </div>
+                    </div>
+                <?php endif; ?>
             <?php endif; ?>
             <?php foreach (['Ansvarig mäklare' => array_slice($agents, 0, 1), 'Kontakta även' => array_slice($agents, 1)] as $agents_title => $agents_group) : ?>
                 <?php if ($agents_group !== []) : ?>

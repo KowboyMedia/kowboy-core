@@ -7,7 +7,7 @@
 
 declare(strict_types=1);
 
-const KOWBOY_2026_VERSION = '1.0.0';
+const KOWBOY_2026_VERSION = '1.0.1';
 
 require __DIR__ . '/inc/media.php';
 require __DIR__ . '/inc/options.php';
@@ -49,10 +49,10 @@ add_action('wp_enqueue_scripts', function (): void {
     wp_add_inline_style('core-client-set', kowboy_typography_css());
 }, 5);
 
-/** Whether the page opens with a hero the header lies over: a property page, or a page whose first block is the hero. */
+/** Whether the page opens with a hero the header lies over: a property's or an area's page, or a page whose first block is the hero. */
 function kowboy_has_hero(): bool
 {
-    if (is_singular('core_property')) {
+    if (is_singular(['core_property', 'core_area'])) {
         return true;
     }
     if (is_singular() && is_string(get_post()?->post_content)) {

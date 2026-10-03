@@ -18,7 +18,6 @@ nocache_headers();
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
     <title><?php echo esc_html(get_post_type() . ' ' . get_the_title() . ' · JSON'); ?></title>
-    <script src="<?php echo esc_url(plugins_url('lib/json-viewer/json-viewer.js', CORE_CLIENT_FILE)); ?>"></script>
     <style>
         body { margin: 0; padding: 24px; font: 14px/1.5 system-ui, sans-serif; background: #f6f6f2; color: #111; }
         h1 { font-size: 18px; margin: 0 0 16px; }
@@ -33,5 +32,7 @@ nocache_headers();
         <h2><?php echo esc_html($core_client_name); ?></h2>
         <andypf-json-viewer indent="2" expanded="2" show-data-types="false" show-toolbar="true" show-copy="true" show-size="true" theme="default-light"><?php echo esc_html((string) wp_json_encode($core_client_value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?></andypf-json-viewer>
     <?php endforeach; ?>
+    <?php // The viewer reads each element's text when it is defined, so its script comes after the JSON: in the head, it saw the elements empty and showed nothing. ?>
+    <script src="<?php echo esc_url(plugins_url('lib/json-viewer/json-viewer.js', CORE_CLIENT_FILE)); ?>"></script>
 </body>
 </html>

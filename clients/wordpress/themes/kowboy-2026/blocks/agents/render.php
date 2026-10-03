@@ -1,12 +1,13 @@
 <?php
-// The agents block: the plugin's list function with the agent cards of the theme (core/card-agent.php).
+// The agents block: every agent, in the order Core delivers them, as the theme's agent cards
+// (core/card-agent.php); the home page lists them all (Patric, 2026-10-03), so no count is asked.
 
 declare(strict_types=1);
 
 if (!function_exists('core_client_list')) {
     return;
 }
-$cards = core_client_list(['entity' => 'agent', 'per_page' => max(1, (int) ($attributes['limit'] ?? 12)), 'part' => 'cards'])['html'];
+$cards = core_client_list(['entity' => 'agent', 'per_page' => 100, 'part' => 'cards'])['html'];
 $has_card = ($attributes['cardTitle'] ?? '') !== '';
 echo kowboy_section_open('k-agents');
 echo '<div class="k-container">';

@@ -1,6 +1,7 @@
 // The theme's script, on the page and inside every shadow root: the menu, the sliders (Swiper,
 // in vendor/), the list reloads against the plugin's endpoint, the collapsibles, the gallery's
-// "Visa fler bilder" and the full-screen slider a photo opens, and the map (Leaflet, in vendor/).
+// "Visa fler bilder" and the full-screen slider a photo opens, the viewings that are over, and
+// the map (Leaflet, in vendor/).
 (function () {
   'use strict';
 
@@ -259,6 +260,31 @@
     });
   }
 
+  /**
+   * A property's viewings: the page carries every one, and the browser hides those that are over
+   * (so a cached page never shows a past viewing), keeps at most the CRM's visible limit, and
+   * shows the empty text when none remains.
+   */
+  function setupViewings(block) {
+    if (!once(block, 'ready')) return;
+    var limit = parseInt(block.dataset.limit || '0', 10) || 0;
+    var empty = block.querySelector('[data-viewings-empty]');
+    function refresh() {
+      var now = Date.now();
+      var shown = 0;
+      block.querySelectorAll('[data-viewing]').forEach(function (viewing) {
+        var until = Date.parse(viewing.dataset.until || '');
+        var upcoming = isNaN(until) || until >= now;
+        var visible = upcoming && (limit < 1 || shown < limit);
+        if (visible) shown += 1;
+        viewing.hidden = !visible;
+      });
+      if (empty) empty.hidden = shown > 0;
+    }
+    refresh();
+    window.setInterval(refresh, 60000);
+  }
+
   /** Every ring of a GeoJSON polygon or multipolygon, as Leaflet's [lat, lng] pairs. */
   function rings(shape, out) {
     if (!Array.isArray(shape)) return out;
@@ -318,6 +344,7 @@
     each('[data-list]', setupList);
     each('[data-accordion-button]', setupAccordion);
     each('[data-gallery]', setupGallery);
+    each('[data-viewings]', setupViewings);
     each('.k-hero[data-lightbox]', setupHeroLightbox);
     each('[data-map]', setupMap);
   }

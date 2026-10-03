@@ -1,7 +1,23 @@
 <?php
+// The testimonials: the reviews Core carries on the agents (`reviews[]`, latest first per
+// agent), as the CRM holds them (Patric, 2026-10-03); the block's own quotes only when Core
+// has none, so a site without reviews in its CRM still shows what the editor wrote.
+
 declare(strict_types=1);
 
-$items = array_values(array_filter(is_array($attributes['items'] ?? null) ? $attributes['items'] : [], fn (array $item): bool => ($item['quote'] ?? '') !== ''));
+$items = [];
+if (function_exists('core_client_query')) {
+    foreach (core_client_query(['entity' => 'agent', 'per_page' => 100])['items'] as $row) {
+        foreach (is_array($row['item']['reviews'] ?? null) ? $row['item']['reviews'] : [] as $review) {
+            if (is_string($review['text'] ?? null) && trim($review['text']) !== '') {
+                $items[] = ['quote' => $review['text'], 'author' => (string) ($review['author'] ?? '')];
+            }
+        }
+    }
+}
+if ($items === []) {
+    $items = array_values(array_filter(is_array($attributes['items'] ?? null) ? $attributes['items'] : [], fn (array $item): bool => ($item['quote'] ?? '') !== ''));
+}
 if ($items === []) {
     return;
 }

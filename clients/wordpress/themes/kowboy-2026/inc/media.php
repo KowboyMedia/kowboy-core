@@ -110,6 +110,71 @@ function kowboy_hero_media(array $links, array $images, string $vimeo_url = '', 
     return $images === [] ? ['type' => 'none'] : ['type' => 'images', 'images' => $images];
 }
 
+/**
+ * Photos of the newest listings for sale, up to `$count`: the first photo of each listing, then
+ * their second photos, and so on, so a slider shows different homes. The pictures a hero shows
+ * when the page or the area has none of its own (Patric, 2026-10-03: up to five, sliding).
+ * `$params` narrows the query (an area's listings).
+ *
+ * @param array<string, mixed> $params
+ * @return list<string>
+ */
+function kowboy_listing_photos(int $count, array $params = []): array
+{
+    if (!function_exists('core_client_query') || $count < 1) {
+        return [];
+    }
+    $result = core_client_query($params + ['entity' => 'property', 'status' => 'for_sale', 'per_page' => $count]);
+    $rows = [];
+    foreach ($result['items'] as $row) {
+        $photos = [];
+        foreach (is_array($row['item']['images'] ?? null) ? $row['item']['images'] : [] as $photo) {
+            if (($photo['category'] ?? null) !== 'Planritning' && is_string($photo['url'] ?? null) && $photo['url'] !== '') {
+                $photos[] = $photo['url'];
+            }
+        }
+        if ($photos !== []) {
+            $rows[] = $photos;
+        }
+    }
+    $urls = [];
+    for ($index = 0; $rows !== [] && count($urls) < $count; $index++) {
+        $found = false;
+        foreach ($rows as $photos) {
+            if (isset($photos[$index]) && count($urls) < $count) {
+                $urls[] = $photos[$index];
+                $found = true;
+            }
+        }
+        if (!$found) {
+            break;
+        }
+    }
+    return $urls;
+}
+
+/**
+ * The one hero, for a page, a property and an area (parts/hero.php): `$media` as
+ * kowboy_hero_media gives it; when the page has no media of its own, the listings' photos
+ * (`$options['fallback']` narrows them to an area's, with every listing's as the last resort),
+ * so no page opens on a bare colour. The rest of `$options` goes to the part.
+ *
+ * @param array{type: string, id?: string, src?: string, images?: list<string>} $media
+ * @param array<string, mixed> $options
+ */
+function kowboy_hero(array $media, string $content, array $options = []): string
+{
+    $fallback = is_array($options['fallback'] ?? null) ? $options['fallback'] : [];
+    unset($options['fallback']);
+    if ($media['type'] === 'none') {
+        $media = kowboy_hero_media([], kowboy_listing_photos(5, $fallback));
+    }
+    if ($media['type'] === 'none' && $fallback !== []) {
+        $media = kowboy_hero_media([], kowboy_listing_photos(5));
+    }
+    return kowboy_part('hero', ['media' => $media, 'content' => $content] + $options);
+}
+
 /** Render one of the theme's parts (parts/<name>.php) with these variables and hand back the HTML. */
 function kowboy_part(string $name, array $vars = []): string
 {

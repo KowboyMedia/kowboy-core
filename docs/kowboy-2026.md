@@ -140,6 +140,37 @@ staging; the fact-table rows themselves are pull request 71's):
 The plugin got `?debugpl` on every record's page (its own pull request): the record's JSON in a
 foldable viewer, for signed-in editors.
 
+## Patric's second list, 2026-10-03
+
+Patric's list after the first round reached the staging site, done straight on `staging`:
+
+- **One hero.** `kowboy_hero()` (`inc/media.php`) is the one call for a page's, a property's
+  and an area's hero: the media the page has, else the listings' photos from
+  `kowboy_listing_photos()` (the first photo of each of the five newest listings for sale, then
+  their second ones, as a slider), narrowed to an area's listings on an area's page. The hero
+  block got the media choice "Bostädernas bilder" for that explicitly. The tall hero and a
+  property's hero reach the fold: `100svh` less WordPress's admin bar (`--wp-admin--admin-bar--height`),
+  which pushed the fold down for a signed-in viewer. A property's overlay darkens the lower
+  half only; the header's own shade takes the top. The property hero's padding under the
+  title is the design's 28 px.
+- **Cards.** The area's name stands where the tenure stood; the fee is gone from the price row.
+- **Agents and testimonials.** The agents block lists every agent (no count). The testimonials
+  block shows the agents' reviews from Core, its own quotes only when Core has none.
+- **Areas.** The archive `/omrade/` lists the areas as cards (`core/card-area.php`,
+  `core/list-area.php`): the area's first picture, else `assets/placeholder.svg`, the name and
+  how many homes are for sale there. The footer's menu ends with a link to it. An area's page
+  opens with the hero, then the texts, the map and the list, with a section's spacing between;
+  an area without homes shows no list at all.
+- **Viewings.** The page carries every viewing, past ones hidden, and the script
+  (`setupViewings`) hides each one once it is over and shows the CRM's `empty_text` when none
+  remains, so a cached page never freezes a viewing. A viewing's "Boka här" follows its own
+  `self_registration`; the CRM's `visible_limit` caps how many show. A viewing from midnight to
+  midnight is a whole day and shows no time (question 123: the CRM sends no flag).
+- **Bids.** "Budgivning" at the side: `display.highest_bid` (R-008) and the bids as the CRM
+  allows them, latest first, a cancelled one struck through.
+- **`?debugpl`.** The viewer's script moved from the head to the end of the page: defined
+  before the elements were parsed, it read each one empty and showed nothing.
+
 ## Order of work
 
 1. The plan and the questions (this page), the plugin's shadow DOM default, the 2026 set shelved.
