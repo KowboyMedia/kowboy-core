@@ -74,6 +74,9 @@ describe('R-001 money and numbers', () => {
     expect(formatNumber(4950000)).toBe(`4${N}950${N}000`);
     expect(formatNumber(45.5)).toBe('45,5');
     expect(formatNumber(1.005)).toBe('1,01');
+    // A percentage keeps every decimal the CRM sends (question 119).
+    expect(formatNumber(1.1515, true)).toBe('1,1515');
+    expect(withUnit(1.151, '%', true)).toBe(`1,151${N}%`);
     expect(money(4950000, 'SEK')).toBe(`4${N}950${N}000${N}kr`);
     expect(money(400000, 'EUR')).toBe(`400${N}000${N}EUR`);
     expect(money(0, 'SEK')).toBeNull();

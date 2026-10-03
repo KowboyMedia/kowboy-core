@@ -104,14 +104,6 @@ without blocking this." Open. An agent first stored submissions on the site and 
 which Patric called a drift and had removed the same evening: the form is a dummy that posts
 nowhere and whose button does nothing, until this is answered.
 
-## 119. `[core]` A share of the association is written with two decimals; the master writes all of them
-
-R-001 (approved 2026-09-19) rounds every number to two decimals ("1.005" → "1,01"). An
-association share is sent with three or four ("1.151 %", "1.1515 %" for Cyklopgatan 35B) and the
-master shows them all; the set now shows "1,15 %" for both rows, so the two shares read the same.
-Amend R-001 so that a percentage keeps the decimals the CRM sends (the comma stays, question 91),
-or keep two decimals everywhere? Answer "keep decimals" or "two".
-
 ## 122. `[crm-vitec]` The area texts ("Område": läge, kommunikation, service, parkering) are empty for every record on the staging site
 
 Every property and every area on the staging site (Vitec test office M31529) carries `surroundings`

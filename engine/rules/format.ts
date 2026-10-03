@@ -17,9 +17,13 @@ const dateFormat = new Intl.DateTimeFormat('sv-SE', {
 export const isNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 
-/** `4950000` → `4 950 000`, `45.5` → `45,5`: thousands by a hard space, a decimal comma, at most two decimals. */
-export function formatNumber(value: number): string {
-  const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+/**
+ * `4950000` → `4 950 000`, `45.5` → `45,5`: thousands by a hard space, a decimal comma, at most
+ * two decimals. `keepDecimals` writes every decimal the CRM sent, as a share of an association is
+ * shown (R-001, Patric 2026-10-03, question 119: "1,151 %", not "1,15 %").
+ */
+export function formatNumber(value: number, keepDecimals = false): string {
+  const rounded = keepDecimals ? value : Math.round((value + Number.EPSILON) * 100) / 100;
   const [whole = '0', fraction] = Math.abs(rounded).toString().split('.');
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
   const sign = rounded < 0 ? '-' : '';
@@ -37,9 +41,9 @@ export function money(amount: unknown, currency: string | null | undefined): str
 }
 
 /** A number with a unit after a hard space; nothing for a missing or zero value. */
-export function withUnit(value: unknown, unit: string): string | null {
+export function withUnit(value: unknown, unit: string, keepDecimals = false): string | null {
   if (!isNumber(value) || value === 0) return null;
-  return `${formatNumber(value)}${NBSP}${unit}`;
+  return `${formatNumber(value, keepDecimals)}${NBSP}${unit}`;
 }
 
 /** A moment (ISO 8601) as the date it falls on in Swedish time: `2026-09-01`. */
