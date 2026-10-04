@@ -7,7 +7,10 @@ writes live" below and 129 is open again in `docs/open-questions.md`. Later the 
 proposed the forms as a remote widget with a matching step and asked for anti-bot protection;
 that is "The form itself" below, questions 137 to 139, which he answered the same day: the widget,
 Turnstile, and a wizard whose last step is the search profile; he also pointed to Vitec's search
-profile calls in the version 1 API, which closes 131, and 129 stands as a. Nothing is built. **The
+profile calls in the version 1 API, which closes 131, and 129 stands as a. Nothing is built. A
+clickable dry run of the wizard, with sample data and no CRM, is published as a private page:
+<https://claude.ai/artifact/ALpPRzfUXWSAG4TLpATFEP> (2026-10-04); its markup is the starting point
+for `clients/forms-widget/`. **The
 ask** (Patric, 2026-10-04): a strategy for form submissions. Vitec offers sending a lead,
 sending an interest on a single home, booking a viewing with the viewing slots shown in the
 page, and creating a search profile; what Mspecs offers was unknown; a submission must be
@@ -355,7 +358,10 @@ renders whichever service the site's config names; the secret is Core's.
 
 ### What the modal asks: the wizard (139, Patric, 2026-10-04)
 
-Patric's answer, which replaces the one-screen option: a wizard of up to three steps.
+Patric's answer, which replaces the one-screen option: a wizard of up to three steps. A dry run
+of it is at <https://claude.ai/artifact/ALpPRzfUXWSAG4TLpATFEP>: the three forms, the steps, the
+words, and a panel with what Core would receive, including a refused slot and a CRM that does not
+answer.
 
 1. **The intent**, only when the form needs one: the slot for a booking (the slots read live).
    An interest and a lead have no intent step.
