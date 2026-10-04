@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/POST-Advertising-Estate-customerId-estateId-FinalPriceWatched, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/POST-Advertising-Estate-customerId-estateId-FinalPriceWatched, fetched 2026-10-04 -->
 
 # POST Advertising/Estate/{customerId}/{estateId}/FinalPriceWatched
 
@@ -27,9 +27,9 @@ Uppgifter för bevakningen [AdvertisingFinalPriceWatchedApplication](https://con
 
 ### Request Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json340)
+- [application/json, text/json](https://connect.maklare.vitec.net#json651)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml340)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml651)
 
 ```
 {
@@ -95,9 +95,9 @@ Skickar in en ny bevakning av slutpris för en kontakt till en bostad. Innan nya
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json340)
+- [application/json, text/json](https://connect.maklare.vitec.net#json651)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml340)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml651)
 
 ```
 "sample string 1"

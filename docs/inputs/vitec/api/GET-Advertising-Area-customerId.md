@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Area-customerId, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Area-customerId, fetched 2026-10-04 -->
 
 # GET Advertising/Area/{customerId}
 
@@ -45,9 +45,9 @@ Hämta områdeslista för hemsida [PageOfAdvertising_AdvertisingAreaListRow](htt
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json980)
+- [application/json, text/json](https://connect.maklare.vitec.net#json916)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml980)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml916)
 
 ```
 {
@@ -58,12 +58,12 @@ Hämta områdeslista för hemsida [PageOfAdvertising_AdvertisingAreaListRow](htt
     {
       "id": "sample string 1",
       "customerId": "sample string 2",
-      "changedAt": "2026-09-16T05:56:25.8562405+02:00"
+      "changedAt": "2026-10-04T13:51:13.4942929+02:00"
     },
     {
       "id": "sample string 1",
       "customerId": "sample string 2",
-      "changedAt": "2026-09-16T05:56:25.8562405+02:00"
+      "changedAt": "2026-10-04T13:51:13.4942929+02:00"
     }
   ]
 }

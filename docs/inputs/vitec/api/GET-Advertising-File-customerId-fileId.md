@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-File-customerId-fileId, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-File-customerId-fileId, fetched 2026-10-04 -->
 
 # GET Advertising/File/{customerId}/{fileId}
 
@@ -37,13 +37,13 @@ Hämtar filer. Collection of byte
 
 ## Response Formats
 
-- [application/octet-stream](https://connect.maklare.vitec.net#octet-stream980)
+- [application/octet-stream](https://connect.maklare.vitec.net#octet-stream807)
 
-- [text/x-base64](https://connect.maklare.vitec.net#x-base64980)
+- [text/x-base64](https://connect.maklare.vitec.net#x-base64807)
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json980)
+- [application/json, text/json](https://connect.maklare.vitec.net#json807)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml980)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml807)
 
 ```
 @@

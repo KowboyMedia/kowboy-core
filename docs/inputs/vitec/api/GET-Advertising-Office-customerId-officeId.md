@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Office-customerId-officeId, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Office-customerId-officeId, fetched 2026-10-04 -->
 
 # GET Advertising/Office/{customerId}/{officeId}
 
@@ -53,15 +53,15 @@ Hämta kontor för hemsida.
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json871)
+- [application/json, text/json](https://connect.maklare.vitec.net#json526)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml871)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml526)
 
 ```
 {
   "id": "sample string 1",
   "customerId": "sample string 2",
-  "changedAt": "2026-09-16T05:56:29.8099815+02:00",
+  "changedAt": "2026-10-04T08:16:45.4007623+02:00",
   "brandId": "sample string 3",
   "name": "sample string 4",
   "streetAddress": "sample string 5",

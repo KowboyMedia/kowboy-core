@@ -5,7 +5,9 @@ without cancelling a booking, and then asked for the pros and cons of keeping CR
 Core, as a per-site plugin or a separate app, before 129 stands; that weighing is in "Where the
 writes live" below and 129 is open again in `docs/open-questions.md`. Later the same day he
 proposed the forms as a remote widget with a matching step and asked for anti-bot protection;
-that is "The form itself" below, questions 137 to 139. Nothing is built. **The
+that is "The form itself" below, questions 137 to 139, which he answered the same day: the widget,
+Turnstile, and a wizard whose last step is the search profile; he also pointed to Vitec's search
+profile calls in the version 1 API, which closes 131, and 129 stands as a. Nothing is built. **The
 ask** (Patric, 2026-10-04): a strategy for form submissions. Vitec offers sending a lead,
 sending an interest on a single home, booking a viewing with the viewing slots shown in the
 page, and creating a search profile; what Mspecs offers was unknown; a submission must be
@@ -70,7 +72,7 @@ post a form and read slots and nothing else; the tenant token and the CRM login 
   in a browser, that lets a form be posted and nothing more; **a bot gate** is an anti-bot
   service, **Turnstile** (Cloudflare's) or **reCAPTCHA v3** (Google's), that hands the browser a
   token saying a person was likely there, which the server verifies; **a shadow DOM** keeps a
-  widget's styles apart from the page's.
+  widget's styles apart from the page's; **a wizard** is a form in steps, one screen at a time.
 
 ## What the two CRMs offer
 
@@ -284,7 +286,10 @@ destination is dropped or ends in the free-text message, where nothing matches i
   seller's step on Vitec, the profile step on Mspecs, and the same for a brokerage site Kowboy
   did not build by one script tag: the door to the product that B wanted, without building B.
 
-### The widget: one form UI for every client, served by Core (question 137)
+### The widget: one form UI for every client, served by Core (137: the widget, Patric, 2026-10-04)
+
+Patric's picture, which is the decision: a script tag that injects the installation code, hooks
+to any button, fills a config element, and brings its own JavaScript and CSS matched to the site.
 
 **What it is.** One small script, built from `clients/forms-widget/` into Core's `dist/` (with
 Vite, as the admin area is) and served by the web process at `/widget/forms.js`: no framework,
@@ -323,12 +328,12 @@ Lovable site adds the tag in its layout.
 | Lovable                            | the same tag, nothing to build in the kit                                                | an edge function and a React form                              |
 | Sessions to the first working form | about the same: the widget replaces the plugin's two endpoints and the three theme forms | as planned                                                     |
 
-**Recommended: the widget, as the only form UI.** It is the one way to solve the same for
+**Decided: the widget, as the only form UI** (137 a). It is the one way to solve the same for
 Lovable and others once, it is where the bot gate can live once, and it opens the product door.
 The cost is a public endpoint on Core, which is what the site key, the Origin check, the bot
 gate's token and the rate limit are for.
 
-### The bot gate (question 138)
+### The bot gate (138: Turnstile, Patric, 2026-10-04)
 
 Patric: reliable anti-bot support is a must, Google's reCAPTCHA v3 or another. Read on
 2026-10-04 from the services' own pages:
@@ -339,7 +344,7 @@ Patric: reliable anti-bot support is a must, Google's reCAPTCHA v3 or another. R
 | **Google reCAPTCHA v3**  | free up to 10,000 assessments a month, then paid; classic keys are moved into a Google Cloud project automatically (`developers.google.com/recaptcha/docs/faq`, page of 2026-04-02, and the migration overview on Google Cloud) | yes                                               | a score from 0.0 to 1.0 per page action, no interaction; Core verifies server-side and sets the threshold; over the free quota v3 "may fail open" with a static score of 0.9 | Google's badge or a text notice on the page; Google is the company Sweden's IMY ruled against four companies over in 2023 for Google Analytics transfers (no decision names reCAPTCHA); a Google Cloud billing account becomes part of Kowboy's setup |
 | Core's own measures      | none                                                                                                                                                                                                                            | yes                                               | a honeypot field, a minimum time from open to submit, a rate limit per key and per address, the same id once                                                                 | always on, under either service; alone they stop simple bots, not farms                                                                                                                                                                               |
 
-**Recommended: Turnstile as the default**, behind one interface in Core (`verifyHuman(token,
+**Decided: Turnstile** (138 a), behind one interface in Core (`verifyHuman(token,
 address)`) so that reCAPTCHA v3 can be chosen per site when a brokerage insists, and Core's own
 measures always on. Turnstile is free at any volume, invisible for most visitors, needs nothing
 on the site, and puts no Google name on a Swedish brokerage's privacy page. Its free plan's
@@ -347,22 +352,48 @@ twenty widgets are a limit to watch: one widget per brokerage site is the clean 
 at twenty sites; ten hostnames per widget reach two hundred; Enterprise beyond. The widget
 renders whichever service the site's config names; the secret is Core's.
 
-### What the modal asks (question 139)
+### What the modal asks: the wizard (139, Patric, 2026-10-04)
 
-- a) **One screen** (recommended): the contact and the consent, plus one collapsed optional
-  group that this site's CRM takes: "Vad söker du?" (Mspecs: rooms, price, size, kommun, type)
-  or "Har du en bostad att sälja?" (Vitec: type, size, rooms, price, a note). One button, one
-  submission; the adapter sends what its CRM takes (Mspecs: the prospective buyer, then the
-  lead with matching when the group is filled; Vitec: the interest with the present home).
-- b) **A second step after sending**: the contact goes first, then "Tack! En sak till" asks the
-  group and sends a second submission. Safer for the lead, but Vitec's interest is one call, so
-  the present home cannot follow it; only Mspecs's profile can.
-- c) **The contact only**: no extra fields, the USP left out.
+Patric's answer, which replaces the one-screen option: a wizard of up to three steps.
 
-With a, the submission schema gets two optional groups, additive, every field from a CRM's
-specification: `seeking` (rooms, price and living area as min and max, municipalities, object
-type) and `present_home` (object type, living area, rooms, price, a note). The adapter manifest
-names the groups it takes; `GET /v1/forms/config` passes them to the widget.
+1. **The intent**, only when the form needs one: the slot for a booking (the slots read live).
+   An interest and a lead have no intent step.
+2. **The person**: first name and last name in separate fields (both CRMs require them so:
+   Vitec's `firstName` and `lastName`, Mspecs's `firstName` and `lastName`, all required),
+   e-mail, phone, the consent, and a message where the CRM takes one. **The main submission is
+   sent the moment its needed information is in**: a booking after steps 1 and 2, an interest
+   or a lead after step 2. Whatever happens after, the CRM already has the person.
+3. **"Söker du bostad?"** (Patric's "looking for accommodation", in Swedish): prefilled from the
+   page's home with the property type, the minimum number of rooms, the minimum living space
+   and the area name(s); the visitor adjusts or skips. Sending it is a second submission of its
+   own kind, `search_profile`; skipping it loses nothing.
+
+What the profile becomes in each CRM, verified 2026-10-04:
+
+- **Vitec**: the search profile lives in the version 1 API, category CRM-Contact (saved under
+  `docs/inputs/vitec/`, `crm-contact.md` and `api/…CRM-Contact…`). The contact comes first:
+  the booking and the valuation already answer a `contactId`; after an interest (which answers
+  nothing) the adapter calls `POST Contacts/UpdatePerson`, whose duplicate check on first name,
+  last name and one contact method returns the existing or new contact's id. Then
+  `POST CRM/Contact/{customerId}/SearchProfile/Residential/{contactId}` with `subtypes` (the
+  values from `GET …/SearchProfile/SearchProfileValues`: apartment, villa, holiday home, plot),
+  `numberOfRooms.minValue`, `livingSpace.minValue`, `areaIds` (the area ids the connection's area
+  list already carries, matched from the names), `isAutomaticProfile: false`. **These calls are in
+  the CRM function group, granted per customer to the partner**: the test account's login answers
+  the advertising group (200) and the CRM group with 401 today, so a person in Vitec grants it
+  before the first real send (added to question 54).
+- **Mspecs**: `POST /api/marketing/leads/matching` with the lead and one matching: `objectType`,
+  `minRooms`, `minLivingArea` and the municipality code of the page's home (Mspecs matches by
+  municipality code or a drawn polygon, not by area name, so the area names become the home's
+  municipality); the contact and the profile land in one call.
+
+The schema: a fourth kind, `search_profile`, with `person`, `consent`, `source` and a
+`criteria` group (object type, minimum rooms, minimum living space, the areas as id and name,
+the municipality code), additive, every field from a CRM's call above; the widget prefills it
+from the record the page shows and Core passes it through. The adapter manifest lists
+`search_profile` when its CRM takes it. Vitec's interest also takes the home the visitor has to
+sell (`presentAccommodation`), the brokerage's intake lead; a step for it is a later question if a
+brokerage asks, not part of this wizard.
 
 ## The design, approved with 130 (Patric, 2026-10-04: yes, without cancelling a booking)
 
@@ -419,8 +450,8 @@ answered, the last two before any CRM call:
 The same `id` posted again within a day answers the stored outcome and sends nothing twice: a
 double click or a retried request makes one lead.
 
-With 139 a, two optional groups join the schema, additive: `seeking` and `present_home`, listed
-under "What the modal asks"; nothing in the fields above changes.
+With 139, a fourth kind `search_profile` with its `criteria` group joins the schema, additive, as
+listed under "What the modal asks"; nothing in the fields above changes.
 
 ### Reading the slots
 
@@ -531,6 +562,9 @@ generic capability item 21 in `docs/next-steps.md` asked for.
   Vitec), whether a booking is confirmed by e-mail, whether it is confirmed by SMS, and the
   reminder minutes. These are the CRM's own knobs, copied through; Core decides none of them.
 - `slots` calls the form endpoint and renames the fields.
+- `submit` for a `search_profile` (139): the contact id from the booking or valuation answer, else
+  `Contacts/UpdatePerson`, then the residential search profile call, both in the CRM function
+  group with its own password per customer; the subtypes and area ids are mapped in the adapter.
 - The test stand-in Connect (`adapters/vitec/connect.ts`) gets the three calls and the form
   endpoint, and one real send per kind is verified against the test account before the first
   release, since the test account exists for that.
@@ -544,13 +578,14 @@ generic capability item 21 in `docs/next-steps.md` asked for.
   Mspecs brokerage. The interest level and the notification switch are the brokerage's settings
   on the connection's page, as Vitec's are.
 - `slots` answers from the deal's own viewings.
-- A fourth kind, `search_profile`, with the visitor's criteria, is Mspecs's lead-with-matching
-  call; it waits for a form that asks for criteria (question 131 for Vitec, none for now).
+- The fourth kind, `search_profile` (139), is Mspecs's lead-with-matching call with one
+  matching from the criteria; the area names become the home's municipality code.
 
 ### The clients' part
 
-With the widget (137 a) the clients' part shrinks to the script tag, a site-key setting and the
-buttons; what follows is the form-per-client alternative (137 b), kept for the comparison.
+With the widget (137, decided) the clients' part is the script tag, a site-key setting and the
+buttons; what follows is the form-per-client alternative that was not chosen, kept for the
+comparison.
 
 Both clients already hold the tenant token on their server side and send `X-Core-Site`; the
 browser never sees either.
@@ -592,21 +627,23 @@ browser never sees either.
    with 400, 501 or 429 before any CRM call.
 5. The slots call answers the stand-in's viewings and slots under the universal names, valid
    against `schemas/slots.v1.json`.
-6. The WordPress plugin's forwarding endpoints and the theme's three forms pass the template
-   test against the real Core, and the browser never receives the tenant token.
+6. The widget's three forms pass a browser journey against the real Core on the staging site,
+   and the browser never receives the tenant token or the CRM login.
+7. A `search_profile` posted after a lead reaches the stand-in CRM as a contact and a profile with
+   the criteria mapped, and a skipped third step leaves the main submission delivered.
 
 ## The decisions (the discover list)
 
-| #   | Question                                                                                                                        | Options                                                                                                                                                                                                                                                | Undo later?                       | Recommended                                                                                                     |
-| --- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| 129 | Where do CRM writes live? (answered a on 2026-10-04, then reopened for the pros and cons of B and D)                            | a) inside Core, its own folder and health check · b) a separate app · c) Vitec's component on the sites · d) a per-site plugin per CRM                                                                                                                 | a→b yes                           | a, for the reasons under "Why A still"                                                                          |
-| 130 | Is the design approved? **Answered 2026-10-04: yes, without cancelling a booking.**                                             |                                                                                                                                                                                                                                                        |                                   |                                                                                                                 |
-| 131 | What does "create a search profile" become for Vitec, since Connect has no such call?                                           | a) nothing to build: the interest form with status Interested, and the brokerage turns on automatic profiles in Express · b) Patric asks Vitec whether another API offers it · c) a site-side saved search, later                                      | yes                               | a, the smallest; c is a product of its own                                                                      |
-| 132 | May an agent mail Mspecs for the documentation? **Answered 2026-10-04: no mail; the documentation was found online and saved.** |                                                                                                                                                                                                                                                        |                                   |                                                                                                                 |
-| 137 | The form UI: one widget served by Core, or a form per client?                                                                   | a) the widget, posting to Core with a public site key; the plugin and the kit only add the tag · b) a form per client, as the approved design · c) both: the widget and a server-rendered fallback form in the theme                                   | a→b yes, the endpoint is the same | a, under "The widget"                                                                                           |
-| 138 | The bot gate: which service?                                                                                                    | a) Turnstile by default, the service pluggable per site, Core's own measures always on · b) reCAPTCHA v3 only · c) Core's own measures only, a service when spam is seen                                                                               | yes                               | a; c is the smaller option and against Patric's "must have"                                                     |
-| 139 | What does the modal ask beyond the contact?                                                                                     | a) one screen with one collapsed optional group the CRM takes · b) a second step after sending · c) the contact only                                                                                                                                   | yes                               | a, under "What the modal asks"                                                                                  |
-| 136 | What does the footer's lead form send to an Mspecs brokerage, whose lead call needs at least one matching?                      | a) the lead call with one matching from the brokerage's settings (a municipality), so the contact lands in Mspecs · b) the form is hidden on Mspecs sites until Mspecs offers a plain lead · c) the lead goes by e-mail to the office, outside the CRM | yes                               | b, the smallest, until an Mspecs brokerage asks; a is a Core-made matching, which is a rule to write down first |
+| #   | Question                                                                                                                                  | Options                                                                                                                                                                                                                                                | Undo later?                       | Recommended                                                                                                     |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 129 | Where do CRM writes live? **Answered 2026-10-04: a, inside Core** ("129 A", and the widget of 137 posts to Core)                          | a) inside Core, its own folder and health check · b) a separate app · c) Vitec's component on the sites · d) a per-site plugin per CRM                                                                                                                 | a→b yes                           | a, for the reasons under "Why A still"                                                                          |
+| 130 | Is the design approved? **Answered 2026-10-04: yes, without cancelling a booking.**                                                       |                                                                                                                                                                                                                                                        |                                   |                                                                                                                 |
+| 131 | What does "create a search profile" become for Vitec? **Answered 2026-10-04: Vitec's version 1 API has it** (CRM-Contact), see the wizard | a) nothing to build: the interest form with status Interested, and the brokerage turns on automatic profiles in Express · b) Patric asks Vitec whether another API offers it · c) a site-side saved search, later                                      | yes                               | a, the smallest; c is a product of its own                                                                      |
+| 132 | May an agent mail Mspecs for the documentation? **Answered 2026-10-04: no mail; the documentation was found online and saved.**           |                                                                                                                                                                                                                                                        |                                   |                                                                                                                 |
+| 137 | The form UI: one widget served by Core, or a form per client? **Answered 2026-10-04: a, the widget**                                      | a) the widget, posting to Core with a public site key; the plugin and the kit only add the tag · b) a form per client, as the approved design · c) both: the widget and a server-rendered fallback form in the theme                                   | a→b yes, the endpoint is the same | a, under "The widget"                                                                                           |
+| 138 | The bot gate: which service? **Answered 2026-10-04: a, Turnstile**                                                                        | a) Turnstile by default, the service pluggable per site, Core's own measures always on · b) reCAPTCHA v3 only · c) Core's own measures only, a service when spam is seen                                                                               | yes                               | a; c is the smaller option and against Patric's "must have"                                                     |
+| 139 | What does the modal ask beyond the contact? **Answered 2026-10-04: a wizard, the profile last**                                           | a) one screen with one collapsed optional group the CRM takes · b) a second step after sending · c) the contact only                                                                                                                                   | yes                               | a, under "What the modal asks"                                                                                  |
+| 136 | What does the footer's lead form send to an Mspecs brokerage, whose lead call needs at least one matching?                                | a) the lead call with one matching from the brokerage's settings (a municipality), so the contact lands in Mspecs · b) the form is hidden on Mspecs sites until Mspecs offers a plain lead · c) the lead goes by e-mail to the office, outside the CRM | yes                               | b, the smallest, until an Mspecs brokerage asks; a is a Core-made matching, which is a rule to write down first |
 
 Settled without a question, as the handbook leaves tooling to the agent: the delivery is
 synchronous (the visitor waits a second for the CRM's answer and learns the truth; no queue in
@@ -627,6 +664,9 @@ submission id is a UUID in the body; the rate limit is 60 a minute per token.
 - `[core]` **Spam** on an open form reaches the CRM as leads. The bot gate is on from the first
   form (138), with the honeypot, the timing and the rate limit under it; Turnstile's free plan
   stops at twenty widgets, which is a count of sites to watch.
+- `[crm-vitec]` **The CRM function group** is granted per customer to the partner, apart from
+  the advertising group; the test account answers 401 for it today (probed 2026-10-04), so the
+  search profile cannot be tried against Vitec until a person in Vitec grants it (question 54).
 - `[core]` **The widget's look** must blend with each site's design (norbanmakleri.se for Kowboy
   2026): CSS variables and the site's font carry the look; the theme's own markup does not.
   Cheap to see: the first build is placed on the staging site's property page.
@@ -640,18 +680,17 @@ submission id is a UUID in the body; the rate limit is 60 a minute per token.
    the §5.1 amendment above.
 2. `[crm-vitec]` **The Vitec submit and slots**: the mapping, the six connection settings with
    their directions, the stand-in's form endpoints, and one real send per kind against the test
-   account. One session.
-3. `[core]` **The widget** (with 137 a): `clients/forms-widget/`, served at `/widget/forms.js`,
-   the config call, the bot gate (138), the optional group (139), the public site key and the
-   Origin check; the plugin gets the tag and the key setting, the theme the buttons and the
-   lead office; placed on the staging site; closes question 105 and item 21. One session. With
-   137 b instead: the plugin's two forwarding endpoints and the three theme forms.
-4. `[client-lovable]` **The tag in the layout**: when the first Lovable site needs a form; with
-   137 b, an edge function and a React form.
+   account; the search profile's two calls against the stand-in, and against the test account
+   once the CRM function group is granted (54). One session.
+3. `[core]` **The widget** (137): `clients/forms-widget/`, served at `/widget/forms.js`, the
+   config call, Turnstile (138), the wizard with the profile step (139), the public site key and
+   the Origin check; the plugin gets the tag and the key setting, the theme the buttons and the
+   lead office; placed on the staging site; closes question 105 and item 21. One session.
+4. `[client-lovable]` **The tag in the layout**: when the first Lovable site needs a form.
 5. `[crm-mspecs]` **Mspecs submit and slots**: with the Mspecs adapter, from the saved
    specification, once a provider agreement opens the test system.
 
 Later, in the feature map: watching the final price (Vitec offers it; no design asks for it yet);
-a search profile with the visitor's own criteria on Vitec (question 131; Mspecs has it with 139);
+a step for the home the visitor has to sell (Vitec's `presentAccommodation`), if a brokerage asks;
 a site Kowboy does not build gets the widget by a key (137), which is the product door. Out:
 cancelling a booking (Patric, 2026-10-04).

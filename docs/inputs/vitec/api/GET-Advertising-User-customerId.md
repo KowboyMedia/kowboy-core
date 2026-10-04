@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-User-customerId, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-User-customerId, fetched 2026-10-04 -->
 
 # GET Advertising/User/{customerId}
 
@@ -45,9 +45,9 @@ Hämta användarlista för hemsida [PageOfAdvertising_AdvertisingUserListRow](ht
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json683)
+- [application/json, text/json](https://connect.maklare.vitec.net#json557)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml683)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml557)
 
 ```
 {
@@ -58,7 +58,7 @@ Hämta användarlista för hemsida [PageOfAdvertising_AdvertisingUserListRow](ht
     {
       "id": "sample string 1",
       "isVisibleInStaffList": true,
-      "changedAt": "2026-09-16T05:56:26.5907246+02:00",
+      "changedAt": "2026-10-04T13:51:14.1349028+02:00",
       "offices": [
         {
           "id": "sample string 1",
@@ -75,7 +75,7 @@ Hämta användarlista för hemsida [PageOfAdvertising_AdvertisingUserListRow](ht
     {
       "id": "sample string 1",
       "isVisibleInStaffList": true,
-      "changedAt": "2026-09-16T05:56:26.5907246+02:00",
+      "changedAt": "2026-10-04T13:51:14.1349028+02:00",
       "offices": [
         {
           "id": "sample string 1",

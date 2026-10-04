@@ -530,11 +530,11 @@ approved; this map grows as Patric describes wishes and is settled through the r
 - `[core]` **Form submissions to the CRM** (Patric, 2026-10-04; questions 129 to 132 and 136 to 139; the
   strategy in `docs/forms.md`; item 21): a visitor's lead, interest in a home or viewing booking, filled in
   on any site, reaches the brokerage's CRM through Core, with the viewing's slots read live for
-  the booking; the design is approved (130), where the writes live waits on 129; the form UI as one widget
-  served by Core with a bot gate and one optional group per CRM (a seller's home on Vitec, a
-  search profile on Mspecs) waits on 137 to 139. Acceptance: the six criteria proposed in
-  `docs/forms.md`, numbered on approval. Later: watching the final price, a search profile with
-  the visitor's criteria on Vitec (question 131). Out: cancelling a booking (Patric,
+  the booking; decided 2026-10-04: inside Core (129), the design (130), one widget served by Core (137),
+  Turnstile (138), a wizard whose last step is a search profile prefilled from the page (139),
+  which Vitec takes in its version 1 API (131) and Mspecs as a lead with matching. Acceptance:
+  the seven criteria proposed in `docs/forms.md`, numbered on approval. Later: watching the
+  final price, a step for the home the visitor has to sell. Out: cancelling a booking (Patric,
   2026-10-04).
 - `[client-wordpress]` **Search by place, and the list blocks in the plugin** (Patric,
   2026-10-04; questions 133 and 134; the design in `docs/search.md`; item 23): a visitor finds

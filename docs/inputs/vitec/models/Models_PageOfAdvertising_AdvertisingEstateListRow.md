@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/ResourceModel?modelName=Models_PageOfAdvertising_AdvertisingEstateListRow, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/ResourceModel?modelName=Models_PageOfAdvertising_AdvertisingEstateListRow, fetched 2026-10-04 -->
 
 # PageOfAdvertising_AdvertisingEstateListRow
 

@@ -371,12 +371,11 @@ client ports (item 16, first client by question 80).
     shows viewings without a button and no form until then. Question 105 (the design's two forms)
     is settled in the same item. **Planned 2026-10-04** in `docs/forms.md` (the discover phase:
     what Vitec and Mspecs offer, three options for where it lives, the design, the plan): waits
-    on 129 (where the writes live; answered a, then reopened the same day for the pros and cons
-    of a per-site plugin and a separate app, written into `docs/forms.md`); 130 is answered (the
-    design, without cancelling a booking); 137 to 139 (the form UI as one widget served by Core,
-    the bot gate, the optional group per CRM; Patric's proposal of 2026-10-04, weighed in
-    `docs/forms.md`, "The form itself"). Then its three items, Core, the Vitec adapter, the
-    widget (or the WordPress forms with 137 b), one session each; Lovable and Mspecs follow.
+    on nothing since 2026-10-04: 129 (inside Core), 130 (the design, without cancelling a
+    booking), 137 (one widget served by Core), 138 (Turnstile), 139 (the wizard, the search
+    profile last) and 131 (Vitec's version 1 search profile) are answered. Its three items, Core,
+    the Vitec adapter, the widget, one session each, in that order; Lovable and Mspecs follow;
+    the Vitec search profile's real send waits on the CRM function group (54 f).
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in

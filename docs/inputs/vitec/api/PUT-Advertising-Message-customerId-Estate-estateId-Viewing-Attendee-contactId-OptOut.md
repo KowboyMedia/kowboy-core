@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/PUT-Advertising-Message-customerId-Estate-estateId-Viewing-Attendee-contactId-OptOut, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/PUT-Advertising-Message-customerId-Estate-estateId-Viewing-Attendee-contactId-OptOut, fetched 2026-10-04 -->
 
 # PUT Advertising/Message/{customerId}/Estate/{estateId}/Viewing/Attendee/{contactId}/OptOut
 

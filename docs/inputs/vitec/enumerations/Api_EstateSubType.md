@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/EnumerationReference?modelName=Api_EstateSubType, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/EnumerationReference?modelName=Api_EstateSubType, fetched 2026-10-04 -->
 
 # EstateSubType
 

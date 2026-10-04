@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/ResourceModel?modelName=Advertising_AssociationContact, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/ResourceModel?modelName=Advertising_AssociationContact, fetched 2026-10-04 -->
 
 # AssociationContact
 

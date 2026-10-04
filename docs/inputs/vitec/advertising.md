@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Section?id=advertising, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Section?id=advertising, fetched 2026-10-04 -->
 
 API:er för att bygga hemsidor med bostadsförsäljningar
 

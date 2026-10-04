@@ -1,8 +1,9 @@
 // Fetches the Vitec Connect documentation Core is built against and saves it as the spec of
-// record under docs/inputs/vitec/ (next-steps item 1): the advertising section with one page per
-// endpoint, every model and enumeration those pages reach, its OpenAPI specification, the
-// technical description (authentication, customer ids, security), the notifications (webhooks),
-// the Extend API, previews and the migration notes.
+// record under docs/inputs/vitec/ (next-steps item 1): the advertising section and the CRM contact
+// category (the search profiles, docs/forms.md) with one page per endpoint, every model and
+// enumeration those pages reach, the advertising OpenAPI specification, the technical description
+// (authentication, customer ids, security), the notifications (webhooks), the Extend API, previews
+// and the migration notes.
 //
 //   node scripts/fetch-vitec-docs.mjs
 //   (behind a proxy that Node's fetch ignores, such as a cloud session's: NODE_USE_ENV_PROXY=1 node …)
@@ -18,6 +19,11 @@ const OUT = 'docs/inputs/vitec';
 /** The pages besides the endpoints, and the file each becomes. */
 const PAGES = [
   ['/Help/Section?id=advertising', 'advertising.md', 'The advertising section: every endpoint'],
+  [
+    '/Help/Category?version=v1&categoryId=CRM-Contact',
+    'crm-contact.md',
+    'The CRM contact category (version 1): contacts, search profiles, leads; every endpoint',
+  ],
   [
     '/Help/TechnicalInformation',
     'technical-information.md',
@@ -336,6 +342,8 @@ const fetchedAt = new Date().toISOString().slice(0, 10);
 const index = [];
 /** Model and enumeration pages found on the way, crawled after the endpoints. */
 const modelLinks = new Set();
+/** Pages the site could not serve (it answers 500 for some), listed in the README, not fatal. */
+const unavailable = [];
 
 const save = (file, path, html) => {
   writeFileSync(
@@ -353,13 +361,20 @@ for (const [path, file, what] of PAGES) {
   const html = await fetchText(path);
   save(file, path, html);
   index.push([file, what, path]);
-  if (file === 'advertising.md') {
+  if (file === 'advertising.md' || file === 'crm-contact.md') {
     const endpoints = [
       ...new Set([...html.matchAll(/href="(\/Help\/Api\/[^"]+)"/g)].map((m) => m[1])),
     ];
     for (const endpoint of endpoints) {
       const name = endpoint.replace('/Help/Api/', '');
-      save(`api/${name}.md`, endpoint, await fetchText(endpoint));
+      let html;
+      try {
+        html = await fetchText(endpoint);
+      } catch (error) {
+        unavailable.push([endpoint, String(error.message)]);
+        continue;
+      }
+      save(`api/${name}.md`, endpoint, html);
       index.push([`api/${name}.md`, name.replace(/-/g, ' '), endpoint]);
     }
   }
@@ -368,7 +383,6 @@ for (const [path, file, what] of PAGES) {
 // Every model the endpoints return, and every model and enumeration those reach in turn. A page
 // the site cannot serve (it answers 500 for some generic types) is listed, not fatal.
 const crawled = new Set();
-const unavailable = [];
 for (const link of modelLinks) {
   if (crawled.has(link)) continue;
   crawled.add(link);

@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Office-customerId, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Office-customerId, fetched 2026-10-04 -->
 
 # GET Advertising/Office/{customerId}
 
@@ -45,9 +45,9 @@ Hämta kontorslista för hemsida [PageOfAdvertising_AdvertisingOfficeListRow](ht
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json533)
+- [application/json, text/json](https://connect.maklare.vitec.net#json209)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml533)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml209)
 
 ```
 {
@@ -58,12 +58,12 @@ Hämta kontorslista för hemsida [PageOfAdvertising_AdvertisingOfficeListRow](ht
     {
       "id": "sample string 1",
       "customerId": "sample string 2",
-      "changedAt": "2026-09-16T06:05:12.5175112+02:00"
+      "changedAt": "2026-10-04T06:01:55.6338316+02:00"
     },
     {
       "id": "sample string 1",
       "customerId": "sample string 2",
-      "changedAt": "2026-09-16T06:05:12.5175112+02:00"
+      "changedAt": "2026-10-04T06:01:55.6338316+02:00"
     }
   ]
 }

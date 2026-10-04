@@ -1,8 +1,8 @@
-<!-- https://connect.maklare.vitec.net/Help/NotificationsApi, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/NotificationsApi, fetched 2026-10-04 -->
 
 Prenumerationer kan sättas upp för information som förändras i Vitec via Express eller Connect. När information förändras så kontrollerar Vitec vilka prenumerationer som berörs. Om det finns prenumerationer som matchar förändringarna så skickas notifieringar ut för berörda prenumerationerna.
 
-Den URL som notifieras ska returnera HTTP statuskod i 200 serien. Svarar ni inte omgående så kommer vi att anta att ni svarat med 200 OK.
+Den URL som notifieras ska omgående returnera en HTTP-statuskod i 200-serien. Tidsgränsen är två sekunder. En höjning görs endast om det är absolut nödvändigt och då endast tillfälligt. Återförsök är inte aktiverade som standard. Om återförsök har aktiverats kan HTTP-svar i 500-serien leda till ett nytt leveransförsök. HTTP-svar i 300- och 400-serierna samt timeout leder inte till återförsök.
 
 ### Manuell notifikation
 
@@ -12,13 +12,27 @@ Innan Vitec aktiverar prenumerationen så kan ni prova att manuellt skapa en not
 
 En prenumeration beskriver kriterier över vilka förändringar som ska trigga notifieringar.
 
-Ni väljer om ni vill ha uppdateringar, raderingar (om möjligt) eller båda.
+För vanliga förändringar väljer ni uppdateringar, raderingar (om möjligt) eller båda. Sammanslagningar har en separat händelsetyp.
 
 - Update - Uppdatering
 
 - Remove - Radering
 
+- Merge - Sammanslagning av kontakter (se Sammanslagningar)
+
 För att skapa en prenumeration, kontakta Vitec så sätter vi upp en prenumeration åt er.
+
+### Gemensamma parametrar
+
+Notifieringar skickas med HTTP POST och innehållstypen application/json. Parameternamn skrivs som i exemplen, bland annat subtype med litet t. Utöver parametrarna för respektive prenumerationsmål ingår följande:
+
+- tenantId: Id för kundens tenant
+
+- chainId: Kedje-id. Ingår i URL:en när värdet finns; i JSON kan värdet vara null.
+
+- subtype: Undertyp. När undertyp saknas är värdet null i JSON och parametern utelämnas från URL:en.
+
+Relationsparametrarna relId1/relType1, relId2/relType2 och relId3/relType3 skickas endast när motsvarande relations-id finns. Om relationens typ saknas är relType-värdet null i JSON och utelämnas från URL:en. Data skickas endast i JSON. För bostäder, projekt och inkommande leads ingår data vid Update, inte vid Remove. För bostäder och projekt ingår data.status endast när status finns tillgänglig.
 
 De prenumerationsmål som ni kan prenumerera på är följande:
 
@@ -48,6 +62,8 @@ De prenumerationsmål som ni kan prenumerera på är följande:
 
 - [Sammanslagningar](https://connect.maklare.vitec.net#webhook-merge)
 
+[Prova exemplet i notifikationstestet](https://connect.maklare.vitec.net/Help/TryOutSubscription?eventType=Estate&name=prenumerationsnamn&licenseId=M11385&chainId=G1&tenantId=T1&targetId=OBJ11385_1395932274&subtype=HousingCooperative)
+
 För bostäder så går det att specificera om notifieringen endast gäller bostäder som annonseras på hemsida och vilken typ av status som bostaden ska ha. Ni väljer också vilka typer av bostäder som prenumerationen ska gälla för.
 
 - House - Villa
@@ -74,7 +90,7 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 - type: Estate
 
-- subType: House, HousingCooperative, Cottage, Plot
+- subtype: House, Cottage, HousingCooperative, Plot, Condominium, Farm, ForeignProperty, CommercialProperty, Premises
 
 - data.status: Status på bostaden
 
@@ -120,7 +136,7 @@ Möjliga värden på bostadsstatus:
 
 - AppointedAdmission - Tillträdd
 
-Exempel på notifiering för en förändring på en bostadsrätt med status till salu http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=Estate&event=Update&customerId=M11385&id=OBJ11385_1395932274&subtype=HousingCooperative
+Exempel på notifiering för en förändring på en bostadsrätt med status till salu http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=Estate&event=Update&customerId=M11385&id=OBJ11385_1395932274&subtype=HousingCooperative&chainId=G1&tenantId=T1
 
 POST data:
 
@@ -134,9 +150,13 @@ POST data:
   "subtype": "HousingCooperative",
   "data": {
     "status": "ForSale"
-  }
+  },
+  "chainId": "G1",
+  "tenantId": "T1"
 }
 ```
+
+[Prova exemplet i notifikationstestet](https://connect.maklare.vitec.net/Help/TryOutSubscription?eventType=Project&name=prenumerationsnamn&licenseId=M11385&chainId=G1&tenantId=T1&targetId=PRO11385_1395932274)
 
 För projekt så går det att specificera om notifieringen endast gäller projekt som annonseras på hemsida och vilken typ av status som projektet ska ha.
 
@@ -164,11 +184,15 @@ Möjliga värden på projektstatus:
 
 - Upcoming - Kommande
 
+[Prova exemplet i notifikationstestet](https://connect.maklare.vitec.net/Help/TryOutSubscription?eventType=User&name=prenumerationsnamn&licenseId=M11385&chainId=G1&tenantId=T1&targetId=HANE99C53F2DE4F489AB1E464D0F9AFFACD&subtype=User)
+
 Parametrarna kommer både med som url parametrar och som POST data i JSON format.
 
 - name: Namnet på prenumerationen
 
-- type: Agent
+- type: User
+
+- subtype: User
 
 - id: Id på användaren
 
@@ -178,7 +202,7 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 Exempel:
 
-http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=User&event=Update&customerId=M11385&id=HANE99C53F2DE4F489AB1E464D0F9AFFACD
+http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=User&event=Update&customerId=M11385&id=HANE99C53F2DE4F489AB1E464D0F9AFFACD&subtype=User&chainId=G1&tenantId=T1
 
 POST data:
 
@@ -188,9 +212,14 @@ POST data:
   "type": "User",
   "event": "Update",
   "customerId": "M11385",
-  "id": "HANE99C53F2DE4F489AB1E464D0F9AFFACD"
+  "id": "HANE99C53F2DE4F489AB1E464D0F9AFFACD",
+  "subtype": "User",
+  "chainId": "G1",
+  "tenantId": "T1"
 }
 ```
+
+[Prova exemplet i notifikationstestet](https://connect.maklare.vitec.net/Help/TryOutSubscription?eventType=Office&name=prenumerationsnamn&licenseId=M11385&chainId=G1&tenantId=T1&targetId=M11385)
 
 Parametrarna kommer både med som url parametrar och som POST data i JSON format.
 
@@ -198,13 +227,17 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 - type: Office
 
+- subtype: Office
+
 - id: Id på kontoret
 
 - event: Update, Remove
 
 - customerId: Kund-id på det kontoret som ändringen tillhör
 
-För kontakter går det att ange vilken typ av kontakt som avses (Personer, företag och/eller dödsbo).
+[Prova exemplet i notifikationstestet](https://connect.maklare.vitec.net/Help/TryOutSubscription?eventType=Contact&name=prenumerationsnamn&licenseId=M11385&chainId=G1&tenantId=T1&targetId=ADR3ADC7B7B0A9447CA97FCAB43E36B582C&subtype=Person)
+
+För kontakter går det att ange vilken typ av kontakt som avses (personer, företag, dödsbon och/eller föreningar).
 
 Parametrarna kommer både med som url parametrar och som POST data i JSON format.
 
@@ -212,7 +245,7 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 - type: Contact
 
-- subType: Person, Company, Estate, Association
+- subtype: Person, Company, Estate, Association
 
 - id: Id på kontakten
 
@@ -220,13 +253,19 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 - customerId: Kund-id på det kontoret som ändringen tillhör
 
+[Prova exemplet i notifikationstestet](https://connect.maklare.vitec.net/Help/TryOutSubscription?eventType=EstateContact&name=prenumerationsnamn&licenseId=M11385&chainId=G1&tenantId=T1&subtype=Seller&relId1=OBJ11385_1395932274&relType1=HousingCooperative&relId2=ADRB1173057ECD04D66B9D798812E09C1B5&relType2=Estate)
+
 Ni väljer vilka typer av kontaktrelationer som prenumerationen ska gälla för.
 
-- EstateContactBuyer - Köpare
+- Buyer - Köpare
 
-- EstateContactSeller - Säljare
+- Seller - Säljare
 
-- EstateContactSpeculator - Spekulanter
+- Speculator - Spekulanter
+
+- ExtraBuyer - Extra köpare
+
+- ExtraSeller - Extra säljare
 
 Parametrarna kommer både med som url parametrar och som POST data i JSON format.
 
@@ -234,7 +273,7 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 - type: EstateContact
 
-- subType: EstateContactBuyer, EstateContactSeller, EstateContactSpeculator
+- subtype: Buyer, Seller, Speculator, ExtraBuyer, ExtraSeller
 
 - relId1: Id på bostaden
 
@@ -250,7 +289,7 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 Exempel på notifiering för en förändring där en säljare tillkommer på en bostad
 
-http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=EstateContact&event=Update&customerId=M11385&subType=EstateContactSeller&relId1=OBJ11385_1395932274&relType1=HousingCooperative&relId2=ADRB1173057ECD04D66B9D798812E09C1B5&relType2=Estate
+http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=EstateContact&event=Update&customerId=M11385&subtype=Seller&relId1=OBJ11385_1395932274&relType1=HousingCooperative&relId2=ADRB1173057ECD04D66B9D798812E09C1B5&relType2=Estate&chainId=G1&tenantId=T1
 
 POST data:
 
@@ -260,13 +299,17 @@ POST data:
   "type": "EstateContact",
   "event": "Update",
   "customerId": "M11385",
-  "subType": "EstateContactSeller",
+  "subtype": "Seller",
   "relId1": "OBJ11385_1395932274",
   "relType1": "HousingCooperative",
   "relId2": "ADRB1173057ECD04D66B9D798812E09C1B5",
-  "relType2": "Estate"
+  "relType2": "Estate",
+  "chainId": "G1",
+  "tenantId": "T1"
 }
 ```
+
+[Prova exemplet i notifikationstestet](https://connect.maklare.vitec.net/Help/TryOutSubscription?eventType=EstateContact&name=prenumerationsnamn&licenseId=M11385&chainId=G1&tenantId=T1&targetId=VIDE98B8FEE41064A77889D5D592D169F26&subtype=ViewingParticipant&relId1=OBJ11385_1395932274&relType1=HousingCooperative&relId2=ADRB1DEE2F28780457D9D9791F5E3C3C2A1&relType2=Person&relId3=VISF20A42E75479481A98E2D55322305353)
 
 Parametrarna kommer både med som url parametrar och som POST data i JSON format.
 
@@ -274,11 +317,13 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 - type: EstateContact
 
+- id: Id på visningsdeltagaren
+
 - event: Update, Remove
 
 - customerId: Kund-id på det kontoret som ändringen tillhör
 
-- subType: ViewingParticipant
+- subtype: ViewingParticipant
 
 - relId1: Id på bostaden
 
@@ -294,7 +339,7 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 Exempel på notifiering för en förändring där en ny visningsdeltagare läggs till
 
-http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=EstateContact&event=Update&customerId=M11385&subType=ViewingParticipant&relId1=OBJ11385_1395932274&relType1=HousingCooperative&relId2=ADRB1173057ECD04D66B9D798812E09C1B5&relType2=Estate&relId3=VISF20A42E75479481A98E2D55322305353&relType3=Viewing
+http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=EstateContact&event=Update&customerId=M11385&subtype=ViewingParticipant&relId1=OBJ11385_1395932274&relType1=HousingCooperative&relId2=ADRB1DEE2F28780457D9D9791F5E3C3C2A1&relType2=Person&relId3=VISF20A42E75479481A98E2D55322305353&relType3=Viewing&id=VIDE98B8FEE41064A77889D5D592D169F26&chainId=G1&tenantId=T1
 
 POST data:
 
@@ -304,15 +349,20 @@ POST data:
   "type": "EstateContact",
   "event": "Update",
   "customerId": "M11385",
-  "subType": "ViewingParticipant",
+  "subtype": "ViewingParticipant",
   "relId1": "OBJ11385_1395932274",
   "relType1": "HousingCooperative",
   "relId2": "ADRB1DEE2F28780457D9D9791F5E3C3C2A1",
   "relType2": "Person",
   "relId3": "VISF20A42E75479481A98E2D55322305353",
-  "relType3": "Viewing"
+  "relType3": "Viewing",
+  "id": "VIDE98B8FEE41064A77889D5D592D169F26",
+  "chainId": "G1",
+  "tenantId": "T1"
 }
 ```
+
+[Prova exemplet i notifikationstestet](https://connect.maklare.vitec.net/Help/TryOutSubscription?eventType=OfficeEstateAgent&name=prenumerationsnamn&licenseId=M11385&chainId=G1&tenantId=T1&subtype=Affiliation&relId1=HANE99C53F2DE4F489AB1E464D0F9AFFACD&relType1=User&relId2=M11385&relType2=Office)
 
 Parametrarna kommer både med som url parametrar och som POST data i JSON format.
 
@@ -320,7 +370,7 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 - type: OfficeEstateAgent
 
-- subType: Affiliation
+- subtype: Affiliation
 
 - relId1: Id på användaren
 
@@ -336,7 +386,7 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 Exempel på notifiering för en förändring där en mäklare har fått en ny tillhörighet till ett kontor
 
-http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=OfficeEstateAgent&event=Update&customerId=M11385&subType=Affiliation&relId1=HANE99C53F2DE4F489AB1E464D0F9AFFACD&relType1=User&relId2=M11385&relType2=Office
+http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=OfficeEstateAgent&event=Update&customerId=M11385&subtype=Affiliation&relId1=HANE99C53F2DE4F489AB1E464D0F9AFFACD&relType1=User&relId2=M11385&relType2=Office&chainId=G1&tenantId=T1
 
 POST data:
 
@@ -346,13 +396,17 @@ POST data:
   "type": "OfficeEstateAgent",
   "event": "Update",
   "customerId": "M11385",
-  "subType": "Affiliation",
+  "subtype": "Affiliation",
   "relId1": "HANE99C53F2DE4F489AB1E464D0F9AFFACD",
   "relType1": "User",
   "relId2": "M11385",
-  "relType2": "Office"
+  "relType2": "Office",
+  "chainId": "G1",
+  "tenantId": "T1"
 }
 ```
+
+[Prova exemplet i notifikationstestet](https://connect.maklare.vitec.net/Help/TryOutSubscription?eventType=Meeting&name=prenumerationsnamn&licenseId=M11385&chainId=G1&tenantId=T1&targetId=CAL7216862FF0AD4AE38061A04A9AC4D60D&relId1=OBJ11385_1395932274&relType1=HousingCooperative&relId2=ADR3ADC7B7B0A9447CA97FCAB43E36B582C&relType2=Person)
 
 Parametrarna kommer både med som url parametrar och som POST data i JSON format.
 
@@ -376,7 +430,7 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 Exempel på notifiering för en förändring där en ny mötebokning läggs till
 
-http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=Meeting&event=Update&customerId=M11385&id=CAL7216862FF0AD4AE38061A04A9AC4D60D&relId1=OBJ11385_1395932274&relType1=HousingCooperative&relId2=ADRB1173057ECD04D66B9D798812E09C1B5&relType2=Estate
+http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=Meeting&event=Update&customerId=M11385&id=CAL7216862FF0AD4AE38061A04A9AC4D60D&relId1=OBJ11385_1395932274&relType1=HousingCooperative&relId2=ADR3ADC7B7B0A9447CA97FCAB43E36B582C&relType2=Person&chainId=G1&tenantId=T1
 
 POST data:
 
@@ -387,13 +441,18 @@ POST data:
   "event": "Update",
   "customerId": "M11385",
   "id": "CAL7216862FF0AD4AE38061A04A9AC4D60D",
-  "subType": "EstateContactSeller",
   "relId1": "OBJ11385_1395932274",
   "relType1": "HousingCooperative",
   "relId2": "ADR3ADC7B7B0A9447CA97FCAB43E36B582C",
-  "relType2": "Person"
+  "relType2": "Person",
+  "chainId": "G1",
+  "tenantId": "T1"
 }
 ```
+
+[Prova exemplet i notifikationstestet](https://connect.maklare.vitec.net/Help/TryOutSubscription?eventType=Note&name=prenumerationsnamn&licenseId=M11385&chainId=G1&tenantId=T1&targetId=NOT7216862FF0AD4AE38061A04A9AC4D60D&relId1=OBJ11385_1395932274&relType1=HousingCooperative&relId2=ADR3ADC7B7B0A9447CA97FCAB43E36B582C&relType2=Person)
+
+[Prova en notering kopplad till ett projekt](https://connect.maklare.vitec.net/Help/TryOutSubscription?eventType=Note&name=prenumerationsnamn&licenseId=M11385&chainId=G1&tenantId=T1&targetId=NOT7216862FF0AD4AE38061A04A9AC4D60D&relId1=PRO11385_1395932274&relType1=Project&relId2=ADR3ADC7B7B0A9447CA97FCAB43E36B582C&relType2=Person)
 
 Parametrarna kommer både med som url parametrar och som POST data i JSON format.
 
@@ -407,9 +466,9 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 - customerId: Kund-id på det kontoret som ändringen tillhör
 
-- relId1: Id på bostaden
+- relId1: Id på bostaden eller projektet
 
-- relType1: Bostadens typ
+- relType1: Bostadens typ, eller null i JSON för ett projekt (utelämnas från URL:en)
 
 - relId2: Id på kontakten
 
@@ -417,7 +476,7 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 Exempel på notifiering för en förändring där en ny notering läggs till
 
-http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=Note&event=Update&customerId=M11385&id=NOT7216862FF0AD4AE38061A04A9AC4D60D&relId1=OBJ11385_1395932274&relType1=HousingCooperative&relId2=ADRB1173057ECD04D66B9D798812E09C1B5&relType2=Estate
+http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=Note&event=Update&customerId=M11385&id=NOT7216862FF0AD4AE38061A04A9AC4D60D&relId1=OBJ11385_1395932274&relType1=HousingCooperative&relId2=ADR3ADC7B7B0A9447CA97FCAB43E36B582C&relType2=Person&chainId=G1&tenantId=T1
 
 POST data:
 
@@ -428,13 +487,16 @@ POST data:
   "event": "Update",
   "customerId": "M11385",
   "id": "NOT7216862FF0AD4AE38061A04A9AC4D60D",
-  "subType": "EstateContactSeller",
   "relId1": "OBJ11385_1395932274",
   "relType1": "HousingCooperative",
   "relId2": "ADR3ADC7B7B0A9447CA97FCAB43E36B582C",
-  "relType2": "Person"
+  "relType2": "Person",
+  "chainId": "G1",
+  "tenantId": "T1"
 }
 ```
+
+[Prova exemplet i notifikationstestet](https://connect.maklare.vitec.net/Help/TryOutSubscription?eventType=Area&name=prenumerationsnamn&licenseId=M11385&chainId=G1&tenantId=T1&targetId=STD7216862FF0AD4AE38061A04A9AC4D60D)
 
 Parametrarna kommer både med som url parametrar och som POST data i JSON format.
 
@@ -450,7 +512,7 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 Exempel på notifiering för en förändring där ett område ändras
 
-http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=Area&event=Update&customerId=M11385&id=STD7216862FF0AD4AE38061A04A9AC4D60D
+http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=Area&event=Update&customerId=M11385&id=STD7216862FF0AD4AE38061A04A9AC4D60D&chainId=G1&tenantId=T1
 
 POST data:
 
@@ -461,8 +523,12 @@ POST data:
   "event": "Update",
   "customerId": "M11385",
   "id": "STD7216862FF0AD4AE38061A04A9AC4D60D",
+  "chainId": "G1",
+  "tenantId": "T1"
 }
 ```
+
+[Prova exemplet i notifikationstestet](https://connect.maklare.vitec.net/Help/TryOutSubscription?eventType=IncomingLead&name=prenumerationsnamn&licenseId=M11385&chainId=G1&tenantId=T1&targetId=LED7216862FF0AD4AE38061A04A9AC4D60D&partnerId=PC1&externalId=lead-id-of-partner&leadCause=LeadAccepted)
 
 Gäller inkommande leads från externa tjänster. Notifieringar kommer enbart att skickas för inkommna leads som levererats av samma partner.
 
@@ -508,7 +574,7 @@ Möjliga värden på cause parametern är:
 
 Exempel på notifiering för en uppdatering av ett inkommande lead
 
-http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=IncomingLead&event=Update&customerId=M11385&id=LED7216862FF0AD4AE38061A04A9AC4D60D
+http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=IncomingLead&event=Update&customerId=M11385&id=LED7216862FF0AD4AE38061A04A9AC4D60D&chainId=G1&tenantId=T1
 
 POST data:
 
@@ -523,11 +589,15 @@ POST data:
     "partnerId": "PC1",
     "externalId": "lead-id-of-partner",
     "cause": "LeadAccepted"
-  }
+  },
+  "chainId": "G1",
+  "tenantId": "T1"
 }
 ```
 
-Parametrarna kommer både med som url parametrar och som POST data i JSON format.
+[Prova exemplet i notifikationstestet](https://connect.maklare.vitec.net/Help/TryOutSubscription?eventType=Merge&name=prenumerationsnamn&licenseId=M11385&chainId=G1&tenantId=T1&targetId=ADR8462BF8CEC9D4A3D875A7B4449997B00&subtype=Person&sourceId=ADRAC382A6314634AEB9ECC72A284B0DE09)
+
+Parametrarna kommer både med som url parametrar och som POST data i JSON format. Undantagen är destinationId och sourceIds som endast skickas i POST-datat.
 
 - name: Namnet på prenumerationen
 
@@ -537,7 +607,7 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 - customerId: Kund-id på det kontoret som ändringen tillhör
 
-- subType: Person
+- subtype: Person
 
 - id: Id på målet med sammanslagningen
 
@@ -547,7 +617,7 @@ Parametrarna kommer både med som url parametrar och som POST data i JSON format
 
 Exempel på notifiering för en sammanslagning för kontakt
 
-http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&type=Merge&event=Merge&customerId=M11385&subType=Person&id=ADR8462BF8CEC9D4A3D875A7B4449997B00
+http://connect.maklare.vitec.net/Reciever/?name=prenumerationsnamn&id=ADR8462BF8CEC9D4A3D875A7B4449997B00&type=Merge&event=Merge&customerId=M11385&subtype=Person&chainId=G1&tenantId=T1
 
 POST data:
 
@@ -558,8 +628,12 @@ POST data:
   "type": "Merge",
   "event": "Merge",
   "customerId": "M11385",
-  "subType": "Person",
+  "subtype": "Person",
   "destinationId": "ADR8462BF8CEC9D4A3D875A7B4449997B00",
-  "sourceIds": ["ADRAC382A6314634AEB9ECC72A284B0DE09"]
+  "sourceIds": [
+    "ADRAC382A6314634AEB9ECC72A284B0DE09"
+  ],
+  "chainId": "G1",
+  "tenantId": "T1"
 }
 ```

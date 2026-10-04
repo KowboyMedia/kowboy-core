@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/AdvertisingMigration, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/AdvertisingMigration, fetched 2026-10-04 -->
 
 ## Migrering från API version 1.0
 
