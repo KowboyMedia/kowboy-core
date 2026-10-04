@@ -318,6 +318,22 @@ function core_driver_links(): array
     return array_map(fn (array $row): array => ['remote_id' => (string) $row['remote_id'], 'area_id' => (string) $row['area_id']], $rows ?: []);
 }
 
+/**
+ * `picks <entity> <user id>`: the pick endpoint through WordPress's own REST dispatcher, as that
+ * user (0 is a visitor), so the test reads its status and its rows.
+ *
+ * @return array<string, mixed>
+ */
+function core_driver_picks(string $argument): array
+{
+    [$entity, $user] = explode(' ', trim($argument), 2) + ['', '0'];
+    wp_set_current_user((int) $user);
+    $request = new WP_REST_Request('GET', '/core/v1/picks');
+    $request->set_query_params(['entity' => $entity]);
+    $response = rest_do_request($request);
+    return ['status' => $response->get_status(), 'rows' => $response->get_data()];
+}
+
 $result = match ($command) {
     'configure' => core_driver_configure((array) json_decode($argument, true)),
     'reset' => core_driver_reset(),
@@ -337,6 +353,7 @@ $result = match ($command) {
     'inside' => core_driver_inside((array) json_decode($argument, true)),
     'links' => core_driver_links(),
     'rebuild' => ['linked' => core_client_rebuild_links(0, max(1, (int) $argument))],
+    'picks' => core_driver_picks($argument),
     default => null,
 };
 if ($result === null) {

@@ -1,0 +1,100 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "core-client/property-list",
+  "title": "Bostäder",
+  "description": "Bostäderna från Kowboy Core som kort, med statusflikar, filter och platssök, från alla eller bara från valda mäklare, områden och kontor. Utseendet är temats.",
+  "category": "core-client",
+  "icon": "grid-view",
+  "editorScript": "core-client-editor",
+  "render": "file:./render.php",
+  "supports": {
+    "html": false,
+    "anchor": true
+  },
+  "attributes": {
+    "title": {
+      "type": "string",
+      "default": "",
+      "control": "text",
+      "label": "Rubrik"
+    },
+    "lead": {
+      "type": "string",
+      "default": "",
+      "control": "text",
+      "label": "Ingress"
+    },
+    "status": {
+      "type": "string",
+      "default": "for_sale,coming",
+      "control": "select",
+      "label": "Vilka bostäder",
+      "options": {
+        "for_sale,coming": "Till salu och kommande",
+        "for_sale": "Till salu",
+        "coming": "Kommande",
+        "sold": "Sålda"
+      }
+    },
+    "perPage": {
+      "type": "number",
+      "default": 9,
+      "control": "number",
+      "label": "Antal per sida"
+    },
+    "statusTabs": {
+      "type": "boolean",
+      "default": true,
+      "control": "toggle",
+      "label": "Statusflikar",
+      "help": "Alla, Till salu, Kommande."
+    },
+    "filters": {
+      "type": "boolean",
+      "default": false,
+      "control": "toggle",
+      "label": "Filter",
+      "help": "Max pris, minst boarea, minst antal rum och område."
+    },
+    "placeSearch": {
+      "type": "string",
+      "default": "none",
+      "control": "select",
+      "label": "Platssök",
+      "help": "Sökrutan föreslår bara platser där det finns bostäder i listan.",
+      "options": {
+        "none": "Inget",
+        "areas": "Områden",
+        "places": "Områden, kommuner och län"
+      }
+    },
+    "agents": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "control": "pick",
+      "entity": "agent",
+      "label": "Visa bara från dessa mäklare",
+      "help": "Tomt visar alla."
+    },
+    "areas": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "control": "pick",
+      "entity": "area",
+      "label": "Visa bara från dessa områden",
+      "help": "Tomt visar alla."
+    },
+    "offices": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "control": "pick",
+      "entity": "office",
+      "label": "Visa bara från dessa kontor",
+      "help": "Tomt visar alla."
+    }
+  }
+}

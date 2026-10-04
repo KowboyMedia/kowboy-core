@@ -1,16 +1,88 @@
-// The editor side of every section block (inc/blocks.php): one settings panel built from the
-// attributes' `control` keys in block.json, and a preview rendered by the server. Plain
-// WordPress packages, no build step.
+// The editor side of the plugin's list blocks and of every block a theme or a set hands over
+// (includes/blocks.php): one settings panel built from the attributes' `control` keys in
+// block.json, and a preview rendered by the server. A `pick` control offers the site's agents,
+// offices or areas by name, from the plugin's endpoint, and stores their ids. Plain WordPress
+// packages, no build step.
 (function (wp) {
   'use strict';
   var el = wp.element.createElement;
   var Fragment = wp.element.Fragment;
+  var useState = wp.element.useState;
+  var useEffect = wp.element.useEffect;
   var useBlockProps = wp.blockEditor.useBlockProps;
   var InspectorControls = wp.blockEditor.InspectorControls;
   var MediaUpload = wp.blockEditor.MediaUpload;
   var MediaUploadCheck = wp.blockEditor.MediaUploadCheck;
   var c = wp.components;
   var ServerSideRender = wp.serverSideRender;
+
+  /** The records a pick offers, fetched once per kind and shared by every pick on the page. */
+  var picks = {};
+  function loadPicks(entity) {
+    if (!picks[entity]) {
+      picks[entity] = wp
+        .apiFetch({ path: '/core/v1/picks?entity=' + encodeURIComponent(entity) })
+        .then(function (rows) {
+          return Array.isArray(rows) ? rows : [];
+        })
+        .catch(function () {
+          return [];
+        });
+    }
+    return picks[entity];
+  }
+
+  /** A multi-pick by name: WordPress's token field over the records' labels; the block keeps the ids. */
+  function PickControl(props) {
+    var state = useState([]);
+    var rows = state[0];
+    var setRows = state[1];
+    useEffect(
+      function () {
+        var live = true;
+        loadPicks(props.entity).then(function (loaded) {
+          if (live) setRows(loaded);
+        });
+        return function () {
+          live = false;
+        };
+      },
+      [props.entity],
+    );
+    var byId = {};
+    var byLabel = {};
+    rows.forEach(function (row) {
+      byId[row.id] = row.label;
+      byLabel[row.label] = row.id;
+    });
+    var ids = Array.isArray(props.value) ? props.value : [];
+    return el(c.FormTokenField, {
+      label: props.label,
+      help: props.help,
+      __nextHasNoMarginBottom: true,
+      __next40pxDefaultSize: true,
+      __experimentalExpandOnFocus: true,
+      value: ids.map(function (id) {
+        return byId[id] || id;
+      }),
+      suggestions: rows.map(function (row) {
+        return row.label;
+      }),
+      __experimentalValidateInput: function (token) {
+        return Object.prototype.hasOwnProperty.call(byLabel, token);
+      },
+      // A token is a label the field knows, or an id shown as itself (before the records arrived, or
+      // a record that is gone); the ids pass through, so removing one never drops the others.
+      onChange: function (tokens) {
+        props.onChange(
+          tokens.map(function (token) {
+            var label = typeof token === 'string' ? token : token.value;
+            return byLabel[label] || label;
+          }),
+        );
+      },
+    });
+  }
 
   function mediaButton(label, allowed, multiple, onSelect, value) {
     return el(
@@ -92,7 +164,7 @@
         props,
         el(
           'div',
-          { className: 'k-editor-media' },
+          { className: 'core-client-media' },
           value && value.url
             ? el('img', {
                 src: value.url,
@@ -120,7 +192,7 @@
         props,
         el(
           'div',
-          { className: 'k-editor-media' },
+          { className: 'core-client-media' },
           list.length
             ? el(
                 'div',
@@ -172,7 +244,7 @@
         props,
         el(
           'div',
-          { className: 'k-editor-media' },
+          { className: 'core-client-media' },
           value && value.url ? el('p', null, value.filename || value.url) : null,
           mediaButton(
             value && value.url ? 'Byt film' : 'Välj film',
@@ -189,6 +261,12 @@
     },
     repeater: function (props, value, onChange, def, key) {
       return repeater(def, Array.isArray(value) ? value : [], onChange, key);
+    },
+    pick: function (props, value, onChange, def) {
+      return el(
+        PickControl,
+        Object.assign(props, { entity: def.entity, value: value, onChange: onChange }),
+      );
     },
     text: function (props, value, onChange) {
       return el(c.TextControl, Object.assign(props, { value: value || '', onChange: onChange }));
@@ -346,14 +424,14 @@
         ),
         el(
           'div',
-          useBlockProps({ className: 'k-editor-preview' }),
+          useBlockProps({ className: 'core-client-preview' }),
           el(ServerSideRender, { block: blockType.name, attributes: props.attributes }),
         ),
       );
     };
   }
 
-  (window.kowboyBlocks || []).forEach(function (name) {
+  (window.coreClientBlocks || []).forEach(function (name) {
     var type = wp.blocks.getBlockType(name);
     if (type) return;
     wp.blocks.registerBlockType(name, {

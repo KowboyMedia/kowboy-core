@@ -416,8 +416,13 @@ client ports (item 16, first client by question 80).
     1.0.18: the query takes `lkf`, `areas`, `q` and lists for `agent`, `office` and `area_id`,
     the index carries the code, the point and an area's outline bounds, the link table holds
     which areas a home is in, rebuilt in the background on a plugin update, and the fake CRM
-    sends outlines and codes so the suite proves it. Next: session 2, the blocks in the plugin
-    (the editor builder moves there with the pick control), then session 3, the search box.
+    sends outlines and codes so the suite proves it. Session 2 is done the same day, plugin 0.5.1
+    and theme 1.1.0: the two list blocks "Bostäder" and "Mäklare" live in the plugin with the
+    settings of the ask (the picks by name through the pick endpoint, for editors), the editor
+    builder moved there with the pick control, and the theme's two list blocks are wrappers of
+    the plugin's settings. Next: session 3, the search box (the combo box with pills, the places
+    data, the Till salu card, the browser journey), then the deploy to the staging site: the
+    plugin (0.5.1 or newer) before the theme (1.1.0), since the theme's blocks lean on it.
     Default 135 (the tests under criterion 20) waits; the acceptance list is edited when it stands.
     - **Component:** `[client-wordpress]`, the plugin first, the theme's two list blocks after.
     - **What changes for the product:** the list search takes an LKF code or its län or kommun

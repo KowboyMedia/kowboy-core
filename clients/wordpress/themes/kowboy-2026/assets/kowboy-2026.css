@@ -1935,6 +1935,6 @@ iframe.k-hero__video {
 }
 
 /* The editor: the preview inside the block editor */
-.k-editor-preview .k-hero {
+.core-client-preview .k-hero {
   min-height: 320px;
 }

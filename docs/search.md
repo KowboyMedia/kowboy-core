@@ -3,9 +3,9 @@
 **Status:** approved 2026-10-04: Patric answered 133 with a (a home is in every area whose
 outline holds it) and let Default 134 stand, and added two rules: the links are recomputed only
 when a home's point or an area's outline changed, which is rare, and every agent filter checks
-both of a home's agents. Session 1 of the three below (the query and the data) is built:
-plugin 0.5.0, theme 1.0.18, proved by the two tests named under "Tests" 1 and 2; sessions 2 and 3
-follow. **The ask** (Patric, 2026-10-04, "discuss before building"): the search
+both of a home's agents. Sessions 1 and 2 of the three below are built: the query and the data
+(plugin 0.5.0, theme 1.0.18, tests 1 and 2) and the blocks in the plugin with the pick control
+and the pick endpoint (plugin 0.5.1, theme 1.1.0, test 4); session 3, the search box, follows. **The ask** (Patric, 2026-10-04, "discuss before building"): the search
 method accepts an LKF code or the significant part of one (the L part for a län, the LK part for a
 kommun); a free text search matches the beginning of a street address, of an area name or of a
 kommun name; the WordPress property list and agent list are blocks that live in the plugin, not

@@ -1039,6 +1039,114 @@ describe('the plugin’s set machinery, with a set plugin', () => {
     }
   });
 
+  it('registers the two list blocks in the plugin, renders them through the set’s views restricted to the picks, serves the picks to an editor only, and leaves the theme’s wrappers their background and text card', async () => {
+    const registered = JSON.parse(
+      (
+        await wp(
+          'eval',
+          'echo json_encode(["blocks" => array_values(array_filter(array_keys(WP_Block_Type_Registry::get_instance()->get_all_registered()), fn (string $name): bool => str_starts_with($name, "core-client/") || str_starts_with($name, "kowboy/"))), "wrapper" => array_keys(WP_Block_Type_Registry::get_instance()->get_registered("kowboy/property-list")->attributes), "script" => wp_script_is("core-client-editor", "registered")]);',
+        )
+      ).stdout,
+    ) as { blocks: string[]; wrapper: string[]; script: boolean };
+    expect(registered.blocks).toEqual(
+      expect.arrayContaining([
+        'core-client/property-list',
+        'core-client/agent-list',
+        'kowboy/property-list',
+        'kowboy/agents',
+      ]),
+    );
+    expect(registered.script).toBe(true);
+    // The theme's wrapper registers the plugin's list settings merged into its own.
+    expect(registered.wrapper).toEqual(
+      expect.arrayContaining([
+        'title',
+        'status',
+        'perPage',
+        'placeSearch',
+        'agents',
+        'areas',
+        'offices',
+        'background',
+      ]),
+    );
+
+    // The plugin alone, under another theme with the fixture set: both blocks render through the
+    // set's views (the set's stylesheet linked inside the root, as the site's setting says), the
+    // homes of the picked agent or the picked area only, the agents of the picked office only.
+    const blocks = [
+      '<!-- wp:core-client/property-list {"status":"for_sale,coming","statusTabs":false,"agents":["S-2"]} /-->',
+      '<!-- wp:core-client/property-list {"status":"for_sale,coming","statusTabs":false,"areas":["D-2"]} /-->',
+      '<!-- wp:core-client/agent-list {"offices":["B-1"]} /-->',
+      '<!-- wp:core-client/agent-list {"offices":["B-9"]} /-->',
+    ].join('');
+    const pageId = (
+      await wp(
+        'post',
+        'create',
+        '--post_type=page',
+        '--post_status=publish',
+        '--post_title=Blocken',
+        `--post_content=${blocks}`,
+        '--porcelain',
+      )
+    ).stdout.trim();
+    const path = pathOf((await wp('post', 'url', pageId)).stdout.trim());
+    await driver('theme', 'twentytwentyone');
+    await driver('option', 'core_client_template_set "fixture"');
+    try {
+      const { body } = await page(path);
+      // Bertil's two homes (one as the second agent), then Norrmalm's one by its outline: Kungsgatan 2 in both lists.
+      expect(body.match(/<article class="fixture-card">/g)).toHaveLength(3);
+      expect(body.match(/<article class="fixture-card">Kungsgatan 2<\/article>/g)).toHaveLength(2);
+      expect(body).not.toContain('<article class="fixture-card">Kungsgatan 1</article>');
+      expect(body.match(/<div class="fixture-agents">/g)).toHaveLength(2);
+      expect(body.match(/<article class="fixture-agent">/g)).toHaveLength(2); // B-1's listed agents; B-9 has none
+      expect(body).toContain('fixture.css');
+      expect(body).not.toContain('k-card');
+    } finally {
+      await driver('option', 'core_client_template_set ""');
+      await driver('theme', 'kowboy-2026');
+    }
+    // The theme's wrappers: the same settings inside the theme's section, with its background and
+    // its text card, and the picks handed to the reload script, so the tabs and "Visa fler" stay restricted.
+    const wrappers =
+      '<!-- wp:kowboy/property-list {"status":"for_sale,coming","agents":["S-2"],"background":"subtle"} /--><!-- wp:kowboy/agents {"offices":["B-1"],"cardTitle":"Möt teamet"} /-->';
+    await wp('post', 'update', pageId, `--post_content=${wrappers}`);
+    const themed = await page(path);
+    expect(themed.body).toContain('k-list-section--subtle');
+    expect(themed.body.match(/<article class="k-card/g)).toHaveLength(2);
+    expect(themed.body).toContain('&quot;agent&quot;:&quot;S-2&quot;');
+    expect(themed.body.match(/<article class="k-agent-card">/g)).toHaveLength(2);
+    expect(themed.body).toContain('<h3 class="k-info-card__title">Möt teamet</h3>');
+    await wp('post', 'delete', pageId, '--force');
+
+    // The picks: every record, hidden agents too, by a label that tells namesakes apart, for a
+    // signed-in editor through WordPress's own dispatcher; a visitor is refused.
+    const picks = (entity: string, user: number) =>
+      driver<{ status: number; rows: { id: string; label: string }[] }>(
+        'picks',
+        `${entity} ${user}`,
+      );
+    expect((await picks('agent', 0)).status).toBe(401);
+    const agents = await picks('agent', 1);
+    expect(agents.status).toBe(200);
+    expect(agents.rows.map((row) => `${row.id} ${row.label}`)).toEqual([
+      'S-2 Bertil Berg · Kowboy Mäkleri',
+      'S-1 Anna Andersson · Kowboy Mäkleri',
+      'S-3 Cecilia Dold · Kowboy Mäkleri',
+      'S-4 David Dold · Kowboy Mäkleri',
+    ]);
+    expect((await picks('area', 1)).rows).toEqual([
+      { id: 'D-2', label: 'Norrmalm · Stockholm' },
+      { id: 'D-1', label: 'Vasastan · Stockholm' },
+    ]);
+    expect((await picks('office', 1)).rows).toEqual([
+      { id: 'B-1', label: 'Kowboy Mäkleri · Stockholm' },
+    ]);
+    expect((await fetch(`${siteUrl}/?rest_route=/core/v1/picks&entity=agent`)).status).toBe(401);
+  });
+
   it('renders inside a shadow root by default, with the stylesheets linked inside, and on the page when the site turns it off', async () => {
     const { body } = await page(await permalink('property', 'P-1'));
     expect(body).toContain(

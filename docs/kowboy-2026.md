@@ -57,8 +57,17 @@ holds everything the design needs and that a site installs as its theme (decisio
 
 The sections are WordPress's own blocks (question 103, Patric: no bloat): a `block.json` per
 section names its fields with Swedish labels and help texts, a `render.php` draws it on the
-server, and one editor script (`assets/editor.js`) builds every block's settings panel from those
-fields and previews the section as the server renders it. The theme options are the Customizer's
+server, and the client plugin's one editor script (`core-client/assets/editor.js`, the theme's
+own until plugin 0.5.1) builds every block's settings panel from those fields and previews the
+section as the server renders it; the theme only appends its block names. The two list blocks
+are wrappers of the plugin's list settings (`docs/search.md`): the plugin's "which homes, how
+many, filters, place search, show only from these agents, areas, offices" merged into the
+theme's own fields, rendered by the plugin's one function inside the theme's section. So the
+plugin must be 0.5.1 or newer before theme 1.1.0 goes on a site; with the plugin inactive the
+editor shows every block of the theme as missing, and the two lists render nothing. On this
+theme an editor picks the theme's blocks (the category "Kowboy 2026": "Bostadslista",
+"Mäklare"); the plugin's own "Bostäder" and "Mäklare" (the category "Kowboy Core") render the
+same lists without the theme's section. The theme options are the Customizer's
 (Utseende, Anpassa, "Kowboy 2026"). The plugin (`core-client`) stays the CRM engine; the theme
 only renders.
 

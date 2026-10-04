@@ -6,7 +6,7 @@
   "description": "Ett kort med etikett, rubrik, text och upp till fyra siffror, som på startsidan.",
   "category": "kowboy",
   "icon": "index-card",
-  "editorScript": "kowboy-2026-editor",
+  "editorScript": "core-client-editor",
   "render": "file:./render.php",
   "supports": { "html": false, "anchor": true },
   "attributes": {

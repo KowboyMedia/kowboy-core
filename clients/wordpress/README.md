@@ -16,6 +16,7 @@ core-client/                     the plugin
   includes/query.php             core_client_query(): one parameter set in, one page of items out
   includes/templates.php         the sets' registry, the override rule (theme first), the list function,
                                  the shortcode, the reload endpoint, the routing of single pages and archives
+  includes/blocks.php            the two list blocks, their settings for a theme's wrappers, the pick endpoint
   includes/view-page.php         the theme's header and footer around one view
   includes/packages.php          places the updater, keeps the package list, installs a set from the channel
   includes/sync.php              the SRS §8 loop
@@ -24,6 +25,8 @@ core-client/                     the plugin
   includes/routing.php           /<path>/<id> and old slugs answer 301 to the current permalink
   includes/cli.php               wp core-client sync [--force], wp core-client status
   includes/report.php            error reporting through Core
+  blocks/<name>/                 block.json and render.php of "Bostäder" and "Mäklare"
+  assets/editor.js               the editor side of every block: the panel from block.json, the preview, the picks
   updater/core-client-updater.php  the must-use updater the plugin places itself; never loads plugin code
   lib/action-scheduler/          Action Scheduler 4.1.0, bundled (GPLv3)
 themes/kowboy-2026/              the default template set "Kowboy 2026", a theme (docs/kowboy-2026.md)
@@ -156,6 +159,29 @@ around them, wrapped in a shadow root when the site's setting or `shadow` says s
 reload endpoint `GET /wp-json/core/v1/list?<the same parameters>` (which answers `html`,
 `total`, `has_more`, `page`) and any PHP call it with the same parameter set, passed through
 untouched: a parameter added to the query is at once available everywhere.
+
+**The two list blocks** (`includes/blocks.php`, `docs/search.md`): "Bostäder"
+(`core-client/property-list`) and "Mäklare" (`core-client/agent-list`), with Swedish settings in
+the editor's side panel: title and lead, which homes (the site's status lists), how many a page,
+status tabs, filters, the place search (none, areas, or areas with kommuner and län), and "show
+only from these" agents, areas and offices, picked by name and stored as ids. They render through
+the one list function and the chosen set's views, so the look is the set's, in a shadow root
+when the site's setting says so (as the shortcode); the picks become the query's `agent`,
+`area_id` and `office` lists, which the reload script carries too, and a property list reads the
+visitor's filters and place from the address, which never widen them (the status tabs work
+through the reload script). A theme's or a set's own list block names
+`"coreClientList": "property"` or `"agent"` in its block.json: the plugin merges its settings
+into the block's attributes as it registers, and the block's render file calls
+`core_client_list_block($attributes, $entity, $extra)`; the theme Kowboy 2026 does so for its
+two, keeping its background and its text card, and so needs plugin 0.5.1 or newer on the site
+before theme 1.1.0 (the order of a deploy). The editor side is one script,
+`assets/editor.js`: it builds every block's panel from the attributes' `control` keys and
+previews the block as the server renders it, for the plugin's blocks and for every block a theme
+appends to the list (`core_client_editor_blocks($names)`, an inline script before the handle
+`core-client-editor`). The picks come from `GET /wp-json/core/v1/picks?entity=agent|office|area`,
+answered to a signed-in editor only (`edit_posts`): every record, hidden agents included, as `id`
+and a label that tells namesakes apart (an area with its kommun, an agent with an office, an
+office with its town, the id when two still match).
 
 **Template sets.** A set is a theme (the default, `themes/kowboy-2026/`, docs/kowboy-2026.md)
 or a plugin: one file that registers the set in one line (`core_client_register_template_set`,

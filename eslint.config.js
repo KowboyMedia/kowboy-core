@@ -41,8 +41,8 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.browser } },
   },
   {
-    // The theme's scripts run in the visitor's browser and the editor, without a build step.
-    files: ['clients/wordpress/themes/**/assets/*.js'],
+    // The theme's and the plugin's scripts run in the visitor's browser and the editor, without a build step.
+    files: ['clients/wordpress/themes/**/assets/*.js', 'clients/wordpress/core-client/assets/*.js'],
     languageOptions: { globals: { ...globals.browser }, sourceType: 'script' },
   },
 );

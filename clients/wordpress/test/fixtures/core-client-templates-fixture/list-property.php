@@ -3,4 +3,5 @@
 
 declare(strict_types=1);
 
+/** @var string $cards the cards the list function rendered */
 echo '<div class="fixture-list">' . $cards . '</div>';
