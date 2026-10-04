@@ -381,8 +381,12 @@ client ports (item 16, first client by question 80).
     optional `submit` and `slots` on `Adapter` with `manifest.submissions`, `POST /v1/submissions`
     and `GET /v1/submissions/slots`, the `submissions` table, the four events, the check
     `submissions.failing`, the limit of 60 a minute per token, the counts on the tenant page; proved
-    by AC 43 to 47 and 49 against the fake polling CRM. Next: the Vitec adapter's part, then the
-    widget.
+    by AC 43 to 47 and 49 against the fake polling CRM. Patric, 21:08Z: the three entries are
+    buttons that open the wizard (booking, interest, free valuation) and the two inline forms
+    become a button each (docs/forms.md, "The clients' part"); asked whether it is ready for
+    release: not before the Vitec adapter's part, the widget, and a confirmed test customer for
+    the real send (54 f). Next: the Vitec adapter's part and the widget, which can run side by
+    side (the widget against the stand-in CRM).
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in

@@ -702,8 +702,13 @@ generic capability item 21 in `docs/next-steps.md` asked for.
 ### The clients' part
 
 With the widget (137, decided) the clients' part is the script tag, a site-key setting and the
-buttons; what follows is the form-per-client alternative that was not chosen, kept for the
-comparison.
+buttons. **Every form on a site is a button that opens the wizard** (Patric, 2026-10-04, 21:08Z):
+a viewing's "Boka här" opens the booking, the property page's interest button opens the interest
+form, and the footer's "Ska du sälja din bostad?" opens the free valuation (the seller's lead);
+the design's two inline forms, the footer's and the property page's, are replaced by a button
+each, no fields on the page ("replaced by a button that opens the form instead of showing the
+form inputs directly"). What follows is the form-per-client alternative that was not chosen,
+kept for the comparison.
 
 Both clients already hold the tenant token on their server side and send `X-Core-Site`; the
 browser never sees either.
