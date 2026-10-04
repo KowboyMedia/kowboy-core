@@ -3,7 +3,9 @@
 **Status:** proposed 2026-10-04. Patric answered 129 with a (inside Core) and 130 with yes,
 without cancelling a booking, and then asked for the pros and cons of keeping CRM writes out of
 Core, as a per-site plugin or a separate app, before 129 stands; that weighing is in "Where the
-writes live" below and 129 is open again in `docs/open-questions.md`. Nothing is built. **The
+writes live" below and 129 is open again in `docs/open-questions.md`. Later the same day he
+proposed the forms as a remote widget with a matching step and asked for anti-bot protection;
+that is "The form itself" below, questions 137 to 139. Nothing is built. **The
 ask** (Patric, 2026-10-04): a strategy for form submissions. Vitec offers sending a lead,
 sending an interest on a single home, booking a viewing with the viewing slots shown in the
 page, and creating a search profile; what Mspecs offers was unknown; a submission must be
@@ -14,7 +16,8 @@ are worked in.
 **One thing to read first, because a note in chat was misread:** a site never contacts a CRM.
 In this design the visitor's browser talks to its own site, the site talks to Core with the
 tenant token it already holds, and Core talks to the CRM with the connection's login that only
-Core holds. The CRM logins stay in Core, which is also why they can cover several brokerages.
+Core holds. The CRM logins stay in Core, which is also why they can cover several brokerages. With the widget (137 a) the browser talks to Core as well, with a public site key that can
+post a form and read slots and nothing else; the tenant token and the CRM login never reach it.
 
 ## Terms
 
@@ -61,7 +64,13 @@ Core holds. The CRM logins stay in Core, which is also why they can cover severa
   puts in its own form so that only its own pages can post it; **a honeypot** is a hidden field a
   visitor never fills and a bot does; **a captcha** is a puzzle that tells a person from a bot;
   **CORS** is the browser rule that says which other websites a page may call; **an edge
-  function** is the small server-side program a Lovable site can run on Supabase.
+  function** is the small server-side program a Lovable site can run on Supabase; **a widget**
+  is a small program a page loads by a script tag and that draws its own part of the page, here
+  the form's **modal**, a dialog over the page; **a site key** is a public id of one site, safe
+  in a browser, that lets a form be posted and nothing more; **a bot gate** is an anti-bot
+  service, **Turnstile** (Cloudflare's) or **reCAPTCHA v3** (Google's), that hands the browser a
+  token saying a person was likely there, which the server verifies; **a shadow DOM** keeps a
+  widget's styles apart from the page's.
 
 ## What the two CRMs offer
 
@@ -221,6 +230,140 @@ untouched.
   that posts to the same endpoint with a per-site public key and a domain allow-list is a client
   of it, not a second product. That is a "later" line in the feature map.
 
+## The form itself: one widget, what it asks, and the bot gate (Patric, 2026-10-04)
+
+Patric's second thought, after 129: the forms as a modal in a small remote widget, so that one
+piece of work serves WordPress, Lovable and any other site; the modal collects more than the
+contact, such as what kind of home and which area the visitor is looking for, which the CRM then
+matches automatically, a value for the brokerage and a small way to stand out; and every form
+needs reliable anti-bot protection, Google's reCAPTCHA v3 or another. He asked for pushback
+where it is business-unwise, and for the best idea, business- and technology-wise.
+
+### What each CRM can take beyond the contact (verified against the saved specifications)
+
+| What the visitor could tell                    | Vitec Connect                                                                                                                                   | Mspecs marketing provider API                                                                                                                                                                         |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A message                                      | yes: `contactMessage` on the interest, `lead.message` on the booking and the valuation                                                          | on the viewing only (`description`); the prospective buyer and the lead take none                                                                                                                     |
+| What they are looking for (the search profile) | **no field.** Express builds the profile itself from the home the interest names, when the brokerage turns automatic profiles on (question 131) | **yes**: the lead with `matchings[]`: rooms, price, living area, hectares, object type and sub types, municipalities (kommunkod), an area polygon, the brokerage's own matching attributes, a comment |
+| The home they have to sell                     | **yes**, on the interest: `presentAccommodation` (type, living space, rooms, price, other, a coordinate) and `assignmentSourceId` (intagskälla) | no field; a seller is a lead with a matching like any other                                                                                                                                           |
+| How interested they are                        | `status` on the interest (Interested or higher creates the profile)                                                                             | `interestedStatus` on the viewing, from the brokerage's list                                                                                                                                          |
+| Where the form was shown                       | `marketing.referrer` and `marketing.utmTags` on all three                                                                                       | none                                                                                                                                                                                                  |
+| Confirmation and reminder                      | the booking's `confirmation` (e-mail, SMS) and `reminderTime`                                                                                   | `disableNotifications` on the viewing                                                                                                                                                                 |
+
+So the extra information that has a destination differs by CRM. On an Mspecs site the "what are
+you looking for" step lands as a search profile and is matched. On a Vitec site that step has
+nowhere to go, and what Vitec does take beyond the contact is the home the visitor has to sell,
+which is the brokerage's intake (intag), the side of the business that pays. A field without a
+destination is dropped or ends in the free-text message, where nothing matches it.
+
+### Pushback on the business idea
+
+- **The matching USP holds for Mspecs today and not for Vitec.** Vitec Connect has no call that
+  takes a visitor's criteria (131); Express creates the profile itself from the home the interest
+  names. A criteria step on a Vitec site would be kept nowhere: Core keeps no person, and the
+  CRM has no field. If Vitec offers a profile API on request, the step lights up for Vitec too;
+  that is 131 b, and the one way to make the USP whole.
+- **The step that pays on a Vitec site is the seller's, not the buyer's.** The interest call
+  carries the visitor's present home. "Har du en bostad att sälja?" with type, size, rooms and
+  price gives the brokerage an intake lead with substance; that is what Express's assignment
+  source exists for.
+- **Every extra field costs completions.** The must-haves (name, e-mail, phone, consent) are
+  what the CRM calls require and what every brokerage wants first; everything else is optional,
+  collapsed behind one line ("En sak till, om du vill"), and the button sends without it. The
+  contact is never held hostage to the profile.
+- **Ask only what has a destination.** The adapter declares which optional groups its CRM takes
+  (`seeking` for Mspecs, `present_home` for Vitec, `message` for both); Core tells the widget;
+  the widget shows those and nothing else. No decision on CRM data in Core, and no field
+  invented: every field above is in a CRM's specification.
+- **The consent must say it.** Matching and later mail from the brokerage are a purpose the
+  consent text names, with the brokerage's privacy policy linked; Kowboy handles the person for
+  the seconds of the call as the brokerage's processor (personuppgiftsbiträde), so the processor
+  agreement with each brokerage names the forms.
+- **A modest, real USP.** Vitec's component and Mspecs's own WordPress integration give a
+  brokerage a form already. What neither gives is one form across both CRMs with one look, the
+  seller's step on Vitec, the profile step on Mspecs, and the same for a brokerage site Kowboy
+  did not build by one script tag: the door to the product that B wanted, without building B.
+
+### The widget: one form UI for every client, served by Core (question 137)
+
+**What it is.** One small script, built from `clients/forms-widget/` into Core's `dist/` (with
+Vite, as the admin area is) and served by the web process at `/widget/forms.js`: no framework,
+about 15 kB, Swedish texts built in, the look from CSS variables and the site's own font, inside
+a shadow DOM so the site's styles and the widget's never clash; a focus trap, Escape closes,
+labels for screen readers. A site includes it once:
+
+```html
+<script src="https://core.kowboy.se/widget/forms.js" data-site-key="pk_…" defer></script>
+```
+
+and marks its buttons: `data-core-form="interest" data-record="property:<connection>:<id>"`,
+`data-core-form="viewing"` on the same record, `data-core-form="lead" data-office="…"`. The
+widget opens a modal, asks Core once per page what this site may send (`GET /v1/forms/config`:
+the kinds, the optional groups, the bot gate's site key, the consent text and the policy link),
+reads the slots for a booking, and posts the submission to Core.
+
+**What changes against the approved design.** The browser talks to Core, not only to its own
+site. The tenant token stays on the site's server; the widget carries a **public site key**
+(`pk_…`), which can do three things only: read the forms config, read one record's slots and
+post a submission. Core checks the request's Origin against the site's registered domains, the
+bot gate's token, the schema, the record's tenant and the rate (per key and per address). The
+WordPress plugin's forwarding endpoints and the Lovable `core-forms` function are then not
+needed: the plugin adds the script tag and a site-key setting, the theme places the buttons, a
+Lovable site adds the tag in its layout.
+
+| Concern                            | A widget served by Core                                                                  | A form per client (the design's templates)                     |
+| ---------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Implementations of the UI          | one, for WordPress, Lovable and any site                                                 | one per client: PHP in the theme, React in the kit, more later |
+| A fix or a new field               | one release of Core; every site has it on the next page view                             | a plugin or theme release per client, deployed per site        |
+| The bot gate and validation        | one place, Core, with one secret                                                         | per client, per plugin                                         |
+| The look                           | one look, tuned by CSS variables and the site's font; not the theme's markup             | the theme's own markup, as designed                            |
+| Without JavaScript                 | nothing; the button falls back to the office's phone and e-mail link                     | a server-rendered form works                                   |
+| What the browser reaches           | Core, with a public key, over CORS: a public endpoint to guard (Origin, rate, bot gate)  | its own site only                                              |
+| Sites Kowboy does not build        | yes: one script tag and a key                                                            | no                                                             |
+| Lovable                            | the same tag, nothing to build in the kit                                                | an edge function and a React form                              |
+| Sessions to the first working form | about the same: the widget replaces the plugin's two endpoints and the three theme forms | as planned                                                     |
+
+**Recommended: the widget, as the only form UI.** It is the one way to solve the same for
+Lovable and others once, it is where the bot gate can live once, and it opens the product door.
+The cost is a public endpoint on Core, which is what the site key, the Origin check, the bot
+gate's token and the rate limit are for.
+
+### The bot gate (question 138)
+
+Patric: reliable anti-bot support is a must, Google's reCAPTCHA v3 or another. Read on
+2026-10-04 from the services' own pages:
+
+| Service                  | Cost                                                                                                                                                                                                                            | Any site?                                         | How it tells a person from a bot                                                                                                                                             | Notes                                                                                                                                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Cloudflare Turnstile** | free: unlimited verifications, 20 widgets per account, 10 hostnames per widget; Enterprise for more (`developers.cloudflare.com/turnstile/plans`, page of 2026-08-14)                                                           | yes, "without sending traffic through Cloudflare" | a token from a small browser challenge, invisible for most visitors (managed, non-interactive or invisible mode); Core verifies the token server-side with Kowboy's secret   | "does not access, store, or transmit … form entries"; WCAG 2.2 AAA; a Cloudflare account for the keys, nothing on the site's DNS                                                                                                                      |
+| **Google reCAPTCHA v3**  | free up to 10,000 assessments a month, then paid; classic keys are moved into a Google Cloud project automatically (`developers.google.com/recaptcha/docs/faq`, page of 2026-04-02, and the migration overview on Google Cloud) | yes                                               | a score from 0.0 to 1.0 per page action, no interaction; Core verifies server-side and sets the threshold; over the free quota v3 "may fail open" with a static score of 0.9 | Google's badge or a text notice on the page; Google is the company Sweden's IMY ruled against four companies over in 2023 for Google Analytics transfers (no decision names reCAPTCHA); a Google Cloud billing account becomes part of Kowboy's setup |
+| Core's own measures      | none                                                                                                                                                                                                                            | yes                                               | a honeypot field, a minimum time from open to submit, a rate limit per key and per address, the same id once                                                                 | always on, under either service; alone they stop simple bots, not farms                                                                                                                                                                               |
+
+**Recommended: Turnstile as the default**, behind one interface in Core (`verifyHuman(token,
+address)`) so that reCAPTCHA v3 can be chosen per site when a brokerage insists, and Core's own
+measures always on. Turnstile is free at any volume, invisible for most visitors, needs nothing
+on the site, and puts no Google name on a Swedish brokerage's privacy page. Its free plan's
+twenty widgets are a limit to watch: one widget per brokerage site is the clean setup and caps
+at twenty sites; ten hostnames per widget reach two hundred; Enterprise beyond. The widget
+renders whichever service the site's config names; the secret is Core's.
+
+### What the modal asks (question 139)
+
+- a) **One screen** (recommended): the contact and the consent, plus one collapsed optional
+  group that this site's CRM takes: "Vad söker du?" (Mspecs: rooms, price, size, kommun, type)
+  or "Har du en bostad att sälja?" (Vitec: type, size, rooms, price, a note). One button, one
+  submission; the adapter sends what its CRM takes (Mspecs: the prospective buyer, then the
+  lead with matching when the group is filled; Vitec: the interest with the present home).
+- b) **A second step after sending**: the contact goes first, then "Tack! En sak till" asks the
+  group and sends a second submission. Safer for the lead, but Vitec's interest is one call, so
+  the present home cannot follow it; only Mspecs's profile can.
+- c) **The contact only**: no extra fields, the USP left out.
+
+With a, the submission schema gets two optional groups, additive, every field from a CRM's
+specification: `seeking` (rooms, price and living area as min and max, municipalities, object
+type) and `present_home` (object type, living area, rooms, price, a note). The adapter manifest
+names the groups it takes; `GET /v1/forms/config` passes them to the widget.
+
 ## The design, approved with 130 (Patric, 2026-10-04: yes, without cancelling a booking)
 
 ### The universal submission
@@ -275,6 +418,9 @@ answered, the last two before any CRM call:
 
 The same `id` posted again within a day answers the stored outcome and sends nothing twice: a
 double click or a retried request makes one lead.
+
+With 139 a, two optional groups join the schema, additive: `seeking` and `present_home`, listed
+under "What the modal asks"; nothing in the fields above changes.
 
 ### Reading the slots
 
@@ -403,6 +549,9 @@ generic capability item 21 in `docs/next-steps.md` asked for.
 
 ### The clients' part
 
+With the widget (137 a) the clients' part shrinks to the script tag, a site-key setting and the
+buttons; what follows is the form-per-client alternative (137 b), kept for the comparison.
+
 Both clients already hold the tenant token on their server side and send `X-Core-Site`; the
 browser never sees either.
 
@@ -425,10 +574,10 @@ browser never sees either.
   limits the rate per token, and makes a repeated id harmless.
 - Core stores and logs ids and outcomes, never the person; the consent and its time go to the CRM,
   which is where the person's data is meant to live. Sentry gets a failure's cause, never a field.
-- The site adds a honeypot and a nonce; a captcha is not added until spam is seen, and would be a
-  question then.
-- A later widget for sites Kowboy does not build would get a public site key, a domain allow-list
-  and CORS on the same endpoint; nothing in the design above has to change for it.
+- The bot gate is on from the first form (Patric, 2026-10-04): Core verifies the service's token
+  server-side (138), with the honeypot, a minimum time and the rate limit always on.
+- The widget (137) reaches the same endpoint with a public site key, the site's registered
+  domains as the Origin check, and CORS; the key can post a form and read slots, nothing else.
 
 ### Acceptance, proposed (numbered on approval; `acceptance/` is protected)
 
@@ -448,13 +597,16 @@ browser never sees either.
 
 ## The decisions (the discover list)
 
-| #   | Question                                                                                                                        | Options                                                                                                                                                                                                                                                | Undo later? | Recommended                                                                                                     |
-| --- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------- |
-| 129 | Where do CRM writes live? (answered a on 2026-10-04, then reopened for the pros and cons of B and D)                            | a) inside Core, its own folder and health check · b) a separate app · c) Vitec's component on the sites · d) a per-site plugin per CRM                                                                                                                 | a→b yes     | a, for the reasons under "Why A still"                                                                          |
-| 130 | Is the design approved? **Answered 2026-10-04: yes, without cancelling a booking.**                                             |                                                                                                                                                                                                                                                        |             |                                                                                                                 |
-| 131 | What does "create a search profile" become for Vitec, since Connect has no such call?                                           | a) nothing to build: the interest form with status Interested, and the brokerage turns on automatic profiles in Express · b) Patric asks Vitec whether another API offers it · c) a site-side saved search, later                                      | yes         | a, the smallest; c is a product of its own                                                                      |
-| 132 | May an agent mail Mspecs for the documentation? **Answered 2026-10-04: no mail; the documentation was found online and saved.** |                                                                                                                                                                                                                                                        |             |                                                                                                                 |
-| 136 | What does the footer's lead form send to an Mspecs brokerage, whose lead call needs at least one matching?                      | a) the lead call with one matching from the brokerage's settings (a municipality), so the contact lands in Mspecs · b) the form is hidden on Mspecs sites until Mspecs offers a plain lead · c) the lead goes by e-mail to the office, outside the CRM | yes         | b, the smallest, until an Mspecs brokerage asks; a is a Core-made matching, which is a rule to write down first |
+| #   | Question                                                                                                                        | Options                                                                                                                                                                                                                                                | Undo later?                       | Recommended                                                                                                     |
+| --- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 129 | Where do CRM writes live? (answered a on 2026-10-04, then reopened for the pros and cons of B and D)                            | a) inside Core, its own folder and health check · b) a separate app · c) Vitec's component on the sites · d) a per-site plugin per CRM                                                                                                                 | a→b yes                           | a, for the reasons under "Why A still"                                                                          |
+| 130 | Is the design approved? **Answered 2026-10-04: yes, without cancelling a booking.**                                             |                                                                                                                                                                                                                                                        |                                   |                                                                                                                 |
+| 131 | What does "create a search profile" become for Vitec, since Connect has no such call?                                           | a) nothing to build: the interest form with status Interested, and the brokerage turns on automatic profiles in Express · b) Patric asks Vitec whether another API offers it · c) a site-side saved search, later                                      | yes                               | a, the smallest; c is a product of its own                                                                      |
+| 132 | May an agent mail Mspecs for the documentation? **Answered 2026-10-04: no mail; the documentation was found online and saved.** |                                                                                                                                                                                                                                                        |                                   |                                                                                                                 |
+| 137 | The form UI: one widget served by Core, or a form per client?                                                                   | a) the widget, posting to Core with a public site key; the plugin and the kit only add the tag · b) a form per client, as the approved design · c) both: the widget and a server-rendered fallback form in the theme                                   | a→b yes, the endpoint is the same | a, under "The widget"                                                                                           |
+| 138 | The bot gate: which service?                                                                                                    | a) Turnstile by default, the service pluggable per site, Core's own measures always on · b) reCAPTCHA v3 only · c) Core's own measures only, a service when spam is seen                                                                               | yes                               | a; c is the smaller option and against Patric's "must have"                                                     |
+| 139 | What does the modal ask beyond the contact?                                                                                     | a) one screen with one collapsed optional group the CRM takes · b) a second step after sending · c) the contact only                                                                                                                                   | yes                               | a, under "What the modal asks"                                                                                  |
+| 136 | What does the footer's lead form send to an Mspecs brokerage, whose lead call needs at least one matching?                      | a) the lead call with one matching from the brokerage's settings (a municipality), so the contact lands in Mspecs · b) the form is hidden on Mspecs sites until Mspecs offers a plain lead · c) the lead goes by e-mail to the office, outside the CRM | yes                               | b, the smallest, until an Mspecs brokerage asks; a is a Core-made matching, which is a rule to write down first |
 
 Settled without a question, as the handbook leaves tooling to the agent: the delivery is
 synchronous (the visitor waits a second for the CRM's answer and learns the truth; no queue in
@@ -472,8 +624,12 @@ submission id is a UUID in the body; the rate limit is 60 a minute per token.
 - `[crm-mspecs]` **Mspecs's answers and test access** are unread beyond the specification: the
   success body, the refusal shape, and the provider agreement that opens
   `test-integration.mspecs.se`. The adapter item starts with those.
-- `[core]` **Spam** on an open form reaches the CRM as leads. The honeypot, the nonce and the
-  rate limit are the first line; a captcha is a question when spam is seen, not before.
+- `[core]` **Spam** on an open form reaches the CRM as leads. The bot gate is on from the first
+  form (138), with the honeypot, the timing and the rate limit under it; Turnstile's free plan
+  stops at twenty widgets, which is a count of sites to watch.
+- `[core]` **The widget's look** must blend with each site's design (norbanmakleri.se for Kowboy
+  2026): CSS variables and the site's font carry the look; the theme's own markup does not.
+  Cheap to see: the first build is placed on the staging site's property page.
 
 ## The plan (items for `docs/next-steps.md`, after 129 stands)
 
@@ -485,14 +641,17 @@ submission id is a UUID in the body; the rate limit is 60 a minute per token.
 2. `[crm-vitec]` **The Vitec submit and slots**: the mapping, the six connection settings with
    their directions, the stand-in's form endpoints, and one real send per kind against the test
    account. One session.
-3. `[client-wordpress]` **The three forms on Kowboy 2026**: the plugin's two forwarding endpoints
-   and its lead-office setting, the footer lead form, the interest form and the booking dialog,
-   deployed to the staging site; closes question 105 and item 21. One session.
-4. `[client-lovable]` **The forms function in the kit**: when the first Lovable site needs a form.
+3. `[core]` **The widget** (with 137 a): `clients/forms-widget/`, served at `/widget/forms.js`,
+   the config call, the bot gate (138), the optional group (139), the public site key and the
+   Origin check; the plugin gets the tag and the key setting, the theme the buttons and the
+   lead office; placed on the staging site; closes question 105 and item 21. One session. With
+   137 b instead: the plugin's two forwarding endpoints and the three theme forms.
+4. `[client-lovable]` **The tag in the layout**: when the first Lovable site needs a form; with
+   137 b, an edge function and a React form.
 5. `[crm-mspecs]` **Mspecs submit and slots**: with the Mspecs adapter, from the saved
    specification, once a provider agreement opens the test system.
 
 Later, in the feature map: watching the final price (Vitec offers it; no design asks for it yet);
-a search profile with the visitor's own criteria (Mspecs's lead with matching; question 131 for
-Vitec); a widget for sites Kowboy does not build (a public site key on the same endpoint).
-Out: cancelling a booking (Patric, 2026-10-04).
+a search profile with the visitor's own criteria on Vitec (question 131; Mspecs has it with 139);
+a site Kowboy does not build gets the widget by a key (137), which is the product door. Out:
+cancelling a booking (Patric, 2026-10-04).

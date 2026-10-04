@@ -4,10 +4,62 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 137 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 140 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 137. `[core]` The form UI: one widget served by Core, or a form per client?
+
+- 2026-10-04 · Patric proposed the forms as a modal in a small remote widget, so that one piece
+  of work serves WordPress, Lovable and any other site, and asked for pushback and the best idea.
+  `docs/forms.md`, "The widget", compares it with the approved design's form per client. The
+  widget is one script built from `clients/forms-widget/` and served by Core at
+  `/widget/forms.js`; a site includes it with a public site key and marks its buttons; the
+  widget asks Core what the site may send, reads the slots and posts the submission to Core.
+  What changes: the browser talks to Core as well as to its own site, with a key that can post a
+  form and read slots and nothing else; Core checks the Origin, the bot gate's token, the schema,
+  the tenant and the rate. The plugin's forwarding endpoints and the Lovable function are then
+  not needed. Blocked: the build items in `docs/forms.md`.
+- a) **the widget** served by Core, as the only form UI; the plugin and the kit only add the tag
+  (recommended: one UI, one bot gate, one fix for every site, and a site Kowboy does not build
+  gets it by a key). b) **a form per client**, as the approved design. c) **both**: the widget
+  and a server-rendered fallback form in the theme for visitors without JavaScript.
+- Answer a, b or c.
+
+## 138. `[core]` The bot gate: Turnstile, reCAPTCHA v3, or Core's own measures only?
+
+- 2026-10-04 · Patric: reliable anti-bot support is a must, Google's reCAPTCHA v3 or another.
+  Read on 2026-10-04 (`docs/forms.md`, "The bot gate"): Cloudflare Turnstile is free with
+  unlimited verifications (20 widgets per account, 10 hostnames per widget), works on any site,
+  is invisible for most visitors and does not read form entries; Google reCAPTCHA v3 is free up
+  to 10,000 assessments a month, then paid, and classic keys are being moved into Google Cloud
+  projects; Sweden's IMY ruled against four companies in 2023 over Google Analytics transfers, and no
+  decision names reCAPTCHA. Either way Core verifies the token server-side with one secret, and
+  a honeypot, a minimum time and the rate limit stay on. Blocked: the widget item.
+- a) **Turnstile** by default, the service pluggable per site so reCAPTCHA v3 can be chosen when
+  a brokerage insists, Core's own measures always on (recommended). b) **reCAPTCHA v3** only.
+  c) **Core's own measures only**, a service when spam is seen (the smaller option; against
+  "must have").
+- Answer a, b or c.
+
+## 139. `[core]` What does the modal ask beyond the contact?
+
+- 2026-10-04 · Patric's idea: collect what kind of home and which area the visitor is looking
+  for, so the CRM matches automatically. Verified against both specifications
+  (`docs/forms.md`, "What each CRM can take"): Mspecs takes it, as a lead with matching that
+  becomes a search profile; Vitec Connect has no such field (131) and instead takes the home
+  the visitor has to sell (`presentAccommodation` on the interest), the brokerage's intake. So
+  the group differs by CRM, the adapter declares which it takes, and the widget shows only that.
+  Every extra field costs completions, so the group is optional and collapsed, and the button
+  sends without it. With a, the submission schema gets two optional groups, additive, every
+  field from a CRM's specification (`seeking`, `present_home`); `schemas/` is protected, hence
+  the question. Blocked: the widget item's optional group.
+- a) **one screen** (recommended): the contact and the consent plus one collapsed optional
+  group, "Vad söker du?" on Mspecs or "Har du en bostad att sälja?" on Vitec; one submission.
+  b) **a second step after sending**: the contact first, then the group as a second submission
+  (works for Mspecs's profile only; Vitec's interest is one call). c) **the contact only**.
+- Answer a, b or c.
 
 ## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite
 

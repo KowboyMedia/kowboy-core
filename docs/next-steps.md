@@ -373,8 +373,10 @@ client ports (item 16, first client by question 80).
     what Vitec and Mspecs offer, three options for where it lives, the design, the plan): waits
     on 129 (where the writes live; answered a, then reopened the same day for the pros and cons
     of a per-site plugin and a separate app, written into `docs/forms.md`); 130 is answered (the
-    design, without cancelling a booking). Then its three items, Core, the Vitec adapter, the
-    WordPress forms, one session each; the Lovable function and Mspecs follow.
+    design, without cancelling a booking); 137 to 139 (the form UI as one widget served by Core,
+    the bot gate, the optional group per CRM; Patric's proposal of 2026-10-04, weighed in
+    `docs/forms.md`, "The form itself"). Then its three items, Core, the Vitec adapter, the
+    widget (or the WordPress forms with 137 b), one session each; Lovable and Mspecs follow.
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in
