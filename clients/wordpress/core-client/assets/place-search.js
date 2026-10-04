@@ -19,7 +19,10 @@
 
   /** Lower case without accents, so "skane" finds Skåne and "malm" finds Malmö. */
   function fold(text) {
-    return text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
   }
 
   /** A place matches when its label, or a word in it, begins with the typed text. */

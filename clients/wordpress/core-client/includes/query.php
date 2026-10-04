@@ -168,12 +168,6 @@ function core_client_query(array $params): array
 }
 
 /**
- * The condition "the item is in one of these areas", by the link table (includes/areas.php): the
- * CRM's area and every outline that holds the item's point. One placeholder per id.
- *
- * @param list<string> $area_ids
- */
-/**
  * `(column LIKE %s OR …)`, one per id, for a column that holds ids as `,one,two,` (a home's agents,
  * an agent's offices); the arguments come from `core_client_query_list_args`.
  *

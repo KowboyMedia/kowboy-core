@@ -35,6 +35,8 @@ export default defineConfig({
     url: `http://127.0.0.1:${String(PORT)}/?pagename=till-salu`,
     reuseExistingServer: false,
     timeout: 120_000,
+    // SIGTERM, so the site script stops the PHP server and Core itself before the group is killed.
+    gracefulShutdown: { signal: 'SIGTERM', timeout: 10_000 },
     stdout: 'pipe',
     stderr: 'pipe',
     cwd: fileURLToPath(new URL('../..', import.meta.url)),

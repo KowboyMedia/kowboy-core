@@ -118,8 +118,11 @@ function core_client_place_search(array $params): string
     $area_ids = core_client_query_list($params['areas'] ?? null);
     $codes = array_values(array_filter(core_client_query_list($params['lkf'] ?? null), fn (string $code): bool => preg_match('/^(\d{2}|\d{4}|\d{6})$/', $code) === 1));
     $pills = core_client_place_pills($area_ids, $codes);
-    $q = trim((string) (($params['q'] ?? '') !== '' ? $params['q'] : ($params['area'] ?? '')));
-    $id = 'core-place-' . substr(md5((string) wp_json_encode([$params, $data])), 0, 8);
+    $words = ($params['q'] ?? '') !== '' ? $params['q'] : ($params['area'] ?? '');
+    $q = is_scalar($words) ? trim((string) $words) : '';
+    // One id per box drawn in the request, so two boxes on one page keep their own label and list.
+    static $drawn = 0;
+    $id = 'core-place-' . ++$drawn;
     $placeholder = $level === 'areas' ? 'Område' : 'Område, kommun eller län';
 
     $html = '<div class="core-place-search" data-place-search data-places="' . esc_attr((string) wp_json_encode($data, JSON_UNESCAPED_UNICODE)) . '">';

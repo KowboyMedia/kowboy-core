@@ -20,12 +20,19 @@ import {
 export const WP_ROOT = process.env['WP_ROOT'] ?? join(homedir(), '.cache/kowboy-core/wordpress');
 const WP_CLI = join(WP_ROOT, '..', 'wp-cli.phar');
 /** The driver next to this file, or next to its source when this runs compiled from `dist`. */
-const DRIVER = [
-  import.meta.dirname,
-  resolve(import.meta.dirname, '../../../../clients/wordpress/test'),
-]
-  .map((dir) => join(dir, 'driver.php'))
-  .find((file) => existsSync(file)) as string;
+function findDriver(): string {
+  const found = [
+    import.meta.dirname,
+    resolve(import.meta.dirname, '../../../../clients/wordpress/test'),
+  ]
+    .map((dir) => join(dir, 'driver.php'))
+    .find((file) => existsSync(file));
+  if (found === undefined) {
+    throw new Error('driver.php is neither next to site.ts nor in clients/wordpress/test');
+  }
+  return found;
+}
+const DRIVER = findDriver();
 export const run = promisify(execFile);
 
 if (!existsSync(join(WP_ROOT, 'wp-load.php'))) {
@@ -51,9 +58,9 @@ let server: ChildProcess | null = null;
 /** The address the site is served on while it runs. */
 export let siteUrl = '';
 
-/** Point the site at this Core and serve it, on a free port unless one is given. */
-export async function start(core: CoreDetails, port?: number): Promise<ClientDriver> {
-  const client = await configure(core, port);
+/** Point the site at this Core and serve it, on a free port. */
+export async function start(core: CoreDetails): Promise<ClientDriver> {
+  const client = await configure(core);
   await serve();
   return client;
 }
