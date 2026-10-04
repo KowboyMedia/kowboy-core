@@ -53,6 +53,7 @@ foreach (is_array($item['viewings'] ?? null) ? $item['viewings'] : [] as $viewin
     $whole_day = wp_date('H:i', $starts) === '00:00' && ($ends === false || wp_date('H:i', $ends) === '00:00');
     $until = $ends === false ? strtotime(wp_date('Y-m-d', $starts) . ' 23:59:59 ' . wp_timezone_string()) : $ends;
     $viewings[] = [
+        'id' => is_string($viewing['id'] ?? null) ? $viewing['id'] : '',
         'weekday' => wp_date('D', $starts),
         'day' => wp_date('j', $starts),
         'month' => wp_date('M', $starts),
@@ -181,8 +182,8 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
                                 <?php if ($viewing['time'] !== '') : ?><span class="k-viewing__time"><?php echo esc_html($viewing['time']); ?></span><?php endif; ?>
                                 <?php if ($viewing['comment'] !== '') : ?><span class="k-viewing__comment"><?php echo esc_html($viewing['comment']); ?></span><?php endif; ?>
                             </div>
-                            <?php // Opens the booking wizard; without the widget, the agent's card. ?>
-                            <?php if ($viewing['bookable']) : ?><a class="k-button" href="#k-agents" data-core-form="viewing" data-record="<?php echo esc_attr($record); ?>">Boka här</a><?php endif; ?>
+                            <?php // Opens the booking wizard on this viewing (data-viewing picks its slot); without the widget, the agent's card. ?>
+                            <?php if ($viewing['bookable']) : ?><a class="k-button" href="#k-agents" data-core-form="viewing" data-record="<?php echo esc_attr($record); ?>"<?php echo $viewing['id'] === '' ? '' : ' data-viewing="' . esc_attr($viewing['id']) . '"'; ?>>Boka här</a><?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                     <div class="k-viewing k-viewing--empty" data-viewings-empty <?php echo $upcoming > 0 ? 'hidden' : ''; ?>>

@@ -256,6 +256,13 @@ Two things from the staging site on a phone (Patric, 2026-10-04, 16:45Z), theme 
   so the wizard opens from them the day the widget is on the site. Until then each button
   leads to a contact: the agent's card on the property page, the office's details in the
   footer (`#k-contact`). The theme's own scroll leaves a click the widget has taken alone.
+- **The widget on the site** (theme 1.1.8, plugin 0.5.7, the same night): a viewing's "Boka
+  här" also carries `data-viewing` with the viewing's id, so the wizard opens on that slot
+  (without it the wizard lists every bookable slot of the home). The plugin prints the widget's
+  script tag once the site key from Core's tenant page is pasted under Kowboy Estates →
+  Settings → Forms; the theme enqueues nothing. On the staging site a sent form is refused with
+  "Formulär skickas inte till det här kontoret än" until the connection's "Send forms to Vitec"
+  is on, which waits on a confirmed test office (54 f).
 
 ## Order of work
 

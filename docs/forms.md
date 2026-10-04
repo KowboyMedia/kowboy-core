@@ -904,11 +904,12 @@ site through the real theme, plugin and Core, under 48), and described in
   enumeration, which a client never reads; both CRMs take null (Vitec: no subtypes).
 - **The plugin** (0.5.7): the "Site key" setting and the script tag (above).
 
-Not done here: the theme's optional `data-viewing` mark and the deploy of plugin 0.5.7 to the
-staging site with the key pasted in (the theme thread, which holds the site login), the
-Turnstile keys in the environments, and the lead office for a site with several offices (the
-footer's lead has no `data-office`; Core fills the tenant's only office and refuses a lead for a
-tenant with several). Criterion 48 names the local journey; the same walk on the staging site is
+Not done here: the Turnstile keys in the environments, and the lead office for a site with
+several offices (the footer's lead has no `data-office`; Core fills the tenant's only office and
+refuses a lead for a tenant with several). The theme's `data-viewing` mark (theme 1.1.8) and the
+deploy of plugin 0.5.7 to the staging site are the theme thread's, done the same night
+(docs/kowboy-2026.md); the site key is pasted in from Core's tenant page, which a session enters
+by Patric's sign-in link. Criterion 48 names the local journey; the same walk on the staging site is
 the last proof once the deploy is done.
 
 ## The decisions (the discover list)

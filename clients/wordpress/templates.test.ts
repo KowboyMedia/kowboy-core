@@ -449,10 +449,10 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('Föranmälan krävs');
     expect(body).toContain('Visningen som var');
     expect(body).toMatch(/<div class="k-viewing" data-viewing data-until="[^"]+" hidden>/);
-    // A bookable viewing's button opens the booking wizard on this home; without the widget, the agent's card.
+    // A bookable viewing's button opens the booking wizard on this home and viewing; without the widget, the agent's card.
     expect(
       body.match(
-        /<a class="k-button" href="#k-agents" data-core-form="viewing" data-record="property:[^":]+:P-3">Boka här<\/a>/g,
+        /<a class="k-button" href="#k-agents" data-core-form="viewing" data-record="property:[^":]+:P-3" data-viewing="[^"]+">Boka här<\/a>/g,
       ),
     ).toHaveLength(1);
     // Without a viewing, the box's button takes the visitor to the agent's contact (Patric, 2026-10-04).
