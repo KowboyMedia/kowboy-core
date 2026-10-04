@@ -13,11 +13,13 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 
 - 2026-10-04 · The design `docs/search.md` ("The search box"). A pill is a chosen place (an area,
   a kommun or a län); several pills mean "any of these places". Patric's ask says that a search
-  with no pill runs the free text. The default extends it: with pills present, the typed words
-  narrow the result further (the pills say where, the words say which street, area, town,
-  kommun or län the name begins with), and the free text also matches the beginning of the
-  postal town ("Limhamn"), which the search matches today. The alternative is that the words
-  are ignored while a pill is present, which throws away what the visitor typed.
+  with no pill runs the free text, and that the free text matches the beginning of a street, an
+  area name or a kommun name. The default extends it in three small ways: with pills present,
+  the typed words narrow the result further (the pills say where, the words say which street,
+  area, town, kommun or län the name begins with); the free text also matches the beginning of
+  the postal town ("Limhamn"), which the search matches today; and it also matches the beginning
+  of a län name ("Skåne"), since a län can be chosen in the box. The alternative is that the
+  words are ignored while a pill is present, which throws away what the visitor typed.
 - Reply only if you disagree: no.
 
 ## 133. `[client-wordpress]` A home whose point lies inside an area's outline: is it in that area even when the CRM put it in another one?
