@@ -2,7 +2,15 @@
 // reconciles deletes by comparing id lists.
 import { mappers } from './mappers.js';
 import * as crm from './crm.js';
-import type { Adapter, AdapterApi, Connection } from '../../engine/adapter-api/index.js';
+import { SUBMISSION_KINDS } from '../../engine/adapter-api/index.js';
+import type {
+  Adapter,
+  AdapterApi,
+  Connection,
+  Slots,
+  Submission,
+  SubmissionKind,
+} from '../../engine/adapter-api/index.js';
 
 const PROVIDER = 'fake-polling';
 const POLL_MS = 100;
@@ -69,9 +77,90 @@ async function sweep(connection: Connection, current: AdapterApi): Promise<void>
   }
 }
 
+// ---- Forms (docs/forms.md): the universal submission onto this CRM's own form vocabulary ------
+
+/** This CRM's name for each kind of form. */
+const FORM: Record<SubmissionKind, string> = {
+  lead: 'CONTACT',
+  interest: 'INTEREST',
+  viewing: 'SHOWING_BOOKING',
+  search_profile: 'WATCH',
+};
+
+/** The person as this CRM names them, with the address when there is one. */
+const personFields = (person: Submission['person']): Record<string, unknown> => ({
+  given_name: person.first_name,
+  family_name: person.last_name,
+  mail: person.email,
+  mobile: person.phone,
+  street: person.address?.street ?? null,
+  zip: person.address?.postal_code ?? null,
+  town: person.address?.city ?? null,
+});
+
+/** The search profile as this CRM's "watch". */
+const wants = (criteria: Submission['criteria']): Record<string, unknown> | null =>
+  criteria
+    ? {
+        type: criteria.object_type,
+        min_rooms: criteria.rooms_min,
+        min_sqm: criteria.living_area_min,
+        districts: criteria.areas.map((area) => area.id),
+        muni: criteria.county_municipality_code,
+      }
+    : null;
+
+/** Every universal field copied onto this CRM's names; nothing read to decide anything. */
+const toForm = (submission: Submission): Record<string, unknown> => ({
+  ...personFields(submission.person),
+  note: submission.message ?? null,
+  consent_at: submission.consent.at,
+  page: submission.source?.page ?? null,
+  tags: submission.source?.utm ?? {},
+  object_id: submission.record?.remote_id ?? null,
+  branch_id: submission.office_id ?? null,
+  showing_time_id: submission.slot_id ?? null,
+  wants: wants(submission.criteria),
+  sell_current: submission.contact_about_current_home ?? null,
+});
+
+const str = (value: unknown): string | null => (typeof value === 'string' ? value : null);
+const bool = (value: unknown): boolean | null => (typeof value === 'boolean' ? value : null);
+const int = (value: unknown): number | null => (Number.isInteger(value) ? (value as number) : null);
+
+/** A showing with its times, as this CRM lists them, onto the universal viewing and slots. */
+const toViewing = (showing: Record<string, unknown>): Slots['viewings'][number] => ({
+  id: String(showing['showing_id'] ?? ''),
+  starts_at: str(showing['from']),
+  ends_at: str(showing['to']),
+  deadline_at: str(showing['book_before']),
+  self_registration: bool(showing['open_booking']),
+  visible: bool(showing['shown']),
+  slots: ((showing['times'] as Record<string, unknown>[] | undefined) ?? []).map((time) => ({
+    id: String(time['time_id'] ?? ''),
+    starts_at: str(time['from']),
+    ends_at: str(time['to']),
+    available: bool(time['open']),
+    free_spots: int(time['places_left']),
+  })),
+});
+
 export const fakePollingAdapter: Adapter = {
-  manifest: { provider: PROVIDER, datatypes: [...DATATYPES] },
+  manifest: { provider: PROVIDER, datatypes: [...DATATYPES], submissions: [...SUBMISSION_KINDS] },
   mappers,
+
+  submit(_connection: Connection, submission: Submission) {
+    const answer = crm.takeForm(FORM[submission.kind], toForm(submission));
+    return Promise.resolve(
+      answer.taken
+        ? { outcome: 'delivered' as const, reference: answer.contact_no }
+        : { outcome: 'refused' as const, reason: answer.why },
+    );
+  },
+
+  slots(_connection: Connection, record: { remoteId: string }) {
+    return Promise.resolve({ viewings: crm.showingsOf(record.remoteId).map(toViewing) });
+  },
 
   start(given: AdapterApi): void {
     api = given;

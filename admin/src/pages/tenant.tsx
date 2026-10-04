@@ -37,6 +37,8 @@ type ConnectionView = {
   lastIngestAt: string | null;
   lastError: string | null;
   loaded: { datatype: string; live: number }[];
+  /** The forms sites sent through Core to this CRM in the last day, by outcome. */
+  submissions: { delivered: number; refused: number; failed: number };
   sections: AdminSection[];
 };
 
@@ -520,6 +522,17 @@ export function TenantPage() {
                   <p className="mt-2 text-xs text-muted-foreground">
                     Loaded:{' '}
                     {saved.loaded.map((row) => `${count(row.live)} ${row.datatype}`).join(' · ')}
+                  </p>
+                )}
+
+                {saved && (
+                  <p
+                    className={`mt-2 text-xs ${saved.submissions.failed > 0 ? 'text-destructive' : 'text-muted-foreground'}`}
+                    title="Forms visitors sent through Core to this CRM in the last day, by what the CRM answered. The visitor is never stored here."
+                  >
+                    Forms, last day: {count(saved.submissions.delivered)} delivered ·{' '}
+                    {count(saved.submissions.refused)} refused by the CRM ·{' '}
+                    {count(saved.submissions.failed)} unanswered by the CRM
                   </p>
                 )}
 

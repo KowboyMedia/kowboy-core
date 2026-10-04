@@ -165,9 +165,9 @@ counts (`docs/known-bugs.md`, 1).
 | `connections()`                                | The connections this provider owns, so an adapter can resume its own work after a restart                                                 |
 | `report(error, context)`                       | Report an unexpected error to the error tracker (Sentry once wired) through the engine's own reporting; never with credentials            |
 
-Every call is idempotent. The engine never calls back into CRM-specific code except through the mappers and lifecycle handlers the adapter registered.
+Every call is idempotent. The engine never calls back into CRM-specific code except through the mappers, lifecycle handlers and submission handlers (`submit`, `slots`; docs/forms.md) the adapter registered.
 
-**Two processes.** `web` serves HTTP; `worker` runs the adapters. An admin call such as `connection_added` or `resync` is queued by `web` in the `lifecycle_events` table and delivered by `worker` every 2 s (the transactional outbox, one table, polled). `worker` records the adapters' health checks in `health_results` every 30 s and `web` reports them; a report older than 2 min counts as failed.
+**Two processes.** `web` serves HTTP; `worker` runs the adapters. An admin call such as `connection_added` or `resync` is queued by `web` in the `lifecycle_events` table and delivered by `worker` every 2 s (the transactional outbox, one table, polled). `worker` records the adapters' health checks in `health_results` every 30 s and `web` reports them; a report older than 2 min counts as failed. For a form submission, `web` calls the CRM through the adapter and waits for the answer inside the request (docs/forms.md, the departure approved with question 130, built 2026-10-04): the one place the web process talks to a CRM.
 
 **Startup.** A tiny entrypoint, `main.ts`, is the only file that imports both the engine and the adapters.
 
@@ -376,7 +376,7 @@ golden/<provider>/<datatype>/<case>/
   display.json     human-readable output used by websites
 ```
 
-## 10. Acceptance Criteria v1.9
+## 10. Acceptance Criteria v1.10
 
 ### SRS AC 1-15, with clarifications
 
@@ -425,6 +425,13 @@ golden/<provider>/<datatype>/<case>/
 | 40  | **Compression.** A 100-item `/v1/changes` page is served gzip-encoded with `Content-Encoding: gzip`, at least 4x smaller than the same body uncompressed, and adds under 10 ms p95 per page. A client that does not accept gzip still gets valid plain JSON.                                                                                                                                                                                                                                                                                                        |
 | 41  | **Restore.** After Core's database is restored to an earlier point and the app restarted: no subscriber skips a change, no subscriber deletes or rewrites an item it should keep, every `seq` served afterwards is above every cursor handed out before, Core converges to the CRM's current state including deletions made after the restore point, and only records whose change date moved are fetched. `/v1/health` is red from the restart until every adapter has caught up and says when the database is ahead of the app; `/v1/ready` stays 200 throughout. |
 | 42  | **Admin panel.** One place in the `web` process, behind a login by email link: a dashboard, tenants and sites, connections, adapter panels, items (filters, a selection, live activity, raw, unified, display, timeline), events, a test panel that runs requests, settings. Every panel is driven through HTTP in the tests; an adapter's panels come through `Adapter.admin` and the engine never looks inside them (docs/admin-panel.md, approved 2026-09-18).                                                                                                   |
+| 43  | **Forms delivered.** A `lead`, an `interest` and a `viewing` posted to `POST /v1/submissions` with a tenant token reach the CRM through its adapter with every universal field mapped, and the site receives `delivered` with the CRM's reference (docs/forms.md, approved with question 130).                                                                                                                                                                                                                                                                      |
+| 44  | **Forms refused or failed.** A refusal and a failure from the CRM reach the visitor as `refused` with the reason and `failed`, appear on the record's timeline, and carry no personal data in events, logs or the error tracker; `submissions.failing` turns red on the failure and green on the next delivery.                                                                                                                                                                                                                                                     |
+| 45  | **Forms sent once.** The same submission `id` posted twice sends once and answers the same outcome.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 46  | **Forms refused before the CRM.** A record of another tenant, a body outside the schema, a lead without an office for a tenant with several, a kind the CRM does not take and the 61st submission in a minute are refused with 400, 501 or 429 before any CRM call.                                                                                                                                                                                                                                                                                                 |
+| 47  | **Slots.** `GET /v1/submissions/slots` answers the CRM's viewings and slots for a home under the universal names, valid against `schemas/slots.v1.json`.                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 48  | **The forms widget.** The widget's three forms pass a browser journey against the real Core on the staging site, and the browser never receives the tenant token or the CRM login.                                                                                                                                                                                                                                                                                                                                                                                  |
+| 49  | **Search profile.** A `search_profile` posted after a lead or from a home reaches the CRM as a contact and a profile with the criteria mapped, and a skipped third step leaves the main submission delivered.                                                                                                                                                                                                                                                                                                                                                       |
 
 ## 11. Rules ledger: what Kowboy supplies
 
@@ -494,22 +501,24 @@ Examples: golden/vitec/property/price-on-request
 
 ## 13. Defaults (changeable without a gate)
 
-| Setting                         | Default                                                                                     |
-| ------------------------------- | ------------------------------------------------------------------------------------------- |
-| Bell throttle window            | 10 s                                                                                        |
-| Response compression            | gzip level 3                                                                                |
-| Event log retention             | 30 days                                                                                     |
-| Vitec catch-up                  | every 12 h, 1 h overlap                                                                     |
-| Vitec id comparison for deletes | daily                                                                                       |
-| Vitec fetch retries             | exponential backoff; health red after 3 consecutive failures; Sentry after the last attempt |
-| Health: worker heartbeat        | 2 min                                                                                       |
-| Health: subscriber not pulled   | 60 min                                                                                      |
-| Health: Vitec webhook lag       | 5 min                                                                                       |
-| Health: Vitec catch-up overdue  | 13 h                                                                                        |
-| Staging soak before go-live     | 7 days                                                                                      |
-| Sequence jump per engine start  | 1,000,000,000                                                                               |
-| Lifecycle events delivered      | every 2 s; an event waiting 5 min turns `lifecycle` red                                     |
-| Adapter health recorded         | every 30 s; a record older than 2 min counts as failed                                      |
+| Setting                           | Default                                                                                        |
+| --------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Bell throttle window              | 10 s                                                                                           |
+| Response compression              | gzip level 3                                                                                   |
+| Event log retention               | 30 days                                                                                        |
+| Vitec catch-up                    | every 12 h, 1 h overlap                                                                        |
+| Vitec id comparison for deletes   | daily                                                                                          |
+| Vitec fetch retries               | exponential backoff; health red after 3 consecutive failures; Sentry after the last attempt    |
+| Health: worker heartbeat          | 2 min                                                                                          |
+| Health: subscriber not pulled     | 60 min                                                                                         |
+| Health: Vitec webhook lag         | 5 min                                                                                          |
+| Health: Vitec catch-up overdue    | 13 h                                                                                           |
+| Staging soak before go-live       | 7 days                                                                                         |
+| Sequence jump per engine start    | 1,000,000,000                                                                                  |
+| Lifecycle events delivered        | every 2 s; an event waiting 5 min turns `lifecycle` red                                        |
+| Adapter health recorded           | every 30 s; a record older than 2 min counts as failed                                         |
+| Form submissions per tenant token | 60 a minute, answered 429 above it (docs/forms.md)                                             |
+| Form submission: CRM answer       | 20 s, then the submission counts as failed; a repeated id answers the stored outcome for a day |
 
 ## 14. Features (the feature map, from 2026-10-03)
 

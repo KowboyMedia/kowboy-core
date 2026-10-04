@@ -86,6 +86,9 @@ how two sites can show one brokerage's listings. Core does not warn about that; 
 where the offices are typed.
 Its sites are on the same page with their bell address, their bell secret, their setup checklist,
 what they reported applied and failed, and their own errors.
+Under each connection, one line counts the forms visitors sent through Core to that CRM in the
+last day (docs/forms.md): delivered, refused by the CRM, unanswered by the CRM; red when any went
+unanswered. The visitor is never stored in Core, so the line has counts and nothing else.
 
 One Save does all of it, and says what it did. The difference decides what the adapters are told: a
 new connection is loaded, offices added or removed are loaded or tombstoned, a connection taken off
@@ -204,6 +207,12 @@ drive directly.
   webhook (`ALERT_SLACK_WEBHOOK_URL`), with the detail, the names and a link to the health page
   (`PUBLIC_URL`). Told once per change, never every minute; a check first seen green is not told.
   Every send is an `alert.sent` event.
+- **Form submissions** (`engine/http/submissions.ts`, docs/forms.md): `POST /v1/submissions` hands
+  a site's form to the connection's adapter and answers what the CRM said; `GET
+/v1/submissions/slots` reads a home's viewings and slots live. The outcomes table keeps the id,
+  the kind, the record and the CRM's answer, never the person; the events `submission.received`,
+  `.delivered`, `.refused` and `.failed` sit on the record's timeline; the check
+  `submissions.failing` is red while a connection's latest submission went unanswered by the CRM.
 - **Settings** (`engine/storage/settings.ts`): the switches a person throws, one row per key, read
   by whichever process needs them so web and worker agree without a restart.
 

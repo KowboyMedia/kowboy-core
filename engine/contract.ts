@@ -44,3 +44,10 @@ export const validateApplied = (body: unknown): ValidationResult => check('appli
 
 /** Validate an error a site reports (POST /v1/errors, question 46). */
 export const validateSiteError = (body: unknown): ValidationResult => check('errors.v1.json', body);
+
+/** Validate a form submission a site posts (POST /v1/submissions, docs/forms.md). */
+export const validateSubmission = (body: unknown): ValidationResult =>
+  check('submission.v1.json', body);
+
+/** Validate what an adapter answers for a home's slots (GET /v1/submissions/slots). */
+export const validateSlots = (body: unknown): ValidationResult => check('slots.v1.json', body);

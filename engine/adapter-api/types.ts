@@ -29,6 +29,90 @@ export type Connection = {
 export type Manifest = {
   provider: string;
   datatypes: Datatype[];
+  /**
+   * The kinds of form submission this CRM takes (docs/forms.md, approved with question 130). A
+   * kind not listed is answered 501 before any adapter call; absent means the CRM takes none.
+   */
+  submissions?: SubmissionKind[];
+};
+
+// ---- Form submissions (docs/forms.md): a site's form reaches the CRM through Core -------------
+
+export type SubmissionKind = 'lead' | 'interest' | 'viewing' | 'search_profile';
+
+export const SUBMISSION_KINDS: readonly SubmissionKind[] = [
+  'lead',
+  'interest',
+  'viewing',
+  'search_profile',
+] as const;
+
+/** The search profile's criteria (question 139), each one of the whitelist or null for no requirement. */
+export type SearchCriteria = {
+  object_type: 'apartment' | 'house' | 'holiday_house' | 'plot' | null;
+  rooms_min: number | null;
+  living_area_min: number | null;
+  /** Chosen from the site's own area list: ids the CRM already knows. */
+  areas: { id: string; name: string; county_municipality_code: string | null }[];
+  county_municipality_code: string | null;
+};
+
+/**
+ * A form submission as a site posted it, validated against `schemas/submission.v1.json` before
+ * the adapter sees it. The person is the adapter's to send and never to keep: Core stores and
+ * logs the id and the outcome only.
+ */
+export type Submission = {
+  id: string;
+  kind: SubmissionKind;
+  /** The home; always there on an interest and a viewing. */
+  record?: { datatype: Datatype; connection_id: string; remote_id: string };
+  /** The office a lead goes to; filled in by Core when the tenant has one office. */
+  office_id?: string;
+  /** The slot booked, on a viewing. */
+  slot_id?: string;
+  person: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+    address?: { street: string; postal_code: string; city: string };
+  };
+  message?: string;
+  consent: { given: true; at: string };
+  source?: { page?: string; utm?: Record<string, string> };
+  criteria?: SearchCriteria;
+  /** "Kontakta mig om min nuvarande bostad" (question 141 a): the adapter makes a seller lead too. */
+  contact_about_current_home?: boolean;
+};
+
+/**
+ * What the CRM said. `reference` is the CRM's own id for what it made (a contact, a booking).
+ * `reason` reaches the visitor and `detail` the event log, so both are the CRM's words about the
+ * submission and never the person's data.
+ */
+export type SubmissionResult =
+  | { outcome: 'delivered'; reference?: string }
+  | { outcome: 'refused'; reason: string }
+  | { outcome: 'failed'; detail: string };
+
+/** A home's viewings and their bookable slots, the shape of `schemas/slots.v1.json`. */
+export type Slots = {
+  viewings: {
+    id: string;
+    starts_at: string | null;
+    ends_at: string | null;
+    deadline_at: string | null;
+    self_registration: boolean | null;
+    visible: boolean | null;
+    slots: {
+      id: string;
+      starts_at: string | null;
+      ends_at: string | null;
+      available: boolean | null;
+      free_spots: number | null;
+    }[];
+  }[];
 };
 
 /** A mapper is a pure translation: no I/O, no clock, no side effects (SRS §4). */
@@ -252,4 +336,12 @@ export type Adapter = {
   start(api: AdapterApi): Promise<void> | void;
   /** Called on shutdown, so timers stop cleanly. */
   stop?(): Promise<void> | void;
+  /**
+   * Send one form submission to the CRM and answer what it said (docs/forms.md). Runs in the
+   * web process, inside the site's request, while the visitor waits; Core gives up after its
+   * own timeout and counts the submission as failed. A thrown error is a failure too.
+   */
+  submit?(connection: Connection, submission: Submission): Promise<SubmissionResult>;
+  /** A home's viewings and their slots as the CRM sees them now, copied onto the universal names. */
+  slots?(connection: Connection, record: { datatype: Datatype; remoteId: string }): Promise<Slots>;
 };

@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kowboy.se/schemas/slots.v1.json",
+  "title": "A home's viewings and their bookable slots as the CRM sees them now: the answer of GET /v1/submissions/slots (docs/forms.md, approved with question 130)",
+  "type": "object",
+  "properties": {
+    "viewings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "starts_at": { "$ref": "_shared.v1.json#/$defs/moment" },
+          "ends_at": { "$ref": "_shared.v1.json#/$defs/moment" },
+          "deadline_at": {
+            "description": "Until when the CRM takes a booking.",
+            "$ref": "_shared.v1.json#/$defs/moment"
+          },
+          "self_registration": { "$ref": "_shared.v1.json#/$defs/nullableBoolean" },
+          "visible": { "$ref": "_shared.v1.json#/$defs/nullableBoolean" },
+          "slots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "starts_at": { "$ref": "_shared.v1.json#/$defs/moment" },
+                "ends_at": { "$ref": "_shared.v1.json#/$defs/moment" },
+                "available": {
+                  "description": "Whether the CRM takes a booking for this slot, where it says so.",
+                  "$ref": "_shared.v1.json#/$defs/nullableBoolean"
+                },
+                "free_spots": {
+                  "description": "The places left, where the CRM counts them.",
+                  "type": ["integer", "null"],
+                  "minimum": 0
+                }
+              },
+              "required": ["id", "starts_at", "ends_at", "available", "free_spots"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "starts_at",
+          "ends_at",
+          "deadline_at",
+          "self_registration",
+          "visible",
+          "slots"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["viewings"],
+  "additionalProperties": false
+}

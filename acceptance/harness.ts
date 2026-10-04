@@ -7,7 +7,8 @@ import { configureMail, type Mail } from '../engine/mail.js';
 import { db } from '../engine/storage/db.js';
 import { addSubscriber, createTenant, upsertConnection } from '../engine/storage/connections.js';
 import { deliverLifecycleEvents } from '../engine/lifecycle.js';
-import { clearRegistry, registerAdmin } from '../engine/registry.js';
+import { clearRegistry, registerAdmin, registerSubmissions } from '../engine/registry.js';
+import { resetSubmissionLimits } from '../engine/http/submissions.js';
 import type { Adapter } from '../engine/adapter-api/types.js';
 
 // The engine's operations an adapter's tests drive, re-exported so those tests import the harness
@@ -57,6 +58,7 @@ export async function harness(options: {
   subscriber?: boolean;
 }): Promise<Harness> {
   clearRegistry();
+  resetSubmissionLimits();
   const adapters = options.adapters ?? [];
 
   let engine = await startEngine({ port: 0 });
@@ -107,8 +109,10 @@ export async function harness(options: {
 
   for (const adapter of adapters) {
     await startAdapter(adapter);
-    // As the entrypoint does for both roles: the admin area draws the adapter's own panel.
+    // As the entrypoint does for both roles: the admin area draws the adapter's own panel, and a
+    // site's form is handed to the adapter inside the request.
     if (adapter.admin) registerAdmin(adapter.manifest.provider, adapter.admin);
+    registerSubmissions(adapter.manifest.provider, adapter);
   }
 
   const running: Harness = {
@@ -141,7 +145,7 @@ export async function harness(options: {
 }
 
 const TABLES =
-  'tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results, error_reports, jobs, alert_state, settings, admin_logins, admin_sessions';
+  'tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results, error_reports, jobs, alert_state, settings, admin_logins, admin_sessions, submissions';
 
 /**
  * Every table empty and the sequence at 1: what the harness does before a test, and what a test

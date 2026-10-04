@@ -7,7 +7,9 @@ writes live" below and 129 is open again in `docs/open-questions.md`. Later the 
 proposed the forms as a remote widget with a matching step and asked for anti-bot protection;
 that is "The form itself" below, questions 137 to 139, which he answered the same day: the widget,
 Turnstile, and a wizard whose last step is the search profile; he also pointed to Vitec's search
-profile calls in the version 1 API, which closes 131, and 129 stands as a. Nothing is built. A
+profile calls in the version 1 API, which closes 131, and 129 stands as a. **Core's part is
+built** (Patric: "Go", 2026-10-04; "Built 2026-10-04: Core's part" below); the Vitec adapter's
+part and the widget follow, in that order. A
 clickable dry run of the wizard, with sample data and no CRM, is published as a private page:
 <https://claude.ai/artifact/ALpPRzfUXWSAG4TLpATFEP> (2026-10-04); its markup is the starting point
 for `clients/forms-widget/`. **The
@@ -399,7 +401,7 @@ code comes from the home's record and from each area of the site's list.
 | Minst antal rum, `rooms_min`           | 1 to 7 ("N rum"), or empty ("Inget krav")                                                                                                                                                                                                           | the closest value lower than the home's rooms        |
 | Minst boarea (kvm), `living_area_min`  | 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 150, 160, 170, 180, 200, 250, or empty ("Inget krav")                                                                                  | the closest value lower than the home's living space |
 | Områden, `areas[]`                     | ids from the site's own area list, each with its name and municipality code; nothing typed (how it works, below)                                                                                                                                    | the home's area(s); nothing on the lead              |
-| `municipality_code`                    | the home's, from its record; `null` on the lead                                                                                                                                                                                                     | always                                               |
+| `county_municipality_code`             | the home's, from its record; `null` on the lead                                                                                                                                                                                                     | always                                               |
 | "Kontakta mig om min nuvarande bostad" | the source form's checkbox, `true` or `false`, beside `criteria`; on an interest and a booking, not on the seller's lead (141 a, Patric, 2026-10-04: the adapter makes the visitor a seller lead too)                                               | unticked                                             |
 
 The rest of the source form is already elsewhere in the wizard or not taken: first name, last
@@ -447,7 +449,8 @@ What the profile becomes in each CRM, verified 2026-10-04:
 
 The schema: a fourth kind, `search_profile`, with `person`, `consent`, `source`, a
 `criteria` group (`object_type`, `rooms_min` and `living_area_min`, each an enum of the
-whitelist above or `null`; `areas[]` as id, name and municipality code; `municipality_code`)
+whitelist above or `null`; `areas[]` as id, name and municipality code; `county_municipality_code`,
+the universal name the area and property records carry)
 and `contact_about_current_home` (141 a); additive, every field from a CRM's call above or
 from the whitelist; the widget prefills it from the record the page shows and Core passes it through.
 The adapter manifest lists `search_profile` when its CRM takes it. Vitec's interest also takes
@@ -747,6 +750,37 @@ browser never sees either.
 7. A `search_profile` posted after a lead reaches the stand-in CRM as a contact and a profile with
    the criteria mapped, and a skipped third step leaves the main submission delivered.
 
+### Built 2026-10-04: Core's part (plan item 1)
+
+What exists, proved by acceptance criteria 43 to 47 and 49 (`acceptance/submissions.test.ts`)
+against the fake polling CRM, which takes every kind, and the fake webhook CRM, which takes none:
+
+- `schemas/submission.v1.json` and `schemas/slots.v1.json`, as designed above, with two names
+  settled on the way: the municipality field of the criteria and of each area is
+  `county_municipality_code`, the universal name the area and property records already carry;
+  and `consent.given` must be `true`, so an unticked privacy box is not a submission (400).
+- `engine/adapter-api/types.ts`: `manifest.submissions`, `Adapter.submit` and `Adapter.slots`
+  with the `Submission`, `SubmissionResult` and `Slots` types. `engine/registry.ts` holds the two
+  handlers per provider, registered by `main.ts` and the test harness for both roles.
+- `POST /v1/submissions` and `GET /v1/submissions/slots` (`engine/http/submissions.ts`): the
+  token, the limit (60 a minute per token), the schema, the connection (the record's; for a lead,
+  the office's, or the tenant's only office, which Core fills into `office_id`), then the adapter,
+  with 20 s for the CRM's answer before the submission counts as failed. A paused connection is 400. The same `id` again, a double click included, answers the first request's outcome for a
+  day and sends nothing; the stored row is claimed before the CRM is asked, so two requests at
+  once make one send.
+- The `submissions` table (migration 010): id, tenant, connection, kind, record, office, outcome,
+  the CRM's reference, the refusal's reason or the failure's cause, the times; never the person.
+  Rows go with the event retention (30 days).
+- The events `submission.received`, `.delivered`, `.refused`, `.failed`, with the id as the
+  correlation id, on the record's timeline and in words on the admin pages.
+- The health check `submissions.failing` (names the connections, counts in the public detail) and
+  the counts per outcome for the last day under each connection on the tenant's page.
+- Strategy §5.1 carries the departure (the web process calls the CRM for a submission), §13 the
+  two defaults, §10 the criteria 43 to 49.
+
+Not yet: the Vitec adapter's `submit` and `slots` (plan item 2), the widget, the site key, the
+Origin check and Turnstile (plan item 3), which bring criteria 48 and the real half of 49.
+
 ## The decisions (the discover list)
 
 | #   | Question                                                                                                                                                                            | Options                                                                                                                                                                                                                                                | Undo later?                       | Recommended                                                                                                     |
@@ -797,7 +831,7 @@ submission id is a UUID in the body; the rate limit is 60 a minute per token.
 
 ## The plan (items for `docs/next-steps.md`, after 129 stands)
 
-1. `[core]` **The submission endpoint and the adapter capability**: the two schemas, the two
+1. ~~`[core]` **The submission endpoint and the adapter capability**~~ (built 2026-10-04, below): the two schemas, the two
    adapter members, `POST /v1/submissions` and `GET /v1/submissions/slots`, the outcomes table,
    the events, the health check and the rate limit, proved by acceptance 1 to 5 against a fake
    adapter. One session. Interface: additive (two new schemas, two optional adapter members) plus

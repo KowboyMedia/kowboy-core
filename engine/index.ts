@@ -22,6 +22,8 @@ import { purgeTombstones } from './storage/items.js';
 import { changes } from './http/changes.js';
 import { applied } from './http/applied.js';
 import { siteError } from './http/errors.js';
+import { slots, submit } from './http/submissions.js';
+import { deleteExpiredSubmissions } from './storage/submissions.js';
 import { configureCompression, jsonResponse, startServer, type RouteTable } from './http/server.js';
 import { SEQUENCE_JUMP, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
 import { adminRoutes, configureAdmin } from './admin/index.js';
@@ -84,6 +86,8 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
     { method: 'GET', path: '/v1/changes', handler: changes },
     { method: 'POST', path: '/v1/applied', handler: applied },
     { method: 'POST', path: '/v1/errors', handler: siteError },
+    { method: 'POST', path: '/v1/submissions', handler: submit },
+    { method: 'GET', path: '/v1/submissions/slots', handler: slots },
     {
       method: 'GET',
       path: '/v1/health',
@@ -144,6 +148,7 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
       }, HEALTH_RECORD_MS);
       tick(async () => {
         await deleteExpiredEvents(config.eventRetentionDays);
+        await deleteExpiredSubmissions(config.eventRetentionDays);
         await purgeTombstones(TOMBSTONE_RETENTION_DAYS);
         await deleteExpiredSessions();
       }, HOUSEKEEPING_MS);

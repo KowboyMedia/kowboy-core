@@ -1,4 +1,5 @@
 import type {
+  Adapter,
   AdapterAdmin,
   Datatype,
   HealthResult,
@@ -18,6 +19,9 @@ const registrations = new Map<string, Registration>();
 const lifecycleHandlers = new Map<string, LifecycleHandler[]>();
 const healthChecks = new Map<string, () => Promise<HealthResult> | HealthResult>();
 const admins = new Map<string, AdapterAdmin>();
+/** An adapter's `submit` and `slots` (docs/forms.md), what the web process calls for a site's form. */
+export type SubmissionHandlers = Pick<Adapter, 'submit' | 'slots'>;
+const submissionHandlers = new Map<string, SubmissionHandlers>();
 
 export function register(provider: string, manifest: Manifest, mappers: Mappers): void {
   registrations.set(provider, { manifest, mappers });
@@ -53,6 +57,19 @@ export function adminProviders(): string[] {
   return [...admins.keys()];
 }
 
+/**
+ * What an adapter does with a form submission. Registered for both roles like the admin: the
+ * web process answers a site's form inside the request (the departure approved with question
+ * 130), and the engine hands the submission on without reading what the CRM makes of it.
+ */
+export function registerSubmissions(provider: string, handlers: SubmissionHandlers): void {
+  submissionHandlers.set(provider, { submit: handlers.submit, slots: handlers.slots });
+}
+
+export function submissionsFor(provider: string): SubmissionHandlers | null {
+  return submissionHandlers.get(provider) ?? null;
+}
+
 export function addLifecycleHandler(provider: string, handler: LifecycleHandler): void {
   const handlers = lifecycleHandlers.get(provider) ?? [];
   handlers.push(handler);
@@ -80,4 +97,5 @@ export function clearRegistry(): void {
   lifecycleHandlers.clear();
   healthChecks.clear();
   admins.clear();
+  submissionHandlers.clear();
 }

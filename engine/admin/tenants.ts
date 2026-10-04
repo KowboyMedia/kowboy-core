@@ -22,6 +22,7 @@ import {
 import { queueLifecycle } from '../lifecycle.js';
 import { queryEvents } from '../events.js';
 import { itemCounts } from '../storage/items.js';
+import { submissionCounts, type SubmissionCounts } from '../storage/submissions.js';
 import { adminFor } from '../registry.js';
 import type { AdminSection } from '../adapter-api/types.js';
 
@@ -77,9 +78,13 @@ export type ConnectionView = {
   lastError: string | null;
   /** Records loaded so far for this connection, per datatype: the first load's progress. */
   loaded: { datatype: string; live: number }[];
+  /** The forms sites sent through Core to this CRM in the last day, by outcome (docs/forms.md). */
+  submissions: SubmissionCounts;
   /** What the adapter itself reports about this connection, as data the panel draws. */
   sections: AdminSection[];
 };
+
+const DAY_MS = 24 * 60 * 60_000;
 
 export type TenantView = {
   id: number;
@@ -243,6 +248,7 @@ async function connectionView(
     hasCredentials: row.has_credentials,
     lastIngestAt: row.last_ingest_at?.toISOString() ?? null,
     lastError: row.last_error,
+    submissions: await submissionCounts(row.id, DAY_MS),
     loaded: counts
       .filter((count) => count.tenant_id === row.tenant_id)
       .map((count) => ({ datatype: count.datatype, live: Number(count.live) })),

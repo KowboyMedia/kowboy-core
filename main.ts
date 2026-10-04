@@ -8,7 +8,7 @@ import type { AddressInfo } from 'node:net';
 import { pathToFileURL } from 'node:url';
 import { startEngine, type Engine } from './engine/index.js';
 import { adapterApi, startAdapter } from './engine/adapter-api/index.js';
-import { registerAdmin } from './engine/registry.js';
+import { registerAdmin, registerSubmissions } from './engine/registry.js';
 import { adapterRoutes } from './engine/http/server.js';
 import { closeErrorReporting, report } from './engine/errors.js';
 import type { Adapter } from './engine/adapter-api/types.js';
@@ -36,6 +36,9 @@ export async function main(role: string): Promise<{ engine: Engine; server: Serv
     // The admin area runs in the web process while the adapter runs in the worker, so both roles
     // register what the adapter shows and does there (docs/admin-panel-design.md §3).
     if (adapter.admin) registerAdmin(adapter.manifest.provider, adapter.admin);
+    // A site's form is answered by the web process, which asks the CRM through the adapter and
+    // waits inside the request (docs/forms.md, the departure approved with question 130).
+    registerSubmissions(adapter.manifest.provider, adapter);
   }
 
   if (role === 'web') {

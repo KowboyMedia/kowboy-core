@@ -1,0 +1,406 @@
+// Form submissions (docs/forms.md, approved with question 130; AC 43 to 47 and 49): a site's
+// form reaches the CRM through Core and the CRM's answer reaches the visitor, proved against the
+// fake polling CRM, which takes every kind, and the fake webhook CRM, which takes none.
+import { randomUUID } from 'node:crypto';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { harness, healthReport, pull, until, TOKEN, type Harness } from './harness.js';
+import { fakePollingAdapter, poll } from '../adapters/fake-polling/index.js';
+import { fakeWebhookAdapter } from '../adapters/fake-webhook/index.js';
+import * as crm from '../adapters/fake-polling/crm.js';
+import { queryEvents } from '../engine/events.js';
+import { createTenant, upsertConnection } from '../engine/storage/connections.js';
+import { validateSlots } from '../engine/contract.js';
+import { SUBMISSIONS_PER_MINUTE } from '../engine/http/submissions.js';
+import { db } from '../engine/storage/db.js';
+
+const CONNECTION = 'polling-acme';
+const OTHER = 'webhook-acme';
+const HOME = 'P-1';
+const OFFICE = 'B-1';
+
+const home = {
+  object_id: HOME,
+  stage: 'active',
+  object_type: 'flat',
+  street: 'Kungsgatan 1',
+  price: 7250000,
+  branch_id: OFFICE,
+  districts: ['D-1'],
+  staff: [],
+  coop_id: null,
+};
+
+const person = {
+  first_name: 'Anna',
+  last_name: 'Svensson',
+  email: 'anna@example.se',
+  phone: '0701234567',
+  address: { street: 'Storgatan 1', postal_code: '211 22', city: 'Malmö' },
+};
+
+const record = { datatype: 'property', connection_id: CONNECTION, remote_id: HOME };
+
+const criteria = {
+  object_type: 'apartment',
+  rooms_min: 2,
+  living_area_min: 75,
+  areas: [{ id: 'D-1', name: 'Centrum', county_municipality_code: '1280' }],
+  county_municipality_code: '1280',
+};
+
+const submission = (
+  kind: string,
+  extra: Record<string, unknown> = {},
+): Record<string, unknown> => ({
+  id: randomUUID(),
+  kind,
+  person,
+  message: 'Hej! Jag vill veta mer.',
+  consent: { given: true, at: '2026-10-04T10:00:00Z' },
+  source: {
+    page: 'https://site.example/objekt/till-salu-malmo-kungsgatan-1-P-1',
+    utm: { utm_source: 'hemnet' },
+  },
+  ...extra,
+});
+
+let running: Harness;
+let posted = 0;
+
+const post = async (body: unknown): Promise<{ status: number; body: Record<string, unknown> }> => {
+  posted += 1;
+  const response = await fetch(`${running.baseUrl}/v1/submissions`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${TOKEN}`,
+      'content-type': 'application/json',
+      'x-core-client': 'test-site/1.0',
+    },
+    body: JSON.stringify(body),
+  });
+  return { status: response.status, body: (await response.json()) as Record<string, unknown> };
+};
+
+const slots = async (
+  query: Record<string, string>,
+): Promise<{ status: number; body: Record<string, unknown> }> => {
+  const response = await fetch(
+    `${running.baseUrl}/v1/submissions/slots?${new URLSearchParams(query).toString()}`,
+    { headers: { authorization: `Bearer ${TOKEN}` } },
+  );
+  return { status: response.status, body: (await response.json()) as Record<string, unknown> };
+};
+
+const timeline = () =>
+  queryEvents({ entity: { connectionId: CONNECTION, datatype: 'property', remoteId: HOME } });
+
+/** Every character Core wrote about the forms: the events, the outcomes table. */
+const everythingStored = async (): Promise<string> => {
+  const events = await queryEvents({ tenantId: 1, limit: 5000 });
+  const rows = (await db().query('select * from submissions')).rows as unknown[];
+  return JSON.stringify({ events, rows });
+};
+
+beforeEach(async () => {
+  crm.reset();
+  posted = 0;
+  running = await harness({
+    adapters: [fakePollingAdapter, fakeWebhookAdapter],
+    connections: [{ id: CONNECTION, provider: 'fake-polling', licensedOffices: [OFFICE] }],
+  });
+  crm.put('property', HOME, home);
+  await poll();
+  await until(
+    async () => (await pull(running.baseUrl, 'property')).items.length === 1,
+    'the home to be in Core',
+  );
+});
+
+afterEach(async () => {
+  vi.restoreAllMocks();
+  await running.stop();
+});
+
+describe('submissions', () => {
+  it('a lead, an interest and a viewing reach the CRM with every field mapped, and answer delivered with the CRM’s reference', async () => {
+    // The tenant has one office, so the lead names none and Core fills it in.
+    const lead = await post(submission('lead'));
+    expect(lead.status).toBe(200);
+    expect(lead.body).toMatchObject({ status: 'delivered', reference: 'C-1' });
+
+    const interest = await post(submission('interest', { record }));
+    expect(interest.status).toBe(200);
+    expect(interest.body).toMatchObject({ status: 'delivered', reference: 'C-2' });
+
+    const viewing = await post(
+      submission('viewing', { record, slot_id: 'T-1', contact_about_current_home: true }),
+    );
+    expect(viewing.status).toBe(200);
+    expect(viewing.body).toMatchObject({ status: 'delivered', reference: 'C-3' });
+
+    const forms = crm.formsTaken();
+    expect(forms.map((form) => form.form)).toEqual(['CONTACT', 'INTEREST', 'SHOWING_BOOKING']);
+    for (const form of forms) {
+      expect(form.payload).toMatchObject({
+        given_name: 'Anna',
+        family_name: 'Svensson',
+        mail: 'anna@example.se',
+        mobile: '0701234567',
+        street: 'Storgatan 1',
+        zip: '211 22',
+        town: 'Malmö',
+        note: 'Hej! Jag vill veta mer.',
+        consent_at: '2026-10-04T10:00:00Z',
+        page: 'https://site.example/objekt/till-salu-malmo-kungsgatan-1-P-1',
+        tags: { utm_source: 'hemnet' },
+      });
+    }
+    expect(forms[0]?.payload).toMatchObject({ branch_id: OFFICE, object_id: null });
+    expect(forms[1]?.payload).toMatchObject({ object_id: HOME, showing_time_id: null });
+    expect(forms[2]?.payload).toMatchObject({
+      object_id: HOME,
+      showing_time_id: 'T-1',
+      sell_current: true,
+    });
+
+    // The home's timeline carries the interest and the viewing, each in its own chain.
+    const events = await timeline();
+    const types = events.filter((event) => event.type.startsWith('submission.')).map((e) => e.type);
+    expect(types).toEqual([
+      'submission.received',
+      'submission.delivered',
+      'submission.received',
+      'submission.delivered',
+    ]);
+    const chain = events.filter((event) => event.correlation_id === interest.body['id']);
+    expect(chain.map((event) => event.type)).toEqual([
+      'submission.received',
+      'submission.delivered',
+    ]);
+    expect(chain[1]?.fields).toMatchObject({ kind: 'interest', reference: 'C-2' });
+  });
+
+  it('a refusal and a failure reach the visitor and the timeline without the person, and submissions.failing turns red then green', async () => {
+    const printed = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    crm.answerNext({ refuse: 'The showing is fully booked' });
+    const refused = await post(submission('viewing', { record, slot_id: 'T-1' }));
+    expect(refused.status).toBe(409);
+    expect(refused.body).toMatchObject({
+      status: 'refused',
+      reason: 'The showing is fully booked',
+    });
+    expect((await healthReport()).checks['submissions.failing']?.ok).toBe(true);
+
+    crm.answerNext({ fail: 'connection refused' });
+    const failed = await post(submission('interest', { record }));
+    expect(failed.status).toBe(502);
+    expect(failed.body).toMatchObject({ status: 'failed' });
+    expect(failed.body['reason']).toBeUndefined();
+
+    const events = await timeline();
+    const said = events.filter((event) => event.type.startsWith('submission.'));
+    expect(said.map((event) => event.type)).toEqual([
+      'submission.received',
+      'submission.refused',
+      'submission.received',
+      'submission.failed',
+    ]);
+    expect(said[1]?.fields).toMatchObject({
+      kind: 'viewing',
+      reason: 'The showing is fully booked',
+    });
+    expect(said[3]?.fields).toMatchObject({ kind: 'interest', detail: 'connection refused' });
+
+    // Nothing about the person anywhere Core writes: the events, the table, the error tracker.
+    const stored = await everythingStored();
+    const tracker = printed.mock.calls.map((call) => call.map(String).join(' ')).join('\n');
+    expect(tracker).toContain('connection refused');
+    for (const personal of ['Anna', 'Svensson', 'anna@example.se', '0701234567', 'Storgatan']) {
+      expect(stored).not.toContain(personal);
+      expect(tracker).not.toContain(personal);
+    }
+    expect(crm.formsTaken()).toHaveLength(0);
+
+    // Red while the latest submission to the connection failed; green on the next delivery.
+    const red = (await healthReport()).checks['submissions.failing'];
+    expect(red?.ok).toBe(false);
+    expect(red?.names).toEqual([CONNECTION]);
+    expect(red?.detail).not.toContain(CONNECTION);
+
+    const delivered = await post(submission('lead'));
+    expect(delivered.status).toBe(200);
+    expect((await healthReport()).checks['submissions.failing']?.ok).toBe(true);
+  });
+
+  it('the same id posted twice sends once and answers the same outcome', async () => {
+    const body = submission('interest', { record });
+    // A double click: both requests in flight at once.
+    const [first, second] = await Promise.all([post(body), post(body)]);
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(second.body).toEqual(first.body);
+    // And a retry later.
+    const third = await post(body);
+    expect(third.body).toEqual(first.body);
+    expect(crm.formsTaken()).toHaveLength(1);
+
+    const chain = await queryEvents({ correlationId: body['id'] as string });
+    expect(chain.map((event) => event.type)).toEqual([
+      'submission.received',
+      'submission.delivered',
+    ]);
+  });
+
+  it('another tenant’s record, a body outside the schema, a lead without an office, a kind the CRM does not take and the 61st in a minute are refused before any CRM call', async () => {
+    // A record of another tenant: the connection is not this tenant's.
+    const other = await createTenant({ displayName: 'Other tenant', token: 'other-token' });
+    await upsertConnection({
+      id: 'other-polling',
+      tenantId: other,
+      provider: 'fake-polling',
+      licensedOffices: ['B-9'],
+      credentials: null,
+    });
+    const foreign = await post(
+      submission('interest', { record: { ...record, connection_id: 'other-polling' } }),
+    );
+    expect(foreign.status).toBe(400);
+    expect(foreign.body['error']).toContain('not one of this tenant');
+
+    // A record Core does not hold.
+    const unknown = await post(
+      submission('interest', { record: { ...record, remote_id: 'P-404' } }),
+    );
+    expect(unknown.status).toBe(400);
+
+    // Outside the schema: a value off the whitelist, a missing consent, an unknown field.
+    const offList = await post(
+      submission('search_profile', { record, criteria: { ...criteria, living_area_min: 78 } }),
+    );
+    expect(offList.status).toBe(400);
+    expect(JSON.stringify(offList.body['detail'])).toContain('living_area_min');
+    const noConsent = await post(
+      submission('lead', { consent: { given: false, at: '2026-10-04T10:00:00Z' } }),
+    );
+    expect(noConsent.status).toBe(400);
+    const extra = await post(submission('lead', { lead_source: 'web' }));
+    expect(extra.status).toBe(400);
+
+    // A tenant with several offices needs the office named on a lead.
+    await running.connection({ id: OTHER, provider: 'fake-webhook', licensedOffices: ['100'] });
+    const noOffice = await post(submission('lead'));
+    expect(noOffice.status).toBe(400);
+    expect(noOffice.body['error']).toContain('office_id is required');
+
+    // A kind the CRM does not take: the webhook CRM lists no submissions at all.
+    const notTaken = await post(submission('lead', { office_id: '100' }));
+    expect(notTaken.status).toBe(501);
+    expect(notTaken.body['error']).toContain('takes no lead');
+
+    expect(crm.formsTaken()).toHaveLength(0);
+
+    // The limit: every post from this token counts, the refused ones above included.
+    while (posted < SUBMISSIONS_PER_MINUTE) {
+      const taken = await post(submission('interest', { record }));
+      expect(taken.status).toBe(200);
+    }
+    const over = await post(submission('interest', { record }));
+    expect(over.status).toBe(429);
+    expect(crm.formsTaken()).toHaveLength(SUBMISSIONS_PER_MINUTE - 7);
+  });
+
+  it('the slots call answers the stand-in’s viewings and slots under the universal names', async () => {
+    crm.setShowings(HOME, [
+      {
+        showing_id: 'S-1',
+        from: '2026-10-10T10:00:00Z',
+        to: '2026-10-10T11:00:00Z',
+        book_before: '2026-10-09T12:00:00Z',
+        open_booking: true,
+        shown: true,
+        times: [
+          {
+            time_id: 'T-1',
+            from: '2026-10-10T10:00:00Z',
+            to: '2026-10-10T10:15:00Z',
+            open: true,
+            places_left: 3,
+          },
+          {
+            time_id: 'T-2',
+            from: '2026-10-10T10:15:00Z',
+            to: '2026-10-10T10:30:00Z',
+            open: false,
+            places_left: 0,
+          },
+        ],
+      },
+    ]);
+    const answer = await slots({ connection_id: CONNECTION, remote_id: HOME });
+    expect(answer.status).toBe(200);
+    expect(validateSlots(answer.body)).toEqual({ valid: true });
+    expect(answer.body).toEqual({
+      viewings: [
+        {
+          id: 'S-1',
+          starts_at: '2026-10-10T10:00:00Z',
+          ends_at: '2026-10-10T11:00:00Z',
+          deadline_at: '2026-10-09T12:00:00Z',
+          self_registration: true,
+          visible: true,
+          slots: [
+            {
+              id: 'T-1',
+              starts_at: '2026-10-10T10:00:00Z',
+              ends_at: '2026-10-10T10:15:00Z',
+              available: true,
+              free_spots: 3,
+            },
+            {
+              id: 'T-2',
+              starts_at: '2026-10-10T10:15:00Z',
+              ends_at: '2026-10-10T10:30:00Z',
+              available: false,
+              free_spots: 0,
+            },
+          ],
+        },
+      ],
+    });
+
+    // Only this tenant's records, and only records Core holds.
+    expect((await slots({ connection_id: 'nobody', remote_id: HOME })).status).toBe(400);
+    expect((await slots({ connection_id: CONNECTION, remote_id: 'P-404' })).status).toBe(400);
+    expect((await slots({ connection_id: CONNECTION })).status).toBe(400);
+  });
+
+  it('a search profile reaches the CRM with the criteria mapped, from a home or after a lead', async () => {
+    const fromHome = await post(
+      submission('search_profile', { record, criteria, contact_about_current_home: false }),
+    );
+    expect(fromHome.status).toBe(200);
+    expect(fromHome.body).toMatchObject({ status: 'delivered', reference: 'C-1' });
+
+    // After the footer's lead: no home, and the tenant's one office receives it.
+    const afterLead = await post(
+      submission('search_profile', {
+        criteria: { ...criteria, object_type: null, county_municipality_code: null },
+      }),
+    );
+    expect(afterLead.status).toBe(200);
+
+    const forms = crm.formsTaken();
+    expect(forms.map((form) => form.form)).toEqual(['WATCH', 'WATCH']);
+    expect(forms[0]?.payload).toMatchObject({
+      object_id: HOME,
+      wants: { type: 'apartment', min_rooms: 2, min_sqm: 75, districts: ['D-1'], muni: '1280' },
+      sell_current: false,
+    });
+    expect(forms[1]?.payload).toMatchObject({
+      object_id: null,
+      branch_id: OFFICE,
+      wants: { type: null, min_rooms: 2, min_sqm: 75, districts: ['D-1'], muni: null },
+    });
+  });
+});

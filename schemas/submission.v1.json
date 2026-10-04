@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kowboy.se/schemas/submission.v1.json",
+  "title": "A form submission: the body of POST /v1/submissions, one per filled form, the same for every site and every CRM (docs/forms.md, approved with question 130)",
+  "type": "object",
+  "properties": {
+    "id": {
+      "description": "Made once by the site for each filled form, so a repeat is one lead.",
+      "type": "string",
+      "format": "uuid"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["lead", "interest", "viewing", "search_profile"]
+    },
+    "record": {
+      "description": "The home, as the site's copy names it. Required for an interest and a viewing; a search profile sent after a lead has none.",
+      "type": "object",
+      "properties": {
+        "datatype": { "type": "string", "enum": ["property"] },
+        "connection_id": { "type": "string", "minLength": 1 },
+        "remote_id": { "type": "string", "minLength": 1 }
+      },
+      "required": ["datatype", "connection_id", "remote_id"],
+      "additionalProperties": false
+    },
+    "office_id": {
+      "description": "A lead with no home: the office that receives it. A tenant with one office needs none.",
+      "type": "string",
+      "minLength": 1
+    },
+    "slot_id": {
+      "description": "A viewing: the time slot booked, from GET /v1/submissions/slots.",
+      "type": "string",
+      "minLength": 1
+    },
+    "person": {
+      "type": "object",
+      "properties": {
+        "first_name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "last_name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "email": { "type": "string", "format": "email", "maxLength": 320 },
+        "phone": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "address": {
+          "type": "object",
+          "properties": {
+            "street": { "type": "string", "maxLength": 200 },
+            "postal_code": { "type": "string", "maxLength": 20 },
+            "city": { "type": "string", "maxLength": 100 }
+          },
+          "required": ["street", "postal_code", "city"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["first_name", "last_name", "email", "phone"],
+      "additionalProperties": false
+    },
+    "message": {
+      "description": "The visitor's own words.",
+      "type": "string",
+      "maxLength": 4000
+    },
+    "consent": {
+      "description": "The privacy checkbox and when it was ticked; a form without it is not a submission.",
+      "type": "object",
+      "properties": {
+        "given": { "const": true },
+        "at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["given", "at"],
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "description": "The page the form was shown on.",
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2000
+        },
+        "utm": {
+          "type": "object",
+          "maxProperties": 10,
+          "propertyNames": { "pattern": "^utm_[a-z_]{1,30}$" },
+          "additionalProperties": { "type": "string", "maxLength": 200 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "criteria": {
+      "description": "The search profile (question 139): what the CRM matches new homes against. Each value is one of the whitelist or null for no requirement; nothing is rounded (docs/forms.md, the whitelisted fields).",
+      "type": "object",
+      "properties": {
+        "object_type": {
+          "description": "The home's type from its record, unseen by the visitor; null on a lead.",
+          "enum": ["apartment", "house", "holiday_house", "plot", null]
+        },
+        "rooms_min": { "enum": [1, 2, 3, 4, 5, 6, 7, null] },
+        "living_area_min": {
+          "description": "Square metres.",
+          "enum": [
+            20,
+            25,
+            30,
+            35,
+            40,
+            45,
+            50,
+            55,
+            60,
+            65,
+            70,
+            75,
+            80,
+            85,
+            90,
+            95,
+            100,
+            105,
+            110,
+            115,
+            120,
+            125,
+            130,
+            135,
+            140,
+            150,
+            160,
+            170,
+            180,
+            200,
+            250,
+            null
+          ]
+        },
+        "areas": {
+          "description": "Chosen from the site's own area list: ids the CRM already knows, each with its name and its municipality code as the area record carries it.",
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "name": { "type": "string", "minLength": 1 },
+              "county_municipality_code": { "type": ["string", "null"] }
+            },
+            "required": ["id", "name", "county_municipality_code"],
+            "additionalProperties": false
+          }
+        },
+        "county_municipality_code": {
+          "description": "The home's, from its record; null on a lead.",
+          "type": ["string", "null"]
+        }
+      },
+      "required": [
+        "object_type",
+        "rooms_min",
+        "living_area_min",
+        "areas",
+        "county_municipality_code"
+      ],
+      "additionalProperties": false
+    },
+    "contact_about_current_home": {
+      "description": "The \"Kontakta mig om min nuvarande bostad\" checkbox (question 141 a): on an interest, a viewing and a search profile, never on a lead.",
+      "type": "boolean"
+    }
+  },
+  "required": ["id", "kind", "person", "consent"],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "interest" } } },
+      "then": { "required": ["record"] }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "viewing" } } },
+      "then": { "required": ["record", "slot_id"] }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "search_profile" } } },
+      "then": { "required": ["criteria"] }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "lead" } } },
+      "then": { "not": { "required": ["contact_about_current_home"] } }
+    }
+  ]
+}

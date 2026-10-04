@@ -44,8 +44,13 @@ export type {
   Route,
   RouteRequest,
   RouteResponse,
+  SearchCriteria,
+  Slots,
+  Submission,
+  SubmissionKind,
+  SubmissionResult,
 } from './types.js';
-export { DATATYPES } from './types.js';
+export { DATATYPES, SUBMISSION_KINDS } from './types.js';
 
 /** Build the API handed to one adapter's `start`. */
 export function adapterApi(provider: string): AdapterApi {

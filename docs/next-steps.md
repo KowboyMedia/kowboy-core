@@ -376,7 +376,13 @@ client ports (item 16, first client by question 80).
     profile last), 131 (Vitec's version 1 search profile) and 141 a (the current-home checkbox,
     a seller lead too) are answered. Its three items, Core,
     the Vitec adapter, the widget, one session each, in that order; Lovable and Mspecs follow;
-    the Vitec search profile's real send waits on the CRM function group (54 f).
+    the Vitec search profile's real send waits on the CRM function group (54 f). **Core's part built
+    2026-10-04** (Patric: "Go"): `schemas/submission.v1.json` and `schemas/slots.v1.json`, the
+    optional `submit` and `slots` on `Adapter` with `manifest.submissions`, `POST /v1/submissions`
+    and `GET /v1/submissions/slots`, the `submissions` table, the four events, the check
+    `submissions.failing`, the limit of 60 a minute per token, the counts on the tenant page; proved
+    by AC 43 to 47 and 49 against the fake polling CRM. Next: the Vitec adapter's part, then the
+    widget.
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in

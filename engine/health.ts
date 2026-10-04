@@ -2,6 +2,7 @@ import { db } from './storage/db.js';
 import { registeredHealthChecks } from './registry.js';
 import { unknownMigrations } from './storage/migrate.js';
 import { undeliveredLifecycleEvents } from './lifecycle.js';
+import { connectionsWithFailingSubmissions } from './storage/submissions.js';
 import { report } from './errors.js';
 import type { HealthResult } from './adapter-api/types.js';
 
@@ -100,6 +101,19 @@ export async function healthReport(): Promise<HealthReport> {
     return waiting === 0
       ? { ok: true }
       : { ok: false, detail: `${waiting} lifecycle event(s) waiting for the worker` };
+  });
+
+  // Red while the latest form submission to a connection failed because the CRM did not answer,
+  // green on the next one it takes (docs/forms.md). The connection ids go in `names`.
+  checks['submissions.failing'] = await run(async () => {
+    const failing = await connectionsWithFailingSubmissions();
+    return failing.length === 0
+      ? { ok: true }
+      : {
+          ok: false,
+          detail: `${String(failing.length)} connection(s) whose latest form submission the CRM did not answer`,
+          names: failing,
+        };
   });
 
   Object.assign(checks, await adapterChecks());

@@ -28,6 +28,16 @@ const listed = (names: string[], limit = 6): string =>
     ? names.join(', ')
     : `${names.slice(0, limit).join(', ')} and ${String(names.length - limit)} more`;
 
+/** A form submission by its kind, as the `submission.` events name it (docs/forms.md). */
+const FORMS: Record<string, string> = {
+  lead: 'a lead',
+  interest: 'an interest in the home',
+  viewing: 'a viewing booking',
+  search_profile: 'a search profile',
+};
+const form = (fields: EventFields): string =>
+  FORMS[text(fields, 'kind') ?? ''] ?? 'a form submission';
+
 const SAY: Record<string, (fields: EventFields) => string> = {
   'entity.written': (fields) => {
     const names = changedNames(fields);
@@ -42,6 +52,13 @@ const SAY: Record<string, (fields: EventFields) => string> = {
   'site.failed': (fields) =>
     `a site could not take it: ${text(fields, 'detail') ?? 'no reason given'}`,
   'site.error': (fields) => `a site reported: ${text(fields, 'message') ?? 'an error'}`,
+  'submission.received': (fields) => `a visitor sent ${form(fields)} through a site`,
+  'submission.delivered': (fields) =>
+    `the CRM took ${form(fields)}${text(fields, 'reference') ? ` (${text(fields, 'reference') ?? ''})` : ''}`,
+  'submission.refused': (fields) =>
+    `the CRM refused ${form(fields)}: ${text(fields, 'reason') ?? 'no reason given'}`,
+  'submission.failed': (fields) =>
+    `the CRM did not answer ${form(fields)}: ${text(fields, 'detail') ?? 'no cause given'}`,
   bell: (fields) =>
     `rang its sites (${text(fields, 'kind') ?? 'delta'}, ${text(fields, 'status') ?? 'sent'})`,
   pull: (fields) => `a site pulled ${String(count(fields, 'items') ?? 0)} record(s)`,
