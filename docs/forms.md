@@ -7,9 +7,9 @@ writes live" below and 129 is open again in `docs/open-questions.md`. Later the 
 proposed the forms as a remote widget with a matching step and asked for anti-bot protection;
 that is "The form itself" below, questions 137 to 139, which he answered the same day: the widget,
 Turnstile, and a wizard whose last step is the search profile; he also pointed to Vitec's search
-profile calls in the version 1 API, which closes 131, and 129 stands as a. **Core's part is
-built** (Patric: "Go", 2026-10-04; "Built 2026-10-04: Core's part" below); the Vitec adapter's
-part and the widget follow, in that order. A
+profile calls in the version 1 API, which closes 131, and 129 stands as a. **Core's part and the
+Vitec adapter's part are built** (Patric: "Go", 2026-10-04; "Built 2026-10-04: Core's part" and
+"Built 2026-10-04: the Vitec adapter's part" below); the widget follows. A
 clickable dry run of the wizard, with sample data and no CRM, is published as a private page:
 <https://claude.ai/artifact/ALpPRzfUXWSAG4TLpATFEP> (2026-10-04); its markup is the starting point
 for `clients/forms-widget/`. **The
@@ -672,12 +672,13 @@ generic capability item 21 in `docs/next-steps.md` asked for.
   record's office id, or `office_id` for a lead. `consent.at` becomes the interest's GDPR date and
   `consent.given` the form calls' "GDPR approved"; `source.page` becomes `Marketing.Referrer` and
   `source.utm` the UTM tag list.
-- **Six settings the brokerage owns, typed in the admin area on the connection's page**, each
+- **Seven settings the brokerage owns, typed in the admin area on the connection's page**, each
   with its direction and covered by `admin/directions.test.ts`: the lead source id for the
   website's leads (optional; Vitec uses its preselected one when empty), the intake source id for
   valuations (optional), the status a website interest gets (Vitec's own list; empty leaves it to
-  Vitec), whether a booking is confirmed by e-mail, whether it is confirmed by SMS, and the
-  reminder minutes. These are the CRM's own knobs, copied through; Core decides none of them.
+  Vitec), whether a booking is confirmed by e-mail, whether it is confirmed by SMS, the
+  reminder minutes, and the CRM function group's password when Vitec issued a separate one (empty:
+  the Connect key pair). These are the CRM's own knobs, copied through; Core decides none of them.
 - `slots` calls the form endpoint and renames the fields.
 - `submit` for a `search_profile` (139): the contact id from the booking or valuation answer, else
   `Contacts/UpdatePerson`, then the residential search profile call, both in the CRM function
@@ -789,8 +790,58 @@ against the fake polling CRM, which takes every kind, and the fake webhook CRM, 
 - Strategy §5.1 carries the departure (the web process calls the CRM for a submission), §13 the
   two defaults, §10 the criteria 43 to 49.
 
-Not yet: the Vitec adapter's `submit` and `slots` (plan item 2), the widget, the site key, the
-Origin check and Turnstile (plan item 3), which bring criteria 48 and the real half of 49.
+Not yet: the widget, the site key, the Origin check and Turnstile (plan item 3), which bring
+criterion 48 and the skipped third step of 49.
+
+### Built 2026-10-04: the Vitec adapter's part (plan item 2)
+
+What exists, proved against the stand-in Connect by `adapters/vitec/forms.test.ts` (five tests,
+listed under acceptance criteria 43, 44, 47 and 49) and described in `adapters/vitec/README.md`,
+"Forms from the sites":
+
+- `adapters/vitec/forms.ts`: `submit` copies the universal submission onto Connect's calls, one
+  per kind, as the table "Vitec Connect, from the saved documentation" gives them: a lead is the
+  valuation request (`v2/Advertising/Form/{customerId}/Valuation`, answering the contact id,
+  which becomes the reference), an interest the interest registration
+  (`Advertising/Estate/{customerId}/{estateId}/interest`, which answers nothing, so the reference
+  is null), a viewing the attendance (`…/Viewing/Attend`, the contact id), a search profile
+  `Contacts/UpdatePerson` (whose duplicate check answers the existing or the new contact's id)
+  then `CRM/Contact/{customerId}/SearchProfile/Residential/{contactId}`. The customer id is the
+  `office_id` Core filled in. A ticked current-home box on an interest or a booking (141 a) sends
+  the valuation too, on the same person, after the main call. `consent.at` is the interest's GDPR
+  date, `source.page` the referrer and `source.utm` the UTM tag list on every call that takes
+  marketing.
+- The seven settings above, read from the connection's credentials document (one JSON next to
+  the key pair), typed on the connection's page beside the Connect username and password
+  (`admin/index.ts`), named in the setup directions' step "Forms" and held by
+  `admin/directions.test.ts`. Each empty one is left out of the call, so Vitec applies its own
+  default. `manifest.submissions` lists all four kinds.
+- The outcome: Vitec's 400, 404, 409 and 422 are a refusal whose reason is Vitec's own message
+  (the JSON `message` when there is one) with anything that looks like an e-mail address or a
+  number scrubbed, so the visitor reads "Visningen är fullbokad" and no third party's details;
+  anything else (5xx, a timeout, broken JSON, a network error) is a failure with the error's kind
+  and the scrubbed start of the answer as the cause. Every call is a `crm.call` event in the
+  submission's chain (the submission id as correlation id) on the home's timeline, without a body.
+- `slots` reads `v2/Advertising/Form/{customerId}/Estate/{estateId}` and renames the viewings and
+  their time slots onto `schemas/slots.v1.json`; the moments become UTC, `free_spots` is null
+  because Connect gives no count. The customer id is the record's office, else the connection's
+  first office.
+- The stand-in Connect (`adapters/vitec/test/connect.ts`) answers the five calls and the form
+  endpoint, keeps every form body for the tests to compare field by field, and can refuse the
+  next call with a message.
+- `api.ts` gained a JSON `post` next to `get`, with the same key pair, pacing and `crm.call`
+  observer, and `scrub`, the e-mail and number scrubber the outcomes use.
+
+Not done, and not doable from here: the real send. Every call above ran against the stand-in
+only; the login in the environment reads a client's production office and is never a write
+target (AGENTS.md, "Stop and ask"; Patric, 2026-10-04). One real send per kind, and the search
+profile's two calls with the CRM function group, wait on a demo or test customer Patric has
+confirmed (question 54 f).
+
+A note for the widget (plan item 3): the criteria's `object_type` cannot be read off the home by
+the widget, because the home's universal `type` is the CRM's own enumeration and reading it would
+put CRM knowledge in a client. The widget sends `object_type: null` unless Patric wants the
+visitor asked; both adapters take null (Vitec: no subtypes, an open profile).
 
 ## The decisions (the discover list)
 
@@ -847,9 +898,9 @@ submission id is a UUID in the body; the rate limit is 60 a minute per token.
    the events, the health check and the rate limit, proved by acceptance 1 to 5 against a fake
    adapter. One session. Interface: additive (two new schemas, two optional adapter members) plus
    the §5.1 amendment above.
-2. `[crm-vitec]` **The Vitec submit and slots**: the mapping, the six connection settings with
+2. ~~`[crm-vitec]` **The Vitec submit and slots**~~ (built 2026-10-04 against the stand-in, below): the mapping, the seven connection settings with
    their directions, the stand-in's form endpoints, and one real send per kind against a demo or
-   test customer Patric has confirmed (54 f); the search profile's two calls against the stand-in, and
+   test customer Patric has confirmed (54 f, still open: the real send is the one thing left); the search profile's two calls against the stand-in, and
    against that customer once the CRM function group is granted on it. One session.
 3. `[core]` **The widget** (137): `clients/forms-widget/`, served at `/widget/forms.js`, the
    config call, Turnstile (138), the wizard with the profile step (139), the public site key and

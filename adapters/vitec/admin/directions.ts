@@ -24,6 +24,10 @@ export function directions(): AdminDirections {
         text: 'Add an office on the tenant’s page and save: only the new one is loaded (the event offices_added), and an office taken away is taken off the sites (offices_removed). On Manual sync, “Fetch again from the CRM” with this connection as the scope fetches Vitec’s list once more, for one datatype or all, and removes what is no longer on it (resync); “Remove everything” on the tenant’s page (connection_removed) takes every record off the sites. On Records, tick rows and press “Fetch again” (refetch) to fetch those records once more, and “Ask the CRM now” on a record’s own page shows it raw and unified without writing anything.',
       },
       {
+        title: 'Forms',
+        text: 'A visitor’s forms on the sites reach Vitec through Core (docs/forms.md): the free valuation is Vitec’s valuation request (the seller’s lead), the interest in a home its interest registration, the booking its viewing attendance, and the search profile a contact with a residential search profile in the CRM function group. On the connection, beside the key pair, type what the brokerage has set up in Vitec: “Lead source for website leads”, “Intake source for valuations”, “Status of a website interest”, “Confirm a booking by e-mail”, “Confirm a booking by SMS”, “Reminder before a viewing (minutes)” and, when Vitec issued one, the “CRM password”; each empty one is left to Vitec as its help says. On Overview, submissions.failing is red while the latest form to a connection went unanswered by Vitec; every call shows on the home’s timeline as crm.call.',
+      },
+      {
         title: 'Check',
         text: 'On Overview, vitec.webhook_lag, vitec.retries, vitec.catch_up, vitec.offices and vitec.connect are green, and the first notification shows on a record’s timeline as webhook.received. On Flow, the records Vitec sends appear as they arrive.',
       },

@@ -88,7 +88,7 @@ export const baseUrl = (): string =>
 
 /** One request as it went, for the event log: what was asked, what came back, how long it took. */
 export type Call = {
-  method: 'GET';
+  method: 'GET' | 'POST';
   endpoint: string;
   query: Record<string, string>;
   status: number | null;
@@ -201,7 +201,96 @@ async function get(
   }
 }
 
+/**
+ * A text with no e-mail address and no long run of digits left in it: what Vitec says about a
+ * form may echo a field the visitor typed, and that must reach neither the event log nor the
+ * error tracker (docs/forms.md, "Security": Core logs ids and outcomes, never the person).
+ */
+export const scrub = (text: string): string =>
+  text
+    .replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, '[e-mail]')
+    .replace(/[+\d][\d\s-]{5,}\d/g, '[number]');
+
+/**
+ * One POST with a JSON body, as the form calls are made (docs/forms.md): the answer parsed, null
+ * when Connect answers with no body (204), and a `VitecError` with Vitec's words for anything
+ * else, 404 included. The body is never in the event log; the status, size and time are.
+ */
+export async function post(
+  auth: Auth,
+  path: string,
+  body: unknown,
+  trace?: EventContext,
+): Promise<unknown | null> {
+  const url = new URL(`${baseUrl()}/${path}`);
+  const startedAt = Date.now();
+  const call: Call = {
+    method: 'POST',
+    endpoint: `/${path}`,
+    query: {},
+    status: null,
+    duration_ms: 0,
+    response_bytes: null,
+    trace,
+  };
+  try {
+    const response = await slot(() =>
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          authorization: `Basic ${Buffer.from(`${auth.username}:${auth.password}`).toString('base64')}`,
+          accept: 'application/json',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      }),
+    );
+    call.status = response.status;
+    if (response.status === 429 || response.status === 503)
+      hold(response.headers.get('retry-after'));
+    const text = await response.text();
+    call.response_bytes = Buffer.byteLength(text);
+    if (!response.ok) {
+      throw new VitecError(
+        response.status,
+        `${path}: HTTP ${String(response.status)} ${scrub(snippet(text))}`,
+      );
+    }
+    if (!text.trim()) return null;
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      throw new VitecError(response.status, `${path}: broken JSON: ${scrub(snippet(text))}`);
+    }
+  } catch (error) {
+    call.error = String(error);
+    throw error;
+  } finally {
+    call.duration_ms = Date.now() - startedAt;
+    observer?.(call);
+  }
+}
+
 const segment = encodeURIComponent;
+
+/**
+ * What the form endpoint knows about a home: its viewings with their time slots, as a booking
+ * needs them (`GET v2/Advertising/Form/{customerId}/Estate/{estateId}`), or null on 404.
+ */
+export function form(
+  auth: Auth,
+  officeId: string,
+  estateId: string,
+  trace?: EventContext,
+): Promise<unknown | null> {
+  return get(
+    auth,
+    `v2/Advertising/Form/${segment(officeId)}/Estate/${segment(estateId)}`,
+    {},
+    trace,
+  );
+}
 
 /** One record as Vitec publishes it, or null when Vitec answers 404: the record is gone. */
 export function getOne(

@@ -25,6 +25,7 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import * as connect from './api.js';
 import * as store from './store.js';
+import * as forms from './forms.js';
 import { changedAtOf, isoDate, mappers, referencedIds } from './mappers.js';
 import { refetchOffice, vitecAdmin } from './admin/index.js';
 import type {
@@ -762,10 +763,38 @@ export const vitecAdapter: Adapter = {
   manifest: {
     provider: PROVIDER,
     datatypes: ['property', 'agent', 'office', 'area', 'association', 'project'],
+    // The forms Connect takes (docs/forms.md): the valuation, the interest, the viewing booking,
+    // and the search profile through the CRM function group.
+    submissions: ['lead', 'interest', 'viewing', 'search_profile'],
   },
   mappers,
   routes,
   admin: vitecAdmin,
+
+  // A site's form, handed over by the web process inside the request (docs/forms.md). The
+  // customer id is the office Core filled in: the home's, or the lead's.
+  submit(connection, submission) {
+    const credentials = credentialsOf(connection);
+    if (!credentials) {
+      return Promise.resolve({
+        outcome: 'failed' as const,
+        detail: 'the connection’s login is not readable',
+      });
+    }
+    return forms.submit(connection, credentials, submission);
+  },
+
+  slots(connection, record) {
+    const credentials = credentialsOf(connection);
+    if (!credentials) throw new Error('the connection’s login is not readable');
+    const officeId = record.officeId ?? connection.licensedOffices[0];
+    if (!officeId) throw new Error('the connection has no office to ask for');
+    return forms.slots(credentials, officeId, record.remoteId, {
+      connectionId: connection.id,
+      datatype: record.datatype,
+      remoteId: record.remoteId,
+    });
+  },
 
   start(given: AdapterApi): void {
     engine = given;

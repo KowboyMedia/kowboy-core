@@ -67,7 +67,10 @@ export type Submission = {
   kind: SubmissionKind;
   /** The home; always there on an interest and a viewing. */
   record?: { datatype: Datatype; connection_id: string; remote_id: string };
-  /** The office a lead goes to; filled in by Core when the tenant has one office. */
+  /**
+   * The office this goes to: the home's office for a submission on a record, the office named on
+   * a lead, or the tenant's only office. Core fills it in from its store when the site sent none.
+   */
   office_id?: string;
   /** The slot booked, on a viewing. */
   slot_id?: string;
@@ -343,5 +346,8 @@ export type Adapter = {
    */
   submit?(connection: Connection, submission: Submission): Promise<SubmissionResult>;
   /** A home's viewings and their slots as the CRM sees them now, copied onto the universal names. */
-  slots?(connection: Connection, record: { datatype: Datatype; remoteId: string }): Promise<Slots>;
+  slots?(
+    connection: Connection,
+    record: { datatype: Datatype; remoteId: string; officeId: string | null },
+  ): Promise<Slots>;
 };

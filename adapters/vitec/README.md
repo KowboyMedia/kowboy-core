@@ -79,6 +79,28 @@ the lifecycle event `connection_added`, which the worker delivers to the adapter
 office later: set the connection's offices, then queue `offices_added` with the new ids; only
 those are loaded.
 
+## Forms from the sites (docs/forms.md)
+
+`forms.ts` is the adapter's `submit` and `slots`: the web process hands it a site's form inside
+the request and waits for Vitec's answer. The universal submission is copied onto Connect's own
+calls, nothing read to decide anything: a lead (the free valuation) is
+`POST v2/Advertising/Form/{customerId}/Valuation`, an interest is
+`POST Advertising/Estate/{customerId}/{estateId}/interest`, a viewing booking is
+`POST v2/Advertising/Form/{customerId}/Estate/{estateId}/Viewing/Attend`, and a search profile
+is `POST Contacts/UpdatePerson` (whose duplicate check answers the existing or the new contact's
+id) followed by `POST CRM/Contact/{customerId}/SearchProfile/Residential/{contactId}`, both in
+the CRM function group. The customer id is the office Core filled in. A ticked "contact me about
+my current home" (question 141 a) sends the valuation too, on the same person. The slots are
+`GET v2/Advertising/Form/{customerId}/Estate/{estateId}` under the universal names. The
+brokerage's own knobs are typed on the connection's page beside the key pair and copied through:
+`lead_source_id`, `assignment_source_id`, `interest_status`, `confirm_by_email`,
+`confirm_by_sms`, `reminder_minutes` and `crm_password` (the CRM function group's, when Vitec
+issued a separate one). Vitec's 400, 404, 409 and 422 are a refusal with Vitec's words, scrubbed
+of anything that looks like an e-mail address or a number; anything else is a failure. Every
+call is a `crm.call` event in the form's chain on the home's timeline, without the body.
+`forms.test.ts` proves it against the stand-in; the real send waits on a demo or test customer
+Patric has confirmed (question 54 f), never the login in the environment.
+
 ## Environment
 
 | Variable                    | Meaning                                                                                 |

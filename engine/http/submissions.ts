@@ -172,7 +172,8 @@ async function findConnection(tenantId: number, submission: Submission): Promise
       remoteId: submission.record.remote_id,
     });
     if (!item || item.deleted) return { error: 'no such record' };
-    return usable(connection);
+    const found = usable(connection);
+    return 'error' in found || !item.office_id ? found : { ...found, officeId: item.office_id };
   }
   return submission.office_id
     ? connectionForOffice(tenantId, submission.office_id)
@@ -315,7 +316,7 @@ export async function slots(request: Request): Promise<Response> {
   let answer: Slots;
   try {
     answer = await withinTime(
-      handlers.slots(connection, { datatype: 'property', remoteId }),
+      handlers.slots(connection, { datatype: 'property', remoteId, officeId: item.office_id }),
       SUBMISSION_TIMEOUT_MS,
     );
   } catch (error) {

@@ -489,18 +489,22 @@
       "title": "A lead, an interest and a viewing reach the CRM with every field mapped and answer delivered",
       "phase": "engine",
       "tests": [
-        "submissions a lead, an interest and a viewing reach the CRM with every field mapped, and answer delivered with the CRM’s reference"
+        "submissions a lead, an interest and a viewing reach the CRM with every field mapped, and answer delivered with the CRM’s reference",
+        "the Vitec adapter’s forms sends a lead as the valuation request with the brokerage’s sources, and answers Vitec’s contact id",
+        "the Vitec adapter’s forms sends an interest on the home with the status setting, and the valuation too when the visitor ticked the current-home box",
+        "the Vitec adapter’s forms books a viewing slot with the confirmation and reminder settings, and relays Vitec’s refusal and silence"
       ],
-      "note": "Proved against the fake polling CRM, which takes every kind (docs/forms.md): the universal submission of schemas/submission.v1.json lands in the stand-in with every field under its own names, and the site gets the CRM's reference. The Vitec adapter's part is next-steps item 21's second item."
+      "note": "Proved against the fake polling CRM, which takes every kind (docs/forms.md): the universal submission of schemas/submission.v1.json lands in the stand-in with every field under its own names, and the site gets the CRM's reference. Proved for Vitec against the stand-in Connect (adapters/vitec/forms.test.ts): the lead is the valuation request, the interest the interest registration with the connection's status setting (and the valuation too when the current-home box is ticked, 141 a), the viewing the attendance with the confirmation and reminder settings; the bodies are compared field by field. The real send waits on a demo or test customer Patric has confirmed (question 54 f)."
     },
     {
       "ac": 44,
       "title": "A refusal and a failure reach the visitor and the timeline without the person; submissions.failing turns red then green",
       "phase": "engine",
       "tests": [
-        "submissions a refusal and a failure reach the visitor and the timeline without the person, and submissions.failing turns red then green"
+        "submissions a refusal and a failure reach the visitor and the timeline without the person, and submissions.failing turns red then green",
+        "the Vitec adapter’s forms books a viewing slot with the confirmation and reminder settings, and relays Vitec’s refusal and silence"
       ],
-      "note": "The events, the submissions table and the error tracker's output are searched for the person's name, e-mail, phone and street and hold none; the check names the connection in `names` and not in its public detail."
+      "note": "The events, the submissions table and the error tracker's output are searched for the person's name, e-mail, phone and street and hold none; the check names the connection in `names` and not in its public detail. For Vitec: a 400 with Vitec's words is a refusal whose reason is those words with anything that looks like an e-mail address or a number scrubbed, a 500 is a failure, and the chain's crm.call events carry no body."
     },
     {
       "ac": 45,
@@ -523,9 +527,10 @@
       "title": "The slots call answers the CRM's viewings and slots under the universal names",
       "phase": "engine",
       "tests": [
-        "submissions the slots call answers the stand-in’s viewings and slots under the universal names"
+        "submissions the slots call answers the stand-in’s viewings and slots under the universal names",
+        "the Vitec adapter’s forms answers the slots from Connect’s form endpoint under the universal names"
       ],
-      "note": "The fake CRM's showings and times come back as schemas/slots.v1.json, validated; another tenant's connection, a record Core does not hold and a missing parameter are 400."
+      "note": "The fake CRM's showings and times come back as schemas/slots.v1.json, validated; another tenant's connection, a record Core does not hold and a missing parameter are 400. For Vitec: Connect's form endpoint, with its viewings' and time slots' moments made UTC and free_spots null, which Connect does not give."
     },
     {
       "ac": 48,
@@ -539,9 +544,10 @@
       "title": "A search profile reaches the CRM as a contact and a profile with the criteria mapped; a skipped third step leaves the main submission delivered",
       "phase": "engine",
       "tests": [
-        "submissions a search profile reaches the CRM with the criteria mapped, from a home or after a lead"
+        "submissions a search profile reaches the CRM with the criteria mapped, from a home or after a lead",
+        "the Vitec adapter’s forms makes a search profile: the contact through UpdatePerson, then the residential profile with the criteria"
       ],
-      "note": "The criteria of question 139 reach the stand-in from a home and after a lead (no home, the tenant's one office). The skipped third step is the widget's, proved with AC 48."
+      "note": "The criteria of question 139 reach the stand-in from a home and after a lead (no home, the tenant's one office). The skipped third step is the widget's, proved with AC 48. For Vitec: Contacts/UpdatePerson (its duplicate check answers the contact) then the residential profile in the CRM function group, the subtypes, areas, municipality codes and minimums mapped, an open profile sent empty; against the stand-in until the function group is granted on a confirmed test customer (54 f)."
     }
   ]
 }

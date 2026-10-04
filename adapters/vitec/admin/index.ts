@@ -319,6 +319,50 @@ export const vitecAdmin: AdapterAdmin = {
       required: true,
     },
     { key: 'password', label: 'Connect password', secret: true, required: true },
+    // The forms (docs/forms.md): the brokerage's own knobs in Vitec, copied through with every
+    // form a site sends. Core decides none of them; empty leaves each to Vitec as described.
+    {
+      key: 'lead_source_id',
+      label: 'Lead source for website leads',
+      help: 'Vitec’s id of the lead source the website’s forms are filed under; empty lets Vitec use its preselected one.',
+    },
+    {
+      key: 'assignment_source_id',
+      label: 'Intake source for valuations',
+      help: 'Vitec’s id of the intake source a seller’s valuation request is filed under; empty leaves it unset.',
+    },
+    {
+      key: 'interest_status',
+      label: 'Status of a website interest',
+      help: 'The status an interest sent from the website gets in Vitec; empty leaves it to Vitec.',
+      options: [
+        { value: 'Interested', label: 'Interested (Intresserad)' },
+        { value: 'VeryInterested', label: 'Very interested (Mycket intresserad)' },
+      ],
+    },
+    {
+      key: 'confirm_by_email',
+      label: 'Confirm a booking by e-mail',
+      help: 'Whether Vitec e-mails the visitor a confirmation of a viewing booking; empty means yes.',
+      options: [{ value: 'yes' }, { value: 'no' }],
+    },
+    {
+      key: 'confirm_by_sms',
+      label: 'Confirm a booking by SMS',
+      help: 'Whether Vitec sends the visitor an SMS confirmation of a viewing booking; empty means no.',
+      options: [{ value: 'yes' }, { value: 'no' }],
+    },
+    {
+      key: 'reminder_minutes',
+      label: 'Reminder before a viewing (minutes)',
+      help: 'How many minutes before the viewing Vitec reminds the visitor; empty means no reminder.',
+    },
+    {
+      key: 'crm_password',
+      label: 'CRM password',
+      secret: true,
+      help: 'The password of Vitec’s CRM function group for this customer, when Vitec issued a separate one; it makes the search profile. Empty uses the Connect password.',
+    },
   ],
 
   directions,
