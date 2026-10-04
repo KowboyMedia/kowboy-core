@@ -369,7 +369,10 @@ client ports (item 16, first client by question 80).
 …/interest`), an adapter capability nothing in `engine/adapter-api/` offers yet. Plan first
     (a generic engine capability any adapter could use, approval needed), then build; the set
     shows viewings without a button and no form until then. Question 105 (the design's two forms)
-    is settled in the same item.
+    is settled in the same item. **Planned 2026-10-04** in `docs/forms.md` (the discover phase:
+    what Vitec and Mspecs offer, three options for where it lives, the design, the plan): waits
+    on 129 (inside Core, or a widget) and 130 (the design); then its three items, Core, the Vitec
+    adapter, the WordPress forms, one session each; the Lovable function and Mspecs follow.
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in
