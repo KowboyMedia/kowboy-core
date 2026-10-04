@@ -1,13 +1,15 @@
 <?php
-// The agents block: every agent, in the order Core delivers them, as the theme's agent cards
-// (core/card-agent.php); the home page lists them all (Patric, 2026-10-03), so no count is asked.
+// The agents block: the agents as the theme's agent cards (core/card-agent.php), every one or
+// the chosen offices' (the plugin's list settings, includes/blocks.php there), in the order Core
+// delivers them; the home page lists them all (Patric, 2026-10-03), so no count is asked. The
+// theme lays the cards out itself, with its text card and button beside them.
 
 declare(strict_types=1);
 
-if (!function_exists('core_client_list')) {
+if (!function_exists('core_client_list_block')) {
     return;
 }
-$cards = core_client_list(['entity' => 'agent', 'per_page' => 100, 'part' => 'cards'])['html'];
+$cards = core_client_list_block($attributes, 'agent', ['part' => 'cards', 'shadow' => false]);
 $has_card = ($attributes['cardTitle'] ?? '') !== '';
 echo kowboy_section_open('k-agents');
 echo '<div class="k-container">';

@@ -30,10 +30,15 @@ function core_client_path(string $datatype): string
 /**
  * The post's slug, from the record's own stored values and ending in the record's id, the way
  * norbanmakleri.se names its pages (Patric, 2026-10-03, closes question 101): property and project
- * `<status>-<city>-<area>-<street>-<id>`, every other kind `<name>-<id>`. The status word is the
+ * `<status>-<city>-<area>-<street>-<id>`, area `<kommun>-<name>-<id>` (the kommun from its LKF code,
+ * municipalities.php), every other kind `<name>-<id>`. The status word is the
  * list the site's settings put the status in (`till-salu`, `kommande`, `sold`: the old site's
  * words), else the CRM's own status name. An empty part is left out, and the id is always last, so
- * routing.php finds the record by it whatever the words were when a link was made.
+ * routing.php finds the record by it whatever the words were when a link was made. Every part goes
+ * through WordPress's own slug rule (`sanitize_title`): letters with accents become their base
+ * letters (é to e, ä to a), apostrophes, parentheses and other marks are dropped (Patric,
+ * 2026-10-04), and the words are cut so that the whole slug fits the post's 200 characters with the
+ * id intact.
  */
 function core_client_slug(string $datatype, object $data, string $remote_id): string
 {
@@ -45,10 +50,16 @@ function core_client_slug(string $datatype, object $data, string $remote_id): st
             $address->area_name ?? null,
             ($address->street ?? null) ?: ($data->name ?? null),
         ],
+        'area' => [core_client_municipality_name(is_string($data->county_municipality_code ?? null) ? $data->county_municipality_code : null), $data->name ?? null],
         default => [$data->name ?? null],
     };
-    $words = array_filter(array_map(fn (mixed $part): string => is_string($part) ? sanitize_title($part) : '', $parts));
-    return implode('-', [...$words, sanitize_title($remote_id)]);
+    $words = implode('-', array_filter(array_map(fn (mixed $part): string => is_string($part) ? sanitize_title($part) : '', $parts)));
+    $id = sanitize_title($remote_id);
+    $room = 200 - strlen($id) - 1;
+    if (strlen($words) > $room) {
+        $words = rtrim(substr($words, 0, $room), '-');
+    }
+    return $words === '' ? $id : $words . '-' . $id;
 }
 
 /** The slug's word for a status: the site's list it is in, else the CRM's name for it; null without a status. */
@@ -207,6 +218,7 @@ add_action('deleted_post', function (int $post_id, WP_Post $post): void {
     if (str_starts_with($post->post_type, 'core_')) {
         global $wpdb;
         $wpdb->delete(core_client_index_table(), ['post_id' => $post_id]);
+        $wpdb->delete(core_client_links_table(), ['post_id' => $post_id]);
     }
 }, 10, 2);
 
@@ -244,8 +256,10 @@ function core_client_install(): void
     $charset = $wpdb->get_charset_collate();
     $index = core_client_index_table();
     $state = core_client_state_table();
+    $links = core_client_links_table();
     // The search columns are copies of universal names (docs/field-tables.md), filled on every
-    // write, so a list query never opens the JSON. `agent_ids` is `,id,id,` for one LIKE.
+    // write, so a list query never opens the JSON. `agent_ids` is `,id,id,` for one LIKE. The
+    // code, the point and an area's outline bounds serve the search by place (docs/search.md).
     dbDelta("CREATE TABLE $index (
         post_id bigint(20) unsigned NOT NULL,
         datatype varchar(20) NOT NULL,
@@ -275,10 +289,26 @@ function core_client_install(): void
         area_id varchar(191) DEFAULT NULL,
         listed tinyint(1) NOT NULL DEFAULT 1,
         association_id varchar(191) DEFAULT NULL,
+        county_municipality_code varchar(6) DEFAULT NULL,
+        lat decimal(10,7) DEFAULT NULL,
+        lng decimal(10,7) DEFAULT NULL,
+        min_lat decimal(10,7) DEFAULT NULL,
+        max_lat decimal(10,7) DEFAULT NULL,
+        min_lng decimal(10,7) DEFAULT NULL,
+        max_lng decimal(10,7) DEFAULT NULL,
+        polygon_hash varchar(32) DEFAULT NULL,
         PRIMARY KEY  (post_id),
         UNIQUE KEY item (datatype, connection_id, remote_id),
         KEY listing (datatype, status_id, published_at),
-        KEY project (project_id)
+        KEY project (project_id),
+        KEY place (datatype, county_municipality_code)
+    ) $charset;");
+    // Which areas a home is in (includes/areas.php): the CRM's and every outline that holds its point.
+    dbDelta("CREATE TABLE $links (
+        post_id bigint(20) unsigned NOT NULL,
+        area_id varchar(191) NOT NULL,
+        PRIMARY KEY  (post_id, area_id),
+        KEY area (area_id)
     ) $charset;");
     dbDelta("CREATE TABLE $state (
         name varchar(64) NOT NULL,
@@ -329,6 +359,8 @@ function core_client_reindex(): void
         $columns = array_map(fn (mixed $value): mixed => is_numeric($value) && !is_string($value) ? $value : $value, $columns);
         core_client_replace_index_row([...$columns, 'synced_at' => 'now', ...core_client_search_columns(is_object($data) ? $data : new stdClass())]);
     }
+    // The links from homes to areas (includes/areas.php): the CRM's at once, the outlines' in the background from the bounds above.
+    core_client_schedule_link_rebuild();
 }
 
 /**
@@ -412,16 +444,22 @@ function core_client_upsert_item(string $datatype, object $item, ?object $existi
  */
 function core_client_store_record(int $post_id, string $datatype, string $json, string $raw_json, array $row): void
 {
+    global $wpdb;
     update_post_meta($post_id, 'core_data', wp_slash($json));
     update_post_meta($post_id, 'core_raw', wp_slash($raw_json));
     $data = json_decode($json);
+    $data = is_object($data) ? $data : new stdClass();
+    // What the home-to-area links depend on, as the row held it before this write (includes/areas.php).
+    $before = $wpdb->get_row($wpdb->prepare('SELECT lat, lng, area_id, polygon_hash FROM ' . core_client_index_table() . ' WHERE post_id = %d', $post_id));
+    $columns = core_client_search_columns($data);
     core_client_replace_index_row([
         'post_id' => $post_id,
         'datatype' => $datatype,
         ...$row,
         'synced_at' => 'now',
-        ...core_client_search_columns(is_object($data) ? $data : new stdClass()),
+        ...$columns,
     ]);
+    core_client_link_record($post_id, $datatype, (string) ($row['remote_id'] ?? ''), $columns, is_object($before) ? $before : null, $data->polygon ?? null);
     clean_post_cache($post_id);
     do_action('core_item_updated', $post_id, $datatype);
 }
@@ -459,16 +497,21 @@ function core_client_replace_index_row(array $row): void
     $wpdb->query($wpdb->prepare($sql, ...$args));
 }
 
+/** A number as the record carries it, as a float; anything else, a numeric string included, is no number. */
+function core_client_number(mixed $value): ?float
+{
+    return is_int($value) || is_float($value) ? (float) $value : null;
+}
+
 /**
  * The search columns, copied from the universal names of `data` as they are, null where the
  * record has no value. Nothing is judged: a status id is stored, a price is stored.
  *
- * @return array<string, string|float|null>
+ * @return array<string, string|int|float|null>
  */
 function core_client_search_columns(object $data): array
 {
     $id = fn (mixed $named): ?string => is_object($named) && is_string($named->id ?? null) ? $named->id : null;
-    $number = fn (mixed $value): ?float => is_int($value) || is_float($value) ? (float) $value : null;
     $text = fn (mixed $value): ?string => is_string($value) && $value !== '' ? mb_substr($value, 0, 191) : null;
     $moment = function (mixed $value): ?string {
         $time = is_string($value) ? strtotime($value) : false;
@@ -498,13 +541,14 @@ function core_client_search_columns(object $data): array
         return 1;
     };
     $address = is_object($data->address ?? null) ? $data->address : new stdClass();
+    $bounds = core_client_polygon_bounds($data->polygon ?? null);
     return [
         'status_id' => $id($data->status ?? null),
         'type_id' => $id($data->type ?? null),
         'tenure_id' => $id($data->tenure ?? null),
-        'price' => $number($data->price ?? null),
-        'living_space' => $number($data->living_space ?? null),
-        'rooms' => $number($data->rooms ?? null),
+        'price' => core_client_number($data->price ?? null),
+        'living_space' => core_client_number($data->living_space ?? null),
+        'rooms' => core_client_number($data->rooms ?? null),
         'area_name' => $text($address->area_name ?? null),
         'city' => $text($address->city ?? null),
         'street' => $text($address->street ?? null),
@@ -519,6 +563,16 @@ function core_client_search_columns(object $data): array
         'area_id' => $text($address->area_id ?? null),
         'listed' => $listed($data),
         'association_id' => $text($data->association_id ?? null),
+        // The place: a home's code sits under its address, an area's on the record; the point as sent.
+        'county_municipality_code' => $text($address->county_municipality_code ?? $data->county_municipality_code ?? null),
+        'lat' => core_client_number($data->lat ?? null),
+        'lng' => core_client_number($data->lng ?? null),
+        // An area's outline, as its bounds and a hash to compare against (includes/areas.php).
+        'min_lat' => $bounds['min_lat'] ?? null,
+        'max_lat' => $bounds['max_lat'] ?? null,
+        'min_lng' => $bounds['min_lng'] ?? null,
+        'max_lng' => $bounds['max_lng'] ?? null,
+        'polygon_hash' => core_client_polygon_hash($data->polygon ?? null),
     ];
 }
 
@@ -537,6 +591,7 @@ function core_client_delete_item(string $datatype, string $connection_id, string
         return;
     }
     $wpdb->delete($index, ['post_id' => (int) $post_id]);
+    core_client_unlink((int) $post_id, $datatype, $remote_id);
     wp_delete_post((int) $post_id, true);
     do_action('core_item_deleted', (int) $post_id, $datatype);
 }

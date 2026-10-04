@@ -527,12 +527,19 @@ approved; this map grows as Patric describes wishes and is settled through the r
   out. A CRM record is edited only in the CRM, and the admin says so (Patric, 2026-10-03).
 - `[client-lovable]` **The same typed records on a Lovable site**: later, when a Lovable site needs
   them; with 125 (b) it comes with the pull.
-- `[core]` **Form submissions to the CRM** (Patric, 2026-10-04; questions 129 to 133; the strategy
+- `[core]` **Form submissions to the CRM** (Patric, 2026-10-04; questions 129 to 132 and 136; the strategy
   in `docs/forms.md`; item 21): a visitor's lead, interest in a home or viewing booking, filled in
   on any site, reaches the brokerage's CRM through Core, with the viewing's slots read live for
   the booking; the design is approved (130), where the writes live waits on 129. Acceptance: the
   six criteria proposed in `docs/forms.md`, numbered on approval. Later: watching the final
   price, a search profile with the visitor's criteria (Mspecs has it; question 131 for Vitec), a
   widget for sites Kowboy does not build. Out: cancelling a booking (Patric, 2026-10-04).
+- `[client-wordpress]` **Search by place, and the list blocks in the plugin** (Patric,
+  2026-10-04; questions 133 and 134; the design in `docs/search.md`; item 23): a visitor finds
+  homes by a län, a kommun or an area, chosen as pills from a box that offers only places with
+  homes, or by the beginning of a street, area, town, kommun or län name, with a home counted in
+  every area whose outline holds it; an editor places the property list and the agent list from
+  the plugin, restricted to chosen agents, areas or offices. Proposed, nothing built. Acceptance:
+  the tests named in `docs/search.md`, under AC 20's search half.
 - Out: typed properties, areas, associations and projects; for those the CRM's list defines what
   exists (AGENTS.md).

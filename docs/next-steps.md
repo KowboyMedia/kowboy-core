@@ -412,6 +412,36 @@ client ports (item 16, first client by question 80).
       typed properties, areas, associations or projects.
     - **Size:** one session.
 
+23. **Search by place, and the list blocks in the plugin** (Patric, 2026-10-04, "discuss before
+    building"; the design in `docs/search.md`). Patric answered 133 with a and let 134 stand on
+    2026-10-04; session 1 (the query and the data) is done the same day, plugin 0.5.0 and theme
+    1.0.18: the query takes `lkf`, `areas`, `q` and lists for `agent`, `office` and `area_id`,
+    the index carries the code, the point and an area's outline bounds, the link table holds
+    which areas a home is in, rebuilt in the background on a plugin update, and the fake CRM
+    sends outlines and codes so the suite proves it. Session 2 is done the same day, plugin 0.5.1
+    and theme 1.1.0: the two list blocks "Bostäder" and "Mäklare" live in the plugin with the
+    settings of the ask (the picks by name through the pick endpoint, for editors), the editor
+    builder moved there with the pick control, and the theme's two list blocks are wrappers of
+    the plugin's settings. Next: session 3, the search box (the combo box with pills, the places
+    data, the Till salu card, the browser journey), then the deploy to the staging site: the
+    plugin (0.5.1 or newer) before the theme (1.1.0), since the theme's blocks lean on it.
+    Default 135 (the tests under criterion 20) waits; the acceptance list is edited when it stands.
+    - **Component:** `[client-wordpress]`, the plugin first, the theme's two list blocks after.
+    - **What changes for the product:** the list search takes an LKF code or its län or kommun
+      part, a free text matches the beginning of a street, an area, a town, a kommun or a län
+      name, a home counts in every area whose outline holds it, and an editor places a property
+      list or an agent list from the plugin with "show only from these agents, areas, offices"
+      and a place search that offers only places with homes, as pills.
+    - **The plan:** three sessions, in `docs/search.md` ("Order of building"): the query and the
+      data (plugin 0.5.0), the blocks (the editor builder moves into the plugin), the search box.
+    - **The tests that prove it:** `docs/search.md` ("Tests, all automatic"); AC 20's search half
+      names them.
+    - **Interface touched:** none of Core's. The plugin's index gains three columns and one link
+      table, rebuilt by the reindex on a plugin update.
+    - **Decides:** 133 (a home inside two outlines is in both areas, recommended a) and the
+      Default 134 (free text narrows the pills). The outline test and the combo box are the
+      plugin's own code, with the reasons stated in the design.
+
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health

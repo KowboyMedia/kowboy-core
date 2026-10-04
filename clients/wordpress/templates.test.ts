@@ -36,10 +36,43 @@ const listing = (id: string, extra: Record<string, unknown>): Record<string, unk
   branch_id: 'B-1',
   staff: ['S-1'],
   coop_id: null,
+  lkf: '0180',
   images: [`https://img.test/${id}-1_1920.jpg`, `https://img.test/${id}-2_1920.jpg`],
   published_at: '2026-09-01T08:00:00.000Z',
   ...extra,
 });
+
+/** Outlines as the fake CRM draws them (GeoJSON MultiPolygon coordinates, longitude first), and P-1 as first put. */
+const VASASTAN = [
+  [
+    [
+      [18.0, 59.3],
+      [18.1, 59.3],
+      [18.1, 59.4],
+      [18.0, 59.4],
+      [18.0, 59.3],
+    ],
+    [
+      [18.04, 59.33],
+      [18.06, 59.33],
+      [18.06, 59.35],
+      [18.04, 59.35],
+      [18.04, 59.33],
+    ],
+  ],
+];
+const NORRMALM = [
+  [
+    [
+      [18.08, 59.38],
+      [18.2, 59.38],
+      [18.2, 59.45],
+      [18.08, 59.45],
+      [18.08, 59.38],
+    ],
+  ],
+];
+const P1 = { price: 7_250_000, rooms: 3, living_space: 82, lat: 59.31, lng: 18.01 };
 
 let core: Harness;
 let site: ClientDriver;
@@ -150,8 +183,23 @@ beforeAll(async () => {
     documents: [{ name: 'Stadgar', url: 'https://docs.test/stadgar.pdf' }],
   });
   crm.put('association', 'A-2', { coop_id: 'A-2', coop_name: 'Brf Månen' });
-  crm.put('area', 'D-1', { district_id: 'D-1', district_name: 'Vasastan', branch_id: 'B-1' });
-  crm.put('property', 'P-1', listing('P-1', { price: 7_250_000, rooms: 3, living_space: 82 }));
+  crm.put('area', 'D-1', {
+    district_id: 'D-1',
+    district_name: 'Vasastan',
+    branch_id: 'B-1',
+    lkf: '018001',
+    outline: VASASTAN,
+  });
+  crm.put('area', 'D-2', {
+    district_id: 'D-2',
+    district_name: 'Norrmalm',
+    branch_id: 'B-1',
+    lkf: '0180',
+    outline: NORRMALM,
+  });
+  // P-1's point lies in Vasastan's outline, P-2's in Vasastan's and Norrmalm's, P-3's in the hole
+  // cut out of Vasastan's; the CRM names Vasastan on every home (docs/search.md, question 133 a).
+  crm.put('property', 'P-1', listing('P-1', P1));
   crm.put(
     'property',
     'P-2',
@@ -162,6 +210,8 @@ beforeAll(async () => {
       staff: ['S-2'],
       district_name: 'Södermalm',
       city: 'Stockholm',
+      lat: 59.39,
+      lng: 18.09,
       published_at: '2026-09-10T08:00:00.000Z',
     }),
   );
@@ -220,6 +270,7 @@ beforeAll(async () => {
       staff: ['S-1', 'S-2'],
       lat: 59.34,
       lng: 18.05,
+      lkf: '0163',
       published_at: '2026-09-12T08:00:00.000Z',
     }),
   );
@@ -339,6 +390,124 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     const byPrice = (await reload({ entity: 'property', status: 'active', sort: 'price_asc' }))
       .html;
     expect(byPrice.indexOf('Kungsgatan 2')).toBeLessThan(byPrice.indexOf('Kungsgatan 1'));
+  });
+
+  it('finds homes by a län or kommun code, by chosen areas, and by the beginning of a street, area, town, kommun or län name', async () => {
+    const total = async (params: Record<string, string>): Promise<number> =>
+      (await reload({ entity: 'property', status: 'active,pre', ...params })).total;
+    // A code matches by its beginning: the län, the kommun; a code of three digits is no code.
+    expect(await total({ lkf: '01' })).toBe(3);
+    expect(await total({ lkf: '0180' })).toBe(2);
+    expect(await total({ lkf: '0163' })).toBe(1);
+    expect(await total({ lkf: '12' })).toBe(0);
+    expect(await total({ lkf: '018' })).toBe(3);
+    // The free text matches the beginning of a street, an area, a town, and a kommun or län name through the plugin's tables.
+    expect(await total({ q: 'Kungsgatan 2' })).toBe(1);
+    expect(await total({ q: 'söder' })).toBe(1);
+    expect(await total({ q: 'stockh' })).toBe(3);
+    expect(await total({ q: 'Sollen' })).toBe(1); // Sollentuna kommun, 0163: P-3's code
+    expect(await total({ q: 'Stockholms l' })).toBe(3); // Stockholms län, 01
+    expect(await total({ q: 'gatan' })).toBe(0); // the beginning only
+    expect(await total({ area: 'kungsgatan 2' })).toBe(1); // the parameter's old name, one release more
+    // The chosen areas and codes are one group, any of them; the free text narrows the group.
+    expect(await total({ areas: 'D-2' })).toBe(1); // P-2 by Norrmalm's outline, not by the CRM
+    expect(await total({ areas: 'D-2', lkf: '0163' })).toBe(2);
+    expect(await total({ areas: 'D-2', q: 'Kungsgatan 1' })).toBe(0);
+    expect(await total({ area_id: 'D-1,D-2', areas: 'D-2' })).toBe(1);
+    // "Show only from these": any of the agents (a home's second agent counts), offices or areas.
+    expect(await total({ agent: 'S-1,S-2' })).toBe(3);
+    expect(await total({ agent: 'S-2' })).toBe(2);
+    expect(await total({ office: 'B-1,B-9' })).toBe(3);
+    expect(await total({ area_id: 'D-2' })).toBe(1);
+    expect((await reload({ entity: 'agent', office: 'B-1,B-9' })).total).toBe(2);
+  });
+
+  it('links a home to the CRM’s area and to every area whose outline holds its point (133 a), relinks on a changed outline or point, and rebuilds the links on a plugin update', async () => {
+    // The outline test on hand-drawn shapes: a square, a square with a hole, two separate squares, no outline.
+    const inside = async (lat: number, lng: number, polygon: unknown): Promise<boolean> =>
+      (await driver<{ inside: boolean }>('inside', JSON.stringify({ lat, lng, polygon }))).inside;
+    const ring = (x: number, y: number, size: number): number[][] => [
+      [x, y],
+      [x + size, y],
+      [x + size, y + size],
+      [x, y + size],
+      [x, y],
+    ];
+    expect(await inside(5, 5, [[ring(0, 0, 10)]])).toBe(true);
+    expect(await inside(5, 15, [[ring(0, 0, 10)]])).toBe(false);
+    expect(await inside(5, 5, [[ring(0, 0, 10), ring(4, 4, 2)]])).toBe(false);
+    expect(await inside(2, 2, [[ring(0, 0, 10), ring(4, 4, 2)]])).toBe(true);
+    expect(await inside(25, 25, [[ring(0, 0, 10)], [ring(20, 20, 10)]])).toBe(true);
+    expect(await inside(15, 15, [[ring(0, 0, 10)], [ring(20, 20, 10)]])).toBe(false);
+    expect(await inside(5, 5, null)).toBe(false);
+    expect(await inside(5, 5, [[ring(0, 0, 10).slice(0, 2)]])).toBe(false);
+
+    const links = async (): Promise<string[]> =>
+      (await driver<{ remote_id: string; area_id: string }[]>('links')).map(
+        (link) => `${link.remote_id}:${link.area_id}`,
+      );
+    const synced = ['P-1:D-1', 'P-2:D-1', 'P-2:D-2', 'P-3:D-1', 'P-4:D-1', 'P-5:D-1', 'P-6:D-1'];
+    expect(await links()).toEqual(synced);
+    // The area page and its card count by the links: Norrmalm holds P-2 by outline alone.
+    const norrmalm = await page(await permalink('area', 'D-2'));
+    expect(norrmalm.body).toContain('Bostäder i Norrmalm');
+    expect(norrmalm.body).toContain('Kungsgatan 2');
+    expect(norrmalm.body).not.toContain('Kungsgatan 1');
+    expect((await page('/?post_type=core_area')).body).toContain('1 bostad till salu');
+
+    // Norrmalm redrawn far away: P-2 leaves it; then P-1 moves into the new outline and joins it.
+    const far = [[ring(18.5, 59.6, 0.1)]];
+    crm.put('area', 'D-2', {
+      district_id: 'D-2',
+      district_name: 'Norrmalm',
+      branch_id: 'B-1',
+      lkf: '0180',
+      outline: far,
+    });
+    await poll();
+    await site.trigger('delta');
+    expect(await links()).toEqual(synced.filter((link) => link !== 'P-2:D-2'));
+    crm.put('property', 'P-1', listing('P-1', { ...P1, lat: 59.65, lng: 18.55 }));
+    await poll();
+    await site.trigger('delta');
+    expect(await links()).toContain('P-1:D-2');
+    expect(await links()).not.toContain('P-2:D-2');
+
+    // A plugin update: the first request after it reindexes, links the CRM's own areas in that
+    // request, and rebuilds the outlines' links in the background from the stored records.
+    const emptied = await wp(
+      'eval',
+      'global $wpdb; $wpdb->query("TRUNCATE TABLE " . core_client_links_table()); update_option("core_client_db_version", "0.4.4"); echo $wpdb->get_var("SELECT COUNT(*) FROM " . core_client_links_table());',
+    );
+    expect(emptied.stdout.trim()).toBe('0');
+    expect((await page('/')).status).toBe(200);
+    expect(await links()).toEqual(synced.filter((link) => link !== 'P-2:D-2'));
+    const run = await driver<{ processed: number }>('backstop');
+    expect(run.processed).toBeGreaterThan(0);
+    const rebuilt = [
+      'P-1:D-1',
+      'P-1:D-2',
+      ...synced.filter((link) => !link.startsWith('P-1:') && link !== 'P-2:D-2'),
+    ];
+    expect(await links()).toEqual(rebuilt);
+    // The rebuild hands over from batch to batch by the last post id it reached (two homes a batch here), so a home at a batch's edge is not skipped.
+    await wp('eval', 'global $wpdb; $wpdb->query("TRUNCATE TABLE " . core_client_links_table());');
+    expect((await driver<{ linked: number }>('rebuild', '2')).linked).toBe(2);
+    expect((await driver<{ processed: number }>('backstop')).processed).toBeGreaterThan(0);
+    expect(await links()).toEqual(rebuilt);
+
+    // Back as first put, for the tests that follow.
+    crm.put('area', 'D-2', {
+      district_id: 'D-2',
+      district_name: 'Norrmalm',
+      branch_id: 'B-1',
+      lkf: '0180',
+      outline: NORRMALM,
+    });
+    crm.put('property', 'P-1', listing('P-1', P1));
+    await poll();
+    await site.trigger('delta');
+    expect(await links()).toEqual(synced);
   });
 
   it('renders a property page from display and data: hero, facts, viewings, agents, sections, map', async () => {
@@ -535,6 +704,8 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(area.body).toContain('k-hero--area');
     expect(area.body).toContain('data-hero-slider');
     expect(area.body).toContain('k-hero__title--left">Vasastan</h1>');
+    // The kommun over the title, named from the area's LKF code 018001 by the plugin's table.
+    expect(area.body).toContain('k-label--bright">Stockholm</p>');
     expect(area.body).toContain('Bostäder i Vasastan');
     expect(area.body).toContain('k-has-hero');
     // The areas archive: cards like the properties', the placeholder when the area has no picture.
@@ -562,6 +733,8 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(paged.stdout).not.toContain('Visa fler');
     const areas = await page('/?post_type=core_area');
     expect(areas.body).toContain('<article class="k-card k-card--area" data-card-url="');
+    // The card's preheader is the kommun from the LKF code (Patric, 2026-10-04).
+    expect(areas.body).toContain('k-card__area">Stockholm</span>');
     expect(areas.body).toContain('placeholder.svg');
     expect(areas.body).toContain('<span class="k-card__street">Vasastan</span>');
     expect(areas.body).toContain('bostäder till salu');
@@ -759,15 +932,23 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
       expect(kept?.data.title).toBe('Assistent');
       await typed({ datatype: 'agent', post: { ID: fia.post_id, post_status: 'publish' } });
       expect((await page('/?post_type=core_agent')).body).toContain('Fia Ny');
-      // A post published without the form (a quick edit, wp post create) is a typed record from its title alone.
+      // A post published without the form (a quick edit, wp post create) is a typed record from its title alone;
+      // its address is URL-safe: accents to base letters, apostrophes, parentheses and marks dropped (Patric, 2026-10-04).
       const hans = await typed({
         datatype: 'agent',
-        post: { post_title: 'Hans Hastig', post_status: 'publish' },
+        post: { post_title: "Åsa O'Brien (Söder) & Co é", post_status: 'publish' },
       });
       typedPosts.push(hans.post_id);
       expect(hans.id).toBe(`s${hans.post_id}`);
-      expect(pathOf(hans.permalink)).toBe(`/?core_agent=hans-hastig-s${hans.post_id}`);
-      expect(hans.data).toMatchObject({ name: 'Hans Hastig', image: null });
+      expect(pathOf(hans.permalink)).toBe(`/?core_agent=asa-obrien-soder-co-e-s${hans.post_id}`);
+      expect(hans.data).toMatchObject({ name: "Åsa O'Brien (Söder) & Co é", image: null });
+      // A slug never loses its id to the post's 200 characters, however long the words.
+      const long = await wp(
+        'eval',
+        'echo core_client_slug("property", (object) ["status" => (object) ["id" => "active"], "address" => (object) ["city" => "Stockholm", "area_name" => str_repeat("Långgatan ", 30), "street" => str_repeat("Långgatan ", 30)]], "P-1");',
+      );
+      expect(long.stdout.trim().length).toBeLessThanOrEqual(200);
+      expect(long.stdout.trim()).toMatch(/^till-salu-stockholm-langgatan-langgatan-.*-p-1$/);
       // Deleted in the admin, a typed record is gone from the index too.
       await wp('eval', `wp_delete_post(${gun.post_id}, true);`);
       expect(
@@ -858,6 +1039,114 @@ describe('the plugin’s set machinery, with a set plugin', () => {
     }
   });
 
+  it('registers the two list blocks in the plugin, renders them through the set’s views restricted to the picks, serves the picks to an editor only, and leaves the theme’s wrappers their background and text card', async () => {
+    const registered = JSON.parse(
+      (
+        await wp(
+          'eval',
+          'echo json_encode(["blocks" => array_values(array_filter(array_keys(WP_Block_Type_Registry::get_instance()->get_all_registered()), fn (string $name): bool => str_starts_with($name, "core-client/") || str_starts_with($name, "kowboy/"))), "wrapper" => array_keys(WP_Block_Type_Registry::get_instance()->get_registered("kowboy/property-list")->attributes), "script" => wp_script_is("core-client-editor", "registered")]);',
+        )
+      ).stdout,
+    ) as { blocks: string[]; wrapper: string[]; script: boolean };
+    expect(registered.blocks).toEqual(
+      expect.arrayContaining([
+        'core-client/property-list',
+        'core-client/agent-list',
+        'kowboy/property-list',
+        'kowboy/agents',
+      ]),
+    );
+    expect(registered.script).toBe(true);
+    // The theme's wrapper registers the plugin's list settings merged into its own.
+    expect(registered.wrapper).toEqual(
+      expect.arrayContaining([
+        'title',
+        'status',
+        'perPage',
+        'placeSearch',
+        'agents',
+        'areas',
+        'offices',
+        'background',
+      ]),
+    );
+
+    // The plugin alone, under another theme with the fixture set: both blocks render through the
+    // set's views (the set's stylesheet linked inside the root, as the site's setting says), the
+    // homes of the picked agent or the picked area only, the agents of the picked office only.
+    const blocks = [
+      '<!-- wp:core-client/property-list {"status":"for_sale,coming","statusTabs":false,"agents":["S-2"]} /-->',
+      '<!-- wp:core-client/property-list {"status":"for_sale,coming","statusTabs":false,"areas":["D-2"]} /-->',
+      '<!-- wp:core-client/agent-list {"offices":["B-1"]} /-->',
+      '<!-- wp:core-client/agent-list {"offices":["B-9"]} /-->',
+    ].join('');
+    const pageId = (
+      await wp(
+        'post',
+        'create',
+        '--post_type=page',
+        '--post_status=publish',
+        '--post_title=Blocken',
+        `--post_content=${blocks}`,
+        '--porcelain',
+      )
+    ).stdout.trim();
+    const path = pathOf((await wp('post', 'url', pageId)).stdout.trim());
+    await driver('theme', 'twentytwentyone');
+    await driver('option', 'core_client_template_set "fixture"');
+    try {
+      const { body } = await page(path);
+      // Bertil's two homes (one as the second agent), then Norrmalm's one by its outline: Kungsgatan 2 in both lists.
+      expect(body.match(/<article class="fixture-card">/g)).toHaveLength(3);
+      expect(body.match(/<article class="fixture-card">Kungsgatan 2<\/article>/g)).toHaveLength(2);
+      expect(body).not.toContain('<article class="fixture-card">Kungsgatan 1</article>');
+      expect(body.match(/<div class="fixture-agents">/g)).toHaveLength(2);
+      expect(body.match(/<article class="fixture-agent">/g)).toHaveLength(2); // B-1's listed agents; B-9 has none
+      expect(body).toContain('fixture.css');
+      expect(body).not.toContain('k-card');
+    } finally {
+      await driver('option', 'core_client_template_set ""');
+      await driver('theme', 'kowboy-2026');
+    }
+    // The theme's wrappers: the same settings inside the theme's section, with its background and
+    // its text card, and the picks handed to the reload script, so the tabs and "Visa fler" stay restricted.
+    const wrappers =
+      '<!-- wp:kowboy/property-list {"status":"for_sale,coming","agents":["S-2"],"background":"subtle"} /--><!-- wp:kowboy/agents {"offices":["B-1"],"cardTitle":"Möt teamet"} /-->';
+    await wp('post', 'update', pageId, `--post_content=${wrappers}`);
+    const themed = await page(path);
+    expect(themed.body).toContain('k-list-section--subtle');
+    expect(themed.body.match(/<article class="k-card/g)).toHaveLength(2);
+    expect(themed.body).toContain('&quot;agent&quot;:&quot;S-2&quot;');
+    expect(themed.body.match(/<article class="k-agent-card">/g)).toHaveLength(2);
+    expect(themed.body).toContain('<h3 class="k-info-card__title">Möt teamet</h3>');
+    await wp('post', 'delete', pageId, '--force');
+
+    // The picks: every record, hidden agents too, by a label that tells namesakes apart, for a
+    // signed-in editor through WordPress's own dispatcher; a visitor is refused.
+    const picks = (entity: string, user: number) =>
+      driver<{ status: number; rows: { id: string; label: string }[] }>(
+        'picks',
+        `${entity} ${user}`,
+      );
+    expect((await picks('agent', 0)).status).toBe(401);
+    const agents = await picks('agent', 1);
+    expect(agents.status).toBe(200);
+    expect(agents.rows.map((row) => `${row.id} ${row.label}`)).toEqual([
+      'S-2 Bertil Berg · Kowboy Mäkleri',
+      'S-1 Anna Andersson · Kowboy Mäkleri',
+      'S-3 Cecilia Dold · Kowboy Mäkleri',
+      'S-4 David Dold · Kowboy Mäkleri',
+    ]);
+    expect((await picks('area', 1)).rows).toEqual([
+      { id: 'D-2', label: 'Norrmalm · Stockholm' },
+      { id: 'D-1', label: 'Vasastan · Stockholm' },
+    ]);
+    expect((await picks('office', 1)).rows).toEqual([
+      { id: 'B-1', label: 'Kowboy Mäkleri · Stockholm' },
+    ]);
+    expect((await fetch(`${siteUrl}/?rest_route=/core/v1/picks&entity=agent`)).status).toBe(401);
+  });
+
   it('renders inside a shadow root by default, with the stylesheets linked inside, and on the page when the site turns it off', async () => {
     const { body } = await page(await permalink('property', 'P-1'));
     expect(body).toContain(
@@ -893,7 +1182,7 @@ describe('the plugin’s set machinery, with a set plugin', () => {
     );
     expect(await permalink('agent', 'S-1')).toBe('/?core_agent=anna-andersson-s-1');
     expect(await permalink('office', 'B-1')).toBe('/?core_office=kowboy-makleri-b-1');
-    expect(await permalink('area', 'D-1')).toBe('/?core_area=vasastan-d-1');
+    expect(await permalink('area', 'D-1')).toBe('/?core_area=stockholm-vasastan-d-1');
     expect(await permalink('association', 'A-1')).toBe('/?core_association=brf-solgarden-a-1');
     // An agent by id alone, and by a slug from before a name change: 301 to the current page.
     for (const name of ['S-1', 'anna-svensson-S-1']) {

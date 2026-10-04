@@ -1,0 +1,38 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "core-client/agent-list",
+  "title": "Mäklare",
+  "description": "Mäklarna från Kowboy Core som kort, i CRM:ets ordning, från alla kontor eller bara från valda. Utseendet är temats.",
+  "category": "core-client",
+  "icon": "groups",
+  "editorScript": "core-client-editor",
+  "render": "file:./render.php",
+  "supports": {
+    "html": false,
+    "anchor": true
+  },
+  "attributes": {
+    "title": {
+      "type": "string",
+      "default": "",
+      "control": "text",
+      "label": "Rubrik"
+    },
+    "lead": {
+      "type": "string",
+      "default": "",
+      "control": "text",
+      "label": "Ingress"
+    },
+    "offices": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "control": "pick",
+      "entity": "office",
+      "label": "Visa bara från dessa kontor",
+      "help": "Tomt visar alla."
+    }
+  }
+}

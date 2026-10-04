@@ -4,10 +4,21 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 134 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 137 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite
+
+- 2026-10-04 · The acceptance list `acceptance/criteria.json` is a protected path, changed on
+  Patric's word. Criterion 20, "Real clients pass the sync and search suites", already names the
+  WordPress client's three list tests as its search half. The two tests of `docs/search.md`
+  built on 2026-10-04 (the search by code, area and name; the links by outline) prove the same
+  half and belong under the same number; the acceptance report is regenerated with them. The
+  smaller option is to leave the list as it is, and the tests then run without a criterion
+  naming them.
+- Reply only if you disagree: no.
 
 ## 131. `[crm-vitec]` "Create a search profile" has no call in Vitec Connect; what does it become?
 
@@ -25,7 +36,7 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   site stores the visitor's criteria and mails new hits from its own copy, a product of its own.
 - Answer a, b or c.
 
-## 133. `[crm-mspecs]` The footer's lead form on an Mspecs site: Mspecs's lead call needs at least one matching
+## 136. `[crm-mspecs]` The footer's lead form on an Mspecs site: Mspecs's lead call needs at least one matching
 
 - 2026-10-04 · Mspecs's marketing provider API (`docs/inputs/mspecs/`) adds a lead only together
   with matching criteria (rooms, price, area, municipalities), which becomes a contact with a
