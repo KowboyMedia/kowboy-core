@@ -385,8 +385,11 @@ client ports (item 16, first client by question 80).
     buttons that open the wizard (booking, interest, free valuation) and the two inline forms
     become a button each (docs/forms.md, "The clients' part"); asked whether it is ready for
     release: not before the Vitec adapter's part, the widget, and a confirmed test customer for
-    the real send (54 f). Next: the Vitec adapter's part and the widget, which can run side by
-    side (the widget against the stand-in CRM).
+    the real send (54 f). The theme's side is built the same evening (theme 1.1.7, on the
+    staging site): the three buttons with the widget's marks, the two inline forms replaced by
+    a button each, each button leading to a contact until the widget is on the page. Next: the
+    Vitec adapter's part and the widget (with the plugin's script tag and site-key setting),
+    which can run side by side (the widget against the stand-in CRM).
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in

@@ -246,6 +246,16 @@ Two things from the staging site on a phone (Patric, 2026-10-04, 16:45Z), theme 
   now scrolls to a link's target inside the same root, and the stylesheet makes the scroll glide
   (`scroll-behavior: smooth`, off for a visitor who asked for less motion) and leaves 24 px above
   the block. The journey taps the button and reads the block's place on the screen.
+- **The two forms are buttons** (Patric, 2026-10-04, 21:08Z: "replaced by a button that opens
+  the form instead of showing the form inputs directly"), theme 1.1.7: the footer's "Ska du
+  sälja din bostad?" card and the property page's "Är du intresserad av bostaden?" card keep
+  their title and text and carry one button each ("Boka fri värdering", "Anmäl intresse"); the
+  fields are gone (`parts/form-card.php`, was `lead-form.php`). The three buttons carry the
+  widget's marks from docs/forms.md, "The clients' part": `data-core-form` (`viewing` on a
+  viewing's "Boka här", `interest`, `lead`) and `data-record` (`property:<connection>:<id>`),
+  so the wizard opens from them the day the widget is on the site. Until then each button
+  leads to a contact: the agent's card on the property page, the office's details in the
+  footer (`#k-contact`). The theme's own scroll leaves a click the widget has taken alone.
 
 ## Order of work
 

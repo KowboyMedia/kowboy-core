@@ -387,13 +387,15 @@
   }
 
   /**
-   * A link to a place in the same view (a viewing's "Boka här" to the interest form, the contact
-   * button to the agent): the browser's own jump cannot see into a shadow root, so the script
-   * scrolls there, smoothly where the stylesheet says so (scroll-behavior).
+   * A link to a place in the same view (the contact button to the agent, a form button to the
+   * agent or the office when the widget is not on the page): the browser's own jump cannot see
+   * into a shadow root, so the script scrolls there, smoothly where the stylesheet says so
+   * (scroll-behavior). A click the widget has taken (a form button opening the wizard) is left alone.
    */
   function setupAnchor(link) {
     if (!once(link, 'ready')) return;
     link.addEventListener('click', function (event) {
+      if (event.defaultPrevented) return;
       var target = link.getRootNode().getElementById(link.getAttribute('href').slice(1));
       if (!target) return;
       event.preventDefault();

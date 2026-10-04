@@ -1,7 +1,7 @@
 <?php
 // A property page (the design's Single Property): the hero (a Vimeo link among the links, else
 // the photos), the description with fact chips and the floor plan, the viewings, the bids and
-// the agent at the side, the interest form, the photos (parts/gallery.php), the fact tables
+// the agent at the side, the interest card, the photos (parts/gallery.php), the fact tables
 // (`display.sections`, the association's rows added) closed at first (Patric, 2026-10-03), the
 // area with its texts, the map, and the lead form of the footer. Every string is `display`'s or a value shown as sent; this site's own
 // rules are named where they apply.
@@ -76,6 +76,8 @@ usort($bids, fn (array $a, array $b): int => strcmp((string) ($b['placed_at'] ??
 $highest_bid = $display['highest_bid'] ?? null;
 
 $agents = core_client_items('agent', is_array($item['agent_ids'] ?? null) ? $item['agent_ids'] : []);
+// The home as the widget names it on a booking and an interest (docs/forms.md, "The clients' part").
+$record = 'property:' . (string) core_client_connection_of($post_id) . ':' . (string) ($item['id'] ?? '');
 
 // This site's rule, as the design shows it: a sold home keeps its text, chips, plan and photos, and shows no fact tables.
 $sections = !$sold && is_array($display['sections'] ?? null) ? $display['sections'] : [];
@@ -179,7 +181,8 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
                                 <?php if ($viewing['time'] !== '') : ?><span class="k-viewing__time"><?php echo esc_html($viewing['time']); ?></span><?php endif; ?>
                                 <?php if ($viewing['comment'] !== '') : ?><span class="k-viewing__comment"><?php echo esc_html($viewing['comment']); ?></span><?php endif; ?>
                             </div>
-                            <?php if ($viewing['bookable']) : ?><a class="k-button" href="#k-interest">Boka här</a><?php endif; ?>
+                            <?php // Opens the booking wizard; without the widget, the agent's card. ?>
+                            <?php if ($viewing['bookable']) : ?><a class="k-button" href="#k-agents" data-core-form="viewing" data-record="<?php echo esc_attr($record); ?>">Boka här</a><?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                     <div class="k-viewing k-viewing--empty" data-viewings-empty <?php echo $upcoming > 0 ? 'hidden' : ''; ?>>
@@ -225,7 +228,7 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
     </div>
 
     <?php if (!$sold) : ?>
-        <div class="k-container" id="k-interest"><?php echo kowboy_part('lead-form', ['title' => 'Är du intresserad av bostaden?', 'text' => 'Ange dina uppgifter här så kontaktar vi dig.', 'subject' => $street]); ?></div>
+        <div class="k-container k-property__interest"><?php echo kowboy_part('form-card', ['title' => 'Är du intresserad av bostaden?', 'text' => 'Anmäl ditt intresse så kontaktar vi dig.', 'label' => 'Anmäl intresse', 'form' => 'interest', 'record' => $record, 'href' => '#k-agents']); ?></div>
     <?php endif; ?>
 
     <?php echo kowboy_part('gallery', ['photos' => $gallery, 'alt' => $street]); ?>

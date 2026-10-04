@@ -449,7 +449,12 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('Föranmälan krävs');
     expect(body).toContain('Visningen som var');
     expect(body).toMatch(/<div class="k-viewing" data-viewing data-until="[^"]+" hidden>/);
-    expect(body.match(/<a class="k-button" href="#k-interest">Boka här<\/a>/g)).toHaveLength(1);
+    // A bookable viewing's button opens the booking wizard on this home; without the widget, the agent's card.
+    expect(
+      body.match(
+        /<a class="k-button" href="#k-agents" data-core-form="viewing" data-record="property:[^":]+:P-3">Boka här<\/a>/g,
+      ),
+    ).toHaveLength(1);
     // Without a viewing, the box's button takes the visitor to the agent's contact (Patric, 2026-10-04).
     expect(body).toContain('<a class="k-button" href="#k-agents">Kontakta oss</a>');
     expect(body).toContain('<div class="k-property__contact" id="k-agents">');
@@ -510,7 +515,11 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('sizes="(max-width: 767px) 250vw, 100vw"');
     expect(body).toContain('data-map data-lat="');
     // The interest form is a dummy that names the listing (question 105 open): it posts nowhere.
-    expect(body).toContain('data-subject="Kungsgatan 3"');
+    // The interest card is a button that opens the wizard on this home, no fields on the page (Patric, 2026-10-04).
+    expect(body).toMatch(
+      /<a class="k-button k-button--light k-lead__button" href="#k-agents" data-core-form="interest" data-record="property:[^":]+:P-3">Anmäl intresse<\/a>/,
+    );
+    expect(body).not.toContain('<form');
     expect(body).not.toContain('kowboy/v1/lead');
     // The header lies over the hero, with the bright logotype.
     expect(body).toContain('k-has-hero');
@@ -615,10 +624,10 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(agent.body).not.toContain('Avgift');
     // The footer's menu ends with the areas archive.
     expect(agent.body).toContain('>Områden</a>');
-    // The title, and the footer's form on every page, with the fields' names as placeholders.
+    // The title, and the footer's card on every page, its button opening the seller's lead.
     expect(agent.body).toContain('<title>Anna Andersson - ');
     expect(agent.body).toContain('<h2 class="k-lead__title">Ska du sälja din bostad?</h2>');
-    expect(agent.body).toContain('placeholder="Förnamn"');
+    expect(agent.body).toContain('data-core-form="lead"');
     expect(agent.body).not.toContain('k-field__label');
 
     const office = await page(await permalink('office', 'B-1'));
@@ -910,7 +919,11 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(home.body.match(/<article class="k-agent-card">/g)).toHaveLength(2);
     expect(home.body).toContain('class="k-list"');
     expect(home.body).toContain('<h2 class="k-lead__title">Ska du sälja din bostad?</h2>');
-    expect(home.body.match(/k-lead__title/g)).toHaveLength(1); // the footer's form, once
+    expect(home.body.match(/k-lead__title/g)).toHaveLength(1); // the footer's card, once
+    // The footer's card is a button that opens the seller's lead; without the widget, the office's details.
+    expect(home.body).toContain(
+      '<a class="k-button k-button--light k-lead__button" href="#k-contact" data-core-form="lead">Boka fri värdering</a>',
+    );
     expect(home.body).toContain('class="k-footer"');
     expect(home.body).toContain('<title>Hem - ');
     expect(home.body).toContain('<meta property="og:type" content="website">');

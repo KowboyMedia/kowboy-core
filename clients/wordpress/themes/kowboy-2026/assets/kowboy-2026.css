@@ -1284,11 +1284,12 @@ iframe.k-hero__video {
   }
 }
 
-/* The dark form card */
+/* The dark form card: a title, a text and one button that opens the wizard. */
 .k-lead {
   display: grid;
-  grid-template-columns: 1fr 560px;
-  gap: 80px;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 40px 80px;
   padding: 40px;
   border-radius: var(--k-radius-card);
   background: var(--k-ink);
@@ -1313,58 +1314,8 @@ iframe.k-hero__video {
 .k-lead__text {
   color: rgba(255, 255, 255, 0.7);
 }
-.k-form {
-  display: grid;
-  gap: 16px;
-}
-.k-form__row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-/* A field: its name as the placeholder, a line underneath. */
-.k-field {
-  width: 100%;
-  height: 44px;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 0;
-  background: transparent;
-  color: var(--k-white);
-  font: inherit;
-  font-size: 14px;
-}
-.k-field::placeholder {
-  color: rgba(255, 255, 255, 0.6);
-  opacity: 1;
-}
-.k-field:focus {
-  outline: none;
-  border-bottom-color: rgba(255, 255, 255, 0.6);
-}
-.k-form__foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-.k-form__consent {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--k-label-size);
-  color: rgba(255, 255, 255, 0.5);
-}
-.k-form__consent a {
-  color: inherit;
-}
-.k-form__consent input {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  border-radius: 4px;
-  accent-color: var(--k-white);
+.k-lead__button {
+  justify-self: end;
 }
 @media (max-width: 1023px) {
   .k-lead {
@@ -1372,16 +1323,12 @@ iframe.k-hero__video {
     gap: 32px;
     padding: 32px 24px;
   }
-  .k-form__row {
-    grid-template-columns: 1fr;
-  }
   .k-lead__title {
     font-size: 30px;
     line-height: 1.16;
   }
-  .k-form__foot {
-    flex-direction: column;
-    align-items: flex-start;
+  .k-lead__button {
+    justify-self: start;
   }
 }
 
@@ -1603,7 +1550,7 @@ iframe.k-hero__video {
 .k-property__agents .k-agent-card {
   aspect-ratio: 450 / 403;
 }
-#k-interest {
+.k-property__interest {
   padding-block: 40px;
 }
 .k-gallery__grid {

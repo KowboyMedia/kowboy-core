@@ -707,8 +707,14 @@ a viewing's "Boka här" opens the booking, the property page's interest button o
 form, and the footer's "Ska du sälja din bostad?" opens the free valuation (the seller's lead);
 the design's two inline forms, the footer's and the property page's, are replaced by a button
 each, no fields on the page ("replaced by a button that opens the form instead of showing the
-form inputs directly"). What follows is the form-per-client alternative that was not chosen,
-kept for the comparison.
+form inputs directly"). **The theme's side is built** (2026-10-04, theme 1.1.7, docs/kowboy-2026.md):
+the three buttons carry `data-core-form` (`viewing`, `interest`, `lead`) and `data-record`
+(`property:<connection>:<id>`) as above, and lead to the agent's card or the office's details
+while the widget is not on the page; the theme's own click handler steps back from a click the
+widget has taken (`event.defaultPrevented`), so the widget's handler should prevent the default.
+What remains for the widget item on the WordPress side: the plugin's script tag and site-key
+setting. What follows is the form-per-client alternative that was not chosen, kept for the
+comparison.
 
 Both clients already hold the tenant token on their server side and send `X-Core-Site`; the
 browser never sees either.
