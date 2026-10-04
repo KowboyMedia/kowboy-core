@@ -6,8 +6,9 @@ when a home's point or an area's outline changed, which is rare, and every agent
 both of a home's agents. All three sessions below are built, 2026-10-04: the query and the data
 (plugin 0.5.0, theme 1.0.18, tests 1 and 2), the blocks in the plugin with the pick control and
 the pick endpoint (plugin 0.5.1, theme 1.1.0, test 4) and the search box with pills (plugin
-0.5.2, theme 1.1.1, tests 3 and 5); what remains is the deploy to the staging site, the plugin
-before the theme, which waits for the site's login (question 121). **The ask** (Patric, 2026-10-04, "discuss before building"): the search
+0.5.2, theme 1.1.1, tests 3 and 5), all on the staging site since 2026-10-04 with Patric's two
+fixes from his first look (plugin 0.5.3, theme 1.1.2: the areas the homes name are offered, the
+pills grow the form downward). **The ask** (Patric, 2026-10-04, "discuss before building"): the search
 method accepts an LKF code or the significant part of one (the L part for a län, the LK part for a
 kommun); a free text search matches the beginning of a street address, of an area name or of a
 kommun name; the WordPress property list and agent list are blocks that live in the plugin, not
@@ -277,9 +278,17 @@ offices; the list holds the agents of those offices, in the CRM's order as today
   homes name areas that are not among the areas the CRM lists for the office, known bug 2) is
   offered and pilled all the same, named as its homes name it with the kommun of their code,
   since the links carry the CRM's assignment whether or not the area's record arrived. Its page
-  does not exist until the record does. **The pills grow the form downward** (theme 1.1.2): the
-  form on the hero's edge is anchored at its top and its row at the top, so the field and the
-  button keep their place when a pill is added.
+  does not exist until the record does. The option and the pill read the same: the pill takes
+  the label the box offers, and only an area the box does not offer (its homes all sold on this
+  list) falls back to the record, then to the homes. **The pills grow the form downward** (theme
+  1.1.2): the form on the hero's edge is anchored at its top and its row at the top, so the
+  field and the button keep their place when a pill is added (measured on the staging site at
+  390, 900 and 1280 px wide). The pills stack one per row in the place column, so from the third
+  pill the form reaches over the status tabs under the hero on wide screens: "a bit down" as
+  Patric allowed; a row of pills under the whole form would be the next step if that bothers.
+  On narrow screens the form is in the hero's flow, so a hero with spare height (a short lead)
+  would still give the pill's height to the space above the form; the Till salu page's lead
+  fills its hero, and no other hero carries the form.
 
 ## Performance, in numbers
 
@@ -309,7 +318,8 @@ database the suites already drive, plus one browser journey:
    CRM's only (133 b); a redrawn outline re-links; a plugin update's scheduled rebuild fills the
    table.
 3. The box offers only places with a matching home under the block's statuses and restrictions,
-   in three groups with the kommun after an area's name.
+   in three groups with the kommun after an area's name; an area the site has no record of is
+   offered and pilled as its homes name it, before its record arrives and after it goes.
 4. The plugin alone (the theme off, the fixture set on) registers both blocks, renders them
    through the set's views, applies the restrictions and serves the pick endpoint to an editor
    and not to a visitor; the theme's wrappers keep the background and the text card, and the demo
@@ -320,7 +330,8 @@ database the suites already drive, plus one browser journey:
    as the admin area's journeys are): on the Till salu page, type, choose a suggestion by mouse
    and by keyboard, the pill appears and the cards reload, the address carries the choice,
    clicking the pill or Backspace removes it, words with and without a pill search as Default 134
-   says, and the page drawn again from the address shows the pill, the words and the cards.
+   says, and the page drawn again from the address shows the pill, the words and the cards; the
+   field and the button keep their place when a pill is added and the form grows downward.
 
 Acceptance: AC 20's search half names these tests; the report is regenerated.
 

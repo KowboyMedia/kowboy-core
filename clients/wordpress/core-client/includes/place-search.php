@@ -37,7 +37,7 @@ function core_client_places(array $params): array
     $from = "$index i JOIN {$wpdb->posts} p ON p.ID = i.post_id";
     $links = core_client_links_table();
     $rows = $wpdb->get_results($wpdb->prepare(
-        "SELECT pl.area_id AS id, COALESCE(pa.sort_name, MAX(i.area_name)) AS name, COALESCE(pa.county_municipality_code, MAX(i.county_municipality_code)) AS code, COUNT(*) AS homes
+        "SELECT pl.area_id AS id, COALESCE(pa.sort_name, MAX(CASE WHEN i.area_id = pl.area_id THEN i.area_name END)) AS name, COALESCE(pa.county_municipality_code, MAX(CASE WHEN i.area_id = pl.area_id THEN i.county_municipality_code END)) AS code, COUNT(*) AS homes
          FROM $from JOIN $links pl ON pl.post_id = i.post_id LEFT JOIN $index pa ON pa.datatype = 'area' AND pa.remote_id = pl.area_id
          WHERE $condition GROUP BY pl.area_id, pa.sort_name, pa.county_municipality_code",
         ...$args,
@@ -75,8 +75,9 @@ function core_client_area_label(string $name, ?string $code, string $id): string
 }
 
 /**
- * An area's name and kommun code as its homes carry them, for an area the site has no record
- * of: the first home in the index that names it. Both null when no home does.
+ * An area's name and kommun code as its own homes carry them (the homes whose CRM area it is,
+ * not those its outline holds), by the same rule as the places query, for an area the site
+ * has no record of. Both null when no home names it.
  *
  * @return array{name: string|null, code: string|null}
  */
@@ -85,28 +86,34 @@ function core_client_area_as_homes_name_it(string $area_id): array
     global $wpdb;
     $index = core_client_index_table();
     $row = $wpdb->get_row($wpdb->prepare(
-        "SELECT area_name, county_municipality_code FROM $index WHERE datatype IN ('property', 'project') AND area_id = %s AND area_name IS NOT NULL LIMIT 1",
+        "SELECT MAX(area_name) AS name, MAX(county_municipality_code) AS code FROM $index WHERE datatype IN ('property', 'project') AND area_id = %s",
         $area_id,
     ));
     return [
-        'name' => is_string($row->area_name ?? null) ? $row->area_name : null,
-        'code' => is_string($row->county_municipality_code ?? null) ? $row->county_municipality_code : null,
+        'name' => is_object($row) && is_string($row->name) ? $row->name : null,
+        'code' => is_object($row) && is_string($row->code) ? $row->code : null,
     ];
 }
 
 /**
- * The labels of the places the address names, for the pills the page renders: an area by its
- * stored record, else as its homes name it, a code by the plugin's tables; a place the site
- * does not know at all reads as its id.
+ * The labels of the places the address names, for the pills the page renders: an area as the
+ * box offers it (`$offered`, id to label), so a pill reads the same drawn from the address as
+ * chosen from the list; else by its stored record, else as its homes name it. A code by the
+ * plugin's tables. A place the site does not know at all reads as its id.
  *
  * @param list<string> $area_ids
  * @param list<string> $codes
+ * @param array<string, string> $offered
  * @return list<array{kind: string, id: string, label: string}>
  */
-function core_client_place_pills(array $area_ids, array $codes): array
+function core_client_place_pills(array $area_ids, array $codes, array $offered = []): array
 {
     $pills = [];
     foreach ($area_ids as $area_id) {
+        if (isset($offered[$area_id])) {
+            $pills[] = ['kind' => 'areas', 'id' => $area_id, 'label' => $offered[$area_id]];
+            continue;
+        }
         $post_id = core_client_post_id('area', $area_id);
         $area = $post_id === null ? null : core_client_item($post_id);
         if (is_array($area)) {
@@ -140,14 +147,18 @@ function core_client_place_search(array $params): string
     }
     core_client_place_search_assets();
     $data = [];
+    $offered = [];
     foreach (core_client_places($params) as $group => $places) {
         foreach ($places as $place) {
             $data[] = ['group' => $group, 'id' => $place['id'], 'label' => $place['label']];
+            if ($group === 'areas') {
+                $offered[$place['id']] = $place['label'];
+            }
         }
     }
     $area_ids = core_client_query_list($params['areas'] ?? null);
     $codes = array_values(array_filter(core_client_query_list($params['lkf'] ?? null), fn (string $code): bool => preg_match('/^(\d{2}|\d{4}|\d{6})$/', $code) === 1));
-    $pills = core_client_place_pills($area_ids, $codes);
+    $pills = core_client_place_pills($area_ids, $codes, $offered);
     $words = ($params['q'] ?? '') !== '' ? $params['q'] : ($params['area'] ?? '');
     $q = is_scalar($words) ? trim((string) $words) : '';
     // One id per box drawn in the request, so two boxes on one page keep their own label and list.
