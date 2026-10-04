@@ -4,10 +4,41 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 140 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 141 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 140. `[client-wordpress]` The search box: the market-leading combo box library, or our own box fixed?
+
+- 2026-10-04 · Patric's second look at the staging site: the box "seems home made", with
+  immaturity bugs: the option list is painted under the cards' label boxes, a click outside
+  does not close it, a click on the field does not reliably open it, and on a phone he suspects
+  the options are not offered through the phone's own selector. The causes in our own box
+  (`clients/wordpress/core-client/assets/place-search.js`, 250 lines, decision of 2026-10-04
+  "not a library"): the form's stacking order (3) is below a card's label (4), a theme CSS fix
+  of one line whichever way; the list closes only when the field loses focus, which a tap on
+  plain page content on an iPhone never causes, and a click inside the white card beside the
+  field causes neither; the list opens only when the field gains focus, so a click on a field
+  that already has it (after a choice, or Escape) does nothing; and the list is the box's own,
+  not the phone's picker, as with every combo box library. Blocked: the fix, until the way is
+  chosen, since a library makes the three fixes moot. The spike (2026-10-04, in a browser with a
+  mouse and with touch, on an open page and inside an open shadow root as the plugin opens
+  them): Tom Select 2.6.2 (Apache-2.0, 52 KB script and 8 KB stylesheet, no other library,
+  vendored into the plugin with no build step) opens on click and on tap, closes on a click or
+  tap outside, opens again, narrows as one types, chooses by mouse, tap and keyboard, shows the
+  chosen places as pills with a remove cross, takes the last pill on Backspace, and keeps a
+  plain multi-select underneath that works without the script; 41 of 44 checks passed, the
+  three failures in the emulated phone run where touch and keyboard were mixed. Options: a) take
+  Tom Select, driving the same hidden fields and reload, restyled by the theme, our script
+  deleted (the net value: years of handling of focus, touch, keyboard and screen readers that
+  our box re-learns bug by bug; the cost: one runtime dependency of the plugin, about 60 KB on
+  a page with a box, a day with its tests, and the decision line "not a library" superseded);
+  b) keep our box and fix the three causes now, with a phone-touch journey, no dependency, each
+  next device quirk ours again; c) the phone's own picker on phones (a plain multi-select) and
+  a combo box on desktop, two code paths, not recommended.
+- Smaller in code: a (the library replaces our script); b is the smaller change today.
+  Recommended: a. Answer a, b or c.
 
 ## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite
 
