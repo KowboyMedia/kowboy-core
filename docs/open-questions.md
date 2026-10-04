@@ -4,10 +4,25 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 141 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 142 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 141. `[core]` The profile step's checkbox "Kontakta mig om min nuvarande bostad": keep it, drop it, or a text instead?
+
+- 2026-10-04 · The spekulantregister form Patric pointed at for the profile step's whitelist
+  (historiskahem.se) carries this checkbox beside the search criteria. In the dry run it sits
+  under the areas on an interest and a booking, not on the seller's lead, and travels as
+  `contact_about_current_home: true` beside `criteria` on the profile submission. Where it
+  would land: Vitec's interest takes a text about the present home (`presentAccommodation`),
+  but the interest is sent before the checkbox is seen, so the adapter would send a valuation
+  lead on the same contact instead; Mspecs's lead takes a comment. Blocked: nothing today; the
+  widget build (next-steps item 21) takes the answer. Options: a) keep it, one tap that makes
+  the visitor a seller lead too; b) drop it, a seller's form is the footer's lead only; c) a
+  text about the home to sell instead (type, size, rooms, price), one more step, as Vitec takes
+  it.
+- Smaller: b. Recommendation: a (the brokerage's intake, at no cost to the visitor).
 
 ## 140. `[client-wordpress]` The search box: the market-leading combo box library, or our own box fixed?
 
