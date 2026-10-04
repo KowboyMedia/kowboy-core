@@ -33,7 +33,11 @@ function core_client_path(string $datatype): string
  * `<status>-<city>-<area>-<street>-<id>`, every other kind `<name>-<id>`. The status word is the
  * list the site's settings put the status in (`till-salu`, `kommande`, `sold`: the old site's
  * words), else the CRM's own status name. An empty part is left out, and the id is always last, so
- * routing.php finds the record by it whatever the words were when a link was made.
+ * routing.php finds the record by it whatever the words were when a link was made. Every part goes
+ * through WordPress's own slug rule (`sanitize_title`): letters with accents become their base
+ * letters (é to e, ä to a), apostrophes, parentheses and other marks are dropped (Patric,
+ * 2026-10-04), and the words are cut so that the whole slug fits the post's 200 characters with the
+ * id intact.
  */
 function core_client_slug(string $datatype, object $data, string $remote_id): string
 {
@@ -47,8 +51,13 @@ function core_client_slug(string $datatype, object $data, string $remote_id): st
         ],
         default => [$data->name ?? null],
     };
-    $words = array_filter(array_map(fn (mixed $part): string => is_string($part) ? sanitize_title($part) : '', $parts));
-    return implode('-', [...$words, sanitize_title($remote_id)]);
+    $words = implode('-', array_filter(array_map(fn (mixed $part): string => is_string($part) ? sanitize_title($part) : '', $parts)));
+    $id = sanitize_title($remote_id);
+    $room = 200 - strlen($id) - 1;
+    if (strlen($words) > $room) {
+        $words = rtrim(substr($words, 0, $room), '-');
+    }
+    return $words === '' ? $id : $words . '-' . $id;
 }
 
 /** The slug's word for a status: the site's list it is in, else the CRM's name for it; null without a status. */

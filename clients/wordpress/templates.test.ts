@@ -759,15 +759,23 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
       expect(kept?.data.title).toBe('Assistent');
       await typed({ datatype: 'agent', post: { ID: fia.post_id, post_status: 'publish' } });
       expect((await page('/?post_type=core_agent')).body).toContain('Fia Ny');
-      // A post published without the form (a quick edit, wp post create) is a typed record from its title alone.
+      // A post published without the form (a quick edit, wp post create) is a typed record from its title alone;
+      // its address is URL-safe: accents to base letters, apostrophes, parentheses and marks dropped (Patric, 2026-10-04).
       const hans = await typed({
         datatype: 'agent',
-        post: { post_title: 'Hans Hastig', post_status: 'publish' },
+        post: { post_title: "Åsa O'Brien (Söder) & Co é", post_status: 'publish' },
       });
       typedPosts.push(hans.post_id);
       expect(hans.id).toBe(`s${hans.post_id}`);
-      expect(pathOf(hans.permalink)).toBe(`/?core_agent=hans-hastig-s${hans.post_id}`);
-      expect(hans.data).toMatchObject({ name: 'Hans Hastig', image: null });
+      expect(pathOf(hans.permalink)).toBe(`/?core_agent=asa-obrien-soder-co-e-s${hans.post_id}`);
+      expect(hans.data).toMatchObject({ name: "Åsa O'Brien (Söder) & Co é", image: null });
+      // A slug never loses its id to the post's 200 characters, however long the words.
+      const long = await wp(
+        'eval',
+        'echo core_client_slug("property", (object) ["status" => (object) ["id" => "active"], "address" => (object) ["city" => "Stockholm", "area_name" => str_repeat("Långgatan ", 30), "street" => str_repeat("Långgatan ", 30)]], "P-1");',
+      );
+      expect(long.stdout.trim().length).toBeLessThanOrEqual(200);
+      expect(long.stdout.trim()).toMatch(/^till-salu-stockholm-langgatan-langgatan-.*-p-1$/);
       // Deleted in the admin, a typed record is gone from the index too.
       await wp('eval', `wp_delete_post(${gun.post_id}, true);`);
       expect(

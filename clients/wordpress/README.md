@@ -60,7 +60,9 @@ or `wp action-scheduler run`.
   same for projects (the name when there is no street), `kontor/<office name>-<id>`,
   `forening/<association name>-<id>`, `maklare/<agent name>-<id>` and `omrade/<area name>-<id>`.
   The status word is the list the settings page puts the status in (`till-salu`, `kommande`,
-  `sold`), else the CRM's own status name. Every entity ends in `-<id>`, and the slug is rebuilt on
+  `sold`), else the CRM's own status name. Every part follows WordPress's own slug rule: letters with
+  accents become their base letters (é to e, ä to a), apostrophes, parentheses and other marks are
+  dropped, and the words are cut so the slug fits 200 characters with the id intact. Every entity ends in `-<id>`, and the slug is rebuilt on
   every sync write and once on a plugin update. A request by id alone (`/objekt/<id>`) or by an
   old slug (`/objekt/<old slug>-<id>`) answers 301 to the current permalink, and a removed or
   unknown id answers 301 to the kind's archive (`includes/routing.php`), for every kind.
