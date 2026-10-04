@@ -36,21 +36,30 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   the map. b) **ask Vitec**: Patric asks his Vitec contact whether another API offers profiles
   with the visitor's own criteria; the item waits. c) **a site-side saved search**, later: the
   site stores the visitor's criteria and mails new hits from its own copy, a product of its own.
+- Answer a, b or c.
 
-## 130. `[core]` The design of form submissions: approve the contract, the adapter capability and the clients' part?
+## 130. `[core]` The design of form submissions: approve the two schemas, the adapter capability, the web process calling the CRM and the clients' part?
 
-- 2026-10-04 · `docs/forms.md`, "The design, for approval": one new schema
-  `schemas/submission.v1.json` (a universal submission with `id`, `kind` lead, interest or
-  viewing, `record`, `office_id`, `slot_id`, `person`, `message`, `consent`, `source`, every field
-  traced to the design's forms or to a field both CRMs take); `POST /v1/submissions` and
-  `GET /v1/submissions/slots` on the engine behind the tenant token, answering delivered, refused,
-  failed or 400; two optional members on the adapter API, `submit` and `slots`, with the kinds in
-  the manifest; a `submissions` table that keeps ids and outcomes and never the person; events, a
-  health check and a 60-a-minute limit; the Vitec adapter's mapping and five connection settings;
-  the plugin's two forwarding endpoints and the theme's three forms. Schemas, the adapter API and
-  the acceptance criteria are protected paths, hence the gate. Blocked: items 1 to 3 of the plan
-  in `docs/forms.md`. Settled by the agent as tooling: synchronous delivery, slots read live, a
-  UUID in the body, the limit's number.
+- 2026-10-04 · `docs/forms.md`, "The design, for approval". Two new schemas (a schema is the
+  written shape of a message, which Core checks every message against): `submission.v1.json`, a
+  universal submission with `id` (a random id the site makes once per filled form, so a repeat
+  makes one lead), `kind` lead, interest or viewing, `record`, `office_id`, `slot_id`, `person`,
+  `message`, `consent` and `source`, every field traced to the design's forms or to a field
+  Vitec's calls take; and `slots.v1.json`, the viewings and their bookable slots as the CRM sees
+  them now. Two calls on the engine behind the tenant token: `POST /v1/submissions`, answering
+  delivered, refused, failed, or 400, 501 and 429 before any CRM call, and
+  `GET /v1/submissions/slots`. Two optional members on the adapter API, `submit` and `slots`,
+  with the kinds in the manifest. A departure from strategy §5.1 named in the document: for a
+  submission the web process calls the CRM through the adapter and waits, the first CRM call
+  from `web`, because the visitor needs the CRM's answer (a full slot) while they wait. A
+  `submissions` table that keeps ids and outcomes and never the person; events, a health check
+  and a 60-a-minute limit per token. The Vitec adapter's mapping and six connection settings
+  (lead source, intake source, interest status, confirmation by e-mail, confirmation by SMS,
+  reminder minutes). The plugin's two forwarding endpoints and a setting for the footer's lead
+  office, and the theme's three forms. Schemas, the adapter API and the acceptance criteria are
+  protected paths, hence the gate. Blocked: items 1 to 3 of the plan in `docs/forms.md`. Settled
+  by the agent as tooling: synchronous delivery, slots read live, the id in the body, the
+  limit's number.
 - Answer a) **yes**, build it as written, or b) **no**, with what to change.
 
 ## 129. `[core]` Do form submissions live inside Core, or as a standalone widget for any site?
