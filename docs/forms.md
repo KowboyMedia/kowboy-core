@@ -130,7 +130,8 @@ session environment.
   interest, a viewing booking and "tip a friend" on the page, and fires an event when one is
   sent. It is weighed as option C below.
 
-Not verified, to be settled in the build against the test account: what Connect answers when a
+Not verified, to be settled in the build against a demo or test customer (none today; see
+"No write target" under the risks): what Connect answers when a
 slot is full or its deadline has passed (the booking call's "validation" flags suggest a refusal
 with a message); whether the interest call answers an id; whether a booking changes the estate's
 change date and so triggers a notification Core already handles; whether a viewing can carry
@@ -379,9 +380,10 @@ What the profile becomes in each CRM, verified 2026-10-04:
   values from `GET …/SearchProfile/SearchProfileValues`: apartment, villa, holiday home, plot),
   `numberOfRooms.minValue`, `livingSpace.minValue`, `areaIds` (the area ids the connection's area
   list already carries, matched from the names), `isAutomaticProfile: false`. **These calls are in
-  the CRM function group, granted per customer to the partner**: the test account's login answers
-  the advertising group (200) and the CRM group with 401 today, so a person in Vitec grants it
-  before the first real send (added to question 54).
+  the CRM function group, granted per customer to the partner**: the login in the environment
+  answers the advertising group (200) and the CRM group with 401 today, and that login reads a
+  client's production office, so a person in Vitec grants the group on a demo or test customer
+  before the first real send (question 54 f).
 - **Mspecs**: `POST /api/marketing/leads/matching` with the lead and one matching: `objectType`,
   `minRooms`, `minLivingArea` and the municipality code of the page's home (Mspecs matches by
   municipality code or a drawn polygon, not by area name, so the area names become the home's
@@ -566,8 +568,9 @@ generic capability item 21 in `docs/next-steps.md` asked for.
   `Contacts/UpdatePerson`, then the residential search profile call, both in the CRM function
   group with its own password per customer; the subtypes and area ids are mapped in the adapter.
 - The test stand-in Connect (`adapters/vitec/connect.ts`) gets the three calls and the form
-  endpoint, and one real send per kind is verified against the test account before the first
-  release, since the test account exists for that.
+  endpoint, and one real send per kind is verified against a demo or test customer Patric has
+  confirmed before the first release; never against the login in the environment, which reads a
+  client's production office (AGENTS.md, "Stop and ask").
 
 ### The Mspecs adapter's part, when the adapter exists
 
@@ -653,8 +656,8 @@ submission id is a UUID in the body; the rate limit is 60 a minute per token.
 ## Risks and unknowns
 
 - `[crm-vitec]` **Vitec's refusals** (full slot, passed deadline, duplicate person) are not
-  documented. The first build sends one of each against the test account and reads the answers
-  before the UI's words are written. Cheap: an hour against the test account.
+  documented. The first build sends one of each against a demo or test customer and reads the
+  answers before the UI's words are written. Cheap: an hour, once such a customer exists.
 - `[crm-vitec]` **Several slots per viewing** were not seen on the test account. The dialog
   handles one or many from the slots call; a person in Vitec could set a multi-slot viewing on
   the test account to prove it (the same kind of step as question 54).
@@ -664,9 +667,16 @@ submission id is a UUID in the body; the rate limit is 60 a minute per token.
 - `[core]` **Spam** on an open form reaches the CRM as leads. The bot gate is on from the first
   form (138), with the honeypot, the timing and the rate limit under it; Turnstile's free plan
   stops at twenty widgets, which is a count of sites to watch.
+- `[crm]` **No write target exists today** (Patric, 2026-10-04: no test CRM writes to a target
+  not confirmed as demo or test; the staging site's connections are a client's production
+  connections). The Vitec login in the environment reads a client's production office and is
+  read-only for Core; Mspecs's test server opens with a provider agreement. Every real send in
+  this plan waits for a demo or test customer Patric confirms (question 54 f); until then the
+  stand-in CRM is the only write target, and the rule is in AGENTS.md, "Stop and ask".
 - `[crm-vitec]` **The CRM function group** is granted per customer to the partner, apart from
-  the advertising group; the test account answers 401 for it today (probed 2026-10-04), so the
-  search profile cannot be tried against Vitec until a person in Vitec grants it (question 54).
+  the advertising group; the login in the environment answers 401 for it today (probed
+  2026-10-04, read-only), so the search profile needs the grant on the demo or test customer
+  (question 54 f).
 - `[core]` **The widget's look** must blend with each site's design (norbanmakleri.se for Kowboy
   2026): CSS variables and the site's font carry the look; the theme's own markup does not.
   Cheap to see: the first build is placed on the staging site's property page.
@@ -679,9 +689,9 @@ submission id is a UUID in the body; the rate limit is 60 a minute per token.
    adapter. One session. Interface: additive (two new schemas, two optional adapter members) plus
    the §5.1 amendment above.
 2. `[crm-vitec]` **The Vitec submit and slots**: the mapping, the six connection settings with
-   their directions, the stand-in's form endpoints, and one real send per kind against the test
-   account; the search profile's two calls against the stand-in, and against the test account
-   once the CRM function group is granted (54). One session.
+   their directions, the stand-in's form endpoints, and one real send per kind against a demo or
+   test customer Patric has confirmed (54 f); the search profile's two calls against the stand-in, and
+   against that customer once the CRM function group is granted on it. One session.
 3. `[core]` **The widget** (137): `clients/forms-widget/`, served at `/widget/forms.js`, the
    config call, Turnstile (138), the wizard with the profile step (139), the public site key and
    the Origin check; the plugin gets the tag and the key setting, the theme the buttons and the

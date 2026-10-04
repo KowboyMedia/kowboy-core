@@ -49,13 +49,20 @@ if (env.VITEC_USERNAME && env.VITEC_PASSWORD && env.VITEC_OFFICE_ID) {
   const base = (env.VITEC_BASE_URL ?? 'https://connect.maklare.vitec.net').replace(/\/$/, '');
   const url = `${base}/Advertising/Estate/${encodeURIComponent(env.VITEC_OFFICE_ID)}?paging.pageSize=1&paging.pageIndex=0`;
   checks.push(
-    probe('Vitec test account (VITEC_USERNAME, VITEC_PASSWORD, VITEC_OFFICE_ID)', url, {
-      headers: {
-        authorization: `Basic ${Buffer.from(`${env.VITEC_USERNAME}:${env.VITEC_PASSWORD}`).toString('base64')}`,
+    probe(
+      'Vitec partner login (VITEC_USERNAME, VITEC_PASSWORD, VITEC_OFFICE_ID; reads the production office of a client, never a write target)',
+      url,
+      {
+        headers: {
+          authorization: `Basic ${Buffer.from(`${env.VITEC_USERNAME}:${env.VITEC_PASSWORD}`).toString('base64')}`,
+        },
       },
-    }),
+    ),
   );
-} else checks.push('Vitec test account (VITEC_USERNAME, VITEC_PASSWORD, VITEC_OFFICE_ID): not set');
+} else
+  checks.push(
+    'Vitec partner login (VITEC_USERNAME, VITEC_PASSWORD, VITEC_OFFICE_ID; reads the production office of a client, never a write target): not set',
+  );
 
 if (env.POSTMARK_SERVER_TOKEN) {
   checks.push(

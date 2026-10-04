@@ -65,10 +65,12 @@ an agent: (a) a new-build project's homes appear in the marketed list with their
 (assumed on 2026-09-19, so a project page can list them); (b) whether the price text stays when
 the price is hidden; (c) whether the area name stays when the address is hidden; (d) what status
 a "till salu, visa som kommande" estate carries; (e) how each of the four bid settings shows in
-`bidding`; (f) added 2026-10-04: the CRM function group (version 1, category CRM-Contact) for
-the partner on the test customer, so the search profile (`docs/forms.md`, 139) can be sent; the
-login answers 200 for the advertising group and 401 for the CRM group today. Smaller: (a) alone
-now, the rest when the first client template needs them, (f) before the Vitec forms item.
+`bidding`; (f) added 2026-10-04: **a demo or test customer the partner may write to**, with the
+CRM function group (version 1, category CRM-Contact) granted on it, so the forms and the search
+profile (`docs/forms.md`, 139) can be sent for real. The login in the environment reads a
+client's production office (Patric, 2026-10-04), so no write ever goes there; it answers 200 for
+the advertising group and 401 for the CRM group today. Smaller: (a) alone now, the rest when the
+first client template needs them, (f) before the Vitec forms item.
 
 ## 80. `[client-wordpress]` Name the first client to port, once the default set is done
 
