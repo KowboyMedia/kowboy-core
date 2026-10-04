@@ -86,13 +86,13 @@ function core_client_query(array $params): array
     }
     $agents = core_client_query_list($params['agent'] ?? null);
     if ($agents !== []) {
-        $where[] = '(' . implode(' OR ', array_fill(0, count($agents), 'i.agent_ids LIKE %s')) . ')';
-        array_push($args, ...array_map(fn (string $agent): string => '%,' . $wpdb->esc_like($agent) . ',%', $agents));
+        $where[] = core_client_query_in_list('i.agent_ids', $agents);
+        array_push($args, ...core_client_query_list_args($agents));
     }
     $offices = core_client_query_list($params['office'] ?? null);
     if ($offices !== [] && $entity === 'agent') {
-        $where[] = '(' . implode(' OR ', array_fill(0, count($offices), 'i.office_ids LIKE %s')) . ')';
-        array_push($args, ...array_map(fn (string $office): string => '%,' . $wpdb->esc_like($office) . ',%', $offices));
+        $where[] = core_client_query_in_list('i.office_ids', $offices);
+        array_push($args, ...core_client_query_list_args($offices));
     } elseif ($offices !== []) {
         $where[] = 'i.office_id IN (' . implode(',', array_fill(0, count($offices), '%s')) . ')';
         array_push($args, ...$offices);
@@ -155,6 +155,32 @@ function core_client_query(array $params): array
 /**
  * The condition "the item is in one of these areas", by the link table (includes/areas.php): the
  * CRM's area and every outline that holds the item's point. One placeholder per id.
+ *
+ * @param list<string> $area_ids
+ */
+/**
+ * `(column LIKE %s OR …)`, one per id, for a column that holds ids as `,one,two,` (a home's agents,
+ * an agent's offices); the arguments come from `core_client_query_list_args`.
+ *
+ * @param list<string> $ids
+ */
+function core_client_query_in_list(string $column, array $ids): string
+{
+    return '(' . implode(' OR ', array_fill(0, count($ids), "$column LIKE %s")) . ')';
+}
+
+/**
+ * @param list<string> $ids
+ * @return list<string>
+ */
+function core_client_query_list_args(array $ids): array
+{
+    global $wpdb;
+    return array_map(fn (string $id): string => '%,' . $wpdb->esc_like($id) . ',%', $ids);
+}
+
+/**
+ * The homes the link table puts in any of the areas (includes/areas.php).
  *
  * @param list<string> $area_ids
  */

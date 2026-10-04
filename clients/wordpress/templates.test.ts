@@ -473,20 +473,28 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(await links()).toContain('P-1:D-2');
     expect(await links()).not.toContain('P-2:D-2');
 
-    // A plugin update: the links are rebuilt in the background from the stored records.
-    await wp(
+    // A plugin update: the first request after it reindexes, links the CRM's own areas in that
+    // request, and rebuilds the outlines' links in the background from the stored records.
+    const emptied = await wp(
       'eval',
-      'global $wpdb; $wpdb->query("TRUNCATE TABLE " . core_client_links_table()); update_option("core_client_db_version", "0.4.4");',
+      'global $wpdb; $wpdb->query("TRUNCATE TABLE " . core_client_links_table()); update_option("core_client_db_version", "0.4.4"); echo $wpdb->get_var("SELECT COUNT(*) FROM " . core_client_links_table());',
     );
-    expect(await links()).toEqual([]);
-    expect((await page('/')).status).toBe(200); // the first request after an update reindexes and schedules the rebuild
+    expect(emptied.stdout.trim()).toBe('0');
+    expect((await page('/')).status).toBe(200);
+    expect(await links()).toEqual(synced.filter((link) => link !== 'P-2:D-2'));
     const run = await driver<{ processed: number }>('backstop');
     expect(run.processed).toBeGreaterThan(0);
-    expect(await links()).toEqual([
+    const rebuilt = [
       'P-1:D-1',
       'P-1:D-2',
       ...synced.filter((link) => !link.startsWith('P-1:') && link !== 'P-2:D-2'),
-    ]);
+    ];
+    expect(await links()).toEqual(rebuilt);
+    // The rebuild hands over from batch to batch by the last post id it reached (two homes a batch here), so a home at a batch's edge is not skipped.
+    await wp('eval', 'global $wpdb; $wpdb->query("TRUNCATE TABLE " . core_client_links_table());');
+    expect((await driver<{ linked: number }>('rebuild', '2')).linked).toBe(2);
+    expect((await driver<{ processed: number }>('backstop')).processed).toBeGreaterThan(0);
+    expect(await links()).toEqual(rebuilt);
 
     // Back as first put, for the tests that follow.
     crm.put('area', 'D-2', {

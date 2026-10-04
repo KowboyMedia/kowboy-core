@@ -111,13 +111,16 @@ or `wp action-scheduler run`.
   area id, the association id, `listed`: 0 for an agent the CRM keeps out of the staff list on the record or on
   any office, the site's one rule over the data, the LKF code, the point, and an area's outline
   bounds with a hash of the outline), filled on every write.
-- The link table `wp_core_property_areas` holds which areas a home is in (`docs/search.md`;
-  Patric, 2026-10-04, question 133 a): the area the CRM named and every area whose outline
-  holds the home's point, found by the plugin's own point-in-polygon test
-  (`includes/areas.php`) when the record is written, against the areas whose bounds hold the
-  point. The links are redone only when a home's point or CRM area, or an area's outline,
-  changed; a plugin update rebuilds them all in the background, a batch at a time, as a
-  scheduled action. The area filters, the area page and the area card read this table.
+- The link table `wp_core_property_areas` holds which areas a home (a property or a project
+  record) is in (`docs/search.md`; Patric, 2026-10-04, question 133 a): the area the CRM named
+  and every area whose outline holds the home's point, found by the plugin's own
+  point-in-polygon test (`includes/areas.php`) when the record is written, against the areas
+  whose bounds hold the point. The links are redone only when a home's point or CRM area, or an
+  area's outline, changed. A plugin update writes the CRM's assignments again in the same
+  request and rebuilds the outline matches in the background, a batch at a time, as scheduled
+  actions; those run when WP-Cron next ticks (or on `wp action-scheduler run`), and until then an
+  area page lists the CRM's homes only. The area filters, the area page and the area card read
+  this table.
 
 ## Templates: the query function, the list function, the sets
 

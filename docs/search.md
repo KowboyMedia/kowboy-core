@@ -115,18 +115,20 @@ them at once. New or changed:
 Unchanged: `status`, `type`, `tenure`, the price, size and room bounds, `project`, `association`,
 `include_project_homes`, `include_hidden`, `sort`, `per_page`, `page`.
 
-**The index table gains seven columns**, copied from the stored record at every write like the
+**The index table gains eight columns**, copied from the stored record at every write like the
 others: on a home `county_municipality_code` (the code as sent, up to six characters), `lat` and
 `lng`; on an area the four bounds of its outline, `min_lat`, `max_lat`, `min_lng`, `max_lng`,
 so the matching below finds its candidates with one small query and never opens an outline that
-cannot hold the point. A home without a code is simply never found by a code; the link table
+cannot hold the point, and `polygon_hash`, one short value that changes when the outline does,
+so a write knows whether to relink without comparing outlines (Patric's rule: only on a change). A home without a code is simply never found by a code; the link table
 still finds it by area. **One key** on (datatype, code) serves the prefix search; the free text's
 three columns are compared in one scan, which on the sites this serves (hundreds to a few
 thousand homes) is under a millisecond, and a key is added when a measurement asks for one.
 
 **One new link table**, `wp_core_property_areas` (home post id, area id), with a key on the
 area id, holds every area a home belongs to: the CRM's assignment and every outline its point
-falls in. The existing `area_id` column keeps the CRM's own choice, so the table can always be
+falls in. A home here is a property or a project record (both have a point and an address);
+the query's `entity` keeps them apart as before. The existing `area_id` column keeps the CRM's own choice, so the table can always be
 rebuilt from it and the outlines.
 
 ## Matching a home to areas by outline
@@ -275,8 +277,8 @@ database the suites already drive, plus one browser journey:
    another name for `q`, the place group as "any of", and the restrictions `agent`, `office` and
    `area_id` as lists, combined with status and price.
 2. The outline test on hand-drawn shapes through the test driver; then, with the fake CRM's area
-   given an outline and its homes points (the fake adapter maps them, `golden/fake/` updated,
-   both agent-owned): a home inside an outline is linked, inside a hole is not, outside is not;
+   given an outline and its homes points (the fake adapter maps them; the suite's own fixtures
+   draw them, both agent-owned): a home inside an outline is linked, inside a hole is not, outside is not;
    a home the CRM put in one area and whose point lies in another is in both (133 a) or in the
    CRM's only (133 b); a redrawn outline re-links; a plugin update's scheduled rebuild fills the
    table.
@@ -295,7 +297,7 @@ Acceptance: AC 20's search half names these tests; the report is regenerated.
 
 ## Order of building, three sessions
 
-1. **The query and the data** (plugin 0.5.0): the seven columns and the key, the link table, the
+1. **The query and the data** (plugin 0.5.0): the eight columns and the key, the link table, the
    län table, the outline test, the new parameters with `area` kept as a name for `q`, the
    scheduled rebuild, the fake CRM's outline and points, tests 1 and 2. The theme's search form
    sends `q`. Nothing visible changes but the free text's rule.

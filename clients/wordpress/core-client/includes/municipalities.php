@@ -17,15 +17,6 @@ function core_client_municipality_name(?string $code): ?string
     return CORE_CLIENT_MUNICIPALITIES[substr($code, 0, 4)] ?? null;
 }
 
-/** The län's name for a code of two digits or more; null for no code, or one the table lacks. */
-function core_client_county_name(?string $code): ?string
-{
-    if ($code === null || !preg_match('/^\d{2}/', $code)) {
-        return null;
-    }
-    return CORE_CLIENT_COUNTIES[substr($code, 0, 2)] ?? null;
-}
-
 /**
  * The codes of every län and kommun whose name begins with the words, compared without case and
  * without accents (the slug rule), so "malm" names Malmö and "skåne" and "skane" alike name

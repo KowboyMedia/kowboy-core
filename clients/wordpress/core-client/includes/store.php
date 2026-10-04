@@ -359,8 +359,8 @@ function core_client_reindex(): void
         $columns = array_map(fn (mixed $value): mixed => is_numeric($value) && !is_string($value) ? $value : $value, $columns);
         core_client_replace_index_row([...$columns, 'synced_at' => 'now', ...core_client_search_columns(is_object($data) ? $data : new stdClass())]);
     }
-    // The links from homes to areas, in the background (includes/areas.php): the areas' bounds above are what it reads.
-    as_enqueue_async_action(CORE_CLIENT_LINK_REBUILD, ['offset' => 0], 'core-client');
+    // The links from homes to areas (includes/areas.php): the CRM's at once, the outlines' in the background from the bounds above.
+    core_client_schedule_link_rebuild();
 }
 
 /**
@@ -451,14 +451,15 @@ function core_client_store_record(int $post_id, string $datatype, string $json, 
     $data = is_object($data) ? $data : new stdClass();
     // What the home-to-area links depend on, as the row held it before this write (includes/areas.php).
     $before = $wpdb->get_row($wpdb->prepare('SELECT lat, lng, area_id, polygon_hash FROM ' . core_client_index_table() . ' WHERE post_id = %d', $post_id));
+    $columns = core_client_search_columns($data);
     core_client_replace_index_row([
         'post_id' => $post_id,
         'datatype' => $datatype,
         ...$row,
         'synced_at' => 'now',
-        ...core_client_search_columns($data),
+        ...$columns,
     ]);
-    core_client_link_record($post_id, $datatype, $data, is_object($before) ? $before : null);
+    core_client_link_record($post_id, $datatype, (string) ($row['remote_id'] ?? ''), $columns, is_object($before) ? $before : null, $data->polygon ?? null);
     clean_post_cache($post_id);
     do_action('core_item_updated', $post_id, $datatype);
 }
@@ -496,6 +497,12 @@ function core_client_replace_index_row(array $row): void
     $wpdb->query($wpdb->prepare($sql, ...$args));
 }
 
+/** A number as the record carries it, as a float; anything else, a numeric string included, is no number. */
+function core_client_number(mixed $value): ?float
+{
+    return is_int($value) || is_float($value) ? (float) $value : null;
+}
+
 /**
  * The search columns, copied from the universal names of `data` as they are, null where the
  * record has no value. Nothing is judged: a status id is stored, a price is stored.
@@ -505,7 +512,6 @@ function core_client_replace_index_row(array $row): void
 function core_client_search_columns(object $data): array
 {
     $id = fn (mixed $named): ?string => is_object($named) && is_string($named->id ?? null) ? $named->id : null;
-    $number = fn (mixed $value): ?float => is_int($value) || is_float($value) ? (float) $value : null;
     $text = fn (mixed $value): ?string => is_string($value) && $value !== '' ? mb_substr($value, 0, 191) : null;
     $moment = function (mixed $value): ?string {
         $time = is_string($value) ? strtotime($value) : false;
@@ -540,9 +546,9 @@ function core_client_search_columns(object $data): array
         'status_id' => $id($data->status ?? null),
         'type_id' => $id($data->type ?? null),
         'tenure_id' => $id($data->tenure ?? null),
-        'price' => $number($data->price ?? null),
-        'living_space' => $number($data->living_space ?? null),
-        'rooms' => $number($data->rooms ?? null),
+        'price' => core_client_number($data->price ?? null),
+        'living_space' => core_client_number($data->living_space ?? null),
+        'rooms' => core_client_number($data->rooms ?? null),
         'area_name' => $text($address->area_name ?? null),
         'city' => $text($address->city ?? null),
         'street' => $text($address->street ?? null),
@@ -559,8 +565,8 @@ function core_client_search_columns(object $data): array
         'association_id' => $text($data->association_id ?? null),
         // The place: a home's code sits under its address, an area's on the record; the point as sent.
         'county_municipality_code' => $text($address->county_municipality_code ?? $data->county_municipality_code ?? null),
-        'lat' => $number($data->lat ?? null),
-        'lng' => $number($data->lng ?? null),
+        'lat' => core_client_number($data->lat ?? null),
+        'lng' => core_client_number($data->lng ?? null),
         // An area's outline, as its bounds and a hash to compare against (includes/areas.php).
         'min_lat' => $bounds['min_lat'] ?? null,
         'max_lat' => $bounds['max_lat'] ?? null,

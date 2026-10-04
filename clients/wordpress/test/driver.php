@@ -336,6 +336,7 @@ $result = match ($command) {
     'typed' => core_driver_typed((array) json_decode($argument, true)),
     'inside' => core_driver_inside((array) json_decode($argument, true)),
     'links' => core_driver_links(),
+    'rebuild' => ['linked' => core_client_rebuild_links(0, max(1, (int) $argument))],
     default => null,
 };
 if ($result === null) {

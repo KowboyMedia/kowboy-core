@@ -12,7 +12,7 @@ declare(strict_types=1);
 
 const CORE_CLIENT_LINK_REBUILD = 'core_client_link_rebuild';
 const CORE_CLIENT_LINK_BATCH = 200;
-/** The bounds are widened by about a metre, so the six decimals the row keeps never exclude a point on the edge. */
+/** The bounds are widened by about a metre, so the six decimals `wpdb::prepare` writes a number with never exclude a point on the edge. */
 const CORE_CLIENT_BOUNDS_MARGIN = 0.00001;
 
 function core_client_links_table(): string
@@ -74,8 +74,7 @@ function core_client_point_in_ring(float $lat, float $lng, mixed $ring): bool
 /** @return array{0: float|null, 1: float|null} longitude, latitude */
 function core_client_ring_point(mixed $point): array
 {
-    $number = fn (mixed $value): ?float => is_int($value) || is_float($value) ? (float) $value : null;
-    return is_array($point) ? [$number($point[0] ?? null), $number($point[1] ?? null)] : [null, null];
+    return is_array($point) ? [core_client_number($point[0] ?? null), core_client_number($point[1] ?? null)] : [null, null];
 }
 
 /**
@@ -118,46 +117,33 @@ function core_client_polygon_hash(mixed $multipolygon): ?string
 
 /**
  * After an index row was written: redo the links the record takes part in, when what they
- * depend on changed. `$before` is the index row as it stood before the write (null for a new
- * record), with `lat`, `lng`, `area_id` and `polygon_hash`.
+ * depend on changed. `$columns` are the search columns just written and `$before` the index row
+ * as it stood before the write (null for a new record), both with `lat`, `lng`, `area_id` and
+ * `polygon_hash`; `$polygon` is an area's outline.
+ *
+ * @param array<string, string|int|float|null> $columns
  */
-function core_client_link_record(int $post_id, string $datatype, object $data, ?object $before): void
+function core_client_link_record(int $post_id, string $datatype, string $remote_id, array $columns, ?object $before, mixed $polygon = null): void
 {
+    $same = fn (string $column): bool => $before !== null && core_client_same_value($before->$column ?? null, $columns[$column] ?? null);
     if ($datatype === 'area') {
-        $hash = core_client_polygon_hash($data->polygon ?? null);
-        if ($before === null || ($before->polygon_hash ?? null) !== $hash) {
-            core_client_relink_area((string) ($data->id ?? ''), $data->polygon ?? null);
+        if (!$same('polygon_hash')) {
+            core_client_relink_area($remote_id, $polygon);
         }
         return;
     }
-    if (!core_client_linked_datatype($datatype)) {
-        return;
-    }
-    $point = core_client_record_point($data);
-    $crm_area = is_object($data->address ?? null) && is_string($data->address->area_id ?? null) ? $data->address->area_id : null;
-    $same = $before !== null
-        && core_client_same_number($before->lat ?? null, $point[0])
-        && core_client_same_number($before->lng ?? null, $point[1])
-        && ($before->area_id ?? null) === $crm_area;
-    if (!$same) {
-        core_client_link_home($post_id, $point[0], $point[1], $crm_area);
+    if (core_client_linked_datatype($datatype) && !($same('lat') && $same('lng') && $same('area_id'))) {
+        core_client_link_home($post_id, core_client_number($columns['lat'] ?? null), core_client_number($columns['lng'] ?? null), is_string($columns['area_id'] ?? null) ? $columns['area_id'] : null);
     }
 }
 
-/** @return array{0: float|null, 1: float|null} latitude, longitude */
-function core_client_record_point(object $data): array
-{
-    $number = fn (mixed $value): ?float => is_int($value) || is_float($value) ? (float) $value : null;
-    return [$number($data->lat ?? null), $number($data->lng ?? null)];
-}
-
-/** Equal to the six decimals the index row keeps. */
-function core_client_same_number(mixed $stored, ?float $value): bool
+/** Equal as the index row keeps the value: a number to within the six decimals `wpdb::prepare` writes, a string as it is. */
+function core_client_same_value(mixed $stored, mixed $value): bool
 {
     if ($stored === null || $value === null) {
         return $stored === null && $value === null;
     }
-    return abs((float) $stored - $value) < 0.000001;
+    return is_float($value) ? abs((float) $stored - $value) < 0.000001 : (string) $stored === (string) $value;
 }
 
 /**
@@ -250,20 +236,36 @@ function core_client_unlink(int $post_id, string $datatype, string $remote_id): 
 }
 
 /**
- * The rebuild a plugin update schedules: every home's links again, a batch at a time, each batch
- * its own scheduled action so no single request runs long. The areas' bounds were rewritten by
- * the reindex before the first batch runs.
+ * What a plugin update does for the links (includes/store.php calls it after the reindex): the
+ * CRM's own assignments in one statement, so an area page is right in the same request, then
+ * every home's links again in the background, where the outlines are tested. Unique, so two
+ * first requests after an update schedule one rebuild.
  */
-function core_client_rebuild_links(int $offset = 0): void
+function core_client_schedule_link_rebuild(): void
+{
+    global $wpdb;
+    $index = core_client_index_table();
+    $links = core_client_links_table();
+    $wpdb->query("INSERT IGNORE INTO $links (post_id, area_id) SELECT post_id, area_id FROM $index WHERE datatype IN ('property', 'project') AND area_id IS NOT NULL");
+    as_enqueue_async_action(CORE_CLIENT_LINK_REBUILD, ['after' => 0], 'core-client', true);
+}
+
+/**
+ * The rebuild: every home's links again, a batch at a time, each batch its own scheduled action
+ * so no single request runs long. A batch is the homes after the last post id the batch before
+ * reached, so a home that comes or goes meanwhile moves nothing. The areas' bounds were rewritten
+ * by the reindex before the first batch runs. Returns how many homes the batch linked.
+ */
+function core_client_rebuild_links(int $after = 0, int $batch = CORE_CLIENT_LINK_BATCH): int
 {
     global $wpdb;
     $index = core_client_index_table();
     $rows = $wpdb->get_results($wpdb->prepare(
-        "SELECT post_id, lat, lng, area_id FROM $index WHERE datatype IN ('property', 'project') ORDER BY post_id LIMIT %d OFFSET %d",
-        CORE_CLIENT_LINK_BATCH,
-        $offset,
-    ));
-    foreach ($rows ?: [] as $row) {
+        "SELECT post_id, lat, lng, area_id FROM $index WHERE datatype IN ('property', 'project') AND post_id > %d ORDER BY post_id LIMIT %d",
+        $after,
+        $batch,
+    )) ?: [];
+    foreach ($rows as $row) {
         core_client_link_home(
             (int) $row->post_id,
             $row->lat === null ? null : (float) $row->lat,
@@ -271,11 +273,13 @@ function core_client_rebuild_links(int $offset = 0): void
             is_string($row->area_id) ? $row->area_id : null,
         );
     }
-    if (count($rows ?: []) === CORE_CLIENT_LINK_BATCH) {
-        as_enqueue_async_action(CORE_CLIENT_LINK_REBUILD, ['offset' => $offset + CORE_CLIENT_LINK_BATCH], 'core-client');
+    if (count($rows) === $batch) {
+        $last = $rows[count($rows) - 1];
+        as_enqueue_async_action(CORE_CLIENT_LINK_REBUILD, ['after' => (int) $last->post_id, 'batch' => $batch], 'core-client', true);
     }
+    return count($rows);
 }
 
-add_action(CORE_CLIENT_LINK_REBUILD, function (int $offset = 0): void {
-    core_client_rebuild_links($offset);
-});
+add_action(CORE_CLIENT_LINK_REBUILD, function (int $after = 0, int $batch = CORE_CLIENT_LINK_BATCH): void {
+    core_client_rebuild_links($after, $batch);
+}, 10, 2);
