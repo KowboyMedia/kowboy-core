@@ -1,7 +1,7 @@
 <?php
 // The site's own agents and offices (Patric, 2026-10-03, question 125): records a site adds in
 // its admin that no CRM carries. They live in the same post types and the same index as the
-// CRM's, under the connection `site` with ids `site-<post number>`, so every list, card and page
+// CRM's, under the connection `site` with ids `s<post number>`, so every list, card and page
 // sees both kinds through one path; a pull never names them, and the rebuild's sweep leaves them
 // (includes/sync.php). A CRM record stays the CRM's: locked in the admin (includes/store.php),
 // and the list's Source column and the edit screen say so.
@@ -10,10 +10,14 @@ declare(strict_types=1);
 
 const CORE_CLIENT_SITE_NONCE = 'core_client_site_record';
 
-/** The id of a record the site typed itself: the post number behind the site's prefix, so it never meets a CRM id. */
+/**
+ * The id of a record the site typed itself: `s` and the post number, one token (`s12`), so the
+ * address keeps the CRM records' pattern, `<name>-<id>`, with an id of its own structure that never
+ * meets a CRM id (Patric, 2026-10-04).
+ */
 function core_client_site_id(int $post_id): string
 {
-    return core_client_site_connection() . '-' . $post_id;
+    return 's' . $post_id;
 }
 
 /** What the admin says of a CRM record wherever someone could try to change it. */
@@ -142,7 +146,7 @@ foreach (['agent', 'office'] as $core_site_datatype) {
 }
 unset($core_site_datatype);
 
-// The slug of a record the site types, set before the post is written (`erik-egen-site-12`, by the
+// The slug of a record the site types, set before the post is written (`erik-egen-s12`, by the
 // one function every record's address comes from), so no second write follows the save.
 add_filter('wp_insert_post_data', function (array $data, array $postarr): array {
     $post_id = (int) ($postarr['ID'] ?? 0);

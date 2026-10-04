@@ -47,8 +47,9 @@ in `docs/decisions.md` and item 22 in `docs/next-steps.md` is done. **The ask** 
 
 **Where they live.** In the same two post types the plugin already uses for offices and agents,
 with the record as the same JSON and one index row each. A typed record's connection is the site
-itself (`site`) and its id is `site-<post number>`: the site looks a record up by type and id in
-any connection, so a bare number could meet a numeric CRM id, and the prefix keeps the two apart. Its address comes from the one slug function like every record's (`maklare/erik-egen-site-12`; the id alone or an old address answers 301). The raw CRM payload meta is empty for it. Everything that reads records (lists,
+itself (`site`) and its id is `s<post number>` (Patric, 2026-10-04: the address keeps the CRM
+records' pattern, `<name>-<id>`, with an id of another structure, one token): the site looks a record up by type and id in
+any connection, so a bare number could meet a numeric CRM id, and the prefix keeps the two apart. Its address comes from the one slug function like every record's (`maklare/erik-egen-s12`; the id alone or an old address answers 301). The raw CRM payload meta is empty for it. Everything that reads records (lists,
 cards, single pages, `?debugpl`, the viewers in the admin) sees both kinds through one code
 path, because nothing downstream reads the connection.
 

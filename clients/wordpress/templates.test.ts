@@ -623,9 +623,9 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     const typedPosts = [office, erik, fia, gun].map((one) => one.post_id);
     try {
       // The record under the universal names, the id behind the site's prefix, the address like every record's (101).
-      expect(office.id).toBe(`site-${office.post_id}`);
-      expect(pathOf(office.permalink)).toBe(`/?core_office=kowboy-norr-site-${office.post_id}`);
-      expect(pathOf(erik.permalink)).toBe(`/?core_agent=erik-egen-site-${erik.post_id}`);
+      expect(office.id).toBe(`s${office.post_id}`);
+      expect(pathOf(office.permalink)).toBe(`/?core_office=kowboy-norr-s${office.post_id}`);
+      expect(pathOf(erik.permalink)).toBe(`/?core_agent=erik-egen-s${erik.post_id}`);
       expect(office.data).toMatchObject({
         name: 'Kowboy Norr',
         display: { address_line: 'Norra vägen 2, 111 22 Stockholm' },
@@ -633,7 +633,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
         email: 'norr@kowboy.test',
       });
       expect(erik.data).toMatchObject({
-        id: `site-${erik.post_id}`,
+        id: `s${erik.post_id}`,
         name: 'Erik Egen',
         title: 'Mäklare',
         email: 'erik@kowboy.test',
@@ -734,15 +734,13 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
       for (const name of [erik.id, `erik-gammal-${erik.id}`]) {
         const response = await fetch(`${siteUrl}/?core_agent=${name}`, { redirect: 'manual' });
         expect(response.status).toBe(301);
-        expect(response.headers.get('location')).toContain(
-          `core_agent=erik-egen-site-${erik.post_id}`,
-        );
+        expect(response.headers.get('location')).toContain(`core_agent=erik-egen-s${erik.post_id}`);
       }
       const renamed = await typed({
         datatype: 'agent',
         post: { ID: erik.post_id, post_title: 'Erik Ensam' },
       });
-      expect(pathOf(renamed.permalink)).toBe(`/?core_agent=erik-ensam-site-${erik.post_id}`);
+      expect(pathOf(renamed.permalink)).toBe(`/?core_agent=erik-ensam-s${erik.post_id}`);
       expect(renamed.data).toMatchObject({
         name: 'Erik Ensam',
         title: 'Mäklare',
@@ -750,7 +748,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
       });
       const oldAddress = await fetch(`${siteUrl}${pathOf(erik.permalink)}`, { redirect: 'manual' });
       expect(oldAddress.status).toBe(301);
-      expect(oldAddress.headers.get('location')).toContain(`erik-ensam-site-${erik.post_id}`);
+      expect(oldAddress.headers.get('location')).toContain(`erik-ensam-s${erik.post_id}`);
       // A draft is not on the site and keeps its fields; published again, it is back.
       await typed({ datatype: 'agent', post: { ID: fia.post_id, post_status: 'draft' } });
       expect((await page('/?post_type=core_agent')).body).not.toContain('Fia Ny');
@@ -767,8 +765,8 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
         post: { post_title: 'Hans Hastig', post_status: 'publish' },
       });
       typedPosts.push(hans.post_id);
-      expect(hans.id).toBe(`site-${hans.post_id}`);
-      expect(pathOf(hans.permalink)).toBe(`/?core_agent=hans-hastig-site-${hans.post_id}`);
+      expect(hans.id).toBe(`s${hans.post_id}`);
+      expect(pathOf(hans.permalink)).toBe(`/?core_agent=hans-hastig-s${hans.post_id}`);
       expect(hans.data).toMatchObject({ name: 'Hans Hastig', image: null });
       // Deleted in the admin, a typed record is gone from the index too.
       await wp('eval', `wp_delete_post(${gun.post_id}, true);`);
