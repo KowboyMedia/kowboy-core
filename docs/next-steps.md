@@ -433,7 +433,11 @@ client ports (item 16, first client by question 80).
     plugin 0.5.3 and theme 1.1.2: the box offers an area its homes name even when the site has
     no record of it (the staging homes' areas are not in the CRM's area list, known bug 2), and
     the pills grow the form downward instead of pushing the field up; both on the staging site
-    the same day. Next: nothing of this item; Patric's next look decides.
+    the same day. His second look found the box itself immature (the list under the cards'
+    labels, no close on a click outside, an unreliable open, doubt about phones), question 140,
+    answered a: the box is the library Tom Select, plugin 0.5.4 and theme 1.1.3, with a phone
+    journey, on the staging site the same day. Next: nothing of this item; Patric's next look
+    decides.
     Default 135 (the tests under criterion 20) waits; the acceptance list is edited when it stands.
     - **Component:** `[client-wordpress]`, the plugin first, the theme's two list blocks after.
     - **What changes for the product:** the list search takes an LKF code or its län or kommun

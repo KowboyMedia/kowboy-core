@@ -8,7 +8,8 @@ both of a home's agents. All three sessions below are built, 2026-10-04: the que
 the pick endpoint (plugin 0.5.1, theme 1.1.0, test 4) and the search box with pills (plugin
 0.5.2, theme 1.1.1, tests 3 and 5), all on the staging site since 2026-10-04 with Patric's two
 fixes from his first look (plugin 0.5.3, theme 1.1.2: the areas the homes name are offered, the
-pills grow the form downward). **The ask** (Patric, 2026-10-04, "discuss before building"): the search
+pills grow the form downward) and, after his second look, the box itself replaced by the library
+Tom Select (plugin 0.5.4, theme 1.1.3, question 140 a; "The search box" below). **The ask** (Patric, 2026-10-04, "discuss before building"): the search
 method accepts an LKF code or the significant part of one (the L part for a län, the LK part for a
 kommun); a free text search matches the beginning of a street address, of an area name or of a
 kommun name; the WordPress property list and agent list are blocks that live in the plugin, not
@@ -233,8 +234,9 @@ offices; the list holds the agents of those offices, in the CRM's order as today
   says otherwise, the same stance as decision 124 (the list's cost is WordPress's start, not the
   query).
 - **Typing** narrows the suggestions in the browser, over at most a few hundred entries, so it
-  is instant. **Choosing** one adds a pill under the field and runs the search at once. **Clicking
-  a pill** removes it and runs the search again. Pills mean "any of these places".
+  is instant. **Choosing** one adds a pill in the field and runs the search at once. **The cross
+  on a pill** removes it and runs the search again, as does Backspace in the empty field. Pills
+  mean "any of these places".
 - **Typing without choosing** and pressing Sök or Enter searches the words as free text, by the
   rule of `q` above. With pills present the words narrow further (Default 134): the pills say
   where, the words say which street or name. With no pill the words search alone, as the ask says.
@@ -250,28 +252,49 @@ offices; the list holds the agents of those offices, in the CRM's order as today
   read the price and size today.
 - **Keyboard and screen readers** follow the standard combo box pattern (the WAI-ARIA combobox:
   arrow keys move, Enter chooses, Escape closes, the field names its list).
-- **The plugin's own small script and stylesheet** draw the box, about two hundred lines, loaded
-  only on a page that has a list with place search, and the theme restyles it with its own
-  stylesheet. Not a library: Tom Select is the market-leading multi-pick combo box, but the box
-  must work both inside the shadow root the plugin opens around the archive page and the
-  shortcode by default and on the open page where the theme's blocks render, the option list is
-  small, so a library's filtering and virtual scrolling buy nothing, and the look must be the
-  theme's. That is the stated reason for not taking the library; the decision is recorded in
-  `docs/decisions.md` (2026-10-04).
-- **Built as** (2026-10-04): `includes/place-search.php` holds the places query
+- **The box is Tom Select** (2.6.2, Apache-2.0, bundled in the plugin under `lib/tom-select`, no
+  build step; Patric, 2026-10-04, question 140 a). The first build was the plugin's own box, a
+  script of 250 lines, by the decision "not a library" of the same morning: it had to work inside
+  the shadow root and on the open page, the list is small and the look is the theme's. Patric's
+  second look found it immature: the open list was painted under the cards' labels, a click
+  outside did not close it, a click on the field did not reliably open it, and he doubted phones.
+  A library carries years of handling of focus, touch, keyboard and screen readers that our box
+  would re-learn bug by bug, and the spike showed Tom Select works inside an open shadow root as
+  it does on the page, with a mouse and under a thumb. So the library replaced the box; the
+  plugin's script (`assets/place-search.js`, about 150 lines) only sets it up, writes the fields
+  and the address and tells the list; the plugin's stylesheet gives the structure over the
+  library's own, and the theme the look. Not the phone's native picker (140 c): one box on every
+  screen, as the library gives it.
+- **Built as** (2026-10-04, plugin 0.5.4): `includes/place-search.php` holds the places query
   (`core_client_places($params)`, one group count per group through the list's own condition,
-  `core_client_query_condition()`, without the visitor's choices and the paging), the pills from
-  the address (`core_client_place_pills`) and the one render function; the field is `q`, the
-  pills write two hidden fields, `areas` and `lkf`, so a plain submit and the script's reload
-  send the same parameters. The script and the stylesheet (`assets/place-search.js`, `.css`) are
-  enqueued only in a request that drew a box, and `core_client_wrap` links the stylesheet inside
-  every shadow root of such a request. The script tells the list on the page with one event,
-  `core-list:params` on the `[data-list]` element nearest the box, else the first on the page,
-  its detail the form's fields; the set's list script merges the detail into its parameters and
-  reloads from the first page. The theme's search card (`parts/search-form.php`) calls the
-  function and keeps its text field when the plugin is older than 0.5.2; the hero block's setting
-  "Platssök" (none, areas, or areas with kommuner and län, the last by default) and the archive
-  page (places) choose the groups.
+  `core_client_query_condition()`, without the visitor's choices and the paging), the labels of
+  the chosen places from the address (`core_client_place_pills`) and the one render function. The
+  markup is a plain `<select multiple>` with up to three `optgroup`s (Områden, Kommuner, Län), an
+  option's value its kind and id (`areas:D-2`, `lkf:0180`), the chosen places `selected`; a
+  chosen place the list does not offer (its homes all sold here) is added to its group so its
+  pill shows and can be taken away. The select carries no name: three hidden fields do, `q` (the
+  free text), `areas` and `lkf`, written by the script, so a plain submit and the script's reload
+  send the same parameters; without the script the box is a plain select the form does not send.
+  The library, its stylesheet, the script and the plugin's stylesheet are enqueued only in a
+  request that drew a box, and `core_client_wrap` links both stylesheets inside every shadow root
+  of such a request. The script makes one Tom Select per box (the `remove_button` plugin, chosen
+  places hidden from the list, the list closed after a choice, no limit on the options shown, the
+  groups in the markup's order, filtering at once rather than 300 ms after the last keystroke, so
+  Enter right after the last letter acts on what the letters leave) with one change of its own:
+  closing the list keeps the typed words, where the library clears them, also when the field
+  loses focus, which would empty the field as the visitor reaches for the button. Enter with a
+  place highlighted takes it (the library highlights the first match as one types); Enter with
+  none, the words being no place, sends them as free text through the form, and the list says so
+  ("Ingen plats matchar. Enter söker orden som text."). A choice clears the words. Every change
+  of the chosen places writes the hidden fields and the address and tells the list on the page
+  with one event, `core-list:params` on the `[data-list]` element nearest the box, else the first
+  on the page, its detail the form's fields; the set's list script merges the detail into its
+  parameters and reloads from the first page. The theme's search card (`parts/search-form.php`)
+  calls the function and keeps its text field when the plugin is older than 0.5.2; the hero
+  block's setting "Platssök" (none, areas, or areas with kommuner and län, the last by default)
+  and the archive page (places) choose the groups. The theme (1.1.3) restyles the library's
+  control as its other fields (a line under it, 44 px, the pills as small outlined chips in it)
+  and its list in the card's colours, and lifts the hero's form above the cards' labels.
 - **The Till salu page's search card** keeps its three choices (max price, minimum size,
   minimum rooms) and swaps the "Område" text field for this box.
 - **An area the site has no record of** (plugin 0.5.3, Patric, 2026-10-04: the staging site's
@@ -281,14 +304,13 @@ offices; the list holds the agents of those offices, in the CRM's order as today
   does not exist until the record does. The option and the pill read the same: the pill takes
   the label the box offers, and only an area the box does not offer (its homes all sold on this
   list) falls back to the record, then to the homes. **The pills grow the form downward** (theme
-  1.1.2): the form on the hero's edge is anchored at its top and its row at the top, so the
-  field and the button keep their place when a pill is added (measured on the staging site at
-  390, 900 and 1280 px wide). The pills stack one per row in the place column, so from the third
-  pill the form reaches over the status tabs under the hero on wide screens: "a bit down" as
-  Patric allowed; a row of pills under the whole form would be the next step if that bothers.
-  On narrow screens the form is in the hero's flow, so a hero with spare height (a short lead)
-  would still give the pill's height to the space above the form; the Till salu page's lead
-  fills its hero, and no other hero carries the form.
+  1.1.2, kept in 1.1.3): the form on the hero's edge is anchored at its top and its row at the
+  top, so the field's top, the other fields and the button keep their place when a pill is added
+  (the journey measures it). The pills sit in the field and wrap to new lines as they come, so
+  from the second or third pill the form reaches over the status tabs under the hero on wide
+  screens: "a bit down" as Patric allowed. On narrow screens the form is in the hero's flow, so
+  a hero with spare height (a short lead) would still give the pills' height to the space above
+  the form; the Till salu page's lead fills its hero, and no other hero carries the form.
 
 ## Performance, in numbers
 
@@ -327,11 +349,14 @@ database the suites already drive, plus one browser journey:
 5. One browser journey (Playwright, `npm run test:journeys:wordpress`, its own config
    `clients/wordpress/playwright.config.ts`; the site is `test/journey-site.ts`, the real
    WordPress with the suite's records through a real Core, run from `dist` after `npm run build`
-   as the admin area's journeys are): on the Till salu page, type, choose a suggestion by mouse
-   and by keyboard, the pill appears and the cards reload, the address carries the choice,
-   clicking the pill or Backspace removes it, words with and without a pill search as Default 134
-   says, and the page drawn again from the address shows the pill, the words and the cards; the
-   field and the button keep their place when a pill is added and the form grows downward.
+   as the admin area's journeys are): on the Till salu page, a click opens the list and a click
+   outside closes it, the open list is painted over everything under it, type, choose a
+   suggestion by mouse and by keyboard, the pill appears and the cards reload, the address
+   carries the choice, the pill's cross or Backspace removes it, words with and without a pill
+   search as Default 134 says, and the page drawn again from the address shows the pill, the
+   words and the cards; the field's top, the other fields and the button keep their place when a
+   pill is added and the form grows downward. A second journey walks the box under a thumb on a
+   phone's screen (a tap opens, a tap outside closes, a tap chooses and a tap removes).
 
 Acceptance: AC 20's search half names these tests; the report is regenerated.
 
@@ -345,7 +370,8 @@ Acceptance: AC 20's search half names these tests; the report is regenerated.
    pick control and the pick endpoint, the two blocks, the theme's wrappers, test 4.
 3. **The search box** (plugin 0.5.x, theme 1.1.x): the one render function, the places data, the
    script and stylesheet, the pills and the address, the Till salu card, tests 3 and 5, then the
-   deploy to the staging site.
+   deploy to the staging site. Built as our own box (0.5.2), replaced by Tom Select after Patric's
+   second look (0.5.4, question 140 a).
 
 ## Not asked for, cheap to add
 
@@ -359,8 +385,8 @@ Acceptance: AC 20's search half names these tests; the report is regenerated.
 - Build it in the plugin, as above: the query function takes `lkf`, `areas`, `q` and the list
   restrictions; a home's areas are computed at the write by the outline test, from the areas
   whose bounds hold its point, and stored in one link table; two blocks with the settings of the
-  ask live in the plugin and render through the theme's views; the search box is the plugin's
-  own small combo box with pills, drawn by one plugin function and fed from the page's own
-  markup.
+  ask live in the plugin and render through the theme's views; the search box is a combo box
+  with pills drawn by one plugin function and fed from the page's own markup (first the plugin's
+  own, since 140 a the library Tom Select).
 - Decide 133 (a home inside two outlines is in both areas, recommended) and confirm or refuse
   Default 134 (free text narrows the pills), then the three sessions above run in order.

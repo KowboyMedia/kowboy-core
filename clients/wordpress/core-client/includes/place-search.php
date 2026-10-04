@@ -1,14 +1,15 @@
 <?php
 // The search box of docs/search.md ("The search box: the combo box with pills"): one function
-// draws it for any set, with the places a visitor may choose written into the markup as data,
-// so the box is full the moment the page shows and no second request is made. It offers only the
-// places that would give a result: the areas, kommuner and län with at least one home matching
-// the list's own setting (its statuses and its "show only from these"), one group count over the
-// index per group, through the same condition the list query uses. The chosen places stand as
-// pills; the plugin's small script (assets/place-search.js) narrows the suggestions as the
-// visitor types, keeps the pills, writes the choice to the address and tells the list on the page
-// to reload its cards. Not a library (decision of 2026-10-04): the box must work inside the
-// shadow root and on the open page alike, over a few hundred entries, in the set's look.
+// draws it for any set, with the places a visitor may choose written into the markup as the
+// options of a plain multi-select, so the box is full the moment the page shows and no second
+// request is made. It offers only the places that would give a result: the areas, kommuner and
+// län with at least one home matching the list's own setting (its statuses and its "show only
+// from these"), one group count over the index per group, through the same condition the list
+// query uses. The box itself is Tom Select (lib/tom-select, decision of 2026-10-04, question 140 a:
+// Patric found our own box immature on his second look): it turns the select into a combo box
+// with the chosen places as pills; the plugin's small script (assets/place-search.js) sets it up on
+// the page and inside every shadow root, writes the choice to the hidden fields and the address,
+// and tells the list on the page to reload its cards.
 
 declare(strict_types=1);
 
@@ -96,10 +97,10 @@ function core_client_area_as_homes_name_it(string $area_id): array
 }
 
 /**
- * The labels of the places the address names, for the pills the page renders: an area as the
- * box offers it (`$offered`, id to label), so a pill reads the same drawn from the address as
- * chosen from the list; else by its stored record, else as its homes name it. A code by the
- * plugin's tables. A place the site does not know at all reads as its id.
+ * The places the address names, for the pills the box shows: an area as the box offers it
+ * (`$offered`, id to label), so a pill reads the same drawn from the address as chosen from the
+ * list; else by its stored record, else as its homes name it. A code by the plugin's tables. A
+ * place the site does not know at all reads as its id.
  *
  * @param list<string> $area_ids
  * @param list<string> $codes
@@ -133,9 +134,14 @@ function core_client_place_pills(array $area_ids, array $codes, array $offered =
 }
 
 /**
- * The box: the field (`q`, the free text), the suggestions as data, the pills of the chosen
- * places and the two hidden fields that carry them (`areas`, `lkf`), so a plain form submit and
- * the script's reload send the same parameters. Empty when the list has no place search.
+ * The box: a multi-select of the places in three groups, the chosen ones selected (a chosen
+ * place the list does not offer, its homes all sold here, is added to its group so its pill
+ * shows and can be taken away), and the three hidden fields that carry the search (`q`, the
+ * free text; `areas` and `lkf`, the chosen places), so a plain form submit and the script's
+ * reload send the same parameters. An option's value is its kind and id, `areas:D-2` or
+ * `lkf:0180`, which the script splits into the two fields. The select carries no name: the
+ * script writes the fields; without it the box is a plain select the form does not send. Empty
+ * when the list has no place search.
  *
  * @param array<string, mixed> $params the list's parameter set
  */
@@ -146,19 +152,22 @@ function core_client_place_search(array $params): string
         return '';
     }
     core_client_place_search_assets();
-    $data = [];
+    $groups = core_client_places($params);
     $offered = [];
-    foreach (core_client_places($params) as $group => $places) {
-        foreach ($places as $place) {
-            $data[] = ['group' => $group, 'id' => $place['id'], 'label' => $place['label']];
-            if ($group === 'areas') {
-                $offered[$place['id']] = $place['label'];
-            }
-        }
+    foreach ($groups['areas'] as $place) {
+        $offered[$place['id']] = $place['label'];
     }
     $area_ids = core_client_query_list($params['areas'] ?? null);
     $codes = array_values(array_filter(core_client_query_list($params['lkf'] ?? null), fn (string $code): bool => preg_match('/^(\d{2}|\d{4}|\d{6})$/', $code) === 1));
-    $pills = core_client_place_pills($area_ids, $codes, $offered);
+    $chosen = [];
+    foreach (core_client_place_pills($area_ids, $codes, $offered) as $pill) {
+        $group = $pill['kind'] === 'areas' ? 'areas' : (strlen($pill['id']) === 2 ? 'counties' : 'municipalities');
+        $chosen[$group][$pill['id']] = true;
+        $ids = array_column($groups[$group], 'id');
+        if (!in_array($pill['id'], $ids, true)) {
+            $groups[$group][] = ['id' => $pill['id'], 'label' => $pill['label'], 'homes' => 0];
+        }
+    }
     $words = ($params['q'] ?? '') !== '' ? $params['q'] : ($params['area'] ?? '');
     $q = is_scalar($words) ? trim((string) $words) : '';
     // One id per box drawn in the request, so two boxes on one page keep their own label and list.
@@ -166,27 +175,43 @@ function core_client_place_search(array $params): string
     $id = 'core-place-' . ++$drawn;
     $placeholder = $level === 'areas' ? 'Område' : 'Område, kommun eller län';
 
-    $html = '<div class="core-place-search" data-place-search data-places="' . esc_attr((string) wp_json_encode($data, JSON_UNESCAPED_UNICODE)) . '">';
+    $html = '<div class="core-place-search" data-place-search>';
     $html .= '<label class="core-place-search__label" for="' . esc_attr($id) . '">Plats</label>';
-    $html .= '<input class="core-place-search__input" id="' . esc_attr($id) . '" type="search" name="q" value="' . esc_attr($q) . '" placeholder="' . esc_attr($placeholder) . '" autocomplete="off" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="' . esc_attr($id) . '-list">';
-    $html .= '<ul class="core-place-search__list" id="' . esc_attr($id) . '-list" role="listbox" aria-label="Platser" hidden></ul>';
-    $html .= '<div class="core-place-search__pills" data-pills>';
-    foreach ($pills as $pill) {
-        $html .= '<button type="button" class="core-place-search__pill" data-pill-kind="' . esc_attr($pill['kind']) . '" data-pill-id="' . esc_attr($pill['id']) . '" aria-label="' . esc_attr('Ta bort ' . $pill['label']) . '">' . esc_html($pill['label']) . '<span aria-hidden="true"> ×</span></button>';
+    $html .= '<select class="core-place-search__select" id="' . esc_attr($id) . '" multiple autocomplete="off" data-placeholder="' . esc_attr($placeholder) . '" data-no-match="' . esc_attr('Ingen plats matchar. Enter söker orden som text.') . '">';
+    foreach (['areas' => 'Områden', 'municipalities' => 'Kommuner', 'counties' => 'Län'] as $group => $heading) {
+        if ($groups[$group] === []) {
+            continue;
+        }
+        $kind = $group === 'areas' ? 'areas' : 'lkf';
+        $html .= '<optgroup label="' . esc_attr($heading) . '">';
+        foreach ($groups[$group] as $place) {
+            $selected = isset($chosen[$group][$place['id']]) ? ' selected' : '';
+            $html .= '<option value="' . esc_attr($kind . ':' . $place['id']) . '"' . $selected . '>' . esc_html($place['label']) . '</option>';
+        }
+        $html .= '</optgroup>';
     }
-    $html .= '</div>';
+    $html .= '</select>';
+    $html .= '<input type="hidden" name="q" value="' . esc_attr($q) . '">';
     $html .= '<input type="hidden" name="areas" value="' . esc_attr(implode(',', $area_ids)) . '">';
     $html .= '<input type="hidden" name="lkf" value="' . esc_attr(implode(',', $codes)) . '">';
     return $html . '</div>';
 }
 
-/** The address of the box's stylesheet, for the page and for the shadow roots the plugin opens. */
-function core_client_place_search_css(): string
+/**
+ * The addresses of the box's stylesheets, the library's first so the plugin's rules win over it,
+ * for the page and for the shadow roots the plugin opens.
+ *
+ * @return list<string>
+ */
+function core_client_place_search_css(): array
 {
-    return add_query_arg('ver', CORE_CLIENT_VERSION, plugins_url('assets/place-search.css', CORE_CLIENT_FILE));
+    return [
+        add_query_arg('ver', CORE_CLIENT_VERSION, plugins_url('lib/tom-select/tom-select.min.css', CORE_CLIENT_FILE)),
+        add_query_arg('ver', CORE_CLIENT_VERSION, plugins_url('assets/place-search.css', CORE_CLIENT_FILE)),
+    ];
 }
 
-/** Whether a box was drawn in this request, so `core_client_wrap` links the stylesheet inside the root too. */
+/** Whether a box was drawn in this request, so `core_client_wrap` links the stylesheets inside the root too. */
 function core_client_place_search_used(?bool $used = null): bool
 {
     static $drawn = false;
@@ -196,10 +221,13 @@ function core_client_place_search_used(?bool $used = null): bool
     return $drawn;
 }
 
-/** The box's script and stylesheet, loaded only on a page that draws a box. */
+/** The library, the box's script and the two stylesheets, loaded only on a page that draws a box. */
 function core_client_place_search_assets(): void
 {
     core_client_place_search_used(true);
-    wp_enqueue_style('core-client-place-search', core_client_place_search_css(), [], null);
-    wp_enqueue_script('core-client-place-search', plugins_url('assets/place-search.js', CORE_CLIENT_FILE), [], CORE_CLIENT_VERSION, ['in_footer' => true]);
+    foreach (core_client_place_search_css() as $index => $css) {
+        wp_enqueue_style($index === 0 ? 'core-client-tom-select' : 'core-client-place-search', $css, [], null);
+    }
+    wp_enqueue_script('core-client-tom-select', plugins_url('lib/tom-select/tom-select.complete.min.js', CORE_CLIENT_FILE), [], CORE_CLIENT_VERSION, ['in_footer' => true]);
+    wp_enqueue_script('core-client-place-search', plugins_url('assets/place-search.js', CORE_CLIENT_FILE), ['core-client-tom-select'], CORE_CLIENT_VERSION, ['in_footer' => true]);
 }
