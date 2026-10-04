@@ -3,7 +3,7 @@
  * Plugin Name: Kowboy Core Client
  * Plugin URI: https://kowboy.se/core-client
  * Description: Keeps this site's copy of its Kowboy Core data current, and renders only from that copy.
- * Version: 0.5.6
+ * Version: 0.5.7
  * Requires at least: 6.8
  * Requires PHP: 8.2
  * Author: Kowboy Media
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const CORE_CLIENT_VERSION = '0.5.6';
+const CORE_CLIENT_VERSION = '0.5.7';
 const CORE_CLIENT_FILE = __FILE__;
 
 // Action Scheduler, bundled: the job queue for the scheduled sync (includes/schedule.php). It
@@ -38,6 +38,7 @@ require __DIR__ . '/includes/query.php';
 require __DIR__ . '/includes/templates.php';
 require __DIR__ . '/includes/blocks.php';
 require __DIR__ . '/includes/place-search.php';
+require __DIR__ . '/includes/forms.php';
 require __DIR__ . '/includes/debug.php';
 require __DIR__ . '/includes/packages.php';
 require __DIR__ . '/includes/sync.php';

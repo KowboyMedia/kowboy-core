@@ -518,9 +518,10 @@
       "title": "A record of another tenant, a body outside the schema, a lead without an office, a kind the CRM does not take and the 61st in a minute are refused before any CRM call",
       "phase": "engine",
       "tests": [
-        "submissions another tenant’s record, a body outside the schema, a lead without an office, a kind the CRM does not take and the 61st in a minute are refused before any CRM call"
+        "submissions another tenant’s record, a body outside the schema, a lead without an office, a kind the CRM does not take and the 61st in a minute are refused before any CRM call",
+        "the forms widget’s door refuses a missing or unknown site key, a foreign or missing origin, a switched-off site, a failed human check and the 11th submission in a minute from one address, before any CRM call"
       ],
-      "note": "400 for the other tenant's record, a record Core does not hold, a value off the whitelist, a consent not given and an unknown field; 400 for a lead without office_id once the tenant has two offices; 501 from the fake webhook CRM, which lists no submissions; 429 on the 61st post from the token in a minute. The stand-in received nothing."
+      "note": "400 for the other tenant's record, a record Core does not hold, a value off the whitelist, a consent not given and an unknown field; 400 for a lead without office_id once the tenant has two offices; 501 from the fake webhook CRM, which lists no submissions; 429 on the 61st post from the token in a minute. The stand-in received nothing. The widget's door (docs/forms.md): 401 without a known site key, 403 from an origin the site has not registered or for a switched-off site or a failed bot check, 429 on the 11th post from one address in a minute; the stand-in received nothing for any of them."
     },
     {
       "ac": 47,
@@ -536,8 +537,11 @@
       "ac": 48,
       "title": "The widget's three forms pass a browser journey against Core on the staging site, and the browser never receives the tenant token or the CRM login",
       "phase": "engine",
-      "tests": [],
-      "note": "Waits on the widget, next-steps item 21's third item (docs/forms.md, the plan)."
+      "tests": [
+        "journey: the three form buttons open the wizard, the forms reach the CRM through Core, and the browser never sees the tenant token",
+        "the forms widget’s door answers the config, the record and the slots to the site key from the site’s origin, and sends a submission through to the CRM"
+      ],
+      "note": "Proved locally on the test WordPress with the real theme Kowboy 2026, plugin 0.5.7 and a real Core over the fake polling CRM (clients/wordpress/e2e/forms-widget.spec.ts): the interest, the booking of a live slot and the free valuation each confirmed, the profile step prefilled from the home, and no request carried the tenant token nor any answer contained it; the door's own test proves the config, the record, the slots, the preflight and the served widget. The same walk on the staging site is the last proof once the theme thread deploys plugin 0.5.7 with the site key (docs/forms.md, \"Built 2026-10-04: the widget\")."
     },
     {
       "ac": 49,

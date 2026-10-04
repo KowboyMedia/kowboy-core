@@ -84,8 +84,9 @@ perfectly healthy. Two tenants may name the same office: the record is fetched o
 for each of them, each with its own copies, its own version numbers and its own sites, which is
 how two sites can show one brokerage's listings. Core does not warn about that; the page says it
 where the offices are typed.
-Its sites are on the same page with their bell address, their bell secret, their setup checklist,
-what they reported applied and failed, and their own errors.
+Its sites are on the same page with their bell address, their bell secret, their public site key
+for the forms widget and the addresses the widget may be used from (empty: the bell address's
+site), their setup checklist, what they reported applied and failed, and their own errors.
 Under each connection, one line counts the forms visitors sent through Core to that CRM in the
 last day (docs/forms.md): delivered, refused by the CRM, unanswered by the CRM; red when any went
 unanswered. The visitor is never stored in Core, so the line has counts and nothing else.
@@ -213,6 +214,11 @@ drive directly.
   the kind, the record and the CRM's answer, never the person; the events `submission.received`,
   `.delivered`, `.refused` and `.failed` sit on the record's timeline; the check
   `submissions.failing` is red while a connection's latest submission went unanswered by the CRM.
+  The browser's door (`engine/http/forms.ts`, the widget of docs/forms.md): `GET /v1/forms/config`,
+  `GET /v1/forms/record`, `GET /v1/forms/slots` and `POST /v1/forms/submissions` take a site's
+  public key and its origin over CORS, with the bot gate (`engine/human.ts`, `TURNSTILE_SITE_KEY`
+  and `TURNSTILE_SECRET`) on a submission and a limit per address; `GET /widget/forms.js` is the
+  widget itself, built into `dist/widget`.
 - **Settings** (`engine/storage/settings.ts`): the switches a person throws, one row per key, read
   by whichever process needs them so web and worker agree without a restart.
 

@@ -30,7 +30,9 @@ on port 5173 against a Core running beside it.
 Optional: `SENTRY_ENVIRONMENT` names the environment (staging, production, local) in alerts and
 to Sentry, `PUBLIC_URL` is where Core is reached for the link in alerts, `ALERT_EMAIL` (mailed
 through Postmark: `MAIL_FROM`, `POSTMARK_SERVER_TOKEN`) and `ALERT_SLACK_WEBHOOK_URL` are where an
-alert goes when a health check changes state.
+alert goes when a health check changes state. `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` turn on
+the bot gate of the forms widget (docs/forms.md), which Core serves at `/widget/forms.js`; unset,
+the forms have no gate.
 
 The Vitec adapter's connection format, webhook URL and settings (`VITEC_WEBHOOK_TOKEN`,
 `VITEC_FETCH_CONCURRENCY`) are in [adapters/vitec/README.md](adapters/vitec/README.md).

@@ -392,8 +392,15 @@ client ports (item 16, first client by question 80).
     five tests under AC 43, 44, 47 and 49; docs/forms.md, "Built 2026-10-04: the Vitec adapter's
     part"): the four kinds mapped onto Connect's calls, the seven connection settings typed on
     the connection's page with their directions, the slots from the form endpoint; the real send
-    waits on a confirmed test customer (54 f). Next: the widget, with the plugin's script tag and
-    site-key setting, binding the theme's marked buttons.
+    waits on a confirmed test customer (54 f). **The widget built 2026-10-04** (docs/forms.md,
+    "Built 2026-10-04: the widget"): `clients/forms-widget/` served at `/widget/forms.js`, the
+    browser's door `/v1/forms/*` with a public site key per site and the site's origin, Turnstile
+    behind one interface (no gate until its keys are set), the wizard of 139, and plugin 0.5.7
+    with the "Site key" setting and the script tag; proved by the door's tests and a browser
+    journey through the real theme and plugin (AC 48 locally). Left: the theme's optional
+    `data-viewing` mark and the deploy of plugin 0.5.7 with the key pasted into the staging site
+    (the theme thread), Turnstile's keys in the environments, the lead office for a site with
+    several offices, and the real Vitec send (54 f). Question 105 is settled by it.
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in

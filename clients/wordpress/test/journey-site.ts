@@ -6,11 +6,12 @@
 // It serves only once the records and the demo pages are in, so the first request a journey
 // makes, and the WP-Cron run a request spawns, meet a site that is done.
 import '../../../acceptance/setup.js';
-import { harness, TOKEN, until } from '../../../acceptance/harness.js';
+import { harness, TENANT, TOKEN, until } from '../../../acceptance/harness.js';
+import { addSubscriber, subscribers } from '../../../engine/storage/connections.js';
 import { fakePollingAdapter, poll } from '../../../adapters/fake-polling/index.js';
 import * as crm from '../../../adapters/fake-polling/crm.js';
 import { BELL_SECRET, CONNECTION } from '../../client-driver.js';
-import { fillTheCrm } from './records.js';
+import { fillTheCrm, soon } from './records.js';
 import { configure, driver, serve, stop, wp } from './site.js';
 
 const port = Number(process.argv[2] ?? 4320);
@@ -38,7 +39,33 @@ for (const [option, value] of [
   await driver('option', `${option} ${value}`);
 }
 await driver('theme', 'kowboy-2026');
+// The site in Core, so its forms widget has a site key and an address it may be used from
+// (docs/forms.md, the widget's door); the key goes into the plugin's settings as a person pastes it.
+const siteId = await addSubscriber({
+  tenantId: TENANT,
+  label: 'journey site',
+  bellUrl: site.bellUrl,
+  bellSecret: BELL_SECRET,
+  origins: [`http://127.0.0.1:${String(port)}`],
+});
+const siteKey = (await subscribers()).find((row) => Number(row.id) === siteId)?.site_key ?? '';
+await driver('option', `core_client_site_key ${JSON.stringify(siteKey)}`);
 fillTheCrm();
+// The bookable viewing of Kungsgatan 3 has two slots in the CRM, one of them full.
+crm.setShowings('P-3', [
+  {
+    showing_id: 'SH-1',
+    from: soon(48),
+    to: soon(49),
+    book_before: soon(47),
+    open_booking: true,
+    shown: true,
+    times: [
+      { time_id: 'T-1', from: soon(48), to: soon(48.5), open: true, places_left: 4 },
+      { time_id: 'T-2', from: soon(48.5), to: soon(49), open: false, places_left: 0 },
+    ],
+  },
+]);
 await poll();
 await site.trigger('delta');
 await until(

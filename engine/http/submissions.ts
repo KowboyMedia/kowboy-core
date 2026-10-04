@@ -2,7 +2,9 @@
 // 130): a site's form reaches the brokerage's CRM through Core, and the CRM's answer reaches the
 // visitor while they wait. Core authenticates, validates, finds the connection and hands the
 // submission to that connection's adapter inside the request; it stores and logs the id and the
-// outcome, never the person, and reads nothing out of the submission to decide anything.
+// outcome, never the person, and reads nothing out of the submission to decide anything. The
+// browser's door (forms.ts, the widget with its public site key) comes through the same two
+// functions, `submitThrough` and `slotsThrough`, with the site already known.
 import { authenticate } from './changes.js';
 import { validateSlots, validateSubmission } from '../contract.js';
 import { connectionById, subscriberByBellUrl } from '../storage/connections.js';
@@ -26,7 +28,7 @@ import type {
   SubmissionResult,
 } from '../adapter-api/types.js';
 
-/** More than this from one tenant token in a minute is answered 429 (strategy §13). */
+/** More than this from one tenant in a minute is answered 429 (strategy §13), whichever door. */
 export const SUBMISSIONS_PER_MINUTE = 60;
 /** How long Core waits for the CRM before the submission counts as failed (strategy §13). */
 export const SUBMISSION_TIMEOUT_MS = 20_000;
@@ -34,9 +36,12 @@ const MINUTE_MS = 60_000;
 /** How often a repeated id still in flight looks for the first request's answer. */
 const WAIT_STEP_MS = 50;
 
+/** Who came in, through either door: the tenant, and the site when it is known. */
+export type Door = { tenantId: number; subscriberId: number | null };
+
 const recent = new Map<number, number[]>();
 
-/** The limit per tenant token, in this process: a sliding minute. */
+/** The limit per tenant, in this process: a sliding minute. */
 function overLimit(tenantId: number): boolean {
   const now = Date.now();
   const times = (recent.get(tenantId) ?? []).filter((at) => now - at < MINUTE_MS);
@@ -51,18 +56,33 @@ export function resetSubmissionLimits(): void {
   recent.clear();
 }
 
+/** The server's door: the tenant token, and the site named by `X-Core-Site`. */
 export async function submit(request: Request): Promise<Response> {
-  const parsed = await parseSubmission(request);
-  if ('response' in parsed) return parsed.response;
-  const { tenantId, submission } = parsed;
+  const auth = await authenticate(request);
+  if ('error' in auth) return jsonResponse(auth.status, { error: auth.error });
+  const subscriberId = await subscriberByBellUrl(
+    auth.tenantId,
+    request.headers['x-core-site'] ?? null,
+  );
+  return submitThrough(request, { tenantId: auth.tenantId, subscriberId });
+}
 
-  const routed = await route(tenantId, submission);
+export async function submitThrough(request: Request, door: Door): Promise<Response> {
+  if (overLimit(door.tenantId)) {
+    return jsonResponse(429, {
+      error: `more than ${String(SUBMISSIONS_PER_MINUTE)} submissions in a minute; try again shortly`,
+    });
+  }
+  const parsed = parseSubmission(request);
+  if ('response' in parsed) return parsed.response;
+  const { submission } = parsed;
+
+  const routed = await route(door.tenantId, submission);
   if ('response' in routed) return routed.response;
   const { connection, send } = routed;
 
-  const subscriberId = await subscriberByBellUrl(tenantId, request.headers['x-core-site'] ?? null);
   const where = {
-    tenantId,
+    tenantId: door.tenantId,
     connectionId: connection.id,
     datatype: submission.record?.datatype ?? null,
     remoteId: submission.record?.remote_id ?? null,
@@ -77,12 +97,13 @@ export async function submit(request: Request): Promise<Response> {
   if (!claim.claimed) {
     // The same id again: a double click or a retried request. The first request's answer is the
     // answer, once it is in; nothing is sent twice.
-    if (claim.existing.tenant_id !== tenantId) {
+    if (claim.existing.tenant_id !== door.tenantId) {
       return jsonResponse(400, { id: submission.id, error: 'this id was used by another tenant' });
     }
     return answerFrom(await settled(claim.existing));
   }
 
+  const subscriberId = door.subscriberId;
   await logEvent({
     type: 'submission.received',
     correlationId: submission.id,
@@ -102,19 +123,10 @@ export async function submit(request: Request): Promise<Response> {
   return answerFrom(toAnswer(submission.id, result));
 }
 
-type Parsed = { tenantId: number; submission: Submission } | { response: Response };
+type Parsed = { submission: Submission } | { response: Response };
 
-/** The token, the limit, the JSON and the schema: the two answers given before any lookup. */
-async function parseSubmission(request: Request): Promise<Parsed> {
-  const auth = await authenticate(request);
-  if ('error' in auth) return { response: jsonResponse(auth.status, { error: auth.error }) };
-  if (overLimit(auth.tenantId)) {
-    return {
-      response: jsonResponse(429, {
-        error: `more than ${String(SUBMISSIONS_PER_MINUTE)} submissions in a minute; try again shortly`,
-      }),
-    };
-  }
+/** The JSON and the schema: the answers given before any lookup. */
+function parseSubmission(request: Request): Parsed {
   let body: unknown;
   try {
     body = request.json<unknown>();
@@ -125,7 +137,7 @@ async function parseSubmission(request: Request): Promise<Parsed> {
   if (!checked.valid) {
     return { response: jsonResponse(400, { error: 'not a submission', detail: checked.errors }) };
   }
-  return { tenantId: auth.tenantId, submission: body as Submission };
+  return { submission: body as Submission };
 }
 
 type Routed =
@@ -292,18 +304,21 @@ function answerFrom(answer: Answer): Response {
 export async function slots(request: Request): Promise<Response> {
   const auth = await authenticate(request);
   if ('error' in auth) return jsonResponse(auth.status, { error: auth.error });
+  return slotsThrough(request, { tenantId: auth.tenantId, subscriberId: null });
+}
 
+export async function slotsThrough(request: Request, door: Door): Promise<Response> {
   const connectionId = request.query.get('connection_id');
   const remoteId = request.query.get('remote_id');
   if (!connectionId || !remoteId) {
     return jsonResponse(400, { error: 'connection_id and remote_id are required' });
   }
   const connection = await connectionById(connectionId);
-  if (!connection || connection.tenantId !== auth.tenantId) {
+  if (!connection || connection.tenantId !== door.tenantId) {
     return jsonResponse(400, { error: 'the record is not one of this tenant’s' });
   }
   const item = await readItem({
-    tenantId: auth.tenantId,
+    tenantId: door.tenantId,
     connectionId,
     datatype: 'property',
     remoteId,

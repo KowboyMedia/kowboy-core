@@ -37,7 +37,13 @@ export default tseslint.config(
     rules: { complexity: 'off' },
   },
   {
-    files: ['admin/src/**/*.ts', 'admin/e2e/**/*.ts', 'clients/wordpress/e2e/**/*.ts'],
+    files: [
+      'admin/src/**/*.ts',
+      'admin/e2e/**/*.ts',
+      'clients/wordpress/e2e/**/*.ts',
+      // The forms widget runs in the visitor's browser (clients/forms-widget).
+      'clients/forms-widget/src/**/*.ts',
+    ],
     languageOptions: { globals: { ...globals.browser } },
   },
   {

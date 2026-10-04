@@ -7,9 +7,11 @@ writes live" below and 129 is open again in `docs/open-questions.md`. Later the 
 proposed the forms as a remote widget with a matching step and asked for anti-bot protection;
 that is "The form itself" below, questions 137 to 139, which he answered the same day: the widget,
 Turnstile, and a wizard whose last step is the search profile; he also pointed to Vitec's search
-profile calls in the version 1 API, which closes 131, and 129 stands as a. **Core's part and the
-Vitec adapter's part are built** (Patric: "Go", 2026-10-04; "Built 2026-10-04: Core's part" and
-"Built 2026-10-04: the Vitec adapter's part" below); the widget follows. A
+profile calls in the version 1 API, which closes 131, and 129 stands as a. **All three parts are
+built** (Patric: "Go", 2026-10-04; "Built 2026-10-04: Core's part", "the Vitec adapter's part" and
+"the widget" below): Core's endpoints, the Vitec adapter against the stand-in, and the widget with
+the plugin's script tag. What remains: the theme's `data-viewing` mark and the staging deploy (the
+theme thread), Turnstile's keys in the environment, and the real Vitec send (54 f). A
 clickable dry run of the wizard, with sample data and no CRM, is published as a private page:
 <https://claude.ai/artifact/ALpPRzfUXWSAG4TLpATFEP> (2026-10-04); its markup is the starting point
 for `clients/forms-widget/`. **The
@@ -713,9 +715,14 @@ the three buttons carry `data-core-form` (`viewing`, `interest`, `lead`) and `da
 (`property:<connection>:<id>`) as above, and lead to the agent's card or the office's details
 while the widget is not on the page; the theme's own click handler steps back from a click the
 widget has taken (`event.defaultPrevented`), so the widget's handler should prevent the default.
-What remains for the widget item on the WordPress side: the plugin's script tag and site-key
-setting. What follows is the form-per-client alternative that was not chosen, kept for the
-comparison.
+**The plugin's side is built too** (2026-10-04, plugin 0.5.7): a "Site key" field under Forms on
+its settings page, and with a key the plugin prints the widget's script tag on every page, with
+the site's privacy policy page as `data-policy-url` for the consent line
+(`core-client/includes/forms.php`). The widget reads one more optional mark the theme may add:
+`data-viewing="<viewing id>"` on a viewing's own "Boka här", so the booking step shows that
+viewing's slots only and picks the one free slot when there is one; the viewing's id is the
+record's `viewings[].id`. What follows is the form-per-client alternative that was not chosen,
+kept for the comparison.
 
 Both clients already hold the tenant token on their server side and send `X-Core-Site`; the
 browser never sees either.
@@ -790,8 +797,8 @@ against the fake polling CRM, which takes every kind, and the fake webhook CRM, 
 - Strategy §5.1 carries the departure (the web process calls the CRM for a submission), §13 the
   two defaults, §10 the criteria 43 to 49.
 
-Not yet: the widget, the site key, the Origin check and Turnstile (plan item 3), which bring
-criterion 48 and the skipped third step of 49.
+Then the widget, the site key, the Origin check and Turnstile (plan item 3, below), which
+bring criterion 48 and the skipped third step of 49.
 
 ### Built 2026-10-04: the Vitec adapter's part (plan item 2)
 
@@ -842,6 +849,58 @@ A note for the widget (plan item 3): the criteria's `object_type` cannot be read
 the widget, because the home's universal `type` is the CRM's own enumeration and reading it would
 put CRM knowledge in a client. The widget sends `object_type: null` unless Patric wants the
 visitor asked; both adapters take null (Vitec: no subtypes, an open profile).
+
+### Built 2026-10-04: the widget (plan item 3)
+
+What exists, proved by `acceptance/forms-widget.test.ts` (the door, under criteria 46 and 48) and
+the browser journey `clients/wordpress/e2e/forms-widget.spec.ts` (the three forms on the test
+site through the real theme, plugin and Core, under 48), and described in
+`clients/forms-widget/README.md`:
+
+- **The site key and the browser's door.** Every site carries a public key, `pk_…`, next to its
+  bell secret (migration 011; shown on the tenant's page with a copy button), and the addresses
+  its widget may be used from (typed on the same page; empty means the bell address's site).
+  The browser reaches four calls with it and nothing else (`engine/http/forms.ts`):
+  `GET /v1/forms/config` (the kinds the tenant's CRMs take, the tenant's area list for the
+  chips, the bot gate to render), `GET /v1/forms/record` (the home's street, rooms, living
+  space, areas, municipality code and viewing ids, copied from the stored record for the heading
+  and the prefill), `GET /v1/forms/slots` and `POST /v1/forms/submissions`, the last two the
+  same code as the server's door. Core refuses a missing or unknown key (401), a request whose
+  `Origin` is not one of the site's addresses (403, and the preflight answers only a known
+  address), a switched-off site (403), a failed bot check (403) and the 11th submission in a
+  minute from one address (429), before any CRM call; the tenant's 60 a minute hold as well. The
+  server's door, `POST /v1/submissions` with the tenant token, stays for a site that posts from
+  its own server; it has no CORS.
+- **The bot gate** (138): `engine/human.ts`, one interface, Turnstile behind it. With
+  `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` set, the config names the service and the widget
+  renders its challenge while the visitor types (invisible unless the service wants an
+  interaction), the token travels as `X-Core-Human`, and Core verifies it with the secret; unset,
+  there is no gate, which is the local and test setup. **Production needs the two keys before
+  the first form goes live** (a Cloudflare account, one widget per site, ten hostnames each).
+  Always on: the widget's honeypot field, at least three seconds from open to send, and Core's
+  limits per tenant and per address.
+- **The widget** (`clients/forms-widget/`, Vite, no framework, 25 kB, 8 kB over the wire):
+  binds every `data-core-form` button on the page and inside every open shadow root through the
+  click's composed path, in the capture phase, and prevents the default, so the theme's fallback
+  scroll steps back. The wizard of question 139 in its own shadow root: the slots read live (the
+  full ones disabled, "N platser kvar" when the CRM counts), the person, the main submission the
+  moment its information is in, the confirmation as the heading, the optional profile step with
+  the minimums prefilled from the home (the closest whitelisted value below) and the site's
+  areas as chips with the home's pressed, "Kontakta mig om min nuvarande bostad" on a home's
+  forms only, Skip and Send; the refusal shows the CRM's words and offers another slot, a
+  failure says the CRM did not answer and keeps the typed details. The person is remembered in
+  the visitor's own browser after a sent form, with a line saying so and "Glöm mig". Served by
+  Core at `/widget/forms.js` with a five-minute cache, so a fix reaches every site without a
+  deploy of theirs. `object_type` is sent as null: the record's `type` is the CRM's own
+  enumeration, which a client never reads; both CRMs take null (Vitec: no subtypes).
+- **The plugin** (0.5.7): the "Site key" setting and the script tag (above).
+
+Not done here: the theme's optional `data-viewing` mark and the deploy of plugin 0.5.7 to the
+staging site with the key pasted in (the theme thread, which holds the site login), the
+Turnstile keys in the environments, and the lead office for a site with several offices (the
+footer's lead has no `data-office`; Core fills the tenant's only office and refuses a lead for a
+tenant with several). Criterion 48 names the local journey; the same walk on the staging site is
+the last proof once the deploy is done.
 
 ## The decisions (the discover list)
 
@@ -902,7 +961,8 @@ submission id is a UUID in the body; the rate limit is 60 a minute per token.
    their directions, the stand-in's form endpoints, and one real send per kind against a demo or
    test customer Patric has confirmed (54 f, still open: the real send is the one thing left); the search profile's two calls against the stand-in, and
    against that customer once the CRM function group is granted on it. One session.
-3. `[core]` **The widget** (137): `clients/forms-widget/`, served at `/widget/forms.js`, the
+3. ~~`[core]` **The widget** (137)~~ (built 2026-10-04, below; the staging placement is the
+   theme thread's deploy): `clients/forms-widget/`, served at `/widget/forms.js`, the
    config call, Turnstile (138), the wizard with the profile step (139), the public site key and
    the Origin check; the plugin gets the tag and the key setting, the theme the buttons and the
    lead office; placed on the staging site; closes question 105 and item 21. One session.

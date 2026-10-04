@@ -9,8 +9,10 @@ const { criteria } = JSON.parse(readFileSync('acceptance/criteria.json', 'utf8')
 
 // Two vitest runs: the default one, and the WordPress client suite, which has its own config
 // because it needs a WordPress install (clients/wordpress/test/setup.sh). Then the browser
-// journeys, which drive the admin area as a person does (admin/playwright.config.ts).
+// journeys, which drive the admin area (admin/playwright.config.ts) and the WordPress client's
+// site (clients/wordpress/playwright.config.ts) as a person does.
 const CONFIGS = ['vitest.config.ts', 'vitest.wordpress.config.ts'];
+const JOURNEY_CONFIGS = ['admin/playwright.config.ts', 'clients/wordpress/playwright.config.ts'];
 
 const results = new Map();
 const outDir = mkdtempSync(join(tmpdir(), 'core-report-'));
@@ -34,19 +36,17 @@ for (const config of CONFIGS) {
 
 // The browser journeys: Playwright's own JSON report, flattened to "title → status", so a
 // criterion may name a journey exactly as it names a test.
-function collectJourneys() {
-  const resultsFile = join(outDir, 'journeys.json');
+function collectJourneys(config) {
+  const resultsFile = join(outDir, `${config.replaceAll('/', '-')}.json`);
   try {
-    execFileSync(
-      'npx',
-      ['playwright', 'test', '--config', 'admin/playwright.config.ts', '--reporter=json'],
-      {
-        stdio: 'inherit',
-        env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_NAME: resultsFile },
-      },
-    );
+    execFileSync('npx', ['playwright', 'test', '--config', config, '--reporter=json'], {
+      stdio: 'inherit',
+      env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_NAME: resultsFile },
+    });
   } catch {
-    console.error('the browser journeys failed or could not run; the report below records that');
+    console.error(
+      `the browser journeys under ${config} failed or could not run; the report below records that`,
+    );
   }
   let report;
   try {
@@ -70,7 +70,7 @@ function collectJourneys() {
   walk(report.suites);
 }
 
-collectJourneys();
+for (const config of JOURNEY_CONFIGS) collectJourneys(config);
 
 const PHASE_LABEL = {
   engine: 'engine (now)',

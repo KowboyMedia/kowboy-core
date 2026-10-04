@@ -41,6 +41,8 @@ export type SiteInput = {
   label: string;
   bellUrl: string;
   active: boolean;
+  /** The addresses the site's forms widget may be used from; empty means the bell URL's origin. */
+  origins?: string[];
 };
 
 export type TenantInput = {
@@ -55,6 +57,9 @@ export type SiteView = {
   label: string;
   bellUrl: string;
   bellSecret: string;
+  /** The public key the site's forms widget sends (docs/forms.md, the widget's door). */
+  siteKey: string;
+  origins: string[];
   active: boolean;
   lastPullAt: string | null;
   lastBellAt: string | null;
@@ -182,6 +187,8 @@ async function siteView(site: Awaited<ReturnType<typeof subscribers>>[number]): 
     label: site.label,
     bellUrl: site.bell_url,
     bellSecret: site.bell_secret,
+    siteKey: site.site_key,
+    origins: site.origins,
     active: site.active,
     lastPullAt: site.last_pull_at?.toISOString() ?? null,
     lastBellAt: site.last_bell_at?.toISOString() ?? null,
@@ -368,7 +375,20 @@ async function officeChanges(connection: ConnectionInput, before: string[]): Pro
   return changes;
 }
 
-/** The tenant's sites as the page left them. A new site gets its bell secret here. */
+/** The widget's addresses as typed, each kept as its origin; one that is no address is refused. */
+function originsOf(site: SiteInput): string[] {
+  return (site.origins ?? []).map((typed) => {
+    try {
+      return new URL(typed.trim()).origin;
+    } catch {
+      throw new Error(
+        `“${typed}” is not an address the widget can be used from (https://acme.se).`,
+      );
+    }
+  });
+}
+
+/** The tenant's sites as the page left them. A new site gets its bell secret and site key here. */
 async function saveSites(tenantId: number, wanted: SiteInput[]): Promise<string[]> {
   const changes: string[] = [];
   const existing = (await subscribers()).filter((site) => site.tenant_id === tenantId);
@@ -384,14 +404,16 @@ async function saveSites(tenantId: number, wanted: SiteInput[]): Promise<string[
         label: site.label,
         bellUrl: site.bellUrl,
         bellSecret: newSecret(),
+        origins: originsOf(site),
       });
-      changes.push(`added the site ${site.label}; its bell secret is on the page`);
+      changes.push(`added the site ${site.label}; its bell secret and site key are on the page`);
       continue;
     }
     await updateSubscriber(site.id, {
       label: site.label,
       bellUrl: site.bellUrl,
       active: site.active,
+      origins: originsOf(site),
     });
   }
   return changes;

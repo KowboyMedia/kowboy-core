@@ -9,6 +9,7 @@ import { addSubscriber, createTenant, upsertConnection } from '../engine/storage
 import { deliverLifecycleEvents } from '../engine/lifecycle.js';
 import { clearRegistry, registerAdmin, registerSubmissions } from '../engine/registry.js';
 import { resetSubmissionLimits } from '../engine/http/submissions.js';
+import { resetFormsLimits } from '../engine/http/forms.js';
 import type { Adapter } from '../engine/adapter-api/types.js';
 
 // The engine's operations an adapter's tests drive, re-exported so those tests import the harness
@@ -59,6 +60,7 @@ export async function harness(options: {
 }): Promise<Harness> {
   clearRegistry();
   resetSubmissionLimits();
+  resetFormsLimits();
   const adapters = options.adapters ?? [];
 
   let engine = await startEngine({ port: 0 });

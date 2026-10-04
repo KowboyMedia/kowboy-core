@@ -1,0 +1,268 @@
+/* The wizard's look, inside its own shadow root so the site's styles and these never mix. The
+   site tunes it with the variables on the host (its font is inherited) and changes nothing else. */
+:host {
+  --core-forms-font: inherit;
+  --core-forms-ink: #111111;
+  --core-forms-muted: #5c5c57;
+  --core-forms-surface: #ffffff;
+  --core-forms-border: #d1d1d6;
+  --core-forms-accent: #111111;
+  --core-forms-accent-ink: #ffffff;
+  --core-forms-good: #1f7a3d;
+  --core-forms-bad: #b3261e;
+  --core-forms-overlay: rgba(0, 0, 0, 0.32);
+  --core-forms-radius: 18px;
+  display: contents;
+}
+* {
+  box-sizing: border-box;
+}
+[hidden] {
+  display: none !important;
+}
+dialog {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  max-width: min(100vw - 32px, 520px);
+  width: 100%;
+  color: var(--core-forms-ink);
+  font: 16px/1.5 var(--core-forms-font);
+}
+dialog::backdrop {
+  background: var(--core-forms-overlay);
+}
+.modal {
+  background: var(--core-forms-surface);
+  color: var(--core-forms-ink);
+  border-radius: var(--core-forms-radius);
+  border: 1px solid var(--core-forms-border);
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+}
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.2;
+}
+h2 {
+  font-size: 22px;
+}
+h3 {
+  font-size: 18px;
+}
+.top.is-done h2::before {
+  content: '✓';
+  color: var(--core-forms-good);
+  margin-right: 8px;
+}
+.sub,
+.hint {
+  margin: 0;
+  color: var(--core-forms-muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--core-forms-muted);
+  font-weight: 600;
+}
+.progress {
+  display: flex;
+  gap: 6px;
+}
+.progress i {
+  flex: 1;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--core-forms-border);
+}
+.progress i.on {
+  background: var(--core-forms-ink);
+}
+.step {
+  display: grid;
+  gap: 12px;
+}
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 480px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+}
+.l {
+  display: grid;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--core-forms-muted);
+  font-weight: 600;
+}
+.field {
+  font: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--core-forms-border);
+  border-radius: 12px;
+  padding: 11px 13px;
+  background: var(--core-forms-surface);
+  color: var(--core-forms-ink);
+}
+textarea.field {
+  resize: vertical;
+  min-height: 72px;
+}
+.btn {
+  font: inherit;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 10px 18px;
+  border: 1px solid var(--core-forms-accent);
+  background: var(--core-forms-accent);
+  color: var(--core-forms-accent-ink);
+  cursor: pointer;
+}
+.btn--text {
+  background: none;
+  border-color: transparent;
+  color: var(--core-forms-muted);
+  padding-inline: 8px;
+}
+.btn[disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+.btn:focus-visible,
+.field:focus-visible,
+.chip:focus-visible,
+.slot:focus-visible {
+  outline: 2px solid var(--core-forms-ink);
+  outline-offset: 2px;
+}
+.consent {
+  display: flex;
+  gap: 10px;
+  align-items: start;
+  font-size: 14px;
+  color: var(--core-forms-muted);
+}
+.consent input {
+  margin-top: 3px;
+}
+.consent a {
+  color: inherit;
+}
+.slots {
+  display: grid;
+  gap: 8px;
+}
+.slot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--core-forms-border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: var(--core-forms-surface);
+  color: var(--core-forms-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.slot[aria-checked='true'] {
+  border-color: var(--core-forms-ink);
+  box-shadow: inset 0 0 0 1px var(--core-forms-ink);
+}
+.slot[disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+.slot small {
+  color: var(--core-forms-muted);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  font: inherit;
+  font-size: 14px;
+  border: 1px solid var(--core-forms-border);
+  border-radius: 999px;
+  padding: 5px 12px;
+  background: var(--core-forms-surface);
+  color: var(--core-forms-ink);
+  cursor: pointer;
+}
+.chip[aria-pressed='true'] {
+  background: var(--core-forms-ink);
+  color: var(--core-forms-surface);
+  border-color: var(--core-forms-ink);
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.error {
+  color: var(--core-forms-bad);
+  font-size: 14px;
+  margin: 0;
+}
+.next {
+  display: grid;
+  gap: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--core-forms-border);
+}
+.big {
+  font-size: 22px;
+  font-weight: 600;
+}
+.hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.human:empty {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .modal {
+    animation: core-forms-in 160ms ease-out;
+  }
+  @keyframes core-forms-in {
+    from {
+      transform: translateY(8px);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+}

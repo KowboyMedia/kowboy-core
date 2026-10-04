@@ -17,6 +17,7 @@ core-client/                     the plugin
   includes/templates.php         the sets' registry, the override rule (theme first), the list function,
                                  the shortcode, the reload endpoint, the routing of single pages and archives
   includes/blocks.php            the two list blocks, their settings for a theme's wrappers, the pick endpoint
+  includes/forms.php             the site key setting and the forms widget's script tag (docs/forms.md)
   includes/place-search.php      the search box: the places query, the box with its pills, its assets
   includes/view-page.php         the theme's header and footer around one view
   includes/packages.php          places the updater, keeps the package list, installs a set from the channel
@@ -45,7 +46,8 @@ e2e/, playwright.config.ts       the search box's browser journey
 
 1. Upload `core-client.zip` under Plugins → Add New → Upload Plugin and activate it. On activation
    the plugin puts its updater into `mu-plugins/` itself.
-2. Settings → Kowboy Core: the Core URL, the tenant token and the bell secret. The page shows the
+2. Settings → Kowboy Core: the Core URL, the tenant token and the bell secret, and under Forms the
+   site key, which makes every form button open Core's wizard (docs/forms.md). The page shows the
    bell URL to give Kowboy, `https://<site>/wp-json/core/v1/bell`, and the last successful sync.
 3. On the same page, under Templates: install a set with one click (the sets the update channel
    offers are listed there; a set can also be uploaded as a zip like any plugin), pick the set,

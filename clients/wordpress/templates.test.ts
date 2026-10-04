@@ -1190,3 +1190,21 @@ describe('the plugin’s set machinery, with a set plugin', () => {
     expect(body).toContain('data-tab="for_sale">Till salu');
   });
 });
+
+describe('the forms widget’s tag (docs/forms.md, the clients’ part)', () => {
+  it('prints Core’s widget script with the site key once the key is in the settings, and nothing without it', async () => {
+    await driver('option', 'core_client_site_key "pk_test_key"');
+    try {
+      const { body } = await page(await permalink('property', 'P-3'));
+      // WordPress writes the tag's attributes in alphabetical order.
+      expect(body).toContain(
+        `<script data-site-key="pk_test_key" defer src="${core.baseUrl}/widget/forms.js"></script>`,
+      );
+      expect(body.match(/widget\/forms\.js/g)).toHaveLength(1);
+    } finally {
+      await driver('option', 'core_client_site_key null');
+    }
+    const { body } = await page(await permalink('property', 'P-3'));
+    expect(body).not.toContain('widget/forms.js');
+  });
+});

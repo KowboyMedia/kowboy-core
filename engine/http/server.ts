@@ -16,6 +16,8 @@ export type Request = {
   query: URLSearchParams;
   headers: Record<string, string | undefined>;
   body: Buffer;
+  /** The socket's address, for the forms door's limit per address; a proxy's is in the headers. */
+  remoteAddress: string | null;
   json<T>(): T;
 };
 
@@ -93,6 +95,7 @@ async function handle(
       query: url.searchParams,
       headers: incoming.headers as Record<string, string | undefined>,
       body,
+      remoteAddress: incoming.socket.remoteAddress ?? null,
       json<T>(): T {
         return body.length === 0 ? ({} as T) : (JSON.parse(body.toString('utf8')) as T);
       },
@@ -148,7 +151,7 @@ function write(
     payload = gzipSync(payload, { level: gzipLevel });
     headers['content-encoding'] = 'gzip';
   }
-  headers['vary'] = 'accept-encoding';
+  headers['vary'] = headers['vary'] ? `${headers['vary']}, accept-encoding` : 'accept-encoding';
   headers['content-length'] = String(payload.length);
 
   outgoing.writeHead(response.status, headers);
