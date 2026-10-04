@@ -9,23 +9,6 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 142. `[client-wordpress]` Pre-market homes: selling text on the set's Kommande list, a gated page, or nothing?
-
-- 2026-10-04 · Patric asked what similar services offer that could add value for the
-  brokerages, then whether this is a technical implementation or only selling text. Every large
-  chain runs a buyer register with matching, and the pull is early access: Fastighetsbyrån
-  launched "Förtur" on 2026-06-03, homes shown to its registered buyers behind a login before
-  they are "På gång" or "Till salu". Vitec's estate statuses include Kommande, Snart till salu
-  and Försprång; Core syncs such homes as records with that status, and the set already shows
-  them: the site's settings page names which status ids are "Till salu", "Kommande" and "Sålda",
-  and the listing page has a "Kommande" tab. With item 21's interest button on those cards,
-  "register and see the homes first" is selling text on what exists. The gated version is the
-  technical one, and Core's part of it is nothing (the status is in the record): the theme adds
-  a page for signed-in visitors, a Lovable site through its own sign-in. Blocked: nothing; item
-  21 runs either way. Options: a) selling text, the interest button on the Kommande cards is the
-  register's door; b) a gated page behind a login, after item 21; c) nothing.
-- Smaller: c. Recommendation: a.
-
 ## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite
 
 - 2026-10-04 · The acceptance list `acceptance/criteria.json` is a protected path, changed on
