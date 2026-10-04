@@ -1,12 +1,12 @@
-// The place search box (includes/place-search.php, docs/search.md): a combo box over the places
-// the page rendered as data, pills for the chosen ones, every change written to the address and
-// sent to the list on the page, which reloads its cards (the set's list script listens for
-// `core-list:params`). Typing without choosing searches the words as free text on submit, with
-// the pills saying where (Default 134). Plain JavaScript, on the page and inside every shadow
+// The place search box (includes/place-search.php, docs/search.md): Tom Select (lib/tom-select)
+// over the multi-select the page rendered, the chosen places as pills, every change written to
+// the hidden fields and the address and sent to the list on the page, which reloads its cards
+// (the set's list script listens for `core-list:params`). Typing without choosing searches the
+// words as free text, with the pills saying where (Default 134): Enter sends them when no place
+// matches, and the form's button always. Plain JavaScript, on the page and inside every shadow
 // root the plugin opens; no build step.
 (function () {
   'use strict';
-  var GROUPS = { areas: 'Områden', municipalities: 'Kommuner', counties: 'Län' };
 
   /** Every root that may hold a box: the document and each open shadow root under it. */
   function roots() {
@@ -17,65 +17,42 @@
     return found;
   }
 
-  /** Lower case without accents, so "skane" finds Skåne and "malm" finds Malmö. */
-  function fold(text) {
-    return text
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
-  }
+  var TomSelect = window.TomSelect;
+  if (typeof TomSelect !== 'function') return;
 
-  /** A place matches when its label, or a word in it, begins with the typed text. */
-  function matches(place, typed) {
-    var label = fold(place.label);
-    return (
-      label.indexOf(typed) === 0 ||
-      label.split(/[\s·,-]+/).some(function (word) {
-        return word.indexOf(typed) === 0;
-      })
-    );
+  /**
+   * The library with one change: closing the list keeps the typed words. Tom Select clears them
+   * when the list closes, also when the field loses focus, which would empty the field as the
+   * visitor reaches for the button; here the words are the free text of the search, so they
+   * stay until a place is chosen (below) or the visitor deletes them.
+   */
+  class PlaceSelect extends TomSelect {
+    close() {
+      super.close(false);
+    }
   }
 
   function setup(box) {
-    if (box.dataset.ready) return;
-    box.dataset.ready = '1';
-    var places = JSON.parse(box.dataset.places || '[]');
-    var input = box.querySelector('input[type="search"]');
-    var list = box.querySelector('[role="listbox"]');
-    var holder = box.querySelector('[data-pills]');
+    var select = box.querySelector('select');
+    if (!select || select.tomselect) return;
     var hidden = {
+      q: box.querySelector('input[name="q"]'),
       areas: box.querySelector('input[name="areas"]'),
       lkf: box.querySelector('input[name="lkf"]'),
     };
     var form = box.closest('form');
-    var shown = [];
-    var active = -1;
+    var noMatch = select.dataset.noMatch || '';
 
-    function kindOf(group) {
-      return group === 'areas' ? 'areas' : 'lkf';
-    }
-    function pills() {
-      return Array.prototype.map.call(holder.querySelectorAll('[data-pill-kind]'), function (pill) {
-        return { kind: pill.dataset.pillKind, id: pill.dataset.pillId };
+    /** The chosen places into the two hidden fields: the option values are `kind:id`. */
+    function writeHidden(items) {
+      var chosen = { areas: [], lkf: [] };
+      items.forEach(function (value) {
+        var at = value.indexOf(':');
+        var kind = value.slice(0, at);
+        if (chosen[kind]) chosen[kind].push(value.slice(at + 1));
       });
-    }
-    function chosen(kind, id) {
-      return pills().some(function (pill) {
-        return pill.kind === kind && pill.id === id;
-      });
-    }
-    function writeHidden() {
-      var current = pills();
-      Object.keys(hidden).forEach(function (kind) {
-        hidden[kind].value = current
-          .filter(function (pill) {
-            return pill.kind === kind;
-          })
-          .map(function (pill) {
-            return pill.id;
-          })
-          .join(',');
-      });
+      hidden.areas.value = chosen.areas.join(',');
+      hidden.lkf.value = chosen.lkf.join(',');
     }
     /** The parameters the box stands for: the form's fields when it is in one, else its own three. */
     function fields() {
@@ -104,7 +81,6 @@
       return found;
     }
     function search() {
-      writeHidden();
       var values = fields();
       writeAddress(values);
       var drives = target();
@@ -112,130 +88,57 @@
       else if (form) form.submit();
     }
 
-    function addPill(place) {
-      var kind = kindOf(place.group);
-      if (chosen(kind, place.id)) return;
-      var pill = document.createElement('button');
-      pill.type = 'button';
-      pill.className = 'core-place-search__pill';
-      pill.dataset.pillKind = kind;
-      pill.dataset.pillId = place.id;
-      pill.setAttribute('aria-label', 'Ta bort ' + place.label);
-      pill.textContent = place.label;
-      var cross = document.createElement('span');
-      cross.setAttribute('aria-hidden', 'true');
-      cross.textContent = ' ×';
-      pill.appendChild(cross);
-      holder.appendChild(pill);
+    var ts = new PlaceSelect(select, {
+      plugins: { remove_button: { title: 'Ta bort' } },
+      placeholder: select.dataset.placeholder || '',
+      maxItems: null,
+      maxOptions: null,
+      hideSelected: true,
+      closeAfterSelect: true,
+      lockOptgroupOrder: true,
+      // The library waits 300 ms after a keystroke before it filters; the list is small and Enter
+      // right after the last letter must act on what the letters leave, so it filters at once.
+      refreshThrottle: 0,
+      create: false,
+      render: {
+        no_results: function (data, escape) {
+          return noMatch ? '<div class="no-results">' + escape(noMatch) + '</div>' : null;
+        },
+      },
+    });
+    // The field's name for a screen reader: the library finds the label on the page, not in a shadow root.
+    if (!ts.control_input.hasAttribute('aria-labelledby')) {
+      ts.control_input.setAttribute('aria-label', box.querySelector('label').textContent);
     }
-    holder.addEventListener('click', function (event) {
-      var pill = event.target.closest('[data-pill-kind]');
-      if (!pill) return;
-      pill.remove();
+    ts.setTextboxValue(hidden.q.value);
+    ts.on('type', function (words) {
+      hidden.q.value = words;
+    });
+    ts.on('item_add', function () {
+      // A chosen place takes the words: they were the search for it, not free text.
+      ts.setTextboxValue('');
+      hidden.q.value = '';
+    });
+    ts.on('change', function () {
+      writeHidden(ts.items);
       search();
-      input.focus();
     });
-
-    function close() {
-      list.hidden = true;
-      input.setAttribute('aria-expanded', 'false');
-      input.removeAttribute('aria-activedescendant');
-      active = -1;
-    }
-    function render() {
-      var typed = fold(input.value.trim());
-      shown = places.filter(function (place) {
-        return !chosen(kindOf(place.group), place.id) && (typed === '' || matches(place, typed));
-      });
-      list.innerHTML = '';
-      if (!shown.length) {
-        close();
-        return;
-      }
-      var group = '';
-      shown.forEach(function (place, index) {
-        if (place.group !== group) {
-          group = place.group;
-          var head = document.createElement('li');
-          head.className = 'core-place-search__group';
-          head.setAttribute('role', 'presentation');
-          head.textContent = GROUPS[group] || group;
-          list.appendChild(head);
-        }
-        var option = document.createElement('li');
-        option.className = 'core-place-search__option' + (index === active ? ' is-active' : '');
-        option.id = list.id + '-' + index;
-        option.setAttribute('role', 'option');
-        option.setAttribute('aria-selected', index === active ? 'true' : 'false');
-        option.dataset.index = String(index);
-        option.textContent = place.label;
-        list.appendChild(option);
-      });
-      list.hidden = false;
-      input.setAttribute('aria-expanded', 'true');
-      if (active >= 0) {
-        input.setAttribute('aria-activedescendant', list.id + '-' + active);
-        var item = list.querySelector('.is-active');
-        if (item && item.scrollIntoView) item.scrollIntoView({ block: 'nearest' });
-      } else {
-        input.removeAttribute('aria-activedescendant');
-      }
-    }
-    function choose(place) {
-      addPill(place);
-      input.value = '';
-      close();
-      search();
-    }
-    function move(delta) {
-      if (list.hidden) render();
-      if (!shown.length) return;
-      active = (active + delta + shown.length) % shown.length;
-      render();
-    }
-
-    input.addEventListener('input', function () {
-      active = -1;
-      render();
-    });
-    input.addEventListener('focus', function () {
-      render();
-    });
-    input.addEventListener('blur', function () {
-      window.setTimeout(close, 150);
-    });
-    input.addEventListener('keydown', function (event) {
-      if (event.key === 'ArrowDown') {
+    // Enter with a place highlighted chooses it (the library's own handling); Enter with none,
+    // the words being no place, sends them as free text, the way the button does. Caught before
+    // the library sees the key, since choosing clears the highlight.
+    ts.wrapper.addEventListener(
+      'keydown',
+      function (event) {
+        if (event.key !== 'Enter' || (ts.isOpen && ts.activeOption)) return;
         event.preventDefault();
-        move(1);
-      } else if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        move(-1);
-      } else if (event.key === 'Escape') {
-        close();
-      } else if (event.key === 'Enter' && !list.hidden && active >= 0) {
-        // A chosen suggestion; Enter with none chosen submits the form: the words as free text
-        // (Default 134), which the submit handler below sends to the list on the page.
-        event.preventDefault();
-        choose(shown[active]);
-      } else if (event.key === 'Backspace' && input.value === '') {
-        var last = holder.querySelector('[data-pill-kind]:last-child');
-        if (last) {
-          last.remove();
-          search();
-        }
-      }
-    });
-    list.addEventListener('mousedown', function (event) {
-      event.preventDefault(); // the field keeps its focus, so the click below reaches the option
-    });
-    list.addEventListener('click', function (event) {
-      var option = event.target.closest('[role="option"]');
-      if (option) choose(shown[Number(option.dataset.index)]);
-    });
+        ts.close();
+        if (form) form.requestSubmit();
+        else search();
+      },
+      true,
+    );
     if (form) {
       form.addEventListener('submit', function (event) {
-        writeHidden();
         // The form inside a list is the set's own to reload. Any other form, with a list on the
         // page, sends its fields to that list instead of loading the page again; without one,
         // the page loads with the fields in its address.

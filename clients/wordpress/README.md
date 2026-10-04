@@ -28,9 +28,10 @@ core-client/                     the plugin
   includes/report.php            error reporting through Core
   blocks/<name>/                 block.json and render.php of "Bostäder" and "Mäklare"
   assets/editor.js               the editor side of every block: the panel from block.json, the preview, the picks
-  assets/place-search.js, .css   the search box's behaviour and structure, loaded only on a page that drew one
+  assets/place-search.js, .css   the search box's setup over Tom Select and its structure, loaded only on a page that drew one
   updater/core-client-updater.php  the must-use updater the plugin places itself; never loads plugin code
   lib/action-scheduler/          Action Scheduler 4.1.0, bundled (GPLv3)
+  lib/tom-select/                Tom Select 2.6.2, the search box's combo box, bundled (Apache-2.0)
 themes/kowboy-2026/              the default template set "Kowboy 2026", a theme (docs/kowboy-2026.md)
 release.php                      packages the plugin, the theme or a set, and writes the index of sets
 test/                            setup.sh, install.php, driver.php, site.ts and records.ts for the suites,
@@ -167,12 +168,14 @@ reload endpoint `GET /wp-json/core/v1/list?<the same parameters>` (which answers
 untouched: a parameter added to the query is at once available everywhere.
 
 **The search box** (`includes/place-search.php`, `docs/search.md`): one function,
-`core_client_place_search($params)`, draws the combo box with pills for any set that calls it
-(the theme Kowboy 2026 does on its search card): the field `q`, the places as data in the markup
-(the areas, kommuner and län with at least one home matching the list's own setting, counted
-through the list's condition, so the box offers only places that give a result), the pills the
-address names and two hidden fields, `areas` and `lkf`. Its script and stylesheet
-(`assets/place-search.js`, `.css`) load only in a request that drew a box, inside the shadow root
+`core_client_place_search($params)`, draws the box for any set that calls it (the theme Kowboy
+2026 does on its search card): a plain multi-select of the places in three groups (the areas,
+kommuner and län with at least one home matching the list's own setting, counted through the
+list's condition, so the box offers only places that give a result), the places the address
+names selected, and three hidden fields, `q` (the free text), `areas` and `lkf`. The library Tom
+Select (`lib/tom-select`, question 140 a) turns the select into a combo box with the chosen
+places as pills; the plugin's script and stylesheet (`assets/place-search.js`, `.css`) set it up
+and shape it, and all four files load only in a request that drew a box, inside the shadow root
 too. A choice, a removed pill and the form's submit send the form's fields to the list on the
 page as one event, `core-list:params` on the `[data-list]` element (the set's list script merges
 the detail into its parameters and reloads from the first page), and write them to the address;

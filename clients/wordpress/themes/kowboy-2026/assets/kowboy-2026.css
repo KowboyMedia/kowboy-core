@@ -606,7 +606,9 @@ iframe.k-hero__video {
 }
 .k-hero > .k-search {
   position: absolute;
-  z-index: 3;
+  /* Above the cards under it: their labels and bodies stand at 4, so the box's open list is not
+     painted under them (Patric, 2026-10-04). */
+  z-index: 10;
   top: calc(100% - 39px);
   left: var(--k-gutter);
   right: var(--k-gutter);
@@ -642,34 +644,83 @@ iframe.k-hero__video {
 .k-list__filters {
   margin-bottom: 40px;
 }
-/* The plugin's place search box in the form: the field like the selects, the pills like small tabs */
-.k-search .core-place-search__input {
+/* The plugin's place search box in the form (Tom Select, lib/tom-select of the plugin): the
+   control like the selects, a line under it, the chosen places as small outlined pills in it, so
+   the control grows downward as they wrap; the list in the card's colours. */
+.k-search select.core-place-search__select:not(.tomselected) {
   height: 44px;
 }
-.k-search .core-place-search__list {
-  border-color: var(--k-border);
+.k-search .ts-control {
+  min-height: 44px;
+  padding: 4px 0 !important;
+  gap: 6px;
+  align-items: center;
+  border: 0;
+  border-bottom: 1px solid var(--k-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: var(--k-label-size);
+  line-height: 1.4;
+  color: var(--k-ink);
+}
+.k-search .ts-wrapper.focus .ts-control {
+  border-bottom-color: var(--k-ink);
+}
+.k-search .ts-control > input {
+  min-width: 6rem;
+  min-height: 34px !important;
+  margin: 0 !important;
+  font-size: var(--k-label-size);
+  color: var(--k-secondary);
+}
+.k-search .ts-control > input::placeholder {
+  color: var(--k-secondary);
+  opacity: 1;
+}
+.k-search .ts-wrapper.multi .ts-control > div {
+  margin: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--k-border);
+  border-radius: 999px;
+  background: transparent;
+  font-weight: 500;
+  color: var(--k-ink);
+}
+.k-search .ts-wrapper.multi .ts-control > div.active {
+  border-color: var(--k-ink);
+  background: var(--k-subtle);
+  color: var(--k-ink);
+}
+.k-search .ts-wrapper.plugin-remove_button:not(.rtl) .item .remove {
+  margin-left: 4px;
+  padding: 0 4px;
+  border-left: 0;
+  border-radius: 999px;
+}
+.k-search .ts-dropdown {
+  margin-top: 4px;
+  border: 1px solid var(--k-border);
   border-radius: var(--k-radius);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
   font-size: var(--k-body-size);
   color: var(--k-ink);
 }
-.k-search .core-place-search__group {
+.k-search .ts-dropdown .option,
+.k-search .ts-dropdown .no-results {
+  padding: 8px 12px;
+}
+.k-search .ts-dropdown .optgroup-header {
+  padding: 8px 12px 4px;
   font-size: var(--k-label-size);
   color: var(--k-secondary);
   opacity: 1;
 }
-.k-search .core-place-search__option.is-active,
-.k-search .core-place-search__option:hover {
+.k-search .ts-dropdown .active {
   background: var(--k-subtle);
-}
-.k-search .core-place-search__pill {
-  border-color: var(--k-border);
-  font-size: var(--k-label-size);
-  font-weight: 500;
   color: var(--k-ink);
 }
-.k-search .core-place-search__pill:hover,
-.k-search .core-place-search__pill:focus-visible {
-  border-color: var(--k-ink);
+.k-search .ts-dropdown [data-selectable] .highlight {
   background: var(--k-subtle);
 }
 @media (max-width: 1023px) {

@@ -240,8 +240,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
       (await places({ entity: 'property', status: 'for_sale,coming', place_search: 'areas' }))
         .areas;
     const hjorthagen = { id: 'D-9', label: 'Hjorthagen · Stockholm', homes: 1 };
-    const offeredPill =
-      'data-pill-kind="areas" data-pill-id="D-9" aria-label="Ta bort Hjorthagen · Stockholm">Hjorthagen · Stockholm<span';
+    const offeredPill = '<option value="areas:D-9" selected>Hjorthagen · Stockholm</option>';
     try {
       crm.put(
         'property',
@@ -281,30 +280,49 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     }
     expect(await areas()).toHaveLength(2);
 
-    // The archive page: the box in the list's filters with the places as data, the pills and the
-    // words from the address, the hidden fields a plain submit sends, the script and stylesheet;
-    // the chosen places are "any of", the words narrow them (Default 134).
+    // The archive page: the box in the list's filters as a multi-select of the places in three
+    // groups, the chosen ones selected (the pills), the words and the chosen places in the hidden
+    // fields a plain submit sends, the library (lib/tom-select), the script and the stylesheets,
+    // the stylesheets inside the shadow root too; the chosen places are "any of", the words
+    // narrow them (Default 134).
     const { body } = await page('/?post_type=core_property&areas=D-2&lkf=0163&q=Kungs');
     expect(body).toContain('data-place-search');
     expect(body).toContain(
-      '&quot;group&quot;:&quot;counties&quot;,&quot;id&quot;:&quot;01&quot;,&quot;label&quot;:&quot;Stockholms län&quot;',
+      '<select class="core-place-search__select" id="core-place-1" multiple autocomplete="off" data-placeholder="Område, kommun eller län"',
     );
     expect(body).toContain(
-      'data-pill-kind="areas" data-pill-id="D-2" aria-label="Ta bort Norrmalm · Stockholm">Norrmalm · Stockholm<span aria-hidden="true"> ×</span></button>',
+      '<optgroup label="Områden"><option value="areas:D-2" selected>Norrmalm · Stockholm</option><option value="areas:D-1">Vasastan · Stockholm</option></optgroup>',
     );
     expect(body).toContain(
-      'data-pill-kind="lkf" data-pill-id="0163" aria-label="Ta bort Sollentuna">Sollentuna<span',
+      '<optgroup label="Kommuner"><option value="lkf:0163" selected>Sollentuna</option><option value="lkf:0180">Stockholm</option></optgroup>',
     );
-    expect(body).toContain('name="q" value="Kungs"');
+    expect(body).toContain(
+      '<optgroup label="Län"><option value="lkf:01">Stockholms län</option></optgroup>',
+    );
+    expect(body).toContain('<input type="hidden" name="q" value="Kungs">');
     expect(body).toContain('<input type="hidden" name="areas" value="D-2">');
     expect(body).toContain('<input type="hidden" name="lkf" value="0163">');
-    expect(body).toContain('place-search.css');
+    expect(body).toContain('lib/tom-select/tom-select.complete.min.js');
     expect(body).toContain('place-search.js');
+    expect(body).toMatch(
+      /<template shadowrootmode="open"><link rel="stylesheet" href="[^"]*lib\/tom-select\/tom-select\.min\.css[^"]*"><link rel="stylesheet" href="[^"]*assets\/place-search\.css[^"]*">/,
+    );
     expect(body).toContain('Kungsgatan 2');
     expect(body).toContain('Kungsgatan 3');
     expect(body).not.toContain('Kungsgatan 1');
-    // A page without a box loads neither file.
-    expect((await page(await permalink('agent', 'S-1'))).body).not.toContain('place-search.js');
+    // A page without a box loads none of the files.
+    const agent = (await page(await permalink('agent', 'S-1'))).body;
+    expect(agent).not.toContain('place-search.js');
+    expect(agent).not.toContain('tom-select');
+    // A chosen place the list does not offer (no home here) still stands as a pill in its group,
+    // named as the site can: an unknown area by its id, a kommun by the plugin's table.
+    const unoffered = await page('/?post_type=core_property&areas=D-9&lkf=1280');
+    expect(unoffered.body).toContain(
+      '<option value="areas:D-1">Vasastan · Stockholm</option><option value="areas:D-9" selected>D-9</option></optgroup>',
+    );
+    expect(unoffered.body).toContain(
+      '<option value="lkf:0180">Stockholm</option><option value="lkf:1280" selected>Malmö</option></optgroup>',
+    );
   });
 
   it('links a home to the CRM’s area and to every area whose outline holds its point (133 a), relinks on a changed outline or point, and rebuilds the links on a plugin update', async () => {
@@ -878,7 +896,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(forSale.body).toContain('name="max_price"');
     // The search card carries the plugin's place search box, with the places of the homes for sale and coming.
     expect(forSale.body).toContain('data-place-search');
-    expect(forSale.body).toContain('&quot;label&quot;:&quot;Norrmalm · Stockholm&quot;');
+    expect(forSale.body).toContain('<option value="areas:D-2">Norrmalm · Stockholm</option>');
     const about = await page(pathOf(pages['om-oss']!));
     expect(about.body).toContain('<span class="k-feature__badge">01</span>');
     // The testimonials are the agents' reviews from Core, not the block's own quotes.
