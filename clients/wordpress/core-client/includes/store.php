@@ -30,7 +30,8 @@ function core_client_path(string $datatype): string
 /**
  * The post's slug, from the record's own stored values and ending in the record's id, the way
  * norbanmakleri.se names its pages (Patric, 2026-10-03, closes question 101): property and project
- * `<status>-<city>-<area>-<street>-<id>`, every other kind `<name>-<id>`. The status word is the
+ * `<status>-<city>-<area>-<street>-<id>`, area `<kommun>-<name>-<id>` (the kommun from its LKF code,
+ * municipalities.php), every other kind `<name>-<id>`. The status word is the
  * list the site's settings put the status in (`till-salu`, `kommande`, `sold`: the old site's
  * words), else the CRM's own status name. An empty part is left out, and the id is always last, so
  * routing.php finds the record by it whatever the words were when a link was made. Every part goes
@@ -49,6 +50,7 @@ function core_client_slug(string $datatype, object $data, string $remote_id): st
             $address->area_name ?? null,
             ($address->street ?? null) ?: ($data->name ?? null),
         ],
+        'area' => [core_client_municipality_name(is_string($data->county_municipality_code ?? null) ? $data->county_municipality_code : null), $data->name ?? null],
         default => [$data->name ?? null],
     };
     $words = implode('-', array_filter(array_map(fn (mixed $part): string => is_string($part) ? sanitize_title($part) : '', $parts)));

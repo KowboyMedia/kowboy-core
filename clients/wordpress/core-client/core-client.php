@@ -29,6 +29,7 @@ require_once __DIR__ . '/lib/action-scheduler/action-scheduler.php';
 
 require __DIR__ . '/includes/report.php';
 require __DIR__ . '/includes/settings.php';
+require __DIR__ . '/includes/municipalities.php';
 require __DIR__ . '/includes/store.php';
 require __DIR__ . '/includes/site-records.php';
 require __DIR__ . '/includes/routing.php';

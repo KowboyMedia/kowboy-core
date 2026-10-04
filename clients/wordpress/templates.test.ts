@@ -150,7 +150,12 @@ beforeAll(async () => {
     documents: [{ name: 'Stadgar', url: 'https://docs.test/stadgar.pdf' }],
   });
   crm.put('association', 'A-2', { coop_id: 'A-2', coop_name: 'Brf Månen' });
-  crm.put('area', 'D-1', { district_id: 'D-1', district_name: 'Vasastan', branch_id: 'B-1' });
+  crm.put('area', 'D-1', {
+    district_id: 'D-1',
+    district_name: 'Vasastan',
+    branch_id: 'B-1',
+    lkf: '018001',
+  });
   crm.put('property', 'P-1', listing('P-1', { price: 7_250_000, rooms: 3, living_space: 82 }));
   crm.put(
     'property',
@@ -535,6 +540,8 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(area.body).toContain('k-hero--area');
     expect(area.body).toContain('data-hero-slider');
     expect(area.body).toContain('k-hero__title--left">Vasastan</h1>');
+    // The kommun over the title, named from the area's LKF code 018001 by the plugin's table.
+    expect(area.body).toContain('k-label--bright">Stockholm</p>');
     expect(area.body).toContain('Bostäder i Vasastan');
     expect(area.body).toContain('k-has-hero');
     // The areas archive: cards like the properties', the placeholder when the area has no picture.
@@ -901,7 +908,7 @@ describe('the plugin’s set machinery, with a set plugin', () => {
     );
     expect(await permalink('agent', 'S-1')).toBe('/?core_agent=anna-andersson-s-1');
     expect(await permalink('office', 'B-1')).toBe('/?core_office=kowboy-makleri-b-1');
-    expect(await permalink('area', 'D-1')).toBe('/?core_area=vasastan-d-1');
+    expect(await permalink('area', 'D-1')).toBe('/?core_area=stockholm-vasastan-d-1');
     expect(await permalink('association', 'A-1')).toBe('/?core_association=brf-solgarden-a-1');
     // An agent by id alone, and by a slug from before a name change: 301 to the current page.
     for (const name of ['S-1', 'anna-svensson-S-1']) {

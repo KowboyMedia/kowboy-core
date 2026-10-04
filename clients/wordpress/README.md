@@ -58,7 +58,8 @@ or `wp action-scheduler run`.
   built from the site's own stored values the way norbanmakleri.se names its pages (question 101):
   `objekt/<status>-<city>-<area name>-<street address>-<id>` for properties and `projekt/` the
   same for projects (the name when there is no street), `kontor/<office name>-<id>`,
-  `forening/<association name>-<id>`, `maklare/<agent name>-<id>` and `omrade/<area name>-<id>`.
+  `forening/<association name>-<id>`, `maklare/<agent name>-<id>` and `omrade/<kommun>-<area name>-<id>`
+  (the kommun named from the area's LKF code by `includes/municipalities.php`, SCB's 290 codes).
   The status word is the list the settings page puts the status in (`till-salu`, `kommande`,
   `sold`), else the CRM's own status name. Every part follows WordPress's own slug rule: letters with
   accents become their base letters (é to e, ä to a), apostrophes, parentheses and other marks are

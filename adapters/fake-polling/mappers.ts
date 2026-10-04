@@ -215,7 +215,11 @@ export const mappers: Mappers = {
   property,
   office,
   agent,
-  area: namedRecord('district_id', 'district_name', { polygon: null, images: [] }),
+  area: (raw: unknown): MappedRecord => {
+    const base = namedRecord('district_id', 'district_name', { polygon: null, images: [] })(raw);
+    // The LKF code (län, kommun, församling) as the office keys the district, when it has one.
+    return { ...base, data: { ...base.data, county_municipality_code: text((raw as Raw)['lkf']) } };
+  },
   association: (raw: unknown): MappedRecord => {
     const record = raw as Raw;
     const base = namedRecord('coop_id', 'coop_name', { contact: null })(raw);
