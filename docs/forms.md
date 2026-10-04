@@ -378,10 +378,11 @@ answer.
    then the same heading and text in every form, "Berätta vad du letar efter, så får du tips om
    nya bostäder som passar. Du kan hoppa över det här steget.", marked as a step of the wizard
    ("Steg 3 av 3 · valfritt"), with Skip and Send. Prefilled from the page's home with the
-   property type, the minimum number of rooms, the minimum living space (the closest whitelisted
-   value lower than the home's, Patric, 2026-10-04: 78 kvm prefills 75 kvm, 3 rum prefills 2 rum)
-   and the area; the visitor adjusts or skips. Only these: the source form's maxima and its price
-   are not asked (Patric, 2026-10-04, "we need only minst antal rum, minst boarea"). Sending it is a second submission of its own kind, `search_profile`; skipping it loses
+   minimum number of rooms, the minimum living space (the closest whitelisted value lower than
+   the home's, Patric, 2026-10-04: 78 kvm prefills 75 kvm, 3 rum prefills 2 rum) and the area;
+   the visitor adjusts or skips. Only these two fields and the areas are asked (Patric,
+   2026-10-04, "we need only minst antal rum, minst boarea"): the home's type travels unseen, and
+   the source form's maxima and price are not asked. Sending it is a second submission of its own kind, `search_profile`; skipping it loses
    nothing. Its fields take only the whitelisted values below.
 
 #### The whitelisted fields of the profile step
@@ -392,19 +393,20 @@ whitelist, in `kvm`, and Core's schema accepts nothing outside it (a value off t
 `400`, never rounded); only the minimum rooms and the minimum living space are asked. "Kommun" is not asked (Patric, 2026-10-04): the municipality
 code comes from the home's record and from each area of the site's list.
 
-| Field (`criteria`)                     | Allowed values                                                                                                                                                                                        | Prefilled                                            |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Bostadstyp, `object_type`              | one of `apartment` (Bostadsrätt), `house` (Villa), `holiday_house` (Fritidshus), `plot` (Gård); the source form's own values are Apartment, House, Cottage and Plot with those labels                 | the home's type; Bostadsrätt on the lead             |
-| Minst antal rum, `rooms_min`           | 1 to 7 ("N rum"), or empty ("Inget krav")                                                                                                                                                             | the closest value lower than the home's rooms        |
-| Minst boarea (kvm), `living_area_min`  | 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 150, 160, 170, 180, 200, 250, or empty ("Inget krav")                                    | the closest value lower than the home's living space |
-| Områden, `areas[]`                     | ids from the site's own area list, each with its name and municipality code; nothing typed (how it works, below)                                                                                      | the home's area(s); nothing on the lead              |
-| `municipality_code`                    | the home's, from its record; `null` on the lead                                                                                                                                                       | always                                               |
-| "Kontakta mig om min nuvarande bostad" | the source form's checkbox, `true` or `false`, beside `criteria`; on an interest and a booking, not on the seller's lead (141 a, Patric, 2026-10-04: the adapter makes the visitor a seller lead too) | unticked                                             |
+| Field (`criteria`)                     | Allowed values                                                                                                                                                                                                                                      | Prefilled                                            |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Bostadstyp, `object_type`              | not asked (Patric, 2026-10-04): the home's type from its record, one of `apartment`, `house`, `holiday_house`, `plot`; `null` on the lead, which both CRMs take (Vitec's `subtypes` and Mspecs's `objectType` are optional in their specifications) | the home's type, unseen                              |
+| Minst antal rum, `rooms_min`           | 1 to 7 ("N rum"), or empty ("Inget krav")                                                                                                                                                                                                           | the closest value lower than the home's rooms        |
+| Minst boarea (kvm), `living_area_min`  | 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 150, 160, 170, 180, 200, 250, or empty ("Inget krav")                                                                                  | the closest value lower than the home's living space |
+| Områden, `areas[]`                     | ids from the site's own area list, each with its name and municipality code; nothing typed (how it works, below)                                                                                                                                    | the home's area(s); nothing on the lead              |
+| `municipality_code`                    | the home's, from its record; `null` on the lead                                                                                                                                                                                                     | always                                               |
+| "Kontakta mig om min nuvarande bostad" | the source form's checkbox, `true` or `false`, beside `criteria`; on an interest and a booking, not on the seller's lead (141 a, Patric, 2026-10-04: the adapter makes the visitor a seller lead too)                                               | unticked                                             |
 
 The rest of the source form is already elsewhere in the wizard or not taken: first name, last
 name, mobile, e-mail, the message and the consent box are step 2; its "Adress" (required
 there) is the optional `person.address`; its free-text "Adress eller område" box is replaced
-by the area chips; its maximum rooms, maximum living space and price range are not asked.
+by the area chips; its home type, maximum rooms, maximum living space and price range are not
+asked.
 
 **How Områden works, and where the list comes from.** Nothing on the page configures it. The
 page's config block names only the site key and, per button, the home or the office; the
@@ -467,12 +469,16 @@ release). Fastighetsbyrån also sells "Slutprisbevakning", a final-price watch. 
 already gives a small brokerage the register with matching, since the CRM does the matching and
 the mailing. What it could add, each on data Core already holds:
 
-1. **Pre-market homes for registered buyers.** Vitec's estate statuses include Kommande
-   (`Coming`), Snart till salu (`SoonForSale`) and Försprång (`Advantage`), and the advertising
-   list carries them when the brokerage markets them (`docs/inputs/vitec/enumerations/Api_EstateStatus.md`,
-   `advertising-preview.md`), so Core syncs them as records with that status; the site decides
-   who sees them (a page for registered visitors, or a link in the matching mail), Core decides
-   nothing. The same door the chains sell, for a brokerage with one office. Question 142.
+1. **Pre-market homes.** Vitec's estate statuses include Kommande (`Coming`), Snart till salu
+   (`SoonForSale`) and Försprång (`Advantage`), the advertising list carries them when the
+   brokerage markets them (`docs/inputs/vitec/enumerations/Api_EstateStatus.md`,
+   `advertising-preview.md`), Core syncs them as records with that status, and **the set already
+   shows them**: the site's settings page names which status ids are "Till salu", "Kommande" and
+   "Sålda", and the listing page has a "Kommande" tab (`core-client/includes/query.php`,
+   `kowboy-2026/core/list-property.php`). With item 21's interest button on those cards, "register
+   and see the homes first" is selling text on what exists. The chains' gated version (a login)
+   is the technical one, and Core's part of it is nothing, the status is in the record; the theme
+   would add a page for signed-in visitors. Question 142.
 2. **One tap the second time.** The widget remembers the person in the visitor's own browser
    after a sent form (first-party storage, with a line saying so), so the next booking or
    interest is one tap; the chains get this from a login, the widget without one. Default: in
@@ -485,6 +491,22 @@ the mailing. What it could add, each on data Core already holds:
 4. **Later, on the same data:** a map step that draws the area (both CRMs take polygons, and
    the site holds the areas' polygons); a final-price watch on a sold home (Vitec offers the
    final price; "Later" below); a text about the home to sell (141 c).
+
+**The line, and the suggestion** (Patric, 2026-10-04: "we are now drifting beyond the initial
+product", "I am still not convinced this is correctly saved in Core just because they have
+technical overlap", "I'm split"). Two things were mixed. The forms (interest, booking, lead,
+profile) are the site's basic function: every brokerage site has them, and 129 a keeps their
+sending in Core for reasons that are not overlap: the CRM login never leaves Core, the record
+and slot ids and the areas are Core's, and one implementation serves WordPress and Lovable
+alike. **Core keeps no register and no buyer.** The CRM is the brokerage's spekulantregister;
+Core forwards, and the only thing it stores is the delivery log the duplicate guard and the
+admin's counts need (id, kind, outcome, the CRM's reference, page, UTM; "Core's part"). The
+ideas above add nothing to Core: pre-market homes are a template list the set already has, one
+tap is the widget's, the counts are an admin page over the log. The chains built portals with
+logins and registers of their own because they own that data at scale; a one-office brokerage
+gets the same door through its CRM, with no portal, no login and no second register, which is
+the better solution, not a copy: the CRM matches and mails, the site shows, Core forwards. If
+even the log is too much, the smaller option is a one-day id-to-outcome store and no counts.
 
 ## The design, approved with 130 (Patric, 2026-10-04: yes, without cancelling a booking)
 
@@ -736,7 +758,7 @@ browser never sees either.
 | 138 | The bot gate: which service? **Answered 2026-10-04: a, Turnstile**                                                                           | a) Turnstile by default, the service pluggable per site, Core's own measures always on · b) reCAPTCHA v3 only · c) Core's own measures only, a service when spam is seen                                                                               | yes                               | a; c is the smaller option and against Patric's "must have"                                                     |
 | 139 | What does the modal ask beyond the contact? **Answered 2026-10-04: a wizard, the profile last**                                              | a) one screen with one collapsed optional group the CRM takes · b) a second step after sending · c) the contact only                                                                                                                                   | yes                               | a, under "What the modal asks"                                                                                  |
 | 141 | The profile step's checkbox "Kontakta mig om min nuvarande bostad": keep it, drop it, or a text instead? **Answered 2026-10-04: a, keep it** | a) keep it, the adapter makes the visitor a seller lead too · b) drop it · c) a text about the home to sell, one more step                                                                                                                             | yes                               | a; b is the smaller                                                                                             |
-| 142 | Pre-market homes for registered buyers (Vitec's Kommande, Snart till salu, Försprång; the chains' "Förtur"): when?                           | a) later, a feature-map item after item 21 · b) now, in item 21's widget build · c) no                                                                                                                                                                 | no                                | a; c is the smaller                                                                                             |
+| 142 | Pre-market homes (the chains' "register and see homes first"): selling text on the set's Kommande list, a gated page, or nothing?            | a) selling text, the interest button on the Kommande cards is the register's door · b) a gated page behind a login (the theme; a Lovable site through its own sign-in) · c) nothing                                                                    | no                                | a; c is the smaller                                                                                             |
 | 136 | What does the footer's lead form send to an Mspecs brokerage, whose lead call needs at least one matching?                                   | a) the lead call with one matching from the brokerage's settings (a municipality), so the contact lands in Mspecs · b) the form is hidden on Mspecs sites until Mspecs offers a plain lead · c) the lead goes by e-mail to the office, outside the CRM | yes                               | b, the smallest, until an Mspecs brokerage asks; a is a Core-made matching, which is a rule to write down first |
 
 Settled without a question, as the handbook leaves tooling to the agent: the delivery is
