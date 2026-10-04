@@ -411,8 +411,14 @@ client ports (item 16, first client by question 80).
     - **Size:** one session.
 
 23. **Search by place, and the list blocks in the plugin** (Patric, 2026-10-04, "discuss before
-    building"; the design in `docs/search.md`; questions 133 and 134). Proposed 2026-10-04,
-    nothing built; starts on Patric's answers.
+    building"; the design in `docs/search.md`). Patric answered 133 with a and let 134 stand on
+    2026-10-04; session 1 (the query and the data) is done the same day, plugin 0.5.0 and theme
+    1.0.18: the query takes `lkf`, `areas`, `q` and lists for `agent`, `office` and `area_id`,
+    the index carries the code, the point and an area's outline bounds, the link table holds
+    which areas a home is in, rebuilt in the background on a plugin update, and the fake CRM
+    sends outlines and codes so the suite proves it. Next: session 2, the blocks in the plugin
+    (the editor builder moves there with the pick control), then session 3, the search box.
+    Default 135 (the tests under criterion 20) waits; the acceptance list is edited when it stands.
     - **Component:** `[client-wordpress]`, the plugin first, the theme's two list blocks after.
     - **What changes for the product:** the list search takes an LKF code or its län or kommun
       part, a free text matches the beginning of a street, an area, a town, a kommun or a län

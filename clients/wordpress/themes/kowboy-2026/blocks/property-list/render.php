@@ -16,7 +16,7 @@ $params = [
     'lead' => (string) ($attributes['lead'] ?? ''),
     'shadow' => false,
 ];
-$params += array_intersect_key($_GET, array_flip(['status', 'max_price', 'min_living_space', 'min_rooms', 'area']));
+$params += array_intersect_key($_GET, array_flip(['status', 'max_price', 'min_living_space', 'min_rooms', 'q', 'area', 'lkf', 'areas']));
 echo kowboy_section_open('k-list-section' . (($attributes['background'] ?? 'white') === 'subtle' ? ' k-list-section--subtle' : ''));
 echo core_client_list($params)['html'];
 echo '</section>';

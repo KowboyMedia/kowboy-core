@@ -65,6 +65,7 @@ const property = (raw: unknown): MappedRecord => {
         area_id: strings(record['districts'])[0] ?? null,
         municipality: null,
         country_code: null,
+        county_municipality_code: text(record['lkf']),
       },
       lat: number(record['lat']),
       lng: number(record['lng']),
@@ -216,9 +217,12 @@ export const mappers: Mappers = {
   office,
   agent,
   area: (raw: unknown): MappedRecord => {
-    const base = namedRecord('district_id', 'district_name', { polygon: null, images: [] })(raw);
+    const record = raw as Raw;
+    // The outline as the office draws it (GeoJSON MultiPolygon coordinates), when it has one.
+    const polygon = Array.isArray(record['outline']) ? record['outline'] : null;
+    const base = namedRecord('district_id', 'district_name', { polygon, images: [] })(raw);
     // The LKF code (län, kommun, församling) as the office keys the district, when it has one.
-    return { ...base, data: { ...base.data, county_municipality_code: text((raw as Raw)['lkf']) } };
+    return { ...base, data: { ...base.data, county_municipality_code: text(record['lkf']) } };
   },
   association: (raw: unknown): MappedRecord => {
     const record = raw as Raw;

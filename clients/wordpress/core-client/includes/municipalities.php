@@ -1,9 +1,10 @@
 <?php
-// Sweden's municipalities by code, for the site's own decisions: an area's slug and the kommun
-// over an area's title (Patric, 2026-10-04). The CRM sends the LKF code (län, kommun, församling,
-// two digits each) or its first four digits; the first four name the kommun. Source: Statistics
-// Sweden (SCB), "Län och kommuner i kodnummerordning", the 2026 workbook kommunlankod-2026.xlsx,
-// read on 2026-10-04: 290 municipalities. A code the table lacks names nothing.
+// Sweden's places by code, for the site's own decisions: an area's slug, the kommun over an area's
+// title (Patric, 2026-10-04) and the search by place (docs/search.md). The CRM sends the LKF code
+// (län, kommun, församling, two digits each) or its first four digits; the first two name the län,
+// the first four the kommun. Source: Statistics Sweden (SCB), "Län och kommuner i
+// kodnummerordning", the 2026 workbook kommunlankod-2026.xlsx, read on 2026-10-04: 21 counties and
+// 290 municipalities. A code the tables lack names nothing.
 
 declare(strict_types=1);
 
@@ -15,6 +16,64 @@ function core_client_municipality_name(?string $code): ?string
     }
     return CORE_CLIENT_MUNICIPALITIES[substr($code, 0, 4)] ?? null;
 }
+
+/** The län's name for a code of two digits or more; null for no code, or one the table lacks. */
+function core_client_county_name(?string $code): ?string
+{
+    if ($code === null || !preg_match('/^\d{2}/', $code)) {
+        return null;
+    }
+    return CORE_CLIENT_COUNTIES[substr($code, 0, 2)] ?? null;
+}
+
+/**
+ * The codes of every län and kommun whose name begins with the words, compared without case and
+ * without accents (the slug rule), so "malm" names Malmö and "skåne" and "skane" alike name
+ * Skåne län. The free text of the list query turns a typed name into these codes (docs/search.md).
+ *
+ * @return list<string>
+ */
+function core_client_place_codes(string $words): array
+{
+    $fold = fn (string $name): string => mb_strtolower(remove_accents($name));
+    $prefix = $fold(trim($words));
+    if ($prefix === '') {
+        return [];
+    }
+    $codes = [];
+    foreach ([CORE_CLIENT_COUNTIES, CORE_CLIENT_MUNICIPALITIES] as $table) {
+        foreach ($table as $code => $name) {
+            if (str_starts_with($fold($name), $prefix)) {
+                $codes[] = (string) $code;
+            }
+        }
+    }
+    return $codes;
+}
+
+const CORE_CLIENT_COUNTIES = [
+    '01' => 'Stockholms län',
+    '03' => 'Uppsala län',
+    '04' => 'Södermanlands län',
+    '05' => 'Östergötlands län',
+    '06' => 'Jönköpings län',
+    '07' => 'Kronobergs län',
+    '08' => 'Kalmar län',
+    '09' => 'Gotlands län',
+    '10' => 'Blekinge län',
+    '12' => 'Skåne län',
+    '13' => 'Hallands län',
+    '14' => 'Västra Götalands län',
+    '17' => 'Värmlands län',
+    '18' => 'Örebro län',
+    '19' => 'Västmanlands län',
+    '20' => 'Dalarnas län',
+    '21' => 'Gävleborgs län',
+    '22' => 'Västernorrlands län',
+    '23' => 'Jämtlands län',
+    '24' => 'Västerbottens län',
+    '25' => 'Norrbottens län',
+];
 
 const CORE_CLIENT_MUNICIPALITIES = [
     '0114' => 'Upplands Väsby',

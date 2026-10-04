@@ -14,6 +14,8 @@
 //   php driver.php option <name> [<json value>]
 //   php driver.php import '{"datatype":"property","data":{...},"raw":{...}}'   one item straight into the store
 //   php driver.php typed '{"datatype":"agent","post":{"post_title":"…","post_status":"publish"},"fields":{...}}'   a record the site types itself
+//   php driver.php inside '{"lat":59.3,"lng":18.0,"polygon":[[[[lng,lat],...]]]}'   whether the point lies in the outline
+//   php driver.php links   the home-to-area links as the plugin holds them
 
 declare(strict_types=1);
 
@@ -72,6 +74,7 @@ function core_driver_reset(): array
         }
     }
     $wpdb->query('TRUNCATE TABLE ' . core_client_index_table());
+    $wpdb->query('TRUNCATE TABLE ' . core_client_links_table());
     $wpdb->query('TRUNCATE TABLE ' . core_client_state_table());
     as_unschedule_all_actions('core_client_backstop'); // the next boot schedules it afresh, due at once
     delete_site_transient('update_plugins');
@@ -292,6 +295,29 @@ function core_driver_option(string $argument): array
     return ['value' => get_option($name)];
 }
 
+/**
+ * `inside`: the plugin's outline test on one point and one outline, for the hand-drawn shapes.
+ *
+ * @param array<string, mixed> $spec
+ * @return array<string, mixed>
+ */
+function core_driver_inside(array $spec): array
+{
+    return ['inside' => core_client_point_in_polygon((float) $spec['lat'], (float) $spec['lng'], $spec['polygon'] ?? null)];
+}
+
+/**
+ * `links`: every home-to-area link, as the record's id and the area's id, so a test reads the table itself.
+ *
+ * @return list<array{remote_id: string, area_id: string}>
+ */
+function core_driver_links(): array
+{
+    global $wpdb;
+    $rows = $wpdb->get_results('SELECT i.remote_id, l.area_id FROM ' . core_client_links_table() . ' l JOIN ' . core_client_index_table() . ' i ON i.post_id = l.post_id ORDER BY i.remote_id, l.area_id', ARRAY_A);
+    return array_map(fn (array $row): array => ['remote_id' => (string) $row['remote_id'], 'area_id' => (string) $row['area_id']], $rows ?: []);
+}
+
 $result = match ($command) {
     'configure' => core_driver_configure((array) json_decode($argument, true)),
     'reset' => core_driver_reset(),
@@ -308,6 +334,8 @@ $result = match ($command) {
     'demo-pages' => core_driver_demo_pages(),
     'import' => core_driver_import((array) json_decode($argument, true)),
     'typed' => core_driver_typed((array) json_decode($argument, true)),
+    'inside' => core_driver_inside((array) json_decode($argument, true)),
+    'links' => core_driver_links(),
     default => null,
 };
 if ($result === null) {

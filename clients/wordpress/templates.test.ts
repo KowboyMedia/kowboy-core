@@ -36,10 +36,43 @@ const listing = (id: string, extra: Record<string, unknown>): Record<string, unk
   branch_id: 'B-1',
   staff: ['S-1'],
   coop_id: null,
+  lkf: '0180',
   images: [`https://img.test/${id}-1_1920.jpg`, `https://img.test/${id}-2_1920.jpg`],
   published_at: '2026-09-01T08:00:00.000Z',
   ...extra,
 });
+
+/** Outlines as the fake CRM draws them (GeoJSON MultiPolygon coordinates, longitude first), and P-1 as first put. */
+const VASASTAN = [
+  [
+    [
+      [18.0, 59.3],
+      [18.1, 59.3],
+      [18.1, 59.4],
+      [18.0, 59.4],
+      [18.0, 59.3],
+    ],
+    [
+      [18.04, 59.33],
+      [18.06, 59.33],
+      [18.06, 59.35],
+      [18.04, 59.35],
+      [18.04, 59.33],
+    ],
+  ],
+];
+const NORRMALM = [
+  [
+    [
+      [18.08, 59.38],
+      [18.2, 59.38],
+      [18.2, 59.45],
+      [18.08, 59.45],
+      [18.08, 59.38],
+    ],
+  ],
+];
+const P1 = { price: 7_250_000, rooms: 3, living_space: 82, lat: 59.31, lng: 18.01 };
 
 let core: Harness;
 let site: ClientDriver;
@@ -155,8 +188,18 @@ beforeAll(async () => {
     district_name: 'Vasastan',
     branch_id: 'B-1',
     lkf: '018001',
+    outline: VASASTAN,
   });
-  crm.put('property', 'P-1', listing('P-1', { price: 7_250_000, rooms: 3, living_space: 82 }));
+  crm.put('area', 'D-2', {
+    district_id: 'D-2',
+    district_name: 'Norrmalm',
+    branch_id: 'B-1',
+    lkf: '0180',
+    outline: NORRMALM,
+  });
+  // P-1's point lies in Vasastan's outline, P-2's in Vasastan's and Norrmalm's, P-3's in the hole
+  // cut out of Vasastan's; the CRM names Vasastan on every home (docs/search.md, question 133 a).
+  crm.put('property', 'P-1', listing('P-1', P1));
   crm.put(
     'property',
     'P-2',
@@ -167,6 +210,8 @@ beforeAll(async () => {
       staff: ['S-2'],
       district_name: 'Södermalm',
       city: 'Stockholm',
+      lat: 59.39,
+      lng: 18.09,
       published_at: '2026-09-10T08:00:00.000Z',
     }),
   );
@@ -225,6 +270,7 @@ beforeAll(async () => {
       staff: ['S-1', 'S-2'],
       lat: 59.34,
       lng: 18.05,
+      lkf: '0163',
       published_at: '2026-09-12T08:00:00.000Z',
     }),
   );
@@ -344,6 +390,116 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     const byPrice = (await reload({ entity: 'property', status: 'active', sort: 'price_asc' }))
       .html;
     expect(byPrice.indexOf('Kungsgatan 2')).toBeLessThan(byPrice.indexOf('Kungsgatan 1'));
+  });
+
+  it('finds homes by a län or kommun code, by chosen areas, and by the beginning of a street, area, town, kommun or län name', async () => {
+    const total = async (params: Record<string, string>): Promise<number> =>
+      (await reload({ entity: 'property', status: 'active,pre', ...params })).total;
+    // A code matches by its beginning: the län, the kommun; a code of three digits is no code.
+    expect(await total({ lkf: '01' })).toBe(3);
+    expect(await total({ lkf: '0180' })).toBe(2);
+    expect(await total({ lkf: '0163' })).toBe(1);
+    expect(await total({ lkf: '12' })).toBe(0);
+    expect(await total({ lkf: '018' })).toBe(3);
+    // The free text matches the beginning of a street, an area, a town, and a kommun or län name through the plugin's tables.
+    expect(await total({ q: 'Kungsgatan 2' })).toBe(1);
+    expect(await total({ q: 'söder' })).toBe(1);
+    expect(await total({ q: 'stockh' })).toBe(3);
+    expect(await total({ q: 'Sollen' })).toBe(1); // Sollentuna kommun, 0163: P-3's code
+    expect(await total({ q: 'Stockholms l' })).toBe(3); // Stockholms län, 01
+    expect(await total({ q: 'gatan' })).toBe(0); // the beginning only
+    expect(await total({ area: 'kungsgatan 2' })).toBe(1); // the parameter's old name, one release more
+    // The chosen areas and codes are one group, any of them; the free text narrows the group.
+    expect(await total({ areas: 'D-2' })).toBe(1); // P-2 by Norrmalm's outline, not by the CRM
+    expect(await total({ areas: 'D-2', lkf: '0163' })).toBe(2);
+    expect(await total({ areas: 'D-2', q: 'Kungsgatan 1' })).toBe(0);
+    expect(await total({ area_id: 'D-1,D-2', areas: 'D-2' })).toBe(1);
+    // "Show only from these": any of the agents (a home's second agent counts), offices or areas.
+    expect(await total({ agent: 'S-1,S-2' })).toBe(3);
+    expect(await total({ agent: 'S-2' })).toBe(2);
+    expect(await total({ office: 'B-1,B-9' })).toBe(3);
+    expect(await total({ area_id: 'D-2' })).toBe(1);
+    expect((await reload({ entity: 'agent', office: 'B-1,B-9' })).total).toBe(2);
+  });
+
+  it('links a home to the CRM’s area and to every area whose outline holds its point (133 a), relinks on a changed outline or point, and rebuilds the links on a plugin update', async () => {
+    // The outline test on hand-drawn shapes: a square, a square with a hole, two separate squares, no outline.
+    const inside = async (lat: number, lng: number, polygon: unknown): Promise<boolean> =>
+      (await driver<{ inside: boolean }>('inside', JSON.stringify({ lat, lng, polygon }))).inside;
+    const ring = (x: number, y: number, size: number): number[][] => [
+      [x, y],
+      [x + size, y],
+      [x + size, y + size],
+      [x, y + size],
+      [x, y],
+    ];
+    expect(await inside(5, 5, [[ring(0, 0, 10)]])).toBe(true);
+    expect(await inside(5, 15, [[ring(0, 0, 10)]])).toBe(false);
+    expect(await inside(5, 5, [[ring(0, 0, 10), ring(4, 4, 2)]])).toBe(false);
+    expect(await inside(2, 2, [[ring(0, 0, 10), ring(4, 4, 2)]])).toBe(true);
+    expect(await inside(25, 25, [[ring(0, 0, 10)], [ring(20, 20, 10)]])).toBe(true);
+    expect(await inside(15, 15, [[ring(0, 0, 10)], [ring(20, 20, 10)]])).toBe(false);
+    expect(await inside(5, 5, null)).toBe(false);
+    expect(await inside(5, 5, [[ring(0, 0, 10).slice(0, 2)]])).toBe(false);
+
+    const links = async (): Promise<string[]> =>
+      (await driver<{ remote_id: string; area_id: string }[]>('links')).map(
+        (link) => `${link.remote_id}:${link.area_id}`,
+      );
+    const synced = ['P-1:D-1', 'P-2:D-1', 'P-2:D-2', 'P-3:D-1', 'P-4:D-1', 'P-5:D-1', 'P-6:D-1'];
+    expect(await links()).toEqual(synced);
+    // The area page and its card count by the links: Norrmalm holds P-2 by outline alone.
+    const norrmalm = await page(await permalink('area', 'D-2'));
+    expect(norrmalm.body).toContain('Bostäder i Norrmalm');
+    expect(norrmalm.body).toContain('Kungsgatan 2');
+    expect(norrmalm.body).not.toContain('Kungsgatan 1');
+    expect((await page('/?post_type=core_area')).body).toContain('1 bostad till salu');
+
+    // Norrmalm redrawn far away: P-2 leaves it; then P-1 moves into the new outline and joins it.
+    const far = [[ring(18.5, 59.6, 0.1)]];
+    crm.put('area', 'D-2', {
+      district_id: 'D-2',
+      district_name: 'Norrmalm',
+      branch_id: 'B-1',
+      lkf: '0180',
+      outline: far,
+    });
+    await poll();
+    await site.trigger('delta');
+    expect(await links()).toEqual(synced.filter((link) => link !== 'P-2:D-2'));
+    crm.put('property', 'P-1', listing('P-1', { ...P1, lat: 59.65, lng: 18.55 }));
+    await poll();
+    await site.trigger('delta');
+    expect(await links()).toContain('P-1:D-2');
+    expect(await links()).not.toContain('P-2:D-2');
+
+    // A plugin update: the links are rebuilt in the background from the stored records.
+    await wp(
+      'eval',
+      'global $wpdb; $wpdb->query("TRUNCATE TABLE " . core_client_links_table()); update_option("core_client_db_version", "0.4.4");',
+    );
+    expect(await links()).toEqual([]);
+    expect((await page('/')).status).toBe(200); // the first request after an update reindexes and schedules the rebuild
+    const run = await driver<{ processed: number }>('backstop');
+    expect(run.processed).toBeGreaterThan(0);
+    expect(await links()).toEqual([
+      'P-1:D-1',
+      'P-1:D-2',
+      ...synced.filter((link) => !link.startsWith('P-1:') && link !== 'P-2:D-2'),
+    ]);
+
+    // Back as first put, for the tests that follow.
+    crm.put('area', 'D-2', {
+      district_id: 'D-2',
+      district_name: 'Norrmalm',
+      branch_id: 'B-1',
+      lkf: '0180',
+      outline: NORRMALM,
+    });
+    crm.put('property', 'P-1', listing('P-1', P1));
+    await poll();
+    await site.trigger('delta');
+    expect(await links()).toEqual(synced);
   });
 
   it('renders a property page from display and data: hero, facts, viewings, agents, sections, map', async () => {

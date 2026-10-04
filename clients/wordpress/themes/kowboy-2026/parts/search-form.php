@@ -23,6 +23,6 @@ $chosen = fn (string $key): string => isset($_GET[$key]) ? sanitize_text_field((
             <?php foreach ($min_rooms as $rooms) : ?><option value="<?php echo (int) $rooms; ?>" <?php selected($chosen('min_rooms'), (string) $rooms); ?>><?php echo (int) $rooms; ?> rum</option><?php endforeach; ?>
         </select></label>
     <label class="k-search__field"><span class="k-visually-hidden">Område</span>
-        <input type="search" name="area" placeholder="Område" value="<?php echo esc_attr($chosen('area')); ?>"></label>
+        <input type="search" name="q" placeholder="Område" value="<?php echo esc_attr($chosen('q')); ?>"></label>
     <button class="k-button" type="submit">Sök</button>
 </form>

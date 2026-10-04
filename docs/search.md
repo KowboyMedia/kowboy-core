@@ -1,7 +1,11 @@
 # Search by place, and the list blocks in the plugin
 
-**Status:** proposed 2026-10-04, waiting on questions 133 and 134 in `docs/open-questions.md`.
-Nothing here is built. **The ask** (Patric, 2026-10-04, "discuss before building"): the search
+**Status:** approved 2026-10-04: Patric answered 133 with a (a home is in every area whose
+outline holds it) and let Default 134 stand, and added two rules: the links are recomputed only
+when a home's point or an area's outline changed, which is rare, and every agent filter checks
+both of a home's agents. Session 1 of the three below (the query and the data) is built:
+plugin 0.5.0, theme 1.0.18, proved by the two tests named under "Tests" 1 and 2; sessions 2 and 3
+follow. **The ask** (Patric, 2026-10-04, "discuss before building"): the search
 method accepts an LKF code or the significant part of one (the L part for a län, the LK part for a
 kommun); a free text search matches the beginning of a street address, of an area name or of a
 kommun name; the WordPress property list and agent list are blocks that live in the plugin, not

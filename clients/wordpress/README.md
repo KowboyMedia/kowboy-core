@@ -11,6 +11,8 @@ core-client/                     the plugin
   includes/settings.php          Core URL, tenant token, bell secret; the template set, shadow DOM and the
                                  status ids of the site's lists; the sets on offer with an Install button
   includes/store.php             post types, the index table with its search columns, upsert and delete
+  includes/municipalities.php    Sweden's 21 län and 290 kommuner by LKF code, and a name's codes
+  includes/areas.php             the outline test, and the table of which areas a home is in
   includes/query.php             core_client_query(): one parameter set in, one page of items out
   includes/templates.php         the sets' registry, the override rule (theme first), the list function,
                                  the shortcode, the reload endpoint, the routing of single pages and archives
@@ -106,8 +108,16 @@ or `wp action-scheduler run`.
   search columns every list query reads: copies of universal names (`status.id`, `type.id`,
   `tenure.id`, `price`, `living_space`, `rooms`, the area name, city and street, `project_id`,
   the agent ids, `published_at`, `sold_at`, a name to sort by, the office ids of an agent, the
-  area id, the association id, and `listed`: 0 for an agent the CRM keeps out of the staff list on the record or on
-  any office, the site's one rule over the data), filled on every write.
+  area id, the association id, `listed`: 0 for an agent the CRM keeps out of the staff list on the record or on
+  any office, the site's one rule over the data, the LKF code, the point, and an area's outline
+  bounds with a hash of the outline), filled on every write.
+- The link table `wp_core_property_areas` holds which areas a home is in (`docs/search.md`;
+  Patric, 2026-10-04, question 133 a): the area the CRM named and every area whose outline
+  holds the home's point, found by the plugin's own point-in-polygon test
+  (`includes/areas.php`) when the record is written, against the areas whose bounds hold the
+  point. The links are redone only when a home's point or CRM area, or an area's outline,
+  changed; a plugin update rebuilds them all in the background, a batch at a time, as a
+  scheduled action. The area filters, the area page and the area card read this table.
 
 ## Templates: the query function, the list function, the sets
 
@@ -122,9 +132,14 @@ shortcode, a view and a block alike.
 one page: `items` (post id and item each), `total`, `has_more`, `page`, `per_page`. Parameters:
 `entity`; `status`, `type`, `tenure` (ids, comma-separated; for `status` the names `for_sale`,
 `coming` and `sold` stand for the ids the site named in its settings); `min_price`, `max_price`,
-`min_living_space`, `max_living_space`, `min_rooms`; `area` (free text against area name, city
-and street); `agent`, `office`, `project`, `area_id`, `association` (the id of the record the
-items belong to); `include_project_homes` (a property that names a project
+`min_living_space`, `max_living_space`, `min_rooms`; `q` (free text: the street, the area name or
+the postal town begins with it, or it begins the name of a kommun or a län, which the plugin's
+tables turn into codes; `area` is its old name and stands for `q` until the next release);
+`lkf` (codes of two, four or six digits: the home's code begins with one); `areas` (area ids the
+visitor chose: the home is in one of them, by the links below; `areas` and `lkf` together are one
+group, "any of these places"); `agent`, `office`, `area_id` (ids, comma-separated: the items
+belong to any of these agents, with both of a home's agents checked, offices or areas); `project`,
+`association` (the id of the record the items belong to); `include_project_homes` (a property that names a project
 is otherwise kept out of every list but its project's, question 55); `include_hidden` (an agent
 the CRM keeps out of the staff list is otherwise kept out of every list, while a page that names
 the agent, such as a home's card, shows them; Patric, 2026-10-03); `sort` (`newest`, `sold`,

@@ -16,8 +16,15 @@ const CORE_CLIENT_PER_PAGE = 10;
  *   type, tenure    ids the same way: `type.id`, `tenure.id` in
  *   max_price, max_living_space   at most this
  *   min_price, min_living_space, min_rooms   at least this
- *   area            free text against the area name, the city and the street
- *   agent, office, project, area_id, association   the id of the agent, office, project, area or association the items belong to
+ *   q               free text: the street, the area name or the postal town begins with it, or it begins
+ *                   the name of a kommun or a län (municipalities.php turns the name into codes). `area`
+ *                   is the parameter's old name and stands for `q` until the next release (docs/search.md)
+ *   lkf             codes of two, four or six digits, comma-separated or a list: the home's code begins with one
+ *   areas           area ids the visitor chose: the home is in one of them (includes/areas.php). `areas` and
+ *                   `lkf` are one group, "any of these places"; everything else narrows it
+ *   agent, office, area_id   ids, comma-separated or a list, "show only from these": the items belong
+ *                   to any of these agents (a home has one or two, both are checked), offices or areas
+ *   project, association   the id of the project or association the items belong to
  *   include_project_homes         properties that name a project are otherwise kept out (question 55)
  *   include_hidden                agents the CRM keeps out of the staff list (on the record or an office) are otherwise kept out
  *   sort            newest (default for properties), sold, price_asc, price_desc, updated, name (default
@@ -51,29 +58,49 @@ function core_client_query(array $params): array
             $args[] = (float) $value;
         }
     }
-    $area = trim((string) ($params['area'] ?? ''));
-    if ($area !== '') {
-        $like = '%' . $wpdb->esc_like($area) . '%';
-        $where[] = '(i.area_name LIKE %s OR i.city LIKE %s OR i.street LIKE %s)';
-        array_push($args, $like, $like, $like);
+    $q = trim((string) (($params['q'] ?? '') !== '' ? $params['q'] : ($params['area'] ?? '')));
+    if ($q !== '') {
+        $prefix = $wpdb->esc_like($q) . '%';
+        $clauses = ['i.street LIKE %s', 'i.area_name LIKE %s', 'i.city LIKE %s'];
+        array_push($args, $prefix, $prefix, $prefix);
+        foreach (core_client_place_codes($q) as $code) {
+            $clauses[] = 'i.county_municipality_code LIKE %s';
+            $args[] = $code . '%';
+        }
+        $where[] = '(' . implode(' OR ', $clauses) . ')';
     }
-    $agent = trim((string) ($params['agent'] ?? ''));
-    if ($agent !== '') {
-        $where[] = 'i.agent_ids LIKE %s';
-        $args[] = '%,' . $wpdb->esc_like($agent) . ',%';
+    $places = [];
+    foreach (core_client_query_list($params['lkf'] ?? null) as $code) {
+        if (preg_match('/^(\d{2}|\d{4}|\d{6})$/', $code) === 1) {
+            $places[] = 'i.county_municipality_code LIKE %s';
+            $args[] = $code . '%';
+        }
     }
-    $office = trim((string) ($params['office'] ?? ''));
-    if ($office !== '' && $entity === 'agent') {
-        $where[] = 'i.office_ids LIKE %s';
-        $args[] = '%,' . $wpdb->esc_like($office) . ',%';
-    } elseif ($office !== '') {
-        $where[] = 'i.office_id = %s';
-        $args[] = $office;
+    $areas = core_client_query_list($params['areas'] ?? null);
+    if ($areas !== []) {
+        $places[] = core_client_query_in_areas($areas);
+        array_push($args, ...$areas);
     }
-    $area_id = trim((string) ($params['area_id'] ?? ''));
-    if ($area_id !== '') {
-        $where[] = 'i.area_id = %s';
-        $args[] = $area_id;
+    if ($places !== []) {
+        $where[] = '(' . implode(' OR ', $places) . ')';
+    }
+    $agents = core_client_query_list($params['agent'] ?? null);
+    if ($agents !== []) {
+        $where[] = '(' . implode(' OR ', array_fill(0, count($agents), 'i.agent_ids LIKE %s')) . ')';
+        array_push($args, ...array_map(fn (string $agent): string => '%,' . $wpdb->esc_like($agent) . ',%', $agents));
+    }
+    $offices = core_client_query_list($params['office'] ?? null);
+    if ($offices !== [] && $entity === 'agent') {
+        $where[] = '(' . implode(' OR ', array_fill(0, count($offices), 'i.office_ids LIKE %s')) . ')';
+        array_push($args, ...array_map(fn (string $office): string => '%,' . $wpdb->esc_like($office) . ',%', $offices));
+    } elseif ($offices !== []) {
+        $where[] = 'i.office_id IN (' . implode(',', array_fill(0, count($offices), '%s')) . ')';
+        array_push($args, ...$offices);
+    }
+    $area_ids = core_client_query_list($params['area_id'] ?? null);
+    if ($area_ids !== []) {
+        $where[] = core_client_query_in_areas($area_ids);
+        array_push($args, ...$area_ids);
     }
     $association = trim((string) ($params['association'] ?? ''));
     if ($association !== '') {
@@ -123,6 +150,17 @@ function core_client_query(array $params): array
         'page' => $page,
         'per_page' => $per_page,
     ];
+}
+
+/**
+ * The condition "the item is in one of these areas", by the link table (includes/areas.php): the
+ * CRM's area and every outline that holds the item's point. One placeholder per id.
+ *
+ * @param list<string> $area_ids
+ */
+function core_client_query_in_areas(array $area_ids): string
+{
+    return 'i.post_id IN (SELECT l.post_id FROM ' . core_client_links_table() . ' l WHERE l.area_id IN (' . implode(',', array_fill(0, count($area_ids), '%s')) . '))';
 }
 
 /**
