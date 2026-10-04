@@ -28,3 +28,21 @@ counts. The test then holds the window, sends the burst, counts one, releases th
 one fetch. Four lines in the test, a handful in each adapter; `acceptance/` is a protected path, so
 the change goes through review like any other. Out of scope of the admin-area session that found
 it (Patric, 2026-09-21).
+
+## 2. `[crm-vitec]` The homes' areas are missing from the areas the adapter lists, so their area pages do not exist
+
+**What happens.** On the staging site (2026-10-04) the nine homes for sale name areas in Malmö
+and Lund (Elinegård, Värnhem, Brunnshög, with ids like `SOM9918AD86…`), and none of those areas
+is among the 56 areas the site holds; the area pages for them answer with the Områden index, and
+until plugin 0.5.3 the search box offered no area at all, since it offered only areas with a
+record.
+
+**Why.** The adapter lists areas per office (`adapters/vitec/api.ts`, `list`), and the test
+office's area list holds Ekerö, Helsingborg and a few Malmö areas, not the ones its marketed
+estates name. Whether Vitec lists an estate's area under another office or customer, or the
+test account's data is simply mixed, is not known.
+
+**What fixing it takes.** Find out from Vitec Connect where an estate's area is listed when it
+is not in its office's list (a question to Vitec, or a look at the list endpoints of the test
+account), and fetch it from there; then the area pages exist and the box names the areas from
+their records. The box and the pills already work without the records (plugin 0.5.3).

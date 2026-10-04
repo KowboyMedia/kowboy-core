@@ -273,6 +273,13 @@ offices; the list holds the agents of those offices, in the CRM's order as today
   page (places) choose the groups.
 - **The Till salu page's search card** keeps its three choices (max price, minimum size,
   minimum rooms) and swaps the "Område" text field for this box.
+- **An area the site has no record of** (plugin 0.5.3, Patric, 2026-10-04: the staging site's
+  homes name areas that are not among the areas the CRM lists for the office, known bug 2) is
+  offered and pilled all the same, named as its homes name it with the kommun of their code,
+  since the links carry the CRM's assignment whether or not the area's record arrived. Its page
+  does not exist until the record does. **The pills grow the form downward** (theme 1.1.2): the
+  form on the hero's edge is anchored at its top and its row at the top, so the field and the
+  button keep their place when a pill is added.
 
 ## Performance, in numbers
 

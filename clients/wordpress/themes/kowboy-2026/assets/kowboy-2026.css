@@ -585,12 +585,15 @@ iframe.k-hero__video {
   }
 }
 
-/* The search form on the hero's lower edge, and in a list */
+/* The search form on the hero's lower edge, and in a list. The row is aligned to its top, so the
+   pills under the place field grow the form downward and leave the field in line with the
+   selects (Patric, 2026-10-04); the button, shorter than the 44px fields, keeps its place on
+   their line by its margin. */
 .k-search {
   display: grid;
   grid-template-columns: repeat(4, 1fr) auto;
   gap: 32px;
-  align-items: center;
+  align-items: start;
   width: 100%;
   max-width: var(--k-container);
   margin-inline: auto;
@@ -604,10 +607,13 @@ iframe.k-hero__video {
 .k-hero > .k-search {
   position: absolute;
   z-index: 3;
+  top: calc(100% - 39px);
   left: var(--k-gutter);
   right: var(--k-gutter);
-  bottom: -39px;
   width: auto;
+}
+.k-search .k-button {
+  margin-top: 5px;
 }
 .k-hero--with-form {
   margin-bottom: 39px;
@@ -672,6 +678,7 @@ iframe.k-hero__video {
   }
   .k-search .k-button {
     grid-column: 1 / -1;
+    margin-top: 0;
   }
   .k-hero > .k-search {
     position: relative;
