@@ -674,8 +674,13 @@ generic capability item 21 in `docs/next-steps.md` asked for.
   record's office id, or `office_id` for a lead. `consent.at` becomes the interest's GDPR date and
   `consent.given` the form calls' "GDPR approved"; `source.page` becomes `Marketing.Referrer` and
   `source.utm` the UTM tag list.
-- **Seven settings the brokerage owns, typed in the admin area on the connection's page**, each
-  with its direction and covered by `admin/directions.test.ts`: the lead source id for the
+- **Eight settings, typed in the admin area on the connection's page**, each with its direction
+  and covered by `admin/directions.test.ts`. First the gate, Core's own: "Send forms to Vitec",
+  empty or no until the office is confirmed as a demo or test customer (54 f) or goes live, and
+  every form is refused before any call while it is not yes, so a connection that reads a client's
+  production office for testing (the staging connections) is never written to (added 2026-10-04,
+  when the widget put a send one click away on the staging site). Then the brokerage's own knobs,
+  which Core copies through and decides none of: the lead source id for the
   website's leads (optional; Vitec uses its preselected one when empty), the intake source id for
   valuations (optional), the status a website interest gets (Vitec's own list; empty leaves it to
   Vitec), whether a booking is confirmed by e-mail, whether it is confirmed by SMS, the
@@ -818,7 +823,7 @@ listed under acceptance criteria 43, 44, 47 and 49) and described in `adapters/v
   the valuation too, on the same person, after the main call. `consent.at` is the interest's GDPR
   date, `source.page` the referrer and `source.utm` the UTM tag list on every call that takes
   marketing.
-- The seven settings above, read from the connection's credentials document (one JSON next to
+- The eight settings above, read from the connection's credentials document (one JSON next to
   the key pair), typed on the connection's page beside the Connect username and password
   (`admin/index.ts`), named in the setup directions' step "Forms" and held by
   `admin/directions.test.ts`. Each empty one is left out of the call, so Vitec applies its own
@@ -843,7 +848,11 @@ Not done, and not doable from here: the real send. Every call above ran against 
 only; the login in the environment reads a client's production office and is never a write
 target (AGENTS.md, "Stop and ask"; Patric, 2026-10-04). One real send per kind, and the search
 profile's two calls with the CRM function group, wait on a demo or test customer Patric has
-confirmed (question 54 f).
+confirmed (question 54 f). The code holds the rule too: `submit` refuses every form before any
+call while the connection's "Send forms to Vitec" is not yes (`forms.test.ts`, the gate's test),
+so the staging Core, which deploys on every push and whose connections read a client's production
+office, writes nothing however a form reaches it; the widget's refusal text to the visitor is
+"Formulär skickas inte till det här kontoret än".
 
 A note for the widget (plan item 3): the criteria's `object_type` cannot be read off the home by
 the widget, because the home's universal `type` is the CRM's own enumeration and reading it would

@@ -14,6 +14,8 @@ import {
   TOKEN,
   type Harness,
 } from '../../acceptance/harness.js';
+import type { Submission } from '../../engine/adapter-api/index.js';
+import * as forms from './forms.js';
 import { drainFetchList, runSchedules, vitecAdapter } from './index.js';
 import * as store from './store.js';
 import { PASSWORD, USERNAME, startFakeConnect, type FakeConnect } from './test/connect.js';
@@ -27,6 +29,7 @@ const CHANGED = '2026-09-10T08:00:00.1234567+02:00';
 const credentials = JSON.stringify({
   username: USERNAME,
   password: PASSWORD,
+  send_forms: 'yes',
   lead_source_id: 'LS-web',
   assignment_source_id: 'IS-val',
   interest_status: 'VeryInterested',
@@ -371,5 +374,41 @@ describe('the Vitec adapter’s forms', () => {
         (request) => request.path === `/v2/Advertising/Form/${OFFICE}/Estate/${ESTATE}`,
       ),
     ).toBe(true);
+  });
+
+  it('refuses every form before any call while “Send forms to Vitec” on the connection is not yes, so an unconfirmed office is never written to', async () => {
+    const auth = { username: USERNAME, password: PASSWORD };
+    const connection = (document: Record<string, unknown>) => ({
+      id: 'vitec-quiet',
+      tenantId: 1,
+      provider: 'vitec',
+      credentials: JSON.stringify({ username: USERNAME, password: PASSWORD, ...document }),
+      licensedOffices: [OFFICE],
+      active: true,
+    });
+    const lead = submission('lead', { office_id: OFFICE }) as unknown as Submission;
+    const booking = submission('viewing', {
+      record,
+      office_id: OFFICE,
+      slot_id: 'T-1',
+    }) as unknown as Submission;
+
+    // Nothing typed, and "no": refused, the stand-in saw nothing.
+    expect(await forms.submit(connection({}), auth, lead)).toEqual({
+      outcome: 'refused',
+      reason: forms.NOT_SENT,
+    });
+    expect(await forms.submit(connection({ send_forms: 'no' }), auth, booking)).toEqual({
+      outcome: 'refused',
+      reason: forms.NOT_SENT,
+    });
+    expect(formsSent()).toEqual([]);
+
+    // "yes": the same lead leaves as the valuation request.
+    expect(await forms.submit(connection({ send_forms: 'yes' }), auth, lead)).toEqual({
+      outcome: 'delivered',
+      reference: expect.any(String),
+    });
+    expect(formsSent()).toEqual([`/v2/Advertising/Form/${OFFICE}/Valuation`]);
   });
 });

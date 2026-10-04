@@ -15,6 +15,13 @@ import type {
 
 /** The settings stored in the connection's login document, beside `username` and `password`. */
 export type FormSettings = {
+  /**
+   * Whether forms are sent to this office at all. False (the default, and "no") refuses every
+   * form before any call, so a connection that reads a client's production office for testing is
+   * never written to (Patric, 2026-10-04); yes is for a confirmed demo or test customer
+   * (question 54 f) or a customer gone live.
+   */
+  sendForms: boolean;
   /** Vitec's id of the lead source the website's leads are filed under; null leaves it to Vitec. */
   leadSourceId: string | null;
   /** Vitec's id of the intake source for a seller's valuation request; null leaves it unset. */
@@ -30,6 +37,7 @@ export type FormSettings = {
 };
 
 export const FORM_SETTING_KEYS = [
+  'send_forms',
   'lead_source_id',
   'assignment_source_id',
   'interest_status',
@@ -64,6 +72,7 @@ export function settingsOf(stored: string | null): FormSettings {
   }
   const reminder = Number(text(document, 'reminder_minutes'));
   return {
+    sendForms: yesNo(document, 'send_forms', false),
     leadSourceId: text(document, 'lead_source_id'),
     assignmentSourceId: text(document, 'assignment_source_id'),
     interestStatus: text(document, 'interest_status'),
@@ -116,17 +125,25 @@ type Sending = {
   trace: EventContext;
 };
 
-/** Send one submission to Vitec and say what Vitec said. Never throws. */
+/** What the visitor reads while the connection's "Send forms to Vitec" is not yes. */
+export const NOT_SENT = 'Formulär skickas inte till det här kontoret än.';
+
+/**
+ * Send one submission to Vitec and say what Vitec said. Never throws. Nothing leaves while the
+ * connection's "Send forms to Vitec" is not yes: the refusal comes before any call.
+ */
 export async function submit(
   connection: Connection,
   auth: connect.Auth,
   submission: Submission,
 ): Promise<SubmissionResult> {
+  const settings = settingsOf(connection.credentials);
+  if (!settings.sendForms) return { outcome: 'refused', reason: NOT_SENT };
   const customerId = submission.office_id;
   if (!customerId) return { outcome: 'failed', detail: 'no office (customer id) to send to' };
   const sending: Sending = {
     auth,
-    settings: settingsOf(connection.credentials),
+    settings,
     customerId,
     submission,
     trace: traceOf(connection, submission),

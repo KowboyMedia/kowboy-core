@@ -319,8 +319,15 @@ export const vitecAdmin: AdapterAdmin = {
       required: true,
     },
     { key: 'password', label: 'Connect password', secret: true, required: true },
-    // The forms (docs/forms.md): the brokerage's own knobs in Vitec, copied through with every
-    // form a site sends. Core decides none of them; empty leaves each to Vitec as described.
+    // The forms (docs/forms.md): first whether they are sent at all, then the brokerage's own
+    // knobs in Vitec, copied through with every form a site sends. Core decides none of the
+    // knobs; empty leaves each to Vitec as described.
+    {
+      key: 'send_forms',
+      label: 'Send forms to Vitec',
+      help: 'Whether a site’s forms are sent to this office at all. Empty or no: every form is refused before any call to Vitec and nothing is written, while the sites still read the viewing slots. Yes only for an office confirmed as a demo or test customer (question 54 f) or a customer that has gone live; a connection that reads a client’s production office for testing stays at no (Patric, 2026-10-04).',
+      options: [{ value: 'yes' }, { value: 'no' }],
+    },
     {
       key: 'lead_source_id',
       label: 'Lead source for website leads',
