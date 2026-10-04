@@ -4,10 +4,34 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 133 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 135 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 134. `[client-wordpress]` Default: words typed in the search box that are not turned into a pill search as free text together with the pills
+
+- 2026-10-04 · The design `docs/search.md` ("The search box"). A pill is a chosen place (an area,
+  a kommun or a län); several pills mean "any of these places". Patric's ask says that a search
+  with no pill runs the free text. The default extends it: with pills present, the typed words
+  narrow the result further (the pills say where, the words say which street, area, town,
+  kommun or län the name begins with), and the free text also matches the beginning of the
+  postal town ("Limhamn"), which the search matches today. The alternative is that the words
+  are ignored while a pill is present, which throws away what the visitor typed.
+- Reply only if you disagree: no.
+
+## 133. `[client-wordpress]` A home whose point lies inside an area's outline: is it in that area even when the CRM put it in another one?
+
+- 2026-10-04 · The design `docs/search.md` ("Matching a home to areas by outline"). Every area
+  comes with its outline on the map and every home with its point, so the plugin can tell which
+  outlines a home lies in; the CRM also names one area per home. Outlines overlap (a district
+  inside a town's larger area), so a home can lie in two. Blocked: the rule the link table is
+  built by, and what the area page and the search show.
+- a) **yes** (recommended): a home is in every area whose outline holds it, plus the CRM's;
+  a visitor who picks an area sees everything inside its outline, and the area page shows it too.
+- b) **only to fill a gap**: the CRM's choice stands; the outline is used only for a home the
+  CRM gave no area. Smaller, and the CRM's own assignment is never contradicted.
+- Reply: a or b.
 
 ## 132. `[crm-mspecs]` Mspecs's website API documentation is not public; may an agent ask Mspecs for it from Patric's mailbox?
 

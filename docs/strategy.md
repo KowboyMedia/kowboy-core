@@ -533,5 +533,12 @@ approved; this map grows as Patric describes wishes and is settled through the r
   the booking; proposed, nothing built. Acceptance: the six criteria proposed in `docs/forms.md`,
   numbered on approval. Later: watching the final price, cancelling a booking, a widget for sites
   Kowboy does not build, a site-side saved search (question 131).
+- `[client-wordpress]` **Search by place, and the list blocks in the plugin** (Patric,
+  2026-10-04; questions 133 and 134; the design in `docs/search.md`; item 23): a visitor finds
+  homes by a län, a kommun or an area, chosen as pills from a box that offers only places with
+  homes, or by the beginning of a street, area, town, kommun or län name, with a home counted in
+  every area whose outline holds it; an editor places the property list and the agent list from
+  the plugin, restricted to chosen agents, areas or offices. Proposed, nothing built. Acceptance:
+  the tests named in `docs/search.md`, under AC 20's search half.
 - Out: typed properties, areas, associations and projects; for those the CRM's list defines what
   exists (AGENTS.md).

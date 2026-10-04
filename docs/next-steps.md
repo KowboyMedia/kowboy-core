@@ -410,6 +410,25 @@ client ports (item 16, first client by question 80).
       typed properties, areas, associations or projects.
     - **Size:** one session.
 
+23. **Search by place, and the list blocks in the plugin** (Patric, 2026-10-04, "discuss before
+    building"; the design in `docs/search.md`; questions 133 and 134). Proposed 2026-10-04,
+    nothing built; starts on Patric's answers.
+    - **Component:** `[client-wordpress]`, the plugin first, the theme's two list blocks after.
+    - **What changes for the product:** the list search takes an LKF code or its län or kommun
+      part, a free text matches the beginning of a street, an area, a town, a kommun or a län
+      name, a home counts in every area whose outline holds it, and an editor places a property
+      list or an agent list from the plugin with "show only from these agents, areas, offices"
+      and a place search that offers only places with homes, as pills.
+    - **The plan:** three sessions, in `docs/search.md` ("Order of building"): the query and the
+      data (plugin 0.5.0), the blocks (the editor builder moves into the plugin), the search box.
+    - **The tests that prove it:** `docs/search.md` ("Tests, all automatic"); AC 20's search half
+      names them.
+    - **Interface touched:** none of Core's. The plugin's index gains three columns and one link
+      table, rebuilt by the reindex on a plugin update.
+    - **Decides:** 133 (a home inside two outlines is in both areas, recommended a) and the
+      Default 134 (free text narrows the pills). The outline test and the combo box are the
+      plugin's own code, with the reasons stated in the design.
+
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health
