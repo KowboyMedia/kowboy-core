@@ -211,7 +211,8 @@ Patric's list after the first round reached the staging site, done straight on `
   record's slug is built from its stored values and ends in its id (question 101), and an area's
   carries its kommun first, named from the LKF code by the plugin's table of SCB's 290
   municipalities (`includes/municipalities.php`). The area page shows the kommun over its title
-  as the property page shows its location.
+  as the property page shows its location, and the area card carries the kommun where it said
+  "Område" (Patric, 2026-10-04).
 
 ## Order of work
 

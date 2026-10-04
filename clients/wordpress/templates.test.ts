@@ -569,6 +569,8 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(paged.stdout).not.toContain('Visa fler');
     const areas = await page('/?post_type=core_area');
     expect(areas.body).toContain('<article class="k-card k-card--area" data-card-url="');
+    // The card's preheader is the kommun from the LKF code (Patric, 2026-10-04).
+    expect(areas.body).toContain('k-card__area">Stockholm</span>');
     expect(areas.body).toContain('placeholder.svg');
     expect(areas.body).toContain('<span class="k-card__street">Vasastan</span>');
     expect(areas.body).toContain('bostäder till salu');
