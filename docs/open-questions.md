@@ -4,10 +4,67 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 129 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 133 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 132. `[crm-mspecs]` Mspecs's website API documentation is not public; may an agent ask Mspecs for it from Patric's mailbox?
+
+- 2026-10-04 · The forms strategy (`docs/forms.md`) needs what Mspecs lets a website write: an
+  interest on a home, a viewing booking, a lead, a search profile. Mspecs's support centre says
+  the documentation is sent by Mspecs support (support@mspecs.se) on request, and the one public
+  article on booking a viewing carries it as an attached file an agent cannot read. Publicly
+  visible is only Mspecs's own WordPress integration, which writes a prospective buyer to a home
+  and a buyer to a viewing or a viewing slot. Blocked: the Mspecs half of the strategy and the
+  future Mspecs adapter's forms. The mail names Kowboy, asks for the website API documentation
+  and the test access, and goes from Patric's connected mailbox so the answer reaches him.
+- Answer yes (an agent writes and sends the mail, and shows it here first) or no (Patric asks
+  Mspecs himself and attaches the document in the project).
+
+## 131. `[crm-vitec]` "Create a search profile" has no call in Vitec Connect; what does it become?
+
+- 2026-10-04 · Patric's list names it as a Vitec form. All five sections of Connect were read on
+  2026-10-04 (advertising, aml, businessintelligence2, economy, mypages1): no call creates, reads
+  or changes a search profile. Vitec Express's own help says a profile is created by a person in
+  Express, or automatically when a contact arrives with status Interested or higher, "for example
+  through an interest registration on the website", if the contact allows matching and marketing;
+  Express then mails the matches itself. Blocked: nothing; the lead, interest and booking forms
+  do not depend on it.
+- a) **nothing to build** (recommended, smallest): the interest form is the way in, and the
+  brokerage turns automatic profiles on in Express; the strategy says so and the feature leaves
+  the map. b) **ask Vitec**: Patric asks his Vitec contact whether another API offers profiles
+  with the visitor's own criteria; the item waits. c) **a site-side saved search**, later: the
+  site stores the visitor's criteria and mails new hits from its own copy, a product of its own.
+
+## 130. `[core]` The design of form submissions: approve the contract, the adapter capability and the clients' part?
+
+- 2026-10-04 · `docs/forms.md`, "The design, for approval": one new schema
+  `schemas/submission.v1.json` (a universal submission with `id`, `kind` lead, interest or
+  viewing, `record`, `office_id`, `slot_id`, `person`, `message`, `consent`, `source`, every field
+  traced to the design's forms or to a field both CRMs take); `POST /v1/submissions` and
+  `GET /v1/submissions/slots` on the engine behind the tenant token, answering delivered, refused,
+  failed or 400; two optional members on the adapter API, `submit` and `slots`, with the kinds in
+  the manifest; a `submissions` table that keeps ids and outcomes and never the person; events, a
+  health check and a 60-a-minute limit; the Vitec adapter's mapping and five connection settings;
+  the plugin's two forwarding endpoints and the theme's three forms. Schemas, the adapter API and
+  the acceptance criteria are protected paths, hence the gate. Blocked: items 1 to 3 of the plan
+  in `docs/forms.md`. Settled by the agent as tooling: synchronous delivery, slots read live, a
+  UUID in the body, the limit's number.
+- Answer a) **yes**, build it as written, or b) **no**, with what to change.
+
+## 129. `[core]` Do form submissions live inside Core, or as a standalone widget for any site?
+
+- 2026-10-04 · Patric's business question. `docs/forms.md` weighs three options: a) inside Core,
+  one CRM-agnostic endpoint and one adapter capability, the forms in the clients' templates;
+  b) a standalone widget service with its own registry, keys, adapters and hosting, embedded by
+  script on any site; c) Vitec's ready-made form component on the sites. Recommended a: it is
+  what the Concept says Core is (data logic in Core, clients are templates plus a sync loop), it
+  is the shape Vitec requires (server code, never a browser), it is the least code, and a widget
+  for sites Kowboy does not build can later be a thin client of the same endpoint with a public
+  site key. b doubles Core; c puts a CRM's name and look in the client and offers no lead form
+  outside a listing. Blocked: everything in `docs/forms.md`.
+- Answer a, b or c.
 
 ## 123. `[crm-vitec]` A whole-day viewing: what the CRM sends, so the page shows no time
 
