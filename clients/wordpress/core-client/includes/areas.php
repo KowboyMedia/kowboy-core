@@ -227,12 +227,19 @@ function core_client_relink_area(string $area_id, mixed $polygon): void
     }
 }
 
-/** A record's rows go with it: a home's by its post, an area's by its id. */
+/**
+ * A record's rows go with it: a home's by its post; an area's outline rows by its id, while the
+ * CRM's own assignments stay, since the homes still name the area and the box offers it from
+ * them (docs/search.md, "The search box").
+ */
 function core_client_unlink(int $post_id, string $datatype, string $remote_id): void
 {
     global $wpdb;
-    $links = core_client_links_table();
-    $wpdb->delete($links, $datatype === 'area' ? ['area_id' => $remote_id] : ['post_id' => $post_id]);
+    if ($datatype === 'area') {
+        core_client_relink_area($remote_id, null);
+        return;
+    }
+    $wpdb->delete(core_client_links_table(), ['post_id' => $post_id]);
 }
 
 /**

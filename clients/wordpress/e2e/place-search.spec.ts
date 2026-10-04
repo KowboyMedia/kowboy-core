@@ -51,6 +51,8 @@ test('journey: a visitor narrows Till salu to places, takes them away again and 
     button: (await page.getByRole('button', { name: 'Sök' }).boundingBox())!,
     form: (await form.boundingBox())!,
   };
+  const middle = (box: { y: number; height: number }): number => box.y + box.height / 2;
+  expect(Math.abs(middle(before.button) - middle(before.field))).toBeLessThan(1);
   expect(Math.abs(after.field.y - before.field.y)).toBeLessThan(1);
   expect(Math.abs(after.button.y - before.button.y)).toBeLessThan(1);
   expect(Math.abs(after.form.y - before.form.y)).toBeLessThan(1);

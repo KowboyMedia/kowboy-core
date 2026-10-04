@@ -233,35 +233,53 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
 
     // A home naming an area the site has no record of (Patric, 2026-10-04: the staging site's
     // homes do): the area is offered and its pill is named as the home names it, with the kommun
-    // of the home's code; the search by it finds the home through the CRM's assignment.
-    crm.put(
-      'property',
-      'P-7',
-      listing('P-7', { districts: ['D-9'], district_name: 'Hjorthagen', lkf: '0180' }),
-    );
-    await poll();
-    await site.trigger('delta');
-    expect(
+    // of the home's code; the search by it finds the home through the CRM's assignment. The
+    // same when the area's record arrives and goes again: the record names it meanwhile, and
+    // the CRM's assignment outlives the record.
+    const areas = async (): Promise<Place[]> =>
       (await places({ entity: 'property', status: 'for_sale,coming', place_search: 'areas' }))
-        .areas,
-    ).toEqual([
-      { id: 'D-9', label: 'Hjorthagen · Stockholm', homes: 1 },
-      { id: 'D-2', label: 'Norrmalm · Stockholm', homes: 1 },
-      { id: 'D-1', label: 'Vasastan · Stockholm', homes: 3 },
-    ]);
-    const unknown = await page('/?post_type=core_property&areas=D-9');
-    expect(unknown.body).toContain(
-      'data-pill-kind="areas" data-pill-id="D-9" aria-label="Ta bort Hjorthagen · Stockholm">Hjorthagen · Stockholm<span',
-    );
-    expect(unknown.body).toContain('Kungsgatan 7');
-    expect(unknown.body).not.toContain('Kungsgatan 1');
-    crm.remove('property', 'P-7');
-    await poll();
-    await site.trigger('delta');
-    expect(
-      (await places({ entity: 'property', status: 'for_sale,coming', place_search: 'areas' }))
-        .areas,
-    ).toHaveLength(2);
+        .areas;
+    const hjorthagen = { id: 'D-9', label: 'Hjorthagen · Stockholm', homes: 1 };
+    const offeredPill =
+      'data-pill-kind="areas" data-pill-id="D-9" aria-label="Ta bort Hjorthagen · Stockholm">Hjorthagen · Stockholm<span';
+    try {
+      crm.put(
+        'property',
+        'P-7',
+        listing('P-7', { districts: ['D-9'], district_name: 'Hjorthagen', lkf: '0180' }),
+      );
+      await poll();
+      await site.trigger('delta');
+      expect(await areas()).toEqual([
+        hjorthagen,
+        { id: 'D-2', label: 'Norrmalm · Stockholm', homes: 1 },
+        { id: 'D-1', label: 'Vasastan · Stockholm', homes: 3 },
+      ]);
+      const unknown = await page('/?post_type=core_property&areas=D-9');
+      expect(unknown.body).toContain(offeredPill);
+      expect(unknown.body).toContain('Kungsgatan 7');
+      expect(unknown.body).not.toContain('Kungsgatan 1');
+      crm.put('area', 'D-9', {
+        district_id: 'D-9',
+        district_name: 'Hjorthagen (CRM)',
+        branch_id: 'B-1',
+        lkf: '0180',
+      });
+      await poll();
+      await site.trigger('delta');
+      expect((await areas())[0]).toEqual({ ...hjorthagen, label: 'Hjorthagen (CRM) · Stockholm' });
+      crm.remove('area', 'D-9');
+      await poll();
+      await site.trigger('delta');
+      expect((await areas())[0]).toEqual(hjorthagen);
+      expect((await page('/?post_type=core_property&areas=D-9')).body).toContain(offeredPill);
+    } finally {
+      crm.remove('area', 'D-9');
+      crm.remove('property', 'P-7');
+      await poll();
+      await site.trigger('delta');
+    }
+    expect(await areas()).toHaveLength(2);
 
     // The archive page: the box in the list's filters with the places as data, the pills and the
     // words from the address, the hidden fields a plain submit sends, the script and stylesheet;
