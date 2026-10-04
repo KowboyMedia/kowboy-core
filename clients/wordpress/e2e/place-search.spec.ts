@@ -34,9 +34,27 @@ test('journey: a visitor narrows Till salu to places, takes them away again and 
   await expect(options).toHaveText(['Norrmalm · Stockholm']);
 
   // Choosing with the mouse: a pill, the address, and the cards reloaded without a page load.
+  // The pill grows the form downward: the field and the button keep their place on the page
+  // (Patric, 2026-10-04: the pills must not push the field up).
+  const form = page.locator('.k-hero > form.k-search');
+  await expect(form).toHaveCount(1);
+  const before = {
+    field: (await field.boundingBox())!,
+    button: (await page.getByRole('button', { name: 'Sök' }).boundingBox())!,
+    form: (await form.boundingBox())!,
+  };
   await options.first().click();
   await expect(pills).toHaveText(['Norrmalm · Stockholm ×']);
   await expect(field).toHaveValue('');
+  const after = {
+    field: (await field.boundingBox())!,
+    button: (await page.getByRole('button', { name: 'Sök' }).boundingBox())!,
+    form: (await form.boundingBox())!,
+  };
+  expect(Math.abs(after.field.y - before.field.y)).toBeLessThan(1);
+  expect(Math.abs(after.button.y - before.button.y)).toBeLessThan(1);
+  expect(Math.abs(after.form.y - before.form.y)).toBeLessThan(1);
+  expect(after.form.height).toBeGreaterThan(before.form.height + 20);
   await expect(page).toHaveURL(/[?&]areas=D-2(&|$)/);
   await expect(streets(page)).toHaveText(['Kungsgatan 2']);
 

@@ -15,7 +15,10 @@ declare(strict_types=1);
 /**
  * The places a list offers: areas (the link table), kommuner and län (the first four and two
  * digits of the homes' codes), each with its label and how many homes it holds, for the list's
- * own setting: the visitor's choices and the paging leave the parameter set first.
+ * own setting: the visitor's choices and the paging leave the parameter set first. An area the
+ * site has no record of is offered too, named as its homes name it (Patric, 2026-10-04: the
+ * staging site's homes name areas that are not in the areas the CRM lists), since the links
+ * carry the CRM's assignment whether or not the area's own record arrived.
  *
  * @param array<string, mixed> $params the list's parameter set, with `place_search` = `areas` or `places`
  * @return array{areas: list<array{id: string, label: string, homes: int}>, municipalities: list<array{id: string, label: string, homes: int}>, counties: list<array{id: string, label: string, homes: int}>}
@@ -34,8 +37,8 @@ function core_client_places(array $params): array
     $from = "$index i JOIN {$wpdb->posts} p ON p.ID = i.post_id";
     $links = core_client_links_table();
     $rows = $wpdb->get_results($wpdb->prepare(
-        "SELECT pl.area_id AS id, pa.sort_name AS name, pa.county_municipality_code AS code, COUNT(*) AS homes
-         FROM $from JOIN $links pl ON pl.post_id = i.post_id JOIN $index pa ON pa.datatype = 'area' AND pa.remote_id = pl.area_id
+        "SELECT pl.area_id AS id, COALESCE(pa.sort_name, MAX(i.area_name)) AS name, COALESCE(pa.county_municipality_code, MAX(i.county_municipality_code)) AS code, COUNT(*) AS homes
+         FROM $from JOIN $links pl ON pl.post_id = i.post_id LEFT JOIN $index pa ON pa.datatype = 'area' AND pa.remote_id = pl.area_id
          WHERE $condition GROUP BY pl.area_id, pa.sort_name, pa.county_municipality_code",
         ...$args,
     ));
@@ -72,8 +75,29 @@ function core_client_area_label(string $name, ?string $code, string $id): string
 }
 
 /**
+ * An area's name and kommun code as its homes carry them, for an area the site has no record
+ * of: the first home in the index that names it. Both null when no home does.
+ *
+ * @return array{name: string|null, code: string|null}
+ */
+function core_client_area_as_homes_name_it(string $area_id): array
+{
+    global $wpdb;
+    $index = core_client_index_table();
+    $row = $wpdb->get_row($wpdb->prepare(
+        "SELECT area_name, county_municipality_code FROM $index WHERE datatype IN ('property', 'project') AND area_id = %s AND area_name IS NOT NULL LIMIT 1",
+        $area_id,
+    ));
+    return [
+        'name' => is_string($row->area_name ?? null) ? $row->area_name : null,
+        'code' => is_string($row->county_municipality_code ?? null) ? $row->county_municipality_code : null,
+    ];
+}
+
+/**
  * The labels of the places the address names, for the pills the page renders: an area by its
- * stored record, a code by the plugin's tables; a place the site no longer knows reads as its id.
+ * stored record, else as its homes name it, a code by the plugin's tables; a place the site
+ * does not know at all reads as its id.
  *
  * @param list<string> $area_ids
  * @param list<string> $codes
@@ -85,8 +109,14 @@ function core_client_place_pills(array $area_ids, array $codes): array
     foreach ($area_ids as $area_id) {
         $post_id = core_client_post_id('area', $area_id);
         $area = $post_id === null ? null : core_client_item($post_id);
-        $code = is_string($area['county_municipality_code'] ?? null) ? $area['county_municipality_code'] : null;
-        $pills[] = ['kind' => 'areas', 'id' => $area_id, 'label' => core_client_area_label(is_string($area['name'] ?? null) ? $area['name'] : '', $code, $area_id)];
+        if (is_array($area)) {
+            $name = is_string($area['name'] ?? null) ? $area['name'] : '';
+            $code = is_string($area['county_municipality_code'] ?? null) ? $area['county_municipality_code'] : null;
+        } else {
+            ['name' => $named, 'code' => $code] = core_client_area_as_homes_name_it($area_id);
+            $name = $named ?? '';
+        }
+        $pills[] = ['kind' => 'areas', 'id' => $area_id, 'label' => core_client_area_label($name, $code, $area_id)];
     }
     foreach ($codes as $code) {
         $label = strlen($code) === 2 ? (CORE_CLIENT_COUNTIES[$code] ?? null) : core_client_municipality_name($code);
