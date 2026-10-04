@@ -7,5 +7,5 @@
 declare(strict_types=1);
 
 $params = ['entity' => 'property', 'status' => 'for_sale,coming', 'status_filter' => '1', 'filters' => '1', 'place_search' => 'places', 'per_page' => 9, 'title' => 'Till salu']
-    + array_intersect_key($_GET, array_flip(['max_price', 'min_living_space', 'min_rooms', 'q', 'area', 'lkf', 'areas']));
+    + array_intersect_key($_GET, array_flip(['max_price', 'min_living_space', 'min_rooms', 'q', 'area', 'lkf', 'areas', 'tags']));
 echo '<div class="k-page-top"></div>' . core_client_list($params + ['shadow' => false])['html'];

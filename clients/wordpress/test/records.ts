@@ -269,6 +269,8 @@ export function fillTheCrm(): void {
       final_price: 4_200_000,
       sold_at: '2026-08-15T12:00:00.000Z',
       staff: ['S-1', 'S-3', 'S-4'],
+      // A label with no kind, and a word with a comma in it, which the list's mark keeps out of the index.
+      labels: [{ kind: '', kind_label: '', values: ['Exklusiv', 'Nära skog, sjö'] }],
     }),
   );
   crm.put('property', 'P-6', listing('P-6', { project_id: 'PR-1', price: 9_000_000 }));

@@ -447,7 +447,8 @@ client ports (item 16, first client by question 80).
     the contact button of a home without a viewing to lead to the agent (theme 1.1.5,
     docs/kowboy-2026.md); his fourth ask was a list filter by marketing method ("Underhand"),
     question 143, answered a: the list block's pick "Visa bara med dessa taggar" and the `tags=`
-    parameter over the tags the CRM sends, no schema change (plugin 0.5.6, docs/search.md). Next:
+    parameter over the tags the CRM sends, no schema change (plugin 0.5.6, theme 1.1.6 for the
+    archive's address, docs/search.md). Next:
     nothing of this item; Patric's next look decides.
     Default 135 (the tests under criterion 20) waits; the acceptance list is edited when it stands.
     - **Component:** `[client-wordpress]`, the plugin first, the theme's two list blocks after.

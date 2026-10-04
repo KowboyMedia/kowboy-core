@@ -258,7 +258,8 @@ function core_client_install(): void
     $state = core_client_state_table();
     $links = core_client_links_table();
     // The search columns are copies of universal names (docs/field-tables.md), filled on every
-    // write, so a list query never opens the JSON. `agent_ids` is `,id,id,` for one LIKE. The
+    // write, so a list query never opens the JSON. `agent_ids` is `,id,id,` for one LIKE, and `tags`
+    // `,type id:name,` the same way. The
     // code, the point and an area's outline bounds serve the search by place (docs/search.md).
     dbDelta("CREATE TABLE $index (
         post_id bigint(20) unsigned NOT NULL,
@@ -520,7 +521,9 @@ function core_client_search_columns(object $data): array
     };
     $ids = fn (mixed $list): ?string => is_array($list) && $list !== [] ? ',' . implode(',', array_filter($list, 'is_string')) . ',' : null;
     // The CRM's tags on a home (a sale method, a feature; `tags` in docs/field-tables.md) as `,type id:name,` per
-    // name, so a list asks for a tag with one LIKE (includes/query.php), as it asks for an agent.
+    // name, so a list asks for a tag with one LIKE (includes/query.php), as it asks for an agent. The comma is
+    // the list's own mark, so a name with a comma in it is left out rather than split into tags no home has;
+    // the type id is an enum id, without a colon.
     $tags = function (mixed $tags): ?string {
         $tokens = [];
         foreach (is_array($tags) ? $tags : [] as $tag) {
@@ -529,7 +532,7 @@ function core_client_search_columns(object $data): array
             }
             $type = is_object($tag->type ?? null) && is_string($tag->type->id ?? null) ? $tag->type->id : '';
             foreach (is_array($tag->names ?? null) ? $tag->names : [] as $name) {
-                if (is_string($name) && $name !== '') {
+                if (is_string($name) && $name !== '' && !str_contains($name, ',')) {
                     $tokens[] = "$type:$name";
                 }
             }

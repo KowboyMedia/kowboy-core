@@ -131,7 +131,8 @@ function core_client_query_condition(array $params): array
  *                   to any of these agents (a home has one or two, both are checked), offices or areas
  *   tags            `<type id>:<name>` tokens, comma-separated or a list, "show only with these": the home carries
  *                   any of these tags as the CRM sends them (a sale method such as Underhand, a feature); the
- *                   token is the pick's id (includes/blocks.php). A name with a comma in it cannot be asked for
+ *                   token is the pick's id (includes/blocks.php). A name with a comma in it is not indexed, since
+ *                   the comma is the list's own mark; the type id is an enum id, without a colon
  *   project, association   the id of the project or association the items belong to
  *   include_project_homes         properties that name a project are otherwise kept out (question 55)
  *   include_hidden                agents the CRM keeps out of the staff list (on the record or an office) are otherwise kept out

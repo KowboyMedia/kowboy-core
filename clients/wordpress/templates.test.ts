@@ -192,6 +192,11 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(
       (await reload({ entity: 'property', status: 'done', tags: 'sale_method:Underhand' })).total,
     ).toBe(1);
+    // A tag with no type is asked for by its word alone; a word with a comma in it is not indexed.
+    expect((await reload({ entity: 'property', status: 'done', tags: ':Exklusiv' })).total).toBe(1);
+    expect(
+      (await reload({ entity: 'property', status: 'done', tags: ':Nära skog, sjö' })).total,
+    ).toBe(0);
   });
 
   it('offers only the places with a matching home, in three groups with the kommun after an area’s name, and draws the box with its pills from the address', async () => {
@@ -389,13 +394,18 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
 
     // A plugin update: the first request after it reindexes, links the CRM's own areas in that
     // request, and rebuilds the outlines' links in the background from the stored records.
+    // The reindex also copies a search column this version adds, here the tags, from every stored record.
     const emptied = await wp(
       'eval',
-      'global $wpdb; $wpdb->query("TRUNCATE TABLE " . core_client_links_table()); update_option("core_client_db_version", "0.4.4"); echo $wpdb->get_var("SELECT COUNT(*) FROM " . core_client_links_table());',
+      'global $wpdb; $wpdb->query("TRUNCATE TABLE " . core_client_links_table()); $wpdb->query("UPDATE " . core_client_index_table() . " SET tags = NULL"); update_option("core_client_db_version", "0.4.4"); echo $wpdb->get_var("SELECT COUNT(*) FROM " . core_client_links_table()) . " " . $wpdb->get_var("SELECT COUNT(*) FROM " . core_client_index_table() . " WHERE tags IS NOT NULL");',
     );
-    expect(emptied.stdout.trim()).toBe('0');
+    expect(emptied.stdout.trim()).toBe('0 0');
     expect((await page('/')).status).toBe(200);
     expect(await links()).toEqual(synced.filter((link) => link !== 'P-2:D-2'));
+    expect(
+      (await reload({ entity: 'property', status: 'active,pre', tags: 'sale_method:Underhand' }))
+        .total,
+    ).toBe(1);
     const run = await driver<{ processed: number }>('backstop');
     expect(run.processed).toBeGreaterThan(0);
     const rebuilt = [
@@ -1024,6 +1034,23 @@ describe('the plugin’s set machinery, with a set plugin', () => {
       expect(body.match(/<article class="fixture-card">Kungsgatan 2<\/article>/g)).toHaveLength(2);
       expect(body.match(/<article class="fixture-card">Kungsgatan 1<\/article>/g)).toHaveLength(1);
       expect(body.indexOf('Kungsgatan 1')).toBeGreaterThan(body.lastIndexOf('Kungsgatan 2'));
+      // The visitor's tags= on the address narrows a list with no pick of its own and never widens one: Underhand
+      // leaves Bertil's and Norrmalm's lists empty and the tagged list as it was; Öppna marknaden narrows those
+      // two to Kungsgatan 2, while the Underhand list's own pick stands over the address and keeps Kungsgatan 1.
+      const join = path.includes('?') ? '&' : '?';
+      const narrowed = (await page(`${path}${join}tags=sale_method:Underhand`)).body;
+      expect(narrowed.match(/<article class="fixture-card">/g)).toHaveLength(1);
+      expect(narrowed).toContain('<article class="fixture-card">Kungsgatan 1</article>');
+      const widened = (
+        await page(`${path}${join}tags=${encodeURIComponent('sale_method:Öppna marknaden')}`)
+      ).body;
+      expect(widened.match(/<article class="fixture-card">/g)).toHaveLength(3);
+      expect(widened.match(/<article class="fixture-card">Kungsgatan 2<\/article>/g)).toHaveLength(
+        2,
+      );
+      expect(widened.match(/<article class="fixture-card">Kungsgatan 1<\/article>/g)).toHaveLength(
+        1,
+      );
       expect(body.match(/<div class="fixture-agents">/g)).toHaveLength(2);
       expect(body.match(/<article class="fixture-agent">/g)).toHaveLength(2); // B-1's listed agents; B-9 has none
       expect(body).toContain('fixture.css');
@@ -1070,6 +1097,7 @@ describe('the plugin’s set machinery, with a set plugin', () => {
     ]);
     // The tags every home carries, the sold P-4's too, as the query's token with the type's name in the label.
     expect((await picks('tag', 1)).rows).toEqual([
+      { id: ':Exklusiv', label: 'Exklusiv' }, // a tag with no type: the word alone
       { id: 'sale_method:Underhand', label: 'Försäljningssätt · Underhand' },
       { id: 'sale_method:Öppna marknaden', label: 'Försäljningssätt · Öppna marknaden' },
       { id: 'feature:Nära vatten', label: 'Utökade sökbegrepp · Nära vatten' },

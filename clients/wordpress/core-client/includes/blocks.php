@@ -157,6 +157,18 @@ function core_client_picks(string $entity): array
             $picks[] = ['id' => $id, 'label' => core_client_pick_label($entity, $row['item'], $offices)];
         }
     }
+    return core_client_unique_pick_labels($picks);
+}
+
+/**
+ * The picks with a label that occurs more than once given the id in brackets, since the editor's
+ * token field works on labels (assets/editor.js).
+ *
+ * @param list<array{id: string, label: string}> $picks
+ * @return list<array{id: string, label: string}>
+ */
+function core_client_unique_pick_labels(array $picks): array
+{
     $counts = array_count_values(array_column($picks, 'label'));
     return array_map(
         fn (array $pick): array => $counts[$pick['label']] > 1 ? ['id' => $pick['id'], 'label' => $pick['label'] . ' (' . $pick['id'] . ')'] : $pick,
@@ -194,16 +206,19 @@ function core_client_tag_picks(): array
         $type_name = $type_names[$type_id];
         $picks[] = ['id' => $token, 'label' => $type_name !== null && $type_name !== '' ? "$type_name · $name" : $name];
     }
-    usort($picks, fn (array $a, array $b): int => strcmp($a['label'], $b['label']) ?: strcmp($a['id'], $b['id']));
-    return $picks;
+    // Swedish order (å, ä, ö after z) where the intl extension is there, case-blind byte order where not.
+    $collator = class_exists('Collator') ? new Collator('sv_SE') : null;
+    $compare = fn (string $a, string $b): int => $collator !== null ? (int) $collator->compare($a, $b) : strcasecmp($a, $b);
+    usort($picks, fn (array $a, array $b): int => $compare($a['label'], $b['label']) ?: strcmp($a['id'], $b['id']));
+    return core_client_unique_pick_labels($picks);
 }
 
-/** The name of a tag type as one home that carries it names it; null when no home does. */
+/** The name of a tag type as the first home (by post id) that carries it names it; null when no home does. */
 function core_client_tag_type_name(string $type_id): ?string
 {
     global $wpdb;
     $post_id = $wpdb->get_var($wpdb->prepare(
-        'SELECT post_id FROM ' . core_client_index_table() . " WHERE datatype = 'property' AND tags LIKE %s LIMIT 1",
+        'SELECT post_id FROM ' . core_client_index_table() . " WHERE datatype = 'property' AND tags LIKE %s ORDER BY post_id LIMIT 1",
         '%,' . $wpdb->esc_like($type_id) . ':%',
     ));
     $item = $post_id !== null ? core_client_item((int) $post_id) : null;
