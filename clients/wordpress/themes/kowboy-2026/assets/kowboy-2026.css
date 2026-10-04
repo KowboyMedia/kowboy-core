@@ -650,7 +650,7 @@ iframe.k-hero__video {
 .k-search select.core-place-search__select:not(.tomselected) {
   height: 44px;
 }
-.k-search .ts-control {
+.k-search .ts-wrapper .ts-control {
   min-height: 44px;
   padding: 4px 0 !important;
   gap: 6px;
@@ -667,14 +667,19 @@ iframe.k-hero__video {
 .k-search .ts-wrapper.focus .ts-control {
   border-bottom-color: var(--k-ink);
 }
-.k-search .ts-control > input {
+/* The theme's own field rule above reaches this input too; its size is the control's business.
+   `.ts-wrapper` in these selectors outweighs the library's own rules whichever stylesheet comes
+   last (the plugin's come after the theme's on the page, before them in a shadow root). */
+.k-search .ts-wrapper .ts-control > input {
+  width: auto;
+  height: auto;
   min-width: 6rem;
   min-height: 34px !important;
   margin: 0 !important;
   font-size: var(--k-label-size);
   color: var(--k-secondary);
 }
-.k-search .ts-control > input::placeholder {
+.k-search .ts-wrapper .ts-control > input::placeholder {
   color: var(--k-secondary);
   opacity: 1;
 }

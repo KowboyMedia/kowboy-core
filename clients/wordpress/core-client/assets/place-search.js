@@ -81,6 +81,7 @@
       return found;
     }
     function search() {
+      hidden.q.value = ts.control_input.value;
       var values = fields();
       writeAddress(values);
       var drives = target();
@@ -106,18 +107,28 @@
         },
       },
     });
-    // The field's name for a screen reader: the library finds the label on the page, not in a shadow root.
+    // The names for a screen reader: the library finds the label on the page, not in a shadow root.
     if (!ts.control_input.hasAttribute('aria-labelledby')) {
       ts.control_input.setAttribute('aria-label', box.querySelector('label').textContent);
+      ts.dropdown_content.setAttribute('aria-label', 'Platser');
     }
+    // The words follow the field: as the visitor types (the library's `type`), and whenever the
+    // library sets the field itself (its `update` on the field, as when a click on a pill
+    // highlights it and empties the words).
     ts.setTextboxValue(hidden.q.value);
     ts.on('type', function (words) {
       hidden.q.value = words;
     });
+    ts.control_input.addEventListener('update', function () {
+      hidden.q.value = ts.control_input.value;
+    });
     ts.on('item_add', function () {
       // A chosen place takes the words: they were the search for it, not free text.
       ts.setTextboxValue('');
-      hidden.q.value = '';
+    });
+    ts.on('item_remove', function (value) {
+      // A place the list did not offer (chosen in the address, no home here) leaves with its pill.
+      if (ts.options[value] && ts.options[value].homes === '0') ts.removeOption(value);
     });
     ts.on('change', function () {
       writeHidden(ts.items);
@@ -142,6 +153,7 @@
         // The form inside a list is the set's own to reload. Any other form, with a list on the
         // page, sends its fields to that list instead of loading the page again; without one,
         // the page loads with the fields in its address.
+        hidden.q.value = ts.control_input.value;
         if (box.closest('[data-list]') || !target()) {
           writeAddress(fields());
           return;

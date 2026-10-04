@@ -128,6 +128,9 @@ function core_client_place_pills(array $area_ids, array $codes, array $offered =
     }
     foreach ($codes as $code) {
         $label = strlen($code) === 2 ? (CORE_CLIENT_COUNTIES[$code] ?? null) : core_client_municipality_name($code);
+        if ($label !== null && strlen($code) === 6) {
+            $label .= " ($code)"; // a whole code: the kommun's name and the code, apart from the kommun itself
+        }
         $pills[] = ['kind' => 'lkf', 'id' => $code, 'label' => $label ?? $code];
     }
     return $pills;
@@ -140,8 +143,8 @@ function core_client_place_pills(array $area_ids, array $codes, array $offered =
  * free text; `areas` and `lkf`, the chosen places), so a plain form submit and the script's
  * reload send the same parameters. An option's value is its kind and id, `areas:D-2` or
  * `lkf:0180`, which the script splits into the two fields. The select carries no name: the
- * script writes the fields; without it the box is a plain select the form does not send. Empty
- * when the list has no place search.
+ * script writes the fields, and the stylesheet keeps the select unseen until the script takes
+ * it, so without the script there is no box. Empty when the list has no place search.
  *
  * @param array<string, mixed> $params the list's parameter set
  */
@@ -165,7 +168,7 @@ function core_client_place_search(array $params): string
         $chosen[$group][$pill['id']] = true;
         $ids = array_column($groups[$group], 'id');
         if (!in_array($pill['id'], $ids, true)) {
-            $groups[$group][] = ['id' => $pill['id'], 'label' => $pill['label'], 'homes' => 0];
+            $groups[$group][] = ['id' => $pill['id'], 'label' => $pill['label'], 'homes' => 0]; // marked in the markup; the script drops it with its pill
         }
     }
     $words = ($params['q'] ?? '') !== '' ? $params['q'] : ($params['area'] ?? '');
@@ -186,7 +189,8 @@ function core_client_place_search(array $params): string
         $html .= '<optgroup label="' . esc_attr($heading) . '">';
         foreach ($groups[$group] as $place) {
             $selected = isset($chosen[$group][$place['id']]) ? ' selected' : '';
-            $html .= '<option value="' . esc_attr($kind . ':' . $place['id']) . '"' . $selected . '>' . esc_html($place['label']) . '</option>';
+            $unoffered = $place['homes'] === 0 ? ' data-homes="0"' : '';
+            $html .= '<option value="' . esc_attr($kind . ':' . $place['id']) . '"' . $selected . $unoffered . '>' . esc_html($place['label']) . '</option>';
         }
         $html .= '</optgroup>';
     }
