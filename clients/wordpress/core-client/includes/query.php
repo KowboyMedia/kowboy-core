@@ -72,6 +72,11 @@ function core_client_query_condition(array $params): array
         $where[] = core_client_query_in_list('i.agent_ids', $agents);
         array_push($args, ...core_client_query_list_args($agents));
     }
+    $tags = core_client_query_list($params['tags'] ?? null);
+    if ($tags !== []) {
+        $where[] = core_client_query_in_list('i.tags', $tags);
+        array_push($args, ...core_client_query_list_args($tags));
+    }
     $offices = core_client_query_list($params['office'] ?? null);
     if ($offices !== [] && $entity === 'agent') {
         $where[] = core_client_query_in_list('i.office_ids', $offices);
@@ -124,6 +129,9 @@ function core_client_query_condition(array $params): array
  *                   `lkf` are one group, "any of these places"; everything else narrows it
  *   agent, office, area_id   ids, comma-separated or a list, "show only from these": the items belong
  *                   to any of these agents (a home has one or two, both are checked), offices or areas
+ *   tags            `<type id>:<name>` tokens, comma-separated or a list, "show only with these": the home carries
+ *                   any of these tags as the CRM sends them (a sale method such as Underhand, a feature); the
+ *                   token is the pick's id (includes/blocks.php). A name with a comma in it cannot be asked for
  *   project, association   the id of the project or association the items belong to
  *   include_project_homes         properties that name a project are otherwise kept out (question 55)
  *   include_hidden                agents the CRM keeps out of the staff list (on the record or an office) are otherwise kept out

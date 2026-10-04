@@ -64,7 +64,30 @@ export const NORRMALM = [
     ],
   ],
 ];
-export const P1 = { price: 7_250_000, rooms: 3, living_space: 82, lat: 59.31, lng: 18.01 };
+/** The office's labels as the fake CRM holds them: a kind, its label, the words. */
+export const UNDERHAND = {
+  kind: 'sale_method',
+  kind_label: 'Försäljningssätt',
+  values: ['Underhand'],
+};
+export const OPEN_MARKET = {
+  kind: 'sale_method',
+  kind_label: 'Försäljningssätt',
+  values: ['Öppna marknaden'],
+};
+export const NEAR_WATER = {
+  kind: 'feature',
+  kind_label: 'Utökade sökbegrepp',
+  values: ['Nära vatten'],
+};
+export const P1 = {
+  price: 7_250_000,
+  rooms: 3,
+  living_space: 82,
+  lat: 59.31,
+  lng: 18.01,
+  labels: [UNDERHAND],
+};
 
 /** Put every record into the CRM; `poll()` and a sync bring them to the site. */
 export function fillTheCrm(): void {
@@ -161,6 +184,7 @@ export function fillTheCrm(): void {
       city: 'Stockholm',
       lat: 59.39,
       lng: 18.09,
+      labels: [OPEN_MARKET, NEAR_WATER],
       published_at: '2026-09-10T08:00:00.000Z',
     }),
   );
@@ -232,6 +256,7 @@ export function fillTheCrm(): void {
       price: 2_995_000,
       final_price: 3_325_000,
       sold_at: '2026-08-01T12:00:00.000Z',
+      labels: [UNDERHAND],
     }),
   );
   crm.put(

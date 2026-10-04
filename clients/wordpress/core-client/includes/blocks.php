@@ -1,7 +1,8 @@
 <?php
 // The plugin's two list blocks (docs/search.md, "The blocks in the plugin"): "Bostäder" and
 // "Mäklare", with the settings of the ask (which homes, how many, the filters, the place search,
-// and "show only from these" agents, areas and offices as picks by name). They render through
+// "show only from these" agents, areas and offices, and "show only with these" tags, as picks by
+// name). They render through
 // the one list function and the chosen set's views, so the look is the theme's or the set's.
 // The editor side is one script (assets/editor.js) that builds every block's settings panel
 // from the attributes' `control` keys and previews the block as the server renders it; a theme
@@ -60,7 +61,7 @@ function core_client_list_block_params(array $attributes, string $entity): array
     if (defined('REST_REQUEST') && REST_REQUEST) {
         $params['shadow'] = false;
     }
-    foreach (['agents' => 'agent', 'offices' => 'office', 'areas' => 'area_id'] as $attribute => $param) {
+    foreach (['agents' => 'agent', 'offices' => 'office', 'areas' => 'area_id', 'tags' => 'tags'] as $attribute => $param) {
         $list = $ids($attributes[$attribute] ?? null);
         if ($list !== '') {
             $params[$param] = $list;
@@ -79,7 +80,7 @@ function core_client_list_block_params(array $attributes, string $entity): array
     ];
     // The visitor's choices on the address, as the theme's list block took them: the filters and the place
     // (the status tabs work through the reload script, the block's own status standing here).
-    return $params + array_intersect_key($_GET, array_flip(['status', 'max_price', 'min_living_space', 'min_rooms', 'q', 'area', 'lkf', 'areas']));
+    return $params + array_intersect_key($_GET, array_flip(['status', 'max_price', 'min_living_space', 'min_rooms', 'q', 'area', 'lkf', 'areas', 'tags']));
 }
 
 /**
@@ -136,11 +137,15 @@ add_filter('block_type_metadata', function (array $metadata): array {
  * What a pick offers: every agent, office or area the site holds, listed or hidden (the editor
  * chooses), as an id and a label that names it apart from its namesakes: an area with its
  * kommun, an agent with an office, an office with its town; the id when two labels still match.
+ * For `tag`, every tag the site's homes carry (core_client_tag_picks).
  *
  * @return list<array{id: string, label: string}>
  */
 function core_client_picks(string $entity): array
 {
+    if ($entity === 'tag') {
+        return core_client_tag_picks();
+    }
     if (!in_array($entity, ['agent', 'office', 'area'], true)) {
         return [];
     }
@@ -157,6 +162,58 @@ function core_client_picks(string $entity): array
         fn (array $pick): array => $counts[$pick['label']] > 1 ? ['id' => $pick['id'], 'label' => $pick['label'] . ' (' . $pick['id'] . ')'] : $pick,
         $picks,
     );
+}
+
+/**
+ * Every tag the site's homes carry, sold and unlisted ones too, as the query's token (`<type
+ * id>:<name>`, the index column's) and a label of the type's name and the tag's ("Försäljningssätt ·
+ * Underhand"), by label. The type's name is read from one home that carries the type, since the
+ * index holds the id alone; the words are the CRM's, nothing is judged (question 143 a).
+ *
+ * @return list<array{id: string, label: string}>
+ */
+function core_client_tag_picks(): array
+{
+    global $wpdb;
+    $index = core_client_index_table();
+    $tokens = [];
+    foreach ($wpdb->get_col("SELECT DISTINCT tags FROM $index WHERE datatype = 'property' AND tags IS NOT NULL") ?: [] as $cell) {
+        foreach (explode(',', trim((string) $cell, ',')) as $token) {
+            if ($token !== '' && str_contains($token, ':')) {
+                $tokens[$token] = true;
+            }
+        }
+    }
+    $type_names = [];
+    $picks = [];
+    foreach (array_keys($tokens) as $token) {
+        [$type_id, $name] = explode(':', $token, 2);
+        if (!array_key_exists($type_id, $type_names)) {
+            $type_names[$type_id] = core_client_tag_type_name($type_id);
+        }
+        $type_name = $type_names[$type_id];
+        $picks[] = ['id' => $token, 'label' => $type_name !== null && $type_name !== '' ? "$type_name · $name" : $name];
+    }
+    usort($picks, fn (array $a, array $b): int => strcmp($a['label'], $b['label']) ?: strcmp($a['id'], $b['id']));
+    return $picks;
+}
+
+/** The name of a tag type as one home that carries it names it; null when no home does. */
+function core_client_tag_type_name(string $type_id): ?string
+{
+    global $wpdb;
+    $post_id = $wpdb->get_var($wpdb->prepare(
+        'SELECT post_id FROM ' . core_client_index_table() . " WHERE datatype = 'property' AND tags LIKE %s LIMIT 1",
+        '%,' . $wpdb->esc_like($type_id) . ':%',
+    ));
+    $item = $post_id !== null ? core_client_item((int) $post_id) : null;
+    foreach (is_array($item['tags'] ?? null) ? $item['tags'] : [] as $tag) {
+        $type = is_array($tag) ? ($tag['type'] ?? null) : null;
+        if (is_array($type) && (string) ($type['id'] ?? '') === $type_id) {
+            return is_string($type['name'] ?? null) ? $type['name'] : null;
+        }
+    }
+    return null;
 }
 
 /**
@@ -192,12 +249,12 @@ function core_client_office_names(): array
     return $names;
 }
 
-/** The pick endpoint: `GET /wp-json/core/v1/picks?entity=agent|office|area`, for a signed-in editor. */
+/** The pick endpoint: `GET /wp-json/core/v1/picks?entity=agent|office|area|tag`, for a signed-in editor. */
 add_action('rest_api_init', function (): void {
     register_rest_route('core/v1', '/picks', [
         'methods' => 'GET',
         'permission_callback' => fn (): bool => current_user_can('edit_posts'),
-        'args' => ['entity' => ['type' => 'string', 'enum' => ['agent', 'office', 'area'], 'required' => true]],
+        'args' => ['entity' => ['type' => 'string', 'enum' => ['agent', 'office', 'area', 'tag'], 'required' => true]],
         'callback' => fn (WP_REST_Request $request): WP_REST_Response => new WP_REST_Response(core_client_picks((string) $request->get_param('entity'))),
     ]);
 });

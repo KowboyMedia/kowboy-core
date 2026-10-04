@@ -3,7 +3,7 @@
   "apiVersion": 3,
   "name": "core-client/property-list",
   "title": "Bostäder",
-  "description": "Bostäderna från Kowboy Core som kort, med statusflikar, filter och platssök, från alla eller bara från valda mäklare, områden och kontor. Utseendet är temats.",
+  "description": "Bostäderna från Kowboy Core som kort, med statusflikar, filter och platssök, från alla eller bara från valda mäklare, områden och kontor, eller bara med valda taggar. Utseendet är temats.",
   "category": "core-client",
   "icon": "grid-view",
   "editorScript": "core-client-editor",
@@ -95,6 +95,15 @@
       "entity": "office",
       "label": "Visa bara från dessa kontor",
       "help": "Tomt visar alla."
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "control": "pick",
+      "entity": "tag",
+      "label": "Visa bara med dessa taggar",
+      "help": "Det CRM:et taggat bostäderna med, till exempel försäljningssätt. Tomt visar alla."
     }
   }
 }

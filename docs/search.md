@@ -188,6 +188,7 @@ The property list's settings, in the editor's side panel:
 | Visa bara från dessa mäklare | A pick of agents by name; the list holds only their homes.                                                                                                                                                                             |
 | Visa bara från dessa områden | A pick of areas by name; the list holds only homes in them, by the link table.                                                                                                                                                         |
 | Visa bara från dessa kontor  | A pick of offices by name; the list holds only their homes.                                                                                                                                                                            |
+| Visa bara med dessa taggar   | A pick of the tags the site's homes carry, as the CRM sends them, labelled with the type's name ("Försäljningssätt · Underhand"); the list holds only homes with any of them. The address takes the same as `tags=` (question 143 a).  |
 
 The agent list's settings: Rubrik, Ingress, and **Visa bara från dessa kontor**, a pick of
 offices; the list holds the agents of those offices, in the CRM's order as today.

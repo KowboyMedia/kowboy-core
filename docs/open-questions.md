@@ -9,37 +9,6 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 143. `[client-wordpress]` A list filter by marketing method ("Försäljningssätt": Underhand, Pre-Market and the like): where the method lives in the model
-
-- 2026-10-04 · Patric asked for a property-list filter that shows only the homes with a certain
-  marketing method, the words a brokerage tags its homes with (his example: "Underhand"). Vitec
-  carries it as an estate tag of type `SaleMethod` ("Försäljningssätt"), the names the office's
-  own words (`docs/inputs/vitec/enumerations/Api_EstateTagType.md`; the migration table maps the
-  old `Assignment.MarketingMethods` to `Tags[Type.Id=SaleMethod].Names`); the second tag type is
-  `SpecialFeature` ("Utökade sökbegrepp": Nära vatten, Eldstad). Mspecs has no tags; its deal's
-  sale information carries one free text, `marketingMethodDescription`
-  (`docs/inputs/mspecs/marketing-provider.openapi.json`). The universal property carries the
-  list `tags` as the CRM sends it (`{type: {id, name}, names: []}` per type,
-  `docs/field-tables.md`), and no named field. Read on 2026-10-04 at the office behind the
-  staging site: of 638 estates, 304 carry a method (Öppna Marknaden 205, Pre-Market™ 93,
-  Skrivuppdrag 7, Skriftlig värdering 1), 298 of them sold; none of the 12 for sale and 2 coming
-  do, so this office records how a home was sold rather than tagging a live one. The plugin
-  filters lists by the ids of `status`, `type` and `tenure` through index columns, and the list
-  block picks agents, areas and offices from the site's own records. Blocked: the filter, until
-  the model's place for the method is settled. Options: a) filter on the existing `tags` list,
-  generically: the plugin indexes every tag as type and name, the list block gets a pick "Visa
-  bara med dessa taggar" listing what the site's homes carry, grouped by the tag type's name
-  ("Försäljningssätt", "Utökade sökbegrepp"), and the address takes `tags=` like `status=`; no
-  schema change, the client names no CRM, and the Mspecs adapter maps its text into `tags` when
-  it is built; b) a new universal field `sale_methods` (a list of strings) on the property, the
-  Vitec adapter filling it from the `SaleMethod` tag and the Mspecs adapter from its text, an
-  additive schema change, and the plugin filters on it alone; c) filter in the plugin on `tags`
-  by the type id `SaleMethod` only, the cheapest, but the client then names a CRM's vocabulary
-  and an Mspecs site gets nothing.
-- Smaller: a; it follows the status filter's pattern (ids as the CRM sends them, compared, never
-  judged), needs no schema change and covers the second tag type for free. b when Patric wants
-  the method as a named field of the model. Answer a, b or c.
-
 ## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite
 
 - 2026-10-04 · The acceptance list `acceptance/criteria.json` is a protected path, changed on

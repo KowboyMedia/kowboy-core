@@ -15,6 +15,18 @@ const flag = (value: unknown): boolean | null => (typeof value === 'boolean' ? v
 const named = (value: unknown): { id: string; name: string } | null =>
   typeof value === 'string' && value ? { id: value, name: value } : null;
 
+// The office's own labels on a home, by kind (how it is sold, a feature), as the universal `tags`:
+// one entry per kind, with the kind's label as the type's name and the words as the names.
+const tags = (value: unknown): Raw[] =>
+  (Array.isArray(value) ? value : []).map((label) => {
+    const one = (label ?? {}) as Raw;
+    const kind = text(one['kind']) ?? '';
+    return {
+      type: { id: kind, name: text(one['kind_label']) ?? kind },
+      names: strings(one['values']),
+    };
+  });
+
 const STAGES = new Set(['pre', 'active', 'done', 'cancelled']);
 
 const require_ = (record: Raw, field: string): string => {
@@ -56,6 +68,7 @@ const property = (raw: unknown): MappedRecord => {
       type: null,
       subtype: null,
       tenure: named(record['tenure']),
+      tags: tags(record['labels']),
       price_text: text(record['price_text']),
       address: {
         street: text(record['street']),

@@ -281,6 +281,7 @@ function core_client_install(): void
         street varchar(191) DEFAULT NULL,
         project_id varchar(191) DEFAULT NULL,
         agent_ids text DEFAULT NULL,
+        tags text DEFAULT NULL,
         published_at datetime DEFAULT NULL,
         sold_at datetime DEFAULT NULL,
         sort_name varchar(191) DEFAULT NULL,
@@ -518,6 +519,23 @@ function core_client_search_columns(object $data): array
         return $time === false ? null : gmdate('Y-m-d H:i:s', $time);
     };
     $ids = fn (mixed $list): ?string => is_array($list) && $list !== [] ? ',' . implode(',', array_filter($list, 'is_string')) . ',' : null;
+    // The CRM's tags on a home (a sale method, a feature; `tags` in docs/field-tables.md) as `,type id:name,` per
+    // name, so a list asks for a tag with one LIKE (includes/query.php), as it asks for an agent.
+    $tags = function (mixed $tags): ?string {
+        $tokens = [];
+        foreach (is_array($tags) ? $tags : [] as $tag) {
+            if (!is_object($tag)) {
+                continue;
+            }
+            $type = is_object($tag->type ?? null) && is_string($tag->type->id ?? null) ? $tag->type->id : '';
+            foreach (is_array($tag->names ?? null) ? $tag->names : [] as $name) {
+                if (is_string($name) && $name !== '') {
+                    $tokens[] = "$type:$name";
+                }
+            }
+        }
+        return $tokens === [] ? null : ',' . implode(',', $tokens) . ',';
+    };
     $order = function (mixed $offices): ?int {
         $orders = [];
         foreach (is_array($offices) ? $offices : [] as $office) {
@@ -554,6 +572,7 @@ function core_client_search_columns(object $data): array
         'street' => $text($address->street ?? null),
         'project_id' => $text($data->project_id ?? null),
         'agent_ids' => $ids($data->agent_ids ?? null),
+        'tags' => $tags($data->tags ?? null),
         'published_at' => $moment($data->published_at ?? null),
         'sold_at' => $moment($data->sold_at ?? null),
         'sort_name' => $text($data->name ?? null) ?? $text($address->street ?? null),

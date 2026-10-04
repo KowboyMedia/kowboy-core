@@ -149,7 +149,10 @@ tables turn into codes; `area` is its old name and stands for `q` until the next
 `lkf` (codes of two, four or six digits: the home's code begins with one); `areas` (area ids the
 visitor chose: the home is in one of them, by the links below; `areas` and `lkf` together are one
 group, "any of these places"); `agent`, `office`, `area_id` (ids, comma-separated: the items
-belong to any of these agents, with both of a home's agents checked, offices or areas); `project`,
+belong to any of these agents, with both of a home's agents checked, offices or areas); `tags`
+(`<type id>:<name>` tokens, comma-separated: the home carries any of these tags as the CRM sends
+them, a sale method such as Underhand or a feature; the index holds every tag's type id and name,
+and the pick endpoint lists them with the type's name, question 143 a); `project`,
 `association` (the id of the record the items belong to); `include_project_homes` (a property that names a project
 is otherwise kept out of every list but its project's, question 55); `include_hidden` (an agent
 the CRM keeps out of the staff list is otherwise kept out of every list, while a page that names
@@ -185,11 +188,13 @@ free text with the pills saying where (Default 134).
 **The two list blocks** (`includes/blocks.php`, `docs/search.md`): "Bostäder"
 (`core-client/property-list`) and "Mäklare" (`core-client/agent-list`), with Swedish settings in
 the editor's side panel: title and lead, which homes (the site's status lists), how many a page,
-status tabs, filters, the place search (none, areas, or areas with kommuner and län), and "show
-only from these" agents, areas and offices, picked by name and stored as ids. They render through
+status tabs, filters, the place search (none, areas, or areas with kommuner and län), "show
+only from these" agents, areas and offices, picked by name and stored as ids, and "show only
+with these" tags (the CRM's words by type, picked as "Försäljningssätt · Underhand" and stored as
+the query's tokens). They render through
 the one list function and the chosen set's views, so the look is the set's, in a shadow root
 when the site's setting says so (as the shortcode); the picks become the query's `agent`,
-`area_id` and `office` lists, which the reload script carries too, and a property list reads the
+`area_id`, `office` and `tags` lists, which the reload script carries too, and a property list reads the
 visitor's filters and place from the address, which never widen them (the status tabs work
 through the reload script). A theme's or a set's own list block names
 `"coreClientList": "property"` or `"agent"` in its block.json: the plugin merges its settings

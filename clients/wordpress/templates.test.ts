@@ -182,6 +182,16 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(await total({ office: 'B-1,B-9' })).toBe(3);
     expect(await total({ area_id: 'D-2' })).toBe(1);
     expect((await reload({ entity: 'agent', office: 'B-1,B-9' })).total).toBe(2);
+    // "Show only with these" tags: the CRM's words by type, any of them; a sold home by its own list (question 143 a).
+    expect(await total({ tags: 'sale_method:Underhand' })).toBe(1);
+    expect(await total({ tags: 'sale_method:Underhand,sale_method:Öppna marknaden' })).toBe(2);
+    expect(await total({ tags: 'feature:Nära vatten' })).toBe(1);
+    expect(await total({ tags: 'sale_method:Nära vatten' })).toBe(0); // the type counts
+    expect(await total({ tags: 'sale_method:Pre-Market' })).toBe(0);
+    expect(await total({ tags: 'sale_method:Underhand', agent: 'S-2' })).toBe(0); // narrows the rest
+    expect(
+      (await reload({ entity: 'property', status: 'done', tags: 'sale_method:Underhand' })).total,
+    ).toBe(1);
   });
 
   it('offers only the places with a matching home, in three groups with the kommun after an area’s name, and draws the box with its pills from the address', async () => {
@@ -977,16 +987,18 @@ describe('the plugin’s set machinery, with a set plugin', () => {
         'agents',
         'areas',
         'offices',
+        'tags',
         'background',
       ]),
     );
 
     // The plugin alone, under another theme with the fixture set: both blocks render through the
     // set's views (the set's stylesheet linked inside the root, as the site's setting says), the
-    // homes of the picked agent or the picked area only, the agents of the picked office only.
+    // homes of the picked agent, the picked area or the picked tag only, the agents of the picked office only.
     const blocks = [
       '<!-- wp:core-client/property-list {"status":"for_sale,coming","statusTabs":false,"agents":["S-2"]} /-->',
       '<!-- wp:core-client/property-list {"status":"for_sale,coming","statusTabs":false,"areas":["D-2"]} /-->',
+      '<!-- wp:core-client/property-list {"status":"for_sale,coming","statusTabs":false,"tags":["sale_method:Underhand"]} /-->',
       '<!-- wp:core-client/agent-list {"offices":["B-1"]} /-->',
       '<!-- wp:core-client/agent-list {"offices":["B-9"]} /-->',
     ].join('');
@@ -1006,10 +1018,12 @@ describe('the plugin’s set machinery, with a set plugin', () => {
     await driver('option', 'core_client_template_set "fixture"');
     try {
       const { body } = await page(path);
-      // Bertil's two homes (one as the second agent), then Norrmalm's one by its outline: Kungsgatan 2 in both lists.
-      expect(body.match(/<article class="fixture-card">/g)).toHaveLength(3);
+      // Bertil's two homes (one as the second agent), then Norrmalm's one by its outline (Kungsgatan 2 in both
+      // lists), then the one home tagged Underhand (Kungsgatan 1, in that list alone).
+      expect(body.match(/<article class="fixture-card">/g)).toHaveLength(4);
       expect(body.match(/<article class="fixture-card">Kungsgatan 2<\/article>/g)).toHaveLength(2);
-      expect(body).not.toContain('<article class="fixture-card">Kungsgatan 1</article>');
+      expect(body.match(/<article class="fixture-card">Kungsgatan 1<\/article>/g)).toHaveLength(1);
+      expect(body.indexOf('Kungsgatan 1')).toBeGreaterThan(body.lastIndexOf('Kungsgatan 2'));
       expect(body.match(/<div class="fixture-agents">/g)).toHaveLength(2);
       expect(body.match(/<article class="fixture-agent">/g)).toHaveLength(2); // B-1's listed agents; B-9 has none
       expect(body).toContain('fixture.css');
@@ -1053,6 +1067,12 @@ describe('the plugin’s set machinery, with a set plugin', () => {
     ]);
     expect((await picks('office', 1)).rows).toEqual([
       { id: 'B-1', label: 'Kowboy Mäkleri · Stockholm' },
+    ]);
+    // The tags every home carries, the sold P-4's too, as the query's token with the type's name in the label.
+    expect((await picks('tag', 1)).rows).toEqual([
+      { id: 'sale_method:Underhand', label: 'Försäljningssätt · Underhand' },
+      { id: 'sale_method:Öppna marknaden', label: 'Försäljningssätt · Öppna marknaden' },
+      { id: 'feature:Nära vatten', label: 'Utökade sökbegrepp · Nära vatten' },
     ]);
     expect((await fetch(`${siteUrl}/?rest_route=/core/v1/picks&entity=agent`)).status).toBe(401);
   });
