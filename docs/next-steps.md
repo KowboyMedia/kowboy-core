@@ -424,9 +424,12 @@ client ports (item 16, first client by question 80).
     and theme 1.1.0: the two list blocks "Bostäder" and "Mäklare" live in the plugin with the
     settings of the ask (the picks by name through the pick endpoint, for editors), the editor
     builder moved there with the pick control, and the theme's two list blocks are wrappers of
-    the plugin's settings. Next: session 3, the search box (the combo box with pills, the places
-    data, the Till salu card, the browser journey), then the deploy to the staging site: the
-    plugin (0.5.1 or newer) before the theme (1.1.0), since the theme's blocks lean on it.
+    the plugin's settings. Session 3 is done the same day, plugin 0.5.2 and theme 1.1.1: the
+    search box with pills, drawn by one plugin function on the Till salu card, the hero and the
+    archive and fed from the page's own markup, reloads the list in place and writes the address,
+    with a browser journey (`npm run test:journeys:wordpress`) in CI. Next: the deploy to the
+    staging site, the plugin (0.5.2) before the theme (1.1.1), since the theme's blocks and card
+    lean on it; it waits for the site's login (question 121).
     Default 135 (the tests under criterion 20) waits; the acceptance list is edited when it stands.
     - **Component:** `[client-wordpress]`, the plugin first, the theme's two list blocks after.
     - **What changes for the product:** the list search takes an LKF code or its län or kommun

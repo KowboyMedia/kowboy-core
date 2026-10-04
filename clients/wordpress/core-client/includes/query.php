@@ -9,33 +9,16 @@ declare(strict_types=1);
 const CORE_CLIENT_PER_PAGE = 10;
 
 /**
+ * The WHERE of the list query for one parameter set, over the index as `i` joined to the posts as
+ * `p`: the condition and its arguments, for `core_client_query` and for the places the search box
+ * offers (includes/place-search.php), so both read every parameter the same way.
+ *
  * @param array<string, mixed> $params
- *   entity          property (default), agent, office, area, association, project
- *   status          ids, comma-separated or a list: `status.id` in; `for_sale`, `coming` and `sold`
- *                   stand for the ids the site named on its settings page (core_client_statuses)
- *   type, tenure    ids the same way: `type.id`, `tenure.id` in
- *   max_price, max_living_space   at most this
- *   min_price, min_living_space, min_rooms   at least this
- *   q               free text: the street, the area name or the postal town begins with it, or it begins
- *                   the name of a kommun or a län (municipalities.php turns the name into codes). `area`
- *                   is the parameter's old name and stands for `q` until the next release (docs/search.md)
- *   lkf             codes of two, four or six digits, comma-separated or a list: the home's code begins with one
- *   areas           area ids the visitor chose: the home is in one of them (includes/areas.php). `areas` and
- *                   `lkf` are one group, "any of these places"; everything else narrows it
- *   agent, office, area_id   ids, comma-separated or a list, "show only from these": the items belong
- *                   to any of these agents (a home has one or two, both are checked), offices or areas
- *   project, association   the id of the project or association the items belong to
- *   include_project_homes         properties that name a project are otherwise kept out (question 55)
- *   include_hidden                agents the CRM keeps out of the staff list (on the record or an office) are otherwise kept out
- *   sort            newest (default for properties), sold, price_asc, price_desc, updated, name (default
- *                   otherwise: the CRM's order where it gives one, an agent's place in the staff list, then the name)
- *   per_page, page  paging, from page 1
- * @return array{items: list<array{post_id: int, item: array<string, mixed>}>, total: int, has_more: bool, page: int, per_page: int}
+ * @return array{0: string, 1: list<mixed>}
  */
-function core_client_query(array $params): array
+function core_client_query_condition(array $params): array
 {
     global $wpdb;
-    $index = core_client_index_table();
     $entity = (string) ($params['entity'] ?? 'property');
     // A draft (the site's own records, includes/site-records.php) is not on the site; a CRM record is always published.
     $where = ['i.datatype = %s', "p.post_status = 'publish'"];
@@ -122,10 +105,42 @@ function core_client_query(array $params): array
         $where[] = '1 = 0';
     }
 
+    return [implode(' AND ', $where), $args];
+}
+
+/**
+ * @param array<string, mixed> $params
+ *   entity          property (default), agent, office, area, association, project
+ *   status          ids, comma-separated or a list: `status.id` in; `for_sale`, `coming` and `sold`
+ *                   stand for the ids the site named on its settings page (core_client_statuses)
+ *   type, tenure    ids the same way: `type.id`, `tenure.id` in
+ *   max_price, max_living_space   at most this
+ *   min_price, min_living_space, min_rooms   at least this
+ *   q               free text: the street, the area name or the postal town begins with it, or it begins
+ *                   the name of a kommun or a län (municipalities.php turns the name into codes). `area`
+ *                   is the parameter's old name and stands for `q` until the next release (docs/search.md)
+ *   lkf             codes of two, four or six digits, comma-separated or a list: the home's code begins with one
+ *   areas           area ids the visitor chose: the home is in one of them (includes/areas.php). `areas` and
+ *                   `lkf` are one group, "any of these places"; everything else narrows it
+ *   agent, office, area_id   ids, comma-separated or a list, "show only from these": the items belong
+ *                   to any of these agents (a home has one or two, both are checked), offices or areas
+ *   project, association   the id of the project or association the items belong to
+ *   include_project_homes         properties that name a project are otherwise kept out (question 55)
+ *   include_hidden                agents the CRM keeps out of the staff list (on the record or an office) are otherwise kept out
+ *   sort            newest (default for properties), sold, price_asc, price_desc, updated, name (default
+ *                   otherwise: the CRM's order where it gives one, an agent's place in the staff list, then the name)
+ *   per_page, page  paging, from page 1
+ * @return array{items: list<array{post_id: int, item: array<string, mixed>}>, total: int, has_more: bool, page: int, per_page: int}
+ */
+function core_client_query(array $params): array
+{
+    global $wpdb;
+    $index = core_client_index_table();
+    $entity = (string) ($params['entity'] ?? 'property');
+    [$condition, $args] = core_client_query_condition($params);
     $per_page = max(1, (int) ($params['per_page'] ?? CORE_CLIENT_PER_PAGE));
     $page = max(1, (int) ($params['page'] ?? 1));
     $order = core_client_query_order((string) ($params['sort'] ?? ''), $entity);
-    $condition = implode(' AND ', $where);
 
     $total = (int) $wpdb->get_var($wpdb->prepare(
         "SELECT COUNT(*) FROM $index i JOIN {$wpdb->posts} p ON p.ID = i.post_id WHERE $condition",
@@ -152,12 +167,6 @@ function core_client_query(array $params): array
     ];
 }
 
-/**
- * The condition "the item is in one of these areas", by the link table (includes/areas.php): the
- * CRM's area and every outline that holds the item's point. One placeholder per id.
- *
- * @param list<string> $area_ids
- */
 /**
  * `(column LIKE %s OR …)`, one per id, for a column that holds ids as `,one,two,` (a home's agents,
  * an agent's offices); the arguments come from `core_client_query_list_args`.

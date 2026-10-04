@@ -64,6 +64,18 @@
       "label": "Sökformulär",
       "help": "Sökrutan för bostäder längs hjältebildens nederkant, som på sidan Till salu."
     },
+    "placeSearch": {
+      "type": "string",
+      "default": "places",
+      "control": "select",
+      "label": "Platssök i sökformuläret",
+      "help": "Sökrutan föreslår bara platser där det finns bostäder till salu eller kommande.",
+      "options": {
+        "none": "Inget, fritext",
+        "areas": "Områden",
+        "places": "Områden, kommuner och län"
+      }
+    },
     "height": {
       "type": "string",
       "default": "default",

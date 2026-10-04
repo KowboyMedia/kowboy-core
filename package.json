@@ -25,6 +25,7 @@
     "start:worker": "node --env-file-if-exists=.env dist/main.js worker",
     "test": "vitest run",
     "test:journeys": "playwright test --config admin/playwright.config.ts",
+    "test:journeys:wordpress": "playwright test --config clients/wordpress/playwright.config.ts",
     "test:wordpress": "vitest run --config vitest.wordpress.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p admin/tsconfig.json --noEmit && npm run typecheck:deno",
     "typecheck:deno": "deno check --config clients/lovable-kit/supabase/functions/core-sync/deno.json clients/lovable-kit/supabase/functions/core-sync/index.ts"

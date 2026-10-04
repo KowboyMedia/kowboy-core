@@ -17,6 +17,7 @@ core-client/                     the plugin
   includes/templates.php         the sets' registry, the override rule (theme first), the list function,
                                  the shortcode, the reload endpoint, the routing of single pages and archives
   includes/blocks.php            the two list blocks, their settings for a theme's wrappers, the pick endpoint
+  includes/place-search.php      the search box: the places query, the box with its pills, its assets
   includes/view-page.php         the theme's header and footer around one view
   includes/packages.php          places the updater, keeps the package list, installs a set from the channel
   includes/sync.php              the SRS §8 loop
@@ -27,13 +28,16 @@ core-client/                     the plugin
   includes/report.php            error reporting through Core
   blocks/<name>/                 block.json and render.php of "Bostäder" and "Mäklare"
   assets/editor.js               the editor side of every block: the panel from block.json, the preview, the picks
+  assets/place-search.js, .css   the search box's behaviour and structure, loaded only on a page that drew one
   updater/core-client-updater.php  the must-use updater the plugin places itself; never loads plugin code
   lib/action-scheduler/          Action Scheduler 4.1.0, bundled (GPLv3)
 themes/kowboy-2026/              the default template set "Kowboy 2026", a theme (docs/kowboy-2026.md)
 release.php                      packages the plugin, the theme or a set, and writes the index of sets
-test/                            setup.sh, install.php, driver.php and site.ts for the suites
+test/                            setup.sh, install.php, driver.php, site.ts and records.ts for the suites,
+                                 journey-site.ts for the journeys
 sync.test.ts                     the shared sync scenarios, the updater, the packaging, WP-CLI
 templates.test.ts                the theme, its blocks and the template machinery on a real WordPress
+e2e/, playwright.config.ts       the search box's browser journey
 ```
 
 ## Installing it on a site
@@ -149,8 +153,10 @@ belong to any of these agents, with both of a home's agents checked, offices or 
 is otherwise kept out of every list but its project's, question 55); `include_hidden` (an agent
 the CRM keeps out of the staff list is otherwise kept out of every list, while a page that names
 the agent, such as a home's card, shows them; Patric, 2026-10-03); `sort` (`newest`, `sold`,
-`price_asc`, `price_desc`, `updated`, `name`); `per_page`, `page`. A custom-design theme calls it
-directly and renders what it likes.
+`price_asc`, `price_desc`, `updated`, `name`); `per_page`, `page`; `place_search` (`none`,
+`areas` or `places`: no filter, but whether the list's wrapper draws the search box, with the
+areas alone or with kommuner and län too). A custom-design theme calls it directly and renders
+what it likes.
 
 **The one list function.** `core_client_list(array $params)` runs the query and renders
 `card-<entity>.php` per item and, unless `part` is `cards`, the wrapper `list-<entity>.php`
@@ -159,6 +165,19 @@ around them, wrapped in a shadow root when the site's setting or `shadow` says s
 reload endpoint `GET /wp-json/core/v1/list?<the same parameters>` (which answers `html`,
 `total`, `has_more`, `page`) and any PHP call it with the same parameter set, passed through
 untouched: a parameter added to the query is at once available everywhere.
+
+**The search box** (`includes/place-search.php`, `docs/search.md`): one function,
+`core_client_place_search($params)`, draws the combo box with pills for any set that calls it
+(the theme Kowboy 2026 does on its search card): the field `q`, the places as data in the markup
+(the areas, kommuner and län with at least one home matching the list's own setting, counted
+through the list's condition, so the box offers only places that give a result), the pills the
+address names and two hidden fields, `areas` and `lkf`. Its script and stylesheet
+(`assets/place-search.js`, `.css`) load only in a request that drew a box, inside the shadow root
+too. A choice, a removed pill and the form's submit send the form's fields to the list on the
+page as one event, `core-list:params` on the `[data-list]` element (the set's list script merges
+the detail into its parameters and reloads from the first page), and write them to the address;
+without a list on the page the form loads the page with them. Words that are no place search as
+free text with the pills saying where (Default 134).
 
 **The two list blocks** (`includes/blocks.php`, `docs/search.md`): "Bostäder"
 (`core-client/property-list`) and "Mäklare" (`core-client/agent-list`), with Swedish settings in
@@ -233,8 +252,12 @@ to the GitHub Release as the record (`.github/workflows/release.yml`).
 
 `npm run test:wordpress` runs the shared scenario suite and the template suite against a real
 WordPress install (a classic theme, the plugin and the default set active) plus the updater and
-WP-CLI tests; see [../README.md](../README.md) for the one-time setup. PHPStan runs in CI's
-warnings job: `composer install` and `vendor/bin/phpstan analyse`, both in this directory.
+WP-CLI tests; see [../README.md](../README.md) for the one-time setup. `npm run
+test:journeys:wordpress` walks the search box in a real browser (Playwright) on that WordPress
+with the template suite's records, served by `test/journey-site.ts` out of `dist`, so `npm run
+build` comes first (CI's wordpress job runs both; a machine with its own Chromium names it in
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE`). PHPStan runs in CI's warnings job: `composer install` and
+`vendor/bin/phpstan analyse`, both in this directory.
 
 On the site itself, an administrator sees one notice on every admin page while the plugin cannot
 sync (Patric, 2026-09-18): the site is not linked (no Core URL or token), its licence is not

@@ -88,6 +88,12 @@ jobs:
         run: bash clients/wordpress/test/setup.sh
       - name: WordPress client tests
         run: npm run test:wordpress
+      - name: Build (the journeys' site runs from dist)
+        run: npm run build
+      - name: A browser for the client's journeys
+        run: npx playwright install --with-deps chromium
+      - name: The WordPress client's user journeys
+        run: npm run test:journeys:wordpress
 
   warnings:
     name: Warnings (never block)

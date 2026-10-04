@@ -1,0 +1,80 @@
+/* The place search box (includes/place-search.php): the structure only, in the page's own font
+   and colours; a set's stylesheet gives it the set's look. Linked on the page and inside the
+   shadow roots the plugin opens. */
+.core-place-search {
+  position: relative;
+  min-width: 0;
+}
+.core-place-search__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.core-place-search__input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.core-place-search__list {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  margin: 4px 0 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  list-style: none;
+  background: #ffffff;
+  color: #111111;
+  border: 1px solid #d1d1d6;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  text-align: left;
+}
+.core-place-search__list[hidden] {
+  display: none;
+}
+.core-place-search__group {
+  padding: 8px 12px 4px;
+  font-size: 0.75em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.core-place-search__option {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.core-place-search__option:hover,
+.core-place-search__option.is-active {
+  background: #f6f6f2;
+}
+.core-place-search__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.core-place-search__pills:empty {
+  display: none;
+}
+.core-place-search__pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.85em;
+  line-height: 1.4;
+  color: inherit;
+  cursor: pointer;
+}
+.core-place-search__pill:hover,
+.core-place-search__pill:focus-visible {
+  background: #f6f6f2;
+}

@@ -152,6 +152,15 @@
         load(false);
       });
     });
+    // The place search box (the plugin's, in the list's filters or on the hero above) sends the
+    // parameters it stands for; the list takes them over and reloads from the first page.
+    list.addEventListener('core-list:params', function (event) {
+      Object.keys(event.detail || {}).forEach(function (key) {
+        params[key] = event.detail[key];
+      });
+      page = 1;
+      load(false);
+    });
     var form = list.querySelector('.k-search');
     if (form) {
       form.addEventListener('submit', function (event) {

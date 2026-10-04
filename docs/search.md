@@ -3,9 +3,11 @@
 **Status:** approved 2026-10-04: Patric answered 133 with a (a home is in every area whose
 outline holds it) and let Default 134 stand, and added two rules: the links are recomputed only
 when a home's point or an area's outline changed, which is rare, and every agent filter checks
-both of a home's agents. Sessions 1 and 2 of the three below are built: the query and the data
-(plugin 0.5.0, theme 1.0.18, tests 1 and 2) and the blocks in the plugin with the pick control
-and the pick endpoint (plugin 0.5.1, theme 1.1.0, test 4); session 3, the search box, follows. **The ask** (Patric, 2026-10-04, "discuss before building"): the search
+both of a home's agents. All three sessions below are built, 2026-10-04: the query and the data
+(plugin 0.5.0, theme 1.0.18, tests 1 and 2), the blocks in the plugin with the pick control and
+the pick endpoint (plugin 0.5.1, theme 1.1.0, test 4) and the search box with pills (plugin
+0.5.2, theme 1.1.1, tests 3 and 5); what remains is the deploy to the staging site, the plugin
+before the theme, which waits for the site's login (question 121). **The ask** (Patric, 2026-10-04, "discuss before building"): the search
 method accepts an LKF code or the significant part of one (the L part for a län, the LK part for a
 kommun); a free text search matches the beginning of a street address, of an area name or of a
 kommun name; the WordPress property list and agent list are blocks that live in the plugin, not
@@ -235,6 +237,9 @@ offices; the list holds the agents of those offices, in the CRM's order as today
 - **Typing without choosing** and pressing Sök or Enter searches the words as free text, by the
   rule of `q` above. With pills present the words narrow further (Default 134): the pills say
   where, the words say which street or name. With no pill the words search alone, as the ask says.
+  Built: the form around the box sends its fields to the list on the page when there is one (the
+  cards reload, the address is written, the page stays), and loads the page with the fields in
+  its address otherwise; a form inside a list's own filters is left to the set's list script.
 - **The state goes into the page address** (`?areas=…&lkf=…&q=…`): the script writes every
   change there (`history.replaceState`, new behaviour; today only the Till salu card's full
   submit reaches the address, and the tabs and the in-list form reload the cards without it), so
@@ -250,8 +255,22 @@ offices; the list holds the agents of those offices, in the CRM's order as today
   must work both inside the shadow root the plugin opens around the archive page and the
   shortcode by default and on the open page where the theme's blocks render, the option list is
   small, so a library's filtering and virtual scrolling buy nothing, and the look must be the
-  theme's. That is the stated reason for not taking the library; the decision is recorded when
-  it is built.
+  theme's. That is the stated reason for not taking the library; the decision is recorded in
+  `docs/decisions.md` (2026-10-04).
+- **Built as** (2026-10-04): `includes/place-search.php` holds the places query
+  (`core_client_places($params)`, one group count per group through the list's own condition,
+  `core_client_query_condition()`, without the visitor's choices and the paging), the pills from
+  the address (`core_client_place_pills`) and the one render function; the field is `q`, the
+  pills write two hidden fields, `areas` and `lkf`, so a plain submit and the script's reload
+  send the same parameters. The script and the stylesheet (`assets/place-search.js`, `.css`) are
+  enqueued only in a request that drew a box, and `core_client_wrap` links the stylesheet inside
+  every shadow root of such a request. The script tells the list on the page with one event,
+  `core-list:params` on the `[data-list]` element nearest the box, else the first on the page,
+  its detail the form's fields; the set's list script merges the detail into its parameters and
+  reloads from the first page. The theme's search card (`parts/search-form.php`) calls the
+  function and keeps its text field when the plugin is older than 0.5.2; the hero block's setting
+  "Platssök" (none, areas, or areas with kommuner and län, the last by default) and the archive
+  page (places) choose the groups.
 - **The Till salu page's search card** keeps its three choices (max price, minimum size,
   minimum rooms) and swaps the "Område" text field for this box.
 
@@ -288,10 +307,13 @@ database the suites already drive, plus one browser journey:
    through the set's views, applies the restrictions and serves the pick endpoint to an editor
    and not to a visitor; the theme's wrappers keep the background and the text card, and the demo
    pages render.
-5. One browser journey (Playwright, the harness `npm run test:journeys` already runs for the
-   admin area, pointed at the test WordPress): on the Till salu page, type, choose a suggestion,
-   the pill appears and the cards reload, the address carries the choice, clicking the pill
-   removes it, and words with and without a pill search as Default 134 says.
+5. One browser journey (Playwright, `npm run test:journeys:wordpress`, its own config
+   `clients/wordpress/playwright.config.ts`; the site is `test/journey-site.ts`, the real
+   WordPress with the suite's records through a real Core, run from `dist` after `npm run build`
+   as the admin area's journeys are): on the Till salu page, type, choose a suggestion by mouse
+   and by keyboard, the pill appears and the cards reload, the address carries the choice,
+   clicking the pill or Backspace removes it, words with and without a pill search as Default 134
+   says, and the page drawn again from the address shows the pill, the words and the cards.
 
 Acceptance: AC 20's search half names these tests; the report is regenerated.
 

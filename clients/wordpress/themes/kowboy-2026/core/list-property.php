@@ -34,7 +34,7 @@ $default_status = (string) ($params['status'] ?? '');
             </div>
         <?php endif; ?>
         <?php if (!empty($params['filters'])) : ?>
-            <div class="k-list__filters"><?php echo kowboy_part('search-form', []); ?></div>
+            <div class="k-list__filters"><?php echo kowboy_part('search-form', ['params' => $params]); ?></div>
         <?php endif; ?>
         <div class="k-cards" data-cards><?php echo $cards; ?></div>
         <p class="k-list__empty" data-empty <?php echo $result['total'] === 0 ? '' : 'hidden'; ?>>Inga bostäder matchar just nu.</p>
