@@ -373,7 +373,8 @@ client ports (item 16, first client by question 80).
     what Vitec and Mspecs offer, three options for where it lives, the design, the plan): waits
     on nothing since 2026-10-04: 129 (inside Core), 130 (the design, without cancelling a
     booking), 137 (one widget served by Core), 138 (Turnstile), 139 (the wizard, the search
-    profile last) and 131 (Vitec's version 1 search profile) are answered. Its three items, Core,
+    profile last), 131 (Vitec's version 1 search profile) and 141 a (the current-home checkbox,
+    a seller lead too) are answered. Its three items, Core,
     the Vitec adapter, the widget, one session each, in that order; Lovable and Mspecs follow;
     the Vitec search profile's real send waits on the CRM function group (54 f).
 

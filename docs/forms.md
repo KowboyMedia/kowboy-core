@@ -308,7 +308,8 @@ labels for screen readers. A site includes it once:
 and marks its buttons: `data-core-form="interest" data-record="property:<connection>:<id>"`,
 `data-core-form="viewing"` on the same record, `data-core-form="lead" data-office="…"`. The
 widget opens a modal, asks Core once per page what this site may send (`GET /v1/forms/config`:
-the kinds, the optional groups, the bot gate's site key, the consent text and the policy link),
+the kinds, the optional groups, the site's area list for the profile step, the bot gate's site
+key, the consent text and the policy link),
 reads the slots for a booking, and posts the submission to Core.
 
 **What changes against the approved design.** The browser talks to Core, not only to its own
@@ -370,10 +371,55 @@ answer.
    e-mail, phone, the consent, and a message where the CRM takes one. **The main submission is
    sent the moment its needed information is in**: a booking after steps 1 and 2, an interest
    or a lead after step 2. Whatever happens after, the CRM already has the person.
-3. **"Söker du bostad?"** (Patric's "looking for accommodation", in Swedish): prefilled from the
-   page's home with the property type, the minimum number of rooms, the minimum living space
-   and the area name(s); the visitor adjusts or skips. Sending it is a second submission of its
-   own kind, `search_profile`; skipping it loses nothing.
+3. **"Söker du bostad?"** (Patric's "looking for accommodation", in Swedish), under the
+   confirmation of the main submission, as the last and optional step. Patric, 2026-10-04: a
+   clear confirmation first (the modal's heading becomes "Din plats är bokad", "Din
+   intresseanmälan är skickad" or "Tack, vi hör av oss", with the home and the slot under it),
+   then the same heading and text in every form, "Berätta vad du letar efter, så får du tips om
+   nya bostäder som passar. Du kan hoppa över det här steget.", marked as a step of the wizard
+   ("Steg 3 av 3 · valfritt"), with Skip and Send. Prefilled from the page's home with the
+   property type, the minimum number of rooms, the minimum living space (the closest whitelisted
+   value lower than the home's, Patric, 2026-10-04: 78 kvm prefills 75 kvm, 3 rum prefills 2 rum)
+   and the area; the visitor adjusts or skips. Only these: the source form's maxima and its price
+   are not asked (Patric, 2026-10-04, "we need only minst antal rum, minst boarea"). Sending it is a second submission of its own kind, `search_profile`; skipping it loses
+   nothing. Its fields take only the whitelisted values below.
+
+#### The whitelisted fields of the profile step
+
+The values come from the spekulantregister form Patric pointed at (2026-10-04,
+<https://historiskahem.se/spekulantregister/>, read the same day): its selects are the
+whitelist, in `kvm`, and Core's schema accepts nothing outside it (a value off the list is a
+`400`, never rounded); only the minimum rooms and the minimum living space are asked. "Kommun" is not asked (Patric, 2026-10-04): the municipality
+code comes from the home's record and from each area of the site's list.
+
+| Field (`criteria`)                     | Allowed values                                                                                                                                                                                        | Prefilled                                            |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Bostadstyp, `object_type`              | one of `apartment` (Bostadsrätt), `house` (Villa), `holiday_house` (Fritidshus), `plot` (Gård); the source form's own values are Apartment, House, Cottage and Plot with those labels                 | the home's type; Bostadsrätt on the lead             |
+| Minst antal rum, `rooms_min`           | 1 to 7 ("N rum"), or empty ("Inget krav")                                                                                                                                                             | the closest value lower than the home's rooms        |
+| Minst boarea (kvm), `living_area_min`  | 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 150, 160, 170, 180, 200, 250, or empty ("Inget krav")                                    | the closest value lower than the home's living space |
+| Områden, `areas[]`                     | ids from the site's own area list, each with its name and municipality code; nothing typed (how it works, below)                                                                                      | the home's area(s); nothing on the lead              |
+| `municipality_code`                    | the home's, from its record; `null` on the lead                                                                                                                                                       | always                                               |
+| "Kontakta mig om min nuvarande bostad" | the source form's checkbox, `true` or `false`, beside `criteria`; on an interest and a booking, not on the seller's lead (141 a, Patric, 2026-10-04: the adapter makes the visitor a seller lead too) | unticked                                             |
+
+The rest of the source form is already elsewhere in the wizard or not taken: first name, last
+name, mobile, e-mail, the message and the consent box are step 2; its "Adress" (required
+there) is the optional `person.address`; its free-text "Adress eller område" box is replaced
+by the area chips; its maximum rooms, maximum living space and price range are not asked.
+
+**How Områden works, and where the list comes from.** Nothing on the page configures it. The
+page's config block names only the site key and, per button, the home or the office; the
+widget's script then asks Core once per page (`GET /v1/forms/config`, with the site key), and
+Core answers with the office's area list from its own store: every area the CRM lists for the
+office, already synced as the `area` datatype (id, name, municipality code, the polygon). So the
+chips are the same areas as the site's area pages and its search box, fresh without a deploy,
+and identical on a WordPress and a Lovable site. On a home's page the home's area(s) come preselected; the visitor
+taps more or untaps. On the footer's lead, with no home, none is preselected. Nothing is typed,
+so every chosen area is an id the CRM already knows and no matching happens afterwards (a
+decision drawn from a value, which Core never makes). Each CRM gets what it matches by: Vitec
+the `areaIds`, Mspecs the municipality codes of the chosen areas (it matches by municipality or
+polygon, not by area name), the home's when none is chosen. All of it is stored data; no CRM
+traffic. Where the CRM lists few areas for the office, the chips are few (known bug 2 on the
+staging site: the homes' areas are missing from the office's list; its fix lengthens them).
 
 What the profile becomes in each CRM, verified 2026-10-04:
 
@@ -384,24 +430,61 @@ What the profile becomes in each CRM, verified 2026-10-04:
   last name and one contact method returns the existing or new contact's id. Then
   `POST CRM/Contact/{customerId}/SearchProfile/Residential/{contactId}` with `subtypes` (the
   values from `GET …/SearchProfile/SearchProfileValues`: apartment, villa, holiday home, plot),
-  `numberOfRooms.minValue`, `livingSpace.minValue`, `areaIds` (the area ids the connection's area
-  list already carries, matched from the names), `isAutomaticProfile: false`. **These calls are in
+  `numberOfRooms.minValue`, `livingSpace.minValue`, `areaIds` (the chosen areas' ids, which
+  are the CRM's own), `isAutomaticProfile: false`. The ticked checkbox (141 a) is one more
+  call, the valuation on the same contact (`POST …/valuation`, the brokerage's intake lead). **These calls are in
   the CRM function group, granted per customer to the partner**: the login in the environment
   answers the advertising group (200) and the CRM group with 401 today, and that login reads a
   client's production office, so a person in Vitec grants the group on a demo or test customer
   before the first real send (question 54 f).
 - **Mspecs**: `POST /api/marketing/leads/matching` with the lead and one matching: `objectType`,
-  `minRooms`, `minLivingArea` and the municipality code of the page's home (Mspecs matches by
-  municipality code or a drawn polygon, not by area name, so the area names become the home's
-  municipality); the contact and the profile land in one call.
+  `minRooms`, `minLivingArea` and `municipalities` from the chosen areas' municipality codes,
+  the home's when none is chosen (Mspecs matches by municipality code or a drawn polygon, not by
+  area name); the contact and the profile land in one call. The ticked checkbox (141 a) goes in
+  the matching's `comment`, the field Mspecs offers for it.
 
-The schema: a fourth kind, `search_profile`, with `person`, `consent`, `source` and a
-`criteria` group (object type, minimum rooms, minimum living space, the areas as id and name,
-the municipality code), additive, every field from a CRM's call above; the widget prefills it
-from the record the page shows and Core passes it through. The adapter manifest lists
-`search_profile` when its CRM takes it. Vitec's interest also takes the home the visitor has to
-sell (`presentAccommodation`), the brokerage's intake lead; a step for it is a later question if a
-brokerage asks, not part of this wizard.
+The schema: a fourth kind, `search_profile`, with `person`, `consent`, `source`, a
+`criteria` group (`object_type`, `rooms_min` and `living_area_min`, each an enum of the
+whitelist above or `null`; `areas[]` as id, name and municipality code; `municipality_code`)
+and `contact_about_current_home` (141 a); additive, every field from a CRM's call above or
+from the whitelist; the widget prefills it from the record the page shows and Core passes it through.
+The adapter manifest lists `search_profile` when its CRM takes it. Vitec's interest also takes
+the home the visitor has to sell (`presentAccommodation`), the brokerage's intake lead; the
+checkbox of 141 is the small form of it, a text about that home a later question if a
+brokerage asks.
+
+#### What similar services offer, and what the widget could add (2026-10-04)
+
+Patric asked whether other services show a way to add value for the brokerages. Read the same
+day: every large chain runs a buyer register with matching under its own name (Fastighetsbyrån
+"Bostadsbevakning", Bjurfors "Boagenten", Länsförsäkringar "Bostadsbevakaren", Svensk
+Fastighetsförmedling "Bostadsbevakning", Mäklarhuset "Bevakning", SkandiaMäklarna
+"Spekulantregister"; ekonomifokus.se, "Fastighetsmäklarnas spekulantregister"), registration is
+contact details plus home type and areas, and the pull is early access: viewings for the
+register only, and on 2026-06-03 Fastighetsbyrån launched "Förtur", homes shown to its
+registered buyers behind a login before they are "På gång" or "Till salu" (mynewsdesk press
+release). Fastighetsbyrån also sells "Slutprisbevakning", a final-price watch. The wizard
+already gives a small brokerage the register with matching, since the CRM does the matching and
+the mailing. What it could add, each on data Core already holds:
+
+1. **Pre-market homes for registered buyers.** Vitec's estate statuses include Kommande
+   (`Coming`), Snart till salu (`SoonForSale`) and Försprång (`Advantage`), and the advertising
+   list carries them when the brokerage markets them (`docs/inputs/vitec/enumerations/Api_EstateStatus.md`,
+   `advertising-preview.md`), so Core syncs them as records with that status; the site decides
+   who sees them (a page for registered visitors, or a link in the matching mail), Core decides
+   nothing. The same door the chains sell, for a brokerage with one office. Question 142.
+2. **One tap the second time.** The widget remembers the person in the visitor's own browser
+   after a sent form (first-party storage, with a line saying so), so the next booking or
+   interest is one tap; the chains get this from a login, the widget without one. Default: in
+   the widget build (item 21).
+3. **The numbers for the brokerage.** Core keeps every submission with its outcome, the page and
+   the UTM tags (the admin area lists them, "Core's part"), so the admin area can show per site
+   which pages and campaigns bring buyers and sellers, the proof of the site's worth. Default:
+   the submissions page in item 21 shows the counts per kind and outcome and the page; a report
+   is later.
+4. **Later, on the same data:** a map step that draws the area (both CRMs take polygons, and
+   the site holds the areas' polygons); a final-price watch on a sold home (Vitec offers the
+   final price; "Later" below); a text about the home to sell (141 c).
 
 ## The design, approved with 130 (Patric, 2026-10-04: yes, without cancelling a booking)
 
@@ -643,16 +726,18 @@ browser never sees either.
 
 ## The decisions (the discover list)
 
-| #   | Question                                                                                                                                  | Options                                                                                                                                                                                                                                                | Undo later?                       | Recommended                                                                                                     |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| 129 | Where do CRM writes live? **Answered 2026-10-04: a, inside Core** ("129 A", and the widget of 137 posts to Core)                          | a) inside Core, its own folder and health check · b) a separate app · c) Vitec's component on the sites · d) a per-site plugin per CRM                                                                                                                 | a→b yes                           | a, for the reasons under "Why A still"                                                                          |
-| 130 | Is the design approved? **Answered 2026-10-04: yes, without cancelling a booking.**                                                       |                                                                                                                                                                                                                                                        |                                   |                                                                                                                 |
-| 131 | What does "create a search profile" become for Vitec? **Answered 2026-10-04: Vitec's version 1 API has it** (CRM-Contact), see the wizard | a) nothing to build: the interest form with status Interested, and the brokerage turns on automatic profiles in Express · b) Patric asks Vitec whether another API offers it · c) a site-side saved search, later                                      | yes                               | a, the smallest; c is a product of its own                                                                      |
-| 132 | May an agent mail Mspecs for the documentation? **Answered 2026-10-04: no mail; the documentation was found online and saved.**           |                                                                                                                                                                                                                                                        |                                   |                                                                                                                 |
-| 137 | The form UI: one widget served by Core, or a form per client? **Answered 2026-10-04: a, the widget**                                      | a) the widget, posting to Core with a public site key; the plugin and the kit only add the tag · b) a form per client, as the approved design · c) both: the widget and a server-rendered fallback form in the theme                                   | a→b yes, the endpoint is the same | a, under "The widget"                                                                                           |
-| 138 | The bot gate: which service? **Answered 2026-10-04: a, Turnstile**                                                                        | a) Turnstile by default, the service pluggable per site, Core's own measures always on · b) reCAPTCHA v3 only · c) Core's own measures only, a service when spam is seen                                                                               | yes                               | a; c is the smaller option and against Patric's "must have"                                                     |
-| 139 | What does the modal ask beyond the contact? **Answered 2026-10-04: a wizard, the profile last**                                           | a) one screen with one collapsed optional group the CRM takes · b) a second step after sending · c) the contact only                                                                                                                                   | yes                               | a, under "What the modal asks"                                                                                  |
-| 136 | What does the footer's lead form send to an Mspecs brokerage, whose lead call needs at least one matching?                                | a) the lead call with one matching from the brokerage's settings (a municipality), so the contact lands in Mspecs · b) the form is hidden on Mspecs sites until Mspecs offers a plain lead · c) the lead goes by e-mail to the office, outside the CRM | yes                               | b, the smallest, until an Mspecs brokerage asks; a is a Core-made matching, which is a rule to write down first |
+| #   | Question                                                                                                                                     | Options                                                                                                                                                                                                                                                | Undo later?                       | Recommended                                                                                                     |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 129 | Where do CRM writes live? **Answered 2026-10-04: a, inside Core** ("129 A", and the widget of 137 posts to Core)                             | a) inside Core, its own folder and health check · b) a separate app · c) Vitec's component on the sites · d) a per-site plugin per CRM                                                                                                                 | a→b yes                           | a, for the reasons under "Why A still"                                                                          |
+| 130 | Is the design approved? **Answered 2026-10-04: yes, without cancelling a booking.**                                                          |                                                                                                                                                                                                                                                        |                                   |                                                                                                                 |
+| 131 | What does "create a search profile" become for Vitec? **Answered 2026-10-04: Vitec's version 1 API has it** (CRM-Contact), see the wizard    | a) nothing to build: the interest form with status Interested, and the brokerage turns on automatic profiles in Express · b) Patric asks Vitec whether another API offers it · c) a site-side saved search, later                                      | yes                               | a, the smallest; c is a product of its own                                                                      |
+| 132 | May an agent mail Mspecs for the documentation? **Answered 2026-10-04: no mail; the documentation was found online and saved.**              |                                                                                                                                                                                                                                                        |                                   |                                                                                                                 |
+| 137 | The form UI: one widget served by Core, or a form per client? **Answered 2026-10-04: a, the widget**                                         | a) the widget, posting to Core with a public site key; the plugin and the kit only add the tag · b) a form per client, as the approved design · c) both: the widget and a server-rendered fallback form in the theme                                   | a→b yes, the endpoint is the same | a, under "The widget"                                                                                           |
+| 138 | The bot gate: which service? **Answered 2026-10-04: a, Turnstile**                                                                           | a) Turnstile by default, the service pluggable per site, Core's own measures always on · b) reCAPTCHA v3 only · c) Core's own measures only, a service when spam is seen                                                                               | yes                               | a; c is the smaller option and against Patric's "must have"                                                     |
+| 139 | What does the modal ask beyond the contact? **Answered 2026-10-04: a wizard, the profile last**                                              | a) one screen with one collapsed optional group the CRM takes · b) a second step after sending · c) the contact only                                                                                                                                   | yes                               | a, under "What the modal asks"                                                                                  |
+| 141 | The profile step's checkbox "Kontakta mig om min nuvarande bostad": keep it, drop it, or a text instead? **Answered 2026-10-04: a, keep it** | a) keep it, the adapter makes the visitor a seller lead too · b) drop it · c) a text about the home to sell, one more step                                                                                                                             | yes                               | a; b is the smaller                                                                                             |
+| 142 | Pre-market homes for registered buyers (Vitec's Kommande, Snart till salu, Försprång; the chains' "Förtur"): when?                           | a) later, a feature-map item after item 21 · b) now, in item 21's widget build · c) no                                                                                                                                                                 | no                                | a; c is the smaller                                                                                             |
+| 136 | What does the footer's lead form send to an Mspecs brokerage, whose lead call needs at least one matching?                                   | a) the lead call with one matching from the brokerage's settings (a municipality), so the contact lands in Mspecs · b) the form is hidden on Mspecs sites until Mspecs offers a plain lead · c) the lead goes by e-mail to the office, outside the CRM | yes                               | b, the smallest, until an Mspecs brokerage asks; a is a Core-made matching, which is a rule to write down first |
 
 Settled without a question, as the handbook leaves tooling to the agent: the delivery is
 synchronous (the visitor waits a second for the CRM's answer and learns the truth; no queue in
@@ -707,6 +792,7 @@ submission id is a UUID in the body; the rate limit is 60 a minute per token.
    specification, once a provider agreement opens the test system.
 
 Later, in the feature map: watching the final price (Vitec offers it; no design asks for it yet);
-a step for the home the visitor has to sell (Vitec's `presentAccommodation`), if a brokerage asks;
+a text about the home the visitor has to sell (Vitec's `presentAccommodation`; 141 is its
+checkbox), if a brokerage asks;
 a site Kowboy does not build gets the widget by a key (137), which is the product door. Out:
 cancelling a booking (Patric, 2026-10-04).

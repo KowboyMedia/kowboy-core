@@ -4,10 +4,25 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 141 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 143 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 142. `[core]` Pre-market homes for registered buyers: later, now, or not?
+
+- 2026-10-04 · Patric asked what similar services offer that could add value for the
+  brokerages. Every large chain runs a buyer register with matching, and the pull is early
+  access: Fastighetsbyrån launched "Förtur" on 2026-06-03, homes shown to its registered buyers
+  behind a login before they are "På gång" or "Till salu". Vitec's estate statuses include
+  Kommande, Snart till salu and Försprång, and the advertising list carries such homes when the
+  brokerage markets them, so Core already syncs them as records with that status; the site
+  decides who sees them (a page for registered visitors, or a link in the matching mail), Core
+  decides nothing. Blocked: nothing; the widget build (item 21) runs either way. Options: a)
+  later, a feature-map item after item 21, the register and the forms first; b) now, in item
+  21's widget build, with a "Registrera dig och se kommande bostäder först" door and a theme
+  page for registered visitors; c) no.
+- Smaller: c. Recommendation: a.
 
 ## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite
 
