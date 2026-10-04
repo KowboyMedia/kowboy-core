@@ -217,8 +217,9 @@ offices; the list holds the agents of those offices, in the CRM's order as today
 
 ## The search box: the combo box with pills
 
-- **One plugin function draws it**, `core_client_place_search($params)`: the markup of the
-  field, the pills and the places as data. A set's list wrapper calls it where it wants the box;
+- **One plugin function draws it**, `core_client_place_search($params)`: a plain multi-select of
+  the places, the chosen ones selected, and the hidden fields the form sends; the library turns
+  it into the field with its pills. A set's list wrapper calls it where it wants the box;
   the theme's search card calls it in place of today's "Område" text field. So the box is the
   plugin's, and every set that calls the function has it.
 - **The suggestions** come in three groups, **Områden**, **Kommuner** and **Län** (the last two
@@ -274,7 +275,11 @@ offices; the list holds the agents of those offices, in the CRM's order as today
   chosen place the list does not offer (its homes all sold here) is added to its group so its
   pill shows and can be taken away. The select carries no name: three hidden fields do, `q` (the
   free text), `areas` and `lkf`, written by the script, so a plain submit and the script's reload
-  send the same parameters; without the script the box is a plain select the form does not send.
+  send the same parameters; the stylesheet keeps the select unseen until the script takes it, so
+  without the script there is no box (the old text field could at least take words; the site's
+  lists reload by script anyway). A chosen place the list did not offer leaves the list with its
+  pill (`data-homes="0"`), so it cannot be chosen again for an empty result; a whole six-digit
+  code in the address reads as its kommun's name with the code.
   The library, its stylesheet, the script and the plugin's stylesheet are enqueued only in a
   request that drew a box, and `core_client_wrap` links both stylesheets inside every shadow root
   of such a request. The script makes one Tom Select per box (the `remove_button` plugin, chosen

@@ -315,13 +315,14 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(agent).not.toContain('place-search.js');
     expect(agent).not.toContain('tom-select');
     // A chosen place the list does not offer (no home here) still stands as a pill in its group,
-    // named as the site can: an unknown area by its id, a kommun by the plugin's table.
-    const unoffered = await page('/?post_type=core_property&areas=D-9&lkf=1280');
+    // named as the site can (an unknown area by its id, a kommun by the plugin's table, a whole
+    // code by its kommun and the code), marked so the script drops it with its pill.
+    const unoffered = await page('/?post_type=core_property&areas=D-9&lkf=1280,018001');
     expect(unoffered.body).toContain(
-      '<option value="areas:D-1">Vasastan · Stockholm</option><option value="areas:D-9" selected>D-9</option></optgroup>',
+      '<option value="areas:D-1">Vasastan · Stockholm</option><option value="areas:D-9" selected data-homes="0">D-9</option></optgroup>',
     );
     expect(unoffered.body).toContain(
-      '<option value="lkf:0180">Stockholm</option><option value="lkf:1280" selected>Malmö</option></optgroup>',
+      '<option value="lkf:0180">Stockholm</option><option value="lkf:1280" selected data-homes="0">Malmö</option><option value="lkf:018001" selected data-homes="0">Stockholm (018001)</option></optgroup>',
     );
   });
 

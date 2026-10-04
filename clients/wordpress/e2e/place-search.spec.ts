@@ -35,8 +35,9 @@ async function paintedOnTop(page: Page, list: Locator): Promise<boolean> {
     return samples.every(([x, y]) => {
       let hit = document.elementFromPoint(x, y);
       while (hit && hit.shadowRoot) {
-        hit = hit.shadowRoot.elementFromPoint(x, y) ?? hit;
-        if (!hit.shadowRoot) break;
+        const inside = hit.shadowRoot.elementFromPoint(x, y);
+        if (!inside || inside === hit) break;
+        hit = inside;
       }
       return hit !== null && hit.closest('.ts-dropdown') !== null;
     });
@@ -88,6 +89,7 @@ test('journey: a visitor narrows Till salu to places, takes them away again and 
     form: (await form.boundingBox())!,
   });
   const before = await measure();
+  expect(Math.abs(before.control.height - before.price.height)).toBeLessThan(1);
   await options.first().click();
   await expect(pills).toHaveText(['Norrmalm · Stockholm×']);
   await expect(field).toHaveValue('');
@@ -99,6 +101,9 @@ test('journey: a visitor narrows Till salu to places, takes them away again and 
   expect(Math.abs(after.button.y - before.button.y)).toBeLessThan(1);
   expect(Math.abs(after.form.y - before.form.y)).toBeLessThan(1);
   expect(after.form.height).toBeGreaterThanOrEqual(before.form.height);
+  // The pill grows the control by one line at most: the field wraps under it when the column is
+  // too narrow for both (it is, at this width), never further.
+  expect(after.control.height - before.control.height).toBeLessThanOrEqual(44);
   await expect(page).toHaveURL(/[?&]areas=D-2(&|$)/);
   await expect(streets(page)).toHaveText(['Kungsgatan 2']);
 
