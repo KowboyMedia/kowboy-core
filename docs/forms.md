@@ -1,19 +1,27 @@
 # Form submissions: from a site's form to the CRM
 
-**Status:** proposed 2026-10-04, waiting on questions 129 and 130 in `docs/open-questions.md`.
-Nothing here is built. **The ask** (Patric, 2026-10-04): a strategy for form submissions. Vitec
-offers sending a lead, sending an interest on a single home, booking a viewing with the viewing
-slots shown in the page, and creating a search profile; what Mspecs offers is unknown; a
-submission must be sendable securely from any client, WordPress or Lovable; and is this Core's
-work or a standalone widget for any site? The recommendation is in "The recommendation" below;
-the reasoning is in the rest of this file, so chat can point to it. A second agent reviewed this
-file on 2026-10-04 and its findings are worked in.
+**Status:** proposed 2026-10-04. Patric answered 129 with a (inside Core) and 130 with yes,
+without cancelling a booking, and then asked for the pros and cons of keeping CRM writes out of
+Core, as a per-site plugin or a separate app, before 129 stands; that weighing is in "Where the
+writes live" below and 129 is open again in `docs/open-questions.md`. Nothing is built. **The
+ask** (Patric, 2026-10-04): a strategy for form submissions. Vitec offers sending a lead,
+sending an interest on a single home, booking a viewing with the viewing slots shown in the
+page, and creating a search profile; what Mspecs offers was unknown; a submission must be
+sendable securely from any client, WordPress or Lovable; and is this Core's work or a
+standalone widget for any site? A second agent reviewed this file on 2026-10-04 and its findings
+are worked in.
+
+**One thing to read first, because a note in chat was misread:** a site never contacts a CRM.
+In this design the visitor's browser talks to its own site, the site talks to Core with the
+tenant token it already holds, and Core talks to the CRM with the connection's login that only
+Core holds. The CRM logins stay in Core, which is also why they can cover several brokerages.
 
 ## Terms
 
 - **The CRM** is the brokerage's customer system that holds its listings, offices, agents and
   the people who showed interest; Vitec Express today, reached through its API "Vitec Connect",
-  and Mspecs later. **An API** is the set of calls one program offers another over the web.
+  and Mspecs later, reached through its "marketing provider" API. **An API** is the set of calls
+  one program offers another over the web.
 - **Core** reads the CRM and keeps one copy of every record in one shape for every site. The
   **engine** is the part of Core that knows no CRM; an **adapter** is the part that knows one.
   Core runs as two processes: **web**, which answers calls from the sites, and **worker**, which
@@ -23,6 +31,10 @@ file on 2026-10-04 and its findings are worked in.
   copy. **A tenant** is one brokerage as Core knows it; **a connection** is one CRM login Core
   holds for a tenant, with the offices it covers. **The tenant token** is the secret a site
   holds to pull from Core; it lives in the site's server settings and never in a browser.
+- **The CRM login** is what Core uses towards a CRM. Both CRMs hand it to Kowboy as a partner,
+  not to a brokerage: Vitec's key pair carries passwords per customer and function group, and
+  Mspecs's one provider account reaches every brokerage that added Kowboy's service, with a
+  `subscriber-id` naming the brokerage on each call. So one login can reach several brokerages.
 - **A form** is a set of fields a visitor fills in on a site page. **A submission** is one
   filled form on its way from the site to the CRM. The design has two forms today, both
   dummies: "Ska du sälja din bostad?" in every page's footer (**the lead form**) and "Är du
@@ -33,8 +45,10 @@ file on 2026-10-04 and its findings are worked in.
 - **A viewing** (visning) is a time when a home can be seen. **A time slot** (tidsslott) is one
   bookable part of a viewing. Vitec's booking call takes a slot's id, not a viewing's, so a
   viewing without a slot cannot be booked; every viewing seen on the test account had one slot.
+  Mspecs has viewings with and without slots, each saying whether it allows external booking.
 - **A search profile** (sökprofil) is a prospect's wishes (area, price, rooms, size) that the CRM
-  matches new listings against and mails the matches for.
+  matches new listings against and mails the matches for. Mspecs calls it a lead with
+  **matching**.
 - **The event log** is Core's record of what happened to each record, read in the admin area.
   **A health check** is one line of `/v1/health` that turns red when something is wrong.
   **Sentry** is the service Core reports its errors to.
@@ -65,7 +79,7 @@ id (`M31529` and the like), which Core keeps as the office id.
 | Interest on one home       | `POST Advertising/Estate/{customerId}/{estateId}/interest`                                   | first and last name (required), e-mail or a phone number (one required), address, personal number (optional), the GDPR approval date, present accommodation (optional), a message, a status (Interested, Very interested, …), a lead source, the page and UTM tags | not documented; Vitec checks for a duplicate person                                                                                                                    |
 | Book a viewing             | `POST v2/Advertising/Form/{customerId}/Estate/{estateId}/Viewing/Attend`                     | the time slot's id, first and last name, e-mail, mobile, address (optional), GDPR approved, lead source and message, confirmation by e-mail and by SMS (yes/no each), a reminder in minutes, whether to check the booking limit and the deadline                   | the contact's id                                                                                                                                                       |
 | The viewing slots for a UI | `GET v2/Advertising/Form/{customerId}/Estate/{estateId}`                                     | nothing                                                                                                                                                                                                                                                            | office, agents, address, viewings with their deadline, self-registration and visibility flags, and each viewing's time slots: id, start, end, "registration available" |
-| Cancel a booking           | `PUT Advertising/Message/{customerId}/Estate/{estateId}/Viewing/Attendee/{contactId}/OptOut` | the contact's id from the booking                                                                                                                                                                                                                                  | nothing                                                                                                                                                                |
+| Cancel a booking           | `PUT Advertising/Message/{customerId}/Estate/{estateId}/Viewing/Attendee/{contactId}/OptOut` | the contact's id from the booking. **Not built** (Patric, 2026-10-04, question 130).                                                                                                                                                                               | nothing                                                                                                                                                                |
 | Watch the final price      | `POST Advertising/Estate/{customerId}/{estateId}/FinalPriceWatched`                          | the person, a prospective-buyer status, a lead source, a message, the page and UTM tags                                                                                                                                                                            | a string                                                                                                                                                               |
 | Create a search profile    | **none** in the saved advertising section                                                    |                                                                                                                                                                                                                                                                    |                                                                                                                                                                        |
 
@@ -111,34 +125,37 @@ with a message); whether the interest call answers an id; whether a booking chan
 change date and so triggers a notification Core already handles; whether a viewing can carry
 several slots.
 
-### Mspecs (partly verified, read online 2026-10-04, not saved)
+### Mspecs, from the saved documentation (verified 2026-10-04)
 
-Nothing about Mspecs is in this repository: no adapter, no documentation. What is public:
+Mspecs's "marketing provider" API is public after all: `integration.mspecs.se` renders its
+OpenAPI specification, version 2.1.0, now saved as `docs/inputs/mspecs/marketing-provider.openapi.json`
+with a README. (Mspecs belongs to Realforce, the former Adfenix, whose own API is a marketing
+platform's: CRM events, single sign-on, reporting; the forms are Mspecs's.) A website builder is
+a _marketing provider_ with one provider account over basic authentication; a brokerage adds
+the provider's service in Mspecs, Mspecs sends publish events for its deals (homes), and every
+call names the brokerage with a `subscriber-id` header. A test system exists at
+`test-integration.mspecs.se`. The writes a website can make:
 
-- Mspecs's support centre (`support.mspecs.se`, "Integrera hemsida med Mspecs") says the API
-  documentation for a website is sent by Mspecs support on request (support@mspecs.se), and the
-  one public article on booking a viewing from a website carries its documentation as an attached
-  file (`Routes.pdf`) that could not be read from here.
-- Mspecs's own WordPress integration (`mspecs.github.io/wp-api-plugin`) documents three writes
-  towards Mspecs: add a prospective buyer to a deal (a home), add a buyer to a viewing, and add a
-  buyer to a viewing's slot. It authenticates with a token created in Mspecs's company settings
-  plus a webhook secret. It documents no valuation lead and no search profile.
-- A web agency's page (`prowebb.se`) lists "intresseanmälan, visningsbokning,
-  spekulantregistrering" among what Mspecs's API allows; a vendor's list, not verified against
-  the API.
+| Form                       | Mspecs call                                                                       | What the CRM takes                                                                                                                                                                                            | What it answers                                                                                                                                                              |
+| -------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Interest on one home       | `POST /api/marketing/deals/{dealId}/prospectiveBuyer`                             | first and last name, e-mail and phone (all four required; the phone with its country prefix and digits only), address (optional); an error when the buyer is already on the deal                              | 200, body not specified                                                                                                                                                      |
+| Book a viewing             | `POST …/deals/{dealId}/externalViewer/{viewingId}` or `…/slot/{slotId}`           | the same person, an interest level (Mspecs's own list), a description, whether to notify the buyer and the broker                                                                                             | 200, body not specified                                                                                                                                                      |
+| The viewing slots for a UI | in the published deal (the publish event and `GET /api/marketing/deals/{dealId}`) | nothing                                                                                                                                                                                                       | viewings by comment, by date, by date and time, or with slots: `slotCapacity`, `slotLength`, `slots[]` with `id`, `startTime`, `freeSpots`; each with `allowExternalBooking` |
+| Create a search profile    | `POST /api/marketing/leads/matching`                                              | the person plus at least one matching: rooms, price, living area, hectares, municipality codes, object type and sub types, an area polygon, a comment; "a lead will result in a contact with matchings added" | 200, body not specified                                                                                                                                                      |
+| Lead ("Ska du sälja?")     | **no call for a lead without a home**: the lead call needs at least one matching  | question 133                                                                                                                                                                                                  |                                                                                                                                                                              |
+| Cancel a booking           | none                                                                              |                                                                                                                                                                                                               |                                                                                                                                                                              |
 
-So the overlap that can be stated today: an interest on a home and a booking of a viewing slot
-exist in both CRMs; a lead that names no home exists in Vitec and is unknown in Mspecs; a search
-profile is offered by neither as far as can be seen. The rest waits on Mspecs's documentation
-(question 132).
+So the overlap: an interest on a home and a booking of a viewing or a slot exist in both CRMs,
+with the same person fields; a search profile with the visitor's own criteria exists in Mspecs
+and not in Vitec; a lead without a home exists in Vitec and not in Mspecs. Not verified: what
+Mspecs answers in the body of a success, what a refusal looks like (a full slot), and the test
+system's access, which comes with the provider agreement.
 
-## The recommendation: inside Core, as one capability; the forms stay the site's
+## Where the writes live: inside Core, a per-site plugin, or a separate app
 
-Build the submissions inside Core: one CRM-agnostic endpoint in the engine that a site posts to
-with the tenant token it already holds, and one small capability per adapter that translates the
-universal submission into the CRM's call. The forms themselves, their look and their words, stay
-in each client's templates, where the design's two forms already are. A standalone widget is not
-built now; the endpoint is designed so that one can be a later, thin client of it.
+Patric's question after 129's first answer: CRM writes are a different concern from reading, each
+CRM has its own endpoints and credentials, so would they not sit better outside Core, as a
+plugin per site, as a separate app inside the site, or as a separate app as first discussed?
 
 ### The options
 
@@ -146,14 +163,16 @@ built now; the endpoint is designed so that one can be a later, thin client of i
 server adds the tenant token and posts a universal submission to Core. Core finds the connection
 the record belongs to, the adapter translates and calls the CRM, and the CRM's answer travels back
 to the visitor: "sent", "refused" (a full slot) or "failed" (the CRM did not answer). Core logs
-the submission's fate on the record's timeline, without the person.
+the submission's fate on the record's timeline, without the person. To keep the concern visibly
+apart inside Core: the write path is its own folder in the engine (`engine/submissions/`), its
+own file in each adapter (`adapters/<crm>/forms.ts`), its own health check, its own card on the
+connection's admin page and its own tag in the register, `[core]` for the engine's part and the
+adapter's tag for the CRM's.
 
-**B. A standalone widget service.** A separate application any site embeds with a script tag. It
-needs its own registry of customers, CRM logins, keys and allowed domains, its own adapter per
-CRM, its own hosting and its own admin: everything Core already has, a second time. Its key sits
-in the browser, so it needs the domain allow-list and rate limiting that browser-facing keys need.
-Its look is the widget's, not the site's, unless it is themed per customer. It is a second product
-to run and to sell, and the first working form is several sessions further away.
+**B. A separate app.** A second service any site posts to (or embeds by script). It needs the
+CRM logins (a second copy of the multi-brokerage secrets), its own registry of tenants, sites and
+offices, the record ids (which only Core has, so it pulls from Core like a site), its own hosting,
+admin, health and error reporting: Core's shell, a second time, around one feature.
 
 **C. Vitec's ready-made component.** Fastest, and nothing to build in Core: a script tag per
 property page with Vitec's key. But the site would then name its CRM and load Vitec's script, which
@@ -161,35 +180,48 @@ AGENTS.md's seam forbids ("Clients never name a CRM"); the look is Vitec's; it o
 form outside a listing (the footer's "Ska du sälja din bostad?"); and an Mspecs site would need
 something else entirely.
 
-| Criterion                              | A. Inside Core                       | B. Standalone widget                 | C. Vitec's component                      |
-| -------------------------------------- | ------------------------------------ | ------------------------------------ | ----------------------------------------- |
-| Where the CRM login lives              | in Core, where it already is         | in a second registry                 | at Vitec, behind a browser key            |
-| What the browser can reach             | its own site only                    | the widget's public endpoint, by key | Vitec's endpoint, by key                  |
-| Design control                         | the site's templates                 | the widget's theme                   | Vitec's form                              |
-| Works for WordPress and Lovable alike  | yes, one endpoint                    | yes                                  | yes, for Vitec tenants only               |
-| Works for a site Kowboy does not build | not today; a later thin client       | yes, that is its point               | yes                                       |
-| A lead with no home (the footer form)  | yes                                  | yes                                  | no                                        |
-| Mspecs later                           | one more adapter capability          | one more adapter, twice              | no                                        |
-| Sessions to the first working form     | about three (Core, Vitec, WordPress) | many more                            | one                                       |
-| What Patric runs afterwards            | nothing new                          | a second product                     | a key and a domain list per site at Vitec |
+**D. A per-site plugin that writes to the CRM itself.** A WordPress plugin (and, for Lovable, an
+edge function) per CRM that holds a CRM login and calls the CRM straight from the site. Core is
+untouched.
 
-### Why A
+### Pros and cons of keeping the writes out of Core (B and D)
 
+| Concern                                  | A. Inside Core                                                                                        | B. Separate app                                  | D. Per-site plugin                                                                                                                                                                                                                                                                 |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The CRM login                            | stays in Core, scoped to the tenant's offices by Core                                                 | copied into a second service                     | **in the site.** Mspecs has one provider account for every brokerage: it cannot be given to a site. Vitec issues passwords per customer, to the partner: a site would hold a customer's full advertising rights, read and write, on WordPress, the most attacked platform there is |
+| Who knows the CRM                        | the adapters, as today                                                                                | the app and Core, twice                          | **the client and Core, twice**: the seam rule "clients never name a CRM" ends, and the WordPress and Lovable clients each carry one implementation per CRM                                                                                                                         |
+| Patching a CRM change                    | once, in Core, every site follows (the Concept's "patch once")                                        | once, in the app                                 | per site, with a plugin release each                                                                                                                                                                                                                                               |
+| Implementations to write                 | one engine endpoint + one capability per CRM (2)                                                      | one app + one capability per CRM                 | client types × CRMs (WordPress-Vitec, WordPress-Mspecs, Lovable-Vitec, Lovable-Mspecs: 4)                                                                                                                                                                                          |
+| What the visitor's browser can reach     | its own site only                                                                                     | the app's endpoint, by a key                     | its own site only                                                                                                                                                                                                                                                                  |
+| Record ids and offices                   | Core has them                                                                                         | pulled from Core like a site                     | the site has them from its pull                                                                                                                                                                                                                                                    |
+| Log, health, errors, spam limit          | Core's, one place                                                                                     | the app's, a second place                        | per site, or none                                                                                                                                                                                                                                                                  |
+| The "separate concern" feeling           | a write path next to the read path, in its own folder and health check; the first CRM call from `web` | fully separate, at the price of a second product | fully separate                                                                                                                                                                                                                                                                     |
+| Sellable to a site Kowboy does not build | later, as a thin client of the same endpoint with a public site key                                   | yes, that is its point                           | yes, but with a CRM login handed to that site                                                                                                                                                                                                                                      |
+| Sessions to the first working form       | about three                                                                                           | many more                                        | about two for WordPress-Vitec, then one per client-and-CRM pair                                                                                                                                                                                                                    |
+| What Patric runs afterwards              | nothing new                                                                                           | a second product                                 | plugin releases per CRM                                                                                                                                                                                                                                                            |
+
+### Why A still
+
+- **The logins decide it.** Patric's own point, that the Vitec login in Core covers several
+  brokerages, is the reason the writes belong where that login is: Core scopes each site to its
+  tenant's offices, and nothing multi-brokerage ever reaches a site. Mspecs makes D impossible
+  outright: one provider account for every brokerage.
 - **It is what the Concept says Core is.** "All data logic lives in Core. Clients are templates
   plus a sync loop." A form is a template plus one post to Core; the CRM's shapes, logins and
-  rules stay behind the seam, where every other CRM detail already is.
+  rules stay behind the seam, where every other CRM detail already is. Writing to a CRM on a
+  brokerage's behalf with Kowboy's partner login is the same kind of concern as reading from it.
+- **Drift is kept out by a boundary, not by a building.** What makes a concern separate is its
+  own folder, interface, health check and tag, which A has; a second app adds a second
+  deployment and a second registry, not a cleaner line.
 - **It is the secure shape, and the one Vitec requires.** Connect must be called from server
   code, never from a browser. In A the CRM login never leaves Core and the tenant token never
   leaves the site's server; the browser only ever talks to its own site.
-- **Simple beats clever.** One endpoint, two schemas, one adapter capability, a few files. B
-  rebuilds Core's registry and hosting for one feature; C buys speed with a CRM name in the client
-  and a form the design cannot own.
-- **The door to a widget stays open.** The endpoint takes a universal submission and knows no
-  client. If a brokerage without a Kowboy site wants the forms one day, a browser script that
-  posts to the same endpoint with a per-site public key and a domain allow-list is a client of it,
-  not a second product. That is a "later" line in the feature map, not a reason to build it now.
+- **The door to a separate product stays open.** The endpoint takes a universal submission and
+  knows no client. If a brokerage without a Kowboy site wants the forms one day, a browser script
+  that posts to the same endpoint with a per-site public key and a domain allow-list is a client
+  of it, not a second product. That is a "later" line in the feature map.
 
-## The design, for approval (question 130)
+## The design, approved with 130 (Patric, 2026-10-04: yes, without cancelling a booking)
 
 ### The universal submission
 
@@ -223,11 +255,11 @@ POST /v1/submissions            Authorization: Bearer <tenant token>, X-Core-Sit
 Where each field comes from: `person` and `consent` are the design's form fields (`lead-form.php`:
 first name, last name, mobile, e-mail, the consent box); `message`, `address`, `slot_id` and
 `source` are what Vitec's calls take (`source.page` is Vitec's "the page the form was shown on",
-`source.utm` its UTM tag list; Mspecs's publicly listed writes take a person, a home, a viewing
-and a slot, which fit the same fields); `record` is the record's own identity as every site
-already stores it (the envelope's `connection_id` and `remote_id`); `office_id` is the office id
-Core already keys records by. A site sends nothing CRM-specific: no status, no lead source, no
-customer id.
+`source.utm` its UTM tag list); Mspecs's writes take the same person and address fields, a home,
+a viewing and a slot, and `message` as its description. `record` is the record's own identity as
+every site already stores it (the envelope's `connection_id` and `remote_id`); `office_id` is the
+office id Core already keys records by. A site sends nothing CRM-specific: no status, no lead
+source, no customer id, no interest level.
 
 Core answers in one of six ways, always with the submission's `id`; the first four after the CRM
 answered, the last two before any CRM call:
@@ -235,7 +267,7 @@ answered, the last two before any CRM call:
 | Answer                                       | When                                                                                                                                           | What the visitor is told             |
 | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
 | `200 {"status":"delivered","reference":"…"}` | the CRM took it; `reference` is the CRM's contact id when it gives one                                                                         | "Tack, vi hör av oss"                |
-| `409 {"status":"refused","reason":"…"}`      | the CRM said no, in its own words (a full slot, a passed deadline)                                                                             | the reason, and the other slots      |
+| `409 {"status":"refused","reason":"…"}`      | the CRM said no, in its own words (a full slot, a passed deadline, a person already on the home)                                               | the reason, and the other slots      |
 | `502 {"status":"failed"}`                    | the CRM did not answer in time                                                                                                                 | "Det gick inte just nu, försök igen" |
 | `400 {"error":"…"}`                          | the submission does not match the schema, names a record of another tenant, or is a lead without `office_id` for a tenant with several offices | the site's own validation message    |
 | `501 {"error":"…"}`                          | this tenant's CRM takes no submission of that kind                                                                                             | the site hides that form             |
@@ -250,8 +282,10 @@ double click or a retried request makes one lead.
 as the CRM sees them now, copied and renamed onto universal names and nothing else. Its shape is
 the second schema of this design, `schemas/slots.v1.json`, built on the viewing the records
 already carry (`schemas/_shared.v1.json`, `viewing`: `id`, `starts_at`, `ends_at`,
-`self_registration`) plus what only the form call gives: `deadline_at`, `visible` and the
-`slots[]` with `id`, `starts_at`, `ends_at`, `available`.
+`self_registration`) plus what only the CRM's booking data gives: `deadline_at`, `visible`, and
+the `slots[]` with `id`, `starts_at`, `ends_at` and what the CRM says about room: Vitec's
+"registration available" as `available`, Mspecs's free places as `free_spots`. Each CRM fills
+what it has; the site reads what is there and decides nothing is decided in Core.
 
 ```jsonc
 {
@@ -263,7 +297,9 @@ already carry (`schemas/_shared.v1.json`, `viewing`: `id`, `starts_at`, `ends_at
       "deadline_at": "…",
       "self_registration": true,
       "visible": true,
-      "slots": [{ "id": "…", "starts_at": "…", "ends_at": "…", "available": true }],
+      "slots": [
+        { "id": "…", "starts_at": "…", "ends_at": "…", "available": true, "free_spots": 3 },
+      ],
     },
   ],
 }
@@ -275,22 +311,24 @@ component does. This is one live read per booking attempt, never per page view, 
 to store and reuse listing data is kept. When Core cannot answer, the booking says "try again
 later" and the page stands. The slots are not copied into the record: that would double the CRM
 calls of every fetch, add a second payload to `raw` and change every property golden master for
-data that goes stale the moment someone books.
+data that goes stale the moment someone books. (Mspecs sends its slots inside the published
+deal, so its adapter answers the slots call from the deal it reads; the site sees one shape
+either way.)
 
-### A departure to approve with 130: the web process calls the CRM
+### A departure approved with 130: the web process calls the CRM
 
 Today only the worker talks to a CRM; the web process answers the sites and, for a Vitec
 notification, only writes the record on the adapter's fetch list (strategy §5.1, "Two
 processes"). A submission needs the CRM's answer while the visitor waits, so `submit` and `slots`
-run inside the web process and the request: the first CRM calls from `web`. On approval, §5.1's
-two-process paragraph gains the sentence "for a submission, `web` calls the CRM through the
-adapter and waits for the answer", and the sentence "the engine never calls back into
-CRM-specific code except through the mappers and lifecycle handlers" gains "and the submission
-handlers". The Vitec adapter's speed limit towards Connect is kept per process, so `web` and
-`worker` each pace their own calls; Vitec states no rate limit (next-steps item 1), and a
-submission is one call, so this costs nothing today and is named here so it is not drifted into.
-The alternative, a queue the worker delivers from, would make the visitor's "sent" a promise and
-hide a full slot from them; it was weighed and set aside.
+run inside the web process and the request: the first CRM calls from `web`. §5.1's two-process
+paragraph gains the sentence "for a submission, `web` calls the CRM through the adapter and
+waits for the answer", and the sentence "the engine never calls back into CRM-specific code
+except through the mappers and lifecycle handlers" gains "and the submission handlers". The
+Vitec adapter's speed limit towards Connect is kept per process, so `web` and `worker` each pace
+their own calls; Vitec states no rate limit (next-steps item 1), and a submission is one call,
+so this costs nothing today and is named here so it is not drifted into. The alternative, a
+queue the worker delivers from, would make the visitor's "sent" a promise and hide a full slot
+from them; it was weighed and set aside.
 
 ### Core's part (the engine, CRM-agnostic)
 
@@ -314,7 +352,7 @@ hide a full slot from them; it was weighed and set aside.
   failed because the CRM did not answer, green on the next delivered one; the admin area's
   connection page shows the count of each outcome for the last day.
 - **A speed limit** per tenant token, 60 submissions a minute, answered 429 above it; to be added
-  to strategy §13's defaults on approval, and changed without a gate after that.
+  to strategy §13's defaults with the build, and changed without a gate after that.
 
 ### The adapter capability (the adapter API, protected)
 
@@ -350,6 +388,18 @@ generic capability item 21 in `docs/next-steps.md` asked for.
 - The test stand-in Connect (`adapters/vitec/connect.ts`) gets the three calls and the form
   endpoint, and one real send per kind is verified against the test account before the first
   release, since the test account exists for that.
+
+### The Mspecs adapter's part, when the adapter exists
+
+- `submit` maps an `interest` onto the prospective buyer call and a `viewing` onto the viewing or
+  slot call; the phone is written the way Mspecs demands it (country prefix, digits only), which
+  is the adapter bending to its CRM, not a rule of Core's. Its manifest lists `interest` and
+  `viewing`; a `lead` is answered 501 until question 133 settles what the footer form sends to an
+  Mspecs brokerage. The interest level and the notification switch are the brokerage's settings
+  on the connection's page, as Vitec's are.
+- `slots` answers from the deal's own viewings.
+- A fourth kind, `search_profile`, with the visitor's criteria, is Mspecs's lead-with-matching
+  call; it waits for a form that asks for criteria (question 131 for Vitec, none for now).
 
 ### The clients' part
 
@@ -398,12 +448,13 @@ browser never sees either.
 
 ## The decisions (the discover list)
 
-| #   | Question                                                                                                                    | Options                                                                                                                                                                                                           | Undo later? | Recommended                                                  |
-| --- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------ |
-| 129 | Do form submissions live inside Core or as a standalone widget product?                                                     | a) inside Core, forms in the clients' templates · b) a standalone widget service · c) Vitec's ready-made component on the sites                                                                                   | a→b yes     | a, for the reasons above                                     |
-| 130 | Is the design above approved: the two schemas, the two adapter members, the web process calling the CRM, the clients' part? | a) yes, build it as written · b) no, with what to change                                                                                                                                                          | partly      | a                                                            |
-| 131 | What does "create a search profile" become for Vitec, since Connect has no such call?                                       | a) nothing to build: the interest form with status Interested, and the brokerage turns on automatic profiles in Express · b) Patric asks Vitec whether another API offers it · c) a site-side saved search, later | yes         | a, the smallest; c is a product of its own                   |
-| 132 | May an agent mail Mspecs support from Patric's mailbox for the website API documentation?                                   | yes / no                                                                                                                                                                                                          | yes         | yes; the Mspecs half of this strategy waits on that document |
+| #   | Question                                                                                                                        | Options                                                                                                                                                                                                                                                | Undo later? | Recommended                                                                                                     |
+| --- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------- |
+| 129 | Where do CRM writes live? (answered a on 2026-10-04, then reopened for the pros and cons of B and D)                            | a) inside Core, its own folder and health check · b) a separate app · c) Vitec's component on the sites · d) a per-site plugin per CRM                                                                                                                 | a→b yes     | a, for the reasons under "Why A still"                                                                          |
+| 130 | Is the design approved? **Answered 2026-10-04: yes, without cancelling a booking.**                                             |                                                                                                                                                                                                                                                        |             |                                                                                                                 |
+| 131 | What does "create a search profile" become for Vitec, since Connect has no such call?                                           | a) nothing to build: the interest form with status Interested, and the brokerage turns on automatic profiles in Express · b) Patric asks Vitec whether another API offers it · c) a site-side saved search, later                                      | yes         | a, the smallest; c is a product of its own                                                                      |
+| 132 | May an agent mail Mspecs for the documentation? **Answered 2026-10-04: no mail; the documentation was found online and saved.** |                                                                                                                                                                                                                                                        |             |                                                                                                                 |
+| 133 | What does the footer's lead form send to an Mspecs brokerage, whose lead call needs at least one matching?                      | a) the lead call with one matching from the brokerage's settings (a municipality), so the contact lands in Mspecs · b) the form is hidden on Mspecs sites until Mspecs offers a plain lead · c) the lead goes by e-mail to the office, outside the CRM | yes         | b, the smallest, until an Mspecs brokerage asks; a is a Core-made matching, which is a rule to write down first |
 
 Settled without a question, as the handbook leaves tooling to the agent: the delivery is
 synchronous (the visitor waits a second for the CRM's answer and learns the truth; no queue in
@@ -418,13 +469,13 @@ submission id is a UUID in the body; the rate limit is 60 a minute per token.
 - `[crm-vitec]` **Several slots per viewing** were not seen on the test account. The dialog
   handles one or many from the slots call; a person in Vitec could set a multi-slot viewing on
   the test account to prove it (the same kind of step as question 54).
-- `[crm-mspecs]` **Mspecs's API** is unread. Everything Mspecs-specific waits on 132; the
-  universal contract was shaped so that the publicly listed Mspecs writes (prospective buyer,
-  viewing, viewing slot) fit it without a new field.
+- `[crm-mspecs]` **Mspecs's answers and test access** are unread beyond the specification: the
+  success body, the refusal shape, and the provider agreement that opens
+  `test-integration.mspecs.se`. The adapter item starts with those.
 - `[core]` **Spam** on an open form reaches the CRM as leads. The honeypot, the nonce and the
   rate limit are the first line; a captcha is a question when spam is seen, not before.
 
-## The plan (items for `docs/next-steps.md`, after 129 and 130)
+## The plan (items for `docs/next-steps.md`, after 129 stands)
 
 1. `[core]` **The submission endpoint and the adapter capability**: the two schemas, the two
    adapter members, `POST /v1/submissions` and `GET /v1/submissions/slots`, the outcomes table,
@@ -438,10 +489,10 @@ submission id is a UUID in the body; the rate limit is 60 a minute per token.
    and its lead-office setting, the footer lead form, the interest form and the booking dialog,
    deployed to the staging site; closes question 105 and item 21. One session.
 4. `[client-lovable]` **The forms function in the kit**: when the first Lovable site needs a form.
-5. `[crm-mspecs]` **Mspecs submit and slots**: when the documentation has arrived and the Mspecs
-   adapter exists.
+5. `[crm-mspecs]` **Mspecs submit and slots**: with the Mspecs adapter, from the saved
+   specification, once a provider agreement opens the test system.
 
 Later, in the feature map: watching the final price (Vitec offers it; no design asks for it yet);
-cancelling a booking (needs the CRM's contact id kept somewhere, a personal-data question);
-a widget for sites Kowboy does not build (a public site key on the same endpoint); a site-side
-saved search if 131 picks c.
+a search profile with the visitor's own criteria (Mspecs's lead with matching; question 131 for
+Vitec); a widget for sites Kowboy does not build (a public site key on the same endpoint).
+Out: cancelling a booking (Patric, 2026-10-04).

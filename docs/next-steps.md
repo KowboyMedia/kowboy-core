@@ -371,8 +371,10 @@ client ports (item 16, first client by question 80).
     shows viewings without a button and no form until then. Question 105 (the design's two forms)
     is settled in the same item. **Planned 2026-10-04** in `docs/forms.md` (the discover phase:
     what Vitec and Mspecs offer, three options for where it lives, the design, the plan): waits
-    on 129 (inside Core, or a widget) and 130 (the design); then its three items, Core, the Vitec
-    adapter, the WordPress forms, one session each; the Lovable function and Mspecs follow.
+    on 129 (where the writes live; answered a, then reopened the same day for the pros and cons
+    of a per-site plugin and a separate app, written into `docs/forms.md`); 130 is answered (the
+    design, without cancelling a booking). Then its three items, Core, the Vitec adapter, the
+    WordPress forms, one session each; the Lovable function and Mspecs follow.
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in
@@ -422,7 +424,7 @@ client ports (item 16, first client by question 80).
 - Sentry: wired into Core 2026-09-18 (question 36); the DSN is on staging, production gets it with the release. The same error leaves once a day whichever process hits it, and at most twenty distinct errors a day per app, for the 5,000-a-month plan; the sites' errors go through the same gate since 2026-09-19 (question 46). Left: an uptime alert on production's `/v1/health` (an auth token for an agent, or a click in Sentry), and projects for the two clients.
 - ~~The universal field names (question 51: drafted for Patric's correction, or sent by him) → item 2, then the Vitec mappers and `schemas/`.~~ Done 2026-09-19 (item 2).
 - Vitec test credentials and a staging deploy → open question 18.
-- Mspecs documentation → second adapter.
+- ~~Mspecs documentation~~ → second adapter. Found 2026-10-04: the marketing provider API's OpenAPI specification is saved under `docs/inputs/mspecs/` (question 132); the adapter waits on a provider agreement with Mspecs that opens its test system.
 - Rules ledger, parity inventory, real golden masters → Phase 5. The ledger's first fourteen entries are approved (2026-09-19, question 53); parity and golden masters wait on question 52.
 
 ## Standing rules for every session

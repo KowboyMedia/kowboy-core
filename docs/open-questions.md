@@ -4,23 +4,10 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 133 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 134 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
-
-## 132. `[crm-mspecs]` Mspecs's website API documentation is not public; may an agent ask Mspecs for it from Patric's mailbox?
-
-- 2026-10-04 · The forms strategy (`docs/forms.md`) needs what Mspecs lets a website write: an
-  interest on a home, a viewing booking, a lead, a search profile. Mspecs's support centre says
-  the documentation is sent by Mspecs support (support@mspecs.se) on request, and the one public
-  article on booking a viewing carries it as an attached file an agent cannot read. Publicly
-  visible is only Mspecs's own WordPress integration, which writes a prospective buyer to a home
-  and a buyer to a viewing or a viewing slot. Blocked: the Mspecs half of the strategy and the
-  future Mspecs adapter's forms. The mail names Kowboy, asks for the website API documentation
-  and the test access, and goes from Patric's connected mailbox so the answer reaches him.
-- Answer yes (an agent writes and sends the mail, and shows it here first) or no (Patric asks
-  Mspecs himself and attaches the document in the project).
 
 ## 131. `[crm-vitec]` "Create a search profile" has no call in Vitec Connect; what does it become?
 
@@ -38,42 +25,38 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   site stores the visitor's criteria and mails new hits from its own copy, a product of its own.
 - Answer a, b or c.
 
-## 130. `[core]` The design of form submissions: approve the two schemas, the adapter capability, the web process calling the CRM and the clients' part?
+## 133. `[crm-mspecs]` The footer's lead form on an Mspecs site: Mspecs's lead call needs at least one matching
 
-- 2026-10-04 · `docs/forms.md`, "The design, for approval". Two new schemas (a schema is the
-  written shape of a message, which Core checks every message against): `submission.v1.json`, a
-  universal submission with `id` (a random id the site makes once per filled form, so a repeat
-  makes one lead), `kind` lead, interest or viewing, `record`, `office_id`, `slot_id`, `person`,
-  `message`, `consent` and `source`, every field traced to the design's forms or to a field
-  Vitec's calls take; and `slots.v1.json`, the viewings and their bookable slots as the CRM sees
-  them now. Two calls on the engine behind the tenant token: `POST /v1/submissions`, answering
-  delivered, refused, failed, or 400, 501 and 429 before any CRM call, and
-  `GET /v1/submissions/slots`. Two optional members on the adapter API, `submit` and `slots`,
-  with the kinds in the manifest. A departure from strategy §5.1 named in the document: for a
-  submission the web process calls the CRM through the adapter and waits, the first CRM call
-  from `web`, because the visitor needs the CRM's answer (a full slot) while they wait. A
-  `submissions` table that keeps ids and outcomes and never the person; events, a health check
-  and a 60-a-minute limit per token. The Vitec adapter's mapping and six connection settings
-  (lead source, intake source, interest status, confirmation by e-mail, confirmation by SMS,
-  reminder minutes). The plugin's two forwarding endpoints and a setting for the footer's lead
-  office, and the theme's three forms. Schemas, the adapter API and the acceptance criteria are
-  protected paths, hence the gate. Blocked: items 1 to 3 of the plan in `docs/forms.md`. Settled
-  by the agent as tooling: synchronous delivery, slots read live, the id in the body, the
-  limit's number.
-- Answer a) **yes**, build it as written, or b) **no**, with what to change.
+- 2026-10-04 · Mspecs's marketing provider API (`docs/inputs/mspecs/`) adds a lead only together
+  with matching criteria (rooms, price, area, municipalities), which becomes a contact with a
+  search profile; it has no plain "contact me" or valuation lead, while Vitec has. The footer's
+  "Ska du sälja din bostad?" names no home and no criteria. Blocked: nothing today; no Mspecs
+  site exists. Options: a) send the lead call with one matching taken from the brokerage's
+  settings, such as its municipality, so the contact lands in Mspecs; b) hide the footer form on
+  Mspecs sites until Mspecs offers a plain lead; c) send the footer's lead by e-mail to the
+  office, outside the CRM.
+- Smaller: b, until an Mspecs brokerage asks; a invents a matching in Core, which is a rule to
+  write down first. Answer a, b or c.
 
-## 129. `[core]` Do form submissions live inside Core, or as a standalone widget for any site?
+## 129. `[core]` Where do CRM writes live: inside Core, a separate app, Vitec's component, or a per-site plugin?
 
-- 2026-10-04 · Patric's business question. `docs/forms.md` weighs three options: a) inside Core,
-  one CRM-agnostic endpoint and one adapter capability, the forms in the clients' templates;
-  b) a standalone widget service with its own registry, keys, adapters and hosting, embedded by
-  script on any site; c) Vitec's ready-made form component on the sites. Recommended a: it is
-  what the Concept says Core is (data logic in Core, clients are templates plus a sync loop), it
-  is the shape Vitec requires (server code, never a browser), it is the least code, and a widget
-  for sites Kowboy does not build can later be a thin client of the same endpoint with a public
-  site key. b doubles Core; c puts a CRM's name and look in the client and offers no lead form
-  outside a listing. Blocked: everything in `docs/forms.md`.
-- Answer a, b or c.
+- 2026-10-04 · Patric answered a (inside Core) and then, reading a note as "the sites contact
+  the CRM directly", asked for the pros and cons of keeping CRM writes out of Core, as a
+  per-site plugin or a separate app, because writing is a different concern from reading and
+  each CRM has its own endpoints and credentials. The note was misread: in the design a site
+  posts to Core with its tenant token and only Core talks to the CRM. `docs/forms.md`, "Where
+  the writes live", weighs four options with a table of pros and cons: a) inside Core, as its
+  own folder, health check and admin card, the forms in the clients' templates; b) a separate
+  app with its own copy of the CRM logins, its own registry and hosting; c) Vitec's ready-made
+  form component on the sites; d) a per-site plugin per CRM that calls the CRM from the site.
+  Recommended a, and the decisive fact is Patric's own: the CRM logins are multi-brokerage (Vitec's
+  partner key pair; Mspecs's one provider account for every brokerage), so they must stay where
+  one service scopes each site to its tenant, which is Core; d would put a customer's full
+  advertising rights on a WordPress site and is impossible for Mspecs; b is Core's shell a
+  second time around one feature; c names a CRM in the client and has no footer lead form. The
+  concern stays visibly apart inside Core by a boundary, not a building. Blocked: the three
+  build items in `docs/forms.md`.
+- Answer a, b, c or d.
 
 ## 123. `[crm-vitec]` A whole-day viewing: what the CRM sends, so the page shows no time
 

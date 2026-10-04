@@ -527,11 +527,12 @@ approved; this map grows as Patric describes wishes and is settled through the r
   out. A CRM record is edited only in the CRM, and the admin says so (Patric, 2026-10-03).
 - `[client-lovable]` **The same typed records on a Lovable site**: later, when a Lovable site needs
   them; with 125 (b) it comes with the pull.
-- `[core]` **Form submissions to the CRM** (Patric, 2026-10-04; questions 129 to 132; the strategy
+- `[core]` **Form submissions to the CRM** (Patric, 2026-10-04; questions 129 to 133; the strategy
   in `docs/forms.md`; item 21): a visitor's lead, interest in a home or viewing booking, filled in
   on any site, reaches the brokerage's CRM through Core, with the viewing's slots read live for
-  the booking; proposed, nothing built. Acceptance: the six criteria proposed in `docs/forms.md`,
-  numbered on approval. Later: watching the final price, cancelling a booking, a widget for sites
-  Kowboy does not build, a site-side saved search (question 131).
+  the booking; the design is approved (130), where the writes live waits on 129. Acceptance: the
+  six criteria proposed in `docs/forms.md`, numbered on approval. Later: watching the final
+  price, a search profile with the visitor's criteria (Mspecs has it; question 131 for Vitec), a
+  widget for sites Kowboy does not build. Out: cancelling a booking (Patric, 2026-10-04).
 - Out: typed properties, areas, associations and projects; for those the CRM's list defines what
   exists (AGENTS.md).
