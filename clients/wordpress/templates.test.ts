@@ -430,6 +430,9 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('Visningen som var');
     expect(body).toMatch(/<div class="k-viewing" data-viewing data-until="[^"]+" hidden>/);
     expect(body.match(/<a class="k-button" href="#k-interest">Boka här<\/a>/g)).toHaveLength(1);
+    // Without a viewing, the box's button takes the visitor to the agent's contact (Patric, 2026-10-04).
+    expect(body).toContain('<a class="k-button" href="#k-agents">Kontakta oss</a>');
+    expect(body).toContain('<div class="k-property__contact" id="k-agents">');
     // The bids, latest first, the cancelled one marked, and the highest standing bid from display (R-008).
     expect(body).toContain('<span class="k-label">Högsta bud</span><strong>5 100 000 kr</strong>');
     expect(body.indexOf('5 300 000 kr')).toBeLessThan(body.indexOf('5 050 000 kr'));

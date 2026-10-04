@@ -46,6 +46,12 @@
 html {
   -webkit-text-size-adjust: 100%;
 }
+/* A link to a place on the page (a viewing's "Boka här", the contact button to the agent) glides there. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
 body {
   margin: 0;
   background: var(--k-white);
@@ -322,28 +328,29 @@ button {
       opacity 0.3s ease,
       transform 0.3s ease;
   }
-  .k-menu {
+  /* The header's menu only: the footer's menu stays in view (it was invisible on a phone, Patric, 2026-10-04). */
+  .k-header__nav .k-menu {
     flex-direction: column;
     gap: 16px;
   }
-  .k-menu li {
+  .k-header__nav .k-menu li {
     opacity: 0;
     transform: translateY(8px);
     transition:
       opacity 0.3s ease,
       transform 0.3s ease;
   }
-  .k-menu-open .k-menu li {
+  .k-menu-open .k-header__nav .k-menu li {
     opacity: 1;
     transform: none;
   }
-  .k-menu-open .k-menu li:nth-child(2) {
+  .k-menu-open .k-header__nav .k-menu li:nth-child(2) {
     transition-delay: 0.06s;
   }
-  .k-menu-open .k-menu li:nth-child(3) {
+  .k-menu-open .k-header__nav .k-menu li:nth-child(3) {
     transition-delay: 0.12s;
   }
-  .k-menu-open .k-menu li:nth-child(n + 4) {
+  .k-menu-open .k-header__nav .k-menu li:nth-child(n + 4) {
     transition-delay: 0.18s;
   }
   .k-logo__name {
@@ -1582,6 +1589,12 @@ iframe.k-hero__video {
 .k-bid--cancelled .k-bid__amount {
   text-decoration: line-through;
   color: var(--k-secondary);
+}
+/* The agent contact: the responsible agent and the others, where the contact button lands. */
+.k-property__contact {
+  display: grid;
+  gap: 32px;
+  scroll-margin-top: 24px;
 }
 .k-property__agents {
   display: grid;

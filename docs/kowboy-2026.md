@@ -228,6 +228,25 @@ Patric's list after the first round reached the staging site, done straight on `
   as the property page shows its location, and the area card carries the kommun where it said
   "Område" (Patric, 2026-10-04).
 
+## Patric's look on a phone, 2026-10-04
+
+Two things from the staging site on a phone (Patric, 2026-10-04, 16:45Z), theme 1.1.5:
+
+- **The footer's menu was invisible on a phone.** The header's phone rule that keeps the menu's
+  items hidden until the hamburger opens them was written for every `.k-menu li`, and the
+  footer's menu carries the same class; so the footer showed the form, the logotype and the
+  copyright with a blank gap where its four links stood. The rule now names the header's menu
+  only. A phone journey (`e2e/footer-and-contact.spec.ts`) taps the hamburger and reads the
+  footer's links at the page's end.
+- **The contact button in place of a viewing leads to the agent.** A home without a viewing
+  shows "Kontakta oss" in the viewings' box; it pointed at the interest form, and Patric asked
+  for the agent's contact. The agents' block carries the id `k-agents` and the button links to
+  it. The view is in a shadow root on the staging site, which the browser's own jump to a `#`
+  address cannot see into (so "Boka här" never moved the page there either): the theme's script
+  now scrolls to a link's target inside the same root, and the stylesheet makes the scroll glide
+  (`scroll-behavior: smooth`, off for a visitor who asked for less motion) and leaves 24 px above
+  the block. The journey taps the button and reads the block's place on the screen.
+
 ## Order of work
 
 1. The plan and the questions (this page), the plugin's shadow DOM default, the 2026 set shelved.

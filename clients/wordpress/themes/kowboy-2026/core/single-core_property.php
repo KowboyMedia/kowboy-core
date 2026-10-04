@@ -184,7 +184,8 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
                     <?php endforeach; ?>
                     <div class="k-viewing k-viewing--empty" data-viewings-empty <?php echo $upcoming > 0 ? 'hidden' : ''; ?>>
                         <div class="k-viewing__body"><span><?php echo esc_html($no_viewings_text); ?></span></div>
-                        <a class="k-button" href="#k-interest">Kontakta oss</a>
+                        <?php // Without a viewing the button takes the visitor to the agent's contact, not the form (Patric, 2026-10-04). ?>
+                        <a class="k-button" href="#k-agents">Kontakta oss</a>
                     </div>
                 </div>
                 <?php if ($bids !== []) : ?>
@@ -208,14 +209,18 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
                     </div>
                 <?php endif; ?>
             <?php endif; ?>
-            <?php foreach (['Ansvarig mäklare' => array_slice($agents, 0, 1), 'Kontakta även' => array_slice($agents, 1)] as $agents_title => $agents_group) : ?>
-                <?php if ($agents_group !== []) : ?>
-                    <div class="k-property__agents">
-                        <h2 class="k-heading"><?php echo esc_html($agents_title); ?></h2>
-                        <?php foreach ($agents_group as $agent) : ?><?php echo kowboy_part('agent-card', ['item' => $agent['item'], 'post_id' => $agent['post_id']]); ?><?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-            <?php endforeach; ?>
+            <?php if ($agents !== []) : ?>
+                <div class="k-property__contact" id="k-agents">
+                    <?php foreach (['Ansvarig mäklare' => array_slice($agents, 0, 1), 'Kontakta även' => array_slice($agents, 1)] as $agents_title => $agents_group) : ?>
+                        <?php if ($agents_group !== []) : ?>
+                            <div class="k-property__agents">
+                                <h2 class="k-heading"><?php echo esc_html($agents_title); ?></h2>
+                                <?php foreach ($agents_group as $agent) : ?><?php echo kowboy_part('agent-card', ['item' => $agent['item'], 'post_id' => $agent['post_id']]); ?><?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
         </aside>
     </div>
 

@@ -386,8 +386,24 @@
     }
   }
 
+  /**
+   * A link to a place in the same view (a viewing's "Boka här" to the interest form, the contact
+   * button to the agent): the browser's own jump cannot see into a shadow root, so the script
+   * scrolls there, smoothly where the stylesheet says so (scroll-behavior).
+   */
+  function setupAnchor(link) {
+    if (!once(link, 'ready')) return;
+    link.addEventListener('click', function (event) {
+      var target = link.getRootNode().getElementById(link.getAttribute('href').slice(1));
+      if (!target) return;
+      event.preventDefault();
+      target.scrollIntoView({ block: 'start' });
+    });
+  }
+
   function setup() {
     each('[data-menu-toggle]', setupMenu);
+    each('a[href^="#"]:not([href="#"])', setupAnchor);
     each('[data-card-slider]', setupCardSlider);
     each('[data-plan-slider]', setupPlanSlider);
     each('[data-hero-slider]', setupHeroSlider);
