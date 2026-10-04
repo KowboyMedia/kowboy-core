@@ -92,8 +92,9 @@ or `wp action-scheduler run`.
   "This site" in the Source column, with a form for the fields the templates show (the name is the
   title, the portrait the featured image, an office's address one line as shown) and WordPress's
   draft as "not shown". They sit in the same post types and the same index under the connection
-  `site` with ids `site-<post number>` and addresses from the one slug function
-  (`maklare/erik-egen-site-12`, an old address or the id alone answering 301), so lists, cards,
+  `site` with ids `s<post number>` and addresses from the one slug function, the CRM records'
+  pattern with an id of its own structure (`maklare/erik-egen-s12`, an old address or the id alone
+  answering 301), so lists, cards,
   pages and routing see both kinds through one path, ordered and hidden by the one staff-list
   rule; a pull never names them, and the rebuild's sweep and a plugin update's reindex leave them. The settings page's Publishing section turns each kind on or off for the
   site: off, its pages answer 404, its archive is gone and every list of it is empty, while the
