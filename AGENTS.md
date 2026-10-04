@@ -86,6 +86,7 @@ In addition to the handbook's list, stop and ask when a task needs any of these:
 
 - a change to the adapter API, a contract, schema, rules ledger, golden master or acceptance criterion
 - a decision the Concept doesn't settle. First ask which side of the seam it belongs on, then pick the smaller option. If both still look reasonable, ask.
+- **a write to a CRM** (a lead, an interest, a booking, a contact, a search profile, even one "test" send) **whose target Patric has not confirmed as a demo or test system: never send it.** The staging site's connections are a client's production connections, and the Vitec login in the environment reads a client's production office; a read is fine there, a write never is (Patric, 2026-10-04).
 
 ## Definition of done
 
