@@ -354,6 +354,7 @@ $result = match ($command) {
     'links' => core_driver_links(),
     'rebuild' => ['linked' => core_client_rebuild_links(0, max(1, (int) $argument))],
     'picks' => core_driver_picks($argument),
+    'places' => core_client_places((array) json_decode($argument, true)),
     default => null,
 };
 if ($result === null) {

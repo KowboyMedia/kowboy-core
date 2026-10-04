@@ -636,6 +636,36 @@ iframe.k-hero__video {
 .k-list__filters {
   margin-bottom: 40px;
 }
+/* The plugin's place search box in the form: the field like the selects, the pills like small tabs */
+.k-search .core-place-search__input {
+  height: 44px;
+}
+.k-search .core-place-search__list {
+  border-color: var(--k-border);
+  border-radius: var(--k-radius);
+  font-size: var(--k-body-size);
+  color: var(--k-ink);
+}
+.k-search .core-place-search__group {
+  font-size: var(--k-label-size);
+  color: var(--k-secondary);
+  opacity: 1;
+}
+.k-search .core-place-search__option.is-active,
+.k-search .core-place-search__option:hover {
+  background: var(--k-subtle);
+}
+.k-search .core-place-search__pill {
+  border-color: var(--k-border);
+  font-size: var(--k-label-size);
+  font-weight: 500;
+  color: var(--k-ink);
+}
+.k-search .core-place-search__pill:hover,
+.k-search .core-place-search__pill:focus-visible {
+  border-color: var(--k-ink);
+  background: var(--k-subtle);
+}
 @media (max-width: 1023px) {
   .k-search {
     grid-template-columns: repeat(2, 1fr);

@@ -37,7 +37,7 @@ export default tseslint.config(
     rules: { complexity: 'off' },
   },
   {
-    files: ['admin/src/**/*.ts', 'admin/e2e/**/*.ts'],
+    files: ['admin/src/**/*.ts', 'admin/e2e/**/*.ts', 'clients/wordpress/e2e/**/*.ts'],
     languageOptions: { globals: { ...globals.browser } },
   },
   {

@@ -1,6 +1,7 @@
 <?php
 // The page hero: the same hero part as a property page, with the page's own texts and buttons,
-// and the search form when the page asks for it.
+// and the search form when the page asks for it. The form's place search offers the places of
+// the homes for sale and coming, the list the Till salu page shows under it.
 
 declare(strict_types=1);
 
@@ -32,7 +33,7 @@ $content .= '</div>';
 // The scroll indicator sits on the hero itself, at its lower edge, not inside the centred text.
 $extra = ($attributes['height'] ?? '') === 'tall' ? '<span class="k-hero__scroll" aria-hidden="true"></span>' : '';
 echo kowboy_hero($media, $content, [
-    'extra' => $extra . (!empty($attributes['searchForm']) ? kowboy_part('search-form', []) : ''),
+    'extra' => $extra . (!empty($attributes['searchForm']) ? kowboy_part('search-form', ['params' => ['entity' => 'property', 'status' => 'for_sale,coming', 'place_search' => (string) ($attributes['placeSearch'] ?? 'places')] + array_intersect_key($_GET, array_flip(['q', 'area', 'lkf', 'areas']))]) : ''),
     'variant' => ($attributes['height'] ?? 'default') === 'tall' ? 'page k-hero--tall' : 'page',
     'wrapper' => get_block_wrapper_attributes(['class' => 'k-hero k-hero--page' . (($attributes['height'] ?? '') === 'tall' ? ' k-hero--tall' : '') . (!empty($attributes['searchForm']) ? ' k-hero--with-form' : '')]),
 ]);

@@ -9,70 +9,10 @@ import { harness, TOKEN, type Harness } from '../../acceptance/harness.js';
 import { fakePollingAdapter, poll } from '../../adapters/fake-polling/index.js';
 import * as crm from '../../adapters/fake-polling/crm.js';
 import { BELL_SECRET, CONNECTION, type ClientDriver } from '../sync-scenarios.js';
+import { fillTheCrm, listing, NORRMALM, P1 } from './test/records.js';
 import { driver, siteUrl, start, stop, wp, WP_ROOT } from './test/site.js';
 
 const THEME_OVERRIDES = join(WP_ROOT, 'wp-content', 'themes', 'twentytwentyone', 'core');
-
-const soon = (hours: number): string => new Date(Date.now() + hours * 3_600_000).toISOString();
-
-/** A listing as the fake polling CRM holds it: enough for a card and a page. */
-const listing = (id: string, extra: Record<string, unknown>): Record<string, unknown> => ({
-  object_id: id,
-  stage: 'active',
-  stage_label: 'Till salu',
-  object_type: 'flat',
-  street: `Kungsgatan ${id.replace(/\D/g, '')}`,
-  postal_code: '111 22',
-  city: 'Stockholm',
-  district_name: 'Vasastan',
-  districts: ['D-1'],
-  price: 7_250_000,
-  fee: 4_100,
-  living_space: 82,
-  rooms: 3,
-  tenure: 'Bostadsrätt',
-  price_text: 'utgångspris',
-  blurb: 'Ljus trea med balkong.',
-  branch_id: 'B-1',
-  staff: ['S-1'],
-  coop_id: null,
-  lkf: '0180',
-  images: [`https://img.test/${id}-1_1920.jpg`, `https://img.test/${id}-2_1920.jpg`],
-  published_at: '2026-09-01T08:00:00.000Z',
-  ...extra,
-});
-
-/** Outlines as the fake CRM draws them (GeoJSON MultiPolygon coordinates, longitude first), and P-1 as first put. */
-const VASASTAN = [
-  [
-    [
-      [18.0, 59.3],
-      [18.1, 59.3],
-      [18.1, 59.4],
-      [18.0, 59.4],
-      [18.0, 59.3],
-    ],
-    [
-      [18.04, 59.33],
-      [18.06, 59.33],
-      [18.06, 59.35],
-      [18.04, 59.35],
-      [18.04, 59.33],
-    ],
-  ],
-];
-const NORRMALM = [
-  [
-    [
-      [18.08, 59.38],
-      [18.2, 59.38],
-      [18.2, 59.45],
-      [18.08, 59.45],
-      [18.08, 59.38],
-    ],
-  ],
-];
-const P1 = { price: 7_250_000, rooms: 3, living_space: 82, lat: 59.31, lng: 18.01 };
 
 let core: Harness;
 let site: ClientDriver;
@@ -119,185 +59,7 @@ beforeAll(async () => {
   await driver('option', 'core_client_shadow_dom null');
   await driver('option', 'core_client_template_set null');
 
-  crm.put('office', 'B-1', {
-    branch_id: 'B-1',
-    branch_name: 'Kowboy Mäkleri',
-    email: 'hello@kowboy.test',
-    street: 'Storgatan 1',
-    city: 'Stockholm',
-    lat: 59.33,
-    lng: 18.06,
-  });
-  crm.put('agent', 'S-1', {
-    staff_id: 'S-1',
-    branch_id: 'B-1',
-    full_name: 'Anna Andersson',
-    title: 'Fastighetsmäklare',
-    email: 'anna@kowboy.test',
-    mobile: '070-123 45 67',
-    photo: 'https://img.test/anna.jpg',
-    bio: 'Anna har sålt bostäder sedan 2011.',
-    reviews: [{ text: 'Mycket nöjd.', author: 'Säljare på Kungsgatan 1' }],
-    order: 2,
-  });
-  crm.put('agent', 'S-2', {
-    staff_id: 'S-2',
-    branch_id: 'B-1',
-    full_name: 'Bertil Berg',
-    title: 'Mäklarassistent',
-    order: 1,
-  });
-  // Two agents the CRM keeps out of the staff list, one by the record's toggle and one by the office's.
-  crm.put('agent', 'S-3', {
-    staff_id: 'S-3',
-    branch_id: 'B-1',
-    full_name: 'Cecilia Dold',
-    title: 'Säljkoordinator',
-    order: 3,
-    visible: false,
-  });
-  crm.put('agent', 'S-4', {
-    staff_id: 'S-4',
-    branch_id: 'B-1',
-    full_name: 'David Dold',
-    title: 'Fastighetsmäklare',
-    order: 4,
-    visible: true,
-    office_visible: false,
-  });
-  crm.put('association', 'A-1', {
-    coop_id: 'A-1',
-    coop_name: 'Brf Solgården',
-    form: 'Bostadsrättsförening',
-    corporate_number: '769600-1234',
-    home_page: 'https://brfsolgarden.test/',
-    apartments: 48,
-    contact: {
-      name: 'Styrelsen',
-      phone: '08-123 45 67',
-      mobile: null,
-      email: 'info@brfsolgarden.test',
-    },
-    descriptions: { general_about_association: 'En trevlig förening.' },
-    economy: { finances: 'God ekonomi.' },
-    documents: [{ name: 'Stadgar', url: 'https://docs.test/stadgar.pdf' }],
-  });
-  crm.put('association', 'A-2', { coop_id: 'A-2', coop_name: 'Brf Månen' });
-  crm.put('area', 'D-1', {
-    district_id: 'D-1',
-    district_name: 'Vasastan',
-    branch_id: 'B-1',
-    lkf: '018001',
-    outline: VASASTAN,
-  });
-  crm.put('area', 'D-2', {
-    district_id: 'D-2',
-    district_name: 'Norrmalm',
-    branch_id: 'B-1',
-    lkf: '0180',
-    outline: NORRMALM,
-  });
-  // P-1's point lies in Vasastan's outline, P-2's in Vasastan's and Norrmalm's, P-3's in the hole
-  // cut out of Vasastan's; the CRM names Vasastan on every home (docs/search.md, question 133 a).
-  crm.put('property', 'P-1', listing('P-1', P1));
-  crm.put(
-    'property',
-    'P-2',
-    listing('P-2', {
-      price: 3_100_000,
-      rooms: 1.5,
-      living_space: 41,
-      staff: ['S-2'],
-      district_name: 'Södermalm',
-      city: 'Stockholm',
-      lat: 59.39,
-      lng: 18.09,
-      published_at: '2026-09-10T08:00:00.000Z',
-    }),
-  );
-  crm.put(
-    'property',
-    'P-3',
-    listing('P-3', {
-      stage: 'pre',
-      stage_label: 'Kommande',
-      coop_id: 'A-1',
-      price: 5_000_000,
-      rooms: 4,
-      living_space: 110,
-      viewings: [
-        { starts_at: soon(48), ends_at: soon(49), comment: 'Föranmälan krävs', bookable: true },
-        { starts_at: soon(-30), ends_at: soon(-29), comment: 'Visningen som var' },
-      ],
-      images: [
-        'https://img.test/P-3-1_1920.jpg',
-        'https://img.test/P-3-2_1920.jpg',
-        { url: 'https://img.test/P-3-plan_1920.jpg', category: 'Planritning' },
-        {
-          url: 'https://img.test/P-3-plan2_1920.jpg',
-          category: 'Planritning',
-          description: 'Plan 2',
-        },
-      ],
-      documents: [{ name: 'Årsredovisning 2025', url: 'https://docs.test/arsredovisning.pdf' }],
-      links: [
-        { name: 'Föreningens hemsida', url: 'https://brf.test/' },
-        { name: 'Hemsidan igen', url: 'https://brf.test/' },
-        { name: 'Energideklaration', url: 'https://docs.test/energi.pdf' },
-      ],
-      bidding_active: true,
-      bids: [
-        {
-          placed_at: '2026-09-20T10:00:00.000Z',
-          amount: 5_050_000,
-          is_cancelled: false,
-          alias: 'Budgivare 1',
-        },
-        {
-          placed_at: '2026-09-21T10:00:00.000Z',
-          amount: 5_100_000,
-          is_cancelled: false,
-          alias: 'Budgivare 2',
-        },
-        {
-          placed_at: '2026-09-22T10:00:00.000Z',
-          amount: 5_300_000,
-          is_cancelled: true,
-          alias: 'Budgivare 1',
-        },
-      ],
-      heading: 'Högst upp med balkong i söderläge',
-      staff: ['S-1', 'S-2'],
-      lat: 59.34,
-      lng: 18.05,
-      lkf: '0163',
-      published_at: '2026-09-12T08:00:00.000Z',
-    }),
-  );
-  crm.put(
-    'property',
-    'P-4',
-    listing('P-4', {
-      stage: 'done',
-      stage_label: 'Såld',
-      price: 2_995_000,
-      final_price: 3_325_000,
-      sold_at: '2026-08-01T12:00:00.000Z',
-    }),
-  );
-  crm.put(
-    'property',
-    'P-5',
-    listing('P-5', {
-      stage: 'done',
-      stage_label: 'Såld',
-      price: 4_000_000,
-      final_price: 4_200_000,
-      sold_at: '2026-08-15T12:00:00.000Z',
-      staff: ['S-1', 'S-3', 'S-4'],
-    }),
-  );
-  crm.put('property', 'P-6', listing('P-6', { project_id: 'PR-1', price: 9_000_000 }));
+  fillTheCrm();
   await poll();
   await site.trigger('delta');
 }, 120_000);
@@ -420,6 +182,79 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(await total({ office: 'B-1,B-9' })).toBe(3);
     expect(await total({ area_id: 'D-2' })).toBe(1);
     expect((await reload({ entity: 'agent', office: 'B-1,B-9' })).total).toBe(2);
+  });
+
+  it('offers only the places with a matching home, in three groups with the kommun after an area’s name, and draws the box with its pills from the address', async () => {
+    type Place = { id: string; label: string; homes: number };
+    type Places = { areas: Place[]; municipalities: Place[]; counties: Place[] };
+    const places = (params: Record<string, unknown>): Promise<Places> =>
+      driver<Places>('places', JSON.stringify(params));
+    // The Till salu list: for sale and coming, every group; a project's home counts in no list.
+    expect(
+      await places({ entity: 'property', status: 'for_sale,coming', place_search: 'places' }),
+    ).toEqual({
+      areas: [
+        { id: 'D-2', label: 'Norrmalm · Stockholm', homes: 1 },
+        { id: 'D-1', label: 'Vasastan · Stockholm', homes: 3 },
+      ],
+      municipalities: [
+        { id: '0163', label: 'Sollentuna', homes: 1 },
+        { id: '0180', label: 'Stockholm', homes: 2 },
+      ],
+      counties: [{ id: '01', label: 'Stockholms län', homes: 3 }],
+    });
+    // The list's own setting decides what is offered: sold homes, a picked agent, areas only;
+    // the visitor's own choices on the address never narrow the offer.
+    expect(await places({ entity: 'property', status: 'sold', place_search: 'places' })).toEqual({
+      areas: [{ id: 'D-1', label: 'Vasastan · Stockholm', homes: 2 }],
+      municipalities: [{ id: '0180', label: 'Stockholm', homes: 2 }],
+      counties: [{ id: '01', label: 'Stockholms län', homes: 2 }],
+    });
+    expect(
+      await places({
+        entity: 'property',
+        status: 'for_sale,coming',
+        agent: 'S-2',
+        place_search: 'areas',
+        areas: 'D-2',
+        q: 'Kungsgatan 1',
+      }),
+    ).toEqual({
+      areas: [
+        { id: 'D-2', label: 'Norrmalm · Stockholm', homes: 1 },
+        { id: 'D-1', label: 'Vasastan · Stockholm', homes: 2 },
+      ],
+      municipalities: [],
+      counties: [],
+    });
+    expect(
+      await places({ entity: 'property', status: 'for_sale,coming', place_search: 'none' }),
+    ).toEqual({ areas: [], municipalities: [], counties: [] });
+
+    // The archive page: the box in the list's filters with the places as data, the pills and the
+    // words from the address, the hidden fields a plain submit sends, the script and stylesheet;
+    // the chosen places are "any of", the words narrow them (Default 134).
+    const { body } = await page('/?post_type=core_property&areas=D-2&lkf=0163&q=Kungs');
+    expect(body).toContain('data-place-search');
+    expect(body).toContain(
+      '&quot;group&quot;:&quot;counties&quot;,&quot;id&quot;:&quot;01&quot;,&quot;label&quot;:&quot;Stockholms län&quot;',
+    );
+    expect(body).toContain(
+      'data-pill-kind="areas" data-pill-id="D-2" aria-label="Ta bort Norrmalm · Stockholm">Norrmalm · Stockholm<span aria-hidden="true"> ×</span></button>',
+    );
+    expect(body).toContain(
+      'data-pill-kind="lkf" data-pill-id="0163" aria-label="Ta bort Sollentuna">Sollentuna<span',
+    );
+    expect(body).toContain('name="q" value="Kungs"');
+    expect(body).toContain('<input type="hidden" name="areas" value="D-2">');
+    expect(body).toContain('<input type="hidden" name="lkf" value="0163">');
+    expect(body).toContain('place-search.css');
+    expect(body).toContain('place-search.js');
+    expect(body).toContain('Kungsgatan 2');
+    expect(body).toContain('Kungsgatan 3');
+    expect(body).not.toContain('Kungsgatan 1');
+    // A page without a box loads neither file.
+    expect((await page(await permalink('agent', 'S-1'))).body).not.toContain('place-search.js');
   });
 
   it('links a home to the CRM’s area and to every area whose outline holds its point (133 a), relinks on a changed outline or point, and rebuilds the links on a plugin update', async () => {
@@ -991,6 +826,9 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(forSale.body).toContain('Hitta din nya bostad');
     expect(forSale.body).toContain('k-hero--with-form');
     expect(forSale.body).toContain('name="max_price"');
+    // The search card carries the plugin's place search box, with the places of the homes for sale and coming.
+    expect(forSale.body).toContain('data-place-search');
+    expect(forSale.body).toContain('&quot;label&quot;:&quot;Norrmalm · Stockholm&quot;');
     const about = await page(pathOf(pages['om-oss']!));
     expect(about.body).toContain('<span class="k-feature__badge">01</span>');
     // The testimonials are the agents' reviews from Core, not the block's own quotes.

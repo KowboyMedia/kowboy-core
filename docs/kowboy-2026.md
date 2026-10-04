@@ -64,7 +64,12 @@ are wrappers of the plugin's list settings (`docs/search.md`): the plugin's "whi
 many, filters, place search, show only from these agents, areas, offices" merged into the
 theme's own fields, rendered by the plugin's one function inside the theme's section. So the
 plugin must be 0.5.1 or newer before theme 1.1.0 goes on a site; with the plugin inactive the
-editor shows every block of the theme as missing, and the two lists render nothing. On this
+editor shows every block of the theme as missing, and the two lists render nothing. Theme 1.1.1
+swaps the search card's "Område" text field for the plugin's search box with pills (plugin
+0.5.2; with an older plugin the card keeps the text field): on the hero of the Till salu page,
+where the hero block's setting "Platssök" chooses none, areas, or areas with kommuner and län
+(the default), in a list's filters and on the archive page; a choice reloads the list on the
+page and goes into the address. On this
 theme an editor picks the theme's blocks (the category "Kowboy 2026": "Bostadslista",
 "Mäklare"); the plugin's own "Bostäder" and "Mäklare" (the category "Kowboy Core") render the
 same lists without the theme's section. The theme options are the Customizer's

@@ -142,7 +142,8 @@ function core_client_wrap(string $html, ?bool $shadow = null): string
     if (!($shadow ?? core_client_shadow_dom())) {
         return '<div class="core-view">' . $html . '</div>';
     }
-    $links = '';
+    // The plugin's own stylesheet for the search box first (includes/place-search.php), so the set's rules win over it.
+    $links = core_client_place_search_used() ? '<link rel="stylesheet" href="' . esc_url(core_client_place_search_css()) . '">' : '';
     foreach ([core_client_set_asset('css', true), core_client_set_asset('css')] as $css) {
         $links .= $css === null ? '' : '<link rel="stylesheet" href="' . esc_url($css) . '">';
     }
