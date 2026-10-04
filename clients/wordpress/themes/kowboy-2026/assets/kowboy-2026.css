@@ -645,18 +645,15 @@ iframe.k-hero__video {
   margin-bottom: 40px;
 }
 /* The plugin's place search box in the form (Tom Select, lib/tom-select of the plugin): the
-   control like the selects, a line under it, the chosen places as small outlined pills in it, so
-   the control grows downward as they wrap; the list in the card's colours. */
+   field like the selects with its line under it, the chosen places as small outlined pills under
+   the line (the plugin's stylesheet puts them there), so the form grows downward as they come;
+   the list under the field, over the pills, in the card's colours. */
 .k-search select.core-place-search__select:not(.tomselected) {
   height: 44px;
 }
 .k-search .ts-wrapper .ts-control {
   min-height: 44px;
-  padding: 4px 0 !important;
-  gap: 6px;
-  align-items: center;
   border: 0;
-  border-bottom: 1px solid var(--k-border);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -664,18 +661,12 @@ iframe.k-hero__video {
   line-height: 1.4;
   color: var(--k-ink);
 }
-.k-search .ts-wrapper.focus .ts-control {
-  border-bottom-color: var(--k-ink);
-}
-/* The theme's own field rule above reaches this input too; its size is the control's business.
+/* The theme's own field rule above reaches this input too; its height is the line's business.
    `.ts-wrapper` in these selectors outweighs the library's own rules whichever stylesheet comes
    last (the plugin's come after the theme's on the page, before them in a shadow root). */
 .k-search .ts-wrapper .ts-control > input {
-  width: auto;
-  height: auto;
-  min-width: 6rem;
-  min-height: 34px !important;
-  margin: 0 !important;
+  height: 43px;
+  min-height: 43px !important;
   font-size: var(--k-label-size);
   color: var(--k-secondary);
 }
@@ -683,8 +674,14 @@ iframe.k-hero__video {
   color: var(--k-secondary);
   opacity: 1;
 }
+.k-search .ts-wrapper .ts-control::before {
+  height: 1px;
+  background: var(--k-border);
+}
+.k-search .ts-wrapper.focus .ts-control::before {
+  background: var(--k-ink);
+}
 .k-search .ts-wrapper.multi .ts-control > div {
-  margin: 0;
   padding: 4px 10px;
   border: 1px solid var(--k-border);
   border-radius: 999px;
@@ -702,6 +699,9 @@ iframe.k-hero__video {
   padding: 0 4px;
   border-left: 0;
   border-radius: 999px;
+}
+.k-search .ts-wrapper .ts-dropdown {
+  top: 44px;
 }
 .k-search .ts-dropdown {
   margin-top: 4px;

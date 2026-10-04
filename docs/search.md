@@ -235,7 +235,7 @@ offices; the list holds the agents of those offices, in the CRM's order as today
   says otherwise, the same stance as decision 124 (the list's cost is WordPress's start, not the
   query).
 - **Typing** narrows the suggestions in the browser, over at most a few hundred entries, so it
-  is instant. **Choosing** one adds a pill in the field and runs the search at once. **The cross
+  is instant. **Choosing** one adds a pill under the field and runs the search at once. **The cross
   on a pill** removes it and runs the search again, as does Backspace in the empty field. Pills
   mean "any of these places".
 - **Typing without choosing** and pressing Sök or Enter searches the words as free text, by the
@@ -297,9 +297,13 @@ offices; the list holds the agents of those offices, in the CRM's order as today
   parameters and reloads from the first page. The theme's search card (`parts/search-form.php`)
   calls the function and keeps its text field when the plugin is older than 0.5.2; the hero
   block's setting "Platssök" (none, areas, or areas with kommuner and län, the last by default)
-  and the archive page (places) choose the groups. The theme (1.1.3) restyles the library's
-  control as its other fields (a line under it, 44 px, the pills as small outlined chips in it)
-  and its list in the card's colours, and lifts the hero's form above the cards' labels.
+  and the archive page (places) choose the groups. The library puts the pills before the field in
+  one flowing row; the plugin's stylesheet turns that order (plugin 0.5.5, Patric, 2026-10-04:
+  "put the pills below the input as they were before"): the field first on a line of its own, a
+  pseudo-element under it as the field's line, the pills under that, and a highlighted pill no
+  longer hides the field's place. The theme (1.1.4) restyles the field as its other fields (44 px
+  with the line), the pills as small outlined chips under it, the list under the field over the
+  pills in the card's colours, and lifts the hero's form above the cards' labels.
 - **The Till salu page's search card** keeps its three choices (max price, minimum size,
   minimum rooms) and swaps the "Område" text field for this box.
 - **An area the site has no record of** (plugin 0.5.3, Patric, 2026-10-04: the staging site's
@@ -311,8 +315,8 @@ offices; the list holds the agents of those offices, in the CRM's order as today
   list) falls back to the record, then to the homes. **The pills grow the form downward** (theme
   1.1.2, kept in 1.1.3): the form on the hero's edge is anchored at its top and its row at the
   top, so the field's top, the other fields and the button keep their place when a pill is added
-  (the journey measures it). The pills sit in the field and wrap to new lines as they come, so
-  from the second or third pill the form reaches over the status tabs under the hero on wide
+  (the journey measures it). The pills sit under the field and wrap to new lines as they come,
+  so from the first pill the form reaches a little over the status tabs under the hero on wide
   screens: "a bit down" as Patric allowed. On narrow screens the form is in the hero's flow, so
   a hero with spare height (a short lead) would still give the pills' height to the space above
   the form; the Till salu page's lead fills its hero, and no other hero carries the form.

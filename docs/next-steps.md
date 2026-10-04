@@ -436,8 +436,8 @@ client ports (item 16, first client by question 80).
     the same day. His second look found the box itself immature (the list under the cards'
     labels, no close on a click outside, an unreliable open, doubt about phones), question 140,
     answered a: the box is the library Tom Select, plugin 0.5.4 and theme 1.1.3, with a phone
-    journey, on the staging site the same day. Next: nothing of this item; Patric's next look
-    decides.
+    journey, on the staging site the same day; his third look put the pills back under the field
+    (plugin 0.5.5, theme 1.1.4). Next: nothing of this item; Patric's next look decides.
     Default 135 (the tests under criterion 20) waits; the acceptance list is edited when it stands.
     - **Component:** `[client-wordpress]`, the plugin first, the theme's two list blocks after.
     - **What changes for the product:** the list search takes an LKF code or its län or kommun

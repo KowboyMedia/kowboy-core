@@ -75,15 +75,16 @@ test('journey: a visitor narrows Till salu to places, takes them away again and 
   await field.pressSequentially('Norr');
   await expect(options).toHaveText(['Norrmalm · Stockholm']);
 
-  // Choosing with the mouse: a pill in the field, the address, and the cards reloaded without a
-  // page load. The pill grows the form downward: the field's top, the other fields and the
-  // button keep their place on the page (Patric, 2026-10-04: the pills must not push the field up).
+  // Choosing with the mouse: a pill under the field, the address, and the cards reloaded without
+  // a page load. The pill grows the form downward: the field, the other fields and the button
+  // keep their place on the page (Patric, 2026-10-04: the pills must not push the field up).
   const form = page.locator('.k-hero > form.k-search');
   await expect(form).toHaveCount(1);
   const button = page.getByRole('button', { name: 'Sök' });
   const price = form.locator('select[name="max_price"]');
   const measure = async () => ({
     control: (await control.boundingBox())!,
+    field: (await field.boundingBox())!,
     price: (await price.boundingBox())!,
     button: (await button.boundingBox())!,
     form: (await form.boundingBox())!,
@@ -101,9 +102,15 @@ test('journey: a visitor narrows Till salu to places, takes them away again and 
   expect(Math.abs(after.button.y - before.button.y)).toBeLessThan(1);
   expect(Math.abs(after.form.y - before.form.y)).toBeLessThan(1);
   expect(after.form.height).toBeGreaterThanOrEqual(before.form.height);
-  // The pill grows the control by one line at most: the field wraps under it when the column is
-  // too narrow for both (it is, at this width), never further.
+  // The pill sits under the field (Patric, 2026-10-04: below, as before, not inside), so the field
+  // itself keeps its place and the control grows by one line of pills.
+  expect(Math.abs(after.field.y - before.field.y)).toBeLessThan(1);
+  expect(Math.abs(after.field.height - before.field.height)).toBeLessThan(1);
+  expect(after.control.height - before.control.height).toBeGreaterThan(20);
   expect(after.control.height - before.control.height).toBeLessThanOrEqual(44);
+  expect((await pills.first().boundingBox())!.y).toBeGreaterThan(
+    after.field.y + after.field.height - 1,
+  );
   await expect(page).toHaveURL(/[?&]areas=D-2(&|$)/);
   await expect(streets(page)).toHaveText(['Kungsgatan 2']);
 

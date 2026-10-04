@@ -23,6 +23,35 @@ select.core-place-search__select:not(.tomselected) {
 .core-place-search .ts-wrapper {
   width: 100%;
 }
+/* The field first, on a line of its own, the chosen places as pills under it (Patric, 2026-10-04:
+   the pills below the field, as they were, not inside it). The library puts its pills before the
+   field in one flowing row; the order is turned here and a pseudo-element between them is the
+   field's own line, for a set to draw. A pill the visitor highlights hides the field in the
+   library's own stylesheet; it keeps its place here, so nothing jumps. */
+.core-place-search .ts-wrapper .ts-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 0 !important;
+}
+.core-place-search .ts-wrapper .ts-control > input {
+  order: -1;
+  flex: 0 0 100%;
+  width: 100%;
+  margin: 0 !important;
+}
+.core-place-search .ts-wrapper.input-hidden .ts-control > input {
+  position: static;
+  left: auto;
+}
+.core-place-search .ts-wrapper .ts-control::before {
+  content: '';
+  flex: 0 0 100%;
+  height: 0;
+}
+.core-place-search .ts-wrapper.multi .ts-control > div {
+  margin: 8px 6px 0 0;
+}
 .core-place-search .ts-control,
 .core-place-search .ts-control input,
 .core-place-search .ts-dropdown {
