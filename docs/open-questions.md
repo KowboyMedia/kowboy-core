@@ -9,7 +9,7 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 150. `[core]` Where should the forms live: in a separate app in Core's repository, or inside Core?
+## 150. `[core]` Where should the forms live?
 
 - 2026-10-05 · Patric, after answering 146: "I am still not sure this should live in core, the
   more I think about it, it's a separate app, but it can live in the same repo. List pros and
@@ -19,68 +19,82 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   code** is its adapter, where the calls that send a form to that CRM live whichever option is
   picked.
 - The three options:
-  - a) **A separate app in Core's repository, using Core's database.** Its own program and its
-    own web address. The form window, the bot check and the sending live in its own folder; it
-    reads the sites, the homes and the CRM logins from Core's database and sends through each
-    CRM's code. Core's two programs, its admin area and its address carry none of it.
-  - b) **Inside Core**, as built on 2026-10-04: Core's program that answers the sites also
+  - a) **Inside Core**, in a folder of its own: Core's program that answers the sites also
     answers the visitors' forms.
+  - b) **A separate app in Core's repository, using Core's database.** A third program of its
+    own, started from Core's one entry point as a third role, so the rule that only that entry
+    point uses both the engine and the CRMs' code still holds. The hosting sends the forms' part
+    of Core's address to it, so no new address is needed. It reads the sites, the homes and the
+    CRM logins from Core's database and sends through each CRM's code; Core's two programs carry
+    none of it.
   - c) **A separate app with its own data**: its own database and its own copy of each
     brokerage's CRM login, typed into its own admin area; it reads the homes from Core the way a
     site does.
 - Pros and cons:
 
-  |                              | a) Separate app, Core's database                                                                                                                       | b) Inside Core                                                                                  | c) Separate app, own data                                                                     |
-  | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-  | Core itself                  | unchanged: nothing of the forms in its programs, its admin area or its address                                                                         | the forms' web door, bot check and log sit in the program that answers the sites                | unchanged                                                                                     |
-  | The brokerages' CRM logins   | one copy, in Core's database; the forms app holds the same key Core reads them with                                                                    | one copy, in Core                                                                               | a second copy, in a second admin area: two places to change a password                        |
-  | Visitors and bots            | reach only the forms app; a flood or a fault there leaves the sites' updates and the admin area alone                                                  | reach Core's own program, beside the sites' updates, the CRM's notifications and the admin area | as a                                                                                          |
-  | Running cost                 | one more program on staging and one on live, DigitalOcean's smallest size: $5 a month each (DigitalOcean's App Platform pricing page, read 2026-10-05) | nothing new                                                                                     | as a, plus its own database                                                                   |
-  | To build                     | about the same code as b, plus its own start, its own address and its entry in the hosting setup                                                       | the least                                                                                       | the most: its own admin area, its own register of sites and logins, a key on Core's interface |
-  | Tied to Core                 | reads Core's tables, so a change there must keep it working, which the shared tests catch; it is released together with Core, from the same repository | it is Core                                                                                      | only through Core's interface, like a site                                                    |
-  | Database connections         | one more program holding some; staging's worker already ran short once at a restart (known bug 5), so it gets a small share                            | none new                                                                                        | its own database                                                                              |
-  | A site Kowboy does not build | later: Core must first hold such a site, which has no bell address (146, item 5)                                                                       | later, the same                                                                                 | possible, at the costs above                                                                  |
-  | Rules that change            | a new top-level folder (a line in `docs/decisions.md`), the layout in `AGENTS.md`, and the seam check covering the new folder; a yes approves them     | none                                                                                            | `AGENTS.md` and the strategy: a second product                                                |
+  |                              | a) Inside Core                                                                                  | b) Separate app, Core's database                                                                                                                       | c) Separate app, own data                                                                     |
+  | ---------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+  | Core itself                  | the forms' web door, bot check and log sit in the program that answers the sites                | nothing of the forms in Core's two programs                                                                                                            | unchanged                                                                                     |
+  | The brokerages' CRM logins   | one copy, in Core                                                                               | one copy, in Core's database; the forms program holds the same key Core reads them with                                                                | a second copy, in a second admin area: two places to change a password                        |
+  | Visitors and bots            | reach Core's own program, beside the sites' updates, the CRM's notifications and the admin area | reach only the forms program; a flood or a fault there leaves the sites' updates and the admin area alone                                              | as b                                                                                          |
+  | Health, alerts and errors    | Core's, as today                                                                                | a second place to watch, or a card for the forms program in Core's admin area (a line to ask)                                                          | a second place                                                                                |
+  | Running cost                 | nothing new                                                                                     | one more program on staging and one on live, DigitalOcean's smallest size: $5 a month each (DigitalOcean's App Platform pricing page, read 2026-10-05) | as b, plus its own database                                                                   |
+  | Database connections         | none new                                                                                        | two more programs on the one database cluster that staging and live share, where staging's worker already ran short once (known bug 5)                 | its own database                                                                              |
+  | To build                     | the least                                                                                       | about the same code as a, plus its start, its share of Core's address and its entry in the hosting setup                                               | the most: its own admin area, its own register of sites and logins, a key on Core's interface |
+  | Tied to Core                 | it is Core                                                                                      | reads Core's tables, so a change there must keep it working (the shared tests catch that); released with Core                                          | only through Core's interface, like a site                                                    |
+  | A site Kowboy does not build | later: Core must first be able to hold a site that has no bell address (146, item 5)            | later, the same                                                                                                                                        | possible, at the costs above                                                                  |
+  | Rules that change            | none                                                                                            | a new top-level folder, the layout in `AGENTS.md`, and the check that keeps CRM names out of Core covering that folder; each asked as its own line     | `AGENTS.md` and the strategy: a second product                                                |
 
-- Why a is recommended: it gives what the question asks for, Core kept to reading the CRMs and
-  serving the sites, for one small program per environment, and it leaves out what made the
-  separate app weighed on 2026-10-04 costly (question 129, option B in `docs/forms.md`, "Where
-  the writes live"): its own data, meaning a second copy of every CRM login and a second register
-  of sites. That earlier option is c here. b is the smaller option and stays sound if the extra
-  program is not wanted; c pays off only if the forms are sold to sites Kowboy does not build,
-  which nobody has asked for.
+- Why a is recommended: it is the smaller option, and Patric's own rule (the handbook, "Decide
+  architecture") recommends the smaller option and allows no new running service without a need
+  that exists now and is named. No form traffic exists yet, so b's gain, visitors and faults kept
+  away from Core's program, answers a need that has not appeared, at the costs in its column. Kept
+  in a folder of its own, a moves to b later at little cost, since the code is the same either
+  way. b is what Patric leans to: Core's programs keep to reading and serving, for $5 a month
+  more per environment and a second place to watch. c pays off if the forms become a product for
+  sites Kowboy does not build: Patric asked on 2026-10-04 whether the forms are Core's work or "a
+  standalone widget for any site", and the forms plan keeps that as a Later line (`docs/forms.md`).
+  The separate app weighed on 2026-10-04 (question 129, option B in `docs/forms.md`, "Where the
+  writes live") had its own data, which is c here.
 - The same whichever is picked: the calls that send a form live in each CRM's code, which needs an
-  addition to the adapter interface (protected), asked when the rebuild is planned; the list of
-  146 stands; every new part, a forms app's web address included, is asked first (`AGENTS.md`,
-  "Stop and ask").
-- a) **separate app** (recommended): its own program and address, in Core's repository, reading
-  Core's database. b) **inside Core**: nothing new to run. c) **separate, with its own data**.
-- Smaller: b. Blocked: the rebuild of the forms. Answer a, b or c.
+  addition to the adapter interface (protected), asked when the rebuild is planned; the answers to
+  146 stand; every new part is asked first as its own line (`AGENTS.md`, "Stop and ask").
+- a) **inside Core** (recommended): nothing new to run. b) **separate app**: a third program in
+  Core's repository, reading Core's database. c) **separate, with its own data**.
+- Smaller: a. Blocked: the rebuild of the forms. Answer a, b or c.
 
-## 151. `[crm-vitec]` Should a Vitec site's forms skip the last step, "Söker du bostad?", so that no second Vitec password is needed?
+## 151. `[crm-vitec]` Should Vitec sites skip the "Söker du bostad?" step?
 
 - 2026-10-05 · Patric, on 146's item 10: "Why would you want the crms password? The client site
   backend calls core with its site key, it is then authenticated to make calls using the tenant
-  crm auth, why would we need another set of crm auth?" It is not a second login for the site:
-  the site still calls with its own key, and the forms use the tenant's Vitec login. But Vitec
-  splits its interface into parts and issues a password per office and per part ("För varje
-  kund/grupp och funktionsgrupp som partnern har rättighet till så skapas också ett lösenord
-  automatiskt", `docs/inputs/vitec/technical-information.md`). The password a Vitec connection
-  holds today opens the advertising part, which reads the homes and takes the interest, the
-  viewing booking and the free valuation. The wizard's last step, the visitor's search profile
-  (139, 131), is in Vitec's CRM part, which Vitec grants to Kowboy per office, with its own
-  password; the login in the environment answered "not authorised" (401) for that part on
-  2026-10-04. Vitec's own help says Vitec builds a search profile itself from an interest sent
-  from a website, when the brokerage turns on automatic profiles in Vitec and the visitor allows
-  matching (`docs/forms.md`, "Read online on 2026-10-04"); that profile follows the home the
-  interest names, not the visitor's own wishes.
+  crm auth, why would we need another set of crm auth?" It is not another login: the site still
+  calls Core with its own key, and Core uses the Vitec login it holds for the brokerage. That
+  login is Kowboy's partner login ("Both CRMs hand it to Kowboy as a partner, not to a
+  brokerage", `docs/forms.md`, "Terms"), and Vitec issues it a password per office (or group of
+  offices) and per part of its interface ("För varje kund/grupp och funktionsgrupp som partnern
+  har rättighet till så skapas också ett lösenord automatiskt"), granted "efter beställning från
+  kund", once the brokerage orders it (`docs/inputs/vitec/technical-information.md`). The
+  password a Vitec connection holds today opens the advertising part, which reads the homes and
+  takes the interest, the viewing booking and the free valuation. The wizard's last step, the
+  visitor's search profile (139, 131), is in Vitec's CRM part; the login in the environment
+  answered "not authorised" (401) for that part on 2026-10-04. Mspecs needs nothing more for it.
+- The step also carries the box "Kontakta mig om min nuvarande bostad" (141 a, on an interest and
+  a booking), which makes the visitor a seller lead through the valuation call, in the advertising
+  part. Without the step, the box moves to the contact step, so 141 a holds with no second
+  password.
+- Vitec's own help says Vitec builds a profile by itself from an interest only when the brokerage
+  turns automatic profiles on, the interest has the status Interested or higher, and the contact
+  allows matching and marketing (`docs/forms.md`, "Read online on 2026-10-04"). The interest call
+  has no field for that consent, and 146 left the status out of the calls, so whether that
+  happens for a site's interest is not known; such a profile follows the home the interest names,
+  not the visitor's wishes.
 - a) **skip** (recommended): on a Vitec site the forms end at the interest, the booking or the
-  valuation, and nothing more is set per office; Vitec can still build a profile from the
-  interest. Vitec is the only CRM with forms today, so the step is not built in the rebuild; it
-  comes back when a brokerage asks for it. b) **keep**: each Vitec office's connection gets the
-  CRM part's password, typed in the admin area once Vitec has granted that part to Kowboy for
-  the office; until then the step is hidden for that office, which needs the adapter interface
-  change named in 146's item 10.
+  valuation, and the box "Kontakta mig om min nuvarande bostad" moves to the contact step; Vitec
+  is the only CRM with forms today, so the profile step is not built in the rebuild, and it comes
+  back when a brokerage asks for it. b) **keep**: each brokerage first orders the CRM part from
+  Vitec for Kowboy, then its connection gets that part's password, typed in the admin area; until
+  then the step is hidden for that office, which needs the adapter interface change named in 146's
+  item 10.
 - Smaller: a. Blocked: nothing now; the rebuild's Vitec part. Answer a or b.
 
 ## 152. `[core]` Default: a staging or test run of the forms never sends a form to a CRM; only the live one does, with no setting

@@ -780,10 +780,11 @@ Reviewed on 2026-10-05 in `docs/forms-review.md`: what each part below is, who d
 whether a form needs it, and two defects (known bugs 3 and 4). Patric answered the same day that
 the forms are rebuilt from zero, not cut down (question 144): in concept everything under "Built
 2026-10-04" is reverted and only what is necessary comes back, starting with the list of what a
-site must be able to configure (question 146, answered the same evening: the settings are the
-site's own or automatic, `docs/decisions.md`). Whether the forms stay inside Core or become a
-separate app in Core's repository is question 150; the section "Where the writes live" above is
-the weighing of 2026-10-04, whose separate app had its own data.
+site must be able to configure (question 146, answered the same evening: every setting is the
+site's own or automatic, apart from the bot check's keys, one global setting where the forms are
+received; `docs/decisions.md`). Whether the forms stay inside Core or become a separate app in
+Core's repository is question 150; the section "Where the writes live" above is the weighing of
+2026-10-04, whose separate app had its own data.
 
 What exists, proved by acceptance criteria 43 to 47 and 49 (`acceptance/submissions.test.ts`)
 against the fake polling CRM, which takes every kind, and the fake webhook CRM, which takes none:
