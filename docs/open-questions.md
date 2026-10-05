@@ -9,47 +9,84 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 146. `[core]` The forms from zero: is this the list of what a site must be able to configure?
+## 146. `[core]` The forms from zero: is this the full list of what must be configurable for a site's forms?
 
 - 2026-10-05 · Patric, answering 144: the forms build of 2026-10-04 is reverted in concept and
-  only what is necessary comes back ("the starting point needs to be zero and go up"), and "First
-  of all, list all parts that are required to be configurable on a site level." The list starts
-  from nothing and adds only what a form cannot reach the CRM without, or what the law asks for.
-  It was read from the forms design (`docs/forms.md`), the CRMs' saved documentation, the Lovable
-  kit's README and Cloudflare's Turnstile pages (plans, updated 2026-08-14; hostname management,
-  updated 2026-04-27).
-  - Needed on every site, with nothing typed in Core:
-    1. **Which site a form comes from.** Core reads it from the address of the page the form
-       opens on. For a WordPress site that is the address Core already rings the site's bell
-       at, so nothing is typed. The public site key of 137 a is then not needed: nothing is
-       copied into the plugin, and the key's line leaves the admin area. This holds while each
-       site has an address of its own, which every site has today.
-    2. **The privacy page the consent line links to.** It is WordPress's own setting (Settings,
+  only what is necessary comes back ("The starting point needs to be zero and go up"), and
+  "First [of] all, list all parts that are required to be configurable on a site level." The
+  list starts from nothing and adds only what a form cannot work without, or what the law asks
+  for. It was read from the forms design (`docs/forms.md`), Core's code as it stands, the CRMs'
+  saved documentation, the Lovable kit's README and Cloudflare's Turnstile pages (plans, updated
+  2026-08-14; hostname management, updated 2026-04-27), and checked by a second agent. Words
+  used: **the bell address** is the address Core calls a site at to tell it that records changed;
+  **the bot check** is Cloudflare Turnstile, which tells a person from a program before a form is
+  accepted, and **its setup** at Cloudflare holds a public key, a secret key and the addresses it
+  works on; **a subdomain** is an address under the site's own, such as www; **an office** is
+  what Vitec calls a customer, one brokerage office with its own customer id.
+  - Needed on every site:
+
+    1. **Which site a form comes from.** Core reads the address of the page the form opens on
+       (the browser sends it with every call) and finds the site whose bell address has exactly
+       that address; nothing is typed. This holds only while the pages are on exactly the bell
+       address's address: www and no www count as different, and when a site moves to its own
+       domain at launch, its bell address moves with it, since the old address can go on
+       working for the records while every form on the new domain is refused. The public site
+       key of 137 a is then not needed: it adds no protection, because anyone can read it from
+       the page, so nothing is copied into the plugin and its line leaves the admin area. Two
+       sites on one address cannot be told apart this way; that case gets its own question if
+       it ever comes.
+    2. **Whether the site's forms are on.** A switch in the WordPress plugin's settings, off until
+       items 3 and 4 are in place, so a site still being built never shows a form a visitor can
+       send. Today the site key plays this part: without it the plugin prints no form window. An
+       agent can set the switch with the site's deploy, so it never waits on the admin area's
+       sign-in.
+    3. **The privacy page the consent line links to.** It is WordPress's own setting (Settings,
        Privacy), which the plugin hands to the form window; nothing new.
-  - Needed on every site, outside Core: 3. **The site's address on the bot check's list at Cloudflare.** Turnstile's check works only
-    on the addresses listed on its widget (a listed address covers its subdomains), so each
-    new site's address is added there before its forms go live. Cloudflare's free plan allows
-    ten addresses per widget and twenty widgets.
-  - Needed only in later cases, so nothing is built for them now: 4. **A Lovable site's address**, typed once when the site is added, because a Lovable site's
-    bell address is at Supabase, not on its own domain. No Lovable site has forms today. 5. **The office that receives a free valuation**, for a customer with more than one office,
-    since the valuation is the one form without a home to name its office. Whether the site
-    names the office or the visitor picks one is asked when such a customer gets the forms. 6. **Which bot-check keys the site uses**, from the eleventh site on Cloudflare's free plan,
-    since one widget covers ten addresses and each widget has its own keys. Cloudflare's
-    Enterprise plan offers one widget for any address instead.
-  - Needed for a form to reach the CRM, but not on the site level: per Vitec connection, Vitec's
-    separate password for its CRM part, and only for the search-profile step (Vitec issues one
-    password per customer and per function group); for all of Core, the bot check's two keys and
-    whether Core may send forms at all (the staging Core sends nothing, the live Core sends).
+    4. **The site's address in the bot check's setup at Cloudflare.** Turnstile works only on the
+       addresses listed in its setup, and a listed address covers its subdomains. Cloudflare's
+       free plan allows ten addresses per setup and twenty setups.
+
+  - Needed only in later cases, so nothing is built for them now:
+
+    5. **A typed address for a site whose pages cannot be on its bell address**: a Lovable site,
+       whose bell address is at Supabase, and a site Kowboy does not build. A field on the site in
+       the admin area, empty by default. No such site has forms today.
+    6. **The office that receives a free valuation**, for a brokerage with more than one office,
+       since the valuation is the one form with no home to name its office. Whether the site
+       names the office or the visitor picks one is asked when such a brokerage gets the forms.
+    7. **Which bot-check setup the site uses**, from the eleventh site on Cloudflare's free plan,
+       since one setup covers ten addresses and each setup has its own keys. Cloudflare's
+       Enterprise plan offers one setup for any address instead.
+
+  - Needed beyond the site, for the forms to work at all:
+
+    8. **The bot check's two keys**, the public key and the secret key of one setup: two
+       environment settings of Core, so the admin area shows nothing.
+    9. **Whether Core may send forms at all**: one environment setting of Core, off on staging and
+       on local runs, on for the live Core, so no test form reaches a brokerage's real CRM. It
+       replaces the "Send forms to Vitec" switch on every Vitec connection.
+    10. **Vitec's password for its CRM part**, a field on a Vitec connection: Vitec grants its
+        interface in parts, each with its own password per office or group of offices, and the
+        search profile of the last step ("Söker du bostad?") is in the CRM part. Without it, the
+        last step does not show for that office's forms. Needed only where the last step is
+        wanted.
+
+  - Needed per brokerage, but not a setting: the agreement that makes Kowboy the brokerage's
+    processor of personal data names the forms, which the law asks for before a brokerage's
+    forms go live. Not settings in Core: the form window's look (the theme's colours and font)
+    and which forms a page shows (the theme's buttons).
   - Not needed, so left out unless Patric names one: the "Send forms to Vitec" switch, the six
-    Vitec choices (lead source, intake source, an interest's status, a booking's confirmation by
-    e-mail and by SMS, the reminder), typed addresses on a WordPress site, the site key, and the
-    form counts. Where a choice is left out, Vitec's own default or one fixed value for every site
-    applies; Vitec, for one, attaches a lead to its preselected lead source.
+    Vitec choices, the site key and its line, and the form counts. In place of the six choices, a
+    booking always asks Vitec for the e-mail confirmation the form window promises ("Du får en
+    bekräftelse från mäklaren"), with no SMS and no reminder; the lead source, the intake source
+    and an interest's status are left out, so Vitec chooses (its documentation says an interest
+    then gets its preselected lead source, and says nothing for the booking and the valuation).
   - Blocked: the rebuild of the forms. Nothing is removed from staging until the list stands;
-    then the forms build leaves Core, and only what the list names comes back, every part it
-    does not name asked first (`AGENTS.md`, "Stop and ask").
-- a) **yes**: the list is right, and the rebuild brings up these parts and nothing else. b)
-  **no**: name the numbers to strike, or what to add.
+    then the forms build leaves Core, and only what the list names comes back, every other part
+    asked first (`AGENTS.md`, "Stop and ask").
+
+- a) **yes**: the list is right, and the rebuild brings up these settings and no other setting.
+  b) **no**: name the numbers to strike, or what to add.
 - Smaller: a.
 
 ## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite
