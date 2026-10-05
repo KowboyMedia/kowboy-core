@@ -101,15 +101,25 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   **no**: name the numbers to strike, or what to add.
 - Smaller: a.
 
-## 149. `[crm-vitec]` The Connect password for the Vitec test account of Svenska Mäklarhuset, group G12
+## 149. `[crm-vitec]` How does a session get to use the login saved on the svenskamaklarhuset.se tenant?
 
-- 2026-10-05 · Patric answered 148 with this account: on `G12` any office reads, so it shows
-  whether Vitec can give the list of a group's offices (question 147, Vitec first). The login in
-  the environment answers 403 for `G12`: it holds Norban's password, and Vitec issues a password
-  per customer or group and function group. Only a person with the partner portal can take the
-  `G12` password (advertising function group) out of it. Instruction: save it in the project's
-  cloud environment as `VITEC_G12_PASSWORD`, and its username as `VITEC_G12_USERNAME` if it is not
-  the same as Norban's, then say "saved". Only reads (GET) are made with it. Blocked: question 147.
+- 2026-10-05 · Patric answered 148 with Vitec's test account of Svenska Mäklarhuset, where any
+  office reads: `G12` is the id put in each call (a group id, "a placeholder/wildcard"), not a
+  login, and the Connect username and password are the ones saved on the staging tenant
+  svenskamaklarhuset.se (Patric, 2026-10-05 20:31Z and 20:32Z). The login in the environment
+  (Norban's) answers 403 for `G12` on every call. A session cannot reach a login saved in the
+  admin area: Core stores it encrypted in its database and never returns it, and sessions have
+  no admin sign-in and no database access (reading the staging database credentials through
+  DigitalOcean was refused by the permission check on an earlier day). Blocked: question 147.
+- a) **environment** (recommended): Patric saves the same username and password in the
+  project's cloud environment as `VITEC_G12_USERNAME` and `VITEC_G12_PASSWORD`; a fresh session
+  lists `G12`'s offices (`GET Advertising/Office/G12`, `GET Office/GetOffice?CustomerId=G12`) and
+  reads each office with the single-office method, with reads only, as often as needed.
+  b) **button**: the existing "Check the login" on a saved Vitec connection lists the offices
+  behind each id and reads each one with the login Core holds, and says what it found; Patric
+  signs in, presses it once on that tenant and reports the result. It changes what an existing
+  button says, and every later check costs Patric a sign-in.
+- Smaller: a, which changes nothing in Core. Answer a or b.
 
 ## 147. `[crm-vitec]` The offices of a Vitec connection: typed by a super admin, listed by the client, or read from Vitec?
 
