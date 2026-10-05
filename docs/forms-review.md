@@ -21,10 +21,11 @@ saw them, and checked by a second agent with no part in the build.
   booking") and the plan he answered with "Go". Each bundled about a dozen decisions into one
   answer, against the handbook's rule of one decision per question. The six Vitec fields, the
   count line, the server door and the visitor remembered in the browser came in that way.
-- `[core]` Four things were added during the build with no question and no line in either
-  document: the "Send forms to Vitec" switch, the "CRM password" field, the site's typed
-  addresses, and a fourth call from the browser. Each was the build's own way of carrying out
-  something Patric had decided; none was asked.
+- `[core]` Four things were added during the build with no question: the "Send forms to Vitec"
+  switch, the "CRM password" field, the site's typed addresses, and a fourth call from the
+  browser. The switch and the fourth call are in neither document; for the password and the
+  addresses the documents named the need, and the build chose the field. Each was the build's
+  own way of carrying out something Patric had decided; none was asked.
 - `[core]` Two defects were found. Saving one forms field on a Vitec connection erases the
   connection's Vitec login (proved with a test on 2026-10-05). The bot check is off whenever its
   two keys are missing, which is the case on staging and live.
@@ -52,7 +53,7 @@ saw them, and checked by a second agent with no part in the build.
 | What it is                                                                                                                 | Who decided                                                                                                                                                              | Does a form need it to reach the CRM?                                                                                                             | Under 144 a                                                                                                                                             |
 | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | "Send forms to Vitec" on every Vitec connection                                                                            | Added during the build to carry out Patric's rule of 2026-10-04 that no test form reaches a brokerage not confirmed as a test one; in no question or document            | No: it stops forms                                                                                                                                | Cut; Core sends no form unless its environment allows it                                                                                                |
-| Six Vitec fields: lead source, intake source, status of an interest, booking confirmed by e-mail, by SMS, reminder minutes | The 130 design ("five connection settings" in the question, six in the design he approved), never asked one by one                                                       | No. Vitec takes a form without any of them; left empty, a booking still gets the build's own choice (e-mail confirmation on, no SMS, no reminder) | Cut, taking back this part of 130; a booking always asks Vitec for its e-mail confirmation, which the form window promises, with no SMS and no reminder |
+| Six Vitec fields: lead source, intake source, status of an interest, booking confirmed by e-mail, by SMS, reminder minutes | The 130 question and its design, which named all six inside one yes; never asked one by one                                                                              | No. Vitec takes a form without any of them; left empty, a booking still gets the build's own choice (e-mail confirmation on, no SMS, no reminder) | Cut, taking back this part of 130; a booking always asks Vitec for its e-mail confirmation, which the form window promises, with no SMS and no reminder |
 | "CRM password" on every Vitec connection                                                                                   | Added during the build as the place to type the password the plan names for Vitec's CRM part; Vitec gives each customer and each function group its own password         | Yes, for the search profile only                                                                                                                  | Keep                                                                                                                                                    |
 | "Addresses its forms widget may be used from" on every site                                                                | The 130 and 137 designs approved a check against the site's registered addresses; typing them on the page, with the bell address as the fallback, was the build's choice | No: the bell address already names the site, and the staging site's forms opened with this field empty on 2026-10-05                              | Cut; the check uses the bell address's site                                                                                                             |
 | "Its site key, for the forms widget (public)" on every site                                                                | Patric, 137 a (a site includes the form window with a public key)                                                                                                        | Yes: the site's plugin needs it                                                                                                                   | Keep                                                                                                                                                    |
@@ -70,7 +71,7 @@ saw them, and checked by a second agent with no part in the build.
 | A fourth browser call that gives the form window the home's street, rooms and area                                                                         | Added during the build: the plan has the page carry only the site key and the home, so this call is how the window gets the facts for the prefill approved with 139 | Yes, for the prefill                                                      | Keep                                                                                       |
 | The server door: the form and viewing-time calls for a site's own server, with the customer's secret token                                                 | The 130 question and the plan answered with "Go"                                                                                                                    | No: nothing calls it today                                                | Keep: its own part is about 20 lines, the rest is the sending path the browser door shares |
 | The outcomes table: each form's id, kind, home and what the CRM answered, never the person, kept 30 days                                                   | The 130 question                                                                                                                                                    | Yes: it makes a double click send one form, and it feeds the health check | Keep                                                                                       |
-| The bot check (Turnstile)                                                                                                                                  | Patric, 138 a                                                                                                                                                       | Yes, before forms go live                                                 | Keep, and fixed (known bug 4)                                                              |
+| The bot check (Turnstile), with a hidden trap field, a minimum time and the limits always on as Core's own measures                                        | Patric, 138 a; the build checks the trap field and the minimum time only in the form window, not in Core                                                            | Yes, before forms go live                                                 | Keep, and fixed (known bug 4): Core checks the trap field and the minimum time itself      |
 | The form window remembers the visitor's name, e-mail and phone in their own browser after a sent form, with a "Glöm mig" link                              | The plan answered with "Go", as a "Default" that never reached the register                                                                                         | No                                                                        | Cut, taking back this Default                                                              |
 | The limits: 60 forms a minute per customer, 10 a minute per visitor, 20 seconds to wait for the CRM, a form sent twice answers the first outcome for a day | The 60 in the 130 question, a limit per visitor in the 137 design, the one-day answer in the 130 design; the numbers 10 and 20 seconds were the build's tuning      | Yes, as protection                                                        | Keep                                                                                       |
 | Core's web process waits for the CRM's answer while the visitor waits                                                                                      | Named as a departure in the 130 design                                                                                                                              | Yes                                                                       | Keep                                                                                       |
@@ -112,14 +113,16 @@ look heavy is nine fields and two lines on the tenant page.
    field counts as yes. The root is older than the forms: typing only a new Vitec password
    already lost the username; the forms build put eight more fields into the same login.
 2. `[core]` **The bot check is off whenever its keys are missing** (known bug 4). Patric decided
-   the check is on from the first form (138); the build lets every form through when its two
-   keys are unset, which is the case on staging and live, and the reply of 2026-10-04 mentioned
-   it as a note, not a question. A program posting straight to Core then meets only the limits:
-   the hidden trap field and the minimum time live in the form window, which such a program
-   skips; the limit per visitor reads the first address in a header the sender can write to,
-   and whether the hosting platform cleans that header is not checked; and a program can use up
-   the customer's 60 forms a minute, so real visitors are refused. The Settings page of the admin
-   area does not list the two keys, so nobody can see that they are missing.
+   the check is on from the first form, with a hidden trap field, a minimum time and the limits
+   always on as Core's own measures (138); the build lets every form through when its two keys
+   are unset, which is the case on staging and live, and the reply of 2026-10-04 mentioned it as
+   a note, not a question. A program posting straight to Core then meets only the limits: the
+   build checks the trap field and the minimum time only in the form window, not in Core, so such
+   a program skips them; the limit per visitor reads the first address in a header the sender
+   can write to, and whether the hosting platform cleans that header is not checked; and a
+   program can use up the customer's 60 forms a minute, so real visitors are refused. The
+   Settings page of the admin area does not list the two keys, so nobody can see that they are
+   missing.
 3. `[crm-vitec]` **No form has reached a real Vitec.** Every call ran against the test stand-in;
    the first real send waits on a demo or test customer from Vitec (54 f).
 4. `[core]` **A customer with several offices cannot receive the free valuation.** The footer's
@@ -163,13 +166,15 @@ look heavy is nine fields and two lines on the tenant page.
     the intake source and the interest's status are left out, so Vitec's own choices apply. The
     address check uses the bell address's site.
   - Fixed: a save keeps every stored login field that was not typed (known bug 3, needed for the
-    CRM password and for a new Vitec password). Without the bot check's keys Core refuses forms,
-    reads the visitor's address the way the hosting platform documents, and the Settings page
-    lists the two keys (known bug 4).
+    CRM password and for a new Vitec password). Without the bot check's keys Core refuses forms;
+    Core checks the trap field and the minimum time itself, as 138 a decided, without changing
+    the form's data shape; Core reads the visitor's address the way the hosting platform
+    documents; and the Settings page lists the two keys (known bug 4).
   - Kept: everything marked "Keep" above, including the server door, the fourth browser call and
     the CRM password.
-  - Protected paths it changes: the tests listed under acceptance criteria 43, 44, 46 and 48, and
-    their names in `acceptance/criteria.json`; the criteria's own words stay.
+  - Protected paths it changes: `acceptance/setup.ts`, `acceptance/submissions.test.ts`,
+    `acceptance/forms-widget.test.ts` and the test names in `acceptance/criteria.json`; the
+    criteria's own words stay.
 - **b) Hide.** Everything stays, and the forms fields fold into a closed "Advanced" box on the
   connection. Both defects are fixed: the settings leave the login, show their stored values and
   draw their choices, and the bot check is fixed as in a. The parts that were never asked stay.

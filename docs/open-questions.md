@@ -27,9 +27,11 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   memory go; Core sends no form unless its environment allows it (staging and local runs send
   nothing, live sends); a booking always asks Vitec for its e-mail confirmation, with no SMS and
   no reminder, and the other three Vitec choices are left to Vitec; the address check uses the
-  bell address's site; both defects are fixed; the server door, the fourth call and the CRM
-  password stay; the tests under acceptance criteria 43, 44, 46 and 48 change (a protected
-  path, approved by this answer). b) **hide**: everything stays, the forms fields fold into a
+  bell address's site; both defects are fixed, and Core checks the trap field and the minimum
+  time itself, as 138 a decided; the server door, the fourth call and the CRM password stay;
+  `acceptance/setup.ts`, `acceptance/submissions.test.ts`, `acceptance/forms-widget.test.ts`
+  and the test names in `acceptance/criteria.json` change (protected, approved by this answer;
+  the criteria's own words stay). b) **hide**: everything stays, the forms fields fold into a
   closed "Advanced" box, both defects are fixed. c) **start over**: the forms build leaves Core
   and the site, and each part returns after its own question.
 - Smaller: a, which leaves Core smaller than today and keeps every decision Patric made as its

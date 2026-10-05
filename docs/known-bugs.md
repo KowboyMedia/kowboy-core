@@ -73,19 +73,21 @@ nobody types into those fields.
 
 **What happens.** With `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` unset, which is the case on
 staging and live on 2026-10-05, Core accepts a form without any bot check (`engine/human.ts`,
-`verifyHuman` answers true when no check is set up). Patric decided the check is on from the
-first form (138). A program posting straight to Core then meets only the limits: the hidden trap
-field and the minimum time are checked in the form window, which such a program skips; the limit
-per visitor reads the first address of the `X-Forwarded-For` header, which a sender can write to,
-and whether the hosting platform cleans that header is not checked (`engine/http/forms.ts`,
+`verifyHuman` answers true when no check is set up). Patric decided the check is on from the first
+form, with a hidden trap field, a minimum time and the limits always on as Core's own measures
+(138). A program posting straight to Core then meets only the limits: the build checks the trap
+field and the minimum time only in the form window, not in Core, so such a program skips them; the
+limit per visitor reads the first address of the `X-Forwarded-For` header, which a sender can write
+to, and whether the hosting platform cleans that header is not checked (`engine/http/forms.ts`,
 `addressOf`); and a program can use up the customer's 60 forms a minute, so real visitors are
-refused. The Settings page of the admin area does not list the two keys, so nobody sees that
-they are missing.
+refused. The Settings page of the admin area does not list the two keys, so nobody sees that they
+are missing.
 
 **Why.** The build made "no keys" mean "no check", so the local tests need no Cloudflare
 account, and the same rule holds in every environment.
 
 **What fixing it takes.** Core refuses a form while the keys are missing (the tests give Core a
-stand-in check instead), reads the visitor's address the way the hosting platform documents, and
-the Settings page lists the two keys; the two keys go into the staging and live environments
+stand-in check instead), checks the trap field and the minimum time itself as 138 decided, without
+changing the form's data shape, reads the visitor's address the way the hosting platform documents,
+and the Settings page lists the two keys; the two keys go into the staging and live environments
 before the first form goes live. Done with question 144's answer.
