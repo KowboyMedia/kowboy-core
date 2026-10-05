@@ -776,6 +776,9 @@ browser never sees either.
 
 ### Built 2026-10-04: Core's part (plan item 1)
 
+Reviewed on 2026-10-05 in `docs/forms-review.md`: what each part below is, who decided it,
+whether a form needs it, two defects (known bugs 3 and 4), and question 144 on what stays.
+
 What exists, proved by acceptance criteria 43 to 47 and 49 (`acceptance/submissions.test.ts`)
 against the fake polling CRM, which takes every kind, and the fake webhook CRM, which takes none:
 

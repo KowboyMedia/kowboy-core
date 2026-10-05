@@ -4,10 +4,47 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 144 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 146 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 144. `[core]` The forms build: how is it brought down to what Patric approved?
+
+- 2026-10-05 · Patric: the build "added tons of bloat to the core admin", "you should have
+  asked me about those", "what else did you miss … How can we solve?". The fresh-eyes review,
+  `docs/forms-review.md`, lists every part the build of 2026-10-04 added to Core with who decided
+  it and whether a form needs it: Patric decided the large pieces (129 a, 130, 137 a, 138 a,
+  139, "Go"); six parts were Claude's alone (the "Send forms to Vitec" switch, the "CRM
+  password" field, the site's addresses field, a fourth browser call, the visitor remembered in
+  the browser, the server door kept after 137 a); six Vitec fields were in the design approved
+  with 130 and never asked one by one. Two defects: saving one forms field on a Vitec connection
+  erases its login (known bug 3), and the bot check is off while its keys are missing (known
+  bug 4). Blocked: any cleanup of the forms in Core, and the forms' first release.
+- a) **cut** (recommended): the eight Vitec fields, the addresses field, the count line, the
+  server door and the browser memory go; staging refuses every form by an environment setting
+  instead of the switch; the bot check refuses forms without its keys; what stays is the review's
+  "Keep" list, and the acceptance tests move to the browser door (a protected path, approved by
+  this answer). b) **hide**: everything stays, the forms fields fold into a closed "Advanced" box,
+  the two defects are fixed. c) **start over**: the forms build leaves Core and the site, and each
+  part returns after its own question.
+- Smaller: a, which leaves Core smaller than today and keeps every decision Patric made. Answer
+  a, b or c; with a, any line of the "Keep" list may be struck in the same reply.
+
+## 145. `[core]` A rule for AGENTS.md: everything new in Core's admin area or in what Core runs is asked first
+
+- 2026-10-05 · The handbook already says architecture is decided, not drifted into, and that a
+  reviewer rejects a change no decision asked for; the forms build read "approved with 130" as
+  approval of everything a long design contained, added more while building, and skipped the
+  fresh-eyes review. The proposed words for AGENTS.md, "Stop and ask" (a protected file): "anything
+  new that a person sees in the admin area (a page, a section, a field, a setting, a line) or
+  that runs in Core (a web address, a table or column, an event, a health check, an environment
+  setting, an outside service), even when it follows from an approved design: an approval covers
+  only what its question named, and anything else is its own register question with options
+  before it is built. Text a user reads (the admin area, the form window, Core's answers to
+  sites) never cites a register number, a person, a date or an internal document." Blocked:
+  nothing; it guards the work after 144.
+- Smaller: no, and the rule stays unwritten. Answer yes or no.
 
 ## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite
 

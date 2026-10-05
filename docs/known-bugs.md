@@ -46,3 +46,34 @@ test account's data is simply mixed, is not known.
 is not in its office's list (a question to Vitec, or a look at the list endpoints of the test
 account), and fetch it from there; then the area pages exist and the box names the areas from
 their records. The box and the pills already work without the records (plugin 0.5.3).
+
+## 3. `[core]` Saving one forms field on a Vitec connection erases the connection's Vitec login
+
+**What happens.** On the tenant page, the eight forms fields of a Vitec connection ("Send forms
+to Vitec", the six Vitec choices, "CRM password") start empty, never show what is stored, and
+draw their yes-or-no choices as free text. Typing one of them and saving replaces the stored
+login with only what was typed: a test on 2026-10-05 stored a username and a password, typed
+"yes" in "Send forms to Vitec" and saved, and what remained was `{"send_forms":"yes"}`. The
+connection then can no longer read Vitec. "Yes" with a capital letter counts as no.
+
+**Why.** The forms build stored its settings inside the connection's login document
+(`adapters/vitec/forms.ts`, `settingsOf`), which the admin area never sends to the browser and
+replaces whole when anything is typed (`engine/admin/tenants.ts`, `credentialsOf`).
+
+**What fixing it takes.** Question 144 decides: with a the eight fields go and the bug with them;
+with b the settings leave the login document, show their stored values and draw their choices.
+Until then, nobody types into those fields.
+
+## 4. `[core]` The forms' bot check lets every form through when its keys are missing
+
+**What happens.** With `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` unset, which is the case on
+staging and live on 2026-10-05, Core accepts a form without any bot check (`engine/human.ts`,
+`verifyHuman` answers true when no check is set up). Patric decided the check is on from the
+first form (138).
+
+**Why.** The build made "no keys" mean "no check", so the local tests need no Cloudflare account,
+and the same rule holds in every environment.
+
+**What fixing it takes.** Core refuses a form while the keys are missing, except in the test
+setup, and the two keys go into the staging and live environments before the first form goes
+live. Done with question 144's answer.

@@ -325,7 +325,7 @@ export const vitecAdmin: AdapterAdmin = {
     {
       key: 'send_forms',
       label: 'Send forms to Vitec',
-      help: 'Whether a site’s forms are sent to this office at all. Empty or no: every form is refused before any call to Vitec and nothing is written, while the sites still read the viewing slots. Yes only for an office confirmed as a demo or test customer (question 54 f) or a customer that has gone live; a connection that reads a client’s production office for testing stays at no (Patric, 2026-10-04).',
+      help: 'Whether a site’s forms are sent to this office at all. Empty or no: every form is refused before any call to Vitec and nothing is written, while the sites still read the viewing slots. Yes only for an office confirmed as a demo or test customer or a customer that has gone live; a connection that reads a client’s production office for testing stays at no.',
       options: [{ value: 'yes' }, { value: 'no' }],
     },
     {

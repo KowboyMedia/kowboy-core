@@ -400,7 +400,10 @@ client ports (item 16, first client by question 80).
     journey through the real theme and plugin (AC 48 locally). Left: the theme's optional
     `data-viewing` mark and the deploy of plugin 0.5.7 with the key pasted into the staging site
     (the theme thread), Turnstile's keys in the environments, the lead office for a site with
-    several offices, and the real Vitec send (54 f). Question 105 is settled by it.
+    several offices, and the real Vitec send (54 f). Question 105 is settled by it. **Reviewed
+    2026-10-05** (`docs/forms-review.md`, Patric: "you should have asked me about those"): six
+    parts were added without a question and two defects found (known bugs 3 and 4); nothing more
+    is built or released for the forms in Core until Patric answers 144 (cut, hide or start over).
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in
