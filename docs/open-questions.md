@@ -11,82 +11,94 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 
 ## 146. `[core]` The forms from zero: is this the full list of what must be configurable for a site's forms?
 
-- 2026-10-05 · Patric, answering 144: the forms build of 2026-10-04 is reverted in concept and
-  only what is necessary comes back ("The starting point needs to be zero and go up"), and
-  "First [of] all, list all parts that are required to be configurable on a site level." The
-  list starts from nothing and adds only what a form cannot work without, or what the law asks
-  for. It was read from the forms design (`docs/forms.md`), Core's code as it stands, the CRMs'
-  saved documentation, the Lovable kit's README and Cloudflare's Turnstile pages (plans, updated
-  2026-08-14; hostname management, updated 2026-04-27), and checked by a second agent. Words
-  used: **the bell address** is the address Core calls a site at to tell it that records changed;
-  **the bot check** is Cloudflare Turnstile, which tells a person from a program before a form is
-  accepted, and **its setup** at Cloudflare holds a public key, a secret key and the addresses it
-  works on; **a subdomain** is an address under the site's own, such as www; **an office** is
-  what Vitec calls a customer, one brokerage office with its own customer id.
+- 2026-10-05 · Patric, answering 144: the forms build of 2026-10-04 is reverted in concept and only
+  what is necessary comes back ("The starting point needs to be zero and go up"), and "First [of]
+  all, list all parts that are required to be configurable on a site level." The list starts from
+  nothing and adds only what a form cannot work without, or what the law asks for. It was read from
+  the forms design (`docs/forms.md`), Core's code as it stands, the CRMs' saved documentation, the
+  Lovable kit's README and Cloudflare's Turnstile pages (plans, updated 2026-08-14; hostname
+  management, updated 2026-04-27), and checked by a second agent. Words used: **the bell address**
+  is the address Core calls a site at to tell it that records changed; **the bot check** is
+  Cloudflare Turnstile, which tells a person from a program before a form is accepted, and **its
+  setup** at Cloudflare holds a public key, a secret key and the addresses it works on; **a
+  subdomain** is an address under the site's own, such as www; **an office** is what Vitec calls a
+  customer, one brokerage office with its own customer id; **an environment setting** is a value set
+  where Core runs, not in the admin area.
   - Needed on every site:
 
-    1. **Which site a form comes from.** Core reads the address of the page the form opens on
-       (the browser sends it with every call) and finds the site whose bell address has exactly
-       that address; nothing is typed. This holds only while the pages are on exactly the bell
-       address's address: www and no www count as different, and when a site moves to its own
-       domain at launch, its bell address moves with it, since the old address can go on
-       working for the records while every form on the new domain is refused. The public site
-       key of 137 a is then not needed: it adds no protection, because anyone can read it from
-       the page, so nothing is copied into the plugin and its line leaves the admin area. Two
-       sites on one address cannot be told apart this way; that case gets its own question if
-       it ever comes.
+    1. **Which site a form comes from.** Core reads the address of the page the form opens on (the
+       browser sends it with every call) and finds the site whose bell address has exactly that
+       address; nothing is typed. This holds only while the pages are on exactly the same address as
+       the bell address: www and no www count as different, and when a site moves to its own domain
+       at launch, a person changes its bell address in Core to the new domain as a step of the
+       launch, since the old address can go on working for the records while every form on the new
+       domain is refused. The public site key of 137 a is then not needed: it adds no protection,
+       because anyone can read it from the page, so nothing is copied into the plugin and its line
+       leaves the admin area. Two sites on one address cannot be told apart this way, so Core
+       refuses a form from an address two sites share rather than pick one (today's lookup takes the
+       first it finds).
     2. **Whether the site's forms are on.** A switch in the WordPress plugin's settings, off until
        items 3 and 4 are in place, so a site still being built never shows a form a visitor can
        send. Today the site key plays this part: without it the plugin prints no form window. An
-       agent can set the switch with the site's deploy, so it never waits on the admin area's
+       agent sets it with the site's deploy once the deploy script carries it (until then, a deploy
+       that writes the plugin's settings would turn it off), so it never waits on the admin area's
        sign-in.
     3. **The privacy page the consent line links to.** It is WordPress's own setting (Settings,
        Privacy), which the plugin hands to the form window; nothing new.
     4. **The site's address in the bot check's setup at Cloudflare.** Turnstile works only on the
-       addresses listed in its setup, and a listed address covers its subdomains. Cloudflare's
-       free plan allows ten addresses per setup and twenty setups.
+       addresses listed in its setup, and a listed address covers its subdomains. Cloudflare's free
+       plan allows ten addresses per setup and twenty setups.
 
   - Needed only in later cases, so nothing is built for them now:
 
-    5. **A typed address for a site whose pages cannot be on its bell address**: a Lovable site,
-       whose bell address is at Supabase, and a site Kowboy does not build. A field on the site in
-       the admin area, empty by default. No such site has forms today.
+    5. **A typed address for a Lovable site**, whose bell address is at Supabase and not on its own
+       domain: a field on the site in the admin area, empty by default. No Lovable site has forms
+       today. A site Kowboy does not build has no bell address at all, so Core cannot hold it as a
+       site today; giving such a site the forms is a question of its own.
     6. **The office that receives a free valuation**, for a brokerage with more than one office,
-       since the valuation is the one form with no home to name its office. Whether the site
-       names the office or the visitor picks one is asked when such a brokerage gets the forms.
+       since the valuation is the one form with no home to name its office. Whether the site names
+       the office or the visitor picks one is asked when such a brokerage gets the forms.
     7. **Which bot-check setup the site uses**, from the eleventh site on Cloudflare's free plan,
-       since one setup covers ten addresses and each setup has its own keys. Cloudflare's
-       Enterprise plan offers one setup for any address instead.
+       since one setup covers ten addresses and each setup has its own keys. Cloudflare's Enterprise
+       plan offers one setup for any address instead.
 
   - Needed beyond the site, for the forms to work at all:
 
-    8. **The bot check's two keys**, the public key and the secret key of one setup: two
-       environment settings of Core, so the admin area shows nothing.
+    8. **The bot check's two keys**, the public key and the secret key of one setup: two environment
+       settings of Core, so the admin area shows nothing. Without them Core refuses every form,
+       where today it lets every form through (known bug 4); the tests use a stand-in check.
     9. **Whether Core may send forms at all**: one environment setting of Core, off on staging and
-       on local runs, on for the live Core, so no test form reaches a brokerage's real CRM. It
-       replaces the "Send forms to Vitec" switch on every Vitec connection.
+       on local runs, so nothing sent from them reaches a CRM, and on for the live Core, where every
+       form is real. When Vitec sets up the demo or test customer of question 54 f, the same setting
+       on staging names that one connection, so the test send happens on staging. It replaces the
+       "Send forms to Vitec" switch on every Vitec connection.
     10. **Vitec's password for its CRM part**, a field on a Vitec connection: Vitec grants its
         interface in parts, each with its own password per office or group of offices, and the
         search profile of the last step ("Söker du bostad?") is in the CRM part. Without it, the
-        last step does not show for that office's forms. Needed only where the last step is
-        wanted.
+        last step cannot be sent for that office. Hiding the step there needs the adapter to tell
+        Core per connection which forms it takes, instead of one fixed list per CRM: a change to the
+        adapter interface, which is protected, so a yes here approves it; the alternative is that a
+        Vitec office's forms go on only once its password is in place. Needed only where the last
+        step is wanted.
 
-  - Needed per brokerage, but not a setting: the agreement that makes Kowboy the brokerage's
-    processor of personal data names the forms, which the law asks for before a brokerage's
-    forms go live. Not settings in Core: the form window's look (the theme's colours and font)
-    and which forms a page shows (the theme's buttons).
-  - Not needed, so left out unless Patric names one: the "Send forms to Vitec" switch, the six
-    Vitec choices, the site key and its line, and the form counts. In place of the six choices, a
-    booking always asks Vitec for the e-mail confirmation the form window promises ("Du får en
-    bekräftelse från mäklaren"), with no SMS and no reminder; the lead source, the intake source
-    and an interest's status are left out, so Vitec chooses (its documentation says an interest
-    then gets its preselected lead source, and says nothing for the booking and the valuation).
-  - Blocked: the rebuild of the forms. Nothing is removed from staging until the list stands;
-    then the forms build leaves Core, and only what the list names comes back, every other part
-    asked first (`AGENTS.md`, "Stop and ask").
+  - Needed per brokerage, but not a setting: Kowboy handles the visitor's details for the brokerage
+    while a form passes through, which makes Kowboy the brokerage's processor of personal data, and
+    the agreement that governs this names the forms before the brokerage's forms go live, as the law
+    asks; whether it must also name Cloudflare, whose bot check runs in the visitor's browser, is
+    for the agreement's author to settle. Not settings in Core: the form window's look (the theme's
+    colours and font) and which forms a page shows (the theme's buttons).
+  - Not needed, so left out unless Patric names one: the "Send forms to Vitec" switch, the six Vitec
+    choices, the site key and its line, and the form counts. In place of the six choices, a booking
+    always asks Vitec for a confirmation by e-mail, so the form window's promise ("Du får en
+    bekräftelse från mäklaren") holds, with no SMS and no reminder; the lead source, the intake
+    source and an interest's status are left out of the calls. Vitec documents what it does then
+    only for an interest's lead source: it uses its preselected one.
+  - Blocked: the rebuild of the forms. Nothing is removed from staging until the list stands; then
+    the forms build leaves Core, and only what the list names comes back, every other part asked
+    first (`AGENTS.md`, "Stop and ask").
 
-- a) **yes**: the list is right, and the rebuild brings up these settings and no other setting.
-  b) **no**: name the numbers to strike, or what to add.
+- a) **yes**: the list is right, and the rebuild brings up these settings and no other setting. b)
+  **no**: name the numbers to strike, or what to add.
 - Smaller: a.
 
 ## 147. `[crm-vitec]` The offices of a Vitec connection: typed by a super admin, listed by the client, or read from Vitec?
