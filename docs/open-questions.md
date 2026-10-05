@@ -101,83 +101,39 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   **no**: name the numbers to strike, or what to add.
 - Smaller: a.
 
-## 149. `[crm-vitec]` How does a session get to use the login saved on the svenskamaklarhuset.se tenant?
-
-- 2026-10-05 · Patric answered 148 with Vitec's test account of Svenska Mäklarhuset, where any
-  office reads: `G12` is the id put in each call (a group id, "a placeholder/wildcard"), not a
-  login, and the Connect username and password are the ones saved on the staging tenant
-  svenskamaklarhuset.se (Patric, 2026-10-05 20:31Z and 20:32Z). The login in the environment
-  (Norban's) answers 403 for `G12` on every call. A session cannot reach a login saved in the
-  admin area: Core stores it encrypted in its database and never returns it, and sessions have
-  no admin sign-in and no database access (reading the staging database credentials through
-  DigitalOcean was refused by the permission check on an earlier day). Blocked: question 147.
-- a) **environment** (recommended): Patric saves the same username and password in the
-  project's cloud environment as `VITEC_G12_USERNAME` and `VITEC_G12_PASSWORD`; a fresh session
-  lists `G12`'s offices (`GET Advertising/Office/G12`, `GET Office/GetOffice?CustomerId=G12`) and
-  reads each office with the single-office method, with reads only, as often as needed.
-  b) **button**: the existing "Check the login" on a saved Vitec connection lists the offices
-  behind each id and reads each one with the login Core holds, and says what it found; Patric
-  signs in, presses it once on that tenant and reports the result. It changes what an existing
-  button says, and every later check costs Patric a sign-in.
-- Smaller: a, which changes nothing in Core. Answer a or b.
-
-## 147. `[crm-vitec]` The offices of a Vitec connection: typed by a super admin, listed by the client, or read from Vitec?
+## 147. `[crm-vitec]` Where does a Vitec connection's office list come from?
 
 - 2026-10-05 · Patric: the list of offices a Vitec connection syncs "needs to be maintained by a
-  super admin which is inconvenient"; two ideas, an API method that lists every office (checked
-  office by office before it is trusted) or a list the client's admin keeps, each added id checked
-  against Vitec's single-office method; "which is your best idea? Discuss first."
-- What Vitec offers, checked on 2026-10-05 against every method on Vitec Connect's help site (the
-  advertising, public advertising, CRM, lead, authentication, business-intelligence, report,
-  message, service, AML, economy and my-pages sections): every method takes a customer id
-  (`M30011` and the like, or a group `G2`); none lists the customers a login may read. Vitec's
-  technical page says that overview is on its partner portal, a website for people, and that
-  Vitec grants rights per customer after the customer orders. A Vitec password is issued per
-  customer (or group) and function group, so one key pair reads exactly one customer or one
-  group. Verified with the login in the environment: its own customer id answers 200, four other
-  ids (two from Vitec's examples, a group id, a tenant id) answer 403 "Access violation on
-  resources", and an id that is not a customer id answers 400. The office list for the login's
-  customer id (`GET Advertising/Office/{customerId}`) returns exactly its one office, and the
-  single-office method answers 200 for that office: the list names nothing the login cannot read.
-  Not verifiable here: whether a group id lists every office of a chain, each with its own
-  customer id, and whether Vitec issues the advertising password for a group at all; that needs
-  a group key pair (question 149).
-- What this means for the two ideas. Idea one, a method that lists every office: it does not
-  exist for a login; it exists for one customer or group id, and for a single-office customer it
-  returns the id typed. Idea two, the client's admin keeps the list and Core checks each id: the
-  check already exists ("Check the login" on the tenant's page calls the office list per id, 200
-  is yes and 403 is no), but a key pair reads one customer, so every id but the one Vitec issued
-  the password for is refused; the client could only ever add the id the super admin already
-  holds, because the password and its customer id sit side by side on Kowboy's partner portal,
-  which the client never sees. It adds a Core endpoint and a plugin page without removing a step.
-  Today, a single-office brokerage means one id typed once at setup and never touched again; the
-  only list that changes over time is a chain's.
-- 2026-10-05 19:26Z · Patric: "Not answering yet, the options will change after 148." His
-  order of preference for where the list comes from: Vitec first, the site's own admin second,
-  the super admin third; "lets try find a way from vitec, if not, suggest the optimal solution
-  for secondary". He answered 148 with the Vitec test account of Svenska Mäklarhuset, group
-  `G12`, on which any office reads. Tried the same day with the login in the environment: every
-  call for `G12` answers 403 "Access violation on resources" (the office list, the estate list,
-  the agent list, `Office/GetOffice`), so that login's password does not cover `G12`; Vitec
-  issues a password per customer or group. The two candidate methods for the list, both readable
-  with an advertising password: `GET Advertising/Office/{groupId}` (one row per office with its
-  own customer id) and `GET Office/GetOffice?CustomerId={groupId}` (every office with its customer
-  id, sub-offices included). Each office the list returns is then read with the single-office
-  method before it is trusted. Blocked on question 149, the password for `G12`. The options below
-  are rewritten once the group list has been tried.
-- a) **one id, the rest from Vitec** (recommended): a connection holds the key pair and the one
-  customer or group id Vitec issued it for; Core asks Vitec for the office list behind that id at
-  setup and at every daily comparison, and syncs what it returns, so a chain's offices come and go
-  by themselves. The super admin types one id once, at the same moment as the password, and keeps
-  no list; nothing changes on screen for Norban beyond the field holding one id. Supersedes the
-  decisions of 2026-09-16 (the offices as the fetch scope) and 2026-09-21 (a connection names at
-  least one office) with "a connection names its one id". The chain case is built only after the group list
-  has been tried (question 149). b) **the client keeps the list**: a new page in the site's plugin and a new Core
-  endpoint that checks each id against Vitec and stores it; same step for the super admin as
-  today, one page and one endpoint more. c) **as is**: the super admin types the ids; one id, once,
-  for a single-office brokerage.
-- Smaller: a, which removes a list and adds nothing a person sees. Blocked: nothing today; the
-  chain case, when the first chain arrives. Answer a, b or c.
+  super admin which is inconvenient"; his order of preference: from Vitec first, kept by the
+  site's own admin second, typed by the super admin third, and before Vitec's list is trusted,
+  each office it names is read on its own.
+- What Vitec offers (every method on Vitec Connect's help site, checked 2026-10-05): every call
+  names a customer id (`M30011`) or a group id (`G2`); no call lists the customers a login may
+  read. The advertising office list, `GET Advertising/Office/{id}`, returns one row per office
+  with that office's own customer id. With Norban's login and its own customer id it returns its
+  one office, which then reads on its own; any other id answers 403, an id that is not a customer
+  or group id 400. For a group: `G12` (Vitec's test account of Svenska Mäklarhuset) is an id for
+  the calls, and with that tenant's login any office reads (Patric, closing 148). The list for
+  `G12` itself could not be tried: the login sits on the staging tenant svenskamaklarhuset.se,
+  and the one-time check by staging Core that Patric allowed (149) was refused by this session's
+  permission check. That a group id lists the group's offices rests on Vitec's technical page
+  ("a group of customers can be called by its group number"), the list's per-row customer id,
+  and Patric's word; Core's own load proves it the first time a connection names a group id.
+- What option a changes in Core: the connection's field "Offices it may see" gives way to one id
+  typed next to the Connect username and password, the customer or group id Vitec issued the
+  password for (part of the adapter's login, so no engine change); the connection's own office
+  list is left empty, which the engine already reads as "every office the login can see"
+  (`engine/ingest.ts`), so the rule of 2026-09-21 that a connection names at least one office is
+  reversed; the adapter asks Vitec's office list for the id at the first load and at each daily
+  comparison, reads each listed office on its own, and loads only offices that read; an office
+  that leaves the list is removed with its records, as an estate that leaves the list is today.
+- a) **from Vitec** (recommended): one id typed once, next to the password; the offices come and
+  go with Vitec's list. b) **the site's admin keeps the list**: a page in the site's plugin where
+  the brokerage adds office ids, and a new Core address the plugin calls; Core reads each id with
+  Vitec's single-office call and stores it on a yes, refuses it on a no. c) **as is**: the super
+  admin types the office ids.
+- Smaller: a, which takes a field away and adds no page and no address. Blocked: nothing; the
+  first chain customer. Answer a, b or c.
 
 ## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite
 

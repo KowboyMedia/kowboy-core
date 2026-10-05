@@ -91,3 +91,20 @@ stand-in check instead), checks the trap field and the minimum time itself as 13
 changing the form's data shape, reads the visitor's address the way the hosting platform documents,
 and the Settings page lists the two keys; the two keys go into the staging and live environments
 before the first form goes live. Done with question 144's answer.
+
+## 5. `[core]` Staging's worker runs out of database connections when it starts
+
+**What happens.** When staging Core's worker restarted on 2026-10-05 at 20:35:45Z, its first
+second logged seven times "remaining connection slots are reserved for roles with the SUPERUSER
+attribute", each from the Vitec adapter's state reads (`store.getState` under `pauseOf`,
+`skippedOffices`, `drainOnce`), each reported by Node as a promise rejection handled late. A
+minute later it ran normally, and Core's health answer showed the database as fine.
+
+**Why.** Not established. The managed database admits a fixed number of connections; during a
+deploy the old and the new web and worker processes are all connected at once, each with its own
+pool, which can fill the slots for a moment. That the rejections were handled late suggests the
+drain's parallel state reads start before anything awaits them.
+
+**What fixing it takes.** Read the pool sizes against the database's connection limit, and make
+the drain's first reads awaited where they start; seen in the worker log read through
+DigitalOcean.
