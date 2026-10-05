@@ -408,7 +408,15 @@ client ports (item 16, first client by question 80).
     not cut down; in concept the build is reverted and only what is necessary comes back, every
     part asked first (`AGENTS.md`, "Stop and ask", 145). The first step is question 146, the list
     of what a site must be able to configure; nothing is removed from staging or built for the
-    forms until it stands.
+    forms until it stands. **146 answered 2026-10-05** (`docs/decisions.md`): every setting is
+    the site's own or automatic. Open: where the forms live (150, a separate app in Core's
+    repository recommended), the Vitec search-profile step (151, skip recommended) and no CRM send
+    outside the live service (152, a Default). The rebuild's first unknown, tested before anything
+    is built on it: whether Cloudflare's bot check, inside a frame served from the forms' own
+    address, checks that address rather than the site's (Cloudflare's pages do not say); if it
+    does, one address at Cloudflare covers every site, with no list to keep, no Cloudflare key and
+    no limit of ten sites per setup. Nothing is built until 150 is answered and the rebuild's
+    parts are asked as lines.
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in
