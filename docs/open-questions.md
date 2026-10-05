@@ -89,13 +89,17 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   proposed leaving it out; Patric's answers did not settle it), so whether that happens for a site's
   interest is not known; such a profile follows the home the interest names, not the visitor's
   wishes.
+- Patric approved the form designs on 2026-10-05 at 21:38 (UTC), the screens of round 9 in another
+  thread: their progress bars count this step as the last one, two steps in the interest's window
+  and three in the booking's, though the step's own screen was not among them. With a, a Vitec
+  site's windows show one step fewer than those screens.
 - a) **skip** (recommended): on a Vitec site the forms end at the interest, the booking or the
-  valuation, and the box "Kontakta mig om min nuvarande bostad" moves to the contact step; Vitec
-  is the only CRM with forms today, so the profile step is not built in the rebuild, and it comes
-  back when a brokerage asks for it. b) **keep**: each brokerage first orders the CRM part from
-  Vitec for Kowboy, then its connection gets that part's password, typed in the admin area; until
-  then the step is hidden for that office, which needs the adapter interface change named in 146's
-  item 10.
+  valuation, one step fewer than the approved screens, and the box "Kontakta mig om min nuvarande
+  bostad" moves to the contact step; Vitec is the only CRM with forms today, so the profile step
+  is not built in the rebuild, and it comes back when a brokerage asks for it. b) **keep**, as in
+  the approved screens: each brokerage first orders the CRM part from Vitec for Kowboy, then its
+  connection gets that part's password, typed in the admin area; until then the step is hidden
+  for that office, which needs the adapter interface change named in 146's item 10.
 - Smaller: a. Blocked: nothing now; the rebuild's Vitec part. Answer a or b.
 
 ## 152. `[core]` Default: a staging or test run of the forms never sends a form to a CRM; only the live one does, with no setting
