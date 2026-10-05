@@ -404,8 +404,11 @@ client ports (item 16, first client by question 80).
     2026-10-05** (`docs/forms-review.md`, Patric: "you should have asked me about those"): most of
     the admin fields came through two documents answered as a whole (130 and the "Go" plan), four
     things were added during the build with no question, and two defects were found (known bugs 3
-    and 4); nothing more is built or released for the forms in Core until Patric answers 144 (cut,
-    hide or start over).
+    and 4). **From zero, 2026-10-05** (Patric, answering 144): the forms are rebuilt from zero,
+    not cut down; in concept the build is reverted and only what is necessary comes back, every
+    part asked first (`AGENTS.md`, "Stop and ask", 145). The first step is question 146, the list
+    of what a site must be able to configure; nothing is removed from staging or built for the
+    forms until it stands.
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in

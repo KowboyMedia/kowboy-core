@@ -777,7 +777,10 @@ browser never sees either.
 ### Built 2026-10-04: Core's part (plan item 1)
 
 Reviewed on 2026-10-05 in `docs/forms-review.md`: what each part below is, who decided it,
-whether a form needs it, two defects (known bugs 3 and 4), and question 144 on what stays.
+whether a form needs it, and two defects (known bugs 3 and 4). Patric answered the same day that
+the forms are rebuilt from zero, not cut down (question 144): in concept everything under "Built
+2026-10-04" is reverted and only what is necessary comes back, starting with the list of what a
+site must be able to configure (question 146).
 
 What exists, proved by acceptance criteria 43 to 47 and 49 (`acceptance/submissions.test.ts`)
 against the fake polling CRM, which takes every kind, and the fake webhook CRM, which takes none:

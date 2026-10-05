@@ -4,55 +4,53 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 146 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 147 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 144. `[core]` The forms build: how is it brought down to what Patric approved?
+## 146. `[core]` The forms from zero: is this the list of what a site must be able to configure?
 
-- 2026-10-05 · Patric: the build "added tons of bloat to the core admin", "you should have
-  asked me about those", "what else did you miss … How can we solve?". The fresh-eyes review,
-  `docs/forms-review.md`, lists every part the build of 2026-10-04 added to Core with who decided
-  it and whether a form needs it. Patric decided the large pieces as their own questions (129 a,
-  131, 137 a, 138 a, 139, 141 a). Most of what fills the admin area came through two documents
-  answered as a whole, the 130 design and the plan answered with "Go": the six Vitec fields, the
-  count line, the server door, the visitor remembered in the browser. Four things were added
-  during the build with no question: the "Send forms to Vitec" switch, the "CRM password" field,
-  the typed addresses and a fourth browser call. Two defects: saving one forms field on a Vitec
-  connection erases its login (known bug 3), and the bot check is off while its keys are missing
-  (known bug 4). Blocked: any cleanup of the forms in Core, and the forms' first release.
-- a) **cut** (recommended), which takes back parts approved inside the 130 design and the "Go"
-  plan: the switch, the six Vitec fields, the typed addresses, the count line and the browser
-  memory go; Core sends no form unless its environment allows it (staging and local runs send
-  nothing, live sends); a booking always asks Vitec for its e-mail confirmation, with no SMS and
-  no reminder, and the other three Vitec choices are left to Vitec; the address check uses the
-  bell address's site; both defects are fixed, and Core checks the trap field and the minimum
-  time itself, as 138 a decided; the server door, the fourth call and the CRM password stay;
-  `acceptance/setup.ts`, `acceptance/submissions.test.ts`, `acceptance/forms-widget.test.ts`
-  and the test names in `acceptance/criteria.json` change (protected, approved by this answer;
-  the criteria's own words stay). b) **hide**: everything stays, the forms fields fold into a
-  closed "Advanced" box, both defects are fixed. c) **start over**: the forms build leaves Core
-  and the site, and each part returns after its own question.
-- Smaller: a, which leaves Core smaller than today and keeps every decision Patric made as its
-  own question. Answer a, b or c; with a, any line of the review's "Keep" list may be struck in
-  the same reply.
-
-## 145. `[core]` A rule for AGENTS.md: everything new in Core's admin area or in what Core runs is its own line in a question first
-
-- 2026-10-05 · The handbook already says architecture is decided, not drifted into, one decision
-  per question, and that a reviewer rejects a change no decision asked for. The forms build read
-  one yes to a long design as approval of everything in it, added its own means while building,
-  and skipped the review that would have caught both. The proposed words for AGENTS.md, "Stop and
-  ask" (a protected file): "anything new that a person sees in the admin area (a page, a section,
-  a field, a setting, a line) or that runs in Core (a web address, a table or column, an event, a
-  health check, an environment setting, an outside service) is named as its own line in a
-  register question before it is built, even inside a design: an approval covers only the lines
-  its question listed, a round may still be answered 'ok' for all of them, and anything the build
-  finds it needs beyond them is a new question, not a choice. Text a user reads (the admin area,
-  the form window, Core's answers to sites) never cites a register number, a person, a date or an
-  internal document." Blocked: nothing; it guards the work after 144.
-- Smaller: no, and the rule stays unwritten. Answer yes or no.
+- 2026-10-05 · Patric, answering 144: the forms build of 2026-10-04 is reverted in concept and
+  only what is necessary comes back ("the starting point needs to be zero and go up"), and "First
+  of all, list all parts that are required to be configurable on a site level." The list starts
+  from nothing and adds only what a form cannot reach the CRM without, or what the law asks for.
+  It was read from the forms design (`docs/forms.md`), the CRMs' saved documentation, the Lovable
+  kit's README and Cloudflare's Turnstile pages (plans, updated 2026-08-14; hostname management,
+  updated 2026-04-27).
+  - Needed on every site, with nothing typed in Core:
+    1. **Which site a form comes from.** Core reads it from the address of the page the form
+       opens on. For a WordPress site that is the address Core already rings the site's bell
+       at, so nothing is typed. The public site key of 137 a is then not needed: nothing is
+       copied into the plugin, and the key's line leaves the admin area. This holds while each
+       site has an address of its own, which every site has today.
+    2. **The privacy page the consent line links to.** It is WordPress's own setting (Settings,
+       Privacy), which the plugin hands to the form window; nothing new.
+  - Needed on every site, outside Core: 3. **The site's address on the bot check's list at Cloudflare.** Turnstile's check works only
+    on the addresses listed on its widget (a listed address covers its subdomains), so each
+    new site's address is added there before its forms go live. Cloudflare's free plan allows
+    ten addresses per widget and twenty widgets.
+  - Needed only in later cases, so nothing is built for them now: 4. **A Lovable site's address**, typed once when the site is added, because a Lovable site's
+    bell address is at Supabase, not on its own domain. No Lovable site has forms today. 5. **The office that receives a free valuation**, for a customer with more than one office,
+    since the valuation is the one form without a home to name its office. Whether the site
+    names the office or the visitor picks one is asked when such a customer gets the forms. 6. **Which bot-check keys the site uses**, from the eleventh site on Cloudflare's free plan,
+    since one widget covers ten addresses and each widget has its own keys. Cloudflare's
+    Enterprise plan offers one widget for any address instead.
+  - Needed for a form to reach the CRM, but not on the site level: per Vitec connection, Vitec's
+    separate password for its CRM part, and only for the search-profile step (Vitec issues one
+    password per customer and per function group); for all of Core, the bot check's two keys and
+    whether Core may send forms at all (the staging Core sends nothing, the live Core sends).
+  - Not needed, so left out unless Patric names one: the "Send forms to Vitec" switch, the six
+    Vitec choices (lead source, intake source, an interest's status, a booking's confirmation by
+    e-mail and by SMS, the reminder), typed addresses on a WordPress site, the site key, and the
+    form counts. Where a choice is left out, Vitec's own default or one fixed value for every site
+    applies; Vitec, for one, attaches a lead to its preselected lead source.
+  - Blocked: the rebuild of the forms. Nothing is removed from staging until the list stands;
+    then the forms build leaves Core, and only what the list names comes back, every part it
+    does not name asked first (`AGENTS.md`, "Stop and ask").
+- a) **yes**: the list is right, and the rebuild brings up these parts and nothing else. b)
+  **no**: name the numbers to strike, or what to add.
+- Smaller: a.
 
 ## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite
 

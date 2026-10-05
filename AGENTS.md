@@ -87,6 +87,7 @@ In addition to the handbook's list, stop and ask when a task needs any of these:
 - a change to the adapter API, a contract, schema, rules ledger, golden master or acceptance criterion
 - a decision the Concept doesn't settle. First ask which side of the seam it belongs on, then pick the smaller option. If both still look reasonable, ask.
 - **a write to a CRM** (a lead, an interest, a booking, a contact, a search profile, even one "test" send) **whose target Patric has not confirmed as a demo or test system: never send it.** The staging site's connections are a client's production connections, and the Vitec login in the environment reads a client's production office; a read is fine there, a write never is (Patric, 2026-10-04).
+- **anything new that a person sees in the admin area** (a page, a section, a field, a setting, a line) **or that runs in Core** (a web address, a table or column, an event, a health check, an environment setting, an outside service): it is named as its own line in a register question before it is built, even inside a design. An approval covers only the lines its question listed, a round may still be answered "ok" for all of them, and anything the build finds it needs beyond them is a new question, not a choice (Patric, 2026-10-05: "you should have asked me about those"). Text a user reads (the admin area, the form window, Core's answers to sites) never cites a register number, a person, a date or an internal document (Patric, 2026-10-05: "that certainly does not belong in production").
 
 ## Definition of done
 
