@@ -4,12 +4,72 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 147 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 149 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
 ## 146. `[core]` The forms from zero: is this the list of what a site must be able to configure?
+## 147. `[crm-vitec]` The offices of a Vitec connection: typed by a super admin, listed by the client, or read from Vitec?
+
+- 2026-10-05 · Patric: the list of offices a Vitec connection syncs "needs to be maintained by a
+  super admin which is inconvenient"; two ideas, an API method that lists every office (checked
+  office by office before it is trusted) or a list the client's admin keeps, each added id checked
+  against Vitec's single-office method; "which is your best idea? Discuss first."
+- What Vitec offers, checked on 2026-10-05 against every method on Vitec Connect's help site (the
+  advertising, public advertising, CRM, lead, authentication, business-intelligence, report,
+  message, service, AML, economy and my-pages sections): every method takes a customer id
+  (`M30011` and the like, or a group `G2`); none lists the customers a login may read. Vitec's
+  technical page says that overview is on its partner portal, a website for people, and that
+  Vitec grants rights per customer after the customer orders. A Vitec password is issued per
+  customer (or group) and function group, so one key pair reads exactly one customer or one
+  group. Verified with the login in the environment: its own customer id answers 200, four other
+  ids (two from Vitec's examples, a group id, a tenant id) answer 403 "Access violation on
+  resources", and an id that is not a customer id answers 400. The office list for the login's
+  customer id (`GET Advertising/Office/{customerId}`) returns exactly its one office, and the
+  single-office method answers 200 for that office: the list names nothing the login cannot read.
+  Not verifiable here: whether a group id lists every office of a chain, each with its own
+  customer id, and whether Vitec issues the advertising password for a group at all; that needs
+  Vitec's word or a group key pair (question 148).
+- What this means for the two ideas. Idea one, a method that lists every office: it does not
+  exist for a login; it exists for one customer or group id, and for a single-office customer it
+  returns the id typed. Idea two, the client's admin keeps the list and Core checks each id: the
+  check already exists ("Check the login" on the tenant's page calls the office list per id, 200
+  is yes and 403 is no), but a key pair reads one customer, so every id but the one Vitec issued
+  the password for is refused; the client could only ever add the id the super admin already
+  holds, because the password and its customer id sit side by side on Kowboy's partner portal,
+  which the client never sees. It adds a Core endpoint and a plugin page without removing a step.
+  Today, a single-office brokerage means one id typed once at setup and never touched again; the
+  only list that changes over time is a chain's.
+- a) **one id, the rest from Vitec** (recommended): a connection holds the key pair and the one
+  customer or group id Vitec issued it for; Core asks Vitec for the office list behind that id at
+  setup and at every daily comparison, and syncs what it returns, so a chain's offices come and go
+  by themselves. The super admin types one id once, at the same moment as the password, and keeps
+  no list; nothing changes on screen for Norban beyond the field holding one id. Supersedes the
+  decisions of 2026-09-16 (the offices as the fetch scope) and 2026-09-21 (a connection names at
+  least one office) with "a connection names its one id". The chain case is built only after 148
+  is answered. b) **the client keeps the list**: a new page in the site's plugin and a new Core
+  endpoint that checks each id against Vitec and stores it; same step for the super admin as
+  today, one page and one endpoint more. c) **as is**: the super admin types the ids; one id, once,
+  for a single-office brokerage.
+- Smaller: a, which removes a list and adds nothing a person sees. Blocked: nothing today; the
+  chain case, when the first chain arrives. Answer a, b or c.
+
+## 148. `[crm-vitec]` Ask Vitec whether one login can cover a chain's offices through a group id
+
+- 2026-10-05 · Option 147 a is verified for a single-office customer and unverified for a chain:
+  Vitec's technical page says a group of customers can be called by its group number (`G2`), the
+  office list accepts a group id as an id (a 403 for a group the login lacks, not a 400), and the
+  business-intelligence methods document "group or customer id", but the advertising office list
+  documents only "customer id" and the login in the environment belongs to a customer without a
+  group. A question to Vitec (connect@vitec.se) settles it: "does the advertising function group
+  issue a password for a group, and does `GET Advertising/Office/{groupId}` then list every office
+  of the group with its own customer id?" A message outside the project is sent only on Patric's
+  word. Blocked: the chain case of 147 a.
+- Smaller: no, and the chain case waits for the first chain. Answer yes (I draft the e-mail for
+  Patric to send) or no.
+
+## 144. `[core]` The forms build: how is it brought down to what Patric approved?
 
 - 2026-10-05 · Patric, answering 144: the forms build of 2026-10-04 is reverted in concept and
   only what is necessary comes back ("the starting point needs to be zero and go up"), and "First
