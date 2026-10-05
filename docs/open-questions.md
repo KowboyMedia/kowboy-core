@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 153 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 154 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
@@ -13,55 +13,89 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 
 - 2026-10-05 · Patric, after answering 146: "I am still not sure this should live in core, the
   more I think about it, it's a separate app, but it can live in the same repo. List pros and
-  cons." Words used: **a program** is a piece of software that runs on its own at the host
-  (DigitalOcean); Core runs as two today, one that answers the sites, the CRM's notifications and
-  the admin area, and one that fetches from the CRMs and tells the sites what changed; **a CRM's
-  code** is its adapter, where the calls that send a form to that CRM live whichever option is
-  picked.
-- The three options:
-  - a) **Inside Core**, in a folder of its own: Core's program that answers the sites also
-    answers the visitors' forms.
-  - b) **A separate app in Core's repository, using Core's database.** A third program of its
-    own, started from Core's one entry point as a third role, so the rule that only that entry
-    point uses both the engine and the CRMs' code still holds. The hosting sends the forms' part
-    of Core's address to it, so no new address is needed. It reads the sites, the homes and the
-    CRM logins from Core's database and sends through each CRM's code; Core's two programs carry
-    none of it.
-  - c) **A separate app with its own data**: its own database and its own copy of each
-    brokerage's CRM login, typed into its own admin area; it reads the homes from Core the way a
-    site does.
-- Pros and cons:
+  cons." The first answer (three options, inside Core recommended) misread his option C as an app
+  that reads the homes from Core and keeps a second register of sites. Patric, 21:56 (UTC): "You
+  have misunderstood option C." His option C is a cloud app that keeps "1 set of Vitec credentials
+  plus token plus office(s) per tenant"; a script tag on the client site binds the forms to
+  buttons and draws the form window; a client-side config carries the property id, the office id,
+  a token, a namespace and the form choices; the form is sent to the cloud app, which checks it,
+  sends it to Vitec and returns the answer; "The only thing the client needs to do, is add our
+  tag to GTM or our wp plugin", with configs per site "token, urlpath, DOMpath, type, theme".
+  "What did I miss, why do we need to rely on core at all?"
+- The answer: it does not need Core. The page already knows the home's and the office's ids (the
+  plugin has them from the site's records, where every home carries its `office_id`), and Vitec's
+  own form call (`GET v2/Advertising/Form/{customerId}/Estate/{estateId}`) returns the home's
+  address and its viewings with their time slots, with the partner login Core already uses (the
+  probe of 2026-10-04 in `docs/forms.md`). What the design still needs:
+  1. **What "authenticated" can mean in a browser.** The token in the tag is public: anyone can
+     read it from the page. What protects a form is that the token works only from its tenant's
+     own site addresses (the browser tells the app which page a call comes from, and another
+     site's page cannot change that), the bot check, which stops programs, and a limit per
+     visitor. The tenant's Vitec password never leaves the app.
+  2. **The bot check across many sites.** Cloudflare's free plan lists ten site addresses per pair
+     of keys, twenty pairs at most; a cloud app serving many customers' sites is the case
+     Cloudflare sells as its Enterprise plan ("Multi-tenant applications such as SaaS platforms
+     serving multiple customer domains", Any Hostname page, updated 2026-04-16). So the app keeps
+     a pair per ten sites and adds each site's address through Cloudflare's interface, or Kowboy
+     pays for Enterprise, or the frame idea is tested (`docs/next-steps.md`, item 21).
+  3. **The home's Vitec id on a site Kowboy does not build.** The interest and the booking need
+     it; such a site must show it in its page address or its markup for "urlpath" or "DOMpath" to
+     read, or only the free valuation works there.
+  4. **The Vitec password twice.** A brokerage whose site also reads through Core has the same
+     Vitec login in Core and in the app, so a changed password goes in both.
+- The two options:
 
-  |                              | a) Inside Core                                                                                  | b) Separate app, Core's database                                                                                                                       | c) Separate app, own data                                                                     |
-  | ---------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-  | Core itself                  | the forms' web door, bot check and log sit in the program that answers the sites                | nothing of the forms in Core's two programs                                                                                                            | unchanged                                                                                     |
-  | The brokerages' CRM logins   | one copy, in Core                                                                               | one copy, in Core's database; the forms program holds the same key Core reads them with                                                                | a second copy, in a second admin area: two places to change a password                        |
-  | Visitors and bots            | reach Core's own program, beside the sites' updates, the CRM's notifications and the admin area | reach only the forms program; a flood or a fault there leaves the sites' updates and the admin area alone                                              | as b                                                                                          |
-  | Health, alerts and errors    | Core's, as today                                                                                | a second place to watch, or a card for the forms program in Core's admin area (a line to ask)                                                          | a second place                                                                                |
-  | Running cost                 | nothing new                                                                                     | one more program on staging and one on live, DigitalOcean's smallest size: $5 a month each (DigitalOcean's App Platform pricing page, read 2026-10-05) | as b, plus its own database                                                                   |
-  | Database connections         | none new                                                                                        | two more programs on the one database cluster that staging and live share, where staging's worker already ran short once (known bug 5)                 | its own database                                                                              |
-  | To build                     | the least                                                                                       | about the same code as a, plus its start, its share of Core's address and its entry in the hosting setup                                               | the most: its own admin area, its own register of sites and logins, a key on Core's interface |
-  | Tied to Core                 | it is Core                                                                                      | reads Core's tables, so a change there must keep it working (the shared tests catch that); released with Core                                          | only through Core's interface, like a site                                                    |
-  | A site Kowboy does not build | later: Core must first be able to hold a site that has no bell address (146, item 5)            | later, the same                                                                                                                                        | possible, at the costs above                                                                  |
-  | Rules that change            | none                                                                                            | a new top-level folder, the layout in `AGENTS.md`, and the check that keeps CRM names out of Core covering that folder; each asked as its own line     | `AGENTS.md` and the strategy: a second product                                                |
+  |                             | a) Cloud app (Patric's option C)                                                                                                                                  | b) Inside Core                                                                                                                     |
+  | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+  | Core itself                 | untouched                                                                                                                                                         | the forms' web door, bot check and log in the program that answers the sites, and an addition to the adapter interface (protected) |
+  | What a form needs           | the home's and office's ids from the page; the address and the viewing times from Vitec's own form call                                                           | the same, through Core                                                                                                             |
+  | The Vitec logins            | a second copy where a brokerage's site also reads through Core                                                                                                    | one copy, in Core                                                                                                                  |
+  | Visitors and bots           | reach only the app                                                                                                                                                | reach Core's own program, beside the sites' updates, the CRM's notifications and the admin area                                    |
+  | Sites Kowboy does not build | yes, by one tag in GTM, where the page shows the home's Vitec id                                                                                                  | no: Core must first be able to hold a site that has no bell address                                                                |
+  | Running cost                | one more program on staging and one on live, DigitalOcean's smallest size: $5 a month each (pricing page read 2026-10-05)                                         | nothing new                                                                                                                        |
+  | To build                    | the form window approved on 2026-10-05, the Vitec calls and the bot check exist from 2026-10-04 and move into the app; new: the tenant list and the site's config | the same parts, plus Core's lookup of the site and the interface change                                                            |
+  | Rules that change           | a new top-level folder, named in `AGENTS.md`'s layout                                                                                                             | the adapter interface, a protected path                                                                                            |
 
-- Why a is recommended: it is the smaller option, and Patric's own rule (the handbook, "Decide
-  architecture") recommends the smaller option and allows no new running service without a need that
-  exists now and is named. No form traffic exists yet, so b's gain, visitors and faults kept away
-  from Core's program, answers a need that has not appeared, at the costs in its column. Kept in a
-  folder of its own, a moves to b later at little cost, since the code is the same either way. b is
-  what Patric leans to: Core's programs keep to reading and serving, for $5 a month more per
-  environment and a second place to watch. c pays off if the forms become a product for sites Kowboy
-  does not build: Patric asked on 2026-10-04 whether the forms are Core's work or a standalone
-  widget for any site, as `docs/forms.md` records his ask, and the forms plan keeps that as a Later
-  line. The separate app weighed on 2026-10-04 (question 129, option B in `docs/forms.md`, "Where
-  the writes live") had its own data, which is c here.
-- The same whichever is picked: the calls that send a form live in each CRM's code, which needs an
-  addition to the adapter interface (protected), asked when the rebuild is planned; the answers to
-  146 stand; every new part is asked first as its own line (`AGENTS.md`, "Stop and ask").
-- a) **inside Core** (recommended): nothing new to run. b) **separate app**: a third program in
-  Core's repository, reading Core's database. c) **separate, with its own data**.
-- Smaller: a. Blocked: the rebuild of the forms. Answer a, b or c.
+- Why a is recommended: Core stays untouched, which is what 144 and this question asked for; the
+  forms serve any site, the product door Patric asked about on 2026-10-04 (`docs/forms.md`); and
+  most of the app exists already. b's gains are one program fewer and no second copy of the
+  Vitec password. The separate app on Core's database, offered as b in the first answer, is
+  dropped: it tied the app to Core's tables for the one gain of not keeping the password twice.
+- a) **cloud app** (recommended): Patric's option C, reading nothing from Core. b) **inside
+  Core**.
+- Smaller: a for Core, which it leaves untouched; b runs one program fewer. Blocked: the rebuild
+  of the forms. Answer a or b.
+
+## 153. `[core]` Is this list the cloud app's first version?
+
+- 2026-10-05 · Applies if 150 is a. Patric: "mvp even simpler". Built from zero (144): only what a
+  form cannot work without, in his format where he gave one. Each line is new and is asked here
+  before it is built (`AGENTS.md`, "Stop and ask"):
+  1. **The app**: one program in its own top-level folder of Core's repository, run by the same
+     host beside Core, at a path under Core's address (live `core.kowboy.cloud/forms/`, staging
+     `staging.core.kowboy.cloud/forms/`), so nothing changes at the domain host; it reads nothing
+     from Core.
+  2. **The tenants**: per tenant a token, the Vitec login (username and password), its office
+     ids, and the site addresses the token works from; kept as one secret setting of the app, so
+     no database and no admin page; an agent adds a tenant.
+  3. **The tag**: one script tag, added by GTM or by our WordPress plugin when its "Formulär"
+     switch is on (146, item 2); it draws the approved form window and binds it to buttons by the
+     site's config: the token, then per form "urlpath, DOMpath, type, theme" as Patric wrote it,
+     and where the page holds the home's and the office's ids (our plugin writes them on the
+     button).
+  4. **The bot check**: Turnstile, its keys as secret settings of the app; each site's address is
+     put on Cloudflare's list when its tenant is added. It takes a Cloudflare account and one key
+     of Cloudflare's, created once.
+  5. **The Vitec calls**: the interest, the viewing booking with its times read from Vitec when
+     the window opens, and the free valuation; the profile step as 151 decides.
+  6. **The guard**: staging never sends to a CRM (152).
+  7. **The log**: each form's outcome (sent, refused, failed) with no personal data, errors
+     reported the way Core's are, and a health check the host watches.
+- Not in it: an admin page, a database, form counts, Mspecs, Lovable's own setup beyond the tag,
+  and anything in Core.
+- a) **yes** (recommended): built as listed once 150 is a. b) **no**: name the lines to strike or
+  what to add.
+- Smaller: a. Blocked: the cloud app. Answer a or b.
 
 ## 151. `[crm-vitec]` Should Vitec sites skip the "Söker du bostad?" step?
 
@@ -95,26 +129,28 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   site's windows show one step fewer than those screens.
 - a) **skip** (recommended): on a Vitec site the forms end at the interest, the booking or the
   valuation, one step fewer than the approved screens, and the box "Kontakta mig om min nuvarande
-  bostad" moves to the contact step; Vitec is the only CRM with forms today, so the profile step
-  is not built in the rebuild, and it comes back when a brokerage asks for it. b) **keep**, as in
-  the approved screens: each brokerage first orders the CRM part from Vitec for Kowboy, then its
-  connection gets that part's password, typed in the admin area; until then the step is hidden
-  for that office, which needs the adapter interface change named in 146's item 10.
+  bostad" moves to the contact step; Vitec is the only CRM with forms today, so the profile step is
+  not built in the rebuild, and it comes back when a brokerage asks for it. b) **keep**, as in the
+  approved screens: each brokerage first orders the CRM part from Vitec for Kowboy, then its
+  connection gets that part's password, in the admin area inside Core or in the cloud app's tenant
+  list; until then the step is hidden for that office, which inside Core (150 b) needs the adapter
+  interface change named in 146's item 10.
 - Smaller: a. Blocked: nothing now; the rebuild's Vitec part. Answer a or b.
 
 ## 152. `[core]` Default: a staging or test run of the forms never sends a form to a CRM; only the live one does, with no setting
 
-- 2026-10-05 · Patric, on 146's item 9: "Why would I want a setting to disable all forms
-  centrally, I dont understand this option". It was never for turning the forms off on the live
-  service. It existed because staging reads a real brokerage's live office (the Vitec login on
-  staging is a client's production office): without a guard, a form tried on the staging site
-  would land in that brokerage's CRM as a real lead or booking, which the rule of 2026-10-04
-  forbids (`AGENTS.md`, "Stop and ask"). Core already knows which one it is, by the environment
-  name it gives its alerts and error reports (staging, production or local, `engine/config.ts`),
-  so no new setting is needed: the forms send only where that name is production, and everywhere
-  else they stop before the CRM and answer that the form was not sent. This replaces the "Send
-  forms to Vitec" switch on every Vitec connection, and 146's item 9. The first real send to
-  Vitec's test customer (54 f), once that customer exists, is asked then.
+- 2026-10-05 · Patric, on 146's item 9: "Why would I want a setting to disable all forms centrally,
+  I dont understand this option". It was never for turning the forms off on the live service. It
+  existed because staging reads a real brokerage's live office (the Vitec login on staging is a
+  client's production office): without a guard, a form tried on the staging site would land in that
+  brokerage's CRM as a real lead or booking, which the rule of 2026-10-04 forbids (`AGENTS.md`,
+  "Stop and ask"). Core already knows which one it is, by the environment name it gives its alerts
+  and error reports (staging, production or local, `engine/config.ts`), so no new setting is needed:
+  the forms send only where that name is production, and everywhere else they stop before the CRM
+  and answer that the form was not sent. This replaces the "Send forms to Vitec" switch on every
+  Vitec connection, and 146's item 9. The first real send to Vitec's test customer (54 f), once that
+  customer exists, is asked then. The cloud app of 150 a is given the same environment name the same
+  way.
 - Reply only if you disagree: no.
 
 ## 147. `[crm-vitec]` Where does a Vitec connection's office list come from?

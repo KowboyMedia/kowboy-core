@@ -410,19 +410,20 @@ client ports (item 16, first client by question 80).
     of what a site must be able to configure; nothing is removed from staging or built for the
     forms until it stands. **146 answered 2026-10-05** (`docs/decisions.md`): every setting is the
     site's own or automatic, apart from the bot check's keys, one global setting where the forms are
-    received. Open: where the forms live (150, inside Core recommended), the Vitec search-profile
-    step (151, skip recommended) and no CRM send outside the live service (152, a Default). The
-    rebuild's first unknown, tested before anything is built on it: whether Cloudflare's bot check,
-    drawn in a small frame served from Core's address inside the form window, checks that address
-    rather than the site's (Cloudflare's pages do not say). If it does, one address at Cloudflare
-    covers every site, with no list to keep, no Cloudflare key and no limit of ten sites per pair of
-    keys; the form window stays drawn in the page and the site is still found from the page's
-    address; the costs are a frame that only the sites' own pages may show, and Cloudflare seeing
-    one address for every site, so telling the sites apart rests on the form's own address alone;
-    and Cloudflare sells one setup for any address as part of its Enterprise plan, for "Multi-tenant
-    applications such as SaaS platforms serving multiple customer domains" (Any Hostname page,
-    updated 2026-04-16), so its Turnstile terms are read before the test. Nothing is built until 150
-    is answered and the rebuild's parts are asked as lines.
+    received. Open: where the forms live (150, Patric's option C recommended since 21:56: a cloud
+    app that reads nothing from Core; its first version is 153), the Vitec search-profile step (151,
+    skip recommended) and no CRM send outside the live service (152, a Default). The rebuild's first
+    unknown, tested before anything is built on it: whether Cloudflare's bot check, drawn in a small
+    frame served from Core's address inside the form window, checks that address rather than the
+    site's (Cloudflare's pages do not say). If it does, one address at Cloudflare covers every site,
+    with no list to keep, no Cloudflare key and no limit of ten sites per pair of keys; the form
+    window stays drawn in the page and the site is still found from the page's address; the costs
+    are a frame that only the sites' own pages may show, and Cloudflare seeing one address for every
+    site, so telling the sites apart rests on the form's own address alone; and Cloudflare sells one
+    setup for any address as part of its Enterprise plan, for "Multi-tenant applications such as
+    SaaS platforms serving multiple customer domains" (Any Hostname page, updated 2026-04-16), so
+    its Turnstile terms are read before the test. Nothing is built until 150 is answered and the
+    rebuild's parts are asked as lines.
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in
