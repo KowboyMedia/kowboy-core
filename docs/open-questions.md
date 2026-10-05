@@ -46,16 +46,16 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   | Rules that change            | none                                                                                            | a new top-level folder, the layout in `AGENTS.md`, and the check that keeps CRM names out of Core covering that folder; each asked as its own line     | `AGENTS.md` and the strategy: a second product                                                |
 
 - Why a is recommended: it is the smaller option, and Patric's own rule (the handbook, "Decide
-  architecture") recommends the smaller option and allows no new running service without a need
-  that exists now and is named. No form traffic exists yet, so b's gain, visitors and faults kept
-  away from Core's program, answers a need that has not appeared, at the costs in its column. Kept
-  in a folder of its own, a moves to b later at little cost, since the code is the same either
-  way. b is what Patric leans to: Core's programs keep to reading and serving, for $5 a month
-  more per environment and a second place to watch. c pays off if the forms become a product for
-  sites Kowboy does not build: Patric asked on 2026-10-04 whether the forms are Core's work or "a
-  standalone widget for any site", and the forms plan keeps that as a Later line (`docs/forms.md`).
-  The separate app weighed on 2026-10-04 (question 129, option B in `docs/forms.md`, "Where the
-  writes live") had its own data, which is c here.
+  architecture") recommends the smaller option and allows no new running service without a need that
+  exists now and is named. No form traffic exists yet, so b's gain, visitors and faults kept away
+  from Core's program, answers a need that has not appeared, at the costs in its column. Kept in a
+  folder of its own, a moves to b later at little cost, since the code is the same either way. b is
+  what Patric leans to: Core's programs keep to reading and serving, for $5 a month more per
+  environment and a second place to watch. c pays off if the forms become a product for sites Kowboy
+  does not build: Patric asked on 2026-10-04 whether the forms are Core's work or a standalone
+  widget for any site, as `docs/forms.md` records his ask, and the forms plan keeps that as a Later
+  line. The separate app weighed on 2026-10-04 (question 129, option B in `docs/forms.md`, "Where
+  the writes live") had its own data, which is c here.
 - The same whichever is picked: the calls that send a form live in each CRM's code, which needs an
   addition to the adapter interface (protected), asked when the rebuild is planned; the answers to
   146 stand; every new part is asked first as its own line (`AGENTS.md`, "Stop and ask").
@@ -85,9 +85,10 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 - Vitec's own help says Vitec builds a profile by itself from an interest only when the brokerage
   turns automatic profiles on, the interest has the status Interested or higher, and the contact
   allows matching and marketing (`docs/forms.md`, "Read online on 2026-10-04"). The interest call
-  has no field for that consent, and 146 left the status out of the calls, so whether that
-  happens for a site's interest is not known; such a profile follows the home the interest names,
-  not the visitor's wishes.
+  has no field for that consent, and whether the status stays in the call is open (146's list
+  proposed leaving it out; Patric's answers did not settle it), so whether that happens for a site's
+  interest is not known; such a profile follows the home the interest names, not the visitor's
+  wishes.
 - a) **skip** (recommended): on a Vitec site the forms end at the interest, the booking or the
   valuation, and the box "Kontakta mig om min nuvarande bostad" moves to the contact step; Vitec
   is the only CRM with forms today, so the profile step is not built in the rebuild, and it comes
