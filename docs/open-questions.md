@@ -14,36 +14,42 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 - 2026-10-05 · Patric: the build "added tons of bloat to the core admin", "you should have
   asked me about those", "what else did you miss … How can we solve?". The fresh-eyes review,
   `docs/forms-review.md`, lists every part the build of 2026-10-04 added to Core with who decided
-  it and whether a form needs it: Patric decided the large pieces (129 a, 130, 137 a, 138 a,
-  139, "Go"); six parts were Claude's alone (the "Send forms to Vitec" switch, the "CRM
-  password" field, the site's addresses field, a fourth browser call, the visitor remembered in
-  the browser, the server door kept after 137 a); six Vitec fields were in the design approved
-  with 130 and never asked one by one. Two defects: saving one forms field on a Vitec connection
-  erases its login (known bug 3), and the bot check is off while its keys are missing (known
-  bug 4). Blocked: any cleanup of the forms in Core, and the forms' first release.
-- a) **cut** (recommended): the eight Vitec fields, the addresses field, the count line, the
-  server door and the browser memory go; staging refuses every form by an environment setting
-  instead of the switch; the bot check refuses forms without its keys; what stays is the review's
-  "Keep" list, and the acceptance tests move to the browser door (a protected path, approved by
-  this answer). b) **hide**: everything stays, the forms fields fold into a closed "Advanced" box,
-  the two defects are fixed. c) **start over**: the forms build leaves Core and the site, and each
-  part returns after its own question.
-- Smaller: a, which leaves Core smaller than today and keeps every decision Patric made. Answer
-  a, b or c; with a, any line of the "Keep" list may be struck in the same reply.
+  it and whether a form needs it. Patric decided the large pieces as their own questions (129 a,
+  131, 137 a, 138 a, 139, 141 a). Most of what fills the admin area came through two documents
+  answered as a whole, the 130 design and the plan answered with "Go": the six Vitec fields, the
+  count line, the server door, the visitor remembered in the browser. Four things were added
+  during the build with no question: the "Send forms to Vitec" switch, the "CRM password" field,
+  the typed addresses and a fourth browser call. Two defects: saving one forms field on a Vitec
+  connection erases its login (known bug 3), and the bot check is off while its keys are missing
+  (known bug 4). Blocked: any cleanup of the forms in Core, and the forms' first release.
+- a) **cut** (recommended), which takes back parts approved inside the 130 design and the "Go"
+  plan: the switch, the six Vitec fields, the typed addresses, the count line and the browser
+  memory go; Core sends no form unless its environment allows it (staging and local runs send
+  nothing, live sends); a booking always asks Vitec for its e-mail confirmation, with no SMS and
+  no reminder, and the other three Vitec choices are left to Vitec; the address check uses the
+  bell address's site; both defects are fixed; the server door, the fourth call and the CRM
+  password stay; the tests under acceptance criteria 43, 44, 46 and 48 change (a protected
+  path, approved by this answer). b) **hide**: everything stays, the forms fields fold into a
+  closed "Advanced" box, both defects are fixed. c) **start over**: the forms build leaves Core
+  and the site, and each part returns after its own question.
+- Smaller: a, which leaves Core smaller than today and keeps every decision Patric made as its
+  own question. Answer a, b or c; with a, any line of the review's "Keep" list may be struck in
+  the same reply.
 
-## 145. `[core]` A rule for AGENTS.md: everything new in Core's admin area or in what Core runs is asked first
+## 145. `[core]` A rule for AGENTS.md: everything new in Core's admin area or in what Core runs is its own line in a question first
 
-- 2026-10-05 · The handbook already says architecture is decided, not drifted into, and that a
-  reviewer rejects a change no decision asked for; the forms build read "approved with 130" as
-  approval of everything a long design contained, added more while building, and skipped the
-  fresh-eyes review. The proposed words for AGENTS.md, "Stop and ask" (a protected file): "anything
-  new that a person sees in the admin area (a page, a section, a field, a setting, a line) or
-  that runs in Core (a web address, a table or column, an event, a health check, an environment
-  setting, an outside service), even when it follows from an approved design: an approval covers
-  only what its question named, and anything else is its own register question with options
-  before it is built. Text a user reads (the admin area, the form window, Core's answers to
-  sites) never cites a register number, a person, a date or an internal document." Blocked:
-  nothing; it guards the work after 144.
+- 2026-10-05 · The handbook already says architecture is decided, not drifted into, one decision
+  per question, and that a reviewer rejects a change no decision asked for. The forms build read
+  one yes to a long design as approval of everything in it, added its own means while building,
+  and skipped the review that would have caught both. The proposed words for AGENTS.md, "Stop and
+  ask" (a protected file): "anything new that a person sees in the admin area (a page, a section,
+  a field, a setting, a line) or that runs in Core (a web address, a table or column, an event, a
+  health check, an environment setting, an outside service) is named as its own line in a
+  register question before it is built, even inside a design: an approval covers only the lines
+  its question listed, a round may still be answered 'ok' for all of them, and anything the build
+  finds it needs beyond them is a new question, not a choice. Text a user reads (the admin area,
+  the form window, Core's answers to sites) never cites a register number, a person, a date or an
+  internal document." Blocked: nothing; it guards the work after 144.
 - Smaller: no, and the rule stays unwritten. Answer yes or no.
 
 ## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite

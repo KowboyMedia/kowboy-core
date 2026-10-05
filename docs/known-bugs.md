@@ -54,26 +54,38 @@ to Vitec", the six Vitec choices, "CRM password") start empty, never show what i
 draw their yes-or-no choices as free text. Typing one of them and saving replaces the stored
 login with only what was typed: a test on 2026-10-05 stored a username and a password, typed
 "yes" in "Send forms to Vitec" and saved, and what remained was `{"send_forms":"yes"}`. The
-connection then can no longer read Vitec. "Yes" with a capital letter counts as no.
+connection then can no longer read Vitec. It works the other way too: typing a new Vitec password
+erases all eight forms fields and quietly turns "Send forms to Vitec" back to no. "Yes" with a
+capital letter counts as no, and "nej" or a typo in "Confirm a booking by e-mail" counts as yes.
 
-**Why.** The forms build stored its settings inside the connection's login document
-(`adapters/vitec/forms.ts`, `settingsOf`), which the admin area never sends to the browser and
-replaces whole when anything is typed (`engine/admin/tenants.ts`, `credentialsOf`).
+**Why.** The admin area never sends a stored login to the browser, and a save keeps only the
+fields that were typed (`engine/admin/tenants.ts`, `credentialsOf`), replacing the whole stored
+document. That was already true before the forms: typing only a new Vitec password lost the
+username. The forms build put its eight settings into the same document
+(`adapters/vitec/forms.ts`, `settingsOf`).
 
-**What fixing it takes.** Question 144 decides: with a the eight fields go and the bug with them;
-with b the settings leave the login document, show their stored values and draw their choices.
-Until then, nobody types into those fields.
+**What fixing it takes.** A save keeps every stored field that was not typed. With question 144
+a, seven of the eight fields go and only the CRM password stays in the login; with b, the
+settings also leave the login, show their stored values and draw their choices. Until then,
+nobody types into those fields.
 
 ## 4. `[core]` The forms' bot check lets every form through when its keys are missing
 
 **What happens.** With `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` unset, which is the case on
 staging and live on 2026-10-05, Core accepts a form without any bot check (`engine/human.ts`,
 `verifyHuman` answers true when no check is set up). Patric decided the check is on from the
-first form (138).
+first form (138). A program posting straight to Core then meets only the limits: the hidden trap
+field and the minimum time are checked in the form window, which such a program skips; the limit
+per visitor reads the first address of the `X-Forwarded-For` header, which a sender can write to,
+and whether the hosting platform cleans that header is not checked (`engine/http/forms.ts`,
+`addressOf`); and a program can use up the customer's 60 forms a minute, so real visitors are
+refused. The Settings page of the admin area does not list the two keys, so nobody sees that
+they are missing.
 
-**Why.** The build made "no keys" mean "no check", so the local tests need no Cloudflare account,
-and the same rule holds in every environment.
+**Why.** The build made "no keys" mean "no check", so the local tests need no Cloudflare
+account, and the same rule holds in every environment.
 
-**What fixing it takes.** Core refuses a form while the keys are missing, except in the test
-setup, and the two keys go into the staging and live environments before the first form goes
-live. Done with question 144's answer.
+**What fixing it takes.** Core refuses a form while the keys are missing (the tests give Core a
+stand-in check instead), reads the visitor's address the way the hosting platform documents, and
+the Settings page lists the two keys; the two keys go into the staging and live environments
+before the first form goes live. Done with question 144's answer.
