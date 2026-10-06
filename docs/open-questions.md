@@ -4,10 +4,49 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 168 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 169 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 168. `[core]` The Events page: what the event log is for, and what replaces the page
+
+- 2026-10-06 · Patric: "What purpose is the event log? Greenfield it completely from scratch. It
+  is not thought through, it is randomly threwn in there."
+- **What the event log is.** One table in Core's database, `events`: one row for everything
+  that happens, with the time, what happened, the record, the connection, the tenant, the site,
+  a chain id that ties the rows of one happening together (a notification from the CRM, the
+  fetch it caused, the write, the bell, the site's pull) and a few details. Core writes it in
+  every process, keeps it 30 days (decision 2026-09-15; Vitec's notifications stored whole in
+  it, question 63) and never reads a secret into it.
+- **Who reads it today, besides the Events page.** A record's own page reads its timeline from
+  it ("written: askingPrice", "a site took it"). Flow reads it: a record's state is its newest
+  event. The Overview reads it twice: "Needs attention" (an office taken off, a login refused,
+  a connection paused, a site that stopped pulling) and the day's figures per hour. A tenant's
+  page reads, per site, how many records the site applied and failed and its last twenty
+  errors. The alerts mail each attention event once as it is written. Every open admin page
+  follows the log's tail to refresh itself. The acceptance tests read it to prove that a bell
+  went out or a fetch was asked for.
+- **What the Events page adds** over those readers: who did what on the admin area (every save,
+  sign-in and action is an `admin.` event with the person on it); following one chain end to
+  end for support ("why is this home not on the site?"); reading a CRM notification whole; and
+  the raw list for an agent debugging Core. It was built because the rebuild sheet rated "the
+  event log with filters and correlation" and "who did what on the panel" as Musts (docs/admin-panel-rebuild.md §3 F), and it shows the log as it is stored: type names, JSON, and filters
+  typed as numbers. That is what makes it read as thrown in.
+- **What would be lost.** Without the log: every reader above. Without the page alone: the four
+  things it adds; the log and the other pages stand.
+- a) **the same list as Flow, for the past** (recommended): one page, built from zero, that
+  reads like Flow does after this rebuild: plain sentences, newest first, the scope picked with
+  the same picker as Records (tenants, offices, entity types, one id), a "who" filter for the
+  admin area's own doings, and the chain of one happening opened in place. Never a type name or
+  JSON. One code path with Flow: Flow shows the newest state per record, this page shows every
+  step.
+- b) **history on the thing, no page**: a record's page keeps its timeline, a tenant's page
+  gets its history (its connections, its sites, who saved it) and Settings lists who did what
+  on the admin area. Touches the tenant page, which the forms thread is editing.
+- c) **drop the page, change nothing else**: the log stays for the other readers and for agents
+  through the API.
+- Smaller: c. Blocked: the Events rebuild. Answer a, b or c.
 
 ## 167. `[core]` Should the engine hand its one database pool to the CRM adapters, instead of each adapter opening its own?
 

@@ -604,6 +604,35 @@ client ports (item 16, first client by question 80).
       thread); any kind beyond the list is asked first.
     - **Component:** `[core]`, `[admin]`.
 
+27. **Debloat the admin area** (Patric, 2026-10-06, 18:51 UTC: "We need to debloat admin";
+    in progress 2026-10-06, the "Debloat admin" thread). Component: `[core]`, the admin area
+    (`admin/src`, `engine/admin`). What changes for the product, in his words: **Flow** shows
+    "Queued at" first, filters on tenant and office, sorts by "Queued at", the top 100, updated
+    every second. **Records** is built from zero with the same scope as Manual sync (tenants,
+    offices, entity types, one id), the old page and every remnant deleted. **Manual sync** is
+    built from zero beside the old page, then the old one goes: three levels, each also a scope
+    (fetch from the CRM, recompute and send to the sites; recompute and send; send only),
+    default the full one; scope tenants, offices, entity types, one id; "Housekeeping now" goes
+    (the worker runs it every hour); "Runs" becomes an instance of the Flow component, the same
+    code path, scoped to the run. **Events** is answered first (question 168: what the log is
+    for, who reads it, what would be lost) and rebuilt only on his answer. The handbook gained
+    the rule for deletions (version 2026-10-06): inventory the code and the data of a deleted
+    feature and delete what nothing else uses.
+    - Tests: `acceptance/admin.test.ts` (Flow by tenant and office; Records by the shared scope;
+      the three levels of Manual sync) and the browser journeys U3, U4, U5 in
+      `admin/e2e/journeys.spec.ts`, rewritten for the new pages.
+    - Interface: none. `engine/adapter-api` is untouched; the admin API changes are its own
+      (`GET /flow`, `GET /scope`, `GET /records`, the runs calls), which only the app calls.
+    - Defaults taken: Flow's "Queued at first" is read as the first column and the sort key,
+      newest first; the Flow component takes a scope, so the Manual sync page and the Records
+      page render it with theirs; the Removed filter stays on Records because "Needs attention"
+      links an office to its removed homes (question 163).
+    - Decides: 168 (Events). The Manual sync page is a proposal with a screenshot before the old
+      one goes.
+    - Not in it: the record's own page (its three faces and its timeline, decided 2026-09-21),
+      the Overview, the tenant page (the forms and office threads edit it), the CRM pages,
+      Settings.
+
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health
