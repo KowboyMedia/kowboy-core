@@ -41,25 +41,52 @@ export function redact(fields: EventFields): EventFields {
   return out;
 }
 
+/** Told of every event once it is written, in the process that wrote it; the alerts listen here. */
+export type EventListener = (event: EventRow) => void;
+
+let listener: EventListener | null = null;
+
+export function listenToEvents(next: EventListener | null): void {
+  listener = next;
+}
+
+/** The row as it will be written, its id unknown until it is. */
+const toRow = (event: EventInput): EventRow => ({
+  id: '0',
+  at: new Date(),
+  type: event.type,
+  correlation_id: event.correlationId ?? null,
+  tenant_id: event.tenantId ?? null,
+  connection_id: event.connectionId ?? null,
+  datatype: event.datatype ?? null,
+  remote_id: event.remoteId ?? null,
+  subscriber_id:
+    event.subscriberId === undefined || event.subscriberId === null
+      ? null
+      : String(event.subscriberId),
+  fields: redact(event.fields ?? {}),
+});
+
 /** Write one row to the event log. Never throws into the caller's path. */
 export async function logEvent(event: EventInput): Promise<void> {
-  const at = new Date();
+  const row = toRow(event);
   try {
-    await db().query(
+    const { rows } = await db().query<{ id: string }>(
       `insert into events (at, type, correlation_id, tenant_id, connection_id, datatype, remote_id, subscriber_id, fields)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`,
       [
-        at,
-        event.type,
-        event.correlationId ?? null,
-        event.tenantId ?? null,
-        event.connectionId ?? null,
-        event.datatype ?? null,
-        event.remoteId ?? null,
-        event.subscriberId ?? null,
-        JSON.stringify(redact(event.fields ?? {})),
+        row.at,
+        row.type,
+        row.correlation_id,
+        row.tenant_id,
+        row.connection_id,
+        row.datatype,
+        row.remote_id,
+        row.subscriber_id,
+        JSON.stringify(row.fields),
       ],
     );
+    listener?.({ ...row, id: rows[0]?.id ?? '0' });
   } catch (error) {
     console.error('event log write failed', error);
   }

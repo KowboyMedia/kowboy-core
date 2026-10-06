@@ -574,6 +574,23 @@ client ports (item 16, first client by question 80).
     each line and of the alert, and any line beyond 159 a's list are asked before they are built.
     Until it is built, an office taken off the sites shows only on the tenant's page, in the card
     "Offices Vitec lists".
+    - **Step 1, the engine and the Overview, built 2026-10-06:** `engine/attention.ts` names the
+      kinds of event that need attention (`office.taken_off`, `connection.paused`,
+      `login.refused`, and the `subscribers` check turning red); the Overview's card "Needs
+      attention" lists them for seven days with the tenant and a link to its page; each adapter
+      event is mailed and Slacked once the moment it is written (`engine/alerts.ts` listens to the
+      event log; a check's change goes with the checks' message as before, and is now also a
+      `check.failed` or `check.recovered` event). Proved by `acceptance/operations.test.ts`
+      ("alerts") and `acceptance/admin.test.ts` with the fake adapter. Asked: 162 (every red check
+      in the list, or only a site that stopped pulling) and 163 (the words, as they read on
+      staging).
+    - **Step 2, the Vitec side, built 2026-10-06 by the office thread** (item 24): the adapter
+      logs `office.taken_off` in `takeOff` with the reason in plain words, `login.refused` once
+      when a check first finds the connection's id refused, and `connect.paused` and
+      `connect.resumed` are renamed `connection.paused` and `connection.resumed`
+      (`adapters/vitec/vitec.test.ts` asserts each).
+    - **Later:** a failed form submit as one more kind, once question 160 lands (the forms
+      thread); any kind beyond the list is asked first.
     - **Component:** `[core]`, `[admin]`.
 
 ## Later, when Patric supplies them

@@ -4,10 +4,46 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 162 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 164 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 163. `[core]` The words of "Needs attention" and of its alerts, as they read on staging: keep them?
+
+- 2026-10-06 · Item 26 says the words of each line and of the alert are asked before they are
+  built; they can only be judged seen, so they stand on staging (the Overview, card "Needs
+  attention") and here. The card's note: "The important things of the last seven days: an office
+  taken off the sites, a connection paused after failures, a login the CRM refuses, and a site that
+  stopped pulling. Each one was also sent once by mail and Slack, where Settings says those are
+  set." Its columns: When, What happened, Tenant, Look into it ("Open the tenant", or "Go to
+  Tenants" when no tenant is known). Empty: "Nothing needed attention in the last seven days."
+- Each line, and each alert's subject after "Core staging:", is one of four titles: "an office was
+  taken off the sites", "a connection paused after failures", "the CRM refuses a login", "a site
+  stopped pulling". After the title comes the sentence the Events page reads: "office M30011 was
+  taken off the sites: it is no longer in the office group Webbplats in Vitec"; "the connection
+  paused after 5 failures in a row: Vitec answered 503"; "the CRM refuses the login: Vitec refuses
+  this login for G1"; "the check subscribers turned red: 1 site(s) have not pulled for an hour
+  (acme.se)". The mail's text is the tenant's name, the connection, the sentence, and a link to
+  the tenant's page in the admin area. The checks' own mail keeps its subject ("1 check(s)
+  failing", "all checks green again") and now reads its lines the same way as the Events page.
+- a) **yes** (recommended): the words stay. b) **no**: say which line, and its new words.
+- Smaller: a. Blocked: nothing. Answer a, or b with the words.
+
+## 162. `[core]` "Needs attention" on the Overview: only the four kinds, or every health check that turned red?
+
+- 2026-10-06 · Saved to staging on 2026-10-06 from 159 a: the card "Needs attention" on the Overview lists, for
+  seven days, an office taken off the sites, a connection paused after failures, a login the CRM
+  refuses, and a site that stopped pulling (the check that watches the sites turning red). Every
+  health check that turns red already mails and Slacks once, as before, and is now also an event,
+  so the other checks (the worker not reporting, a webhook waiting too long, records failing their
+  fetches, a form the CRM did not answer) could join the list with one line changed. 159 a named
+  the four, so the card shows the four and this asks about the rest. The words are question 163.
+- a) **the four kinds** (recommended, as built): the card stays about the things a person acts
+  on; a red check shows in the verdict above it while it lasts, and in the mail. b) **every red
+  check too**: the card also keeps a week of checks that turned red and recovered, which the
+  verdict no longer shows.
+- Smaller: a. Blocked: nothing. Answer a or b.
 
 ## 161. `[crm-vitec]` Make the daily office check the only call Core sends for an office Vitec refuses?
 

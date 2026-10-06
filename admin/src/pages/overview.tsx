@@ -11,7 +11,7 @@ import { Empty } from '@/components/empty';
 import { PageHeader } from '@/components/layout';
 import { useLive } from '@/lib/live';
 import { SERIES } from '@/lib/series';
-import { ago, count } from '@/lib/format';
+import { ago, count, moment } from '@/lib/format';
 
 type Check = { ok: boolean; detail?: string; names?: string[] };
 
@@ -26,9 +26,21 @@ type SiteRow = {
   lastBellStatus: string | null;
 };
 
+type NeedsAttention = {
+  id: number;
+  at: string;
+  type: string;
+  title: string;
+  said: string;
+  tenantId: number | null;
+  tenant: string | null;
+  connectionId: string | null;
+};
+
 type Overview = {
   health: { ok: boolean; checks: Record<string, Check> };
   maintenance: boolean;
+  attention: NeedsAttention[];
   tenants: { total: number; active: number };
   records: { tenantId: number; datatype: string; live: number; tombstoned: number }[];
   day: { hours: ({ hour: string } & Record<string, number>)[]; totals: Record<string, number> };
@@ -49,6 +61,12 @@ const WHERE: Record<string, { to: string; label: string }> = {
   database: { to: '/settings', label: 'Settings' },
   schema: { to: '/settings', label: 'Settings' },
 };
+
+/** Where one thing that needs attention is looked into: its tenant's page, or the sites. */
+const lookInto = (row: NeedsAttention): { to: string; label: string } =>
+  row.tenantId === null
+    ? { to: '/tenants', label: 'Go to Tenants' }
+    : { to: `/tenants/${String(row.tenantId)}`, label: 'Open the tenant' };
 
 /** Fetched when this page opens, so the charting library never weighs on the rest of the app. */
 const DayChart = lazy(() => import('@/components/day-chart'));
@@ -128,6 +146,52 @@ export function Overview() {
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-4" data-testid="attention">
+        <CardHeader>
+          <CardTitle>Needs attention</CardTitle>
+          <CardDescription>
+            The important things of the last seven days: an office taken off the sites, a connection
+            paused after failures, a login the CRM refuses, and a site that stopped pulling. Each
+            one was also sent once by mail and Slack, where Settings says those are set.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={[
+              { key: 'at', header: 'When', cell: (row) => moment(row.at) },
+              {
+                key: 'what',
+                header: 'What happened',
+                cell: (row) => (
+                  <>
+                    <span className="font-medium">{row.title}</span>
+                    <span className="text-muted-foreground"> — {row.said}</span>
+                  </>
+                ),
+              },
+              {
+                key: 'tenant',
+                header: 'Tenant',
+                cell: (row) => row.tenant ?? <span className="text-muted-foreground">—</span>,
+              },
+              {
+                key: 'go',
+                header: 'Look into it',
+                cell: (row) => (
+                  <Link className="underline" to={lookInto(row).to}>
+                    {lookInto(row).label}
+                  </Link>
+                ),
+              },
+            ]}
+            rows={data?.attention ?? []}
+            rowKey={(row) => String(row.id)}
+            loading={query.isLoading}
+            empty={<Empty what="Nothing needed attention in the last seven days." />}
+          />
         </CardContent>
       </Card>
 

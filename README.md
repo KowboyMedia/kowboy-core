@@ -30,7 +30,8 @@ on port 5173 against a Core running beside it.
 Optional: `SENTRY_ENVIRONMENT` names the environment (staging, production, local) in alerts and
 to Sentry, `PUBLIC_URL` is where Core is reached for the link in alerts, `ALERT_EMAIL` (mailed
 through Postmark: `MAIL_FROM`, `POSTMARK_SERVER_TOKEN`) and `ALERT_SLACK_WEBHOOK_URL` are where an
-alert goes when a health check changes state. `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` turn on
+alert goes when a health check changes state or an event needs attention (an office taken off
+the sites, a connection paused, a login refused; `engine/attention.ts`). `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` turn on
 the bot gate of the forms widget (docs/forms.md), which Core serves at `/widget/forms.js`; unset,
 the forms have no gate.
 

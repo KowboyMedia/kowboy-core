@@ -23,6 +23,12 @@ const changedNames = (fields: EventFields): string[] => {
   return changed && typeof changed === 'object' ? Object.keys(changed as object) : [];
 };
 
+/** The names behind a check's count, as `check.failed` carries them. */
+const names = (fields: EventFields): string => {
+  const value = fields['names'];
+  return Array.isArray(value) && value.length > 0 ? ` (${value.map(String).join('; ')})` : '';
+};
+
 const listed = (names: string[], limit = 6): string =>
   names.length <= limit
     ? names.join(', ')
@@ -63,6 +69,16 @@ const SAY: Record<string, (fields: EventFields) => string> = {
     `rang its sites (${text(fields, 'kind') ?? 'delta'}, ${text(fields, 'status') ?? 'sent'})`,
   pull: (fields) => `a site pulled ${String(count(fields, 'items') ?? 0)} record(s)`,
   'alert.sent': (fields) => `alert sent: ${text(fields, 'subject') ?? 'a check changed'}`,
+  'office.taken_off': (fields) =>
+    `office ${text(fields, 'office_id') ?? '?'} was taken off the sites: ${text(fields, 'reason') ?? 'no reason given'}`,
+  'connection.paused': (fields) =>
+    `the connection paused after ${String(count(fields, 'failures') ?? 0)} failures in a row${text(fields, 'detail') ? `: ${text(fields, 'detail') ?? ''}` : ''}`,
+  'connection.resumed': () => 'the connection answers again',
+  'login.refused': (fields) =>
+    `the CRM refuses the login: ${text(fields, 'detail') ?? 'no reason given'}`,
+  'check.failed': (fields) =>
+    `the check ${text(fields, 'name') ?? '?'} turned red${text(fields, 'detail') ? `: ${text(fields, 'detail') ?? ''}` : ''}${names(fields)}`,
+  'check.recovered': (fields) => `the check ${text(fields, 'name') ?? '?'} is green again`,
   'job.queued': (fields) => `a run was queued (#${String(count(fields, 'job') ?? 0)})`,
   'job.done': (fields) =>
     `a run finished: ${String(count(fields, 'changed') ?? 0)} changed of ${String(count(fields, 'examined') ?? 0)}`,

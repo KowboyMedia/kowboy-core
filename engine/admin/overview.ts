@@ -7,6 +7,8 @@ import { itemCounts } from '../storage/items.js';
 import { subscribers, tenants } from '../storage/connections.js';
 import { openJobs } from '../jobs.js';
 import { inMaintenance } from '../storage/settings.js';
+import { attention, type AttentionRow } from '../attention.js';
+import { summarise } from './summary.js';
 
 /** The event types the day's chart counts, in the order the legend shows them. */
 export const COUNTED = ['entity.written', 'pull', 'bell', 'site.applied', 'site.failed'] as const;
@@ -27,9 +29,17 @@ export type SiteRow = {
   lastClient: string | null;
 };
 
+/** One thing that needs attention, as the Overview lists it (attention.ts). */
+export type NeedsAttention = Omit<AttentionRow, 'at' | 'fields' | 'kind'> & {
+  at: string;
+  title: string;
+  said: string;
+};
+
 export type Overview = {
   health: Awaited<ReturnType<typeof healthReport>>;
   maintenance: boolean;
+  attention: NeedsAttention[];
   tenants: { total: number; active: number };
   records: { tenantId: number; datatype: string; live: number; tombstoned: number }[];
   day: { hours: HourRow[]; totals: Record<Counted, number> };
@@ -70,9 +80,10 @@ async function day(): Promise<Overview['day']> {
 }
 
 export async function overview(): Promise<Overview> {
-  const [health, maintenance, allTenants, counts, figures, sites, jobs] = await Promise.all([
+  const [health, maintenance, needs, allTenants, counts, figures, sites, jobs] = await Promise.all([
     healthReport(),
     inMaintenance(),
+    attention(),
     tenants(),
     itemCounts(),
     day(),
@@ -83,6 +94,12 @@ export async function overview(): Promise<Overview> {
   return {
     health,
     maintenance,
+    attention: needs.map(({ at, fields, kind, ...row }) => ({
+      ...row,
+      at: at.toISOString(),
+      title: kind.title,
+      said: summarise(row.type, fields),
+    })),
     tenants: { total: allTenants.length, active: allTenants.filter((t) => t.active).length },
     records: counts.map((count) => ({
       tenantId: count.tenant_id,

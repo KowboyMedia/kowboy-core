@@ -82,6 +82,7 @@ test('journey: U2 keep it healthy — the verdict, and where a red check is fixe
   await expect(page.getByTestId('verdict')).toBeVisible();
   await expect(page.getByTestId('check-database')).toContainText('ok');
   await expect(page.getByTestId('environment')).toBeVisible();
+  await expect(page.getByTestId('attention')).toContainText('Needs attention');
   await expect(page.getByText('The last 24 hours')).toBeVisible();
 });
 

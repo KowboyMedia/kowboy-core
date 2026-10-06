@@ -15,9 +15,9 @@ import {
   recordHealth,
 } from './health.js';
 import { deliverLifecycleEvents } from './lifecycle.js';
-import { deleteExpiredEvents, logEvent } from './events.js';
+import { deleteExpiredEvents, listenToEvents, logEvent } from './events.js';
 import { failStaleJobs, runNextJob } from './jobs.js';
-import { checkAlerts } from './alerts.js';
+import { checkAlerts, watchEvents } from './alerts.js';
 import { purgeTombstones } from './storage/items.js';
 import { changes } from './http/changes.js';
 import { applied } from './http/applied.js';
@@ -89,6 +89,13 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
       : null,
   );
   configureAdmin(config);
+  const alerts = {
+    environment: config.environment,
+    publicUrl: config.publicUrl,
+    email: config.alertEmail,
+    slackWebhookUrl: config.alertSlackWebhookUrl,
+  };
+  watchEvents(alerts);
   configureHumanCheck(
     config.turnstileSiteKey && config.turnstileSecret
       ? turnstile(config.turnstileSiteKey, config.turnstileSecret)
@@ -153,16 +160,7 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
           // one job after another, until the queue is empty
         }
       }, JOBS_MS);
-      tick(
-        () =>
-          checkAlerts({
-            environment: config.environment,
-            publicUrl: config.publicUrl,
-            email: config.alertEmail,
-            slackWebhookUrl: config.alertSlackWebhookUrl,
-          }),
-        ALERTS_MS,
-      );
+      tick(() => checkAlerts(alerts), ALERTS_MS);
       tick(async () => {
         await recordHealth();
         await pruneHealth();
@@ -177,6 +175,7 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
     },
     async stop(): Promise<void> {
       for (const timer of timers) clearInterval(timer);
+      listenToEvents(null);
       await new Promise<void>((resolve) => {
         if (!server) return resolve();
         server.close(() => resolve());

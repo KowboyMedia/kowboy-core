@@ -10,7 +10,7 @@ import { checkAlerts } from '../engine/alerts.js';
 import { flushBells, ring } from '../engine/bells.js';
 import { queueLifecycle } from '../engine/lifecycle.js';
 import type { LifecycleEvent } from '../engine/adapter-api/types.js';
-import { queryEvents } from '../engine/events.js';
+import { logEvent, queryEvents } from '../engine/events.js';
 import { recompute } from '../engine/recompute.js';
 
 const CONNECTION = 'fake-acme';
@@ -262,7 +262,9 @@ describe('alerts', () => {
     expect(red.map((change) => change.name)).toContain('subscribers');
     expect(running.mails).toHaveLength(1);
     expect(running.mails[0]?.subject).toContain('1 check(s) failing');
-    expect(running.mails[0]?.text).toContain('1 site(s) have not pulled for an hour (test site)');
+    expect(running.mails[0]?.text).toContain(
+      'the check subscribers turned red: 1 site(s) have not pulled for an hour (test site)',
+    );
     expect(running.mails[0]?.text).toContain('https://core.example/v1/health');
 
     // Still red: told once, not every minute.
@@ -273,5 +275,54 @@ describe('alerts', () => {
     const green = await checkAlerts(config);
     expect(green).toEqual([{ name: 'subscribers', ok: true, detail: null, names: [] }]);
     expect(running.mails[1]?.subject).toContain('all checks green again');
+
+    // Each change is an event too, so the Overview can list a site that stopped pulling for a week.
+    const changes = await queryEvents({ type: 'check.failed' });
+    expect(changes.map((event) => event.fields)).toEqual([
+      {
+        name: 'subscribers',
+        detail: '1 site(s) have not pulled for an hour',
+        names: ['test site'],
+      },
+    ]);
+    expect((await queryEvents({ type: 'check.recovered' })).map((event) => event.fields)).toEqual([
+      { name: 'subscribers', detail: null, names: [] },
+    ]);
+  });
+
+  it('tells an event that needs attention the moment it is written, with the tenant and a link (question 159)', async () => {
+    await logEvent({
+      type: 'office.taken_off',
+      connectionId: CONNECTION,
+      fields: { office_id: '100', reason: 'it is no longer in the office group the sites use' },
+    });
+    await until(() => running.mails.length === 1, 'the alert mail');
+    expect(running.mails[0]).toEqual({
+      to: 'ops@example.test',
+      subject: 'Core local: an office was taken off the sites',
+      text: `Test tenant, ${CONNECTION}: office 100 was taken off the sites: it is no longer in the office group the sites use\n\nhttps://core.example/admin/tenants/1`,
+    });
+    const sent = await queryEvents({ type: 'alert.sent' });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.fields).toMatchObject({
+      type: 'office.taken_off',
+      outcomes: { email: 'sent' },
+    });
+
+    // An event nobody needs told about stays where it is: in the log alone. A second one that
+    // does is told again: once each, not once per kind.
+    await logEvent({ type: 'entity.unchanged', connectionId: CONNECTION, fields: {} });
+    await logEvent({
+      type: 'office.taken_off',
+      connectionId: CONNECTION,
+      fields: { office_id: '200', reason: 'the id on the connection no longer lists it' },
+    });
+    await until(() => running.mails.length === 2, 'the second alert mail');
+    expect(running.mails[1]?.text).toContain('office 200 was taken off the sites');
+    const told = await queryEvents({ type: 'alert.sent' });
+    expect(told.map((event) => event.fields['type'])).toEqual([
+      'office.taken_off',
+      'office.taken_off',
+    ]);
   });
 });

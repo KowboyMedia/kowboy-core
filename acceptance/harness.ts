@@ -19,6 +19,9 @@ export { queryEvents } from '../engine/events.js';
 export { connectionById } from '../engine/storage/connections.js';
 export { healthReport, type HealthReport } from '../engine/health.js';
 
+/** Where Core in a test sends its alerts (kept in `mails`) and where its links point. */
+export const ALERTS = { alertEmail: 'ops@example.test', publicUrl: 'https://core.example' };
+
 /** The test tenant's number: the first one made after every reset. */
 export const TENANT = 1;
 export const TOKEN = 'test-tenant-token';
@@ -63,7 +66,7 @@ export async function harness(options: {
   resetFormsLimits();
   const adapters = options.adapters ?? [];
 
-  let engine = await startEngine({ port: 0 });
+  let engine = await startEngine({ port: 0, ...ALERTS });
   await truncate();
   const mails: Mail[] = [];
   const keepMail = (): void => {
@@ -131,7 +134,7 @@ export async function harness(options: {
       await new Promise<void>((resolve) => server.close(() => resolve()));
       await during?.();
       await engine.stop();
-      engine = await startEngine({ port });
+      engine = await startEngine({ port, ...ALERTS });
       keepMail();
       running.engine = engine;
       server = engine.listen(routes);

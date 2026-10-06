@@ -7,7 +7,7 @@ import { connectionById, harness, until, type Harness } from './harness.js';
 import { fakeWebhookAdapter } from '../adapters/fake-webhook/index.js';
 import * as crm from '../adapters/fake-webhook/crm.js';
 import { db } from '../engine/storage/db.js';
-import { queryEvents } from '../engine/events.js';
+import { logEvent, queryEvents } from '../engine/events.js';
 import { inMaintenance } from '../engine/storage/settings.js';
 import { flushBells } from '../engine/bells.js';
 import { runNextJob } from '../engine/jobs.js';
@@ -552,6 +552,55 @@ describe('the admin area', () => {
     // The harness makes a tenant of its own before this one, and only this one has a site.
     expect(overview.body.data.sites).toHaveLength(1);
     expect(overview.body.data.tenants.total).toBe(2);
+  });
+
+  it('lists what needs attention from the last seven days, with its tenant (U2, question 159)', async () => {
+    await api('/tenants', { method: 'POST', body: tenantBody() });
+    await logEvent({
+      type: 'office.taken_off',
+      connectionId: 'acme-crm',
+      fields: { office_id: '100', reason: 'it is no longer in the office group the sites use' },
+    });
+    // Older than a week, and a red check that is not about the sites: neither is listed.
+    await logEvent({
+      type: 'login.refused',
+      connectionId: 'acme-crm',
+      fields: { detail: 'refused' },
+    });
+    await db().query(
+      "update events set at = now() - interval '8 days' where type = 'login.refused'",
+    );
+    await logEvent({
+      type: 'check.failed',
+      fields: { name: 'worker', detail: 'never reported', names: [] },
+    });
+    await logEvent({
+      type: 'check.failed',
+      fields: {
+        name: 'subscribers',
+        detail: '1 site(s) have not pulled for an hour',
+        names: ['acme.se'],
+      },
+    });
+
+    const overview = await api<{ data: { attention: Record<string, unknown>[] } }>('/overview');
+    expect(overview.body.data.attention).toEqual([
+      expect.objectContaining({
+        type: 'check.failed',
+        title: 'a site stopped pulling',
+        said: 'the check subscribers turned red: 1 site(s) have not pulled for an hour (acme.se)',
+        tenantId: null,
+        tenant: null,
+      }),
+      expect.objectContaining({
+        type: 'office.taken_off',
+        title: 'an office was taken off the sites',
+        said: 'office 100 was taken off the sites: it is no longer in the office group the sites use',
+        tenant: 'Acme Mäklare',
+        connectionId: 'acme-crm',
+      }),
+    ]);
+    expect(overview.body.data.attention[1]?.['tenantId']).toBeGreaterThan(1);
   });
 
   it('lists what is in flight, coloured by state (U5, Patric’s rule 3)', async () => {
