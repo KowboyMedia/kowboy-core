@@ -63,6 +63,11 @@ export type OfficesCheck = {
   /** The offices synced, by the customer id their records carry. */
   offices: string[];
   source: Source;
+  /**
+   * Each synced office's name as Vitec last gave it, kept while Vitec refuses to read the office,
+   * so the notice that takes it off can name it.
+   */
+  names: Record<string, string>;
 };
 
 /** A failed call: what to show, whether it was a refusal, and whether Vitec answered at all. */
@@ -192,6 +197,25 @@ function graced(ids: IdChecked[], last: OfficesCheck | null, at: string): string
   });
 }
 
+/** The synced offices' names: as read now, else as the last check kept them. */
+function namesOf(
+  ids: IdChecked[],
+  last: OfficesCheck | null,
+  offices: readonly string[],
+): Record<string, string> {
+  const read = new Map(
+    ids
+      .flatMap((one) => one.offices)
+      .flatMap((office) => (office.name ? [[office.customerId, office.name] as const] : [])),
+  );
+  return Object.fromEntries(
+    offices.flatMap((office) => {
+      const name = read.get(office) ?? last?.names[office];
+      return name ? [[office, name]] : [];
+    }),
+  );
+}
+
 /** The offices to sync from what Vitec answered: the group "webbplats" when it has any, else all. */
 function choose(ids: IdChecked[]): { offices: string[]; source: Source } {
   const readable = ids.flatMap((checked) => checked.offices.filter((office) => office.readable));
@@ -241,7 +265,12 @@ export async function checkOffices(
     answered && (offices.length > 0 || refused)
       ? { offices, source: fresh.source }
       : { offices: last?.offices ?? [], source: 'kept' as const };
-  const result: OfficesCheck = { at, ids: checked, ...choice };
+  const result: OfficesCheck = {
+    at,
+    ids: checked,
+    ...choice,
+    names: namesOf(checked, last, choice.offices),
+  };
   await store.setState(connectionId, 'offices_check', JSON.stringify(result));
   // Unanswered: due again within the hour instead of tomorrow.
   const due = answered ? Date.now() : Date.now() - CHECK_EVERY_MS + RETRY_AFTER_MS;
@@ -279,6 +308,7 @@ export async function lastCheck(connectionId: string): Promise<OfficesCheck | nu
       })),
       offices: parsed.offices ?? [],
       source: parsed.source ?? 'kept',
+      names: parsed.names ?? {},
     };
   } catch {
     return null;

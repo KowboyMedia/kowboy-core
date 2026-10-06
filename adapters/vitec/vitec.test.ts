@@ -918,7 +918,11 @@ describe('the Vitec adapter', () => {
       (row) => row.type === 'office.taken_off',
     );
     expect(takenOff.map((row) => row.fields)).toEqual([
-      { office_id: OFFICE, reason: 'it is no longer in the office group Webbplats in Vitec' },
+      {
+        office_id: OFFICE,
+        office_name: 'Kontor 1',
+        reason: 'it is no longer in the office group Webbplats in Vitec',
+      },
     ]);
 
     // Vitec does not answer: the offices stay as they were, and the check is due within the hour.
@@ -1033,8 +1037,17 @@ describe('the Vitec adapter', () => {
       events.filter((row) => row.type === 'office.taken_off').map((row) => row.fields),
     ).toEqual(
       expect.arrayContaining([
-        { office_id: 'M2', reason: 'Vitec still refused it at the next daily check' },
-        { office_id: OFFICE, reason: 'Vitec still refused it at the next daily check' },
+        // Named as Vitec last gave the name, although Vitec refused to read the office since.
+        {
+          office_id: 'M2',
+          office_name: 'Kontor 2',
+          reason: 'Vitec still refused it at the next daily check',
+        },
+        {
+          office_id: OFFICE,
+          office_name: 'Kontor 1',
+          reason: 'Vitec still refused it at the next daily check',
+        },
       ]),
     );
     const refused = events.filter((row) => row.type === 'login.refused');

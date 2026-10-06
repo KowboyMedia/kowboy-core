@@ -747,7 +747,10 @@ async function checkAndApply(current: AdapterApi, target: Live): Promise<Live> {
   await noteRefusedLogin(current, connection, before, check);
   const next = { ...target, offices: check.offices };
   for (const officeId of target.offices.filter((office) => !check.offices.includes(office))) {
-    await takeOff(current, connection, officeId, takenOffBecause(check, officeId));
+    const name =
+      before?.names[officeId] ??
+      check.ids.flatMap((one) => one.offices).find((one) => one.customerId === officeId)?.name;
+    await takeOff(current, connection, officeId, takenOffBecause(check, officeId), name);
   }
   const back = await settleBlocks(current, connection, check);
   // A hold that began after this check started waits for the next one, at the next tick.
@@ -809,14 +812,16 @@ async function takeOff(
   connection: Connection,
   officeId: string,
   reason: string,
+  name?: string | null,
 ): Promise<void> {
   if (!officeId) return; // an empty office would be every office
   for (const datatype of DATATYPES)
     await current.presentIds(connection, datatype, { officeId }, []);
-  // For the super admin's notifications (question 159 a): told once, at the moment it goes.
+  // For the super admin's notifications (question 159 a): told once, at the moment it goes, with
+  // the office's name as Vitec last gave it, since its own record is a tombstone by now.
   await current.logEvent(
     'office.taken_off',
-    { office_id: officeId, reason },
+    { office_id: officeId, ...(name ? { office_name: name } : {}), reason },
     { connectionId: connection.id },
   );
 }
