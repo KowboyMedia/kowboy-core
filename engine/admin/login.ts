@@ -4,6 +4,7 @@
 // knows a CRM. A stored field the adapter no longer declares is dropped at the next save
 // (Patric's rule for a removed feature, 2026-10-06: the data it kept goes too).
 import { adminFor } from '../registry.js';
+import { connectionsForProvider, upsertConnection } from '../storage/connections.js';
 
 type Login = Record<string, unknown>;
 
@@ -45,4 +46,33 @@ export function mergedLogin(
   if (Object.keys(fields).length === 0) return null;
   const before = declaredOnly(documentOf(stored) ?? {}, provider ? declaredKeys(provider) : null);
   return JSON.stringify({ ...before, ...fields });
+}
+
+/**
+ * Remove exactly the named fields from every stored login of one provider, for fields its adapter
+ * dropped. A login without them is left untouched, and a login is never emptied. A one-time step:
+ * its caller goes once the stored logins are clean. Returns how many logins changed.
+ */
+export async function removeLoginFields(
+  provider: string,
+  keys: readonly string[],
+): Promise<number> {
+  let changed = 0;
+  for (const connection of await connectionsForProvider(provider)) {
+    const login = documentOf(connection.credentials);
+    if (!login) continue;
+    const kept = Object.fromEntries(Object.entries(login).filter(([key]) => !keys.includes(key)));
+    const count = Object.keys(kept).length;
+    if (count === 0 || count === Object.keys(login).length) continue;
+    await upsertConnection({
+      id: connection.id,
+      tenantId: connection.tenantId,
+      provider: connection.provider,
+      credentials: JSON.stringify(kept),
+      licensedOffices: connection.licensedOffices,
+      active: connection.active,
+    });
+    changed += 1;
+  }
+  return changed;
 }

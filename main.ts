@@ -10,6 +10,7 @@ import { startEngine, type Engine } from './engine/index.js';
 import { adapterApi, startAdapter } from './engine/adapter-api/index.js';
 import { registerAdmin, registerSubmissions } from './engine/registry.js';
 import { adapterRoutes } from './engine/http/server.js';
+import { removeLoginFields } from './engine/admin/login.js';
 import { closeErrorReporting, report } from './engine/errors.js';
 import type { Adapter } from './engine/adapter-api/types.js';
 import { vitecAdapter } from './adapters/vitec/index.js';
@@ -50,6 +51,22 @@ export async function main(role: string): Promise<{ engine: Engine; server: Serv
     return { engine, server };
   }
   if (role === 'worker') {
+    // One-time (Patric's rule for a removed feature, 2026-10-06): the seven forms fields a Vitec
+    // connection no longer has leave the stored logins. Taken out once staging's logins are clean.
+    try {
+      const cleaned = await removeLoginFields(vitecAdapter.manifest.provider, [
+        'send_forms',
+        'lead_source_id',
+        'assignment_source_id',
+        'interest_status',
+        'confirm_by_email',
+        'confirm_by_sms',
+        'reminder_minutes',
+      ]);
+      console.log(`removed the old forms fields from ${cleaned} stored login(s)`);
+    } catch (error) {
+      report(error, { where: 'removing the old forms fields' });
+    }
     engine.startWorker();
     for (const adapter of adapters) await startAdapter(adapter);
     console.log(`worker started with ${adapters.length} adapter(s)`);
