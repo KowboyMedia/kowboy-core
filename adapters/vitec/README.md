@@ -45,7 +45,8 @@ vitec.test.ts   the adapter against the real engine and the stand-in
 - **Which offices are synced** (`offices.ts`; questions 147 a and 154, 2026-10-06). Once a day per
   connection, at every worker start, and at the next tick after "Check offices now": Vitec's office
   list for the login's customer or group id (`customer_id` in the login, `M30011` or `G2`), each
-  listed office read on its own under its own customer id, and the brokerage's office groups
+  listed office read on its own under its own customer id (the one its record gives: a group's list
+  rows may leave it out), and the brokerage's office groups
   (`GET CRM/Officegroups/{id}`, the version 1 CRM category, with the CRM password when one is
   typed). The offices that read and sit in the group "webbplats" (any case) are synced; with no
   such group, or none of its offices readable, every office that reads is. An office that came is
@@ -55,8 +56,10 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   or 403, on its own or with its whole id; question 158 b) stays synced for a day of grace
   (`REFUSAL_GRACE_MS`, the first refusal's time carried from check to check) and is taken off when
   the refusal still stands at the next daily check; a refusal at any fetch makes the next tick
-  check the offices (`checkSoon`, as the button does). The answer is kept in `vitec_state` and
-  shown on the tenant's page.
+  check the offices (`checkSoon`, as the button does). A group id (`G12`) is never synced as an
+  office, not even from an answer saved before question 156 a: listing homes, agents or areas
+  under a group is not asking for one office, and Vitec answers its areas with an error. The
+  answer is kept in `vitec_state` and shown on the tenant's page.
 - **Resync** (`event: resync`, optionally with a datatype) reloads everything listed and removes
   every id no longer listed.
 - **Health.** `vitec.webhook_lag` (a webhook waiting more than 5 min), `vitec.retries` (a record

@@ -49,6 +49,8 @@ export type FakeConnect = {
   ): void;
   /** Answer 403 for this customer's office groups: the login lacks the CRM rights. */
   forbidGroups(customerId: string): void;
+  /** List rows under this id leave out each record's customer id, which a read still gives. */
+  bareRows(officeId: string): void;
   maxInFlight: number;
   close(): Promise<void>;
 };
@@ -91,11 +93,13 @@ export function startFakeConnect(): Promise<FakeConnect> {
     setForm: (officeId, estateId, payload) => formData.set(`${officeId}/${estateId}`, payload),
     setGroups: (customerId, list) => groups.set(customerId, list),
     forbidGroups: (customerId) => groupsForbidden.add(customerId),
+    bareRows: (officeId) => bare.add(officeId),
     maxInFlight: 0,
     close: () => Promise.resolve(),
   };
   const groups = new Map<string, unknown[]>();
   const groupsForbidden = new Set<string>();
+  const bare = new Set<string>();
   /** `CRM/Officegroups/{customerId}`: the stored groups, none, or a refusal. */
   const answerGroups = (
     pathname: string,
@@ -189,7 +193,12 @@ export function startFakeConnect(): Promise<FakeConnect> {
       .map((record) => ({
         id: record.id,
         // A group id lists offices of several customers; each row carries the office's own.
-        customerId: typeof record['customerId'] === 'string' ? record['customerId'] : officeId,
+        ...(bare.has(officeId)
+          ? {}
+          : {
+              customerId:
+                typeof record['customerId'] === 'string' ? record['customerId'] : officeId,
+            }),
         changedAt: record.changedAt ?? null,
       }));
     return {

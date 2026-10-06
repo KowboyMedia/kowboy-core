@@ -16,6 +16,13 @@
 import * as connect from './api.js';
 import * as store from './store.js';
 
+/**
+ * A Vitec group id (G12): an id a login may be issued for, which lists the offices of several
+ * customers, never an office's own customer id. Core never syncs one as an office: listing homes,
+ * agents or areas under it is not asking for one office (Vitec answers areas with an error).
+ */
+const isGroupId = (id: string): boolean => /^G\d+$/i.test(id);
+
 /** The office group in Vitec whose offices reach the sites, matched regardless of case. */
 export const WEBSITE_GROUP = 'webbplats';
 
@@ -101,6 +108,7 @@ async function readOne(
   try {
     const office = (await connect.getOne(auth, 'office', row.customerId, row.id)) as {
       name?: unknown;
+      customerId?: unknown;
     } | null;
     if (!office) {
       return {
@@ -109,7 +117,11 @@ async function readOne(
       };
     }
     const name = typeof office.name === 'string' ? office.name : null;
-    return { value: { ...seen, readable: true, name }, answered: true };
+    // The office's own customer id, from its record: a list row may leave it out, and api.ts then
+    // fills in the id that was listed, which for a group is the group's.
+    const own = typeof office.customerId === 'string' && office.customerId !== '';
+    const customerId = own ? (office.customerId as string) : row.customerId;
+    return { value: { ...seen, customerId, readable: true, name }, answered: true };
   } catch (error) {
     const { detail, refused, answered } = failure(error, 'Vitec refuses this login');
     return {
@@ -259,7 +271,7 @@ export async function checkOffices(
   carryRefusals(checked, last);
   const fresh = choose(checked);
   const kept = graced(checked, last, at).filter((office) => !fresh.offices.includes(office));
-  const offices = [...fresh.offices, ...kept];
+  const offices = [...fresh.offices, ...kept].filter((office) => !isGroupId(office));
   const refused = checked.length > 0 && checked.every((one) => one.refusedSince !== null);
   const choice =
     answered && (offices.length > 0 || refused)
@@ -306,7 +318,8 @@ export async function lastCheck(connectionId: string): Promise<OfficesCheck | nu
         groups: checked.groups ?? [],
         groupsError: checked.groupsError ?? null,
       })),
-      offices: parsed.offices ?? [],
+      // A group id saved before as an office (typed before question 156 a) is not one.
+      offices: (parsed.offices ?? []).filter((office) => !isGroupId(office)),
       source: parsed.source ?? 'kept',
       names: parsed.names ?? {},
     };

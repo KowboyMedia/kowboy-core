@@ -858,6 +858,37 @@ describe('the Vitec adapter', () => {
     expect(await lastCheck(CONNECTION)).toEqual(check);
   });
 
+  it('takes each office’s customer id from the office itself, and never syncs a group id', async () => {
+    // The group's list rows leave the customer id out; each office's own record names it.
+    fake.put('G1', 'office', {
+      id: 'FIR1',
+      customerId: 'M1',
+      name: 'Kontor 1',
+      changedAt: CHANGED,
+    });
+    fake.put('G1', 'office', {
+      id: 'FIR2',
+      customerId: 'M2',
+      name: 'Kontor 2',
+      changedAt: CHANGED,
+    });
+    fake.bareRows('G1');
+    // An answer saved before that names the group itself as an office (typed before 156 a).
+    const saved = { at: CHANGED, ids: [], offices: ['G1'], source: 'kept' };
+    await store.setState(CONNECTION, 'offices_check', JSON.stringify(saved));
+    expect((await lastCheck(CONNECTION))?.offices).toEqual([]);
+
+    const auth = { username: USERNAME, password: PASSWORD };
+    const check = await checkOffices(CONNECTION, auth, auth, ['G1']);
+    expect(check).toMatchObject({ offices: ['M1', 'M2'], source: 'all' });
+    expect(check.ids[0]?.offices.map((office) => office.customerId)).toEqual(['M1', 'M2']);
+
+    // Vitec does not answer: what is kept is the offices, never the group.
+    fake.failNext(100);
+    await store.setState(CONNECTION, 'offices_check', JSON.stringify(saved));
+    expect((await checkOffices(CONNECTION, auth, auth, ['G1'])).offices).toEqual([]);
+  });
+
   it('uses every office when there is no group “Webbplats”, when it holds none of them, or when the login may not read the groups', async () => {
     fake.put('G1', 'office', { id: 'M1', customerId: 'M1', changedAt: CHANGED });
     fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
