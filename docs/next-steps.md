@@ -633,8 +633,12 @@ client ports (item 16, first client by question 80).
         are told apart from events Core already writes, so nothing new shows: an office taken off
         within a week after an `office.blocked` for the same office and connection, with no
         `office.unblocked` after it, is row 20 (still refused); any other is row 21 (by choice;
-        the switch is one). A line's level is the highest of its offices. Until this is built,
-        each office is still mailed on its own.
+        the switch is one). A block belongs to an office in one system, so the Vitec code logs
+        `office.blocked` and `office.unblocked` once per connection that syncs the office, and
+        settles the blocks before taking offices off (agreed with the office thread, 20:50 UTC). A
+        line's level is the highest of its offices, so a switch made while one of its offices is
+        in its day of grace goes out as P1. Until this is built, each office is still mailed on
+        its own.
     - **Step 2, the Vitec side, built 2026-10-06 by the office thread** (item 24): the adapter
       logs `office.taken_off` in `takeOff` with the reason in plain words, `login.refused` once
       when a check first finds the connection's id refused, and `connect.paused` and
