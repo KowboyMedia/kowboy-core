@@ -7,7 +7,7 @@
 // type nobody described readable rather than silent.
 import type { EventFields } from '../events.js';
 import { aboutCheck } from '../health.js';
-import { counted } from '../words.js';
+import { counted } from './words.js';
 
 const text = (fields: EventFields, key: string): string | null => {
   const value = fields[key];
@@ -106,7 +106,6 @@ const SAY: Record<string, (fields: EventFields) => string> = {
   'job.done': (fields) =>
     `a run finished: ${String(count(fields, 'changed') ?? 0)} changed of ${String(count(fields, 'examined') ?? 0)}`,
   'job.failed': (fields) => `a run failed: ${text(fields, 'error') ?? 'no reason given'}`,
-  'job.cancelled': () => 'a run was stopped',
   'engine.started': () => 'Core started',
 };
 
@@ -125,7 +124,6 @@ const ADMIN: Record<string, string> = {
   recompute_queued: 'started a recompute',
   fetch_again: 'asked the CRM for records again',
   synced: 'started a manual sync',
-  job_cancelled: 'stopped a run',
   crm_action: 'ran a CRM action',
   login_tried: 'tried a CRM login',
   maintenance: 'changed maintenance',

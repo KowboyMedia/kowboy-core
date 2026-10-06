@@ -4,10 +4,27 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 180 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 181 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 180. `[core]` May a CRM's checks carry a title and links, so the Overview never shows a check's name?
+
+- 2026-10-06 · Building 172 to AGENTS.md's definition of done item 5. The engine's own checks
+  now show a title and a sentence, and the sites check links each site it finds behind. A CRM's
+  checks still show their name (`vitec.catch_up`) and name their connections and offices as
+  plain text, because the adapter API has no word for either; the Vitec code is writing their
+  sentences now.
+
+| Item | What                                                                                                                                       | Why                                                                                                        |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| 1    | One optional word `title` on a check's result in the adapter API, kept with the result in `health_results` (a column) for the web process. | The Overview's tile and the alert read a title such as "Vitec's notifications", never `vitec.webhook_lag`. |
+| 2    | One optional word `links` on a failing check's result: each thing it names with its place in the admin area, kept the same way (a column). | Each connection or office a CRM's check names opens its page, as the sites check's sites already do.       |
+
+- Smaller: item 1 alone; the connections and offices then stay plain text under the check.
+  Blocked: the CRM's checks' titles and links on the Overview and in the alerts. Reply: "180 ok",
+  or the items you do not want.
 
 ## 178. `[core]` May Core keep each failing check's level, and show it on "Needs attention"?
 

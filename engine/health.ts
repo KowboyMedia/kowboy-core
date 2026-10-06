@@ -4,7 +4,7 @@ import { unknownMigrations } from './storage/migrate.js';
 import { undeliveredLifecycleEvents } from './lifecycle.js';
 import { connectionsWithFailingSubmissions } from './storage/submissions.js';
 import { report } from './errors.js';
-import { counted, lasting } from './words.js';
+import { counted, lasting } from './admin/words.js';
 import type { HealthResult, Level } from './adapter-api/types.js';
 
 /**

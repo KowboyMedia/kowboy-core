@@ -47,3 +47,18 @@ export function listed(names: string[], limit = 3): string {
   if (names.length <= 1) return names.join('');
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1] ?? ''}`;
 }
+
+/** A length of time in words, rounded down: "40 seconds", "12 minutes", "3 hours", "2 days". */
+export function lasting(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) return counted(seconds, 'second', 'seconds');
+  if (seconds < 3_600) return counted(Math.floor(seconds / 60), 'minute', 'minutes');
+  if (seconds < 172_800) return counted(Math.floor(seconds / 3_600), 'hour', 'hours');
+  return counted(Math.floor(seconds / 86_400), 'day', 'days');
+}
+
+/** A phrase as a sentence of its own: a capital first, a full stop last. */
+export function sentence(phrase: string): string {
+  const trimmed = phrase.trim();
+  return capital(/[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`);
+}

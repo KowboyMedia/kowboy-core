@@ -5,7 +5,7 @@
 import { db } from './storage/db.js';
 import { SITES_CHECK, type SiteBehind } from './health.js';
 import { form, summarise } from './admin/summary.js';
-import { counted, listed, sentence } from './words.js';
+import { counted, crmName, listed, sentence } from './admin/words.js';
 import type { EventFields } from './events.js';
 import type { Level } from './adapter-api/types.js';
 
@@ -288,15 +288,12 @@ async function knownNow(): Promise<Known> {
 const text = (fields: EventFields, key: string): string =>
   typeof fields[key] === 'string' ? (fields[key] as string) : '';
 
-/** A CRM's short name as a name: "somecrm" is Somecrm. */
-const crm = (provider: string): string => provider.charAt(0).toUpperCase() + provider.slice(1);
-
 /** A connection as a person knows it: "Acme's Somecrm connection, short name acme-crm". */
 function connectionWords(id: string, known: Known): string {
   const connection = known.connections.get(id);
   const tenant = connection ? known.tenants.get(connection.tenantId) : undefined;
   if (!connection || !tenant) return `the connection with the short name ${id}`;
-  return `${tenant}’s ${crm(connection.provider)} connection, short name ${id}`;
+  return `${tenant}’s ${crmName(connection.provider)} connection, short name ${id}`;
 }
 
 /** An event's tenant: its own, or its connection's. */
@@ -328,7 +325,8 @@ function officesTogether(rows: EventRow[], known: Known): Place {
     'deleted=true',
   ];
   return {
-    what: `${rows.length === 1 ? 'office' : 'offices'} ${listed(named)}`,
+    // Every office by name: the alert and the line say which, and the link opens them all.
+    what: `${rows.length === 1 ? 'office' : 'offices'} ${listed(named, named.length)}`,
     // The offices' records, the removed ones: what left the sites with them.
     link: `/records?${scope.join('&')}`,
     where: first?.connection_id ? connectionWords(first.connection_id, known) : null,

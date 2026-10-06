@@ -15,7 +15,7 @@ import { logEvent, type EventFields } from './events.js';
 import { mailConfigured, sendMail } from './mail.js';
 import { report } from './errors.js';
 import { attentionBetween, KINDS, type AttentionRow } from './attention.js';
-import { counted, lasting } from './words.js';
+import { counted, lasting } from './admin/words.js';
 
 export type AlertConfig = {
   environment: string;
