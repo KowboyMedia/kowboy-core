@@ -590,7 +590,9 @@ client ports (item 16, first client by question 80).
       `check.failed` or `check.recovered` event). Proved by `acceptance/operations.test.ts`
       ("alerts") and `acceptance/admin.test.ts` with the fake adapter. Answered: 162 a (the four
       kinds) and 163 (the words stay; every line names the exact thing, where, and links to it).
-      Asked: 164, the colour per system (red is an alert, yellow is to be looked at), row by row.
+      Asked: 164, the colour per system (red is an alert, yellow is to be looked at), row by row;
+      Patric answered rows 5, 18 and 23 at 19:22 UTC and asked for less noise with his P0 to P3
+      levels, so 164 now proposes the levels, five noise rules and a level per row.
     - **Step 1b, names and links (163), built 2026-10-06:** each line of the card and each alert
       names the exact office, connection or site, its tenant (and an office's connection), and
       links to it: an office to its removed records on Records, a connection or a site to its

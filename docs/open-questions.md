@@ -180,7 +180,7 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   take is kept 30 days and listed with "Send again".
 - Smaller: b. Blocked: the retry of 160 a; the rest of 160 a is built either way. Answer a or b.
 
-## 164. `[core]` Red, yellow or nothing: which of Core's systems may raise which alert?
+## 164. `[core]` Which level, P0 to P3, may each of Core's systems raise, and what does each level send?
 
 - 2026-10-06 · Patric, 18:06 (UTC), answering 162 with a: "there are multiple issues to be
   alerted about. Red = alert. Yellow = should be looked at. Red causes disruption in
@@ -188,53 +188,72 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   better criteria. List all systems, and wether or not something can go red or yellow. Remember,
   low noise level is crucial here. Table format, let me approve each." And on 163: "If something
   needs attention, state specifically which entity where, and link to it."
-- **The rules proposed.** A, red: homes on the sites are wrong or missing, or a form does not
-  reach the brokerage, and Core cannot fix it alone; it is mailed and sent to Slack once when it
-  starts and once when it is over, for each site, office or connection on its own, and listed on
-  the Overview. B, yellow: Core held it or works around it and recovers alone, but a person should
-  look within a day; it is listed on the Overview for seven days and never mailed. C, quiet: a red that is over within five minutes is
-  never told, so a restart or a release never alerts; a yellow that repeats is one line per thing
-  per day, with a count. These sharpen Patric's own rule with two words: "alone" (Core cannot
-  recover by itself) and "a day" (how soon a yellow should be read).
-- **Every system and what it may raise** (Today: what Core does before this question).
+- 2026-10-06 · Patric, 19:22 (UTC), on the first table (red, yellow or nothing per row): "5- red /
+  18 should have retries, but if still malformed, yellow / 23 - red / I feel this is too much
+  noise. How can we reduce it? My suggestion: We can use the Px system: I imagene red is P1 or P0,
+  notify admin using email. I imagine yellow is P2, what should we do with these? p3 can collected
+  but informative. Can be used to improve systems. What is your best suggestion?"
+- **The levels proposed** (his Px system; the first table's red is P0 or P1, yellow is P2, nothing
+  is P3). P0: Core is down for every customer; mailed (and sent to Slack where set) once it has
+  lasted 5 minutes. P1: one customer's sites or forms are disrupted and Core cannot fix it alone;
+  mailed once it has lasted 15 minutes, once when it starts and once when it is over. P2: Core
+  handled it and nothing is disrupted, but a person should look within a day; never mailed on its
+  own, one morning mail at 07:00 (Swedish time) lists only the P2s new since the last one, and
+  none is sent when nothing is new. P3: informative; kept in the event log only, to improve the
+  systems (what the log is for is question 168). P0 to P2 are listed in "Needs attention" on the
+  Overview for seven days, one line per thing with a count.
+- **The noise rules proposed.** A, wait: a failing check is told only once it has lasted 5 minutes
+  (P0) or 15 minutes (P1); a blip that clears first is only P3, so a restart or a release never
+  alerts. B, one cause, one mail: while a P0 is open nothing it causes is told on its own, and
+  while a CRM refuses a connection's login, that connection's offices and forms are not told on
+  their own. C, one conversation per thing: the "it is over" mail answers the "it started" mail,
+  and more of the same thing within an hour adds to its count on the Overview instead of sending
+  again. D, escalate, never repeat: nothing is sent again on a timer; a P2 that lasts past its
+  limit becomes P1 once. E, a check that cannot run is not a broken system: a check that throws
+  (as five Vitec checks did on staging on 2026-10-06, with the database's "remaining connection
+  slots" error) is one P2 line, "Core could not run N checks", and P1 when it lasts 15 minutes.
+- **Every system and its level** (First: the first table; Patric's answers marked).
 
-| #   | System              | What goes wrong                                                                             | Proposed                                             | Today                                        |
-| --- | ------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------- |
-| 1   | Database            | Core cannot reach its database                                                              | red                                                  | red                                          |
-| 2   | Database version    | the database is newer than the Core running (a release taken back)                          | red                                                  | red                                          |
-| 3   | Background worker   | it stopped reporting: nothing syncs, no site is rung                                        | red                                                  | red                                          |
-| 4   | Loading queue       | a new connection or office has waited over 5 minutes to be loaded                           | yellow                                               | red                                          |
-| 5   | Alerts              | a mail or a Slack message could not be sent                                                 | yellow                                               | not shown                                    |
-| 6   | Manual sync         | a run someone started failed                                                                | nothing: that person sees it on Manual sync          | nothing                                      |
-| 7   | Site pulling        | a site has not pulled for an hour                                                           | red                                                  | red                                          |
-| 8   | Site taking records | a site could not take one or more records                                                   | yellow, one line per site per day                    | the record's timeline                        |
-| 9   | Site bell           | a site did not answer a bell                                                                | nothing: the site pulls on its own; 7 catches a stop | nothing                                      |
-| 10  | Site errors         | a site reported a programming error                                                         | nothing: Sentry has it                               | Sentry                                       |
-| 11  | CRM login           | the CRM refuses the connection's login                                                      | red                                                  | listed and mailed                            |
-| 12  | Stored login        | Core cannot read the login it stored for a connection                                       | red                                                  | red                                          |
-| 13  | CRM answering       | the CRM failed 5 calls in a row; Core pauses and tries again                                | yellow; red when still failing after an hour         | red while paused, listed and mailed          |
-| 14  | CRM notifications   | a change the CRM announced has waited over 5 minutes                                        | yellow                                               | red                                          |
-| 15  | Records fetched     | a record failed 3 fetches in a row; Core keeps trying                                       | yellow, one line per connection per day              | red                                          |
-| 16  | Catching up         | a connection has not caught up for 12 hours, or never did                                   | red                                                  | red, and red for minutes after every restart |
-| 17  | Connection offices  | a connection has no office to sync                                                          | yellow                                               | red                                          |
-| 18  | Dropped records     | Core refused a record as malformed or of an unknown kind                                    | yellow, one line per connection per day              | the record's timeline                        |
-| 19  | Refused office      | the CRM refuses one office; it stays on the sites a day of grace                            | yellow                                               | red                                          |
-| 20  | Office off, refused | an office left the sites because the CRM still refused it a day later                       | red                                                  | listed and mailed                            |
-| 21  | Office off, chosen  | an office left the sites because it left the group "Webbplats" or the id no longer lists it | yellow                                               | listed and mailed                            |
-| 22  | Form not answered   | the CRM did not answer a form (its final shape follows question 160)                        | red                                                  | red                                          |
-| 23  | Form refused        | the CRM said no to a form                                                                   | yellow                                               | the record's timeline                        |
+| #   | System              | What goes wrong                                                                             | Proposed                                    | First                                 |
+| --- | ------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------- |
+| 1   | Database            | Core cannot reach its database                                                              | P0                                          | red                                   |
+| 2   | Database version    | the database is newer than the Core running (a release taken back)                          | P0                                          | red                                   |
+| 3   | Background worker   | it stopped reporting: nothing syncs, no site is rung                                        | P0                                          | red                                   |
+| 4   | Loading queue       | a new connection or office has waited over 5 minutes to be loaded                           | P2, P1 after an hour                        | yellow                                |
+| 5   | Alerts              | a mail or a Slack message could not be sent                                                 | P1, sent through the other of the two       | red (Patric)                          |
+| 6   | Manual sync         | a run someone started failed                                                                | P3: that person sees it on Manual sync      | nothing                               |
+| 7   | Site pulling        | a site has not pulled for an hour                                                           | P1                                          | red                                   |
+| 8   | Site taking records | a site could not take one or more records                                                   | P2, one line per site per day               | yellow                                |
+| 9   | Site bell           | a site did not answer a bell                                                                | P3: the site pulls on its own; 7 catches it | nothing                               |
+| 10  | Site errors         | a site reported a programming error                                                         | P3: Sentry has it                           | nothing                               |
+| 11  | CRM login           | the CRM refuses the connection's login                                                      | P1                                          | red                                   |
+| 12  | Stored login        | Core cannot read the login it stored for a connection                                       | P1                                          | red                                   |
+| 13  | CRM answering       | the CRM failed 5 calls in a row; Core pauses and tries again                                | P2, P1 after an hour                        | yellow, red after an hour             |
+| 14  | CRM notifications   | a change the CRM announced has waited over 5 minutes                                        | P2, P1 after an hour                        | yellow                                |
+| 15  | Records fetched     | a record failed 3 fetches in a row; Core keeps trying                                       | P2, one line per connection per day         | yellow                                |
+| 16  | Catching up         | a connection has not caught up for 12 hours, or never did                                   | P1                                          | red                                   |
+| 17  | Connection offices  | a connection has no office to sync                                                          | P2                                          | yellow                                |
+| 18  | Dropped records     | a record is still malformed, or of an unknown kind, after 3 fetches an hour apart           | P2, one line per connection per day         | retried, then yellow (Patric)         |
+| 19  | Refused office      | the CRM refuses one office; it stays on the sites a day of grace                            | P2; row 20 when the grace ends              | yellow                                |
+| 20  | Office off, refused | an office left the sites because the CRM still refused it a day later                       | P1                                          | red                                   |
+| 21  | Office off, chosen  | an office left the sites because it left the group "Webbplats" or the id no longer lists it | P2                                          | yellow                                |
+| 22  | Form not answered   | the CRM did not take a form after the CRM's code retried it for a day (160 a)               | P1                                          | red                                   |
+| 23  | Form refused        | the CRM said no to a form                                                                   | P1                                          | red (Patric)                          |
+| 24  | Health checks       | a check could not run at all (rule E)                                                       | P2, P1 after 15 minutes                     | new: today it reads as its system red |
 
 - **What a yes costs.** Rows 13, 14, 15, 17 and 19 are checks in a CRM's own code that today
   turn Core's public health answer to "failing" (500), which an uptime monitor reads as Core being
-  down. For one of them to be yellow, a check needs one optional word, "yellow", in the interface
+  down. For one of them to be P2, a check needs one optional word, its level, in the interface
   between the engine and a CRM's code, a protected file; a yes to any of those rows is also a yes
-  to that word, and a yellow check keeps the public answer at 200. Rows 20 and 21 need the CRM's
-  code to say which of the two causes took an office off, one field on the event, built in the
-  Vitec code by the thread that owns it. Rule C's five minutes and row 13's hour are new numbers.
-  Every line follows Patric's 163 rule: it names the thing (the site, the office, the connection)
-  and its tenant, and links to that thing's place in the admin area.
-- Reply: "164 ok" for every row and rule as proposed, or the row number or rule letter with its
-  new value ("164 ok, except 13 red, 21 nothing").
+  to that word, and a P2 check keeps the public answer at 200. Row 18's three fetches are built in
+  the CRM's code, which owns fetching. Rows 20 and 21 need the CRM's code to say which of the two
+  causes took an office off, one field on the event. New numbers: 5 and 15 minutes (rule A), an
+  hour (rules C and D, rows 4, 13 and 14), 07:00 (the P2 mail), three fetches an hour apart (row
+  18). New things Core runs: the morning P2 mail, and row 24. Every line follows Patric's 163
+  rule: it names the thing (the site, the office, the connection) and its tenant, and links to
+  that thing's place in the admin area.
+- Reply: "164 ok" for every level, rule and row as proposed, or the level, rule letter or row
+  number with its new value ("164 ok, except P2 no mail, 21 P3").
 
 ## 151. `[crm-vitec]` Should Vitec sites skip the "Söker du bostad?" step?
 
