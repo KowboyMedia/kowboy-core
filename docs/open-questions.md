@@ -4,10 +4,29 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 171 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 172 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 171. `[core]` Adding a site's address to the bot check at Cloudflare: may Core keep Kowboy's Cloudflare account id as a second environment setting?
+
+- 2026-10-06 · 155's line 6, approved: each site's address goes on Cloudflare's list when the
+  site is saved in Core's admin, with a Cloudflare key kept as an environment setting. Every
+  address of Cloudflare's interface for that list names the account
+  (`/accounts/{account id}/challenges/widgets/{site key}`; Turnstile's widget management page,
+  updated 2026-05-05), so Core needs the account's id as well as the key. Cloudflare's
+  documentation does not say whether a key that may only change Turnstile can look up its own
+  account. Free plan: ten addresses per pair of keys, and an address covers its subdomains
+  (Turnstile's hostname management page, updated 2026-04-27).
+- a) **yes** (recommended): two settings where the forms are received, `CLOUDFLARE_ACCOUNT_ID` and
+  `CLOUDFLARE_API_TOKEN` (a key with the permission "Turnstile Sites Write"), set once with the
+  Cloudflare account. A save of a site adds its address to the list, and the save's answer says
+  whether Cloudflare took it; without the two settings (staging, local) nothing is asked.
+- b) **look it up**: only the key; Core asks Cloudflare for the key's account at each save. If
+  Cloudflare does not answer that to such a key, no address is added and the save says so.
+- Smaller: a. Blocked: adding a site's address automatically, which a live site needs before its
+  window can earn the bot check's proof. Answer a or b.
 
 ## 170. `[crm-vitec]` May Core send a site's forms to Vitec's QA environment, from staging as well?
 
