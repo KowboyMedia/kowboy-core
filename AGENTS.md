@@ -104,3 +104,18 @@ In addition to the handbook's definition:
    button explain to a cold reader what it does, as always in admin UI"): a sentence or two that a
    reader new to Core understands, saying what pressing it does and when to press it, shown next
    to the button, never only on hover.
+5. **Every text is written for a cold reader** (Patric, 2026-10-06, of the Overview's health checks
+   and "Needs attention": "these issues tell me nothing"), by the handbook's rule "Every text in
+   the product is written for the person who reads it". In Core that means:
+   - A health check shows a title and a sentence, never its name (`vitec.catch_up`,
+     `subscribers`), and an event shows its sentence, never its type (`office.taken_off`).
+   - A tenant is named by its name; a connection by its tenant and CRM, then its short name
+     ("Acme's Vitec connection, short name acme-crm"); a site by its name and its tenant; an
+     office by its name, then the CRM's id for it; a record by its address or name.
+   - Each named thing links to its place: a tenant, connection or site to the tenant's page
+     (`/tenants/<id>`, `#connection:<short name>`, `#site:<id>`), an office or a record to
+     Records, a form to Failed forms, a CRM to its page.
+   - A problem says what it means for the sites (homes missing or out of date, a form not
+     delivered), what to do, and on which page.
+   - The mails and Slack messages Core sends, and Core's answers to sites, are held to the same
+     rule as the admin area.
