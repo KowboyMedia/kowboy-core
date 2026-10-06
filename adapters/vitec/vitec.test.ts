@@ -524,7 +524,8 @@ describe('the Vitec adapter', () => {
     const offices = (await health())['vitec.offices'];
     expect(offices).toMatchObject({
       ok: false,
-      detail: expect.stringContaining('1 office(s) refused by Vitec'),
+      level: 'P2',
+      detail: expect.stringContaining('Vitec refuses to let Core read 1 office.'),
     });
     expect(offices?.names?.[0]).toContain(OFFICE);
 
@@ -543,7 +544,7 @@ describe('the Vitec adapter', () => {
         remoteId: 'OBJ2',
         officeId: OFFICE,
       }),
-    ).rejects.toThrow(`office ${OFFICE}`);
+    ).rejects.toThrow(`office id ${OFFICE}`);
     await queueLifecycle(CONNECTION, 'refetch', {
       records: [{ datatype: 'property', remoteId: 'OBJ2', officeId: OFFICE }],
     });
@@ -686,7 +687,10 @@ describe('the Vitec adapter', () => {
     const paused = (await health())['vitec.connect'];
     expect(paused).toMatchObject({
       ok: false,
-      detail: expect.stringContaining('1 connection(s) paused'),
+      level: 'P2',
+      detail: expect.stringContaining(
+        'Core stopped asking Vitec for 1 connection after 5 failed calls in a row',
+      ),
     });
     expect(paused?.names?.[0]).toContain(CONNECTION);
 
@@ -767,10 +771,10 @@ describe('the Vitec adapter', () => {
     expect(refused.detail).toContain(OFFICE);
     const accepted = await probe(credentials, [OFFICE]);
     expect(accepted.ok).toBe(true);
-    expect(accepted.detail).toContain('Vitec answers');
+    expect(accepted.detail).toContain('Vitec accepts the login and lists 1 office behind');
     expect(
       await probe(JSON.stringify({ username: USERNAME, password: PASSWORD }), []),
-    ).toMatchObject({ ok: false, detail: expect.stringContaining('customer or group id') });
+    ).toMatchObject({ ok: false, detail: expect.stringContaining('“Customer or group id”') });
 
     // The worker takes the first load, and the adapter fetches with the saved login.
     await event('connection_added');
@@ -788,7 +792,8 @@ describe('the Vitec adapter', () => {
       'VITEC_WEBHOOK_TOKEN',
     );
     const page = await vitecAdmin.panel(connections);
-    const url = page.find((section) => section.title === 'Notification URL')?.items?.[0]?.value;
+    const url = page.find((section) => section.title === 'Notification addresses and call limits')
+      ?.items?.[0]?.value;
     expect(url).toContain(`/v1/hook/vitec/webhook/${TOKEN}`);
     const schedules = page.find((section) => section.title === 'Connections and schedules');
     expect(schedules?.table?.rows[0]?.cells[0]).toBe(CONNECTION);
@@ -818,7 +823,7 @@ describe('the Vitec adapter', () => {
 
     // "Catch up now" makes the next tick run it; under the connection, only the offices Vitec lists.
     const acted = await vitecAdmin.act('catch_up', { connection: CONNECTION }, connections);
-    expect(acted.message).toContain('next tick');
+    expect(acted.message).toContain('within a minute');
     expect(await store.getState(CONNECTION, 'catch_up_at')).toBe('1970-01-01T00:00:00.000Z');
     expect(vitecAdmin.credentials.map((field) => field.key)).toEqual([
       'username',
@@ -905,14 +910,14 @@ describe('the Vitec adapter', () => {
             officeId: 'FIR2',
             name: null,
             readable: false,
-            detail: 'Vitec refuses this login',
+            detail: 'Vitec does not let this login read the office',
             refusedSince: check.at,
           },
         ],
       },
       {
         id: 'G9',
-        error: 'Vitec refuses this login',
+        error: 'Vitec does not let this login read G9',
         refusedSince: check.at,
         groups: [],
         groupsError: null,
@@ -1000,7 +1005,9 @@ describe('the Vitec adapter', () => {
     fake.forbidGroups('G1');
     const refused = await checkOffices(CONNECTION, auth, ['G1']);
     expect(refused).toMatchObject({ offices: ['M1', 'M2'], source: 'all' });
-    expect(refused.ids[0]?.groupsError).toBe('Vitec refuses this login its office groups');
+    expect(refused.ids[0]?.groupsError).toContain(
+      'Vitec does not show this login the office groups',
+    );
   });
 
   it('syncs the offices of the group “Webbplats” behind the login’s id, takes an office that left off the sites, and keeps them when Vitec does not answer', async () => {
@@ -1024,7 +1031,9 @@ describe('the Vitec adapter', () => {
       (await vitecAdmin.connection?.(await connection()))?.find(
         (section) => section.title === 'Offices Vitec lists',
       );
-    expect((await own())?.items?.[1]?.value).toBe('Webbplats (1), Övrigt (1)');
+    expect((await own())?.items?.[1]?.value).toBe(
+      'Webbplats with 1 office and Övrigt with 1 office',
+    );
 
     // The brokerage moves the website to the other office; "Fetch offices" acts on it.
     fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices: [{ id: 'M2' }] }]);
@@ -1043,7 +1052,9 @@ describe('the Vitec adapter', () => {
       {
         office_id: OFFICE,
         office_name: 'Kontor 1',
-        reason: 'it is no longer in the office group Webbplats in Vitec',
+        reason: expect.stringMatching(
+          /^the brokerage took the office out of its office group “Webbplats” in Vitec\. Its homes, its new-build projects and the office itself left the sites, and its agents stay\./,
+        ),
       },
     ]);
 
@@ -1129,7 +1140,9 @@ describe('the Vitec adapter', () => {
     expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE, 'M2'], source: 'all' });
     expect((await item('property', 'OBJ2'))?.['deleted']).toBe(false);
     expect(await cell(1)).toMatchObject({
-      text: expect.stringContaining('taken off the sites if still refused at the next daily check'),
+      text: expect.stringContaining(
+        'stays on the sites until the next daily check, and leaves them if Vitec still refuses it then',
+      ),
       state: 'warn',
     });
 
@@ -1163,18 +1176,24 @@ describe('the Vitec adapter', () => {
         {
           office_id: 'M2',
           office_name: 'Kontor 2',
-          reason: 'Vitec still refused it at the next daily check',
+          reason: expect.stringMatching(
+            /^Vitec has refused for a day to let this login read the office\./,
+          ),
         },
         {
           office_id: OFFICE,
           office_name: 'Kontor 1',
-          reason: 'Vitec still refused it at the next daily check',
+          reason: expect.stringMatching(
+            /^Vitec has refused for a day to let this login read the office\./,
+          ),
         },
       ]),
     );
     const refused = events.filter((row) => row.type === 'login.refused');
     expect(refused).toHaveLength(1);
-    expect(refused[0]?.fields['detail']).toBe('Vitec refuses this login for G1');
+    expect(refused[0]?.fields['detail']).toMatch(
+      /^Vitec no longer lets this username and password read G1, the customer or group id on the connection\./,
+    );
   });
 
   it('tells every connection that syncs a refused office of its block and of its end, the end before the office is taken off', async () => {
@@ -1276,10 +1295,10 @@ describe('the Vitec adapter', () => {
     const takenOff = (await queryEvents({ connectionId: CONNECTION })).filter(
       (row) => row.type === 'office.taken_off',
     );
-    expect(takenOff.map((row) => row.fields['reason'])).toEqual([
-      'the login was switched to Vitec’s QA environment',
-      'the login was switched to Vitec’s QA environment',
-    ]);
+    const switched = expect.stringMatching(
+      /^someone switched the connection’s login to Vitec’s QA environment, Vitec’s test system,/,
+    );
+    expect(takenOff.map((row) => row.fields['reason'])).toEqual([switched, switched]);
     expect(takenOff[0]?.correlation_id).toEqual(expect.any(String));
     expect(takenOff[1]?.correlation_id).toBe(takenOff[0]?.correlation_id);
   });
@@ -1325,16 +1344,16 @@ describe('the Vitec adapter', () => {
     // The button makes the next tick ask; the tenant's page shows what Vitec answered.
     const connections = [await connection()];
     const acted = await vitecAdmin.act('check_offices', { connection: CONNECTION }, connections);
-    expect(acted.message).toContain('next tick');
+    expect(acted.message).toContain('within a minute');
     await runSchedules();
     expect(listed()).toBe(1);
     const own = await vitecAdmin.connection?.(connections[0] as Connection);
     const section = own?.find((candidate) => candidate.title === 'Offices Vitec lists');
     expect(section?.table?.rows[0]?.cells).toEqual([
       OFFICE,
-      `${OFFICE} (${OFFICE})`,
+      OFFICE,
       'Kontor 1',
-      { text: 'yes', state: 'ok' },
+      { text: 'Yes', state: 'ok' },
       true,
     ]);
     expect(section?.actions?.[0]?.help).toBeTruthy();

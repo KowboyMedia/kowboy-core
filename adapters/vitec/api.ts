@@ -174,6 +174,10 @@ export class VitecError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** An answer that is not JSON, which Core cannot read. */
+    readonly broken = false,
+    /** Vitec's own words for the error, when it gave words rather than a web page. */
+    readonly said: string | null = null,
   ) {
     super(message);
     this.name = 'VitecError';
@@ -185,9 +189,12 @@ export class VitecError extends Error {
  * below). Nothing was sent, so it is no new refusal and no failure of Vitec.
  */
 export class Blocked extends Error {
-  constructor(environment: Environment, officeId: string) {
+  constructor(
+    readonly environment: Environment,
+    readonly officeId: string,
+  ) {
     super(
-      `Vitec refuses to let this login read office ${officeId}${environment === 'qa' ? ' in its QA environment' : ''}, so Core sends Vitec nothing about it. Only the daily office check asks Vitec again; “Fetch offices” on the tenant’s page asks now.`,
+      `Core did not ask Vitec, because Vitec refuses to let this login read the office with Vitec’s office id ${officeId}${environment === 'qa' ? ' in its QA environment' : ''}. Core asks Vitec about the office again only at the daily office check. Once the brokerage has sorted it out with Vitec, press “Fetch offices” on the tenant’s page, and Core checks within a minute.`,
     );
     this.name = 'Blocked';
   }
@@ -205,7 +212,7 @@ export function kindOf(error: unknown): FailureKind {
   if (error instanceof Blocked) return 'blocked';
   if (error instanceof VitecError) {
     if (error.status === 401 || error.status === 403) return 'forbidden';
-    if (error.message.includes('broken JSON')) return 'broken';
+    if (error.broken) return 'broken';
     if (error.status === 429 || error.status >= 500) return 'unavailable';
     return 'other';
   }
@@ -228,6 +235,25 @@ export type Page = {
 
 /** The start of an answer, for an error message: enough to see what Vitec sent, never the lot. */
 const snippet = (text: string): string => text.replace(/\s+/g, ' ').slice(0, 200);
+
+/**
+ * Vitec's own words in an error answer, for a person: the message of a JSON answer, or a short
+ * plain text, never a web page.
+ */
+function saidIn(text: string): string | null {
+  const trimmed = text.trim();
+  if (trimmed === '' || trimmed.startsWith('<')) return null;
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown> | null;
+    const words =
+      parsed && typeof parsed === 'object'
+        ? (parsed['message'] ?? parsed['Message'] ?? parsed['title'])
+        : null;
+    return typeof words === 'string' && words.trim() !== '' ? snippet(words) : null;
+  } catch {
+    return snippet(trimmed);
+  }
+}
 
 /** Who is passing the door, when it is not an ordinary request with a saved login. */
 type Passing = 'office check' | 'login trial';
@@ -321,6 +347,8 @@ async function get(
       const error = new VitecError(
         response.status,
         `${path}: HTTP ${response.status} ${snippet(text)}`,
+        false,
+        saidIn(text),
       );
       await refusedAt(auth.environment, officeId, path, error);
       throw error;
@@ -328,7 +356,7 @@ async function get(
     try {
       return JSON.parse(text) as unknown;
     } catch {
-      throw new VitecError(response.status, `${path}: broken JSON: ${snippet(text)}`);
+      throw new VitecError(response.status, `${path}: broken JSON: ${snippet(text)}`, true);
     }
   } catch (error) {
     call.error = String(error);
@@ -403,9 +431,12 @@ export async function post(
     const text = await response.text();
     call.response_bytes = Buffer.byteLength(text);
     if (!response.ok) {
+      const said = saidIn(text);
       const error = new VitecError(
         response.status,
         `${path}: HTTP ${String(response.status)} ${scrub(snippet(text))}`,
+        false,
+        said === null ? null : scrub(said),
       );
       await refusedAt(auth.environment, officeId, path, error);
       throw error;
@@ -414,7 +445,7 @@ export async function post(
     try {
       return JSON.parse(text) as unknown;
     } catch {
-      throw new VitecError(response.status, `${path}: broken JSON: ${scrub(snippet(text))}`);
+      throw new VitecError(response.status, `${path}: broken JSON: ${scrub(snippet(text))}`, true);
     }
   } catch (error) {
     call.error = String(error);

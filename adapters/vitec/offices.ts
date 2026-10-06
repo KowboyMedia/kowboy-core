@@ -15,6 +15,7 @@
 // and takes off the ones that went.
 import * as connect from './api.js';
 import * as store from './store.js';
+import { failureInWords } from './words.js';
 
 /**
  * A Vitec group id (G12): an id a login may be issued for, which lists the offices of several
@@ -77,20 +78,32 @@ export type OfficesCheck = {
    * so the notice that takes it off can name it.
    */
   names: Record<string, string>;
+  /**
+   * Whether Vitec answered every call of this check, so the tenant's page can tell "Vitec did not
+   * answer" from "Vitec listed no office"; a check kept from before this was kept says no when its
+   * offices were kept.
+   */
+  answered: boolean;
 };
 
-/** A failed call: what to show, whether it was a refusal, and whether Vitec answered at all. */
+/** What an office that Vitec lists behind the id, but answers does not exist, shows. */
+export const NO_SUCH_OFFICE =
+  'Vitec lists this office behind the id but answers that it does not exist';
+
+/** What a refused office shows, in the card and among the refused offices on the Vitec page. */
+export const OFFICE_REFUSED = 'Vitec does not let this login read the office';
+
+/**
+ * A failed call: what to show, as a clause, whether it was a refusal, and whether Vitec answered
+ * at all.
+ */
 const failure = (
   error: unknown,
   refused: string,
 ): { detail: string; refused: boolean; answered: boolean } => {
   const kind = connect.kindOf(error);
   if (kind === 'forbidden') return { detail: refused, refused: true, answered: true };
-  return {
-    detail: error instanceof Error ? error.message : String(error),
-    refused: false,
-    answered: kind === 'other',
-  };
+  return { detail: failureInWords(error), refused: false, answered: kind === 'other' };
 };
 
 type Answer<T> = { value: T; answered: boolean };
@@ -114,7 +127,7 @@ async function readOne(
     } | null;
     if (!office) {
       return {
-        value: { ...seen, readable: false, detail: 'Vitec has no such office' },
+        value: { ...seen, readable: false, detail: NO_SUCH_OFFICE },
         answered: true,
       };
     }
@@ -125,7 +138,7 @@ async function readOne(
     const customerId = own ? (office.customerId as string) : row.customerId;
     return { value: { ...seen, customerId, readable: true, name }, answered: true };
   } catch (error) {
-    const { detail, refused, answered } = failure(error, 'Vitec refuses this login');
+    const { detail, refused, answered } = failure(error, OFFICE_REFUSED);
     return {
       value: { ...seen, readable: false, detail, refusedSince: refused ? at : null },
       answered,
@@ -150,7 +163,7 @@ async function checkId(auth: connect.Auth, id: string, at: string): Promise<Answ
       answered &&= one.answered;
     }
   } catch (error) {
-    const refused = failure(error, 'Vitec refuses this login');
+    const refused = failure(error, `Vitec does not let this login read ${id}`);
     checked.error = refused.detail;
     if (refused.refused) checked.refusedSince = at;
     answered &&= refused.answered;
@@ -163,7 +176,10 @@ async function checkId(auth: connect.Auth, id: string, at: string): Promise<Answ
       officeIds,
     }));
   } catch (error) {
-    const refused = failure(error, 'Vitec refuses this login its office groups');
+    const refused = failure(
+      error,
+      'Vitec does not show this login the office groups, so Core cannot see a group “Webbplats” and every office behind the id reaches the sites. If the brokerage uses that group, ask Vitec to let this login read office groups',
+    );
     checked.groupsError = refused.detail;
     answered &&= refused.answered;
   }
@@ -282,6 +298,7 @@ export async function checkOffices(
     ids: checked,
     ...choice,
     names: namesOf(checked, last, choice.offices),
+    answered,
   };
   await store.setState(connectionId, 'offices_check', JSON.stringify(result));
   // Unanswered: due again within the hour instead of tomorrow.
@@ -332,6 +349,7 @@ export async function lastCheck(connectionId: string): Promise<OfficesCheck | nu
       offices: (parsed.offices ?? []).filter((office) => !isGroupId(office)),
       source: parsed.source ?? 'kept',
       names: parsed.names ?? {},
+      answered: parsed.answered ?? parsed.source !== 'kept',
     };
   } catch {
     return null;

@@ -7,6 +7,7 @@
 // interest's status, and a booking asks Vitec for an e-mail confirmation, no SMS and no reminder.
 import * as connect from './api.js';
 import { isoDate } from './mappers.js';
+import { failureInWords } from './words.js';
 import type {
   Connection,
   EventContext,
@@ -92,7 +93,7 @@ export async function submit(
     }
     return reference ? { outcome: 'delivered', reference } : { outcome: 'delivered' };
   } catch (error) {
-    return outcomeOf(error);
+    return outcomeOf(error, submission.kind);
   }
 }
 
@@ -216,7 +217,11 @@ async function booking(sending: Sending): Promise<string | null> {
 async function searchProfile(sending: Sending): Promise<string | null> {
   const { login, customerId, submission } = sending;
   const criteria = submission.criteria;
-  if (!criteria) throw new Error('a search profile without criteria');
+  if (!criteria) {
+    throw new NotSent(
+      'the search profile was not sent to Vitec, because the site’s form held no search wishes. The site’s search profile form needs checking.',
+    );
+  }
   const contact = await call(sending, login, 'Contacts/UpdatePerson', {
     customerId,
     firstName: submission.person.first_name,
@@ -230,7 +235,11 @@ async function searchProfile(sending: Sending): Promise<string | null> {
     obtainThrough: 'Interest',
   });
   const contactId = typeof contact === 'string' ? contact : contactIdOf(contact);
-  if (!contactId) throw new Error('UpdatePerson answered no contact id');
+  if (!contactId) {
+    throw new NotSent(
+      'Vitec took the visitor as a contact but gave back no contact number, so the search profile was not added. Send it again from Failed forms.',
+    );
+  }
   const codes = criteria.areas
     .map((area) => area.county_municipality_code)
     .filter((code): code is string => typeof code === 'string' && code !== '');
@@ -258,7 +267,11 @@ async function searchProfile(sending: Sending): Promise<string | null> {
 
 const estateOf = (submission: Submission): string => {
   const id = submission.record?.remote_id;
-  if (!id) throw new Error(`a ${submission.kind} without a home`);
+  if (!id) {
+    throw new NotSent(
+      `the ${submission.kind === 'viewing' ? 'booking' : 'interest'} was not sent to Vitec, because the form did not say which home it is for.`,
+    );
+  }
   return id;
 };
 
@@ -280,12 +293,44 @@ const wordsOf = (error: connect.VitecError): string => {
   return connect.scrub(after || `Vitec answered HTTP ${String(error.status)}`);
 };
 
-function outcomeOf(error: unknown): SubmissionResult {
+/** A form Core itself did not send, in words for Failed forms. */
+class NotSent extends Error {}
+
+/** A form by what Vitec makes of it, for the words on Failed forms. */
+const FORM_WORDS: Record<string, string> = {
+  lead: 'lead',
+  interest: 'interest',
+  viewing: 'booking',
+  search_profile: 'search profile',
+};
+
+/** What became of a form that failed, and what to do, for Failed forms and the event sentence. */
+function failedInWords(error: unknown, kind: string): string {
+  const form = FORM_WORDS[kind] ?? 'form';
+  if (error instanceof NotSent) return error.message;
+  if (error instanceof connect.Blocked) {
+    return `The form was not sent, because Vitec refuses to let this login read the office with Vitec’s office id ${error.officeId}${error.environment === 'qa' ? ' in its QA environment' : ''}. Send it again from Failed forms once Vitec no longer refuses the office.`;
+  }
+  if (error instanceof Error && error.message.includes('time ran out')) {
+    return `Core stopped trying after ${String(FORM_TIME_MS / 1000)} seconds, so the form was not sent to Vitec and the visitor read that it was not sent. Send it again from Failed forms.`;
+  }
+  switch (connect.kindOf(error)) {
+    case 'forbidden':
+      return 'Vitec does not let this login send forms. Check the login on the tenant’s page, then send the form again from Failed forms.';
+    case 'broken':
+      return `Vitec’s answer could not be read, so it is unclear whether Vitec took the ${form}. Check in Vitec before sending it again.`;
+    case 'unavailable':
+      return `Vitec did not take the ${form}, because ${failureInWords(error)}. Send it again from Failed forms when Vitec works.`;
+    default:
+      return `Vitec did not take the ${form}, because ${failureInWords(error)}. Send it again from Failed forms.`;
+  }
+}
+
+function outcomeOf(error: unknown, kind: string): SubmissionResult {
   if (error instanceof connect.VitecError && REFUSALS.has(error.status)) {
     return { outcome: 'refused', reason: wordsOf(error) };
   }
-  const detail = error instanceof Error ? error.message : String(error);
-  return { outcome: 'failed', detail: `${connect.kindOf(error)}: ${connect.scrub(detail)}` };
+  return { outcome: 'failed', detail: connect.scrub(failedInWords(error, kind)) };
 }
 
 // ---- The slots -------------------------------------------------------------------------------
