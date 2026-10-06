@@ -31,9 +31,11 @@ import { configuration, setMaintenance } from './configuration.js';
 import { flow, stream, toStreamEvent } from './feed.js';
 import { inspect, previewRecord, readRecord, search } from './records.js';
 import {
+  auditedOn,
   describe,
   fetchAgain,
   queueRecompute,
+  recordsFromBody,
   sync,
   toScope,
   LEVELS,
@@ -341,7 +343,7 @@ const routes: AdminRoute[] = [
     path: '/records/:connection/:datatype/:id',
     handler: async (request) => {
       const kind = datatype(request.params['datatype']);
-      if (!kind) return fail(400, 'That is not a datatype Core knows.');
+      if (!kind) return fail(400, 'Core knows no such kind of record.');
       const record = await readRecord(
         request.params['connection'] ?? '',
         kind,
@@ -355,7 +357,7 @@ const routes: AdminRoute[] = [
     path: '/records/:connection/:datatype/:id/preview',
     handler: async (request) => {
       const kind = datatype(request.params['datatype']);
-      if (!kind) return fail(400, 'That is not a datatype Core knows.');
+      if (!kind) return fail(400, 'Core knows no such kind of record.');
       return one(
         await previewRecord(request.params['connection'] ?? '', kind, request.params['id'] ?? ''),
       );
@@ -366,7 +368,7 @@ const routes: AdminRoute[] = [
     path: '/records/:connection/:datatype/:id/inspect',
     handler: async (request) => {
       const kind = datatype(request.params['datatype']);
-      if (!kind) return fail(400, 'That is not a datatype Core knows.');
+      if (!kind) return fail(400, 'Core knows no such kind of record.');
       const connectionId = request.params['connection'] ?? '';
       const remoteId = request.params['id'] ?? '';
       const looked = await inspect(connectionId, {
@@ -427,8 +429,22 @@ const routes: AdminRoute[] = [
       if (!level) return fail(400, `Say how far to go: ${LEVELS.join(', ')}.`);
       const read = scopeFromBody(given);
       if ('error' in read) return fail(400, read.error);
-      const detail = await sync(level, read.scope, request.session.email);
-      await audit(request.session, 'synced', { level, scope: describe(read.scope) });
+      // A record's page names its record; Manual sync names a scope. Never both at once.
+      let input: ScopeInput = read.scope;
+      if (given['records'] !== undefined) {
+        if (Object.keys(read.scope).length > 0)
+          return fail(400, 'Name records or a scope, not both.');
+        const named = recordsFromBody(given['records']);
+        if ('error' in named) return fail(400, named.error);
+        input = { records: named.records };
+      }
+      const detail = await sync(level, input, request.session.email);
+      await audit(
+        request.session,
+        'synced',
+        { level, scope: describe(input) },
+        await auditedOn(input),
+      );
       return one({ detail });
     },
   },
@@ -557,19 +573,20 @@ const routes: AdminRoute[] = [
 
 const refuseConnection = (connection: TenantInput['connections'][number]): string | null => {
   if (!connection.id || !/^[a-z0-9][a-z0-9-]*$/.test(connection.id)) {
-    return 'A connection needs a short name of lower-case letters, digits and dashes.';
+    return 'A CRM connection needs a name of lower-case letters, digits and dashes, such as acme-crm.';
   }
   // No office named means every office the CRM gives the login, which an adapter may learn from
   // the CRM itself (question 147 a, 2026-10-06, reversing the rule of 2026-09-21 that refused an
   // empty list); a connection that ends up with none says so in its health check.
-  return connection.provider ? null : `The connection ${connection.id} needs a CRM.`;
+  return connection.provider ? null : `Pick the CRM of the connection ${connection.id}.`;
 };
 
 const refuseSite = (site: TenantInput['sites'][number]): string | null => {
-  if (!site.label || site.label.trim() === '') return 'A site needs a name.';
+  if (!site.label || site.label.trim() === '')
+    return 'A site needs its address, such as https://example.se.';
   return /^https?:\/\/.+/.test(site.bellUrl)
     ? null
-    : `The site ${site.label} needs a bell address starting with http:// or https://.`;
+    : `The site ${site.label} needs an address starting with https://, such as https://example.se.`;
 };
 
 /**

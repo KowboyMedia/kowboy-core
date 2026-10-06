@@ -26,6 +26,7 @@ import { itemCounts } from '../storage/items.js';
 import { submissionCounts, type SubmissionCounts } from '../storage/submissions.js';
 import { adminFor, manifestFor } from '../registry.js';
 import type { AdminSection } from '../adapter-api/types.js';
+import { crmName, listed } from './words.js';
 
 export type ConnectionInput = {
   id: string;
@@ -278,23 +279,37 @@ export async function saveTenant(id: number | null, input: TenantInput): Promise
 
   if (tenantId === null) {
     tenantId = await createTenant({ displayName: input.displayName, token: newSecret() });
-    changes.push(`made tenant ${tenantId}`);
+    changes.push(`Core made the tenant ${input.displayName}; its token is on the page.`);
   } else {
     const before = await tenantById(tenantId);
-    if (!before) throw new Error(`there is no tenant ${tenantId}`);
-    if (before.display_name !== input.displayName) changes.push('renamed');
-    if (before.active !== input.active) changes.push(input.active ? 'licence on' : 'licence off');
+    if (!before) throw new Error(`There is no tenant number ${tenantId}.`);
+    if (before.display_name !== input.displayName)
+      changes.push(`The tenant is now called ${input.displayName}.`);
+    if (before.active !== input.active)
+      changes.push(
+        input.active
+          ? 'The tenant is enabled: its sites can fetch from Core again.'
+          : 'The tenant is disabled: its sites can no longer fetch from Core.',
+      );
     await updateTenant(tenantId, { displayName: input.displayName, active: input.active });
   }
 
-  changes.push(...(await saveConnections(tenantId, input.connections)));
+  const named = { tenant: input.displayName };
+  changes.push(...(await saveConnections(tenantId, input.connections, named)));
   changes.push(...(await saveSites(tenantId, input.sites)));
-  if (changes.length === 0) changes.push('saved');
   return { id: tenantId, changes };
 }
 
+/** A connection as a person reads it: its tenant and CRM, then its short name. */
+const connectionName = (tenant: string, provider: string, id: string): string =>
+  `${tenant}’s ${crmName(provider)} connection, short name ${id}`;
+
 /** The tenant's connections as the page left them, and what each difference asks of the adapter. */
-async function saveConnections(tenantId: number, wanted: ConnectionInput[]): Promise<string[]> {
+async function saveConnections(
+  tenantId: number,
+  wanted: ConnectionInput[],
+  named: { tenant: string },
+): Promise<string[]> {
   const changes: string[] = [];
   const existing = (await allConnections()).filter((row) => row.tenant_id === tenantId);
   const keep = new Set(wanted.map((connection) => connection.id));
@@ -303,7 +318,9 @@ async function saveConnections(tenantId: number, wanted: ConnectionInput[]): Pro
     // The event tombstones the connection's records before the row goes.
     await queueLifecycle(gone.id, 'connection_removed');
     await deleteConnection(gone.id);
-    changes.push(`removed the connection ${gone.id}`);
+    changes.push(
+      `${connectionName(named.tenant, gone.provider, gone.id)}, is removed, and its records are being taken off the sites.`,
+    );
   }
 
   for (const given of wanted) {
@@ -322,29 +339,40 @@ async function saveConnections(tenantId: number, wanted: ConnectionInput[]): Pro
     });
     if (!before) {
       await queueLifecycle(connection.id, 'connection_added');
-      changes.push(`added the connection ${connection.id}, which is loading`);
+      changes.push(
+        `${connectionName(named.tenant, connection.provider, connection.id)}, is added and loading its records.`,
+      );
       continue;
     }
-    changes.push(...(await officeChanges(connection, before.licensed_offices)));
+    changes.push(...(await officeChanges(connection, before.licensed_offices, named)));
   }
   return changes;
 }
 
 /** An office added is loaded; an office removed takes its records with it. */
-async function officeChanges(connection: ConnectionInput, before: string[]): Promise<string[]> {
+async function officeChanges(
+  connection: ConnectionInput,
+  before: string[],
+  named: { tenant: string },
+): Promise<string[]> {
   const changes: string[] = [];
   const added = connection.licensedOffices.filter((office) => !before.includes(office));
   const removed = before.filter((office) => !connection.licensedOffices.includes(office));
+  const name = connectionName(named.tenant, connection.provider, connection.id);
   if (added.length > 0) {
     await queueLifecycle(connection.id, 'offices_added', { officeIds: added });
-    changes.push(`${connection.id}: ${added.join(', ')} added and loading`);
+    changes.push(`${name}, is loading the records of ${officeIds(added)}.`);
   }
   if (removed.length > 0) {
     await queueLifecycle(connection.id, 'offices_removed', { officeIds: removed });
-    changes.push(`${connection.id}: ${removed.join(', ')} removed with their records`);
+    changes.push(`${name}, is taking the records of ${officeIds(removed)} off the sites.`);
   }
   return changes;
 }
+
+/** Offices by the CRM's ids for them: "office id 100", "office ids 100 and 200". */
+const officeIds = (ids: string[]): string =>
+  `${ids.length === 1 ? 'office id' : 'office ids'} ${listed(ids, ids.length)}`;
 
 /** The tenant's sites as the page left them. A new site gets its bell secret here. */
 async function saveSites(tenantId: number, wanted: SiteInput[]): Promise<string[]> {
@@ -353,7 +381,7 @@ async function saveSites(tenantId: number, wanted: SiteInput[]): Promise<string[
   const keep = new Set(wanted.map((site) => site.id).filter(Boolean));
   for (const gone of existing.filter((site) => !keep.has(Number(site.id)))) {
     await deleteSubscriber(Number(gone.id));
-    changes.push(`removed the site ${gone.label} with its history`);
+    changes.push(`The site ${gone.label} is removed, with its history.`);
   }
   for (const site of wanted) {
     if (site.id === undefined) {
@@ -363,7 +391,7 @@ async function saveSites(tenantId: number, wanted: SiteInput[]): Promise<string[
         bellUrl: site.bellUrl,
         bellSecret: newSecret(),
       });
-      changes.push(`added the site ${site.label}; its bell secret is on the page`);
+      changes.push(`The site ${site.label} is added; its bell secret is on the page.`);
       continue;
     }
     await updateSubscriber(site.id, {

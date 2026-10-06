@@ -67,7 +67,7 @@ form to Failed forms, a CRM to its page.
 | **Overview**     | The verdict first: green, or which checks are red, why, and a link to where each is fixed. Then "Needs attention": the important things of the last seven days, each naming the exact office, connection or site, its tenant, and a link that opens it (`engine/attention.ts`). Then the day in figures and hourly charts, what Core holds per datatype, the sites' freshness, and any job running now.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Flow**         | One list of the records in flight, "Queued at" first and sorted by it, newest first, the hundred newest, read again every second while the page is open. The whole row is coloured by state: waiting for the CRM, in Core, on a site, error. Tenants and offices narrow it. The same list, the same component, sits on Manual sync for the scope of a run (Patric, 2026-10-06).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Records**      | Everything Core holds, narrowed by the same scope as Manual sync, live (on the sites), removed (left the CRM's list, kept 90 days) or both, sorted by any column, pages of 500 (25 to 500), a column chooser. A record's name, or its row, opens the record. Every choice is in the address, so a view is a link. Built from zero on 2026-10-06.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| **Tenants**      | Tenants only. One tenant is one page and one Save: name, licence, its CRM connections, its sites. A link ending `#connection:<id>` or `#site:<id>` scrolls to that block and rings it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **Tenants**      | Tenants only. One tenant is one page and one Save: its name, whether it is enabled and its token; its CRM connections, with the tenant's records on their way under them; its sites. A link ending `#connection:<short name>` or `#site:<id>` scrolls to that block and marks it. Built from zero on 2026-10-06; see below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Manual sync**  | One scope, then how far to go: fetch from the CRM, recompute and send to the sites (the default); recompute and send; or send only. Below it, the Flow list for that scope. Built from zero on 2026-10-06; see below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | **Failed forms** | The forms visitors sent that the CRM refused or did not answer, newest first, each kept 30 days from when it was sent (question 160 a): the kind, the tenant and when, why it is here (the CRM's reason, or that it did not answer), the home with a link to its record, the office, and what the visitor wrote (name, e-mail, phone, address, message, the viewing time, the current-home box, the search profile, the consent's time, the page it was sent from, the campaign) and the form's id. **Send again**, explained beside it and asked first, sends the form to the CRM once more under its id, through the same route and guard as a site's send; the answer shows as a toast, and a form the CRM takes leaves the list and its details leave Core. One send at a time per form; a form whose send Core lost, still waiting twice the CRM's 20 s, is listed as not answered. The send and who pressed it are `submission.*` and `admin.form_sent_again` on the form's chain. |
 | **Events**       | The whole log with its filters, a live tail, and one click to follow a chain. Panel saves, sign-ins and actions are `admin.*` events with the person on them, so "who did what" is a filter.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -119,69 +119,71 @@ manual run").
 
 ### A tenant is one page
 
-A connection is a setting of a tenant: there is no connections page, list or menu entry (Patric,
-three times). The tenant's page holds any number of connections, of the same CRM or different ones,
-each with the CRM's own login fields, the offices it may see (left out for a CRM whose adapter
-takes the offices from the CRM itself, question 156 a: Vitec), a **Check the login** button that
-tries the CRM before anything is saved, and whatever the adapter reports about that connection.
+Built from zero on 2026-10-06 from Patric's list ("this entire page is complete shit. We shall
+rewrite it"); the old page stays at `/admin/tenants-old/<id>` until question 180 is answered, and
+nothing links there. A connection is a setting of a tenant: there is no connections page, list or
+menu entry (Patric, three times). One **Save** writes the whole page and says in its message what
+it did. Its parts, in order:
+
+- **The tenant**: its name; **Enabled** (a disabled tenant's sites can no longer fetch, and Core
+  stops telling them of changes; its connections keep loading); its token with **Copy** and
+  **Make a new token**, which asks first and says that every site fails to fetch until the new
+  token is pasted into it.
+- **CRM connections**, any number, of the same CRM or different ones. Each has its name (the short
+  name Core files its records under, fixed once saved; question 180 item 1 asks how it can change),
+  its CRM, picked from the CRMs Core has code for, and that CRM's login fields: for Vitec the
+  username, the password, the customer or group id (readable, not hidden) and **Use Vitec's QA
+  environment**. A login field whose only choices are no and yes is a tickbox. **Check login**
+  tries what is typed over the stored login, exactly as a save would store it, and saves nothing.
+  Under the login comes whatever the CRM's code reports about the connection: for Vitec, **Offices
+  Vitec lists** with **Fetch offices** and the offices. **Remove this connection** asks first; at
+  Save the connection goes and its records leave the sites. **Add a CRM connection** adds an empty
+  one. Under the connections, **Records on their way** is the Flow list narrowed to this tenant.
+- **Sites**, any number. Each has its address, which names the site (`https://example.se`), its
+  bell path (where on the site Core tells it of changes: `/wp-json/core/v1/bell` for WordPress
+  with Core's plugin, or a whole address for a site that listens elsewhere, such as a Lovable
+  site's sync function), and its bell secret with **Copy** and **Make a new secret**, which asks
+  first. **Remove this site** asks first and takes the site's history with it at Save.
+
+Saved on this page, a site's name is its address. An older site whose name is not an address
+shows the address its bell is on, and takes that as its name at the next Save. The page has no
+office field: a Vitec connection takes its offices from Vitec (question 156 a), and every other
+connection keeps the offices it has.
 
 **Offices may be left empty** (question 147 a, 2026-10-06, reversing the rule of 2026-09-21
 that refused it): no office named means every office the CRM gives the login. An adapter that can
 learn its offices from the CRM does so and says how in its setup steps (Vitec: the office group
-"Webbplats", or every office behind the login's id); its manifest says `officesFromCrm`, the page
-draws no office field for it, a save stores its list empty whatever was sent, and ingest reads the
-list as empty; one that ends up with none says so in its health check. Two tenants may name the same office: the record is fetched once and written
-for each of them, each with its own copies, its own version numbers and its own sites, which is
-how two sites can show one brokerage's listings. Core does not warn about that; the page says it
-where the offices are typed.
-Its sites are on the same page with their bell address, their bell secret, their setup
-checklist, what they reported applied and failed, and their own errors.
+"Webbplats", or every office behind the login's id); its manifest says `officesFromCrm`, a save
+stores its list empty whatever was sent, and ingest reads the list as empty; one that ends up with
+none says so in its health check. Two tenants may name the same office: the record is fetched once
+and written for each of them, each with its own copies, its own version numbers and its own sites,
+which is how two sites can show one brokerage's listings.
 Under a Vitec connection, **Offices Vitec lists** says in plain words which offices reach the
 sites and why, for a reader who must explain it to the brokerage: Core asks Vitec once a day, and
 at each worker start, which offices sit behind the login's customer or group id, reads each one,
 and uses those in the brokerage's office group "Webbplats" in Vitec, or every office when there is
 no such group or it holds none of them (Patric, closing question 154). The card shows the last
 check, the office groups Vitec answered, and each office with whether it reads and whether it is
-synced to the sites (question 157: the line "Reaches the sites" was removed, "I dont understand the
-purpose"). **Fetch offices** asks at the worker's next tick, and its explanation sits beside
-it. An office that came is loaded; one that went is tombstoned with all its records, so each site
-deletes it at its next sync, and the tombstones stay for the retention window. An office Vitec
-refuses (question 158 b) stays synced for one more day, its row saying since when, and is taken off
-when the refusal still stands at the next daily check; a refusal at any fetch makes the worker
-check within a minute. The card's note says the rule in one paragraph of plain words, for a reader who must tell the
-brokerage (Patric, closing question 154; one paragraph, Patric 2026-10-06). The card is the only
-thing the Vitec adapter shows under a connection: the block of its schedules and fetch list went
-on 2026-10-06 (Patric: remove it); the Vitec page keeps them.
-A Vitec login can be for Vitec's QA environment, Vitec's test system (question 169 a): the login
-field **Use Vitec's QA environment** set to yes sends every call of that login to QA's address, and its
-records are kept apart from live Vitec's even where QA uses the same office ids. The Vitec page
-shows QA's notification address beside the live one, and its **Fetch list** and **Refused
-offices** mark a QA office "(QA)", as do the names in `vitec.offices` on Overview. A saved login
-switched to the other system syncs no office until the worker's next tick, which takes
-everything the first system gave off the sites and loads the second in full; the field's own help and the
-setup steps say so. The forms of a QA login go to QA, and only from the live service.
-Under each connection, one line counts the forms visitors sent through Core to that CRM in the
-last day (docs/forms.md): delivered, refused by the CRM, unanswered by the CRM; red when any went
-unanswered. The visitor is never stored in Core, so the line has counts and nothing else.
+synced to the sites. **Fetch offices** asks at the worker's next tick, and its explanation sits
+beside it. An office that came is loaded; one that went is tombstoned with all its records, so each
+site deletes it at its next sync, and the tombstones stay for the retention window. An office
+Vitec refuses (question 158 b) stays synced for one more day, its row saying since when, and is
+taken off when the refusal still stands at the next daily check. The card's note says the rule in
+one paragraph (Patric, 2026-10-06).
+A Vitec login can be for Vitec's QA environment, Vitec's test system (question 169 a): **Use
+Vitec's QA environment** ticked sends every call of that login to QA's address, and its records are
+kept apart from live Vitec's even where QA uses the same office ids. A saved login switched to the
+other system syncs no office until the worker's next tick, which takes everything the first system
+gave off the sites and loads the second in full; the field's own help and the setup steps say so.
+The forms of a QA login go to QA, and only from the live service (question 181 asks about staging).
 
-One Save does all of it, and says what it did. The difference decides what the adapters are told: a
-new connection is loaded, offices added or removed are loaded or tombstoned, a connection taken off
-the page is removed with its records.
-
-**A saved secret is not on the page at all.** A stored password or key never leaves Core: the field
-shows `••••••••••••` where a secret exists, and that mask is the box's placeholder, not its value —
-there is nothing in the page for a browser, an extension or a screenshot to read. A login field that
-is not secret, such as a username or the id a login was issued for, shows what Core holds, and an
-empty one looks empty (2026-10-06: every field showed the mask, so an empty id looked filled).
-Leaving the fields as they are keeps the stored login; a field typed goes over that field alone, and every field not typed
-keeps its stored value (known bug 3, fixed 2026-10-06: a save used to keep only what was typed).
-A stored field cannot be emptied from the page. A stored field the CRM's login form no longer has
-is dropped at the next save, so the data a removed feature kept goes with it.
-
-Because of that, **Check the login** on a saved connection has nothing to send, so Core tries the
-login it already holds, with the offices that connection is licensed for. Typed values, when there
-are any, are tried instead, exactly as a save would store them — so a yes here is a yes afterwards
-(Patric, 2026-09-21: the check did not work on a saved connection).
+**A saved secret is not on the page at all.** A stored password or key never leaves Core: its box
+is empty, with the sentence "One is stored. Type a new one only to change it." under it, so there
+is nothing in the page for a browser, an extension or a screenshot to read. A login field that is
+not secret, such as a username or the id a login was issued for, shows what Core holds. A field
+typed goes over that field alone, and every field not typed keeps its stored value (known bug 3,
+fixed 2026-10-06). A stored field cannot be emptied from the page. A stored field the CRM's login
+form no longer has is dropped at the next save, so the data a removed feature kept goes with it.
 
 ### Dangerous buttons, and the ones that only look it
 
@@ -191,10 +193,10 @@ that a site's deletion takes its history with it, that a recompute rings the sit
 changed.
 
 The rest are plain buttons that do their work at once, because nothing they do can be lost
-(Patric, 2026-09-21). **Fetch again** asks the CRM for the same records and writes only what
-actually differs, so running it twice does no more than running it once. **Recompute this record**
-builds one record again from what Core already stores and calls no CRM. **Ring the sites** only
-tells the sites to pull. Each says as much on the page next to it.
+(Patric, 2026-09-21). On a record's page, **Fetch again** asks the CRM for the record and writes
+only what actually differs, so running it twice does no more than running it once; **Recompute**
+builds the record again from what Core already stores and calls no CRM; **Send again** only tells
+the sites to fetch it. **Check login** saves nothing. Each says as much on the page next to it.
 
 **Every button carries its sentence.** An action an adapter declares comes with `help`: what the
 button does and when a person would press it, shown next to it on the page and inside the
@@ -202,18 +204,39 @@ confirmation where there is one. The acceptance test _explains every button an a
 page_ refuses an action without it, so a new action cannot arrive unexplained and a changed action
 cannot keep the old sentence (Patric, 2026-09-21).
 
-### A record's timeline
+### A record's page
 
-A record's page shows its three faces — the CRM's payload, the unified record, the prepared strings
-— and under them its history: when, what happened in one sentence, and a link to follow the chain
-on Events. The sentence is the engine's (`engine/admin/summary.ts`), so the timeline, the Events
-page and Flow cannot say different things about the same event, and adding an event type anywhere
-in Core means adding its line there.
+Built from zero on 2026-10-06 for three purposes: troubleshooting a record's way from the CRM to
+the sites, viewing its data, and trying a step again (Patric: "the single entity viewer is shit,
+create a new replacement ... Do not anchor in the old"). The old page stays at
+`/admin/records-old/<connection>/<datatype>/<id>` until Patric approves the new one (question 182);
+nothing links there.
 
-No payload is on the timeline at all — not the whole event, not the part that changed (Patric,
-2026-09-21: a history of payloads cannot be read at a glance). What changed is named ("written:
-askingPrice, status"); the values themselves are the three faces above, and the whole event, with
-its payload, is one click away on Events.
+- **The top**: its name (address, or name), then one sentence: what it is, whose (the tenant, the
+  office and the CRM connection, each a link) and the CRM's id for it.
+- **Where it is now**, three steps in order. _In the CRM_: when the CRM last changed it; **Compare
+  with the CRM now** asks the CRM, stores nothing and lists the fields of the unified record that
+  differ between the CRM's answer, mapped, and Core's copy; the texts are left out, as they follow
+  the rules and not the CRM. A comparison shows only while Core's copy is the one it was made
+  against. **Fetch again**. _In Core_: when Core last stored it, and whether the rules Core runs
+  today made its texts; **Recompute**. _On the sites_: one line per site of the tenant, from the
+  sites' own reports (`site.applied`, `site.failed`) as far back as the event log keeps: has
+  Core's copy, has an earlier copy, could not take it and why, or no report; for a removed record,
+  took it off or not taken off yet. **Send again**. The three buttons are Manual sync's three
+  levels for this one record, through `POST /runs/sync` with `records`, so each does its step and
+  every step after it. A removed record offers none of them, says when Core took it off the
+  sites and that Core keeps it 90 days.
+- **What happened**: the record's events, one change at a time, newest change first. Events that
+  share a chain id are one change, oldest step first. A site's report carries no chain id, so it
+  joins the write that gave the record the place the site says it took (both carry `seq`). A
+  chain with an id links to it on Events, where its steps about other records show too. The
+  sentence is the engine's (`engine/admin/summary.ts`), except a site's report, which names the
+  site and links to it; no payload is on the history (Patric, 2026-09-21).
+- **Its data**: the three faces of the record (AGENTS.md), one tab each: the texts ready to show,
+  the unified record (without the texts) and what the CRM sent; each with **Copy**.
+
+The page follows along without a reload: it reads the record again when the stream brings an
+event about it. It starts afresh for each record, so nothing of one record stays on the next.
 
 ### Maintenance
 
@@ -227,24 +250,24 @@ One JSON API under `/v1/admin/`, and the browser app is its second user: everyth
 an agent can do, and nothing is done in two ways. Sign-in and the sign-in link are the only calls
 that need no session.
 
-| Call                                                                                             | What it does                                                                                |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `POST /sign-in`, `GET /sign-in/:token`, `POST /sign-out`, `GET /me`                              | Getting in and out, and who is in.                                                          |
-| `GET /overview`, `GET /health`                                                                   | The verdict, the day, the sites, the open jobs.                                             |
-| `GET /flow`                                                                                      | The records in flight in a scope, in the state each reached last, the newest `limit` (100). |
-| `GET /stream`                                                                                    | One server-sent stream: new events, the open jobs, the health verdict.                      |
-| `GET /tenants`, `GET /tenants/:id`, `POST /tenants`, `PATCH /tenants/:id`, `DELETE /tenants/:id` | The tenant list, and one tenant read and written whole.                                     |
-| `POST /tenants/:id/token`, `POST /tenants/:id/ring`                                              | A new token; ring every site of a tenant.                                                   |
-| `POST /sites/:id/secret`, `POST /sites/:id/ring`                                                 | A new bell secret; ring one site.                                                           |
-| `GET /devices`, `POST /devices/forget-others`                                                    | Where this person is signed in, and forgetting every other device.                          |
-| `GET /scope`                                                                                     | The pickers: tenants, the offices Core holds records for, the datatypes.                    |
-| `GET /records`, `GET /records/:connection/:datatype/:id`                                         | The records of a scope, sorted and paged; one record whole with its timeline.               |
-| `POST /records/:c/:d/:id/preview`, `POST /records/:c/:d/:id/inspect`                             | What a recompute would change; the CRM asked now, writing nothing.                          |
-| `POST /runs/sync`                                                                                | A manual sync of a scope at one of its three levels.                                        |
-| `POST /runs/recompute`, `POST /runs/fetch-again`                                                 | A scope recomputed or fetched again (a record's page).                                      |
-| `GET /events`                                                                                    | The log by any filter, paged by event number.                                               |
-| `GET /crms`, `GET /crms/:provider`, `POST /crms/:provider/act`, `POST /crms/:provider/probe`     | Each adapter's page as data, its actions, and a login tried.                                |
-| `GET /settings`, `POST /settings/maintenance`                                                    | The configuration, and the switch.                                                          |
+| Call                                                                                             | What it does                                                                                                                              |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /sign-in`, `GET /sign-in/:token`, `POST /sign-out`, `GET /me`                              | Getting in and out, and who is in.                                                                                                        |
+| `GET /overview`, `GET /health`                                                                   | The verdict, the day, the sites, the open jobs.                                                                                           |
+| `GET /flow`                                                                                      | The records in flight in a scope, in the state each reached last, the newest `limit` (100).                                               |
+| `GET /stream`                                                                                    | One server-sent stream: new events, the open jobs, the health verdict.                                                                    |
+| `GET /tenants`, `GET /tenants/:id`, `POST /tenants`, `PATCH /tenants/:id`, `DELETE /tenants/:id` | The tenant list, and one tenant read and written whole.                                                                                   |
+| `POST /tenants/:id/token`, `POST /tenants/:id/ring`                                              | A new token; ring every site of a tenant, which only the old tenant page does.                                                            |
+| `POST /sites/:id/secret`, `POST /sites/:id/ring`                                                 | A new bell secret; ring one site, which only the old tenant page does.                                                                    |
+| `GET /devices`, `POST /devices/forget-others`                                                    | Where this person is signed in, and forgetting every other device.                                                                        |
+| `GET /scope`                                                                                     | The pickers: tenants, the offices Core holds records for, the datatypes.                                                                  |
+| `GET /records`, `GET /records/:connection/:datatype/:id`                                         | The records of a scope, sorted and paged; one record whole with its timeline, each site's last reports on it and the rules running today. |
+| `POST /records/:c/:d/:id/preview`, `POST /records/:c/:d/:id/inspect`                             | What a recompute would change (the old record page); the CRM asked now, writing nothing, with the fields that differ from Core's copy.    |
+| `POST /runs/sync`                                                                                | A manual sync of a scope, or of named `records` (a record's page), at one of its three levels.                                            |
+| `POST /runs/recompute`, `POST /runs/fetch-again`                                                 | A scope recomputed or fetched again (the old record page).                                                                                |
+| `GET /events`                                                                                    | The log by any filter, paged by event number.                                                                                             |
+| `GET /crms`, `GET /crms/:provider`, `POST /crms/:provider/act`, `POST /crms/:provider/probe`     | Each adapter's page as data, its actions, and a login tried.                                                                              |
+| `GET /settings`, `POST /settings/maintenance`                                                    | The configuration, and the switch.                                                                                                        |
 
 Proved by `acceptance/admin.test.ts` through HTTP and by the browser journeys in `admin/e2e`, both
 named under AC 42 in the acceptance report.

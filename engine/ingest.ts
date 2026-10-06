@@ -1,4 +1,4 @@
-import { contentHash } from './json.js';
+import { canonicalJson, contentHash } from './json.js';
 import { validateData, SCHEMA_VERSION } from './contract.js';
 import { applyRules, RULES_VERSION } from './rules/run.js';
 import { manifestFor, mapperFor } from './registry.js';
@@ -230,7 +230,10 @@ export function changedFields(
   const from = flatten(before);
   const to = flatten(after);
   for (const key of new Set([...Object.keys(from), ...Object.keys(to)])) {
-    if (JSON.stringify(from[key]) !== JSON.stringify(to[key])) {
+    // A field that comes or goes is a change, even to or from null, as it is to the content hash.
+    // Keys in sorted order: the database hands objects back in its own key order.
+    const cameOrWent = (from[key] === undefined) !== (to[key] === undefined);
+    if (cameOrWent || canonicalJson(from[key]) !== canonicalJson(to[key])) {
       changed[key] = { from: from[key] ?? null, to: to[key] ?? null };
     }
   }

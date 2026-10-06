@@ -4,13 +4,14 @@
 // same scope, so a person learns it once.
 import type { Scope as RecomputeScope } from '../recompute.js';
 import { createJob } from '../jobs.js';
-import { connections, connectionById, tenants } from '../storage/connections.js';
+import { connections, connectionById, subscribers, tenants } from '../storage/connections.js';
 import { itemsForScope, renumber, type ItemKey, type ItemRow } from '../storage/items.js';
 import { queueLifecycle } from '../lifecycle.js';
 import { ring } from '../bells.js';
 import { describeScope, type Scope } from './scope.js';
+import type { AuditContext } from './audit.js';
 import { counted, entity, listed } from './words.js';
-import type { AdminRecord, Datatype } from '../adapter-api/types.js';
+import { DATATYPES, type AdminRecord, type Datatype } from '../adapter-api/types.js';
 
 /**
  * A scope as a page sends it: the shared scope (tenants, offices, entity types, one id), or a list
@@ -19,6 +20,34 @@ import type { AdminRecord, Datatype } from '../adapter-api/types.js';
 export type ScopeInput = Scope & {
   records?: { connectionId: string; datatype: Datatype; remoteId: string }[];
 };
+
+/** At most this many named records in one run; a larger set is a scope. */
+const MOST_RECORDS = 500;
+
+/**
+ * The records a run's body names (`records: [{ connectionId, datatype, remoteId }]`), as a
+ * record's page sends itself. A slip is a refusal in words, never a database error.
+ */
+export function recordsFromBody(
+  given: unknown,
+): { records: NonNullable<ScopeInput['records']> } | { error: string } {
+  if (!Array.isArray(given) || given.length === 0 || given.length > MOST_RECORDS)
+    return { error: `“records” must list from 1 to ${String(MOST_RECORDS)} records.` };
+  const records: NonNullable<ScopeInput['records']> = [];
+  for (const one of given as unknown[]) {
+    const record = (one ?? {}) as Record<string, unknown>;
+    const datatype = DATATYPES.find((known) => known === record['datatype']);
+    const { connectionId, remoteId } = record;
+    if (typeof connectionId !== 'string' || connectionId === '' || !datatype)
+      return {
+        error: 'Each record needs its CRM connection’s short name and a known entity type.',
+      };
+    if (typeof remoteId !== 'string' || remoteId === '')
+      return { error: 'Each record needs the CRM’s id for it.' };
+    records.push({ connectionId, datatype, remoteId });
+  }
+  return { records };
+}
 
 /** The named records as the engine's keys. A record's tenant comes from its connection. */
 async function keysOf(records: NonNullable<ScopeInput['records']>): Promise<ItemKey[]> {
@@ -148,12 +177,32 @@ async function resync(tenantIds: number[], datatypes: Datatype[]): Promise<Fetch
 export async function send(input: ScopeInput): Promise<{ records: number; detail: string }> {
   const moved = await renumber(await toScope(input));
   for (const tenantId of moved.tenantIds) await ring(tenantId, 'delta');
+  return { records: moved.records, detail: await sent(moved) };
+}
+
+/** What a send did, in words: how many records went to whose sites, or why none did. */
+async function sent(moved: { records: number; tenantIds: number[] }): Promise<string> {
+  if (moved.records === 0)
+    return 'Core holds no live record among those picked, so no site was sent anything.';
+  const names = await tenantNames(moved.tenantIds);
+  const withSites = new Set((await subscribers()).map((site) => Number(site.tenant_id)));
+  if (!moved.tenantIds.some((tenantId) => withSites.has(tenantId)))
+    return moved.tenantIds.length === 1
+      ? `${names} has no site yet, so no site was sent anything.`
+      : `None of ${names} has a site yet, so no site was sent anything.`;
+  return `Core sent ${counted(moved.records, 'record', 'records')} to the sites of ${names} again, and told them to fetch ${moved.records === 1 ? 'it' : 'them'}.`;
+}
+
+/** Where a run goes in the event log: on its record when it names one record. */
+export async function auditedOn(input: ScopeInput): Promise<AuditContext> {
+  const only = input.records?.length === 1 ? input.records[0] : undefined;
+  if (!only) return {};
+  const connection = await connectionById(only.connectionId);
   return {
-    records: moved.records,
-    detail:
-      moved.records === 0
-        ? 'Core holds no live record among those picked, so no site was sent anything.'
-        : `Core sent ${counted(moved.records, 'record', 'records')} to the sites of ${await tenantNames(moved.tenantIds)} again. Each site takes the ones it lacks or holds in another version.`,
+    tenantId: connection?.tenantId ?? null,
+    connectionId: only.connectionId,
+    datatype: only.datatype,
+    remoteId: only.remoteId,
   };
 }
 
@@ -171,7 +220,11 @@ export async function sync(level: Level, input: ScopeInput, by: string): Promise
   if (level === 'fetch') said.push((await fetchAgain(input)).detail);
   if (level !== 'send') {
     await queueRecompute(await toScope(input), by);
-    said.push('Core recomputes them in the background.');
+    said.push(
+      input.records?.length === 1
+        ? 'Core recomputes it in the background.'
+        : 'Core recomputes them in the background.',
+    );
   }
   said.push((await send(input)).detail);
   return said.join(' ');

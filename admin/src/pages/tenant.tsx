@@ -1,399 +1,859 @@
-// One tenant, one page, one Save (§3 A, Must; Patric's rule 1). Making a tenant and changing one
-// are the same page: name, licence, its CRM connections with their logins and offices, and its
-// sites. Nothing reloads; every outcome is a toast; every dangerous button is red and asks first.
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router';
-import { useCustomMutation, useList, useOne } from '@refinedev/core';
+// A tenant (Patric, 2026-10-06, built from zero from his list): its name, whether it is enabled
+// and its token; its CRM connections, each with its name, its CRM and that CRM's login, "Check
+// login" and what the CRM code reports about it, such as the offices it lists, with the tenant's
+// records on their way under them; and its sites, each with its address, its bell
+// path and its bell secret. One Save writes the page. A link ending in #connection:<short name>
+// or #site:<number> scrolls to that block and marks it.
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router';
+import { useCustom, useCustomMutation } from '@refinedev/core';
 import { toast } from 'sonner';
-import { Plus, Trash2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label, Select } from '@/components/ui/input';
-import { AdapterSections, type AdminSection } from '@/components/adapter-sections';
+import {
+  Value,
+  type AdminAction,
+  type AdminField,
+  type AdminSection,
+} from '@/components/adapter-sections';
 import { Confirm } from '@/components/confirm';
 import { Copy } from '@/components/copy';
-import { Empty } from '@/components/empty';
+import { Explained } from '@/components/explained';
+import { FlowList } from '@/components/flow';
 import { PageHeader } from '@/components/layout';
-import { ago, count, moment } from '@/lib/format';
+import { useScopeOptions } from '@/components/scope-picker';
+import { crmName } from '@/lib/format';
+import { EMPTY_SCOPE } from '@/lib/scope';
+import { cn } from '@/lib/utils';
 
-type CrmSummary = {
-  provider: string;
-  /** The CRM decides which offices a connection syncs: no office field is drawn. */
-  officesFromCrm?: boolean;
-  credentials: {
-    key: string;
-    label: string;
-    secret?: boolean;
-    help?: string;
-    required?: boolean;
-  }[];
-};
+/** A CRM Core has code for, with the login its connections ask for. */
+type Crm = { provider: string; credentials: AdminField[] };
 
 type ConnectionView = {
   id: string;
   provider: string;
   licensedOffices: string[];
   active: boolean;
-  hasCredentials: boolean;
-  /** The stored value of each login field that is not secret and holds one. */
+  /** The stored value of each login field that is not secret. */
   shown: Record<string, string>;
   /** Every login field that holds a value, secret or not. */
   filled: string[];
-  lastIngestAt: string | null;
-  lastError: string | null;
-  loaded: { datatype: string; live: number }[];
-  /** The forms sites sent through Core to this CRM in the last day, by outcome. */
-  submissions: { delivered: number; refused: number; failed: number };
+  /** What the CRM code reports about this connection. */
   sections: AdminSection[];
 };
 
-type SiteView = {
-  id: number;
-  label: string;
-  bellUrl: string;
-  bellSecret: string;
-  active: boolean;
-  lastPullAt: string | null;
-  lastBellAt: string | null;
-  lastBellStatus: string | null;
-  lastClient: string | null;
-  checklist: { step: string; done: boolean; detail: string }[];
-  applied: { applied: number; failed: number };
-  errors: { at: string; message: string; where: string; detail: string | null }[];
-};
+type SiteView = { id: number; label: string; bellUrl: string; bellSecret: string; active: boolean };
 
 type TenantView = {
   id: number;
   displayName: string;
   active: boolean;
   token: string | null;
-  createdAt: string;
   connections: ConnectionView[];
   sites: SiteView[];
-  records: { datatype: string; live: number; tombstoned: number }[];
 };
 
-/** The form's own shape: what the page holds while a person is typing. */
-type ConnectionForm = {
+type ConnectionDraft = {
+  key: string;
+  /** The short name it is saved under; null until it is saved. */
+  saved: string | null;
   id: string;
   provider: string;
-  credentials: Record<string, string>;
-  offices: string;
+  typed: Record<string, string>;
+  /** Sent back as stored: nothing on this page changes them. */
+  licensedOffices: string[];
   active: boolean;
 };
-type SiteForm = { id?: number; label: string; bellUrl: string; active: boolean };
-type Form = {
+
+type SiteDraft = {
+  key: string;
+  id: number | null;
+  address: string;
+  bellPath: string;
+  /** Sent back as stored: nothing on this page changes it. */
+  active: boolean;
+};
+
+type Draft = {
   displayName: string;
   active: boolean;
-  connections: ConnectionForm[];
-  sites: SiteForm[];
+  connections: ConnectionDraft[];
+  sites: SiteDraft[];
 };
 
-const EMPTY: Form = { displayName: '', active: true, connections: [], sites: [] };
+/** Where Core's WordPress plugin listens for the bell. */
+const WORDPRESS_BELL = '/wp-json/core/v1/bell';
+
+const isAddress = (text: string): boolean => /^https?:\/\//.test(text.trim());
+const withoutSlash = (text: string): string => text.trim().replace(/\/+$/, '');
 
 /**
- * What a stored login looks like on the page. Core never sends a secret to the browser, so this
- * is a mask standing in for a value the page does not have, not a masked copy of one it does
- * (Patric, 2026-09-21).
+ * A stored site as the page shows it: the site's address, and where on it Core rings. A site
+ * saved here keeps its address as its name; an older one is read from its bell's address.
  */
-const MASK = '••••••••••••';
+function siteDraft(site: SiteView): SiteDraft {
+  const base = { key: `site:${String(site.id)}`, id: site.id, active: site.active };
+  const named = isAddress(site.label) ? withoutSlash(site.label) : null;
+  if (named)
+    return {
+      ...base,
+      address: named,
+      bellPath: site.bellUrl.startsWith(`${named}/`)
+        ? site.bellUrl.slice(named.length)
+        : site.bellUrl,
+    };
+  try {
+    const bell = new URL(site.bellUrl);
+    return { ...base, address: bell.origin, bellPath: `${bell.pathname}${bell.search}` };
+  } catch {
+    return { ...base, address: '', bellPath: site.bellUrl };
+  }
+}
 
-const toForm = (tenant: TenantView): Form => ({
-  displayName: tenant.displayName,
-  active: tenant.active,
-  connections: tenant.connections.map((connection) => ({
+/** The bell's whole address: a path goes after the site's address, a whole address stays. */
+const bellAddress = (site: SiteDraft): string => {
+  const path = site.bellPath.trim();
+  if (isAddress(path)) return path;
+  return `${withoutSlash(site.address)}${path.startsWith('/') ? '' : '/'}${path}`;
+};
+
+const draftOf = (view: TenantView): Draft => ({
+  displayName: view.displayName,
+  active: view.active,
+  connections: view.connections.map((connection) => ({
+    key: `connection:${connection.id}`,
+    saved: connection.id,
     id: connection.id,
     provider: connection.provider,
-    credentials: {},
-    offices: connection.licensedOffices.join(', '),
+    typed: { ...connection.shown },
+    licensedOffices: connection.licensedOffices,
     active: connection.active,
   })),
-  sites: tenant.sites.map((site) => ({
-    id: site.id,
-    label: site.label,
-    bellUrl: site.bellUrl,
+  sites: view.sites.map(siteDraft),
+});
+
+const EMPTY: Draft = { displayName: '', active: true, connections: [], sites: [] };
+
+/** The login fields that hold something; an empty one leaves what is stored. */
+const typedOf = (connection: ConnectionDraft): Record<string, string> =>
+  Object.fromEntries(Object.entries(connection.typed).filter(([, value]) => value.trim() !== ''));
+
+/** The page as Core's save takes it. */
+const bodyOf = (draft: Draft) => ({
+  displayName: draft.displayName.trim(),
+  active: draft.active,
+  connections: draft.connections.map((connection) => ({
+    id: connection.id.trim(),
+    provider: connection.provider,
+    credentials: typedOf(connection),
+    licensedOffices: connection.licensedOffices,
+    active: connection.active,
+  })),
+  sites: draft.sites.map((site) => ({
+    ...(site.id === null ? {} : { id: site.id }),
+    label: withoutSlash(site.address),
+    bellUrl: bellAddress(site),
     active: site.active,
   })),
 });
 
-const offices = (value: string): string[] =>
-  value
-    .split(',')
-    .map((office) => office.trim())
-    .filter(Boolean);
+const message = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
 
-/** The anchor an address ends in, "connection:acme-crm" or "site:2"; a malformed one as typed. */
-function fragment(hash: string): string {
-  try {
-    return decodeURIComponent(hash.slice(1));
-  } catch {
-    return hash.slice(1);
-  }
+let made = 0;
+const newKey = (kind: string): string => `${kind}:new:${String((made += 1))}`;
+
+// ---- A login field ------------------------------------------------------------------------------
+
+/** A field whose only choices are no and yes is a tickbox; ticked is yes. */
+const isTickbox = (field: AdminField): boolean =>
+  field.options?.length === 2 &&
+  field.options.some((option) => option.value === 'no') &&
+  field.options.some((option) => option.value === 'yes');
+
+function LoginField({
+  field,
+  id,
+  value,
+  stored,
+  onChange,
+}: {
+  field: AdminField;
+  id: string;
+  value: string;
+  stored: boolean;
+  onChange: (value: string) => void;
+}) {
+  const help = field.help && <p className="text-xs text-muted-foreground">{field.help}</p>;
+  if (isTickbox(field))
+    return (
+      <div className="flex flex-col gap-1 sm:col-span-2">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            checked={value === 'yes'}
+            onChange={(event) => onChange(event.target.checked ? 'yes' : 'no')}
+          />
+          {field.label}
+        </label>
+        {help}
+      </div>
+    );
+  return (
+    <div className="flex flex-col gap-1">
+      <Label htmlFor={id}>{field.label}</Label>
+      {field.options ? (
+        <Select id={id} value={value} onChange={(event) => onChange(event.target.value)}>
+          {value === '' && <option value="">Pick one</option>}
+          {field.options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label ?? option.value}
+            </option>
+          ))}
+        </Select>
+      ) : (
+        <Input
+          id={id}
+          type={field.secret ? 'password' : 'text'}
+          autoComplete={field.secret ? 'new-password' : 'off'}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      )}
+      {field.secret && stored && value === '' && (
+        <p className="text-xs text-muted-foreground">
+          One is stored. Type a new one only to change it.
+        </p>
+      )}
+      {help}
+    </div>
+  );
 }
 
-/** What the page will not send, said at the field it belongs to (§3 A, Must). */
-function problems(form: Form): Record<string, string> {
-  const found: Record<string, string> = {};
-  if (form.displayName.trim() === '') found['displayName'] = 'A tenant needs a name.';
-  form.connections.forEach((connection, index) => {
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(connection.id)) {
-      found[`connection-${String(index)}`] =
-        'Short name: lower-case letters, digits and dashes, starting with a letter or a digit.';
-    } else if (!connection.provider) {
-      found[`connection-${String(index)}`] = 'Choose the CRM this connection reads.';
+// ---- What the CRM code reports about a connection -----------------------------------------------
+
+type Act = (action: AdminAction, params: Record<string, string>) => Promise<void>;
+
+/** One button the CRM code declared, asking first when it says to. */
+function ActionButton({ action, act }: { action: AdminAction; act: Act }) {
+  const [busy, setBusy] = useState(false);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const run = async (): Promise<void> => {
+    setBusy(true);
+    try {
+      await act(action, { ...(action.params ?? {}), ...values });
+    } finally {
+      setBusy(false);
     }
-  });
-  form.sites.forEach((site, index) => {
-    if (site.label.trim() === '') found[`site-${String(index)}`] = 'A site needs a name.';
-    else if (!/^https?:\/\/.+/.test(site.bellUrl)) {
-      found[`site-${String(index)}`] = 'The bell address starts with http:// or https://.';
-    }
-  });
-  return found;
+  };
+  if (action.confirm || action.danger || (action.fields ?? []).length > 0)
+    return (
+      <Confirm
+        label={action.label}
+        title={action.label}
+        what={[action.help, action.confirm].filter(Boolean).join(' ')}
+        confirmLabel={action.label}
+        variant={action.danger ? 'danger' : 'secondary'}
+        size="sm"
+        onConfirm={run}
+      >
+        {(action.fields ?? []).map((field) => (
+          <LoginField
+            key={field.key}
+            field={field}
+            id={`${action.id}-${field.key}`}
+            value={values[field.key] ?? ''}
+            stored={false}
+            onChange={(value) => setValues({ ...values, [field.key]: value })}
+          />
+        ))}
+      </Confirm>
+    );
+  return (
+    <Button variant="secondary" size="sm" disabled={busy} onClick={() => void run()}>
+      {busy ? 'Working…' : action.label}
+    </Button>
+  );
 }
 
-export function TenantPage() {
-  const { id } = useParams();
-  const making = id === undefined;
-  const navigate = useNavigate();
+function Report({ section, act }: { section: AdminSection; act: Act }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <h4 className="font-medium">{section.title}</h4>
+      {section.help && <p className="text-sm text-muted-foreground">{section.help}</p>}
+      {(section.actions ?? []).map((action) => (
+        <Explained key={action.id} what={action.help ?? ''}>
+          <ActionButton action={action} act={act} />
+        </Explained>
+      ))}
+      {section.items && (
+        <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[minmax(0,14rem)_1fr]">
+          {section.items.map((item) => (
+            <div key={item.label} className="contents">
+              <dt className="text-muted-foreground">{item.label}</dt>
+              <dd>
+                <Value value={item.value} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {section.table &&
+        (section.table.rows.length === 0 ? (
+          <p className="text-sm">{section.table.empty ?? 'Nothing yet.'}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b">
+                  {section.table.columns.map((column) => (
+                    <th key={column} className="py-1 pr-3 font-medium">
+                      {column}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {section.table.rows.map((row) => (
+                  <tr key={JSON.stringify(row.cells)} className="border-b align-top">
+                    {row.cells.map((cell, index) => (
+                      <td key={index} className="py-1 pr-3">
+                        <Value value={cell} />
+                      </td>
+                    ))}
+                    {(row.actions ?? []).length > 0 && (
+                      <td className="py-1">
+                        {(row.actions ?? []).map((action) => (
+                          <div key={action.id} className="flex flex-col gap-1">
+                            <ActionButton action={action} act={act} />
+                            <span className="text-xs text-muted-foreground">{action.help}</span>
+                          </div>
+                        ))}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+    </div>
+  );
+}
+
+// ---- One CRM connection -------------------------------------------------------------------------
+
+function Connection({
+  draft,
+  view,
+  crms,
+  tenantName,
+  onChange,
+  onRemove,
+  act,
+}: {
+  draft: ConnectionDraft;
+  view: ConnectionView | undefined;
+  crms: Crm[];
+  tenantName: string;
+  onChange: (next: ConnectionDraft) => void;
+  onRemove: () => void;
+  act: (provider: string) => Act;
+}) {
   const { mutateAsync } = useCustomMutation();
-  const [form, setForm] = useState<Form>(EMPTY);
-  const [saving, setSaving] = useState(false);
-  const [touched, setTouched] = useState(false);
+  const [checked, setChecked] = useState<{ ok: boolean; detail: string } | null>(null);
+  const fields = crms.find((crm) => crm.provider === draft.provider)?.credentials ?? [];
+  const name = `${tenantName}’s ${draft.provider ? crmName(draft.provider) : 'CRM'} connection`;
 
-  const { result, query } = useOne<TenantView>({
-    resource: 'tenants',
-    id: id ?? '',
-    queryOptions: { enabled: !making },
-  });
-  // An answer that has not arrived is an empty object, so the page tests a field it needs.
-  const tenant = making || !result?.id ? null : result;
-
-  const { result: crmList } = useList<CrmSummary>({
-    resource: 'crms',
-    pagination: { mode: 'off' },
-  });
-  const crms = useMemo(() => crmList?.data ?? [], [crmList]);
-
-  useEffect(() => {
-    if (tenant) setForm(toForm(tenant));
-  }, [tenant]);
-
-  // A link to one connection or site of this tenant (from "Needs attention" on the Overview)
-  // ends in its anchor: once that block is drawn, the page scrolls to it, once per link, so typing
-  // or a refresh never pulls the page back.
-  const anchor = fragment(useLocation().hash);
-  const scrolled = useRef('');
-  useEffect(() => {
-    const block = anchor && scrolled.current !== anchor ? document.getElementById(anchor) : null;
-    if (!block) return;
-    block.scrollIntoView();
-    scrolled.current = anchor;
-  }, [anchor, form]);
-  const linked = (id: string): string =>
-    anchor === id ? 'rounded-lg border p-3 ring-2 ring-warn' : 'rounded-lg border p-3';
-
-  const found = problems(form);
-  const problem = (key: string): string | undefined => (touched ? found[key] : undefined);
-
-  const post = async <T,>(
-    url: string,
-    values: object = {},
-    method: 'post' | 'patch' = 'post',
-  ): Promise<T> => {
-    const answer = await mutateAsync({
-      url,
-      method,
-      values,
-      successNotification: false,
-      errorNotification: false,
-    });
-    return answer.data as unknown as T;
+  const check = async (): Promise<void> => {
+    try {
+      const answer = await mutateAsync({
+        url: `/crms/${draft.provider}/probe`,
+        method: 'post',
+        values: {
+          credentials: typedOf(draft),
+          officeIds: [],
+          ...(draft.saved ? { connectionId: draft.saved } : {}),
+        },
+        successNotification: false,
+        errorNotification: false,
+      });
+      setChecked(answer.data as unknown as { ok: boolean; detail: string });
+    } catch (error) {
+      setChecked({ ok: false, detail: message(error) });
+    }
   };
 
-  const save = async (): Promise<void> => {
-    setTouched(true);
-    if (Object.keys(found).length > 0) {
-      toast.error('Some fields need fixing first.');
-      return;
+  return (
+    <section
+      id={draft.saved ? `connection:${draft.saved}` : undefined}
+      className="flex flex-col gap-3 rounded-md border p-3"
+      aria-label={draft.saved ? `${name}, short name ${draft.saved}` : 'A new CRM connection'}
+    >
+      <h3 className="font-semibold">
+        {draft.saved ? `${name}, short name ${draft.saved}` : 'A new CRM connection'}
+      </h3>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-1">
+          <Label htmlFor={`${draft.key}-name`}>Name</Label>
+          <Input
+            id={`${draft.key}-name`}
+            value={draft.id}
+            disabled={draft.saved !== null}
+            onChange={(event) => onChange({ ...draft, id: event.target.value })}
+          />
+          <p className="text-xs text-muted-foreground">
+            Lower-case letters, digits and dashes, such as acme-crm. Core files the connection’s
+            records under it, so it is fixed once saved.
+          </p>
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor={`${draft.key}-crm`}>CRM</Label>
+          <Select
+            id={`${draft.key}-crm`}
+            value={draft.provider}
+            onChange={(event) => {
+              setChecked(null);
+              onChange({ ...draft, provider: event.target.value, typed: {} });
+            }}
+          >
+            {draft.provider === '' && <option value="">Pick one</option>}
+            {crms.map((crm) => (
+              <option key={crm.provider} value={crm.provider}>
+                {crmName(crm.provider)}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {fields.map((field) => (
+          <LoginField
+            key={field.key}
+            field={field}
+            id={`${draft.key}-${field.key}`}
+            value={draft.typed[field.key] ?? ''}
+            stored={view?.filled.includes(field.key) ?? false}
+            onChange={(value) =>
+              onChange({ ...draft, typed: { ...draft.typed, [field.key]: value } })
+            }
+          />
+        ))}
+      </div>
+      {draft.provider !== '' && (
+        <Explained what="Tries the login typed above, or the stored one when nothing new is typed, and shows what the CRM answers. Nothing is saved.">
+          <Button variant="secondary" size="sm" onClick={() => void check()}>
+            Check login
+          </Button>
+        </Explained>
+      )}
+      {checked && (
+        <p className={cn('text-sm', checked.ok ? 'text-ok' : 'text-danger')}>
+          {checked.ok ? 'The CRM takes the login. ' : 'The CRM does not take the login. '}
+          {checked.detail}
+        </p>
+      )}
+      {view?.sections.map((section) => (
+        <Report key={section.title} section={section} act={act(view.provider)} />
+      ))}
+      <Explained
+        what={
+          draft.saved
+            ? 'Takes this connection off the page. At Save, Core removes it and takes its records off the sites.'
+            : 'Takes this new connection off the page.'
+        }
+      >
+        {draft.saved ? (
+          <Confirm
+            label="Remove this connection"
+            title="Remove this connection?"
+            what="At Save, Core removes the connection and takes every record it brought off the sites. Nothing changes until you save."
+            confirmLabel="Remove it"
+            size="sm"
+            onConfirm={onRemove}
+          />
+        ) : (
+          <Button variant="outline" size="sm" onClick={onRemove}>
+            Remove this connection
+          </Button>
+        )}
+      </Explained>
+    </section>
+  );
+}
+
+// ---- One site -----------------------------------------------------------------------------------
+
+function Site({
+  draft,
+  secret,
+  onChange,
+  onRemove,
+  onNewSecret,
+}: {
+  draft: SiteDraft;
+  secret: string | null;
+  onChange: (next: SiteDraft) => void;
+  onRemove: () => void;
+  onNewSecret: () => Promise<void>;
+}) {
+  return (
+    <section
+      id={draft.id === null ? undefined : `site:${String(draft.id)}`}
+      className="flex flex-col gap-3 rounded-md border p-3"
+      aria-label={draft.id === null ? 'A new site' : `The site ${draft.address}`}
+    >
+      <h3 className="font-semibold">{draft.id === null ? 'A new site' : draft.address}</h3>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-1">
+          <Label htmlFor={`${draft.key}-address`}>Address</Label>
+          <Input
+            id={`${draft.key}-address`}
+            placeholder="https://example.se"
+            value={draft.address}
+            onChange={(event) => onChange({ ...draft, address: event.target.value })}
+          />
+          <p className="text-xs text-muted-foreground">
+            The site’s own address, starting with https://. Core names the site by it.
+          </p>
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor={`${draft.key}-bell`}>Bell path</Label>
+          <Input
+            id={`${draft.key}-bell`}
+            value={draft.bellPath}
+            onChange={(event) => onChange({ ...draft, bellPath: event.target.value })}
+          />
+          <p className="text-xs text-muted-foreground">
+            Where on the site Core tells it that something changed, so it fetches at once. A
+            WordPress site with Core’s plugin listens at {WORDPRESS_BELL}. A site that listens
+            somewhere else, such as a Lovable site’s sync function, takes that whole address here.
+          </p>
+        </div>
+      </div>
+      {secret !== null && (
+        <div className="flex flex-col gap-2">
+          <Label>Bell secret</Label>
+          <Copy value={secret} label="bell secret" />
+          <p className="text-xs text-muted-foreground">
+            Paste it into the site’s Core settings. The site believes Core’s word that something
+            changed only when it carries this secret.
+          </p>
+          <Explained what="Makes a new secret and stops the old one at once. Until the new secret is pasted into the site’s Core settings, the site ignores Core’s word that something changed, and fetches only on its own schedule. Press it only when the secret has leaked.">
+            <Confirm
+              label="Make a new secret"
+              title="Make a new bell secret?"
+              what="The old secret stops working at once. Until the new one is pasted into the site’s Core settings, the site ignores Core’s word that something changed."
+              confirmLabel="Make a new secret"
+              size="sm"
+              onConfirm={onNewSecret}
+            />
+          </Explained>
+        </div>
+      )}
+      {secret === null && (
+        <p className="text-sm text-muted-foreground">Core makes its bell secret when you save.</p>
+      )}
+      <Explained
+        what={
+          draft.id === null
+            ? 'Takes this new site off the page.'
+            : 'Takes this site off the page. At Save, Core removes it with its history, and stops telling it of changes.'
+        }
+      >
+        {draft.id === null ? (
+          <Button variant="outline" size="sm" onClick={onRemove}>
+            Remove this site
+          </Button>
+        ) : (
+          <Confirm
+            label="Remove this site"
+            title="Remove this site?"
+            what="At Save, Core removes the site with its history and its bell secret, and no longer tells it of changes. Nothing changes until you save."
+            confirmLabel="Remove it"
+            size="sm"
+            onConfirm={onRemove}
+          />
+        )}
+      </Explained>
+    </section>
+  );
+}
+
+// ---- The page -----------------------------------------------------------------------------------
+
+export function TenantPage() {
+  const params = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isNew = params['id'] === undefined || params['id'] === 'new';
+  const id = isNew ? null : Number(params['id']);
+  const options = useScopeOptions();
+  const { mutateAsync } = useCustomMutation();
+
+  const { result, query } = useCustom<TenantView>({
+    url: `/tenants/${String(id)}`,
+    method: 'get',
+    errorNotification: false,
+    queryOptions: { enabled: id !== null },
+  });
+  const crmList = useCustom<Crm[]>({ url: '/crms', method: 'get' });
+  const crms: Crm[] = Array.isArray(crmList.result?.data) ? crmList.result.data : [];
+  // Until Core answers, the hook holds an empty object rather than nothing.
+  const view = result?.data?.connections ? result.data : undefined;
+
+  const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [draftOfId, setDraftOfId] = useState<number | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [secrets, setSecrets] = useState<Record<number, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  // The page starts from what Core holds, once per tenant; later reads only refresh the reports.
+  useEffect(() => {
+    if (view && draftOfId !== view.id) {
+      setDraft(draftOf(view));
+      setDraftOfId(view.id);
+      setToken(view.token);
+      setSecrets(Object.fromEntries(view.sites.map((site) => [site.id, site.bellSecret])));
     }
+  }, [view, draftOfId]);
+
+  // A link to one connection or site scrolls to it and marks it for a moment.
+  useEffect(() => {
+    if (!view || location.hash === '') return;
+    const block = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (!block) return;
+    block.scrollIntoView({ block: 'start' });
+    block.classList.add('ring-2', 'ring-primary');
+    const timer = window.setTimeout(() => block.classList.remove('ring-2', 'ring-primary'), 2500);
+    return () => window.clearTimeout(timer);
+  }, [view, location.hash]);
+
+  const act =
+    (provider: string): Act =>
+    async (action, actionParams) => {
+      try {
+        const answer = await mutateAsync({
+          url: `/crms/${provider}/act`,
+          method: 'post',
+          values: { action: action.id, params: actionParams },
+          successNotification: false,
+          errorNotification: false,
+        });
+        toast.success((answer.data as unknown as { message: string }).message);
+        void query.refetch();
+      } catch (error) {
+        toast.error(message(error));
+      }
+    };
+
+  const save = async (): Promise<void> => {
     setSaving(true);
     try {
-      const body = {
-        displayName: form.displayName.trim(),
-        active: form.active,
-        connections: form.connections.map((connection) => ({
-          id: connection.id,
-          provider: connection.provider,
-          credentials: connection.credentials,
-          licensedOffices: offices(connection.offices),
-          active: connection.active,
-        })),
-        sites: form.sites.map((site) => ({
-          ...(site.id === undefined ? {} : { id: site.id }),
-          label: site.label.trim(),
-          bellUrl: site.bellUrl.trim(),
-          active: site.active,
-        })),
-      };
-      const saved = making
-        ? await post<TenantView & { changes: string[] }>('/tenants', body)
-        : await post<TenantView & { changes: string[] }>(`/tenants/${id ?? ''}`, body, 'patch');
-      toast.success('Saved', { description: saved.changes.join('; ') });
-      if (making) void navigate(`/tenants/${String(saved.id)}`, { replace: true });
-      else await query.refetch();
+      const answer = await mutateAsync({
+        url: id === null ? '/tenants' : `/tenants/${String(id)}`,
+        method: id === null ? 'post' : 'patch',
+        values: bodyOf(draft),
+        successNotification: false,
+        errorNotification: false,
+      });
+      const saved = answer.data as unknown as TenantView & { changes: string[] };
+      toast.success(['Saved.', ...saved.changes].join(' '));
+      setDraft(draftOf(saved));
+      setDraftOfId(saved.id);
+      setToken(saved.token);
+      setSecrets(Object.fromEntries(saved.sites.map((site) => [site.id, site.bellSecret])));
+      if (id === null) void navigate(`/tenants/${String(saved.id)}`, { replace: true });
+      else void query.refetch();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
+      toast.error(message(error));
     } finally {
       setSaving(false);
     }
   };
 
-  const tryLogin = async (connection: ConnectionForm): Promise<void> => {
-    const stored = tenant?.connections.find((one) => one.id === connection.id);
+  const newToken = async (): Promise<void> => {
     try {
-      const outcome = await post<{ ok: boolean; detail: string }>(
-        `/crms/${connection.provider}/probe`,
-        {
-          credentials: connection.credentials,
-          officeIds: offices(connection.offices),
-          // Nothing typed on a saved connection means "try the login you already hold": the page
-          // cannot send back a password it was never given.
-          ...(stored ? { connectionId: stored.id } : {}),
-        },
-      );
-      if (outcome.ok) toast.success('The CRM answered', { description: outcome.detail });
-      else toast.error('The CRM refused', { description: outcome.detail });
+      const answer = await mutateAsync({
+        url: `/tenants/${String(id)}/token`,
+        method: 'post',
+        values: {},
+        successNotification: false,
+        errorNotification: false,
+      });
+      setToken((answer.data as unknown as { token: string }).token);
+      toast.success('Core made a new token. Paste it into every site of this tenant.');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
+      toast.error(message(error));
     }
   };
 
-  const runAdapterAction = async (
-    provider: string,
-    action: { id: string },
-    params: Record<string, string>,
-  ): Promise<{ message: string }> => post(`/crms/${provider}/act`, { action: action.id, params });
+  const newSecret = (site: number) => async (): Promise<void> => {
+    try {
+      const answer = await mutateAsync({
+        url: `/sites/${String(site)}/secret`,
+        method: 'post',
+        values: {},
+        successNotification: false,
+        errorNotification: false,
+      });
+      setSecrets({
+        ...secrets,
+        [site]: (answer.data as unknown as { bellSecret: string }).bellSecret,
+      });
+      toast.success('Core made a new bell secret. Paste it into the site’s Core settings.');
+    } catch (error) {
+      toast.error(message(error));
+    }
+  };
 
-  if (!making && query.isLoading) return <p className="text-sm text-muted-foreground">Looking…</p>;
-  if (!making && !tenant) {
+  if (id !== null && !view) {
     return (
-      <Empty
-        what="There is no such tenant."
-        next={
-          <Button asChild size="sm">
-            <Link to="/tenants">Back to the tenants</Link>
-          </Button>
-        }
+      <PageHeader
+        title={query.isError ? 'No such tenant' : 'Reading the tenant…'}
+        what={query.isError ? message(query.error) : ''}
       />
     );
   }
 
+  const tenantName = draft.displayName.trim() || 'This tenant';
+  const change = (next: Partial<Draft>): void => setDraft({ ...draft, ...next });
+
   return (
     <>
       <PageHeader
-        title={making ? 'New tenant' : (tenant?.displayName ?? '')}
-        what={
-          making
-            ? 'Name it, give it a CRM login (and the offices it may see, when the CRM does not decide them), and add the sites that will show its listings. One Save does all of it.'
-            : `Tenant ${String(tenant?.id ?? '')}, made ${moment(tenant?.createdAt ?? null)}.`
-        }
-      >
-        <Button onClick={() => void save()} disabled={saving} data-testid="save">
-          {saving ? 'Saving…' : 'Save'}
-        </Button>
-        {!making && (
-          <Confirm
-            label="Remove everything"
-            title={`Remove ${tenant?.displayName ?? ''}`}
-            what="The tenant, its CRM connections, its sites, every record Core holds for it and its whole history in the event log are deleted. Its sites keep what they already show until someone takes the plugin off them. This cannot be undone."
-            confirmLabel="Remove it all"
-            onConfirm={async () => {
-              await mutateAsync({
-                url: `/tenants/${id ?? ''}`,
-                method: 'delete',
-                values: {},
-                successNotification: false,
-                errorNotification: false,
-              });
-              toast.success('Removed.');
-              void navigate('/tenants');
-            }}
-          />
-        )}
-      </PageHeader>
+        title={id === null ? 'New tenant' : (view?.displayName ?? '')}
+        what="A tenant is one brokerage. Its CRM connections bring its records into Core, and its sites fetch them from Core with its token."
+      />
 
       <Card className="mb-4">
         <CardHeader>
-          <CardTitle>The customer</CardTitle>
-          <CardDescription>
-            Its name, whether its licence is on, and the token its sites pull with.
-          </CardDescription>
+          <CardTitle>The tenant</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="displayName">Name</Label>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex max-w-md flex-col gap-1">
+            <Label htmlFor="tenant-name">Name</Label>
             <Input
-              id="displayName"
-              value={form.displayName}
-              aria-invalid={problem('displayName') !== undefined}
-              onChange={(event) => setForm({ ...form, displayName: event.target.value })}
-              placeholder="Acme Mäklare"
+              id="tenant-name"
+              value={draft.displayName}
+              onChange={(event) => change({ displayName: event.target.value })}
             />
-            {problem('displayName') && (
-              <p className="text-sm text-danger">{problem('displayName')}</p>
-            )}
+            <p className="text-xs text-muted-foreground">
+              The brokerage’s name, as the admin area shows it.
+            </p>
           </div>
           <div className="flex flex-col gap-1">
-            <Label htmlFor="active">Licence</Label>
-            <Select
-              id="active"
-              value={form.active ? 'on' : 'off'}
-              onChange={(event) => setForm({ ...form, active: event.target.value === 'on' })}
-            >
-              <option value="on">on — its sites are rung and may pull</option>
-              <option value="off">off — its sites keep what they show and pull nothing</option>
-            </Select>
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={draft.active}
+                onChange={(event) => change({ active: event.target.checked })}
+              />
+              Enabled
+            </label>
+            <p className="text-xs text-muted-foreground">
+              A disabled tenant’s sites can no longer fetch from Core, and Core stops telling them
+              of changes. Its CRM connections keep loading records.
+            </p>
           </div>
-          {!making && (
-            <div className="md:col-span-2">
-              <Label>The token its sites pull with</Label>
-              {tenant?.token ? (
-                <Copy value={tenant.token} label="tenant token" />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  This tenant was made before tokens were kept readable. Give it a new one to see
-                  it.
+          <div className="flex flex-col gap-2">
+            <Label>Token</Label>
+            {id === null ? (
+              <p className="text-sm text-muted-foreground">Core makes the token when you save.</p>
+            ) : token ? (
+              <>
+                <Copy value={token} label="tenant token" />
+                <p className="text-xs text-muted-foreground">
+                  Paste it into each site’s Core settings. A site fetches with it, and Core knows
+                  the tenant by it.
                 </p>
-              )}
-              <div className="mt-2 flex flex-wrap gap-2">
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Core cannot show this tenant’s token, as it was made before Core kept tokens. Make a
+                new one to see it.
+              </p>
+            )}
+            {id !== null && (
+              <Explained what="Makes a new token and stops the old one at once. Every site of this tenant then fails to fetch until the new token is pasted into it. Press it only when the token has leaked.">
                 <Confirm
-                  label="New token"
-                  title="Give this tenant a new token"
-                  what="Every site of this tenant stops syncing the moment the new token exists, until the new value is pasted into each of them. Nothing already on a site disappears."
+                  label="Make a new token"
+                  title="Make a new token?"
+                  what="The old token stops working at once. Every site of this tenant fails to fetch until the new token is pasted into its Core settings."
                   confirmLabel="Make a new token"
                   size="sm"
-                  onConfirm={async () => {
-                    await post(`/tenants/${id ?? ''}/token`);
-                    await query.refetch();
-                    toast.success('New token. Paste it into each site.');
-                  }}
+                  onConfirm={newToken}
                 />
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() =>
-                    void post(`/tenants/${id ?? ''}/ring`)
-                      .then(() => toast.success('Rang every site of this tenant.'))
-                      .catch((error: unknown) =>
-                        toast.error(error instanceof Error ? error.message : String(error)),
-                      )
-                  }
-                >
-                  Ring its sites
-                </Button>
-              </div>
+              </Explained>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle>CRM connections</CardTitle>
+          <CardDescription>
+            Each connection logs in to one CRM and loads the brokerage’s records from it.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {draft.connections.length === 0 && (
+            <p className="text-sm">No CRM connection yet, so no record reaches Core.</p>
+          )}
+          {draft.connections.map((connection) => (
+            <Connection
+              key={connection.key}
+              draft={connection}
+              view={view?.connections.find((one) => one.id === connection.saved)}
+              crms={crms}
+              tenantName={tenantName}
+              onChange={(next) =>
+                change({
+                  connections: draft.connections.map((one) =>
+                    one.key === connection.key ? next : one,
+                  ),
+                })
+              }
+              onRemove={() =>
+                change({
+                  connections: draft.connections.filter((one) => one.key !== connection.key),
+                })
+              }
+              act={act}
+            />
+          ))}
+          <Explained what="Adds an empty connection to fill in. It loads nothing until you save.">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                change({
+                  connections: [
+                    ...draft.connections,
+                    {
+                      key: newKey('connection'),
+                      saved: null,
+                      id: '',
+                      provider: crms.length === 1 ? (crms[0]?.provider ?? '') : '',
+                      typed: {},
+                      licensedOffices: [],
+                      active: true,
+                    },
+                  ],
+                })
+              }
+            >
+              Add a CRM connection
+            </Button>
+          </Explained>
+          {id !== null && (
+            <div className="flex flex-col gap-2">
+              <h4 className="font-medium">Records on their way</h4>
+              <p className="text-sm text-muted-foreground">
+                This tenant’s records on their way from the CRM to the sites, newest first. A record
+                waits for the CRM, then is in Core, then is on a site.
+              </p>
+              <FlowList scope={{ ...EMPTY_SCOPE, tenantIds: [id] }} options={options} />
             </div>
           )}
         </CardContent>
@@ -401,371 +861,60 @@ export function TenantPage() {
 
       <Card className="mb-4">
         <CardHeader>
-          <CardTitle>Its CRM connections</CardTitle>
+          <CardTitle>Sites</CardTitle>
           <CardDescription>
-            One or several, of the same CRM or different ones. A connection is a setting of this
-            tenant: it has no page of its own.
+            Each site fetches this tenant’s records from Core with the token, and Core tells it when
+            something changed.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {form.connections.length === 0 && (
-            <Empty what="No CRM yet. Add one and Core starts loading its records as soon as you save." />
+          {draft.sites.length === 0 && (
+            <p className="text-sm">No site yet, so the records reach no website.</p>
           )}
-          {form.connections.map((connection, index) => {
-            const crm = crms.find((one) => one.provider === connection.provider);
-            const saved = tenant?.connections.find((one) => one.id === connection.id);
-            const change = (patch: Partial<ConnectionForm>): void => {
-              const next = [...form.connections];
-              next[index] = { ...connection, ...patch };
-              setForm({ ...form, connections: next });
-            };
-            return (
-              <div
-                key={index}
-                id={`connection:${connection.id}`}
-                className={linked(`connection:${connection.id}`)}
-              >
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="flex flex-col gap-1">
-                    <Label htmlFor={`connection-id-${String(index)}`}>Short name</Label>
-                    <Input
-                      id={`connection-id-${String(index)}`}
-                      value={connection.id}
-                      disabled={saved !== undefined}
-                      aria-invalid={problem(`connection-${String(index)}`) !== undefined}
-                      onChange={(event) => change({ id: event.target.value })}
-                      placeholder="acme-crm"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label htmlFor={`connection-provider-${String(index)}`}>CRM</Label>
-                    <Select
-                      id={`connection-provider-${String(index)}`}
-                      value={connection.provider}
-                      disabled={saved !== undefined}
-                      onChange={(event) =>
-                        change({ provider: event.target.value, credentials: {} })
-                      }
-                    >
-                      <option value="">choose a CRM</option>
-                      {crms.map((one) => (
-                        <option key={one.provider} value={one.provider}>
-                          {one.provider}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                  {!crm?.officesFromCrm && (
-                    <div className="flex flex-col gap-1">
-                      <Label htmlFor={`connection-offices-${String(index)}`}>
-                        Offices it may see
-                      </Label>
-                      <Input
-                        id={`connection-offices-${String(index)}`}
-                        value={connection.offices}
-                        onChange={(event) => change({ offices: event.target.value })}
-                        placeholder="M31529, M31530"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Separated by commas, as the CRM names them. Empty means every office the CRM
-                        gives this login. Two tenants may name the same office, and then both hold
-                        its records.
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {problem(`connection-${String(index)}`) && (
-                  <p className="mt-2 text-sm text-danger">
-                    {problem(`connection-${String(index)}`)}
-                  </p>
-                )}
-
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  {(crm?.credentials ?? []).map((field) => (
-                    <div key={field.key} className="flex flex-col gap-1">
-                      <Label htmlFor={`cred-${String(index)}-${field.key}`}>{field.label}</Label>
-                      <Input
-                        id={`cred-${String(index)}-${field.key}`}
-                        type={field.secret ? 'password' : 'text'}
-                        autoComplete="off"
-                        // A field that is not secret shows what Core holds, and an empty one looks
-                        // empty. A secret Core holds shows as a mask: the secret never leaves the
-                        // server, so it is not in this page even hidden. Typing replaces either.
-                        value={connection.credentials[field.key] ?? saved?.shown[field.key] ?? ''}
-                        placeholder={field.secret && saved?.filled.includes(field.key) ? MASK : ''}
-                        onChange={(event) =>
-                          change({
-                            credentials: {
-                              ...connection.credentials,
-                              [field.key]: event.target.value,
-                            },
-                          })
-                        }
-                      />
-                      {field.help && <p className="text-xs text-muted-foreground">{field.help}</p>}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!connection.provider}
-                    onClick={() => void tryLogin(connection)}
-                    title={
-                      Object.values(connection.credentials).some((value) => value !== '')
-                        ? 'Tries the login typed above, before it is saved.'
-                        : 'Tries the login Core already holds for this connection.'
-                    }
-                  >
-                    Check the login
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => change({ active: !connection.active })}
-                  >
-                    {connection.active ? 'Pause this connection' : 'Resume this connection'}
-                  </Button>
-                  <Badge tone={connection.active ? 'ok' : 'muted'}>
-                    {connection.active ? 'fetching' : 'paused'}
-                  </Badge>
-                  <Confirm
-                    label={<Trash2 aria-hidden="true" />}
-                    title={`Remove the connection ${connection.id}`}
-                    what="Every record Core holds through this connection is removed from Core and from the tenant's sites at their next sync. The CRM itself is untouched."
-                    confirmLabel="Remove the connection"
-                    size="sm"
-                    onConfirm={() =>
-                      setForm({
-                        ...form,
-                        connections: form.connections.filter((_, other) => other !== index),
-                      })
-                    }
-                  />
-                  {saved && (
-                    <span className="text-xs text-muted-foreground">
-                      last fetched {ago(saved.lastIngestAt)}
-                      {saved.lastError ? ` · last error: ${saved.lastError}` : ''}
-                    </span>
-                  )}
-                </div>
-
-                {saved && saved.loaded.length > 0 && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Loaded:{' '}
-                    {saved.loaded.map((row) => `${count(row.live)} ${row.datatype}`).join(' · ')}
-                  </p>
-                )}
-
-                {saved && (
-                  <p
-                    className={`mt-2 text-xs ${saved.submissions.failed > 0 ? 'text-destructive' : 'text-muted-foreground'}`}
-                    title="Forms visitors sent through Core to this CRM in the last day, by what the CRM answered. The visitor is never stored here."
-                  >
-                    Forms, last day: {count(saved.submissions.delivered)} delivered ·{' '}
-                    {count(saved.submissions.refused)} refused by the CRM ·{' '}
-                    {count(saved.submissions.failed)} unanswered by the CRM
-                  </p>
-                )}
-
-                {saved && saved.sections.length > 0 && (
-                  <div className="mt-3">
-                    <AdapterSections
-                      sections={saved.sections}
-                      run={(action, params) => runAdapterAction(saved.provider, action, params)}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          <div>
+          {draft.sites.map((site) => (
+            <Site
+              key={site.key}
+              draft={site}
+              secret={site.id === null ? null : (secrets[site.id] ?? null)}
+              onChange={(next) =>
+                change({ sites: draft.sites.map((one) => (one.key === site.key ? next : one)) })
+              }
+              onRemove={() => change({ sites: draft.sites.filter((one) => one.key !== site.key) })}
+              onNewSecret={site.id === null ? async () => undefined : newSecret(site.id)}
+            />
+          ))}
+          <Explained what="Adds an empty site to fill in. Core makes its bell secret when you save.">
             <Button
-              variant="outline"
+              variant="secondary"
+              size="sm"
               onClick={() =>
-                setForm({
-                  ...form,
-                  connections: [
-                    ...form.connections,
+                change({
+                  sites: [
+                    ...draft.sites,
                     {
-                      id: '',
-                      provider: crms[0]?.provider ?? '',
-                      credentials: {},
-                      offices: '',
+                      key: newKey('site'),
+                      id: null,
+                      address: '',
+                      bellPath: WORDPRESS_BELL,
                       active: true,
                     },
                   ],
                 })
               }
             >
-              <Plus aria-hidden="true" /> Add a CRM connection
+              Add a site
             </Button>
-          </div>
+          </Explained>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Its sites</CardTitle>
-          <CardDescription>
-            Each website that shows this customer’s listings: where Core rings it, and the secret it
-            checks the bell with.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {form.sites.length === 0 && (
-            <Empty what="No site yet. Add one, save, and paste its bell secret and the tenant token into the site." />
-          )}
-          {form.sites.map((site, index) => {
-            const saved = tenant?.sites.find((one) => one.id === site.id);
-            const change = (patch: Partial<SiteForm>): void => {
-              const next = [...form.sites];
-              next[index] = { ...site, ...patch };
-              setForm({ ...form, sites: next });
-            };
-            return (
-              <div
-                key={index}
-                id={site.id === undefined ? undefined : `site:${String(site.id)}`}
-                className={linked(`site:${String(site.id)}`)}
-              >
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="flex flex-col gap-1">
-                    <Label htmlFor={`site-label-${String(index)}`}>Name</Label>
-                    <Input
-                      id={`site-label-${String(index)}`}
-                      value={site.label}
-                      aria-invalid={problem(`site-${String(index)}`) !== undefined}
-                      onChange={(event) => change({ label: event.target.value })}
-                      placeholder="acme.se"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label htmlFor={`site-bell-${String(index)}`}>Where Core rings it</Label>
-                    <Input
-                      id={`site-bell-${String(index)}`}
-                      value={site.bellUrl}
-                      aria-invalid={problem(`site-${String(index)}`) !== undefined}
-                      onChange={(event) => change({ bellUrl: event.target.value })}
-                      placeholder="https://acme.se/wp-json/core/v1/bell"
-                    />
-                  </div>
-                </div>
-                {problem(`site-${String(index)}`) && (
-                  <p className="mt-2 text-sm text-danger">{problem(`site-${String(index)}`)}</p>
-                )}
-
-                {saved && (
-                  <>
-                    <div className="mt-3">
-                      <Label>Its bell secret</Label>
-                      <Copy value={saved.bellSecret} label="bell secret" />
-                    </div>
-                    <ul className="mt-3 flex flex-col gap-1 text-sm">
-                      {saved.checklist.map((step) => (
-                        <li key={step.step} className="flex items-start gap-2">
-                          <Badge tone={step.done ? 'ok' : 'warn'}>
-                            {step.done ? 'done' : 'to do'}
-                          </Badge>
-                          <span>
-                            <strong className="font-medium">{step.step}.</strong>{' '}
-                            <span className="text-muted-foreground">{step.detail}</span>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      It last pulled {ago(saved.lastPullAt)}
-                      {saved.lastClient ? ` as ${saved.lastClient}` : ''} · last bell{' '}
-                      {ago(saved.lastBellAt)} answered “{saved.lastBellStatus ?? 'nothing yet'}” ·
-                      it reported {count(saved.applied.applied)} applied and{' '}
-                      {count(saved.applied.failed)} failed
-                    </p>
-                    {saved.errors.length > 0 && (
-                      <div className="mt-2 rounded-md border border-danger/40 bg-danger/5 p-2">
-                        <p className="text-sm font-medium">What this site reported going wrong</p>
-                        <ul className="mt-1 flex flex-col gap-1 text-xs text-muted-foreground">
-                          {saved.errors.slice(0, 5).map((error, other) => (
-                            <li key={other}>
-                              {moment(error.at)} · {error.where} · {error.message}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => change({ active: !site.active })}
-                  >
-                    {site.active ? 'Switch this site off' : 'Switch this site on'}
-                  </Button>
-                  <Badge tone={site.active ? 'ok' : 'muted'}>{site.active ? 'on' : 'off'}</Badge>
-                  {saved && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() =>
-                          void post(`/sites/${String(saved.id)}/ring`)
-                            .then(() => toast.success(`Rang ${saved.label}.`))
-                            .catch((error: unknown) =>
-                              toast.error(error instanceof Error ? error.message : String(error)),
-                            )
-                        }
-                      >
-                        Ring it
-                      </Button>
-                      <Confirm
-                        label="New bell secret"
-                        title={`Give ${saved.label} a new bell secret`}
-                        what="This site stops answering Core's bells the moment the new secret exists, until the new value is pasted into it. It keeps pulling on its own schedule meanwhile."
-                        confirmLabel="Make a new secret"
-                        size="sm"
-                        onConfirm={async () => {
-                          await post(`/sites/${String(saved.id)}/secret`);
-                          await query.refetch();
-                          toast.success('New bell secret. Paste it into the site.');
-                        }}
-                      />
-                    </>
-                  )}
-                  <Confirm
-                    label={<Trash2 aria-hidden="true" />}
-                    title={`Remove the site ${site.label || 'without a name'}`}
-                    what="The site's row goes, and with it its bell secret and its whole history in the event log — what it was rung, what it pulled and what it applied. It keeps what it already shows until someone takes the plugin off it. This cannot be undone."
-                    confirmLabel="Remove the site"
-                    size="sm"
-                    onConfirm={() =>
-                      setForm({ ...form, sites: form.sites.filter((_, other) => other !== index) })
-                    }
-                  />
-                </div>
-              </div>
-            );
-          })}
-          <div>
-            <Button
-              variant="outline"
-              onClick={() =>
-                setForm({
-                  ...form,
-                  sites: [...form.sites, { label: '', bellUrl: '', active: true }],
-                })
-              }
-            >
-              <Plus aria-hidden="true" /> Add a site
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="sticky bottom-0 z-10 border-t bg-background py-3">
+        <Explained what="Saves everything on this page at once. A new connection starts loading its records; a removed connection or site goes, with its records or history.">
+          <Button data-testid="save" disabled={saving} onClick={() => void save()}>
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+        </Explained>
+      </div>
     </>
   );
 }

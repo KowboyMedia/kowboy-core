@@ -37,7 +37,7 @@ const TENANT = 'Acme Mäklare';
 async function openTenant(page: Page): Promise<void> {
   await go(page, 'Tenants');
   await page.getByRole('link', { name: TENANT }).click();
-  await expect(page.getByRole('heading', { name: TENANT })).toBeVisible();
+  await expect(page.getByRole('heading', { name: TENANT, exact: true })).toBeVisible();
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -51,39 +51,42 @@ test('journey: U1 onboard a customer, watch the first load, take the secrets', a
   await expect(page.getByText('No tenant yet.', { exact: false })).toBeVisible();
 
   await page.getByRole('link', { name: 'Make the first tenant' }).click();
-  await page.getByLabel('Name').first().fill(TENANT);
+  await page.getByLabel('Name', { exact: true }).fill(TENANT);
 
   await page.getByRole('button', { name: 'Add a CRM connection' }).click();
-  await page.getByLabel('Short name').fill('acme-crm');
-  await page.getByLabel('CRM').selectOption('fake-webhook');
-  await page.getByLabel('Offices it may see').fill('100');
-  await page.getByLabel('Pretend key').fill('a-key');
+  const connection = page.getByRole('region', { name: 'A new CRM connection' });
+  await connection.getByLabel('Name', { exact: true }).fill('acme-crm');
+  await connection.getByLabel('CRM', { exact: true }).selectOption('fake-webhook');
+  await connection.getByLabel('Pretend key').fill('a-key');
 
   // The login is tried before anything is saved.
-  await page.getByRole('button', { name: 'Check the login' }).click();
-  await expect(page.getByText('The CRM answers')).toBeVisible();
+  await connection.getByRole('button', { name: 'Check login' }).click();
+  await expect(connection.getByText('The CRM takes the login.', { exact: false })).toBeVisible();
 
   await page.getByRole('button', { name: 'Add a site' }).click();
-  await page.getByLabel('Name').last().fill('acme.se');
-  await page.getByLabel('Where Core rings it').fill('http://127.0.0.1:9/bell');
+  const site = page.getByRole('region', { name: 'A new site' });
+  await site.getByLabel('Address').fill('http://127.0.0.1:9');
+  await site.getByLabel('Bell path').fill('/bell');
 
   await page.getByTestId('save').click();
-  await expect(page.getByText('Saved')).toBeVisible();
-  await expect(page.getByText('added the connection acme-crm', { exact: false })).toBeVisible();
+  await expect(page.getByText('short name acme-crm, is added', { exact: false })).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/tenants\/\d+$/);
 
   // The token and the bell secret are on the page, each with a copy button.
   await expect(page.getByRole('button', { name: 'Copy the tenant token' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copy the bell secret' })).toBeVisible();
 
-  // The first load runs by itself and the page shows it without a reload.
-  await expect(page.getByText('Loaded:', { exact: false })).toBeVisible({ timeout: 30_000 });
+  // The first load runs by itself, and the tenant's records on their way show it without a reload.
+  await expect(page.getByRole('link', { name: 'Storgatan 12' })).toBeVisible({ timeout: 30_000 });
 
   // A login field that is not secret shows what Core holds, read back from Core.
   await page.reload();
-  await expect(page.getByLabel('Pretend key')).toHaveValue('a-key');
+  await expect(
+    page.getByRole('region', { name: /short name acme-crm$/ }).getByLabel('Pretend key'),
+  ).toHaveValue('a-key');
 });
 
-test('journey: U1 the page refuses what it cannot save, at the field', async ({ page }) => {
+test('journey: U1 the page refuses what it cannot save, and says why', async ({ page }) => {
   await go(page, 'Tenants');
   await page.getByRole('link', { name: 'New tenant' }).click();
   await page.getByTestId('save').click();
@@ -115,7 +118,7 @@ test('journey: U5 watch the flow — records in flight, coloured by state, by te
   await expect(page.getByRole('link', { name: 'Storgatan 12' })).toBeVisible();
 });
 
-test('journey: U3 support a customer — find a record and see everything about it', async ({
+test('journey: U3 support a customer — find a record, follow it to the sites, see its data', async ({
   page,
 }) => {
   await go(page, 'Records');
@@ -124,21 +127,21 @@ test('journey: U3 support a customer — find a record and see everything about 
   await expect(page.getByRole('link', { name: 'Storgatan 12' })).toHaveCount(0);
 
   await page.getByRole('link', { name: 'Kungsgatan 3' }).click();
-  await expect(page.getByRole('heading', { name: 'What the CRM sent' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'The unified record' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'The texts ready to show' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'What happened to it' })).toBeVisible();
-  // The history reads as sentences, not as payloads (Patric, 2026-09-21).
-  await expect(page.getByRole('columnheader', { name: 'What happened' })).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'written', exact: false }).first()).toBeVisible();
-
-  // What a recompute would change, without changing anything.
-  await page.getByRole('button', { name: 'Preview a recompute' }).click();
-  await expect(page.getByRole('heading', { name: 'What a recompute would change' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Kungsgatan 3' })).toBeVisible();
+  // Where it is: in the CRM, in Core and on each site of the tenant, each step with its retry.
+  await expect(page.getByRole('heading', { name: 'Where it is now' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '3. On the sites' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Send again' })).toBeVisible();
+  // The history reads as sentences, one change at a time (Patric, 2026-09-21).
+  await expect(page.getByRole('heading', { name: 'What happened' })).toBeVisible();
+  await expect(page.getByText(/^Written/).first()).toBeVisible();
+  // Its data in three forms, one at a time.
+  await page.getByRole('tab', { name: 'What the CRM sent' }).click();
+  await expect(page.getByRole('tabpanel')).toContainText('Kungsgatan 3');
 
   // The CRM, asked on the spot, writing nothing.
-  await page.getByRole('button', { name: 'Ask the CRM now' }).click();
-  await expect(page.getByRole('heading', { name: 'From the CRM, just now' })).toBeVisible();
+  await page.getByRole('button', { name: 'Compare with the CRM now' }).click();
+  await expect(page.getByText('The CRM’s answer matches Core’s copy.')).toBeVisible();
 });
 
 test('journey: U3 scope, sort and choose the columns of the grid', async ({ page }) => {
@@ -181,7 +184,10 @@ test('journey: U4 manual sync — pick a scope and how far to go, then watch it'
   await expect(page.getByRole('dialog')).toContainText('Nothing is fetched or computed.');
   await page.getByRole('button', { name: 'Start it' }).click();
   await expect(
-    page.getByText('Core sent 3 records to the sites of Acme Mäklare again.', { exact: false }),
+    page.getByText(
+      'Core sent 3 records to the sites of Acme Mäklare again, and told them to fetch them.',
+      { exact: false },
+    ),
   ).toBeVisible();
 
   // The full level for one record, its id typed key by key: the CRM is asked again, and the list
@@ -201,18 +207,25 @@ test('journey: U4 manual sync — pick a scope and how far to go, then watch it'
   ).toBeVisible();
 });
 
-test('journey: U8 try things — ring a site and fetch a record again', async ({ page }) => {
-  await openTenant(page);
-  await page.getByRole('button', { name: 'Ring its sites' }).click();
-  await expect(page.getByText('Rang every site of this tenant.')).toBeVisible();
-
+test('journey: U8 try things — send a record to the sites again, and fetch it again', async ({
+  page,
+}) => {
   await go(page, 'Records');
   await page.getByLabel('One record, by the CRM’s id').fill('OBJ-1');
   await page.getByRole('link', { name: 'Storgatan 12' }).click();
-  // Fetching again asks the CRM for the same record and writes only what differs, so it asks
-  // nothing first (Patric, 2026-09-21: it is not dangerous, it is idempotent).
+  await expect(page.getByRole('heading', { name: 'Storgatan 12' })).toBeVisible();
+  // Each step tries again at once and asks nothing first: it only repeats what Core does anyway.
+  await page.getByRole('button', { name: 'Send again' }).click();
+  await expect(
+    page.getByText(
+      'Core sent 1 record to the sites of Acme Mäklare again, and told them to fetch it.',
+      { exact: false },
+    ),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Fetch again' }).click();
-  await expect(page.getByText('Core asks the CRM for 1 record again.')).toBeVisible();
+  await expect(
+    page.getByText('Core asks the CRM for 1 record again.', { exact: false }),
+  ).toBeVisible();
 });
 
 test('journey: failed forms — read a form the CRM did not take, and send it again', async ({
@@ -275,13 +288,15 @@ test('journey: U6 secrets — rotating a token says what breaks, and asks first'
   page,
 }) => {
   await openTenant(page);
-  await page.getByRole('button', { name: 'New token' }).click();
-  await expect(page.getByText('stops syncing the moment', { exact: false })).toBeVisible();
-  await page.getByRole('button', { name: 'Keep it as it is' }).click();
-
-  await page.getByRole('button', { name: 'New token' }).click();
   await page.getByRole('button', { name: 'Make a new token' }).click();
-  await expect(page.getByText('New token. Paste it into each site.')).toBeVisible();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('The old token stops working at once.');
+  await dialog.getByRole('button', { name: 'Keep it as it is' }).click();
+  await expect(dialog).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Make a new token' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Make a new token' }).click();
+  await expect(page.getByText('Core made a new token.', { exact: false })).toBeVisible();
 });
 
 test('journey: U6 remember this device, and see every device it is signed in on', async ({

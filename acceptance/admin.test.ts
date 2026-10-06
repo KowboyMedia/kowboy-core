@@ -196,7 +196,9 @@ describe('the admin area', () => {
     }>('/tenants', { method: 'POST', body: tenantBody() });
     expect(made.status).toBe(200);
     const tenant = made.body.data;
-    expect(tenant.changes.join(' ')).toContain('added the connection acme-crm');
+    expect(tenant.changes).toContain(
+      'Acme Mäklare’s Fake-webhook connection, short name acme-crm, is added and loading its records.',
+    );
     // The token and the bell secret are on the page at once, ready to paste into the site.
     expect(tenant.token).toMatch(/.{20,}/);
     expect(tenant.sites[0]?.bellSecret).toMatch(/.{20,}/);
@@ -428,7 +430,15 @@ describe('the admin area', () => {
     // 2026-09-21). The record's own faces are above it; the history never repeats them.
     expect(one.body.data.timeline.length).toBeGreaterThan(0);
     for (const event of one.body.data.timeline) {
-      expect(Object.keys(event).sort()).toEqual(['at', 'correlationId', 'id', 'said', 'type']);
+      expect(Object.keys(event).sort()).toEqual([
+        'at',
+        'correlationId',
+        'id',
+        'said',
+        'seq',
+        'site',
+        'type',
+      ]);
       expect(event['said']).not.toBe('');
     }
     expect(JSON.stringify(one.body.data.timeline)).not.toContain('Storgatan');
@@ -933,7 +943,7 @@ describe('the admin area', () => {
     const sent = await sync('send', { remoteId: 'OBJ-1' });
     expect(sent.status).toBe(200);
     expect(sent.body.data.detail).toBe(
-      'Core sent 1 record to the sites of Acme Mäklare again. Each site takes the ones it lacks or holds in another version.',
+      'Core sent 1 record to the sites of Acme Mäklare again, and told them to fetch it.',
     );
     expect(await seqOf('OBJ-1')).toBeGreaterThan(Math.max(one, two));
     expect(await seqOf('OBJ-2')).toBe(two);
@@ -966,6 +976,116 @@ describe('the admin area', () => {
     expect(odd.status).toBe(400);
     expect(odd.body.error).toContain('is not a tenant number');
     expect((await sync('send', { datatypes: [{}] })).status).toBe(400);
+  });
+
+  it('follows one record to each site, compares it with the CRM and tries each step again (Patric, 2026-10-06)', async () => {
+    const made = await api<{
+      data: { id: number; token: string; sites: { id: number; bellUrl: string }[] };
+    }>('/tenants', { method: 'POST', body: tenantBody() });
+    crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
+    crm.put('property', 'OBJ-1', property('OBJ-1'));
+    await running.deliver();
+    await until(
+      async () => (await api<{ total: number }>('/records?datatype=property')).body.total === 1,
+      'the property to load',
+    );
+    type Step = { type: string; said: string; seq: number | null; site: unknown };
+    type View = {
+      row: { seq: number; rulesVersion: string };
+      timeline: Step[];
+      sites: { id: number; name: string; took: { seq: number } | null; failed: unknown }[];
+      rulesVersion: string;
+      keptDays: number;
+    };
+    const path = '/records/acme-crm/property/OBJ-1';
+    const read = async (): Promise<View> => (await api<{ data: View }>(path)).body.data;
+    const site = made.body.data.sites[0];
+    if (!site) throw new Error('the tenant was saved without its site');
+
+    // Every site of the tenant is on the page, by its name, before it has said anything; the
+    // rules that made the record's texts are today's.
+    let view = await read();
+    expect(view.sites).toEqual([{ id: site.id, name: 'acme.se', took: null, failed: null }]);
+    expect(view.rulesVersion).toBe(view.row.rulesVersion);
+    expect(view.keptDays).toBe(30);
+
+    // The site says it took the record. Its line says which version, and the history names it;
+    // the report joins the write that gave the record that place, as both carry it.
+    const report = await fetch(`${running.baseUrl}/v1/applied`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${made.body.data.token}`,
+        'content-type': 'application/json',
+        'x-core-site': site.bellUrl,
+      },
+      body: JSON.stringify({
+        items: [
+          {
+            datatype: 'property',
+            connection_id: 'acme-crm',
+            remote_id: 'OBJ-1',
+            seq: view.row.seq,
+            result: 'applied',
+          },
+        ],
+      }),
+    });
+    expect(report.status).toBe(202);
+    view = await read();
+    expect(view.sites[0]?.took?.seq).toBe(view.row.seq);
+    const took = view.timeline.find((step) => step.type === 'site.applied');
+    expect(took?.site).toEqual({ id: site.id, name: 'acme.se' });
+    expect(took?.said).toBe('the site acme.se took it');
+    expect(view.timeline.find((step) => step.type === 'entity.written')?.seq).toBe(view.row.seq);
+
+    // Compared with the CRM, writing nothing: the same at first, then the field the CRM changed.
+    type Compared = { data: { differs: { field: string; core: unknown; crm: unknown }[] } };
+    const same = await api<Compared>(`${path}/inspect`, { method: 'POST' });
+    expect(same.body.data.differs).toEqual([]);
+    crm.put('property', 'OBJ-1', { ...property('OBJ-1'), askingPrice: 5200000 });
+    const differs = (await api<Compared>(`${path}/inspect`, { method: 'POST' })).body.data.differs;
+    expect(differs.map((difference) => difference.field)).toContain('price');
+    expect((await read()).row.seq).toBe(view.row.seq);
+
+    // Each step again for this record alone, through Manual sync's own call; the history says who.
+    const sent = await api<{ data: { detail: string } }>('/runs/sync', {
+      method: 'POST',
+      body: {
+        level: 'send',
+        records: [{ connectionId: 'acme-crm', datatype: 'property', remoteId: 'OBJ-1' }],
+      },
+    });
+    expect(sent.body.data.detail).toBe(
+      'Core sent 1 record to the sites of Acme Mäklare again, and told them to fetch it.',
+    );
+    view = await read();
+    expect(view.sites[0]?.took?.seq).toBeLessThan(view.row.seq);
+    expect(view.timeline.some((step) => step.type === 'admin.synced')).toBe(true);
+    const fetched = await api<{ data: { detail: string } }>('/runs/sync', {
+      method: 'POST',
+      body: {
+        level: 'fetch',
+        records: [{ connectionId: 'acme-crm', datatype: 'property', remoteId: 'OBJ-1' }],
+      },
+    });
+    expect(fetched.body.data.detail).toContain('Core asks the CRM for 1 record again.');
+
+    // A record and a scope at once, or a record Core cannot read, is a refusal in words.
+    const both = await api<{ error: string }>('/runs/sync', {
+      method: 'POST',
+      body: {
+        level: 'send',
+        tenantIds: [made.body.data.id],
+        records: [{ connectionId: 'acme-crm', datatype: 'property', remoteId: 'OBJ-1' }],
+      },
+    });
+    expect(both.status).toBe(400);
+    expect(both.body.error).toBe('Name records or a scope, not both.');
+    const odd = await api<{ error: string }>('/runs/sync', {
+      method: 'POST',
+      body: { level: 'send', records: [{ connectionId: 'acme-crm', datatype: 'house' }] },
+    });
+    expect(odd.status).toBe(400);
   });
 
   it('streams what happens, so the pages need no reload (§3 I, Should)', async () => {
