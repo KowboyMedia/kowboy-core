@@ -34,6 +34,32 @@ is remembered on as many as they like, and signing out of one leaves the rest al
 them — which browser, remembered or not, last used, signed in until — marks the one being read, and
 has one button to forget every other device, for a laptop that goes missing.
 
+## The words it uses
+
+Every text in the area, in its alerts and in its mails is written for a cold reader: someone who
+knows the business but not the code (AGENTS.md, definition of done item 5; Patric, 2026-10-06).
+Each thing has one word, the same on every page:
+
+| Write                                                                             | For                                                                                                                       | Never                                                         |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| the tenant's name                                                                 | a customer of Kowboy (one brokerage), with its CRM connections and its sites                                              | its number alone                                              |
+| "Acme's Vitec connection", then "short name acme-crm" where two could be confused | a tenant's login to one CRM                                                                                               | the short name alone (`vitec-2`), a connection with no tenant |
+| the site's name, and its tenant                                                   | a website that shows a tenant's listings, named as its tenant's page names it                                             | subscriber, client                                            |
+| the record's address or name, then "the CRM's id"                                 | one home, new-build project, agent, office, area or housing cooperative as Core holds it                                  | item, entity, remote id                                       |
+| homes, new-build projects, agents, offices, areas, housing cooperatives           | the entity types                                                                                                          | `property`, `project`, `association`, datatype                |
+| the office's name, then "the CRM's office id"                                     | an office of the tenant                                                                                                   | the office id alone                                           |
+| fetch                                                                             | Core reading records from the CRM, and a site reading its changes from Core                                               | pull, ingest                                                  |
+| tell a site about changes                                                         | the call that makes a site fetch at once; its setting keeps the plugin's name, "bell secret", explained where it is shown | bell, ring and rang in a sentence                             |
+| removed                                                                           | a record that left the CRM's list; Core keeps it 90 days                                                                  | tombstone, deleted                                            |
+| recompute                                                                         | Core working out a record's fields again from what the CRM sent, without asking the CRM                                   | rerun the rules                                               |
+| the check's title                                                                 | one of the things the Overview watches                                                                                    | its name (`vitec.catch_up`, `subscribers`)                    |
+| a sentence for what happened                                                      | an entry in the event log                                                                                                 | its type (`office.taken_off`)                                 |
+
+A number sits in its sentence and agrees with it ("one site has", "three sites have"), never
+"site(s)". A named thing links to its place: a tenant, a connection or a site to the tenant's page
+(`/tenants/<id>`, `#connection:<short name>`, `#site:<id>`), an office or a record to Records, a
+form to Failed forms, a CRM to its page.
+
 ## The pages
 
 | Page                  | What it is for                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
