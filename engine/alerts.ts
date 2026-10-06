@@ -7,9 +7,18 @@
 // (rules A and D). An event that needs attention (attention.ts) is told at the next round when it
 // is P1. P2 goes in one mail at 07:00 Stockholm time, with what started since the last one, and
 // none when nothing did. P3 stays in the event log. What is due in one round goes in one mail, and
-// while a P0 is open nothing else is told (rule B).
+// while a P0 is open nothing else is told (rule B). A round reads first, tells next and keeps what
+// changed last, so a round that fails half way tells it again rather than never, and one round
+// runs at a time, also while a deploy runs two workers.
 import { db } from './storage/db.js';
-import { aboutCheck, healthReport, levelOf, sitesBehind, SITES_CHECK } from './health.js';
+import {
+  aboutCheck,
+  healthReport,
+  levelOf,
+  sitesFound,
+  SITES_CHECK,
+  type SiteBehind,
+} from './health.js';
 import type { HealthResult, Level } from './adapter-api/types.js';
 import { logEvent, type EventFields } from './events.js';
 import { mailConfigured, sendMail } from './mail.js';
@@ -35,9 +44,12 @@ const WAIT_MS: Record<Level, number> = {
 /** Events are read up to this long ago, so one still being written is never passed over. */
 const SETTLE = '10 seconds';
 
-/** The round's two places, kept beside the problems: how far it read the event log, and 07:00. */
+/** The round's places, kept beside the problems: how far it read the event log, 07:00, and its turn. */
 const READ_UP_TO = 'alerts:events';
 const MORNING_MAIL = 'alerts:morning';
+const TURN = 'alerts:turn';
+/** A turn not given back within this long belonged to a worker that stopped half way through a round. */
+const TURN_HELD = '2 minutes';
 
 /** One thing to tell, in the words of its mail. */
 type Words = {
@@ -75,20 +87,70 @@ type Told = { level: Level | null; heading: string; words: Words; change: string
  * events that need attention, then, once a day, the 07:00 mail.
  */
 export async function checkAlerts(config: AlertConfig): Promise<Round> {
-  const problems = await problemsNow();
+  if (!(await takeTurn())) return { opened: [], closed: [] };
+  try {
+    return await round(config);
+  } finally {
+    await db().query('delete from alert_state where name = $1', [TURN]);
+  }
+}
+
+/** The round's turn, when no other round holds it, or the one holding it stopped (rule D). */
+async function takeTurn(): Promise<boolean> {
+  const { rowCount } = await db().query(
+    `insert into alert_state (name, ok, since) values ($1, true, now())
+     on conflict (name) do update set since = now() where alert_state.since < now() - $2::interval`,
+    [TURN, TURN_HELD],
+  );
+  return rowCount === 1;
+}
+
+/** One round: read what is open now and what the last rounds kept, tell what is due, then keep it. */
+async function round(config: AlertConfig): Promise<Round> {
+  const { problems, sitesUnknown } = await problemsNow();
   const { rows } = await db().query<StateRow>(
     'select name, ok, detail, since, notified_at from alert_state',
   );
   const kept = new Map(rows.map((row) => [row.name, row]));
+  const open = new Set(problems.map((problem) => problem.key));
   const isDown = problems.some((problem) => problem.level === 'P0');
-  const round: Round = { opened: [], closed: [] };
-  const told = [
-    ...(await closeEnded(rows, new Set(problems.map((problem) => problem.key)), round)),
-    ...(await openAndTell(problems, kept, isDown, round)),
-  ];
-
   // The events that need attention: held while Core is down, read from where the last round stopped.
   const events = isDown ? null : await eventsSince(READ_UP_TO);
+
+  // A problem ends when the round no longer finds it. A site's stays open while the sites check
+  // cannot run, since it cannot say then which sites are behind.
+  const ended = rows.filter(
+    (row) =>
+      !row.name.startsWith('alerts:') &&
+      !open.has(row.name) &&
+      !(sitesUnknown && row.name.startsWith(`${SITES_CHECK}:`)),
+  );
+  const dueNow = new Set(
+    problems.filter((problem) => {
+      const row = kept.get(problem.key);
+      return row && !row.ok && !row.notified_at && due(problem.level, row.since, isDown);
+    }),
+  );
+
+  const told: Told[] = [];
+  for (const row of ended) {
+    const words = wordsOf(row);
+    if (row.ok || !row.notified_at || !words) continue;
+    told.push({
+      level: null,
+      heading: `Resolved after ${lasting(Date.now() - row.since.getTime())}`,
+      words,
+      change: `${row.name} resolved`,
+    });
+  }
+  for (const problem of dueNow) {
+    told.push({
+      level: problem.level,
+      heading: problem.level,
+      words: problem,
+      change: `${problem.key} ${problem.level}`,
+    });
+  }
   for (const row of events?.rows ?? []) {
     if (row.level !== 'P1') continue;
     told.push({
@@ -98,7 +160,6 @@ export async function checkAlerts(config: AlertConfig): Promise<Round> {
       change: `event ${row.ids.join(',')} ${row.level}`,
     });
   }
-
   if (told.length > 0) {
     await send(
       `Core ${config.environment}: ${subjectOf(told)}`,
@@ -107,75 +168,53 @@ export async function checkAlerts(config: AlertConfig): Promise<Round> {
       { changes: told.map((item) => item.change) },
     );
   }
-  if (events) await keepPlace(READ_UP_TO, events.until);
-  if (!isDown) await morningMail(problems, kept, config);
-  return round;
-}
 
-/** Close the problems that ended, each a `check.recovered` event, and tell the end of each one told. */
-async function closeEnded(rows: StateRow[], open: Set<string>, round: Round): Promise<Told[]> {
-  const told: Told[] = [];
-  for (const row of rows) {
-    if (row.name.startsWith('alerts:') || open.has(row.name)) continue;
-    await db().query('delete from alert_state where name = $1', [row.name]);
-    // A check's green state, kept before the levels: nothing was open.
-    if (row.ok) continue;
-    round.closed.push(row.name);
-    const words = wordsOf(row);
-    // The thing it was about, when the check's title does not say it: "a site is not fetching its
-    // changes, site acme.se, of Acme".
-    await logEvent({
-      type: 'check.recovered',
-      fields: {
-        name: row.name.split(':')[0] ?? row.name,
-        ...(words.which ? { detail: `${words.title}, ${words.which}` } : {}),
-      },
-    });
-    if (!row.notified_at) continue;
-    told.push({
-      level: null,
-      heading: `Resolved after ${lasting(Date.now() - row.since.getTime())}`,
-      words,
-      change: `${row.name} resolved`,
-    });
-  }
-  return told;
-}
-
-/** Open the new problems, each a `check.failed` event, and tell the ones that lasted their wait. */
-async function openAndTell(
-  problems: Problem[],
-  kept: Map<string, StateRow>,
-  isDown: boolean,
-  round: Round,
-): Promise<Told[]> {
-  const told: Told[] = [];
+  const result: Round = { opened: [], closed: [] };
+  for (const row of ended) if (await close(row)) result.closed.push(row.name);
   for (const problem of problems) {
     const row = kept.get(problem.key);
     const words = JSON.stringify(wordsOnly(problem));
     if (!row || row.ok) {
-      round.opened.push(problem.key);
+      result.opened.push(problem.key);
       await db().query(
         `insert into alert_state (name, ok, detail, since, notified_at) values ($1, false, $2, now(), null)
          on conflict (name) do update set ok = false, detail = excluded.detail, since = now(), notified_at = null`,
         [problem.key, words],
       );
       await logEvent({ type: 'check.failed', fields: problem.fields });
-      continue;
+    } else if (dueNow.has(problem)) {
+      await db().query('update alert_state set detail = $2, notified_at = now() where name = $1', [
+        problem.key,
+        words,
+      ]);
+    } else if (!wordsOf(row)) {
+      // Kept before the levels and still open: it takes its words now, and is told no more than it was.
+      await db().query('update alert_state set detail = $2 where name = $1', [problem.key, words]);
     }
-    if (row.notified_at || !due(problem.level, row.since, isDown)) continue;
-    await db().query('update alert_state set detail = $2, notified_at = now() where name = $1', [
-      problem.key,
-      words,
-    ]);
-    told.push({
-      level: problem.level,
-      heading: problem.level,
-      words: problem,
-      change: `${problem.key} ${problem.level}`,
-    });
   }
-  return told;
+  if (events) await keepPlace(READ_UP_TO, events.until);
+  if (!isDown) await morningMail(problems, kept, config);
+  return result;
+}
+
+/**
+ * Close a problem that ended, with a `check.recovered` event; false for a check's green state and
+ * for a problem kept before the levels, which has no words to end in and goes without a word.
+ */
+async function close(row: StateRow): Promise<boolean> {
+  await db().query('delete from alert_state where name = $1', [row.name]);
+  const words = wordsOf(row);
+  if (row.ok || !words) return false;
+  // The thing it was about, when the check's title does not say it: "a site is not fetching its
+  // changes, site acme.se, of Acme".
+  await logEvent({
+    type: 'check.recovered',
+    fields: {
+      name: row.name.split(':')[0] ?? row.name,
+      ...(words.which ? { detail: `${words.title}, ${words.which}` } : {}),
+    },
+  });
+  return true;
 }
 
 /** The subject: the one thing told, or how many started and ended, and the worst level. */
@@ -203,18 +242,26 @@ const ORDER: Level[] = ['P0', 'P1', 'P2', 'P3'];
 const higher = (a: Level | null, b: Level): Level =>
   a === null || ORDER.indexOf(b) < ORDER.indexOf(a) ? b : a;
 
-/** The problems open now: one per failing check, and one per site the sites check finds behind. */
-async function problemsNow(): Promise<Problem[]> {
+/**
+ * The problems open now: one per failing check, and one per site the sites check finds behind;
+ * `sitesUnknown` when the sites check failed without finding any, because it could not run.
+ */
+async function problemsNow(): Promise<{ problems: Problem[]; sitesUnknown: boolean }> {
   const health = await healthReport();
   const problems: Problem[] = [];
+  let sitesUnknown = false;
   for (const [name, check] of Object.entries(health.checks)) {
     if (check.ok) continue;
-    // The sites one by one, each with its own start and end (question 164, rule A per thing),
-    // unless the check could not even name them.
-    if (name === SITES_CHECK && check.names) problems.push(...(await sitesProblems(check)));
-    else problems.push(await checkProblem(name, check));
+    // The sites one by one, each with its own start and end (question 164, rule A per thing).
+    const sites = name === SITES_CHECK ? sitesFound(check) : null;
+    if (sites) {
+      problems.push(...(await sitesProblems(check, sites)));
+      continue;
+    }
+    if (name === SITES_CHECK) sitesUnknown = true;
+    problems.push(await checkProblem(name, check));
   }
-  return problems;
+  return { problems, sitesUnknown };
 }
 
 /** A failing check as one problem; the things it names are its "Which", in words Core knows them by. */
@@ -225,35 +272,37 @@ async function checkProblem(name: string, check: HealthResult): Promise<Problem>
     about.named === 'connections'
       ? (await connectionsNamed(names)).map((connection) => connection.label)
       : names;
+  const which = named.length > 0 ? listed(named, named.length) : null;
   return {
     key: name,
     level: levelOf(check),
     title: about.title,
-    which: named.length > 0 ? listed(named, named.length) : null,
+    which,
     where: null,
     said: check.detail ?? 'The check fails.',
     link: about.page.to,
-    fields: { name, detail: check.detail ?? null, names: check.names ?? [] },
+    fields: { name, detail: check.detail ?? null, names, ...(which ? { which } : {}) },
   };
 }
 
-async function sitesProblems(check: HealthResult): Promise<Problem[]> {
+async function sitesProblems(check: HealthResult, sites: SiteBehind[]): Promise<Problem[]> {
   const { rows } = await db().query<{ id: number; display_name: string }>(
     'select id, display_name from tenants',
   );
   const tenants = new Map(rows.map((row) => [Number(row.id), row.display_name]));
   const title = KINDS.find((kind) => kind.name === SITES_CHECK)?.title ?? SITES_CHECK;
-  return (await sitesBehind()).map((site) => {
+  return sites.map((site) => {
     const fetched = site.lastPullAt
       ? `Its last fetch was ${lasting(Date.now() - site.lastPullAt.getTime())} ago.`
       : 'It has never fetched.';
     const said = `Core told the site about changes over an hour ago, and it has not fetched them since, so it may show homes that have changed or are gone. ${fetched} Check that the site is up and that its plugin reaches Core.`;
     const tenant = tenants.get(site.tenantId);
+    const which = `site ${site.label}${tenant ? `, of ${tenant}` : ''}`;
     return {
       key: `${SITES_CHECK}:${String(site.id)}`,
       level: levelOf(check),
       title,
-      which: `site ${site.label}${tenant ? `, of ${tenant}` : ''}`,
+      which,
       where: null,
       said,
       link: `/tenants/${String(site.tenantId)}#site:${String(site.id)}`,
@@ -261,6 +310,7 @@ async function sitesProblems(check: HealthResult): Promise<Problem[]> {
         name: SITES_CHECK,
         detail: said,
         names: [site.label],
+        which,
         sites: [{ id: site.id, tenantId: site.tenantId, label: site.label }],
       },
     };
@@ -284,19 +334,20 @@ const wordsOnly = ({ title, which, where, said, link }: Words): Words => ({
   link,
 });
 
-/** A problem's words as its start kept them; a row from before the levels kept its check's detail. */
-function wordsOf(row: StateRow): Words {
+/** A problem's words as its start kept them, or null for a row kept before the levels, which kept none. */
+function wordsOf(row: StateRow): Words | null {
   try {
-    const kept = JSON.parse(row.detail ?? '') as Omit<Words, 'where'> & { where?: string | null };
-    return { ...kept, where: kept.where ?? null };
-  } catch {
+    const kept = JSON.parse(row.detail ?? '') as Partial<Words> | null;
+    if (typeof kept?.title !== 'string' || typeof kept.said !== 'string') return null;
     return {
-      title: aboutCheck(row.name).title,
-      which: null,
-      where: null,
-      said: row.detail ?? '',
-      link: '/',
+      title: kept.title,
+      which: kept.which ?? null,
+      where: kept.where ?? null,
+      said: kept.said,
+      link: kept.link ?? '/',
     };
+  } catch {
+    return null;
   }
 }
 

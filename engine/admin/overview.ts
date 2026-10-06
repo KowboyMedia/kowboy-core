@@ -2,7 +2,7 @@
 // then the sites. One call, because a dashboard that loads in eight requests feels like eight
 // pages.
 import { db } from '../storage/db.js';
-import { aboutCheck, healthReport, sitesBehind, SITES_CHECK, type About } from '../health.js';
+import { aboutCheck, healthReport, sitesFound, SITES_CHECK, type About } from '../health.js';
 import { itemCounts } from '../storage/items.js';
 import { subscribers, tenants } from '../storage/connections.js';
 import { openJobs } from '../jobs.js';
@@ -95,25 +95,23 @@ async function connectionLinks(health: Overview['health']): Promise<Overview['li
 }
 
 export async function overview(): Promise<Overview> {
-  const [health, behind, maintenance, needs, allTenants, counts, figures, sites, jobs] =
-    await Promise.all([
-      healthReport(),
-      sitesBehind(),
-      inMaintenance(),
-      attention(),
-      tenants(),
-      itemCounts(),
-      day(),
-      subscribers(),
-      openJobs(),
-    ]);
+  const [health, maintenance, needs, allTenants, counts, figures, sites, jobs] = await Promise.all([
+    healthReport(),
+    inMaintenance(),
+    attention(),
+    tenants(),
+    itemCounts(),
+    day(),
+    subscribers(),
+    openJobs(),
+  ]);
   const names = new Map(allTenants.map((tenant) => [tenant.id, tenant.display_name]));
   return {
     health,
     about: Object.fromEntries(Object.keys(health.checks).map((name) => [name, aboutCheck(name)])),
     links: {
       ...(await connectionLinks(health)),
-      [SITES_CHECK]: behind.map((site) => ({
+      [SITES_CHECK]: (sitesFound(health.checks[SITES_CHECK]) ?? []).map((site) => ({
         label: `${site.label}, of ${names.get(site.tenantId) ?? 'an unknown tenant'}`,
         to: `/tenants/${String(site.tenantId)}#site:${String(site.id)}`,
       })),

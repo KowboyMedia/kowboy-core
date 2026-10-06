@@ -1,12 +1,14 @@
 // The engine's operations, as the admin panel will call them: lifecycle events, replay and
 // recompute, the event timeline, bells, and health.
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { harness, pull, until, TENANT, type Harness } from './harness.js';
 import { fakeWebhookAdapter, drainFetchList } from '../adapters/fake-webhook/index.js';
 import * as crm from '../adapters/fake-webhook/crm.js';
 import { db } from '../engine/storage/db.js';
 import { healthReport, heartbeat } from '../engine/health.js';
 import { checkAlerts } from '../engine/alerts.js';
+import { attention } from '../engine/attention.js';
+import { summarise } from '../engine/admin/summary.js';
 import { flushBells, ring } from '../engine/bells.js';
 import { queueLifecycle } from '../engine/lifecycle.js';
 import type { LifecycleEvent } from '../engine/adapter-api/types.js';
@@ -357,6 +359,7 @@ describe('alerts', () => {
         detail:
           'Core told the site about changes over an hour ago, and it has not fetched them since, so it may show homes that have changed or are gone. Its last fetch was 3 hours ago. Check that the site is up and that its plugin reaches Core.',
         names: ['test site'],
+        which: 'site test site, of Test tenant',
         sites: [{ id: 1, tenantId: 1, label: 'test site' }],
       },
     ]);
@@ -471,7 +474,7 @@ describe('alerts', () => {
         'P1 · An office was taken off the sites',
         'Which: offices Lidingö (the CRM’s office id 100) and the CRM’s office id 200',
         `Where: Test tenant’s Fake-webhook connection, short name ${CONNECTION}`,
-        'What happened: 2 offices were taken off the sites, with their homes and agents: the CRM still refused them at the next daily check. Each office comes back on the sites, with its homes and agents, once this connection can read it from the CRM again.',
+        'What happened: 2 offices were taken off the sites, with their homes and agents: the CRM still refused them at the next daily check. Each office comes back on the sites, with its homes and agents, once the CRM lets this connection read it again, which Core checks once a day. Ask the brokerage to check the login’s access to it in the CRM.',
         'Open it: https://core.example/admin/records?tenant=1&office=100,200&deleted=true',
         '',
         'P1 · A visitor’s form did not reach the CRM',
@@ -502,5 +505,102 @@ describe('alerts', () => {
     // Once a day.
     await checkAlerts(config);
     expect(running.mails).toHaveLength(2);
+  });
+
+  it('keeps the sites behind open while the sites check cannot run, and counts that from its first failed run (rule E)', async () => {
+    await heartbeat();
+    await behind();
+    await checkAlerts(config);
+    await aged('subscribers:1', '16 minutes');
+    await checkAlerts(config);
+    expect(running.mails).toHaveLength(1);
+
+    // The sites check's query fails: it cannot say which sites are behind.
+    await db().query('alter table subscribers rename column last_bell_at to told_at');
+    try {
+      expect((await checkAlerts(config)).closed).toEqual([]);
+      expect(running.mails).toHaveLength(1);
+      // An old problem does not make it P1: its 15 minutes run from its own first failed run.
+      await aged('subscribers', '3 days');
+      expect((await healthReport()).checks['subscribers']).toMatchObject({
+        ok: false,
+        level: 'P2',
+      });
+      vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + 16 * 60_000 });
+      try {
+        expect((await healthReport()).checks['subscribers']?.level).toBe('P1');
+      } finally {
+        vi.useRealTimers();
+      }
+      // The check that could not run names no site, so it is no line on "Needs attention".
+      expect((await attention()).map((line) => line.what)).toEqual(['site test site']);
+    } finally {
+      await db().query('alter table subscribers rename column told_at to last_bell_at');
+    }
+
+    // It runs again and the site is still behind: still open, nothing told again.
+    expect((await checkAlerts(config)).closed).toEqual(['subscribers']);
+    expect(running.mails).toHaveLength(1);
+  });
+
+  it('ends a problem kept before the levels without a word, and gives one still open its words (review of question 172)', async () => {
+    await db().query("update heartbeats set at = now() - interval '10 minutes'");
+    await behind();
+    await db().query(
+      `insert into alert_state (name, ok, detail, since, notified_at) values
+         ('subscribers', false, '1 site(s) have not pulled for an hour', now() - interval '3 days', now() - interval '3 days'),
+         ('worker', false, 'worker heartbeat is stale', now() - interval '1 hour', now() - interval '1 hour')`,
+    );
+    expect(await checkAlerts(config)).toEqual({ opened: ['subscribers:1'], closed: [] });
+    expect(running.mails).toHaveLength(0);
+    expect(await queryEvents({ type: 'check.recovered' })).toHaveLength(0);
+    const { rows } = await db().query<{ detail: string }>(
+      "select detail from alert_state where name = 'worker'",
+    );
+    expect(JSON.parse(rows[0]?.detail ?? '')).toMatchObject({ title: 'Core’s worker' });
+
+    // Told an hour ago, so its end is told, in its words now.
+    await heartbeat();
+    await checkAlerts(config);
+    expect(running.mails).toHaveLength(1);
+    expect(running.mails[0]?.subject).toBe('Core test: Resolved · Core’s worker');
+  });
+
+  it('runs one round at a time: one held by another worker is skipped, and taken over once it is held too long (rule D)', async () => {
+    await heartbeat();
+    await behind();
+    await checkAlerts(config);
+    await aged('subscribers:1', '16 minutes');
+    // Another worker, during a deploy, is half way through a round.
+    await db().query(
+      "insert into alert_state (name, ok, since) values ('alerts:turn', true, now())",
+    );
+    expect(await checkAlerts(config)).toEqual({ opened: [], closed: [] });
+    expect(running.mails).toHaveLength(0);
+    // It stopped half way: two minutes later its turn is taken over.
+    await aged('alerts:turn', '3 minutes');
+    await checkAlerts(config);
+    expect(running.mails).toHaveLength(1);
+    // A round gives its turn back when it ends.
+    const { rowCount } = await db().query("select 1 from alert_state where name = 'alerts:turn'");
+    expect(rowCount).toBe(0);
+  });
+
+  it('says which channel an alert went by, and which it could not go by', () => {
+    const subject = 'Core test: P1 · A site is not fetching its changes';
+    expect(summarise('alert.sent', { subject, outcomes: { email: 'sent', slack: 'sent' } })).toBe(
+      `Core sent the alert “${subject}” by mail and Slack`,
+    );
+    expect(
+      summarise('alert.sent', {
+        subject,
+        outcomes: { email: 'sent', slack: 'failed: Error: slack answered 404' },
+      }),
+    ).toBe(
+      `Core sent the alert “${subject}” by mail, but could not send it by Slack; Settings shows where alerts go`,
+    );
+    expect(summarise('alert.sent', { subject, outcomes: {} })).toBe(
+      `Core had the alert “${subject}” to send, but neither mail nor Slack is set up in Settings`,
+    );
   });
 });

@@ -286,8 +286,10 @@ drive directly.
   answer. The engine's checks: `database`, `schema` and `worker` P0; `subscribers` P1, failing
   only for a site Core told about changes over an hour ago that has not fetched since;
   `lifecycle` P2, P1 once work has waited an hour; `submissions.failing` P2. A check that throws
-  is P2, P1 after 15 minutes, and so is an adapter's check whose last report is over two minutes
-  old; both count as P3 while a P0 check fails, so one cause is one problem (rule B). The worker
+  is P2, P1 once it has thrown at every run for 15 minutes, and so is an adapter's check whose
+  last report is over two minutes old, P1 once it is over 17; both count as P3 while a P0 check
+  fails, so one cause is one problem (rule B). An adapter's check shows the title "Fetching from"
+  its CRM until a check can carry its own (question 180). The worker
   records each adapter check for the web process without its level until question 178 is
   answered, so the web process shows a failing adapter check as P1, while the worker's alerts use
   its own level.
@@ -306,7 +308,12 @@ drive directly.
   how long, and its title; "Which:" the thing; "Where:" its connection or tenant when the thing
   does not say; "What happened:" what it means for the sites and what to do; "Open it:" its place
   in the area, the whole address when `PUBLIC_URL` is set. Every send is one `alert.sent` event
-  with what it told.
+  with what it told and, per channel, whether it went. A round reads first, tells next and keeps
+  what changed last, so one that fails half way tells it again at the next round rather than
+  never, and one round runs at a time (the row `alerts:turn`), also while a deploy runs two
+  workers. While the sites check cannot run, the sites it found behind stay open as they were. A
+  problem kept before the levels (its detail not the alert's words) ends without a word, or, still
+  open, takes the alert's words and is told no more than it was.
 - **Needs attention** (`engine/attention.ts`, questions 159, 163 and 164): the few kinds of event
   the super admin is told about, each with its level. An office taken off the sites
   (`office.taken_off`) is P1 when the CRM still refused it within the week before, else P2; a
@@ -314,7 +321,8 @@ drive directly.
   refuses (`login.refused`) is P1; a visitor's form that could not be sent or that the CRM refused
   (`submission.failed`, `submission.refused`) is P1, but not a form Core held back outside
   production (`submission.refused` with Core's own reason), which never left Core; a site that is
-  not fetching its changes (the sites check's `check.failed` for it) is P1. The adapter logs the first three through the adapter
+  not fetching its changes (the sites check's `check.failed` for it) is P1, but not the sites check
+  that could not run, which names no site. The adapter logs the first three through the adapter
   API with the connection in the context, and the engine logs the rest. The Overview lists them
   for seven days, newest first, one line per thing: its title, and under it a sentence of what
   happened, what it means for the sites and what to do; which thing ("office Lidingö (the CRM's office id
@@ -322,7 +330,8 @@ drive directly.
   "site acme.se") as a link that opens it (the office's removed records on Records, the
   connection's or the site's block on the tenant's page, Failed forms); and where it is (the
   connection an office or a form came through, a site's tenant). The offices one cause took off
-  share a correlation id and are one line. A sites check without its sites (one written before
+  share a correlation id and are one line; what to do differs for an office the CRM still refused
+  and one taken off by a change someone made. A sites check without its sites (one written before
   they were kept) is one line with the names the check gave, linking to Tenants. The event log is
   the one source: nothing is kept twice.
 - **Form submissions** (`engine/http/submissions.ts`, docs/forms.md): `POST /v1/submissions` hands

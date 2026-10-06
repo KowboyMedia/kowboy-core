@@ -13,7 +13,7 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 
 - 2026-10-06 · Building 172 to AGENTS.md's definition of done item 5. The engine's own checks
   now show a title and a sentence, and the sites check links each site it finds behind. A CRM's
-  checks still show their name (`vitec.catch_up`) and name their connections and offices as
+  checks all show one title, "Fetching from Vitec", and name their connections and offices as
   plain text, because the adapter API has no word for either; the Vitec code is writing their
   sentences now.
 

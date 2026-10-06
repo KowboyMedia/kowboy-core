@@ -24,6 +24,8 @@ export type Kind = {
   level: Level;
   /** What it means for the sites and what to do, after the sentence of what happened. */
   todo: string;
+  /** What to do instead for an office the CRM still refused, which makes the line P1 (row 20). */
+  refused?: string;
 };
 
 /**
@@ -39,7 +41,9 @@ export const KINDS: readonly Kind[] = [
     type: 'office.taken_off',
     title: 'an office was taken off the sites',
     level: 'P2',
-    todo: 'Each office comes back on the sites, with its homes and agents, once this connection can read it from the CRM again.',
+    todo: 'If that was meant, nothing needs doing. If not, undo the change the reason names; the sites then get the homes and agents back.',
+    refused:
+      'Each office comes back on the sites, with its homes and agents, once the CRM lets this connection read it again, which Core checks once a day. Ask the brokerage to check the login’s access to it in the CRM.',
   },
   {
     type: 'connection.paused',
@@ -82,9 +86,11 @@ export const ATTENTION_DAYS = 7;
 const REFUSED_DAYS = 7;
 
 /** The kind an event is, or null when it needs no attention. */
-export function kindOf(type: string, fields: EventFields): Kind | null {
+function kindOf(type: string, fields: EventFields): Kind | null {
   // A form Core held back, because only production sends forms to a CRM, is no problem.
   if (type === 'submission.refused' && fields['reason'] === NOT_LIVE) return null;
+  // A sites check that could not run names no site; its problem is the check's, not a site's.
+  if (type === 'check.failed' && !named(fields, 'sites') && !named(fields, 'names')) return null;
   return (
     KINDS.find(
       (kind) => kind.type === type && (kind.name === undefined || fields['name'] === kind.name),
@@ -92,13 +98,16 @@ export function kindOf(type: string, fields: EventFields): Kind | null {
   );
 }
 
+const named = (fields: EventFields, key: string): boolean =>
+  Array.isArray(fields[key]) && (fields[key] as unknown[]).length > 0;
+
 /**
  * One thing that needs attention: the thing in words ("office Lidingö (the CRM's office id
  * M30011)", "Acme's Somecrm connection, short name acme-crm", "site acme.se"), its place in the
  * admin area (a path under /admin), where it is in words when the thing does not say it, and its
  * tenant.
  */
-export type Place = {
+type Place = {
   what: string;
   link: string;
   where: string | null;
@@ -181,10 +190,12 @@ async function lines(rows: EventRow[]): Promise<AttentionRow[]> {
     const [first] = group;
     const kind = first ? kindOf(first.type, first.fields) : null;
     if (!first || !kind) continue;
-    const level = group.some((row) => refused.has(row.id)) ? 'P1' : kind.level;
+    const refusedNow = group.some((row) => refused.has(row.id));
+    const level = refusedNow ? 'P1' : kind.level;
     const places =
       first.type === 'office.taken_off' ? [officesTogether(group, known)] : placesOf(first, known);
-    const said = [sentence(happened(group, first)), kind.todo].filter((part) => part).join(' ');
+    const todo = refusedNow ? (kind.refused ?? kind.todo) : kind.todo;
+    const said = [sentence(happened(group, first)), todo].filter((part) => part).join(' ');
     const newest = group.reduce((a, b) => (Number(b.id) > Number(a.id) ? b : a));
     for (const [index, place] of places.entries()) {
       found.push({

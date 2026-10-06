@@ -26,8 +26,13 @@ const changedNames = (fields: EventFields): string[] => {
   return changed && typeof changed === 'object' ? Object.keys(changed as object) : [];
 };
 
-/** The things a failing check names, as `check.failed` carries them, after its sentence. */
+/**
+ * The things a failing check names, after its sentence: in the words the alert used, or, in an
+ * event from before those were kept, as the check gave them.
+ */
 const names = (fields: EventFields): string => {
+  const which = text(fields, 'which');
+  if (which) return ` Which: ${which}.`;
   const value = fields['names'];
   return Array.isArray(value) && value.length > 0 ? ` Which: ${listed(value.map(String))}.` : '';
 };
@@ -90,14 +95,21 @@ const SAY: Record<string, (fields: EventFields) => string> = {
     `rang its sites (${text(fields, 'kind') ?? 'delta'}, ${text(fields, 'status') ?? 'sent'})`,
   pull: (fields) => `a site pulled ${String(count(fields, 'items') ?? 0)} record(s)`,
   'alert.sent': (fields) => {
-    const outcomes = fields['outcomes'];
-    const by = Object.keys(outcomes && typeof outcomes === 'object' ? outcomes : {}).map(
-      (channel) => (channel === 'email' ? 'mail' : 'Slack'),
-    );
+    const value = fields['outcomes'];
+    const outcomes = Object.entries(value && typeof value === 'object' ? value : {});
+    const by = (sent: boolean): string =>
+      outcomes
+        .filter(([, outcome]) => (outcome === 'sent') === sent)
+        .map(([channel]) => (channel === 'email' ? 'mail' : 'Slack'))
+        .join(' and ');
     const subject = `“${text(fields, 'subject') ?? 'an alert'}”`;
-    return by.length > 0
-      ? `Core sent the alert ${subject} by ${by.join(' and ')}`
-      : `Core had the alert ${subject} to send, but neither mail nor Slack is set up in Settings`;
+    if (outcomes.length === 0)
+      return `Core had the alert ${subject} to send, but neither mail nor Slack is set up in Settings`;
+    if (!by(false)) return `Core sent the alert ${subject} by ${by(true)}`;
+    const failed = `could not send it by ${by(false)}; Settings shows where alerts go`;
+    return by(true)
+      ? `Core sent the alert ${subject} by ${by(true)}, but ${failed}`
+      : `Core had the alert ${subject} to send, but ${failed}`;
   },
   'office.taken_off': (fields) =>
     `${office(fields)} was taken off the sites, with its homes and agents: ${text(fields, 'reason') ?? 'no reason given'}`,

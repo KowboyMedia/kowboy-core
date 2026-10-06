@@ -189,10 +189,11 @@ export function Overview() {
           <CardDescription>
             Problems from the last seven days that change what the sites show, or that kept a
             visitor’s form from the brokerage. Each line says what happened and what to do, and the
-            name in it opens the place where it is fixed. Core sent a refused login, a form, a site
-            that is not fetching and an office the CRM still refused within a quarter of an hour,
-            and the rest in its mail at 07:00, by mail and to Slack where Settings shows an address
-            for them.
+            name in it opens the place where it is fixed. Core also sends, by mail and to Slack as
+            Settings shows, a refused login, a form that did not reach the brokerage and an office
+            the CRM still refuses within two minutes, a site once it is still not fetching a quarter
+            of an hour after its line appeared, and the rest in one mail at 07:00. While Core itself
+            is down, it sends only that, and the rest once it is back.
           </CardDescription>
         </CardHeader>
         <CardContent>

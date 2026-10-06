@@ -41,9 +41,12 @@ export function redact(fields: EventFields): EventFields {
   return out;
 }
 
-/** The row as it will be written; the database gives it its id. */
-const toRow = (event: EventInput): Omit<EventRow, 'id'> => ({
-  at: new Date(),
+/**
+ * The row as it will be written. The database gives it its id and its time: the time it is
+ * written, on one clock, so a reader that reads up to a few seconds ago never passes over a row
+ * that waited for its connection.
+ */
+const toRow = (event: EventInput): Omit<EventRow, 'id' | 'at'> => ({
   type: event.type,
   correlation_id: event.correlationId ?? null,
   tenant_id: event.tenantId ?? null,
@@ -62,10 +65,9 @@ export async function logEvent(event: EventInput): Promise<void> {
   const row = toRow(event);
   try {
     await db().query(
-      `insert into events (at, type, correlation_id, tenant_id, connection_id, datatype, remote_id, subscriber_id, fields)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      `insert into events (type, correlation_id, tenant_id, connection_id, datatype, remote_id, subscriber_id, fields)
+       values ($1,$2,$3,$4,$5,$6,$7,$8)`,
       [
-        row.at,
         row.type,
         row.correlation_id,
         row.tenant_id,

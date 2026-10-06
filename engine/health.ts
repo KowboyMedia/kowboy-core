@@ -4,7 +4,7 @@ import { unknownMigrations } from './storage/migrate.js';
 import { undeliveredLifecycleEvents } from './lifecycle.js';
 import { connectionsWithFailingSubmissions } from './storage/submissions.js';
 import { report } from './errors.js';
-import { counted, lasting } from './admin/words.js';
+import { counted, crmName, lasting } from './admin/words.js';
 import type { HealthResult, Level } from './adapter-api/types.js';
 
 /**
@@ -49,21 +49,18 @@ export const RECORDED_STALE_MS = 2 * 60_000;
 /** A lifecycle event waiting longer than this has no worker to deliver it. */
 export const LIFECYCLE_WAIT_MS = 5 * 60_000;
 /** A lifecycle event waiting longer than this makes the wait P1 (question 172). */
-export const LIFECYCLE_LONG_MS = 60 * 60_000;
+const LIFECYCLE_LONG_MS = 60 * 60_000;
 /** A check that cannot run is P2, and P1 once it has not run for this long (rule E). */
-export const CANNOT_RUN_MS = 15 * 60_000;
+const CANNOT_RUN_MS = 15 * 60_000;
 
 /** The check that watches the sites' fetches. */
 export const SITES_CHECK = 'subscribers';
-
-/** Where a check is put right in the admin area. */
-export type Page = { to: string; label: string };
 
 /**
  * What a person reads about a check: its title, never its name, the page where it is put right,
  * and what its `names` are when Core can name and link them.
  */
-export type About = { title: string; page: Page; named?: 'connections' };
+export type About = { title: string; page: { to: string; label: string }; named?: 'connections' };
 
 /** The engine's own checks, in words (AGENTS.md, definition of done item 5). */
 const ABOUT: Record<string, About> = {
@@ -87,16 +84,27 @@ const ABOUT: Record<string, About> = {
 
 /**
  * A check in words. A CRM's check is shown on its CRM's page: its name starts with the CRM's
- * short name ("somecrm.catch_up"), and it has no title of its own yet.
+ * short name ("somecrm.catch_up"). Its checks are all about fetching from it, and until a check can
+ * carry its own title (question 180), that is the title of each.
  */
 export function aboutCheck(name: string): About {
   const about = ABOUT[name];
   if (about) return about;
   const provider = name.split('.')[0] ?? name;
-  return { title: name, page: { to: `/crms/${provider}`, label: `the ${provider} page` } };
+  return {
+    title: `Fetching from ${crmName(provider)}`,
+    page: { to: `/crms/${provider}`, label: `the ${crmName(provider)} page` },
+  };
 }
 
 export type SiteBehind = { id: number; tenantId: number; label: string; lastPullAt: Date | null };
+
+/** The sites a failing sites check found, kept with its result, so the alerts and the Overview read the same ones. */
+const behindOf = new WeakMap<HealthResult, SiteBehind[]>();
+
+/** The sites a sites check found behind, or null when it found none or could not run. */
+export const sitesFound = (check: HealthResult | undefined): SiteBehind[] | null =>
+  (check && behindOf.get(check)) ?? null;
 
 /**
  * The sites that are behind (question 172): Core told the site about changes more than an hour
@@ -105,7 +113,7 @@ export type SiteBehind = { id: number; tenantId: number; label: string; lastPull
  * is older than an hour, is behind when its latest message is older than an hour too, or else when
  * the event log holds an earlier one older than an hour, read back from that hour.
  */
-export async function sitesBehind(): Promise<SiteBehind[]> {
+async function sitesBehind(): Promise<SiteBehind[]> {
   const { rows } = await db().query<{
     id: string;
     tenant_id: number;
@@ -159,7 +167,7 @@ export async function readiness(): Promise<HealthReport> {
       return {
         ok: false,
         level: 'P0',
-        detail: `Core cannot reach its database (${String(error)}), so nothing works: no site gets changes and no form is sent.`,
+        detail: `Core cannot reach its database, so nothing works: no site gets changes and no form is sent. Check that the database runs where Core is hosted. The error was: ${String(error)}`,
       };
     }
   });
@@ -199,12 +207,14 @@ export async function healthReport(): Promise<HealthReport> {
     const behind = await sitesBehind();
     if (behind.length === 0) return { ok: true };
     const many = behind.length > 1;
-    return {
+    const result: HealthResult = {
       ok: false,
       level: 'P1',
       detail: `Core told ${counted(behind.length, 'site', 'sites')} about changes over an hour ago, and ${many ? 'they have' : 'it has'} not fetched them since, so ${many ? 'they' : 'it'} may show homes that have changed or are gone.`,
       names: behind.map((site) => site.label),
     };
+    behindOf.set(result, behind);
+    return result;
   });
 
   checks['lifecycle'] = await run('lifecycle', async () => {
@@ -214,7 +224,7 @@ export async function healthReport(): Promise<HealthReport> {
     return {
       ok: false,
       level: long ? 'P1' : 'P2',
-      detail: `${counted(waiting, 'piece', 'pieces')} of work asked for in the admin area (a new connection’s first fetch, a changed office, a fetch someone asked for) ${waiting === 1 ? 'has' : 'have'} waited over ${long ? 'an hour' : 'five minutes'} for the worker, so ${waiting === 1 ? 'its' : 'their'} records are not fetched yet.`,
+      detail: `${counted(waiting, 'piece', 'pieces')} of work asked for in the admin area (a new connection’s first fetch, a changed office, a fetch someone asked for) ${waiting === 1 ? 'has' : 'have'} waited over ${long ? 'an hour' : 'five minutes'} for the worker, so ${waiting === 1 ? 'its' : 'their'} records are not fetched yet. If Core’s worker is failing too, restart the worker; if not, the CRM’s code is not taking the work, which is for whoever maintains Core.`,
     };
   });
 
@@ -282,7 +292,7 @@ async function adapterChecks(): Promise<HealthReport['checks']> {
     const stale: HealthResult = {
       ok: false,
       level: age > RECORDED_STALE_MS + CANNOT_RUN_MS ? 'P1' : 'P2',
-      detail: `Core’s worker has not run this check for ${lasting(age)}, so nobody knows whether it would pass.`,
+      detail: `Core’s worker has not run this check for ${lasting(age)}, so nobody knows whether it would pass. If Core’s worker is failing too, restart the worker; if not, this is for whoever maintains Core.`,
     };
     notRun.add(stale);
     checks[row.name] = stale;
@@ -315,37 +325,31 @@ export async function pruneHealth(): Promise<void> {
   ]);
 }
 
+/** When each check that throws first threw, without a run between that did not, in this process. */
+const throwing = new Map<string, number>();
+
 /**
- * A check that throws could not run (rule E): P2, and P1 once its problem, as the alerts keep it,
- * is 15 minutes old.
+ * A check that throws could not run (rule E): P2, and P1 once it has thrown at every run for 15
+ * minutes.
  */
 async function run(
   name: string,
   check: () => Promise<HealthResult> | HealthResult,
 ): Promise<HealthResult> {
   try {
-    return await check();
+    const result = await check();
+    throwing.delete(name);
+    return result;
   } catch (error) {
     report(error, { where: 'health', check: name });
+    const since = throwing.get(name) ?? Date.now();
+    throwing.set(name, since);
     const result: HealthResult = {
       ok: false,
-      level: (await failingFor(name)) > CANNOT_RUN_MS ? 'P1' : 'P2',
-      detail: `This check could not run (${String(error)}), so nobody knows whether it would pass.`,
+      level: Date.now() - since > CANNOT_RUN_MS ? 'P1' : 'P2',
+      detail: `This check could not run, so nobody knows whether it would pass. Core tries it again every minute; if it keeps failing, the error is for whoever maintains Core: ${String(error)}`,
     };
     notRun.add(result);
     return result;
-  }
-}
-
-/** How long the alerts have kept a check's problem open; none, or unreadable, is no time at all. */
-async function failingFor(name: string): Promise<number> {
-  try {
-    const { rows } = await db().query<{ age_ms: string }>(
-      'select extract(epoch from (now() - since)) * 1000 as age_ms from alert_state where name = $1 and not ok',
-      [name],
-    );
-    return Number(rows[0]?.age_ms ?? 0);
-  } catch {
-    return 0;
   }
 }
