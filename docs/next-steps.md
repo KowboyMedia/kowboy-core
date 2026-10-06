@@ -519,7 +519,10 @@ client ports (item 16, first client by question 80).
       one of them refused; an id the login may not use). A run against Vitec from this session
       with the environment's login was refused by the session's permission check on 2026-10-06
       and is not retried, so the real answer is the one staging Core shows on each tenant's page,
-      the svenskamaklarhuset.se tenant's above all.
+      the svenskamaklarhuset.se tenant's above all. Patric, 2026-10-06 09:32 (UTC): with `G12`
+      added on that tenant, "it says 'Yes' on all offices": the group lists its offices and each
+      one reads. He then asked whether Vitec's office groups could pick the site's offices
+      (question 154).
     - **Step 2, after Patric's look at step 1:** the rest of 147 a. The id field next to the
       Connect password (known bug 3 fixed first, since saving one typed field erases the login);
       "Offices it may see" gone for Vitec with the connection's own list empty; the save's rule
