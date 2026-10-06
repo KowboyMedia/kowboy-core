@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 155 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 156 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
@@ -66,34 +66,79 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
      read, or only the free valuation works there.
   4. **The Vitec password twice.** A brokerage whose site also reads through Core has the same
      Vitec login in Core and in the app, so a changed password goes in both.
-- The two options:
+- 2026-10-06 · Patric, 09:15 (UTC): "OK so the benefit with a separat app is that I can deploy it
+  to any site. The benefit of having it in Core is that it's integrated and native in our plugin,
+  and styled using templates, is that correct?" The answer: half right. Any site is the app's
+  gain, but the approved window, added by our plugin and coloured by the site, comes with either;
+  Core's gain is less to run. Patric, 09:20: "Is it best as living in the same repo or a separate
+  repo? Explain how it's styled, and can we customiez the flow or not? would it be a simpler
+  variant would be to have it live completely in the wp theme, and only have submit endpoints
+  provided by Core." The answers:
+  1. **The repository**: the same one, whichever option is picked. The theme and the plugin are
+     here already, and a cloud app takes the Vitec calls and the form window over without a copy,
+     under the same checks; a repository of its own pays off only if the forms are sold or handed
+     over on their own.
+  2. **The look**: the approved window sits in a sealed box in the page (a shadow root), so the
+     site's styles cannot reach inside it and its own cannot leak out. From outside, a site sets
+     eleven values (`clients/forms-widget/src/styles.css`): the font, which is the site's own
+     unless set, nine colours (text, faint text, background, borders, buttons, button text,
+     success, error and the backdrop) and the corner rounding. The layout, spacing, sizes and
+     texts are the window's own and the same on every site. Our theme sets none of the eleven, so
+     the staging site shows the window's own black and white, which is what was approved.
+  3. **The steps**: fixed in the window's code and the same on every site
+     (`clients/forms-widget/src/wizard.ts`): the interest asks "Dina uppgifter", then "Söker du
+     bostad?"; the booking "Välj tid", "Dina uppgifter" and "Söker du bostad?"; the valuation
+     "Dina uppgifter", then "Söker du bostad?". A change in the code changes every site at once
+     (151 drops the last step on Vitec sites); a choice per site, of steps or fields, is a new
+     setting per form, asked first. In the theme, the steps are the theme's own code.
+  4. **The theme**: yes, simpler for our WordPress sites, and the simplest of the three. It is the
+     form per client that was weighed against the one window on 2026-10-04 (137 b,
+     `docs/forms.md`) and set aside then so that one window serves WordPress, Lovable and any
+     site. The theme draws the window in its own markup and styles; the visitor's browser sends
+     the form to its own site; our plugin, which holds the token the site syncs with, passes it to
+     Core; and Core sends it with the Vitec login it holds. That is the path of 146's item 10 ("The
+     client site backend calls core with its site key"). Core's part is two addresses for a site's
+     server, sending a form and reading a viewing's times, which exist from 2026-10-04
+     (`POST /v1/submissions`, `GET /v1/submissions/slots`) and come back from zero, asked as lines
+     (155).
+- The three options, the theme added on 2026-10-06:
 
-  |                             | a) Cloud app (Patric's option C)                                                                                                                                  | b) Inside Core                                                                                                                     |
-  | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-  | Core itself                 | untouched                                                                                                                                                         | the forms' web door, bot check and log in the program that answers the sites, and an addition to the adapter interface (protected) |
-  | What a form needs           | the home's and office's ids from the page; the address and the viewing times from Vitec's own form call                                                           | the same, through Core                                                                                                             |
-  | The Vitec logins            | a second copy where a brokerage's site also reads through Core                                                                                                    | one copy, in Core                                                                                                                  |
-  | Visitors and bots           | reach only the app                                                                                                                                                | reach Core's own program, beside the sites' updates, the CRM's notifications and the admin area                                    |
-  | Sites Kowboy does not build | yes, by one tag in GTM, where the page shows the home's Vitec id                                                                                                  | no: Core must first be able to hold a site that has no bell address                                                                |
-  | Running cost                | one more program on staging and one on live, DigitalOcean's smallest size: $5 a month each (pricing page read 2026-10-05)                                         | nothing new                                                                                                                        |
-  | To build                    | the form window approved on 2026-10-05, the Vitec calls and the bot check exist from 2026-10-04 and move into the app; new: the tenant list and the site's config | the same parts, plus Core's lookup of the site and the interface change                                                            |
-  | Rules that change           | a new top-level folder, named in `AGENTS.md`'s layout                                                                                                             | the adapter interface, a protected path                                                                                            |
+  |                              | a) In our theme (Patric's variant)                                                                                              | b) Cloud app (Patric's option C)                                                                                          | c) Inside Core                                                                                                    |
+  | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+  | Who draws the window         | our theme, in its own markup and styles                                                                                         | a tag on the page (GTM or our plugin) draws the approved window                                                           | the same tag, served by Core                                                                                      |
+  | Its look                     | the theme's styles, all of it                                                                                                   | the eleven values set from outside                                                                                        | as b                                                                                                              |
+  | Its steps                    | the theme's code                                                                                                                | the window's code, the same on every site                                                                                 | as b                                                                                                              |
+  | How a form reaches Vitec     | the browser sends it to its own site; our plugin passes it to Core with the site's token; Core sends it with the login it holds | the browser sends it to the app with a public token; the app sends it with its own copy of the login                      | the browser sends it to Core with a public key; Core sends it with the login it holds                             |
+  | What visitors and bots reach | their own site only                                                                                                             | the app                                                                                                                   | Core's own program, beside the sites' updates, the CRM's notifications and the admin area                         |
+  | Sites                        | our WordPress sites; a Lovable site needs its own form                                                                          | any site, by one tag, where the page shows the home's Vitec id                                                            | our WordPress and Lovable sites; others once Core can hold a site with no bell address                            |
+  | Core itself                  | two addresses for a site's server, the guard, a log, and an addition to the adapter interface (protected)                       | untouched                                                                                                                 | the same as a, for browsers: a public key per site, the site's allowed addresses, and the window served from Core |
+  | The Vitec logins             | one copy, in Core                                                                                                               | a second copy where a brokerage's site also reads through Core                                                            | one copy, in Core                                                                                                 |
+  | Running cost                 | nothing new                                                                                                                     | one more program on staging and one on live, DigitalOcean's smallest size: $5 a month each (pricing page read 2026-10-05) | nothing new                                                                                                       |
+  | A fix to the window          | a theme update on every site                                                                                                    | one change, every site at once                                                                                            | as b                                                                                                              |
+  | From 2026-10-04              | Core's two addresses and the Vitec calls; the window is redrawn in the theme                                                    | the window, the Vitec calls and the bot check move into the app; new: the tenant list and the site's config               | all of it                                                                                                         |
+  | Rules that change            | the adapter interface, a protected path                                                                                         | a new top-level folder, named in `AGENTS.md`'s layout                                                                     | the adapter interface, a protected path                                                                           |
 
-- Why a is recommended: Core stays untouched, which is what 144 and this question asked for; the
-  forms serve any site, the product door Patric asked about on 2026-10-04 (`docs/forms.md`); and
-  most of the app exists already. b's gains are one program fewer and no second copy of the
-  Vitec password. The separate app on Core's database, offered as b in the first answer, is
-  dropped: it tied the app to Core's tables for the one gain of not keeping the password twice.
-- a) **cloud app** (recommended): Patric's option C, reading nothing from Core. b) **inside
-  Core**.
-- Smaller: a for Core, which it leaves untouched; b runs one program fewer. Blocked: the rebuild
-  of the forms. Answer a or b.
+- The same in all three: the bot check, with each site's address on Cloudflare's list; the guard
+  of 152; the Vitec calls.
+- Why a is recommended: it is the smallest. Nothing new runs, each Vitec login stays in one place,
+  no key sits in the page, the browser reaches only its own site, and the theme styles the window
+  and sets its steps. b was recommended from 2026-10-05 for leaving Core untouched and serving any
+  site; Patric's variant gives Core the sending by design, and any site is worth b's costs only
+  if a site outside our WordPress sites is to get forms, which is for Patric to say. a's costs: a
+  Lovable site needs its own form, and a site Kowboy does not build has none until the cloud app
+  is built; the approved window is redrawn by the theme, with the same look and steps; and a fix
+  to the window is a theme update on every site, not one change in one place.
+- a) **theme** (recommended): our theme draws the forms and Core sends them. b) **cloud app**:
+  Patric's option C, reading nothing from Core. c) **inside Core**: the one window, served by
+  Core.
+- Smaller: a. Blocked: the rebuild of the forms. Answer a, b or c. The letters changed on
+  2026-10-06 when the theme was added; until then a was the cloud app and b inside Core.
 
 ## 153. `[core]` Is this list the cloud app's first version?
 
-- 2026-10-05 · Applies if 150 is a. Patric: "mvp even simpler". Built from zero (144): only what a
-  form cannot work without, in his format where he gave one. Each line is new and is asked here
-  before it is built (`AGENTS.md`, "Stop and ask"):
+- 2026-10-05 · Applies if 150 is b (the cloud app; a until 2026-10-06). Patric: "mvp even
+  simpler". Built from zero (144): only what a form cannot work without, in his format where he
+  gave one. Each line is new and is asked here before it is built (`AGENTS.md`, "Stop and ask"):
   1. **The app**: one program in its own top-level folder of Core's repository, run by the same
      host beside Core, at a path under Core's address (live `core.kowboy.cloud/forms/`, staging
      `staging.core.kowboy.cloud/forms/`), so nothing changes at the domain host; it reads nothing
@@ -116,9 +161,40 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
      reported the way Core's are, and a health check the host watches.
 - Not in it: an admin page, a database, form counts, Mspecs, Lovable's own setup beyond the tag,
   and anything in Core.
-- a) **yes** (recommended): built as listed once 150 is a. b) **no**: name the lines to strike or
+- a) **yes** (recommended): built as listed once 150 is b. b) **no**: name the lines to strike or
   what to add.
 - Smaller: a. Blocked: the cloud app. Answer a or b.
+
+## 155. `[core]` Is this list the theme's first version?
+
+- 2026-10-06 · Applies if 150 is a. Built from zero (144): only what a form cannot work without.
+  Each line is new and is asked here before it is built (`AGENTS.md`, "Stop and ask"):
+  1. **The window**: our theme draws the approved form window in its own markup and styles, with
+     the approved look and steps; the buttons stay as they are.
+  2. **The plugin**: the "Formulär" page under the plugin's menu with its on and off switch (146,
+     item 2), and one address on the site that passes a form to Core with the token the site
+     syncs with, and passes a viewing's times back.
+  3. **Core's two addresses**: for a site's server, opened by the same token: send a form, and
+     read a viewing's times; Core finds the brokerage's connection, and that CRM's code sends the
+     form with the login Core holds.
+  4. **The adapter interface**: one capability any CRM's code may offer, sending a form and
+     reading a viewing's times (a protected path).
+  5. **The bot check**: Turnstile in the window, its keys a global setting in Core (146, item 8);
+     each site's address is put on Cloudflare's list when the site is added, which takes a
+     Cloudflare account and one key of Cloudflare's, created once.
+  6. **The Vitec calls**: the interest, the viewing booking with its times read from Vitec when
+     the window opens, and the free valuation; the profile step as 151 decides.
+  7. **The guard**: staging never sends to a CRM (152).
+  8. **The log**: each form's outcome (sent, refused, failed) as an event in Core's event log,
+     with no personal data; errors reported the way Core's are.
+- Not in it: a page or setting in Core's admin area, a table of forms, form counts, a key in the
+  page, the window served by Core, Mspecs and Lovable.
+- A proof first (Patric, 2026-10-06, on 147: "you need to do a poc before writing everything"):
+  the interest form end to end on the local site, stopped by the guard before Vitec; then the
+  rest.
+- a) **yes** (recommended): built as listed once 150 is a. b) **no**: name the lines to strike or
+  what to add.
+- Smaller: a. Blocked: the forms in the theme. Answer a or b.
 
 ## 151. `[crm-vitec]` Should Vitec sites skip the "Söker du bostad?" step?
 
@@ -156,8 +232,8 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   not built in the rebuild, and it comes back when a brokerage asks for it. b) **keep**, as in the
   approved screens: each brokerage first orders the CRM part from Vitec for Kowboy, then its
   connection gets that part's password, in the admin area inside Core or in the cloud app's tenant
-  list; until then the step is hidden for that office, which inside Core (150 b) needs the adapter
-  interface change named in 146's item 10.
+  list; until then the step is hidden for that office, which, where Core sends the forms (150 a or
+  c), needs the adapter interface change named in 146's item 10.
 - Smaller: a. Blocked: nothing now; the rebuild's Vitec part. Answer a or b.
 
 ## 152. `[core]` Default: a staging or test run of the forms never sends a form to a CRM; only the live one does, with no setting
@@ -172,7 +248,7 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   the forms send only where that name is production, and everywhere else they stop before the CRM
   and answer that the form was not sent. This replaces the "Send forms to Vitec" switch on every
   Vitec connection, and 146's item 9. The first real send to Vitec's test customer (54 f), once that
-  customer exists, is asked then. The cloud app of 150 a is given the same environment name the same
+  customer exists, is asked then. The cloud app (150 b) is given the same environment name the same
   way.
 - Reply only if you disagree: no.
 

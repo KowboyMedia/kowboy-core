@@ -410,9 +410,10 @@ client ports (item 16, first client by question 80).
     of what a site must be able to configure; nothing is removed from staging or built for the
     forms until it stands. **146 answered 2026-10-05** (`docs/decisions.md`): every setting is the
     site's own or automatic, apart from the bot check's keys, one global setting where the forms are
-    received. Open: where the forms live (150, Patric's option C recommended since 21:56: a cloud
-    app that reads nothing from Core; its first version is 153), the Vitec search-profile step (151,
-    skip recommended) and no CRM send outside the live service (152, a Default). The rebuild's first
+    received. Open: where the forms live (150; since 2026-10-06 Patric's variant recommended, our
+    theme draws the forms and Core sends them, its first version 155; the cloud app of his option C
+    is b, its first version 153; inside Core is c), the Vitec search-profile step (151, skip
+    recommended) and no CRM send outside the live service (152, a Default). The rebuild's first
     unknown, tested before anything is built on it: whether Cloudflare's bot check, drawn in a small
     frame served from Core's address inside the form window, checks that address rather than the
     site's (Cloudflare's pages do not say). If it does, one address at Cloudflare covers every site,

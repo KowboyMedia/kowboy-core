@@ -782,8 +782,9 @@ the forms are rebuilt from zero, not cut down (question 144): in concept everyth
 2026-10-04" is reverted and only what is necessary comes back, starting with the list of what a
 site must be able to configure (question 146, answered the same evening: every setting is the
 site's own or automatic, apart from the bot check's keys, one global setting where the forms are
-received; `docs/decisions.md`). Whether the forms stay inside Core or become a separate app in
-Core's repository is question 150; the section "Where the writes live" above is the weighing of
+received; `docs/decisions.md`). Where the forms live is question 150: drawn by our theme and sent
+by Core (recommended since 2026-10-06, the form per client of 137 b), a separate app in Core's
+repository, or inside Core; the section "Where the writes live" above is the weighing of
 2026-10-04, whose separate app had its own data.
 
 What exists, proved by acceptance criteria 43 to 47 and 49 (`acceptance/submissions.test.ts`)
