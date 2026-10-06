@@ -4,10 +4,30 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 185 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 186 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 185. `[core]` May the CRM's code get four things from Core it lacks, so the Vitec page names, links and addresses things as the rest of the admin area does?
+
+- 2026-10-06 · The Vitec page, its checks and its messages now read for a cold reader, except
+  where they need something only Core knows: the adapter API (protected) does not hand it to the
+  CRM's code. Until then the Vitec page writes "The Vitec connection with the short name
+  acme-crm", names a record by Vitec's id for it, links nothing, and shows the notification
+  addresses as "Core's own address, followed by /v1/hook/…". Question 184 covers the checks'
+  titles and links; this covers the rest.
+
+| Item | What                                                                                                           | Why                                                                                                     |
+| ---- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 1    | Each connection Core hands the CRM's code carries its tenant's name (`tenantName` on `Connection`).            | The Vitec page and its checks say "Acme's Vitec connection, short name acme-crm".                       |
+| 2    | One more kind of value on a CRM's page: a text with a place in the admin area, which the page draws as a link. | Each connection, office or record the Vitec page names opens its place, as everywhere else in the area. |
+| 3    | The CRM's code may ask Core for the address of a record, by the CRM's id for it.                               | A record on the Vitec page reads "Storgatan 12", not Vitec's id for it.                                 |
+| 4    | The CRM's code may read Core's public address, the server setting `PUBLIC_URL` Core already has.               | The Vitec page shows the notification addresses to give Vitec in full, ready to copy.                   |
+
+- Smaller: items 1 and 4 alone; a record then stays named by the CRM's id, and nothing on the
+  Vitec page is a link. Blocked: those names, links and addresses on the Vitec page and in its
+  checks. Reply: "185 ok", or the items you do not want.
 
 ## 184. `[core]` May a CRM's checks carry a title and links, so the Overview never shows a check's name?
 

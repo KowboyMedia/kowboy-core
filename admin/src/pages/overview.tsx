@@ -13,9 +13,18 @@ import { PageHeader } from '@/components/layout';
 import { useLive } from '@/lib/live';
 import { SERIES } from '@/lib/series';
 import { ago, capital, count, entity, moment } from '@/lib/format';
+import { firstSentence, inWords } from '../../../engine/admin/words';
 
 /** How much a failing check matters: P0 Core is down, P1 a customer is cut off, P2 worth a look, P3 for the record. */
 type Level = 'P0' | 'P1' | 'P2' | 'P3';
+
+/** Each level in words beside its name (question 172), as the alerts say it. */
+const LEVEL_WORDS: Record<Level, string> = {
+  P0: 'Core down',
+  P1: 'Disrupted',
+  P2: 'To look at',
+  P3: 'For information',
+};
 
 type Check = { ok: boolean; detail?: string; names?: string[]; level?: Level };
 
@@ -58,8 +67,8 @@ type NeedsAttention = {
 
 type Overview = {
   health: { ok: boolean; checks: Record<string, Check> };
-  /** Each check's title and the page where it is put right. */
-  about: Record<string, { title: string; page: { to: string; label: string } }>;
+  /** Each check's title, what it says while it passes, and the page where it is put right. */
+  about: Record<string, { title: string; fine: string; page?: { to: string; label: string } }>;
   /** The things a failing check names, each a link to its place. */
   links: Record<string, { label: string; to: string }[]>;
   maintenance: boolean;
@@ -95,16 +104,78 @@ const answered = (status: string): string => {
 /** Fetched when this page opens, so the charting library never weighs on the rest of the app. */
 const DayChart = lazy(() => import('@/components/day-chart'));
 
+/**
+ * A check's sentence, with the page it names linked where the sentence names it, and that page
+ * after the sentence when it does not.
+ */
+function Said({ text, page }: { text: string; page?: { to: string; label: string } }) {
+  const at = page ? text.indexOf(page.label) : -1;
+  if (!page) return <p className="text-sm text-muted-foreground">{text}</p>;
+  if (at < 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {text} It is put right on{' '}
+        <Link className="underline" to={page.to}>
+          {page.label}
+        </Link>
+        .
+      </p>
+    );
+  }
+  return (
+    <p className="text-sm text-muted-foreground">
+      {text.slice(0, at)}
+      <Link className="underline" to={page.to}>
+        {page.label}
+      </Link>
+      {text.slice(at + page.label.length)}
+    </p>
+  );
+}
+
+/** The line above the checks: whether anything is disrupted, and what to read next. */
+function verdict(checks: [string, Check][]): { badge: string; tone: 'ok' | 'bad'; said: string } {
+  const failing = checks.filter(([, check]) => !check.ok);
+  const down = failing.find(([, check]) => levelOf(check) === 'P0');
+  if (down) {
+    return {
+      badge: LEVEL_WORDS.P0,
+      tone: 'bad',
+      said: `${firstSentence(down[1].detail ?? 'Core is down.')} The red check below says what it means and what to do.`,
+    };
+  }
+  const red = failing.filter(([, check]) => levelOf(check) === 'P1').length;
+  if (red > 0) {
+    return {
+      badge: LEVEL_WORDS.P1,
+      tone: 'bad',
+      said: `${capital(inWords(red, 'check finds', 'checks find'))} a customer’s sites or forms disrupted. Each red check below says what is wrong and what to do.`,
+    };
+  }
+  const amber = failing.filter(([, check]) => levelOf(check) === 'P2').length;
+  if (amber > 0) {
+    return {
+      badge: 'Fine',
+      tone: 'ok',
+      said: `Nothing is disrupted. ${capital(inWords(amber, 'check has', 'checks have'))} something to look at below.`,
+    };
+  }
+  return failing.length > 0
+    ? {
+        badge: 'Fine',
+        tone: 'ok',
+        said: 'Nothing is disrupted. The grey checks below are for information only.',
+      }
+    : { badge: 'Fine', tone: 'ok', said: 'Everything Core checks is working. Nothing needs you.' };
+}
+
 export function Overview() {
   const { result, query } = useCustom<Overview>({ url: '/overview', method: 'get' });
   useLive('overview', query.refetch);
   // An answer that has not arrived is an empty object, not undefined, so every read is guarded.
   const data = result?.data;
   const checks = Object.entries(data?.health?.checks ?? {});
-  const failing = checks.filter(([, check]) => !check.ok);
-  // The line above the checks counts the alerts only: P0 and P1 (question 172).
-  const red = failing.filter(([, check]) => TONE[levelOf(check)] === 'bad');
-  const amber = failing.filter(([, check]) => levelOf(check) === 'P2');
+  const verdictNow = verdict(checks);
 
   const perDatatype = new Map<string, number>();
   for (const row of data?.records ?? []) {
@@ -142,20 +213,9 @@ export function Overview() {
           <CardTitle className="flex items-center gap-2">
             {query.isLoading ? (
               'Looking…'
-            ) : data?.health?.ok ? (
-              <>
-                <Badge tone="ok">All green</Badge> Everything Core checks is working.
-              </>
-            ) : red.length > 0 ? (
-              <>
-                <Badge tone="bad">{red.length} red</Badge> Something needs attention now.
-              </>
             ) : (
               <>
-                <Badge tone="ok">No alerts</Badge>
-                {amber.length > 0
-                  ? 'Nothing needs attention now; the amber checks below are worth a look.'
-                  : 'Nothing needs attention now; the grey checks below are only for the record.'}
+                <Badge tone={verdictNow.tone}>{verdictNow.badge}</Badge> {verdictNow.said}
               </>
             )}
           </CardTitle>
@@ -172,30 +232,37 @@ export function Overview() {
                   data-testid={`check-${name}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium">{about?.title ?? name}</span>
+                    <span className="font-medium">
+                      {about?.title ?? 'A check Core has no title for'}
+                    </span>
                     <Badge tone={check.ok ? 'ok' : TONE[levelOf(check)]}>
-                      {check.ok ? 'ok' : levelOf(check)}
+                      {check.ok ? 'Fine' : `${levelOf(check)} ${LEVEL_WORDS[levelOf(check)]}`}
                     </Badge>
                   </div>
-                  {check.detail && <p className="text-sm text-muted-foreground">{check.detail}</p>}
+                  {check.ok ? (
+                    about?.fine && <p className="text-sm text-muted-foreground">{about.fine}</p>
+                  ) : (
+                    <Said text={check.detail ?? 'It fails, and says no more.'} page={about?.page} />
+                  )}
                   {links.length > 0 ? (
-                    <p className="flex flex-wrap gap-x-3 text-xs">
+                    <ul className="flex flex-col gap-0.5 text-xs">
                       {links.map((link) => (
-                        <Link key={link.to} className="underline" to={link.to}>
-                          {link.label}
-                        </Link>
+                        <li key={link.to}>
+                          <Link className="underline" to={link.to}>
+                            {link.label}
+                          </Link>
+                        </li>
                       ))}
-                    </p>
+                    </ul>
                   ) : (
                     check.names &&
                     check.names.length > 0 && (
-                      <p className="text-xs text-muted-foreground">{check.names.join('; ')}</p>
+                      <ul className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+                        {check.names.map((named) => (
+                          <li key={named}>{named}</li>
+                        ))}
+                      </ul>
                     )
-                  )}
-                  {!check.ok && about && (
-                    <Link className="text-sm underline" to={about.page.to}>
-                      Go to {about.page.label}
-                    </Link>
                   )}
                 </div>
               );
@@ -208,13 +275,17 @@ export function Overview() {
         <CardHeader>
           <CardTitle>Needs attention</CardTitle>
           <CardDescription>
-            Problems from the last seven days that change what the sites show, or that kept a
-            visitor’s form from the brokerage. Each line says what happened and what to do, and the
-            name in it opens the place where it is fixed. Core also sends, by mail and to Slack as
-            Settings shows, a refused login, a form that did not reach the brokerage and an office
-            the CRM still refuses within two minutes, a site once it is still not fetching a quarter
-            of an hour after its line appeared, and the rest in one mail at 07:00. While Core itself
-            is down, the rest waits until it is back.
+            What needed a person in the last seven days, newest first: problems that change what the
+            sites show, or that kept a visitor’s form from the brokerage. Each line says what
+            happened, what it means for the sites and what to do, and the name in it opens that
+            office, connection, site or form. Core also sends these by mail and to Slack, to where{' '}
+            <Link className="underline" to="/settings">
+              Settings
+            </Link>{' '}
+            shows: a refused login, a form that did not reach the brokerage and an office the CRM
+            still refuses within two minutes; a site still not fetching a quarter of an hour after
+            its line appeared, and its end; and the rest in one mail at 07:00. While Core itself is
+            down, the rest waits until it is back.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -240,6 +311,13 @@ export function Overview() {
                       {row.what}
                     </Link>
                     {row.where && <p className="text-xs text-muted-foreground">{row.where}</p>}
+                    {row.tenantId !== null && row.tenant && !row.what.includes(row.tenant) && (
+                      <p className="text-xs">
+                        <Link className="underline" to={`/tenants/${String(row.tenantId)}`}>
+                          {row.tenant}
+                        </Link>
+                      </p>
+                    )}
                   </>
                 ),
               },

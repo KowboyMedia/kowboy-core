@@ -15,6 +15,7 @@ import { subscribers, tenants } from '../storage/connections.js';
 import { openJobs } from '../jobs.js';
 import { inMaintenance } from '../storage/settings.js';
 import { attention, connectionsNamed, type AttentionRow } from '../attention.js';
+import { capital, siteNamed } from './words.js';
 
 /** The event types the day's chart counts, in the order the legend shows them. */
 export const COUNTED = ['entity.written', 'pull', 'bell', 'site.applied', 'site.failed'] as const;
@@ -119,7 +120,7 @@ export async function overview(): Promise<Overview> {
     links: {
       ...(await connectionLinks(health)),
       [SITES_CHECK]: (sitesFound(health.checks[SITES_CHECK]) ?? []).map((site) => ({
-        label: `${site.label}, of ${names.get(site.tenantId) ?? 'an unknown tenant'}`,
+        label: capital(siteNamed(site.label, names.get(site.tenantId))),
         to: `/tenants/${String(site.tenantId)}#site:${String(site.id)}`,
       })),
     },

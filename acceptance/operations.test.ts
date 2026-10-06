@@ -15,6 +15,7 @@ import type { LifecycleEvent } from '../engine/adapter-api/types.js';
 import { logEvent, queryEvents } from '../engine/events.js';
 import { recompute } from '../engine/recompute.js';
 import { NOT_LIVE } from '../engine/registry.js';
+import { clock } from '../engine/admin/words.js';
 
 const CONNECTION = 'fake-acme';
 
@@ -260,7 +261,7 @@ describe('health', () => {
     expect(body.checks['subscribers']).toEqual({
       ok: false,
       detail:
-        'Core told 1 site about changes over an hour ago, and it has not fetched them since, so it may show homes that have changed or are gone.',
+        'One site has not fetched the changes Core told it about more than an hour ago, so its visitors may see homes that have changed or are gone.',
     });
     expect(text).not.toContain('test site');
 
@@ -318,6 +319,12 @@ describe('alerts', () => {
       "update subscribers set last_bell_at = now() - interval '2 hours', last_pull_at = now() - interval '3 hours'",
     );
 
+  /** When Core told the test site about the changes it has not fetched, as the alerts write it. */
+  const toldAt = async (): Promise<string> => {
+    const { rows } = await db().query<{ at: Date }>('select last_bell_at as at from subscribers');
+    return clock(rows[0]?.at ?? new Date());
+  };
+
   it('tells a problem once it has lasted its wait, once, and its end once (rules A and D)', async () => {
     await heartbeat();
     await behind();
@@ -329,13 +336,16 @@ describe('alerts', () => {
     await aged('subscribers:1', '16 minutes');
     await checkAlerts(config);
     expect(running.mails).toHaveLength(1);
-    expect(running.mails[0]?.subject).toBe('Core test: P1 · A site is not fetching its changes');
+    const first = `Test tenant’s site test site has not fetched the changes Core told it about at ${await toldAt()}.`;
+    const said = `${first} Until it fetches, its visitors see the site as it was before these changes. Check that the site opens in a browser, and that the token in the site’s Core settings is the one on Test tenant’s page.`;
+    expect(running.mails[0]?.subject).toBe(`Core test: P1 Disrupted · ${first.slice(0, -1)}`);
     expect(running.mails[0]?.text).toBe(
       [
-        'P1 · A site is not fetching its changes',
-        'Which: site test site, of Test tenant',
-        'What happened: Core told the site about changes over an hour ago, and it has not fetched them since, so it may show homes that have changed or are gone. Its last fetch was 3 hours ago. Check that the site is up and that its plugin reaches Core.',
-        'Open it: https://core.example/admin/tenants/1#site:1',
+        'P1 Disrupted · Sites fetching their changes',
+        said,
+        'Test tenant’s site test site: https://core.example/admin/tenants/1#site:1',
+        '',
+        'Everything Core checks, on the Overview: https://core.example/admin/',
       ].join('\n'),
     );
 
@@ -345,29 +355,36 @@ describe('alerts', () => {
 
     await pull(running.baseUrl, 'property');
     expect((await checkAlerts(config)).closed).toEqual(['subscribers:1']);
-    expect(running.mails[1]?.subject).toBe(
-      'Core test: Resolved · A site is not fetching its changes',
-    );
-    expect(running.mails[1]?.text.split('\n')[0]).toBe(
-      'Resolved after 16 minutes · A site is not fetching its changes',
-    );
+    expect(running.mails[1]?.subject).toBe(`Core test: Resolved · ${first.slice(0, -1)}`);
+    expect(running.mails[1]?.text.split('\n').slice(0, 2)).toEqual([
+      'Resolved · Sites fetching their changes',
+      `Resolved after 16 minutes: “${first}” Nothing to do.`,
+    ]);
 
     // The start and the end are events, so the Overview lists the site for a week.
     expect((await queryEvents({ type: 'check.failed' })).map((event) => event.fields)).toEqual([
       {
         name: 'subscribers',
-        detail:
-          'Core told the site about changes over an hour ago, and it has not fetched them since, so it may show homes that have changed or are gone. Its last fetch was 3 hours ago. Check that the site is up and that its plugin reaches Core.',
+        detail: said,
         names: ['test site'],
-        which: 'site test site, of Test tenant',
+        which: 'Test tenant’s site test site',
         sites: [{ id: 1, tenantId: 1, label: 'test site' }],
+        problem: 'subscribers:1',
       },
     ]);
+    // Its end says which problem ended and how long it lasted, so its line can say so.
     expect((await queryEvents({ type: 'check.recovered' })).map((event) => event.fields)).toEqual([
       {
         name: 'subscribers',
-        detail: 'a site is not fetching its changes, site test site, of Test tenant',
+        problem: 'subscribers:1',
+        said: first,
+        lasted_ms: expect.any(Number) as number,
+        which: 'Test tenant’s site test site',
       },
+    ]);
+    // "Needs attention" lists the site with how its problem ended.
+    expect((await attention()).map((line) => line.said)).toEqual([
+      `${said} Resolved after 16 minutes.`,
     ]);
   });
 
@@ -389,8 +406,13 @@ describe('alerts', () => {
     await aged('subscribers:1', '16 minutes');
     await checkAlerts(config);
     expect(running.mails).toHaveLength(1);
-    expect(running.mails[0]?.subject).toBe('Core test: P0 · Core’s worker');
-    expect(running.mails[0]?.text).toContain('Open it: https://core.example/admin/settings');
+    expect(running.mails[0]?.subject).toBe(
+      'Core test: P0 Core down · Core’s background worker has not reported for 10 minutes',
+    );
+    expect(running.mails[0]?.text).toContain('Have the worker restarted where Core is hosted.');
+    expect(running.mails[0]?.text).toContain(
+      'Everything Core checks, on the Overview: https://core.example/admin/',
+    );
     expect(running.mails[0]?.text).not.toContain('test site');
 
     // Core is back: the end of the P0 and the site, held until now, go in one mail.
@@ -398,10 +420,12 @@ describe('alerts', () => {
     await checkAlerts(config);
     expect(running.mails).toHaveLength(2);
     expect(running.mails[1]?.subject).toBe(
-      'Core test: 1 problem, the worst P1; 1 problem resolved',
+      'Core test: 1 problem, the worst P1 Disrupted; 1 problem resolved',
     );
-    expect(running.mails[1]?.text).toContain('Resolved after 6 minutes · Core’s worker');
-    expect(running.mails[1]?.text).toContain('P1 · A site is not fetching its changes');
+    expect(running.mails[1]?.text).toContain(
+      'Resolved after 6 minutes: “Core’s background worker has not reported for 10 minutes.” Nothing to do.',
+    );
+    expect(running.mails[1]?.text).toContain('P1 Disrupted · Sites fetching their changes');
   });
 
   it('tells an event that needs attention by its level: P1 at the next round, one line per cause, P2 in the 07:00 mail (questions 163 and 164)', async () => {
@@ -468,20 +492,20 @@ describe('alerts', () => {
 
     await checkAlerts(config);
     expect(running.mails).toHaveLength(1);
-    expect(running.mails[0]?.subject).toBe('Core test: 2 problems, the worst P1');
+    expect(running.mails[0]?.subject).toBe('Core test: 2 problems, the worst P1 Disrupted');
     expect(running.mails[0]?.text).toBe(
       [
-        'P1 · An office was taken off the sites',
-        'Which: offices Lidingö (the CRM’s office id 100) and the CRM’s office id 200',
-        `Where: Test tenant’s Fake-webhook connection, short name ${CONNECTION}`,
-        'What happened: 2 offices were taken off the sites, with their homes and new-build projects: the CRM still refused them at the next daily check. Each office comes back on the sites, with its homes and new-build projects, once the CRM lets this connection read it again, which Core checks once a day. Ask the brokerage to check the login’s access to it in the CRM.',
-        'Open it: https://core.example/admin/records?tenant=1&office=100,200&deleted=true',
+        'P1 Disrupted · Office taken off the sites',
+        '2 of Test tenant’s offices were taken off the sites, with their homes and new-build projects. The CRM still refused them at the next daily check. Each office comes back on the sites, with its homes and new-build projects, once the CRM lets the login read it again, which Core checks once a day. Ask the brokerage to check the login’s access to it in the CRM.',
+        `Through Test tenant’s Fake-webhook connection, short name ${CONNECTION}.`,
+        'Test tenant’s offices Lidingö (the CRM’s office id 100) and the one with the CRM’s office id 200: https://core.example/admin/records?tenant=1&office=100,200&deleted=true',
         '',
-        'P1 · A visitor’s form did not reach the CRM',
-        'Which: a viewing booking a visitor sent',
-        `Where: Test tenant’s Fake-webhook connection, short name ${CONNECTION}`,
-        'What happened: A viewing booking could not be sent to the CRM: it did not answer within 20 seconds. The brokerage does not have it yet. Failed forms keeps it for 30 days with what the visitor wrote; send it again there once the CRM answers.',
-        'Open it: https://core.example/admin/forms',
+        'P1 Disrupted · A visitor’s form did not reach the CRM',
+        'A viewing booking could not be sent to Fake-webhook: it did not answer within 20 seconds. The brokerage does not have it yet. Failed forms keeps it for 30 days with what the visitor wrote; press “Send again” beside it there once the CRM answers.',
+        `Through Test tenant’s Fake-webhook connection, short name ${CONNECTION}.`,
+        'A viewing booking a visitor sent: https://core.example/admin/forms',
+        '',
+        'Everything Core checks, on the Overview: https://core.example/admin/',
       ].join('\n'),
     );
     const sent = await queryEvents({ type: 'alert.sent' });
@@ -499,7 +523,7 @@ describe('alerts', () => {
     expect(running.mails).toHaveLength(2);
     expect(running.mails[1]?.subject).toBe('Core test: 1 thing to look at');
     expect(running.mails[1]?.text).toContain(
-      'P2 · Core paused a connection because the CRM kept failing',
+      'P2 To look at · Core stopped asking a CRM after failures',
     );
     expect(running.mails[1]?.text).not.toContain('office');
     // Once a day.
@@ -523,7 +547,7 @@ describe('alerts', () => {
       // What failed is for the admin area and the alerts, never for anyone reading /v1/health.
       const failed = (await queryEvents({ type: 'check.failed' })).at(-1)?.fields['detail'];
       expect(failed).toBe(
-        'This check could not run, so nobody knows whether it would pass. Core tries it again every minute. If it keeps failing, pass this on to whoever maintains Core: error: column s.last_bell_at does not exist',
+        'This check could not run, so Core cannot tell whether anything it watches is wrong. Core tries it again every minute. If it keeps failing, pass this on to whoever maintains Core. What failed: error: column s.last_bell_at does not exist',
       );
       const answer = await (await fetch(`${running.baseUrl}/v1/health`)).text();
       expect(answer).toContain('Core tries it again every minute.');
@@ -541,7 +565,9 @@ describe('alerts', () => {
         vi.useRealTimers();
       }
       // The check that could not run names no site, so it is no line on "Needs attention".
-      expect((await attention()).map((line) => line.what)).toEqual(['site test site']);
+      expect((await attention()).map((line) => line.what)).toEqual([
+        'Test tenant’s site test site',
+      ]);
     } finally {
       await db().query('alter table subscribers rename column told_at to last_bell_at');
     }
@@ -565,13 +591,15 @@ describe('alerts', () => {
     const { rows } = await db().query<{ detail: string }>(
       "select detail from alert_state where name = 'worker'",
     );
-    expect(JSON.parse(rows[0]?.detail ?? '')).toMatchObject({ title: 'Core’s worker' });
+    expect(JSON.parse(rows[0]?.detail ?? '')).toMatchObject({ title: 'Core’s background worker' });
 
     // Told an hour ago, so its end is told, in its words now.
     await heartbeat();
     await checkAlerts(config);
     expect(running.mails).toHaveLength(1);
-    expect(running.mails[0]?.subject).toBe('Core test: Resolved · Core’s worker');
+    expect(running.mails[0]?.subject).toBe(
+      'Core test: Resolved · Core’s background worker has never reported',
+    );
   });
 
   it('runs one round at a time: one held by another worker is skipped, and taken over once it is held too long (rule D)', async () => {
@@ -595,9 +623,9 @@ describe('alerts', () => {
   });
 
   it('says which channel an alert went by, and which it could not go by', () => {
-    const subject = 'Core test: P1 · A site is not fetching its changes';
+    const subject = 'Core test: P1 Disrupted · Acme’s site acme.se has not fetched its changes';
     expect(summarise('alert.sent', { subject, outcomes: { email: 'sent', slack: 'sent' } })).toBe(
-      `Core sent the alert “${subject}” by mail and Slack`,
+      `Core sent the alert “${subject}” by mail and to Slack.`,
     );
     expect(
       summarise('alert.sent', {
@@ -605,10 +633,10 @@ describe('alerts', () => {
         outcomes: { email: 'sent', slack: 'failed: Error: slack answered 404' },
       }),
     ).toBe(
-      `Core sent the alert “${subject}” by mail, but could not send it by Slack; Settings shows where alerts go`,
+      `Core sent the alert “${subject}” by mail, but could not send it to Slack. Settings shows where alerts go.`,
     );
     expect(summarise('alert.sent', { subject, outcomes: {} })).toBe(
-      `Core had the alert “${subject}” to send, but neither mail nor Slack is set up in Settings`,
+      `Core had the alert “${subject}” to send, but neither mail nor Slack is set up for alerts. Settings shows where alerts go.`,
     );
   });
 });

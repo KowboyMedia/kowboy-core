@@ -13,6 +13,7 @@ import { inMaintenance } from '../engine/storage/settings.js';
 import { flushBells } from '../engine/bells.js';
 import { getJob, runNextJob } from '../engine/jobs.js';
 import { PAGE_NAMES, pagesNamedIn } from '../engine/admin/pages.js';
+import { clock } from '../engine/admin/words.js';
 import { adapters as shipped } from '../main.js';
 import { fakePollingAdapter } from '../adapters/fake-polling/index.js';
 
@@ -658,15 +659,21 @@ describe('the admin area', () => {
     const tenant = await api<{ data: { sites: { id: number }[] } }>(`/tenants/${String(tenantId)}`);
     const siteId = tenant.body.data.sites[0]?.id ?? 0;
     const connection = 'Acme Mäklare’s Fake-webhook connection, short name acme-crm';
+    const { rows } = await db().query<{ at: Date }>(
+      'select last_bell_at as at from subscribers where id = $1',
+      [siteId],
+    );
+    const told = clock(rows[0]?.at ?? new Date());
 
     const overview = await api<{ data: { attention: Record<string, unknown>[] } }>('/overview');
     expect(overview.body.data.attention).toEqual([
+      // Its own sentences say when Core told it, what that means and what to do, and that it lasts.
       expect.objectContaining({
         type: 'check.failed',
-        title: 'a site is not fetching its changes',
-        said: 'Core told the site about changes over an hour ago, and it has not fetched them since, so it may show homes that have changed or are gone. It has never fetched. Check that the site is up and that its plugin reaches Core.',
-        what: 'site acme.se',
-        where: 'Acme Mäklare',
+        title: 'Sites fetching their changes',
+        said: `Acme Mäklare’s site acme.se has not fetched the changes Core told it about at ${told}. Until it fetches, its visitors see the site as it was before these changes. Check that the site opens in a browser, and that the token in the site’s Core settings is the one on Acme Mäklare’s page. Still open.`,
+        what: 'Acme Mäklare’s site acme.se',
+        where: null,
         link: `/tenants/${String(tenantId)}#site:${String(siteId)}`,
         tenantId,
         tenant: 'Acme Mäklare',
@@ -674,6 +681,7 @@ describe('the admin area', () => {
       // The connection is the thing itself, so it is not named again as where it is.
       expect.objectContaining({
         type: 'connection.paused',
+        said: `Core stopped asking Fake-webhook for ${connection}, after 5 calls in a row failed, and asks again by itself later. No change from Fake-webhook reaches the sites through it meanwhile. The last failure: “the CRM did not answer”. Nothing needs doing unless it keeps happening: Core asks the CRM again by itself.`,
         what: connection,
         where: null,
         link: `/tenants/${String(tenantId)}#connection:acme-crm`,
@@ -681,17 +689,20 @@ describe('the admin area', () => {
       }),
       expect.objectContaining({
         type: 'office.taken_off',
-        title: 'an office was taken off the sites',
-        said: 'Office Lidingö (the CRM’s office id 100) was taken off the sites, with its homes and new-build projects: it is no longer in the office group the sites use. If that was meant, nothing needs doing. If not, undo the change the reason names; the sites then get the homes and new-build projects back.',
-        what: 'office Lidingö (the CRM’s office id 100)',
-        where: connection,
+        title: 'Office taken off the sites',
+        said: 'Acme Mäklare’s office Lidingö (the CRM’s office id 100) was taken off the sites, with its homes and new-build projects. It is no longer in the office group the sites use. If that was meant, nothing needs doing. If not, undo the change the reason names; each office then comes back on the sites with its homes and new-build projects.',
+        what: 'Acme Mäklare’s office Lidingö (the CRM’s office id 100)',
+        where: `Through ${connection}.`,
         link: `/records?tenant=${String(tenantId)}&office=100&deleted=true`,
         tenantId,
         tenant: 'Acme Mäklare',
       }),
+      // A line from before Core kept how a problem ends says what it was and where to look now.
       expect.objectContaining({
         type: 'check.failed',
-        what: 'site old.se',
+        said: 'The site old.se had not fetched the changes Core told it about more than an hour before. When that ended was not recorded; the check “Sites fetching their changes” on the Overview shows each site still behind.',
+        what: 'The site old.se, whose tenant this line does not say',
+        where: 'Tenants lists every tenant’s sites.',
         link: '/tenants',
         tenant: null,
       }),

@@ -3,9 +3,18 @@
 // P1 by mail and Slack within a minute, P2 in the mail at 07:00. The event log is the one source:
 // nothing here is kept twice.
 import { db } from './storage/db.js';
-import { SITES_CHECK, type SiteBehind } from './health.js';
-import { form, summarise } from './admin/summary.js';
-import { counted, crmName, listed, sentence } from './admin/words.js';
+import { aboutCheck, SITES_CHECK, type SiteBehind } from './health.js';
+import { form, namedFor, namesNow, summarise, type Names } from './admin/summary.js';
+import {
+  capital,
+  connectionNamed,
+  lasting,
+  listed,
+  number,
+  officeNamed,
+  sentence,
+  siteNamed,
+} from './admin/words.js';
 import { NOT_LIVE } from './registry.js';
 import type { EventFields } from './events.js';
 import type { Level } from './adapter-api/types.js';
@@ -39,42 +48,42 @@ export type Kind = {
 export const KINDS: readonly Kind[] = [
   {
     type: 'office.taken_off',
-    title: 'an office was taken off the sites',
+    title: 'Office taken off the sites',
     level: 'P2',
-    todo: 'If that was meant, nothing needs doing. If not, undo the change the reason names; the sites then get the homes and new-build projects back.',
+    todo: 'If that was meant, nothing needs doing. If not, undo the change the reason names; each office then comes back on the sites with its homes and new-build projects.',
     refused:
-      'Each office comes back on the sites, with its homes and new-build projects, once the CRM lets this connection read it again, which Core checks once a day. Ask the brokerage to check the login’s access to it in the CRM.',
+      'Each office comes back on the sites, with its homes and new-build projects, once the CRM lets the login read it again, which Core checks once a day. Ask the brokerage to check the login’s access to it in the CRM.',
   },
   {
     type: 'connection.paused',
-    title: 'Core paused a connection because the CRM kept failing',
+    title: 'Core stopped asking a CRM after failures',
     level: 'P2',
-    todo: 'Its sites get no new changes from it meanwhile. Core tries the CRM again by itself, so this needs nothing unless it keeps happening.',
+    todo: 'Nothing needs doing unless it keeps happening: Core asks the CRM again by itself.',
   },
   {
     type: 'login.refused',
-    title: 'the CRM refuses a connection’s login',
+    title: 'Login refused by the CRM',
     level: 'P1',
-    todo: 'Its sites get no new changes from it until the CRM accepts the login again. Check the login saved on the tenant’s page, and ask the brokerage whether the CRM still allows it.',
+    todo: 'Until the CRM accepts the login again, the sites get no changes through this connection. Press “Check login” under the connection on the tenant’s page, and ask the brokerage whether the CRM still allows the login.',
   },
   {
     type: 'submission.failed',
-    title: 'a visitor’s form did not reach the CRM',
+    title: 'A visitor’s form did not reach the CRM',
     level: 'P1',
-    todo: 'The brokerage does not have it yet. Failed forms keeps it for 30 days with what the visitor wrote; send it again there once the CRM answers.',
+    todo: 'The brokerage does not have it yet. Failed forms keeps it for 30 days with what the visitor wrote; press “Send again” beside it there once the CRM answers.',
   },
   {
     type: 'submission.refused',
-    title: 'the CRM refused a visitor’s form',
+    title: 'The CRM refused a visitor’s form',
     level: 'P1',
-    todo: 'The brokerage does not have it. Failed forms keeps it for 30 days with what the visitor wrote and the CRM’s reason; send it again there once the cause is put right.',
+    todo: 'The brokerage does not have it. Failed forms keeps it for 30 days with what the visitor wrote and the CRM’s reason; press “Send again” beside it there once the cause is put right.',
   },
   {
     type: 'check.failed',
     name: SITES_CHECK,
-    title: 'a site is not fetching its changes',
+    title: aboutCheck(SITES_CHECK).title,
     level: 'P1',
-    // The check's own sentence says what to do.
+    // The check's own sentences say what it means and what to do.
     todo: '',
   },
 ];
@@ -183,8 +192,9 @@ export async function attentionBetween(after: Date, until: Date): Promise<Attent
 
 /** The events as lines: grouped by cause, named, placed, and each with its level. */
 async function lines(rows: EventRow[]): Promise<AttentionRow[]> {
-  const known = await knownNow();
+  const known = await namesNow();
   const refused = await stillRefused(rows.filter((row) => row.type === 'office.taken_off'));
+  const ends = await endings(rows.filter((row) => row.type === 'check.failed'));
   const found: AttentionRow[] = [];
   for (const group of byCause(rows)) {
     const [first] = group;
@@ -195,7 +205,9 @@ async function lines(rows: EventRow[]): Promise<AttentionRow[]> {
     const places =
       first.type === 'office.taken_off' ? [officesTogether(group, known)] : placesOf(first, known);
     const todo = refusedNow ? (kind.refused ?? kind.todo) : kind.todo;
-    const said = [sentence(happened(group, first)), todo].filter((part) => part).join(' ');
+    const said = [sentence(happened(group, first, known)), todo, ends.get(first.id)]
+      .filter((part) => part)
+      .join(' ');
     const newest = group.reduce((a, b) => (Number(b.id) > Number(a.id) ? b : a));
     for (const [index, place] of places.entries()) {
       found.push({
@@ -229,14 +241,73 @@ function byCause(rows: EventRow[]): EventRow[][] {
 }
 
 /** What happened, in the event log's sentence; several offices one cause took off in one. */
-function happened(group: EventRow[], first: EventRow): string {
+function happened(group: EventRow[], first: EventRow, known: Names): string {
+  const named = namedFor({ ...first, subscriber_id: null, datatype: null }, known);
   if (group.length > 1) {
-    return `${counted(group.length, 'office was', 'offices were')} taken off the sites, with their homes and new-build projects: ${text(first.fields, 'reason') || 'no reason given'}`;
+    const reason = text(first.fields, 'reason');
+    return `${number(group.length)} of ${named.tenant ?? 'the tenant'}’s offices were taken off the sites, with their homes and new-build projects. ${reason ? sentence(reason) : 'No reason was recorded.'}`;
   }
-  // A site's own sentence says what it means and what to do.
-  if (first.type === 'check.failed' && text(first.fields, 'detail'))
-    return text(first.fields, 'detail');
-  return summarise(first.type, first.fields);
+  if (first.type === 'check.failed') return siteBehind(first.fields, known);
+  return summarise(first.type, first.fields, named);
+}
+
+/**
+ * A site behind, in its own sentences, which say what it means and what to do. A line written
+ * before Core kept how such a problem ends kept other words: it says what it was, and where to see
+ * whether it lasts.
+ */
+function siteBehind(fields: EventFields, known: Names): string {
+  if (text(fields, 'problem')) return text(fields, 'detail');
+  const sites = Array.isArray(fields['sites']) ? (fields['sites'] as SiteBehind[]) : [];
+  const names =
+    sites.length > 0
+      ? sites.map((site) => siteNamed(site.label, known.tenants.get(site.tenantId)))
+      : (Array.isArray(fields['names']) ? (fields['names'] as string[]) : []).map(
+          (name) => `the site ${name}`,
+        );
+  const many = names.length > 1;
+  return `${capital(listed(names, names.length) || 'a site')} had not fetched the changes Core told ${many ? 'them' : 'it'} about more than an hour before. When that ended was not recorded; the check “${aboutCheck(SITES_CHECK).title}” on the Overview shows each site still behind.`;
+}
+
+/**
+ * How each problem a check's line stands for ended: resolved, and after how long, or still open.
+ * A problem is found by its key, the events' `problem` (`alerts.ts`), which a line kept before
+ * the keys has not got.
+ */
+async function endings(failed: EventRow[]): Promise<Map<string, string>> {
+  const ends = new Map<string, string>();
+  const keyOf = (row: EventRow): string => text(row.fields, 'problem');
+  const keys = [...new Set(failed.map(keyOf).filter((key) => key))];
+  if (keys.length === 0) return ends;
+  const [open, recovered] = await Promise.all([
+    db().query<{ name: string }>(
+      'select name from alert_state where name = any($1::text[]) and not ok',
+      [keys],
+    ),
+    db().query<{ id: string; key: string; lasted_ms: number | null }>(
+      `select id, fields->>'problem' as key, (fields->>'lasted_ms')::bigint as lasted_ms from events
+       where type = 'check.recovered' and fields->>'problem' = any($1::text[]) and id > $2
+       order by id`,
+      [keys, Math.min(...failed.map((row) => Number(row.id)))],
+    ),
+  ]);
+  const stillOpen = new Set(open.rows.map((row) => row.name));
+  for (const row of failed) {
+    const key = keyOf(row);
+    if (!key) continue;
+    const end = recovered.rows.find(
+      (candidate) => candidate.key === key && Number(candidate.id) > Number(row.id),
+    );
+    if (end) {
+      ends.set(
+        row.id,
+        end.lasted_ms === null ? 'Resolved.' : `Resolved after ${lasting(Number(end.lasted_ms))}.`,
+      );
+    } else if (stillOpen.has(key)) {
+      ends.set(row.id, 'Still open.');
+    }
+  }
+  return ends;
 }
 
 /**
@@ -284,45 +355,20 @@ async function stillRefused(takenOff: EventRow[]): Promise<Set<string>> {
   return refused;
 }
 
-/** The tenants' names and the connections' tenants and CRMs, read once per list or round. */
-type Known = {
-  tenants: Map<number, string>;
-  connections: Map<string, { tenantId: number; provider: string }>;
-};
-
-async function knownNow(): Promise<Known> {
-  const [tenants, connections] = await Promise.all([
-    db().query<{ id: number; display_name: string }>('select id, display_name from tenants'),
-    db().query<{ id: string; tenant_id: number; provider: string }>(
-      'select id, tenant_id, provider from connections',
-    ),
-  ]);
-  return {
-    tenants: new Map(tenants.rows.map((row) => [Number(row.id), row.display_name])),
-    connections: new Map(
-      connections.rows.map((row) => [
-        row.id,
-        { tenantId: Number(row.tenant_id), provider: row.provider },
-      ]),
-    ),
-  };
-}
-
 const text = (fields: EventFields, key: string): string =>
   typeof fields[key] === 'string' ? (fields[key] as string) : '';
 
 /** A connection as a person knows it: "Acme's Somecrm connection, short name acme-crm". */
-function connectionWords(id: string, known: Known): string {
+function connectionWords(id: string, known: Names): string {
   const connection = known.connections.get(id);
   const tenant = connection ? known.tenants.get(connection.tenantId) : undefined;
-  if (!connection || !tenant) return `the connection with the short name ${id}`;
-  return `${tenant}’s ${crmName(connection.provider)} connection, short name ${id}`;
+  return connectionNamed(id, tenant, connection?.provider);
 }
 
 /** Connections by their short names, each as a person knows it and with its block on its tenant's page. */
 export async function connectionsNamed(ids: string[]): Promise<{ label: string; to: string }[]> {
   if (ids.length === 0) return [];
-  const known = await knownNow();
+  const known = await namesNow();
   return ids.map((id) => {
     const tenantId = known.connections.get(id)?.tenantId;
     return {
@@ -333,7 +379,7 @@ export async function connectionsNamed(ids: string[]): Promise<{ label: string; 
 }
 
 /** An event's tenant: its own, or its connection's. */
-function tenantOf(row: EventRow, known: Known): { tenantId: number | null; tenant: string | null } {
+function tenantOf(row: EventRow, known: Names): { tenantId: number | null; tenant: string | null } {
   const tenantId =
     row.tenant_id === null
       ? (known.connections.get(row.connection_id ?? '')?.tenantId ?? null)
@@ -345,14 +391,15 @@ function tenantOf(row: EventRow, known: Known): { tenantId: number | null; tenan
  * The offices one cause took off, as one thing: named by their names and the CRM's office ids,
  * their removed records on Records, on their connection.
  */
-function officesTogether(rows: EventRow[], known: Known): Place {
+function officesTogether(rows: EventRow[], known: Names): Place {
   const [first] = rows;
   const { tenantId, tenant } = first ? tenantOf(first, known) : { tenantId: null, tenant: null };
   const ids = rows.map((row) => text(row.fields, 'office_id'));
+  // One office as the admin area names it; several by their names, each with the CRM's id.
   const named = rows.map((row) => {
     const name = text(row.fields, 'office_name');
     const id = text(row.fields, 'office_id');
-    return name ? `${name} (the CRM’s office id ${id})` : `the CRM’s office id ${id}`;
+    return name ? `${name} (the CRM’s office id ${id})` : `the one with the CRM’s office id ${id}`;
   });
   // Records reads several offices as one list, `office=A,B`; the commas stay readable in a mail.
   const scope = [
@@ -362,26 +409,29 @@ function officesTogether(rows: EventRow[], known: Known): Place {
   ];
   return {
     // Every office by name: the alert and the line say which, and the link opens them all.
-    what: `${rows.length === 1 ? 'office' : 'offices'} ${listed(named, named.length)}`,
+    what:
+      rows.length === 1 && first
+        ? officeNamed(text(first.fields, 'office_id'), text(first.fields, 'office_name'), tenant)
+        : `${tenant ? `${tenant}’s` : 'the'} offices ${listed(named, named.length)}`,
     // The offices' records, the removed ones: what left the sites with them.
     link: `/records?${scope.join('&')}`,
-    where: first?.connection_id ? connectionWords(first.connection_id, known) : null,
+    where: first?.connection_id ? `Through ${connectionWords(first.connection_id, known)}.` : null,
     tenantId,
     tenant,
   };
 }
 
 /** Which things one event is about, where each is, and its place: one, or one per site. */
-function placesOf(row: EventRow, known: Known): Place[] {
+function placesOf(row: EventRow, known: Names): Place[] {
   const { tenantId, tenant } = tenantOf(row, known);
   const connection = row.connection_id ?? '';
   if (row.type === 'check.failed') return sitesOf(row.fields, known);
   if (row.type.startsWith('submission.')) {
     return [
       {
-        what: `${form(row.fields)} a visitor sent`,
+        what: `${capital(form(row.fields))} a visitor sent`,
         link: '/forms',
-        where: connection ? connectionWords(connection, known) : tenant,
+        where: connection ? `Through ${connectionWords(connection, known)}.` : null,
         tenantId,
         tenant,
       },
@@ -403,15 +453,18 @@ function placesOf(row: EventRow, known: Known): Place[] {
  * The sites a sites check's event names, each on its tenant's page. One written without them (one
  * from before they were kept) is one line with the names it gave, on the Tenants page.
  */
-function sitesOf(fields: EventFields, known: Known): Place[] {
+function sitesOf(fields: EventFields, known: Names): Place[] {
   const sites = Array.isArray(fields['sites']) ? (fields['sites'] as SiteBehind[]) : [];
   if (sites.length === 0) {
     const names = Array.isArray(fields['names']) ? (fields['names'] as string[]) : [];
     return [
       {
-        what: names.length > 0 ? `site ${names.join(', ')}` : 'a site',
+        what:
+          names.length > 0
+            ? `The site ${listed(names, names.length)}, whose tenant this line does not say`
+            : 'A site Core did not name',
         link: '/tenants',
-        where: null,
+        where: 'Tenants lists every tenant’s sites.',
         tenantId: null,
         tenant: null,
       },
@@ -420,9 +473,9 @@ function sitesOf(fields: EventFields, known: Known): Place[] {
   return sites.map((site) => {
     const tenant = known.tenants.get(site.tenantId) ?? null;
     return {
-      what: `site ${site.label}`,
+      what: siteNamed(site.label, tenant),
       link: `/tenants/${String(site.tenantId)}#site:${String(site.id)}`,
-      where: tenant,
+      where: null,
       tenantId: site.tenantId,
       tenant,
     };

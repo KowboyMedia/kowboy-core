@@ -24,8 +24,18 @@ import type { HealthResult, Level } from './adapter-api/types.js';
 import { logEvent, type EventFields } from './events.js';
 import { mailConfigured, sendMail } from './mail.js';
 import { report } from './errors.js';
-import { attentionBetween, connectionsNamed, KINDS, type AttentionRow } from './attention.js';
-import { capital, counted, lasting, listed } from './admin/words.js';
+import { attentionBetween, connectionsNamed, type AttentionRow } from './attention.js';
+import { namesNow } from './admin/summary.js';
+import {
+  capital,
+  clock,
+  counted,
+  firstSentence,
+  inSentence,
+  lasting,
+  listed,
+  siteNamed,
+} from './admin/words.js';
 
 export type AlertConfig = {
   environment: string;
@@ -52,18 +62,30 @@ const TURN = 'alerts:turn';
 /** A turn not given back within this long belonged to a worker that stopped half way through a round. */
 const TURN_HELD = '2 minutes';
 
+/** A level in the words beside its name (question 172), as the Overview's badges say it. */
+export const LEVEL_WORDS: Record<Level, string> = {
+  P0: 'Core down',
+  P1: 'Disrupted',
+  P2: 'To look at',
+  P3: 'For information',
+};
+
+const levelled = (level: Level): string => `${level} ${LEVEL_WORDS[level]}`;
+
 /** One thing to tell, in the words of its mail. */
 type Words = {
-  /** A short line naming what is wrong: the mail's subject when it is told alone. */
+  /** The check's title, or the kind of event. */
   title: string;
-  /** The thing, when the title does not name it. */
+  /** The thing, as the admin area names it, when there is one. */
   which: string | null;
-  /** Where the thing is, when it does not say: its connection, or its tenant. */
+  /** Where the thing is, in a sentence of its own, when its name does not say. */
   where: string | null;
-  /** What happened, what it means for the sites, and what to do. */
+  /** What happened, what it means for the sites, and what to do; its first sentence names the thing. */
   said: string;
-  /** Its place in the admin area, a path under /admin. */
-  link: string;
+  /** Its place in the admin area, a path under /admin, when the admin area is where it is put right. */
+  link: string | null;
+  /** That place in words: the thing, or the page. */
+  place: string | null;
 };
 
 /** One open problem: which check found it, how much it matters, and the words it is told in. */
@@ -80,8 +102,11 @@ type StateRow = {
 /** What a round opened and closed, by the problems' keys. */
 export type Round = { opened: string[]; closed: string[] };
 
-/** One thing a message tells: its level, or null for an end, its heading, its words, and its line in `alert.sent`. */
-type Told = { level: Level | null; heading: string; words: Words; change: string };
+/**
+ * One thing a message tells: its level, or null for an end, its heading, what it says, its words,
+ * and its line in `alert.sent`.
+ */
+type Told = { level: Level | null; heading: string; body: string; words: Words; change: string };
 
 /**
  * The worker's round, once a minute: open and close the problems, tell what is due, then the
@@ -137,14 +162,7 @@ async function round(config: AlertConfig): Promise<Round> {
     ...[...dueNow].map(problemTold),
     ...eventsTold(events?.rows ?? [], 'P1'),
   ];
-  if (told.length > 0) {
-    await send(
-      `Core ${config.environment}: ${subjectOf(told)}`,
-      told.map((item) => paragraph(item.heading, item.words, config)),
-      config,
-      { changes: told.map((item) => item.change) },
-    );
-  }
+  if (told.length > 0) await send(`Core ${config.environment}: ${subjectOf(told)}`, told, config);
 
   const result: Round = { opened: [], closed: [] };
   for (const row of ended) if (await close(row)) result.closed.push(row.name);
@@ -157,6 +175,10 @@ async function round(config: AlertConfig): Promise<Round> {
   return result;
 }
 
+/** The end of a problem, in the words of its start: how long it lasted, and how it began. */
+const resolvedAfter = (since: Date, words: Words): string =>
+  `Resolved after ${lasting(Date.now() - since.getTime())}: “${firstSentence(words.said)}” Nothing to do.`;
+
 /** The end of a problem, told when its start was, in the words its start kept. */
 function endTold(row: StateRow): Told[] {
   const words = wordsOf(row);
@@ -164,7 +186,8 @@ function endTold(row: StateRow): Told[] {
   return [
     {
       level: null,
-      heading: `Resolved after ${lasting(Date.now() - row.since.getTime())}`,
+      heading: 'Resolved',
+      body: resolvedAfter(row.since, words),
       words,
       change: `${row.name} resolved`,
     },
@@ -173,7 +196,8 @@ function endTold(row: StateRow): Told[] {
 
 const problemTold = (problem: Problem): Told => ({
   level: problem.level,
-  heading: problem.level,
+  heading: levelled(problem.level),
+  body: problem.said,
   words: problem,
   change: `${problem.key} ${problem.level}`,
 });
@@ -184,7 +208,8 @@ const eventsTold = (rows: AttentionRow[], level: Level): Told[] =>
     .filter((row) => row.level === level)
     .map((row) => ({
       level,
-      heading: level,
+      heading: levelled(level),
+      body: row.said,
       words: eventWords(row),
       change: `event ${row.ids.join(',')} ${level}`,
     }));
@@ -201,7 +226,9 @@ async function keep(problem: Problem, row: StateRow | undefined, told: boolean):
        on conflict (name) do update set ok = false, detail = excluded.detail, since = now(), notified_at = null`,
       [problem.key, words],
     );
-    await logEvent({ type: 'check.failed', fields: problem.fields });
+    // Its end names the same problem, so its line can say how it ended. The event log keeps no
+    // field called `key` (events.ts redacts it), hence `problem`.
+    await logEvent({ type: 'check.failed', fields: { ...problem.fields, problem: problem.key } });
     return true;
   }
   if (told) {
@@ -223,29 +250,34 @@ async function close(row: StateRow): Promise<boolean> {
   await db().query('delete from alert_state where name = $1', [row.name]);
   const words = wordsOf(row);
   if (row.ok || !words) return false;
-  // The thing it was about, when the check's title does not say it: "a site is not fetching its
-  // changes, site acme.se, of Acme".
+  // How it began and how long it lasted, so its line says which problem ended (rule C).
   await logEvent({
     type: 'check.recovered',
     fields: {
       name: row.name.split(':')[0] ?? row.name,
-      ...(words.which ? { detail: `${words.title}, ${words.which}` } : {}),
+      problem: row.name,
+      said: firstSentence(words.said),
+      lasted_ms: Date.now() - row.since.getTime(),
+      ...(words.which ? { which: words.which } : {}),
     },
   });
   return true;
 }
 
-/** The subject: the one thing told, or how many started and ended, and the worst level. */
+/**
+ * The subject: the one thing told, by its level and its first sentence, or how many started and
+ * ended, and the worst level.
+ */
 function subjectOf(told: Told[]): string {
   const [only] = told;
   if (told.length === 1 && only)
-    return `${only.level ?? 'Resolved'} · ${capital(only.words.title)}`;
+    return `${only.heading} · ${firstSentence(only.words.said).replace(/\.$/, '')}`;
   let worst: Level | null = null;
   for (const item of told) if (item.level) worst = higher(worst, item.level);
   const fresh = told.filter((item) => item.level !== null).length;
   const resolved = told.length - fresh;
   return [
-    fresh > 0 && `${counted(fresh, 'problem', 'problems')}, the worst ${worst ?? 'P1'}`,
+    fresh > 0 && `${counted(fresh, 'problem', 'problems')}, the worst ${levelled(worst ?? 'P1')}`,
     resolved > 0 && `${counted(resolved, 'problem', 'problems')} resolved`,
   ]
     .filter((part) => part)
@@ -282,40 +314,64 @@ async function problemsNow(): Promise<{ problems: Problem[]; sitesUnknown: boole
   return { problems, sitesUnknown };
 }
 
-/** A failing check as one problem; the things it names are its "Which", in words Core knows them by. */
+/**
+ * A failing check as one problem: its sentences, then the things it names in the words Core knows
+ * them by, and the page where it is put right, when there is one.
+ */
 async function checkProblem(name: string, check: HealthResult): Promise<Problem> {
   const about = aboutCheck(name);
   const names = check.names ?? [];
   const named =
     about.named === 'connections'
       ? (await connectionsNamed(names)).map((connection) => connection.label)
-      : names;
+      : names.map(inSentence);
   const which = named.length > 0 ? listed(named, named.length) : null;
+  const detail = detailOf(check) ?? 'The check fails, and says no more.';
   return {
     key: name,
     level: levelOf(check),
     title: about.title,
     which,
     where: null,
-    said: detailOf(check) ?? 'The check fails.',
-    link: about.page.to,
+    said: which ? `${detail} It concerns ${which}.` : detail,
+    link: about.page?.to ?? null,
+    place: about.page?.label ?? null,
     fields: { name, detail: detailOf(check) ?? null, names, ...(which ? { which } : {}) },
   };
 }
 
+/**
+ * What a site behind answered the last time Core told it about changes, and what to do about it:
+ * the answer points at the bell secret, the site itself or its token.
+ */
+function answerOf(site: SiteBehind, page: string): string {
+  const code = /^http (\d+)$/.exec(site.lastBellStatus ?? '')?.[1];
+  if (code === '401' || code === '403') {
+    return `The site refused Core’s call, most likely because the bell secret in the site’s Core settings differs from the one on ${page}. Press “Copy” beside the site’s bell secret on ${page} and paste it into the site’s Core settings.`;
+  }
+  if (code) {
+    return `The site answered Core’s call with an error, code ${code}. Check that the site opens in a browser.`;
+  }
+  if (site.lastBellStatus === 'failed') {
+    return 'The site did not answer when Core told it about the changes. Check that the site opens in a browser; a site that does not open is down where it is hosted.';
+  }
+  if (site.lastBellStatus === 'ok') {
+    return `The site answered Core’s call but has ${site.lastPullAt ? 'not fetched since' : 'never fetched its changes'}. Check that the token in the site’s Core settings is the one on ${page}.`;
+  }
+  return `Check that the site opens in a browser, and that the token in the site’s Core settings is the one on ${page}.`;
+}
+
 async function sitesProblems(check: HealthResult, sites: SiteBehind[]): Promise<Problem[]> {
-  const { rows } = await db().query<{ id: number; display_name: string }>(
-    'select id, display_name from tenants',
-  );
-  const tenants = new Map(rows.map((row) => [Number(row.id), row.display_name]));
-  const title = KINDS.find((kind) => kind.name === SITES_CHECK)?.title ?? SITES_CHECK;
+  const { tenants } = await namesNow();
+  const title = aboutCheck(SITES_CHECK).title;
   return sites.map((site) => {
-    const fetched = site.lastPullAt
-      ? `Its last fetch was ${lasting(Date.now() - site.lastPullAt.getTime())} ago.`
-      : 'It has never fetched.';
-    const said = `Core told the site about changes over an hour ago, and it has not fetched them since, so it may show homes that have changed or are gone. ${fetched} Check that the site is up and that its plugin reaches Core.`;
-    const tenant = tenants.get(site.tenantId);
-    const which = `site ${site.label}${tenant ? `, of ${tenant}` : ''}`;
+    const tenant = tenants.get(site.tenantId) ?? null;
+    const which = siteNamed(site.label, tenant);
+    const said = [
+      `${capital(which)} has not fetched the changes Core told it about at ${clock(site.toldAt)}.`,
+      'Until it fetches, its visitors see the site as it was before these changes.',
+      answerOf(site, tenant ? `${tenant}’s page` : 'its tenant’s page'),
+    ].join(' ');
     return {
       key: `${SITES_CHECK}:${String(site.id)}`,
       level: levelOf(check),
@@ -324,6 +380,7 @@ async function sitesProblems(check: HealthResult, sites: SiteBehind[]): Promise<
       where: null,
       said,
       link: `/tenants/${String(site.tenantId)}#site:${String(site.id)}`,
+      place: which,
       fields: {
         name: SITES_CHECK,
         detail: said,
@@ -342,14 +399,16 @@ const eventWords = (row: AttentionRow): Words => ({
   where: row.where,
   said: row.said,
   link: row.link,
+  place: row.what,
 });
 
-const wordsOnly = ({ title, which, where, said, link }: Words): Words => ({
+const wordsOnly = ({ title, which, where, said, link, place }: Words): Words => ({
   title,
   which,
   where,
   said,
   link,
+  place,
 });
 
 /** A problem's words as its start kept them, or null for a row kept before the levels, which kept none. */
@@ -362,28 +421,35 @@ function wordsOf(row: StateRow): Words | null {
       which: kept.which ?? null,
       where: kept.where ?? null,
       said: kept.said,
-      link: kept.link ?? '/',
+      link: kept.link ?? null,
+      place: kept.place ?? kept.which ?? null,
     };
   } catch {
     return null;
   }
 }
 
-/** One thing told: its level or "Resolved", the thing and where it is, what happened, and the way to it. */
-const paragraph = (heading: string, words: Words, config: AlertConfig): string =>
+/**
+ * One thing told: its level or "Resolved" and its title, what happened, what it means and what to
+ * do, where the thing is when its name does not say, and its place in the admin area. In Slack a
+ * place is a link on its name.
+ */
+const paragraph = (item: Told, config: AlertConfig, slack: boolean): string =>
   [
-    `${heading} · ${capital(words.title)}`,
-    words.which && `Which: ${words.which}`,
-    words.where && `Where: ${words.where}`,
-    `What happened: ${words.said}`,
-    `Open it: ${opened(words.link, config)}`,
+    `${item.heading} · ${capital(item.words.title)}`,
+    item.body,
+    item.words.where,
+    item.words.link && opened(item.words.place ?? 'It', item.words.link, config, slack),
   ]
     .filter((line) => line)
     .join('\n');
 
-/** The place in the admin area, as a whole address when Core knows its own. */
-const opened = (link: string, config: AlertConfig): string =>
-  config.publicUrl ? `${config.publicUrl}/admin${link}` : `the admin area, ${link}`;
+/** A place in the admin area, by its name, with its whole address when Core knows its own. */
+const opened = (place: string, link: string, config: AlertConfig, slack: boolean): string => {
+  if (!config.publicUrl) return `${capital(place)}, in Core’s admin area at ${link}`;
+  const url = `${config.publicUrl}/admin${link}`;
+  return slack ? `<${url}|${capital(place)}>` : `${capital(place)}: ${url}`;
+};
 
 /**
  * The events that need attention since the place kept under `name`, up to a few seconds ago; the
@@ -436,9 +502,8 @@ async function morningMail(
   if (told.length > 0) {
     await send(
       `Core ${config.environment}: ${counted(told.length, 'thing', 'things')} to look at`,
-      told.map((item) => paragraph(item.heading, item.words, config)),
+      told,
       config,
-      { changes: told.map((item) => item.change) },
     );
   }
   await keepPlace(MORNING_MAIL, clock.until);
@@ -462,16 +527,22 @@ function startedBetween(
   return told;
 }
 
+/** The things told, one paragraph each, then the way to everything Core checks. */
+function message(told: Told[], config: AlertConfig, slack: boolean): string {
+  const overview = config.publicUrl
+    ? slack
+      ? `<${config.publicUrl}/admin/|Everything Core checks, on the Overview>`
+      : `Everything Core checks, on the Overview: ${config.publicUrl}/admin/`
+    : 'Everything Core checks is on the Overview in Core’s admin area.';
+  return [...told.map((item) => paragraph(item, config, slack)), overview].join('\n\n');
+}
+
 /** The message, then where it goes; every send is one `alert.sent` event, delivered or not. */
-async function send(
-  subject: string,
-  paragraphs: string[],
-  config: AlertConfig,
-  fields: EventFields,
-): Promise<void> {
-  const text = paragraphs.join('\n\n');
+async function send(subject: string, told: Told[], config: AlertConfig): Promise<void> {
+  const fields: EventFields = { changes: told.map((item) => item.change) };
   const outcomes: Record<string, string> = {};
   if (config.email && mailConfigured()) {
+    const text = message(told, config, false);
     outcomes['email'] = await attempt(() => sendMail({ to: config.email ?? '', subject, text }));
   }
   if (config.slackWebhookUrl) {
@@ -479,7 +550,7 @@ async function send(
       const response = await fetch(config.slackWebhookUrl ?? '', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ text: `*${subject}*\n${text}` }),
+        body: JSON.stringify({ text: `*${subject}*\n${message(told, config, true)}` }),
         signal: AbortSignal.timeout(10_000),
       });
       if (!response.ok) throw new Error(`slack answered ${response.status}`);
