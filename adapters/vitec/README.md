@@ -211,7 +211,12 @@ itself, all of it inside the adapter:
   on the first day and one a day after, which also brings it back by itself when Vitec answers
   again. A refused office stays on the sites for a day and is then taken off (question 158 b, under
   "Which offices are synced"). `vitec.offices` is red while an office is blocked, and the panel
-  lists the blocked offices; "Fetch offices" on the tenant's page asks at once. A block and its
+  lists the blocked offices; "Fetch offices" on the tenant's page asks at once. The block is kept
+  at one door: every request to Vitec (`get` and `post` in `api.ts`) names its office, and a
+  request about a blocked office is never sent, whoever asks, the fetch list, a listing, "compare
+  with the CRM", "fetch again", "Check the login", a form or its "Send again"; only the office
+  check, run through `asOfficeCheck`, passes it. Each process reads the blocks at most once in five
+  seconds, and its own changes apply at once. A block and its
   end are logged (`office.blocked`, `office.unblocked`) once for each connection that syncs the
   office in that system, and a check settles the blocks before it takes offices off. The offices
   one check takes off for one reason, or one switch takes off, share one correlation id on their

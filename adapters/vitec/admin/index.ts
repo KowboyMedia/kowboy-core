@@ -287,7 +287,9 @@ async function probe(
       answers.push(
         kind === 'forbidden'
           ? `${officeId}: Vitec refuses this login for that office (${String(error)})`
-          : `${officeId}: ${String(error)}`,
+          : kind === 'blocked' && error instanceof Error
+            ? error.message
+            : `${officeId}: ${String(error)}`,
       );
     }
   }

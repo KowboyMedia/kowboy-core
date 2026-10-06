@@ -527,6 +527,11 @@ async function failed(
   trace: EventContext,
 ): Promise<void> {
   const kind = connect.kindOf(error);
+  // Blocked since it was claimed: nothing was sent, so it waits for its office like the rest.
+  if (kind === 'blocked') {
+    await store.park(entry);
+    return;
+  }
   if (kind === 'forbidden') {
     await store.park(entry);
     await blockOffice(current, live, entry.officeId, String(error));
@@ -602,7 +607,9 @@ async function listAll(
           ids.set(row.id, isoDate(row.changedAt));
         }
       } catch (error) {
-        // A refused office blocks and holds; anything else fails the schedule.
+        // An office blocked since the listing began is left for later; a refused office blocks
+        // and holds; anything else fails the schedule.
+        if (connect.kindOf(error) === 'blocked') return { listed, complete: false };
         if (connect.kindOf(error) !== 'forbidden' || !engine) throw error;
         await blockOffice(engine, live, officeId, String(error));
         return { listed, complete: false };

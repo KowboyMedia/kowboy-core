@@ -1,7 +1,9 @@
 // Vitec Connect over HTTP: basic authentication, the advertising endpoints and their paging.
 // Documented in docs/inputs/vitec/ (technical-information.md and api/). Nothing here knows the
 // engine, and nothing outside this adapter knows these shapes.
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Datatype, EventContext } from '../../engine/adapter-api/index.js';
+import { isBlocked } from './store.js';
 
 /**
  * Vitec's systems a login can be for (question 169 a): `live`, the Connect the brokerages work in,
@@ -179,13 +181,28 @@ export class VitecError extends Error {
 }
 
 /**
- * What a failed call means for the adapter's guards: `forbidden` is 401 or 403 (a closed office,
- * a licence gone), `unavailable` is Vitec down, busy or unreachable, `broken` is an answer that is
- * not JSON, and `other` is anything else.
+ * A request that never left: Vitec refuses the office it is about, so Core does not ask (the door
+ * below). Nothing was sent, so it is no new refusal and no failure of Vitec.
  */
-export type FailureKind = 'forbidden' | 'unavailable' | 'broken' | 'other';
+export class Blocked extends Error {
+  constructor(environment: Environment, officeId: string) {
+    super(
+      `Vitec refuses to let this login read office ${officeId}${environment === 'qa' ? ' in its QA environment' : ''}, so Core sends Vitec nothing about it. Only the daily office check asks Vitec again; “Fetch offices” on the tenant’s page asks now.`,
+    );
+    this.name = 'Blocked';
+  }
+}
+
+/**
+ * What a failed call means for the adapter's guards: `forbidden` is 401 or 403 (a closed office,
+ * a licence gone), `blocked` is a request the door kept back because Vitec already refuses its
+ * office, `unavailable` is Vitec down, busy or unreachable, `broken` is an answer that is not
+ * JSON, and `other` is anything else.
+ */
+export type FailureKind = 'forbidden' | 'blocked' | 'unavailable' | 'broken' | 'other';
 
 export function kindOf(error: unknown): FailureKind {
+  if (error instanceof Blocked) return 'blocked';
   if (error instanceof VitecError) {
     if (error.status === 401 || error.status === 403) return 'forbidden';
     if (error.message.includes('broken JSON')) return 'broken';
@@ -212,12 +229,33 @@ export type Page = {
 /** The start of an answer, for an error message: enough to see what Vitec sent, never the lot. */
 const snippet = (text: string): string => text.replace(/\s+/g, ' ').slice(0, 200);
 
+const officeCheck = new AsyncLocalStorage<true>();
+
+/**
+ * Run the office check (offices.ts) through the door: the one caller that asks Vitec about an
+ * office it refuses, once a day or when a person presses "Fetch offices" (question 161 a).
+ */
+export const asOfficeCheck = <T>(run: () => Promise<T>): Promise<T> => officeCheck.run(true, run);
+
+/**
+ * The one door every request to Vitec passes, `get` and `post` alike (Patric, 2026-10-06: the
+ * circuit breaker is central and does not rely on finding every use). A request about an office
+ * Vitec refuses is never sent, whoever asks: the fetch list, a listing, a person's button, a form
+ * or its "Send again". Each request names the office or the customer or group id it is about.
+ */
+async function door(environment: Environment, officeId: string): Promise<void> {
+  if (officeCheck.getStore()) return;
+  if (await isBlocked({ environment, officeId })) throw new Blocked(environment, officeId);
+}
+
 async function get(
   auth: Auth,
+  officeId: string,
   path: string,
   query: Record<string, string>,
   trace?: EventContext,
 ): Promise<unknown | null> {
+  await door(auth.environment, officeId);
   const url = new URL(`${baseUrlOf(auth.environment)}/${path}`);
   const limiter = limiters[auth.environment];
   for (const [name, value] of Object.entries(query)) url.searchParams.set(name, value);
@@ -283,11 +321,13 @@ export const scrub = (text: string): string =>
  */
 export async function post(
   auth: Auth,
+  officeId: string,
   path: string,
   body: unknown,
   trace?: EventContext,
   until = Number.POSITIVE_INFINITY,
 ): Promise<unknown | null> {
+  await door(auth.environment, officeId);
   const url = new URL(`${baseUrlOf(auth.environment)}/${path}`);
   const limiter = limiters[auth.environment];
   const startedAt = Date.now();
@@ -360,6 +400,7 @@ export function form(
 ): Promise<unknown | null> {
   return get(
     auth,
+    officeId,
     `v2/Advertising/Form/${segment(officeId)}/Estate/${segment(estateId)}`,
     {},
     trace,
@@ -377,6 +418,7 @@ export function getOne(
   const query: Record<string, string> = datatype === 'property' ? { extend: ESTATE_EXTEND } : {};
   return get(
     auth,
+    officeId,
     `Advertising/${RESOURCE[datatype]}/${segment(officeId)}/${segment(id)}`,
     query,
     trace,
@@ -396,7 +438,7 @@ export async function officeGroups(
   customerId: string,
   trace?: EventContext,
 ): Promise<OfficeGroup[]> {
-  const answer = await get(auth, `CRM/Officegroups/${segment(customerId)}`, {}, trace);
+  const answer = await get(auth, customerId, `CRM/Officegroups/${segment(customerId)}`, {}, trace);
   if (!Array.isArray(answer)) return [];
   const text = (value: unknown): string => (typeof value === 'string' ? value : '');
   return answer.map((group: Record<string, unknown>) => ({
@@ -425,6 +467,7 @@ export function page(
   if (changedSince) query['criteria.changedAtMinValue'] = changedSince.toISOString();
   return get(
     auth,
+    officeId,
     `Advertising/${RESOURCE[datatype]}/${segment(officeId)}`,
     query,
     trace,

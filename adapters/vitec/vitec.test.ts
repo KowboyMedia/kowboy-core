@@ -534,6 +534,34 @@ describe('the Vitec adapter', () => {
     expect(fetchesOf('OBJ3')).toBe(0);
     expect(await store.depth()).toBe(2);
 
+    // Nor by anything else: the door in front of every request keeps back a person's "compare
+    // with the CRM", "fetch again" and "check the login", and a form, so no call leaves.
+    const sent = fake.requests.length;
+    await expect(
+      required(vitecAdmin.inspect, 'inspect')(await connection(), {
+        datatype: 'property',
+        remoteId: 'OBJ2',
+        officeId: OFFICE,
+      }),
+    ).rejects.toThrow(`office ${OFFICE}`);
+    await queueLifecycle(CONNECTION, 'refetch', {
+      records: [{ datatype: 'property', remoteId: 'OBJ2', officeId: OFFICE }],
+    });
+    await running.deliver();
+    await drainFetchList();
+    const probe = required(vitecAdmin.probe, 'probe');
+    const login = JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: OFFICE });
+    expect(await probe(login, [])).toMatchObject({
+      ok: false,
+      detail: expect.stringContaining('Fetch offices'),
+    });
+    const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
+    await expect(
+      connect.post(auth, OFFICE, `v2/Advertising/Form/${OFFICE}/Valuation`, {}),
+    ).rejects.toBeInstanceOf(connect.Blocked);
+    expect(fake.requests.length).toBe(sent);
+    expect(fake.forms).toHaveLength(0);
+
     // The office check at the next tick is the one call that asks: the id's own list, refused, so
     // no office groups. The office stays blocked, and later ticks within the day ask nothing.
     await runSchedules();
