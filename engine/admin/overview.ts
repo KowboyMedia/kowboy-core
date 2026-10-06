@@ -2,7 +2,14 @@
 // then the sites. One call, because a dashboard that loads in eight requests feels like eight
 // pages.
 import { db } from '../storage/db.js';
-import { aboutCheck, healthReport, sitesFound, SITES_CHECK, type About } from '../health.js';
+import {
+  aboutCheck,
+  forAdmins,
+  healthReport,
+  sitesFound,
+  SITES_CHECK,
+  type About,
+} from '../health.js';
 import { itemCounts } from '../storage/items.js';
 import { subscribers, tenants } from '../storage/connections.js';
 import { openJobs } from '../jobs.js';
@@ -107,7 +114,7 @@ export async function overview(): Promise<Overview> {
   ]);
   const names = new Map(allTenants.map((tenant) => [tenant.id, tenant.display_name]));
   return {
-    health,
+    health: forAdmins(health),
     about: Object.fromEntries(Object.keys(health.checks).map((name) => [name, aboutCheck(name)])),
     links: {
       ...(await connectionLinks(health)),

@@ -193,7 +193,7 @@ export function Overview() {
             Settings shows, a refused login, a form that did not reach the brokerage and an office
             the CRM still refuses within two minutes, a site once it is still not fetching a quarter
             of an hour after its line appeared, and the rest in one mail at 07:00. While Core itself
-            is down, it sends only that, and the rest once it is back.
+            is down, the rest waits until it is back.
           </CardDescription>
         </CardHeader>
         <CardContent>

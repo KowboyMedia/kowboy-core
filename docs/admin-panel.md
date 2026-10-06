@@ -285,7 +285,9 @@ drive directly.
   only while a P0 check fails, 200 otherwise, the same payload either way, each check with a
   detail in counts and plain words and never a customer's name (Patric, 2026-09-20, question 62).
   The names behind a count (`names` on a check) reach the alerts and the area, not the public
-  answer. The engine's checks: `database`, `schema` and `worker` P0; `subscribers` P1, failing
+  answer, and so does what failed for a check that could not run or a database Core cannot
+  reach. With the database out of reach the answer still comes, with the database check and no
+  adapter checks (rule B). The engine's checks: `database`, `schema` and `worker` P0; `subscribers` P1, failing
   only for a site Core told about changes over an hour ago that has not fetched since;
   `lifecycle` P2, P1 once work has waited an hour; `submissions.failing` P2. A check that throws
   is P2, P1 once it has thrown at every run for 15 minutes, and so is an adapter's check whose

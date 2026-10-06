@@ -13,6 +13,7 @@
 import { db } from './storage/db.js';
 import {
   aboutCheck,
+  detailOf,
   healthReport,
   levelOf,
   sitesFound,
@@ -296,9 +297,9 @@ async function checkProblem(name: string, check: HealthResult): Promise<Problem>
     title: about.title,
     which,
     where: null,
-    said: check.detail ?? 'The check fails.',
+    said: detailOf(check) ?? 'The check fails.',
     link: about.page.to,
-    fields: { name, detail: check.detail ?? null, names, ...(which ? { which } : {}) },
+    fields: { name, detail: detailOf(check) ?? null, names, ...(which ? { which } : {}) },
   };
 }
 

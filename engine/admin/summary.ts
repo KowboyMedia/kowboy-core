@@ -112,7 +112,7 @@ const SAY: Record<string, (fields: EventFields) => string> = {
       : `Core had the alert ${subject} to send, but ${failed}`;
   },
   'office.taken_off': (fields) =>
-    `${office(fields)} was taken off the sites, with its homes and agents: ${text(fields, 'reason') ?? 'no reason given'}`,
+    `${office(fields)} was taken off the sites, with its homes and new-build projects: ${text(fields, 'reason') ?? 'no reason given'}`,
   'connection.paused': (fields) =>
     `Core stopped calling the CRM for this connection for a while, after ${counted(count(fields, 'failures') ?? 0, 'failure', 'failures')} in a row${text(fields, 'detail') ? `: ${text(fields, 'detail') ?? ''}` : ''}`,
   'connection.resumed': () => 'the connection answers again',

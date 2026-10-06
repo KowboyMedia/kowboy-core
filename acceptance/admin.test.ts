@@ -672,7 +672,7 @@ describe('the admin area', () => {
       expect.objectContaining({
         type: 'office.taken_off',
         title: 'an office was taken off the sites',
-        said: 'Office Lidingö (the CRM’s office id 100) was taken off the sites, with its homes and agents: it is no longer in the office group the sites use. If that was meant, nothing needs doing. If not, undo the change the reason names; the sites then get the homes and agents back.',
+        said: 'Office Lidingö (the CRM’s office id 100) was taken off the sites, with its homes and new-build projects: it is no longer in the office group the sites use. If that was meant, nothing needs doing. If not, undo the change the reason names; the sites then get the homes and new-build projects back.',
         what: 'office Lidingö (the CRM’s office id 100)',
         where: connection,
         link: `/records?tenant=${String(tenantId)}&office=100&deleted=true`,

@@ -29,7 +29,7 @@ export const down = (health: HealthReport): boolean =>
 
 /**
  * The report as `/v1/health` answers it to anyone, an uptime monitor included: every check with
- * its counts and plain words, the names left out (Patric, 2026-09-20, question 62).
+ * its counts and plain words, the names and what failed left out (Patric, 2026-09-20, question 62).
  */
 export const forViewers = (report: HealthReport): HealthReport => ({
   ok: report.ok,
@@ -38,6 +38,29 @@ export const forViewers = (report: HealthReport): HealthReport => ({
       name,
       { ok: check.ok, ...(check.detail ? { detail: check.detail } : {}) },
     ]),
+  ),
+});
+
+/**
+ * What failed, for a check that could not run or a database Core cannot reach: kept out of
+ * `detail`, which anyone may read, and added to it for the admin area and the alerts.
+ */
+const failed = new WeakMap<HealthResult, string>();
+
+/** A check's sentence as the admin area and the alerts read it: with what failed, when it failed. */
+export const detailOf = (check: HealthResult): string | undefined => {
+  const failure = failed.get(check);
+  return failure ? `${check.detail ?? ''} ${failure}`.trim() : check.detail;
+};
+
+/** The report as the admin area reads it: each sentence with what failed. */
+export const forAdmins = (report: HealthReport): HealthReport => ({
+  ok: report.ok,
+  checks: Object.fromEntries(
+    Object.entries(report.checks).map(([name, check]) => {
+      const detail = detailOf(check);
+      return [name, { ...check, ...(detail ? { detail } : {}) }];
+    }),
   ),
 });
 
@@ -164,11 +187,14 @@ export async function readiness(): Promise<HealthReport> {
       await db().query('select 1');
       return { ok: true };
     } catch (error) {
-      return {
+      const result: HealthResult = {
         ok: false,
         level: 'P0',
-        detail: `Core cannot reach its database, so nothing works: no site gets changes and no form is sent. Check that the database runs where Core is hosted. The error was: ${String(error)}`,
+        detail:
+          'Core cannot reach its database, so nothing works: no site gets changes and no form is sent. Check that the database runs where Core is hosted.',
       };
+      failed.set(result, `What failed: ${String(error)}`);
+      return result;
     }
   });
 
@@ -257,7 +283,11 @@ function settle(checks: HealthReport['checks']): HealthReport {
   const isDown = Object.values(checks).some((check) => !check.ok && levelOf(check) === 'P0');
   if (isDown) {
     for (const [name, check] of Object.entries(checks)) {
-      if (notRun.has(check)) checks[name] = { ...check, level: 'P3' };
+      if (!notRun.has(check)) continue;
+      const counted: HealthResult = { ...check, level: 'P3' };
+      const failure = failed.get(check);
+      if (failure) failed.set(counted, failure);
+      checks[name] = counted;
     }
   }
   return { ok: Object.values(checks).every((check) => check.ok), checks };
@@ -265,9 +295,20 @@ function settle(checks: HealthReport['checks']): HealthReport {
 
 /**
  * Adapter checks run where the adapters run. This process runs and records its own; whatever
- * another process recorded is read back, and counts as not run once it is stale.
+ * another process recorded is read back, and counts as not run once it is stale. With the
+ * database out of reach there are none: the database check says so, once (rule B), and the
+ * report still answers.
  */
 async function adapterChecks(): Promise<HealthReport['checks']> {
+  try {
+    return await recordedChecks();
+  } catch (error) {
+    report(error, { where: 'health', check: 'adapters' });
+    return {};
+  }
+}
+
+async function recordedChecks(): Promise<HealthReport['checks']> {
   const checks = await recordHealth();
   const { rows } = await db().query<{
     name: string;
@@ -347,8 +388,13 @@ async function run(
     const result: HealthResult = {
       ok: false,
       level: Date.now() - since > CANNOT_RUN_MS ? 'P1' : 'P2',
-      detail: `This check could not run, so nobody knows whether it would pass. Core tries it again every minute; if it keeps failing, the error is for whoever maintains Core: ${String(error)}`,
+      detail:
+        'This check could not run, so nobody knows whether it would pass. Core tries it again every minute.',
     };
+    failed.set(
+      result,
+      `If it keeps failing, pass this on to whoever maintains Core: ${String(error)}`,
+    );
     notRun.add(result);
     return result;
   }

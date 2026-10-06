@@ -474,7 +474,7 @@ describe('alerts', () => {
         'P1 · An office was taken off the sites',
         'Which: offices Lidingö (the CRM’s office id 100) and the CRM’s office id 200',
         `Where: Test tenant’s Fake-webhook connection, short name ${CONNECTION}`,
-        'What happened: 2 offices were taken off the sites, with their homes and agents: the CRM still refused them at the next daily check. Each office comes back on the sites, with its homes and agents, once the CRM lets this connection read it again, which Core checks once a day. Ask the brokerage to check the login’s access to it in the CRM.',
+        'What happened: 2 offices were taken off the sites, with their homes and new-build projects: the CRM still refused them at the next daily check. Each office comes back on the sites, with its homes and new-build projects, once the CRM lets this connection read it again, which Core checks once a day. Ask the brokerage to check the login’s access to it in the CRM.',
         'Open it: https://core.example/admin/records?tenant=1&office=100,200&deleted=true',
         '',
         'P1 · A visitor’s form did not reach the CRM',
@@ -520,6 +520,14 @@ describe('alerts', () => {
     try {
       expect((await checkAlerts(config)).closed).toEqual([]);
       expect(running.mails).toHaveLength(1);
+      // What failed is for the admin area and the alerts, never for anyone reading /v1/health.
+      const failed = (await queryEvents({ type: 'check.failed' })).at(-1)?.fields['detail'];
+      expect(failed).toBe(
+        'This check could not run, so nobody knows whether it would pass. Core tries it again every minute. If it keeps failing, pass this on to whoever maintains Core: error: column s.last_bell_at does not exist',
+      );
+      const answer = await (await fetch(`${running.baseUrl}/v1/health`)).text();
+      expect(answer).toContain('Core tries it again every minute.');
+      expect(answer).not.toContain('last_bell_at');
       // An old problem does not make it P1: its 15 minutes run from its own first failed run.
       await aged('subscribers', '3 days');
       expect((await healthReport()).checks['subscribers']).toMatchObject({

@@ -41,9 +41,9 @@ export const KINDS: readonly Kind[] = [
     type: 'office.taken_off',
     title: 'an office was taken off the sites',
     level: 'P2',
-    todo: 'If that was meant, nothing needs doing. If not, undo the change the reason names; the sites then get the homes and agents back.',
+    todo: 'If that was meant, nothing needs doing. If not, undo the change the reason names; the sites then get the homes and new-build projects back.',
     refused:
-      'Each office comes back on the sites, with its homes and agents, once the CRM lets this connection read it again, which Core checks once a day. Ask the brokerage to check the login’s access to it in the CRM.',
+      'Each office comes back on the sites, with its homes and new-build projects, once the CRM lets this connection read it again, which Core checks once a day. Ask the brokerage to check the login’s access to it in the CRM.',
   },
   {
     type: 'connection.paused',
@@ -231,7 +231,7 @@ function byCause(rows: EventRow[]): EventRow[][] {
 /** What happened, in the event log's sentence; several offices one cause took off in one. */
 function happened(group: EventRow[], first: EventRow): string {
   if (group.length > 1) {
-    return `${counted(group.length, 'office was', 'offices were')} taken off the sites, with their homes and agents: ${text(first.fields, 'reason') || 'no reason given'}`;
+    return `${counted(group.length, 'office was', 'offices were')} taken off the sites, with their homes and new-build projects: ${text(first.fields, 'reason') || 'no reason given'}`;
   }
   // A site's own sentence says what it means and what to do.
   if (first.type === 'check.failed' && text(first.fields, 'detail'))
