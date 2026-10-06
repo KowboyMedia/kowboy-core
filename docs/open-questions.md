@@ -4,10 +4,56 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 158 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 160 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 158. `[crm-vitec]` When Vitec refuses an office it has been syncing, when is the office taken off the sites?
+
+- 2026-10-06 · Patric, 12:15 (UTC): "its frequent that a client just tells vitec to cancel the
+  subscription, and vitec strangles the api access to that account, and we continue trying to
+  fetch properties etc, but in that case we should deactivate and tombstone the office."
+- What Core does today. A refusal (401 or 403) at a fetch blocks the office: nothing more is
+  asked for it, its records stay on the sites as they were, and one probe per hour, doubling to a
+  day, asks whether it is back, for ever; the check `vitec.offices` turns red (and an alert goes
+  by mail and Slack where those are set). The daily office check reads every office behind the
+  id, and one that no longer reads is taken off the sites (its records tombstoned, built with
+  question 154). But when the whole id is refused, nothing reads, and the last offices are kept
+  for good: that is the case Patric describes. The "readable" flag per office exists (the column
+  "Readable with this login" and the block list); what is missing is what follows from it.
+- I do not know whether a cancelled subscription answers 401 or 403: Vitec's docs say 401 for a
+  bad login and 403 "Access violation on resources" for an id the login was not granted, and a
+  function group not granted answered 401 on 2026-10-04. A password changed at Vitec looks the
+  same as a cancelled office, so the rule below is for any refusal.
+- a) **at once**: a refusal at any fetch makes the worker run the office check within a minute;
+  an office that does not read, or every office when the id itself does not read, is taken off
+  the sites then (its records tombstoned, the sites delete them, the probes for it stop); the
+  daily check loads it back if Vitec lets the login read it again. b) **a day later**
+  (recommended): as a, but an office is taken off only when the refusal still stands at the
+  next daily check, so a short outage at Vitec or a password changed by mistake does not empty a
+  brokerage's site for the hours it takes to notice. c) **keep**: as today.
+- Smaller: c. Blocked: nothing. Answer a, b or c.
+
+## 159. `[core]` Where does the super admin see that an office was taken off the sites, and the other important events?
+
+- 2026-10-06 · Patric, 12:15 (UTC): "This is an important event and should be communicated to the
+  super admin as such (together with other important notes)."
+- What Core does today. The Overview shows the red checks with their names and where each is
+  fixed, and an alert goes by mail and Slack when a check turns red or green, where `ALERT_EMAIL`
+  and `ALERT_SLACK_WEBHOOK_URL` are set (the Settings page says whether they are; a session
+  cannot see it). An office taken off the sites is neither a check nor an event yet: it shows only
+  on the tenant's page, in the card "Offices Vitec lists".
+- a) **a list on the Overview, and an alert** (recommended): an event `office.taken_off` (the
+  tenant, the office, why: left the group, or Vitec refuses it) on the Events page; a section
+  "Needs attention" on the Overview listing the important events of the last seven days with a
+  link each: an office taken off the sites, a connection paused after failures, a login refused,
+  a site that stopped pulling; and each such event sent once by mail and Slack where those are
+  set. b) **the alert only**: the event, mailed and slacked as the red checks are; nothing new on
+  the pages. c) **a red check only**: `vitec.offices` names an office taken off for seven days,
+  so the Overview shows it red and the existing alert tells it once; but `/v1/health` answers
+  500 for a week over an expected event, which an uptime monitor reads as Core down.
+- Smaller: b. Blocked: nothing. Answer a, b or c.
 
 ## 157. `[crm-vitec]` Keep the three lines the office build added to the card "Offices Vitec lists"?
 
@@ -21,26 +67,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   alone cannot. b) **remove**: the card keeps the note, the last check, the button and the
   readable column.
 - Smaller: b. Blocked: nothing. Answer a or b.
-
-## 156. `[core]` Should the tenant page leave out "Offices it may see" for a CRM whose adapter takes the offices from the CRM itself?
-
-- 2026-10-06 · Patric approved with question 147 a that a Vitec connection's field "Offices it may
-  see" goes away and its list stays empty, and answered 154 the same day: "I want to use every
-  office belonging to the group "webbplats", if zero or the group doesnt exist, use all offices by
-  listing as above." The tenant page draws that field for every CRM and names none, so leaving it
-  out for Vitec takes one more optional line in what an adapter tells the admin area
-  (`engine/adapter-api/`, a protected path): "this adapter takes its offices from the CRM". The
-  page reads it, leaves the field out and saves the connection's list empty.
-- What it does to the connections that exist (production has no Vitec connection yet): one that
-  names a group id there, such as `G12`, holds no homes under that id, so emptying it takes
-  nothing off a site. One that names its own office there loses that office's records from the
-  sites at its first save after this, and the adapter loads them again at once, so the site
-  takes its homes off and puts them back one time.
-- a) **yes** (recommended): the optional line, and the page leaves the field out for Vitec. b)
-  **no**: the field stays for every CRM, may now be left empty, and the Vitec setup text says to
-  leave it empty.
-- Smaller: b. Blocked: nothing; the rest of 147 a and 154 is built with the field still there.
-  Answer a or b.
 
 ## 150. `[core]` Where should the forms live?
 

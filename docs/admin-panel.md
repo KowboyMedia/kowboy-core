@@ -74,14 +74,16 @@ enough.
 
 A connection is a setting of a tenant: there is no connections page, list or menu entry (Patric,
 three times). The tenant's page holds any number of connections, of the same CRM or different ones,
-each with the CRM's own login fields, the offices it may see, a **Check the login** button that
+each with the CRM's own login fields, the offices it may see (left out for a CRM whose adapter
+takes the offices from the CRM itself, question 156 a: Vitec), a **Check the login** button that
 tries the CRM before anything is saved, and whatever the adapter reports about that connection.
 
 **Offices may be left empty** (question 147 a, 2026-10-06, reversing the rule of 2026-09-21
 that refused it): no office named means every office the CRM gives the login. An adapter that can
 learn its offices from the CRM does so and says how in its setup steps (Vitec: the office group
-"Webbplats", or every office behind the login's id); one that ends up with none says so in its
-health check. Two tenants may name the same office: the record is fetched once and written
+"Webbplats", or every office behind the login's id); its manifest says `officesFromCrm`, the page
+draws no office field for it, a save stores its list empty whatever was sent, and ingest reads the
+list as empty; one that ends up with none says so in its health check. Two tenants may name the same office: the record is fetched once and written
 for each of them, each with its own copies, its own version numbers and its own sites, which is
 how two sites can show one brokerage's listings. Core does not warn about that; the page says it
 where the offices are typed.
@@ -97,7 +99,9 @@ check, what reaches the sites, the office groups Vitec answered, and each office
 reads and whether it is on the sites. **Check offices now** asks at the worker's next tick, and its
 explanation sits beside it. An office that came is loaded; one that went is tombstoned with all its
 records, so each site deletes it at its next sync, and the tombstones stay for the retention
-window. While offices are typed under "Offices it may see", those are used instead.
+window. The card's note says all of this in plain words, for a reader who must tell the brokerage
+(Patric, closing question 154), including that Vitec shows office groups only to a login with
+access to its CRM part.
 Under each connection, one line counts the forms visitors sent through Core to that CRM in the
 last day (docs/forms.md): delivered, refused by the CRM, unanswered by the CRM; red when any went
 unanswered. The visitor is never stored in Core, so the line has counts and nothing else.

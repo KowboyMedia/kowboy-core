@@ -89,9 +89,9 @@ connection with no office to sync fetches nothing and `vitec.catch_up` says so. 
 saved with the engine's `upsertConnection` (the login as one JSON document
 `{"username":"…","password":"…","customer_id":"…"}`, stored encrypted; a save puts the typed
 fields over the stored ones) and loaded by queueing the lifecycle event `connection_added`, which
-the worker delivers to the adapter: with no office typed, the adapter checks its offices with
-Vitec and loads them. Offices typed on the connection still work as before: set them, then queue
-`offices_added` with the new ids; only those are loaded.
+the worker delivers to the adapter: the adapter checks its offices with Vitec and loads them. The
+connection's own office list stays empty (the manifest's `officesFromCrm`, question 156 a): the
+tenant page draws no office field for Vitec, and the engine reads the list as empty.
 
 ## Forms from the sites (docs/forms.md)
 

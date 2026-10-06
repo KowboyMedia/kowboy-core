@@ -280,8 +280,8 @@ const ACTIONS: Record<string, (params: Record<string, string>) => Promise<string
 // ---- Trying a login, looking at one record ---------------------------------------------------
 
 /**
- * One list request per id with the typed login, the customer or group id when one is typed and
- * else each office typed: a yes says Vitec answered for every one.
+ * One list request for the customer or group id with the typed login (or per office the engine
+ * passed, for a connection saved before the id existed): a yes says Vitec answered for every one.
  */
 async function probe(
   stored: string,
@@ -351,8 +351,6 @@ function reachText(check: OfficesCheck | null): AdminValue {
         }`,
         state: 'ok',
       };
-    case 'typed':
-      return { text: 'the offices typed under “Offices it may see”', state: 'ok' };
     case 'kept':
       return count > 0
         ? {
@@ -398,7 +396,7 @@ async function officesSection(connection: Connection): Promise<AdminSection> {
   );
   return {
     title: 'Offices Vitec lists',
-    help: 'Which offices reach this tenant’s sites is decided in Vitec, not here. Once a day Core asks Vitec which offices sit behind the customer or group id above, and reads each one with this login. If the brokerage has an office group called “Webbplats” in Vitec with some of those offices in it, only those reach the sites; otherwise every office does. To choose, ask the brokerage to make the office group “Webbplats” in Vitec and put the website’s offices in it; nothing changes here. When an office leaves the group, or Vitec, everything of it (its homes, its agents, the office itself) is taken off the sites at the next check: each site deletes it when it next updates, and Core keeps the removal on record, so a site that was offline deletes it too. Reading the groups takes the login’s rights to Vitec’s CRM, with the CRM password when one is typed; without them every office is used. While offices are typed under “Offices it may see”, those are used instead.',
+    help: 'Which offices reach this tenant’s sites is decided in Vitec, not here. Once a day, Core asks Vitec which offices sit behind the customer or group id above and reads each one with this login. If the brokerage has made an office group called “Webbplats” in Vitec and put some of those offices in it, only those offices reach the sites. If there is no such group, or it holds none of these offices, every office does. So, to choose which offices show on the website, the brokerage makes the office group “Webbplats” in Vitec and puts the website’s offices in it; nothing is changed here. When an office leaves the group, or Vitec stops letting this login read it, everything of that office (its homes, its agents and the office itself) is taken off the sites at the next check. Each site deletes it when it next updates, and Core remembers the removal, so a site that was offline deletes it too. One more thing: Vitec only shows office groups to a login that also has access to its CRM part, which Vitec grants separately (with its own password, typed below as the CRM password when Vitec issued one). Without that access Core cannot see any group and uses every office.',
     items: [
       { label: 'Last check', value: moment(check?.at ?? null) },
       { label: 'Reaches the sites', value: reachText(check) },

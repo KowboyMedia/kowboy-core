@@ -34,6 +34,12 @@ export type Manifest = {
    * kind not listed is answered 501 before any adapter call; absent means the CRM takes none.
    */
   submissions?: SubmissionKind[];
+  /**
+   * This adapter takes its offices from the CRM itself (question 156 a): the tenant page leaves
+   * out "Offices it may see", a save stores the connection's office list empty, and ingest reads
+   * the list as empty, so every office the adapter chose passes.
+   */
+  officesFromCrm?: boolean;
 };
 
 // ---- Form submissions (docs/forms.md): a site's form reaches the CRM through Core -------------

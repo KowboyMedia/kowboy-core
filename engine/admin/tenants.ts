@@ -24,7 +24,7 @@ import { mergedLogin } from './login.js';
 import { queryEvents } from '../events.js';
 import { itemCounts } from '../storage/items.js';
 import { submissionCounts, type SubmissionCounts } from '../storage/submissions.js';
-import { adminFor } from '../registry.js';
+import { adminFor, manifestFor } from '../registry.js';
 import type { AdminSection } from '../adapter-api/types.js';
 
 export type ConnectionInput = {
@@ -349,7 +349,11 @@ async function saveConnections(tenantId: number, wanted: ConnectionInput[]): Pro
     changes.push(`removed the connection ${gone.id}`);
   }
 
-  for (const connection of wanted) {
+  for (const given of wanted) {
+    // An adapter that takes its offices from the CRM keeps the list empty, whatever was sent.
+    const connection = manifestFor(given.provider)?.officesFromCrm
+      ? { ...given, licensedOffices: [] }
+      : given;
     const before = existing.find((row) => row.id === connection.id);
     await upsertConnection({
       id: connection.id,

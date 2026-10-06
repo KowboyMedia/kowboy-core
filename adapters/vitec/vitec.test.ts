@@ -24,7 +24,7 @@ const OFFICE = 'M1';
 const TOKEN = 'hook-token';
 const CHANGED = '2026-09-10T08:00:00.1234567+02:00';
 
-const credentials = JSON.stringify({ username: USERNAME, password: PASSWORD });
+const credentials = JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: OFFICE });
 
 const estate = (id: string, officeId = OFFICE, extra: Record<string, unknown> = {}) => ({
   id,
@@ -117,10 +117,10 @@ const timelineOf = (
 const notify = (id: string): Promise<Response> =>
   hook({ type: 'Estate', event: 'Update', customerId: OFFICE, id });
 
-async function start(licensedOffices: string[] = [OFFICE], login = credentials): Promise<void> {
+async function start(login = credentials): Promise<void> {
   running = await harness({
     adapters: [vitecAdapter],
-    connections: [{ id: CONNECTION, provider: 'vitec', credentials: login, licensedOffices }],
+    connections: [{ id: CONNECTION, provider: 'vitec', credentials: login, licensedOffices: [] }],
   });
   // The adapter's first tick catches up every connection it has never seen; wait for it.
   await runSchedules();
@@ -373,6 +373,11 @@ describe('the Vitec adapter', () => {
     await store.setState(CONNECTION, 'catch_up_until', until);
     await store.setState(CONNECTION, 'catch_up_at', until);
     await store.setState(CONNECTION, 'compare_at', ago(1));
+    await store.setState(
+      CONNECTION,
+      'offices_check',
+      JSON.stringify({ at: until, ids: [], offices: [OFFICE], source: 'all' }),
+    );
     await store.remember(OFFICE, 'property', 'OBJ1', unchanged);
 
     await start();
@@ -392,7 +397,7 @@ describe('the Vitec adapter', () => {
     fake.delayMs = 150;
     running = await harness({
       adapters: [vitecAdapter],
-      connections: [{ id: CONNECTION, provider: 'vitec', credentials, licensedOffices: [OFFICE] }],
+      connections: [{ id: CONNECTION, provider: 'vitec', credentials, licensedOffices: [] }],
     });
     expect((await health())['vitec.catch_up']).toMatchObject({
       ok: false,
@@ -634,7 +639,9 @@ describe('the Vitec adapter', () => {
     const accepted = await probe(credentials, [OFFICE]);
     expect(accepted.ok).toBe(true);
     expect(accepted.detail).toContain('Vitec answers');
-    expect(await probe(credentials, [])).toMatchObject({ ok: false });
+    expect(
+      await probe(JSON.stringify({ username: USERNAME, password: PASSWORD }), []),
+    ).toMatchObject({ ok: false, detail: expect.stringContaining('customer or group id') });
 
     // The worker takes the first load, and the adapter fetches with the saved login.
     await event('connection_added');
@@ -699,29 +706,34 @@ describe('the Vitec adapter', () => {
     expect((await pull(running.baseUrl, 'property')).items).toHaveLength(20);
   });
 
-  it('loads an added office without a new seq for the others (AC 14)', async () => {
+  it('loads an office that joined the group “Webbplats” without a new seq for the others (AC 14)', async () => {
     seed(fake);
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
     fake.put('M2', 'property', estate('OBJ2', 'M2'));
-    await start([OFFICE]);
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices: [{ id: OFFICE }] }]);
+    await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
     await drainFetchList();
     const first = await item('property', 'OBJ1');
     expect(first?.['deleted']).toBe(false);
     expect(await item('property', 'OBJ2')).toBeUndefined();
 
-    await running.connection({
-      id: CONNECTION,
-      provider: 'vitec',
-      credentials,
-      licensedOffices: [OFFICE, 'M2'],
-    });
+    fake.setGroups('G1', [
+      { id: 'OG1', name: 'Webbplats', offices: [{ id: OFFICE }, { id: 'M2' }] },
+    ]);
+    await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
     fake.requests.length = 0;
-    await event('offices_added', ['M2']);
+    await runSchedules();
     await drainFetchList();
 
     expect((await item('property', 'OBJ2'))?.['office_id']).toBe('M2');
     expect((await item('property', 'OBJ1'))?.['seq']).toBe(first?.['seq']);
-    // Only the added office was listed and fetched.
-    expect(fake.requests.every((request) => request.path.includes('/M2'))).toBe(true);
+    // The first office was read by the check and nothing of it was listed or fetched again.
+    const ofFirst = fake.requests.filter((request) => request.path.includes(`/${OFFICE}`));
+    expect(ofFirst.map((request) => request.path)).toEqual([
+      `/Advertising/Office/${OFFICE}/${OFFICE}`,
+    ]);
   });
 
   it('lists the offices behind a group id and reads each one, naming the ones this login may not read', async () => {
@@ -734,7 +746,7 @@ describe('the Vitec adapter', () => {
     fake.forbid('G9');
 
     const auth = { username: USERNAME, password: PASSWORD };
-    const check = await checkOffices(CONNECTION, auth, auth, ['G1', 'G9'], []);
+    const check = await checkOffices(CONNECTION, auth, auth, ['G1', 'G9']);
 
     expect(check.ids).toEqual([
       {
@@ -776,7 +788,7 @@ describe('the Vitec adapter', () => {
     fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2' });
     const auth = { username: USERNAME, password: PASSWORD };
     const check = (): Promise<{ offices: string[]; source: string }> =>
-      checkOffices(CONNECTION, auth, auth, ['G1'], []);
+      checkOffices(CONNECTION, auth, auth, ['G1']);
 
     expect(await check()).toMatchObject({ offices: ['M1', 'M2'], source: 'all' });
 
@@ -787,15 +799,9 @@ describe('the Vitec adapter', () => {
     expect(await check()).toMatchObject({ offices: ['M2'], source: 'group' });
 
     fake.forbidGroups('G1');
-    const refused = await checkOffices(CONNECTION, auth, auth, ['G1'], []);
+    const refused = await checkOffices(CONNECTION, auth, auth, ['G1']);
     expect(refused).toMatchObject({ offices: ['M1', 'M2'], source: 'all' });
     expect(refused.ids[0]?.groupsError).toBe('Vitec refuses this login its office groups');
-
-    // Offices typed on the connection are used as they are.
-    expect(await checkOffices(CONNECTION, auth, auth, ['G1'], ['M1'])).toMatchObject({
-      offices: ['M1'],
-      source: 'typed',
-    });
   });
 
   it('syncs the offices of the group “Webbplats” behind the login’s id, takes an office that left off the sites, and keeps them when Vitec does not answer', async () => {
@@ -809,7 +815,7 @@ describe('the Vitec adapter', () => {
       { id: 'OG2', name: 'Övrigt', offices: [{ id: 'M2' }] },
     ]);
     const login = JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' });
-    await start([], login);
+    await start(login);
     await drainFetchList();
 
     expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE], source: 'group' });
@@ -845,7 +851,7 @@ describe('the Vitec adapter', () => {
     expect(Date.now() - due).toBeGreaterThan(22 * 3_600_000);
   });
 
-  it('moves between typed offices and the ones Vitec gives, taking off what is no longer synced', async () => {
+  it('ignores offices typed on the connection, and reloads Vitec’s choice when the engine empties the list', async () => {
     seed(fake);
     fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
     fake.put('M2', 'property', estate('OBJ2', 'M2'));
@@ -853,37 +859,31 @@ describe('the Vitec adapter', () => {
     fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
     fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices: [{ id: 'M2' }] }]);
     const login = JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' });
-    await start([OFFICE], login);
-    await event('connection_added');
+    // A list typed before the field went away: it neither picks offices nor keeps records out.
+    running = await harness({
+      adapters: [vitecAdapter],
+      connections: [
+        { id: CONNECTION, provider: 'vitec', credentials: login, licensedOffices: ['G1'] },
+      ],
+    });
+    await runSchedules();
     await drainFetchList();
-    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
-    expect(await item('property', 'OBJ2')).toBeUndefined();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: ['M2'], source: 'group' });
+    const first = await item('property', 'OBJ2');
+    expect(first?.['deleted']).toBe(false);
+    expect(await item('property', 'OBJ1')).toBeUndefined();
 
-    // The typed office is emptied: the engine takes it off, and the group's office is loaded.
+    // The save stores the list empty; the engine's event makes the adapter ask Vitec again.
     await running.connection({
       id: CONNECTION,
       provider: 'vitec',
       credentials: login,
       licensedOffices: [],
     });
-    await event('offices_removed', [OFFICE]);
+    await event('offices_removed', ['G1']);
     await drainFetchList();
-    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: ['M2'], source: 'group' });
-    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
+    expect((await item('property', 'OBJ2'))?.['seq']).toBe(first?.['seq']);
     expect((await item('property', 'OBJ2'))?.['deleted']).toBe(false);
-
-    // An office is typed again: it is loaded, and the group's office, no longer synced, goes.
-    await running.connection({
-      id: CONNECTION,
-      provider: 'vitec',
-      credentials: login,
-      licensedOffices: [OFFICE],
-    });
-    await event('offices_added', [OFFICE]);
-    await drainFetchList();
-    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE], source: 'typed' });
-    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
-    expect((await item('property', 'OBJ2'))?.['deleted']).toBe(true);
     expect(fake.forms).toHaveLength(0);
   });
 
@@ -894,7 +894,7 @@ describe('the Vitec adapter', () => {
     expect(first?.ids[0]?.offices).toEqual([
       { customerId: OFFICE, officeId: OFFICE, name: 'Kontor 1', readable: true, detail: null },
     ]);
-    expect(first).toMatchObject({ offices: [OFFICE], source: 'typed' });
+    expect(first).toMatchObject({ offices: [OFFICE], source: 'all' });
 
     // Within the day, a tick does not ask again.
     const listed = (): number =>

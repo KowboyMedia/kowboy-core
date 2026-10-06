@@ -534,9 +534,15 @@ client ports (item 16, first client by question 80).
       answer keeps the last offices; the save's rule that a connection names an office is
       reversed; known bug 3's erasing is fixed; the card "Offices Vitec lists" and the Vitec setup
       steps say it in plain words (Patric: "Put a note in the admin panel explaining this in simple
-      terms"). Left: question 156 (whether the page leaves out "Offices it may see" for Vitec);
-      until then, offices typed there win, and the svenskamaklarhuset.se tenant takes its offices
-      from Vitec once `G12` sits in "Customer or group id" and "Offices it may see" is empty.
+      terms").
+    - **Step 3, done 2026-10-06** (156 a): the tenant page leaves out "Offices it may see" for
+      Vitec (the manifest's `officesFromCrm`), a save stores the list empty, and the engine reads
+      it as empty, so a list typed before (the svenskamaklarhuset.se tenant's `G12`, which had kept
+      every record out as unlicensed) no longer counts; the card's note was rewritten in plainer
+      words (Patric: "This description doesnt make sense at all"). Open: question 157 (the three
+      card lines added without a question) and Patric's ask of 12:15 (UTC) that an office Vitec
+      stops letting the login read is taken off the sites and told to the super admin as an
+      important event.
     - **Component:** `[crm-vitec]`, and `[core]` for the reversed save rule.
 
 25. **Check that every admin button explains itself beside it** (Patric, 2026-10-06: "make note of

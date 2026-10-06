@@ -1,7 +1,7 @@
 import { contentHash } from './json.js';
 import { validateData, SCHEMA_VERSION } from './contract.js';
 import { applyRules, RULES_VERSION } from './rules/run.js';
-import { mapperFor } from './registry.js';
+import { manifestFor, mapperFor } from './registry.js';
 import { logEvent } from './events.js';
 import { ring } from './bells.js';
 import { db, takeWriteLock, transaction } from './storage/db.js';
@@ -195,8 +195,12 @@ export async function presentIds(
   return { tombstoned: missing };
 }
 
-/** Empty `licensed_offices` means every office the credential can see (SRS §3). */
+/**
+ * Empty `licensed_offices` means every office the credential can see (SRS §3). An adapter that
+ * takes its offices from the CRM chose them itself, and the list is read as empty.
+ */
 function isLicensed(connection: Connection, officeId: string | null): boolean {
+  if (manifestFor(connection.provider)?.officesFromCrm) return true;
   if (connection.licensedOffices.length === 0) return true;
   if (officeId === null) return true; // tenant-wide record
   return connection.licensedOffices.includes(officeId);

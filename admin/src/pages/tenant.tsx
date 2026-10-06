@@ -19,6 +19,8 @@ import { ago, count, moment } from '@/lib/format';
 
 type CrmSummary = {
   provider: string;
+  /** The CRM decides which offices a connection syncs: no office field is drawn. */
+  officesFromCrm?: boolean;
   credentials: {
     key: string;
     label: string;
@@ -272,7 +274,7 @@ export function TenantPage() {
         title={making ? 'New tenant' : (tenant?.displayName ?? '')}
         what={
           making
-            ? 'Name it, give it a CRM login and the offices it may see, and add the sites that will show its listings. One Save does all of it.'
+            ? 'Name it, give it a CRM login (and the offices it may see, when the CRM does not decide them), and add the sites that will show its listings. One Save does all of it.'
             : `Tenant ${String(tenant?.id ?? '')}, made ${moment(tenant?.createdAt ?? null)}.`
         }
       >
@@ -427,23 +429,24 @@ export function TenantPage() {
                       ))}
                     </Select>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <Label htmlFor={`connection-offices-${String(index)}`}>
-                      Offices it may see
-                    </Label>
-                    <Input
-                      id={`connection-offices-${String(index)}`}
-                      value={connection.offices}
-                      onChange={(event) => change({ offices: event.target.value })}
-                      placeholder="M31529, M31530"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Separated by commas, as the CRM names them. Empty means every office the CRM
-                      gives this login, when the CRM can tell which: the CRM’s setup steps above say
-                      whether to leave it empty. Two tenants may name the same office, and then both
-                      hold its records.
-                    </p>
-                  </div>
+                  {!crm?.officesFromCrm && (
+                    <div className="flex flex-col gap-1">
+                      <Label htmlFor={`connection-offices-${String(index)}`}>
+                        Offices it may see
+                      </Label>
+                      <Input
+                        id={`connection-offices-${String(index)}`}
+                        value={connection.offices}
+                        onChange={(event) => change({ offices: event.target.value })}
+                        placeholder="M31529, M31530"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Separated by commas, as the CRM names them. Empty means every office the CRM
+                        gives this login. Two tenants may name the same office, and then both hold
+                        its records.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {problem(`connection-${String(index)}`) && (

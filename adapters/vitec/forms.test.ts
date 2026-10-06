@@ -29,6 +29,7 @@ const CHANGED = '2026-09-10T08:00:00.1234567+02:00';
 const credentials = JSON.stringify({
   username: USERNAME,
   password: PASSWORD,
+  customer_id: OFFICE,
   send_forms: 'yes',
   lead_source_id: 'LS-web',
   assignment_source_id: 'IS-val',
@@ -118,7 +119,7 @@ beforeEach(async () => {
   seed(fake);
   running = await harness({
     adapters: [vitecAdapter],
-    connections: [{ id: CONNECTION, provider: 'vitec', credentials, licensedOffices: [OFFICE] }],
+    connections: [{ id: CONNECTION, provider: 'vitec', credentials, licensedOffices: [] }],
   });
   await runSchedules();
   await queueLifecycle(CONNECTION, 'connection_added', {});
@@ -382,8 +383,13 @@ describe('the Vitec adapter’s forms', () => {
       id: 'vitec-quiet',
       tenantId: 1,
       provider: 'vitec',
-      credentials: JSON.stringify({ username: USERNAME, password: PASSWORD, ...document }),
-      licensedOffices: [OFFICE],
+      credentials: JSON.stringify({
+        username: USERNAME,
+        password: PASSWORD,
+        customer_id: OFFICE,
+        ...document,
+      }),
+      licensedOffices: [],
       active: true,
     });
     const lead = submission('lead', { office_id: OFFICE }) as unknown as Submission;

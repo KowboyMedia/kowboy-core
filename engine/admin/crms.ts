@@ -12,6 +12,8 @@ export type CrmSummary = {
   connections: number;
   /** The login fields a tenant's connection asks for, so the tenant page can draw the form. */
   credentials: AdminField[];
+  /** True when the adapter takes its offices from the CRM: the page draws no office field. */
+  officesFromCrm: boolean;
 };
 
 /** Every adapter that brought a panel. A second CRM appears here by itself. */
@@ -21,6 +23,7 @@ function listCrms(): CrmSummary[] {
     datatypes: manifestFor(provider)?.datatypes ?? [],
     connections: 0,
     credentials: adminFor(provider)?.credentials ?? [],
+    officesFromCrm: manifestFor(provider)?.officesFromCrm ?? false,
   }));
 }
 

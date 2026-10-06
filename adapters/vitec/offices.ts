@@ -3,9 +3,9 @@
 // office with its own customer id, and each one is read on its own, so an office this login may
 // not read is never used. Of the offices that read, those in the brokerage's office group
 // "webbplats" in Vitec are used; with no such group, or none of its offices readable, every one
-// is. Offices typed on the connection still win while there are any. An answer Vitec did not give
-// (down, busy, broken) never changes the choice: the last one is kept and the check is tried again
-// within the hour. Reads only. The answer is kept in the adapter's state and shown on the
+// is. The tenant page draws no office field for Vitec (question 156 a). An answer Vitec did not
+// give (down, busy, broken) never changes the choice: the last one is kept and the check is tried
+// again within the hour. Reads only. The answer is kept in the adapter's state and shown on the
 // tenant's page; index.ts loads the offices that came and takes off the ones that went.
 import * as connect from './api.js';
 import * as store from './store.js';
@@ -36,10 +36,10 @@ export type IdChecked = {
 };
 
 /**
- * Where the synced offices came from: the group "webbplats", every office that read, the offices
- * typed on the connection, or the last answer, kept because Vitec did not answer this time.
+ * Where the synced offices came from: the group "webbplats", every office that read, or the last
+ * answer, kept because Vitec did not answer this time.
  */
-export type Source = 'group' | 'all' | 'typed' | 'kept';
+export type Source = 'group' | 'all' | 'kept';
 
 export type OfficesCheck = {
   at: string;
@@ -134,15 +134,14 @@ function choose(ids: IdChecked[]): { offices: string[]; source: Source } {
 
 /**
  * Ask Vitec about every id, one after the other, choose the offices to sync and keep the answer
- * for the tenant's page. Offices typed on the connection are used as they are. When Vitec did not
- * answer every call, or answered with no office that reads, the last offices are kept.
+ * for the tenant's page. When Vitec did not answer every call, or answered with no office that
+ * reads, the last offices are kept.
  */
 export async function checkOffices(
   connectionId: string,
   auth: connect.Auth,
   crmAuth: connect.Auth,
   ids: readonly string[],
-  typed: readonly string[],
 ): Promise<OfficesCheck> {
   const checked: IdChecked[] = [];
   let answered = true;
@@ -154,11 +153,9 @@ export async function checkOffices(
   const last = await lastCheck(connectionId);
   const fresh = choose(checked);
   const choice =
-    typed.length > 0
-      ? { offices: [...typed], source: 'typed' as const }
-      : answered && fresh.offices.length > 0
-        ? fresh
-        : { offices: last?.offices ?? [], source: 'kept' as const };
+    answered && fresh.offices.length > 0
+      ? fresh
+      : { offices: last?.offices ?? [], source: 'kept' as const };
   const result: OfficesCheck = { at: new Date().toISOString(), ids: checked, ...choice };
   await store.setState(connectionId, 'offices_check', JSON.stringify(result));
   // Unanswered: due again within the hour instead of tomorrow.
@@ -167,15 +164,8 @@ export async function checkOffices(
   return result;
 }
 
-/**
- * The offices a connection syncs: the ones typed on it while there are any, else the ones the
- * last check chose from Vitec: the group "webbplats", or every office.
- */
-export async function officesOf(connection: {
-  id: string;
-  licensedOffices: string[];
-}): Promise<string[]> {
-  if (connection.licensedOffices.length > 0) return connection.licensedOffices;
+/** The offices a connection syncs: the ones the last check chose from Vitec, none before it. */
+export async function officesOf(connection: { id: string }): Promise<string[]> {
   return (await lastCheck(connection.id))?.offices ?? [];
 }
 

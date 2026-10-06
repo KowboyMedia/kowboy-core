@@ -30,7 +30,7 @@ import * as store from './store.js';
 import * as forms from './forms.js';
 import { changedAtOf, isoDate, mappers, referencedIds } from './mappers.js';
 import { refetchOffice, vitecAdmin } from './admin/index.js';
-import { CHECK_EVERY_MS, checkOffices, lastCheck, officesOf } from './offices.js';
+import { CHECK_EVERY_MS, checkOffices, officesOf } from './offices.js';
 import { DATATYPES } from '../../engine/adapter-api/index.js';
 import type {
   Adapter,
@@ -698,44 +698,18 @@ async function compare(live: Live): Promise<void> {
  */
 async function checkAndApply(current: AdapterApi, target: Live): Promise<Live> {
   const { credentials, connection } = target;
-  const ids = credentials.customerId ? [credentials.customerId] : connection.licensedOffices;
+  const ids = credentials.customerId ? [credentials.customerId] : [];
   const crmAuth = credentials.crmPassword
     ? { ...credentials, password: credentials.crmPassword }
     : credentials;
-  const check = await checkOffices(
-    connection.id,
-    credentials,
-    crmAuth,
-    ids,
-    connection.licensedOffices,
-  );
+  const check = await checkOffices(connection.id, credentials, crmAuth, ids);
   const next = { ...target, offices: check.offices };
   for (const officeId of target.offices.filter((office) => !check.offices.includes(office))) {
     await takeOff(current, connection, officeId);
   }
-  if (connection.licensedOffices.length > 0) return next;
   const added = check.offices.filter((office) => !target.offices.includes(office));
   if (added.length > 0) await load(next, added);
   return next;
-}
-
-/** A new connection loads every office it syncs: the typed ones, or the ones Vitec gives. */
-async function connectionAdded(current: AdapterApi, target: Live): Promise<void> {
-  const typed = target.connection.licensedOffices;
-  if (typed.length > 0) await load({ ...target, offices: typed }, typed);
-  else await checkAndApply(current, target);
-}
-
-/**
- * The typed offices changed. Between typed offices the engine's own removal is enough, and Vitec
- * is not asked. Offices Vitec chose before and no longer typed go; with none typed now, the engine
- * took the typed ones off, and Vitec's choice is loaded afresh.
- */
-async function typedChanged(current: AdapterApi, target: Live): Promise<void> {
-  const typed = target.connection.licensedOffices.length > 0;
-  const last = await lastCheck(target.connection.id);
-  if (typed && (!last || last.source === 'typed')) return;
-  await checkAndApply(current, { ...target, offices: typed ? (last?.offices ?? []) : [] });
 }
 
 /**
@@ -864,6 +838,8 @@ export const vitecAdapter: Adapter = {
     // The forms Connect takes (docs/forms.md): the valuation, the interest, the viewing booking,
     // and the search profile through the CRM function group.
     submissions: ['lead', 'interest', 'viewing', 'search_profile'],
+    // The offices come from Vitec (offices.ts): the tenant page draws no office field.
+    officesFromCrm: true,
   },
   mappers,
   routes,
@@ -910,12 +886,17 @@ export const vitecAdapter: Adapter = {
       const credentials = credentialsOf(event.connection);
       if (!credentials || !event.connection.active) return;
       const target = { connection: event.connection, credentials, offices: [] as string[] };
-      if (event.type === 'connection_added') return connectionAdded(given, target);
-      target.offices = await officesOf(event.connection);
-      if (event.type === 'offices_added') await load(target, event.officeIds);
-      if (event.type === 'offices_added' || event.type === 'offices_removed') {
-        await typedChanged(given, target);
+      if (
+        event.type === 'connection_added' ||
+        event.type === 'offices_added' ||
+        event.type === 'offices_removed'
+      ) {
+        // A new connection, or the engine's own office list changed (for this adapter only ever
+        // to empty): Vitec is asked which offices to sync, and every one of them is loaded.
+        await checkAndApply(given, target);
+        return;
       }
+      target.offices = await officesOf(event.connection);
       if (event.type === 'resync') await resync(target, event.datatype);
       if (event.type === 'refetch') await refetch(target, event.records);
     });
