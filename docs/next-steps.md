@@ -606,22 +606,58 @@ client ports (item 16, first client by question 80).
       gave, kept from the previous check when Vitec refuses the office); without it, by its id. Known gap: a second site that stops pulling while
       the check is already red is neither told nor listed, because the check changes once; 164's
       rule A, built per thing, closes it.
-    - **Step 3, the levels P0 to P3 (164, approved in concept 2026-10-06 19:34 UTC):** the
-      levels, the rules A to E and 164's rows are in `docs/decisions.md`; the table of rows as
-      asked is kept below. Waits on 172 (every check Core runs matched to a level, the Vitec
-      catch-up check split in three, the Overview's tiles coloured by level) and 173 (the outside
-      ping, Sentry recommended, and `/v1/health` answering 500 only for a P0). Then: a proof on
-      the engine's own checks first, then the rest. Rows (164): 1 database P0; 2 database version
-      P0; 3 worker P0; 4 loading queue (the `lifecycle` check) P2, P1 after an hour; 5 alerts not
-      sent P1, told through the other channel; 6 manual sync failed P3; 7 site not pulling P1; 8
-      site could not take records P2 per site per day; 9 site bell P3; 10 site errors P3 (Sentry);
-      11 CRM refuses the login P1; 12 stored login unreadable P1; 13 CRM not answering P2, P1 after
-      an hour; 14 CRM notifications waiting P2, P1 after an hour; 15 record failed 3 fetches P2 per
-      connection per day; 16 not caught up for 12 h P1; 17 connection with no offices P2; 18 record
-      still malformed after 3 fetches an hour apart P2 per connection per day; 19 office refused,
-      in its day of grace P2; 20 office taken off, still refused P1; 21 office taken off by choice
-      P2; 22 form not taken after a day of retries P1; 23 form refused by the CRM P1; 24 a check
-      that cannot run P2, P1 after 15 minutes.
+    - **Step 3, the levels P0 to P3 (164 in concept; 172 ok and 173 answered 2026-10-06, 20:56 and
+      20:57 UTC; in progress since):** the levels, the rules A to E, 164's rows, 172's checks and
+      173's outside ping are in `docs/decisions.md`. The plan, engine first (this thread):
+      - A check's result carries its `level`, the adapter interface's one optional word; a failing
+        check without one counts as P1. The engine's own: database, schema and worker P0;
+        subscribers P1, red only for a site rung more than an hour ago that has not pulled since
+        (the first ring after its last pull, from the `bell` events); lifecycle P2, P1 once an
+        event has waited an hour; submissions.failing P2. A check that throws or has no report is
+        P2, P1 after 15 minutes (rule E), and counts under a worker that is down (rule B).
+      - A problem is a failing check, or each thing it names (a site by its id, else each name),
+        with its own start: one `alert_state` row per open problem (`since`, `notified_at` when
+        its start was mailed), deleted when it ends. Its start is a `check.failed` event with its
+        level, written again when it moves up a level; its end a `check.recovered`.
+      - Rule A: a P0 problem is mailed (and sent to Slack) once it has lasted 5 minutes, a P1
+        once 15; a problem that ends first is told nowhere but the event log, and a P2 counts
+        only once it has lasted 15 minutes. Rule B: the starts due in one round go in one mail,
+        and while a P0 is open nothing else is mailed. Rule D: a problem is mailed at most once,
+        when it reaches P0 or P1, and its end once, if its start was. Rule C, for now: the end
+        is told in the start's words, marked resolved; one mail conversation per problem (mail
+        headers) comes later.
+      - The events that need attention (`office.taken_off`, `connection.paused`,
+        `login.refused`) are read by the worker's round from the event log, after the last one
+        it read, instead of being told by the process that wrote them: `office.taken_off` is P1
+        when still refused (row 20, the `office.blocked` rule below), else P2; `connection.paused`
+        P2 (the mail at the pause stops; the Vitec check `vitec.connect` makes it P1 after an
+        hour); `login.refused` P1. The offices of one correlation id are one line, at the
+        highest level among them.
+      - One mail at 07:00 Stockholm time of the P2 problems and events that started since the
+        last one, none when nothing is new; the round keeps when it last sent it in
+        `alert_state`.
+      - The Overview: each failing check's tile in its level's colour with its level, the line
+        above counting P0 and P1 only; "Needs attention" lists the problems and events of P0 to
+        P2 of seven days, each with its level (question 178).
+      - `/v1/health` answers 500 only while a P0 check fails; the body is unchanged.
+      - Tested in `acceptance/operations.test.ts` ("health", "alerts") and
+        `acceptance/admin.test.ts`; AC 17's tests renamed in `acceptance/criteria.json`.
+      - Asks: 178 (a `level` column in `health_results`, the level on `check.failed`, the level
+        on each line of "Needs attention").
+      - Then, by spec through the coordinator: the Vitec code gives each check its level, splits
+        `vitec.catch_up` in three and makes catching up after a restart P3 (172); the forms code
+        keeps `submissions.failing` as it is (P2 in the engine), and rows 22 and 23 come later.
+        Rows (164): 1 database P0; 2 database version
+        P0; 3 worker P0; 4 loading queue (the `lifecycle` check) P2, P1 after an hour; 5 alerts not
+        sent P1, told through the other channel; 6 manual sync failed P3; 7 site not pulling P1; 8
+        site could not take records P2 per site per day; 9 site bell P3; 10 site errors P3 (Sentry);
+        11 CRM refuses the login P1; 12 stored login unreadable P1; 13 CRM not answering P2, P1 after
+        an hour; 14 CRM notifications waiting P2, P1 after an hour; 15 record failed 3 fetches P2 per
+        connection per day; 16 not caught up for 12 h P1; 17 connection with no offices P2; 18 record
+        still malformed after 3 fetches an hour apart P2 per connection per day; 19 office refused,
+        in its day of grace P2; 20 office taken off, still refused P1; 21 office taken off by choice
+        P2; 22 form not taken after a day of retries P1; 23 form refused by the CRM P1; 24 a check
+        that cannot run P2, P1 after 15 minutes.
       - **One cause, many offices (rule B), a case raised 2026-10-06:** a login switched between
         live Vitec and its QA environment takes every office of its last check off the sites at
         once (`settleSwitch`, d8f24cc), and so can a login Vitec still refuses at the daily check

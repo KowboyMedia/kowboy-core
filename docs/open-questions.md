@@ -4,10 +4,25 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 178 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 179 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 178. `[core]` May Core keep each failing check's level, and show it on "Needs attention"?
+
+- 2026-10-06 · Building 172 (the levels): three things the build needs that 172 did not list.
+
+| Item | What                                                                                                                  | Why                                                                                                                         |
+| ---- | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 1    | A column `level` in `health_results`, the table where the worker leaves the CRM's checks for the web process to read. | The Overview colours a CRM check by the level the CRM's code gave it; without it, a CRM check shows red whatever its level. |
+| 2    | A field `level` on each `check.failed` event, written again when a problem moves up a level (P2 to P1).               | "Needs attention", the 07:00 mail and the event log know each problem's level after it is over.                             |
+| 3    | Each line of "Needs attention" shows its level (P0, P1 or P2) beside its time.                                        | A reader sees at once which lines were alerts and which are only to look at.                                                |
+
+- Smaller: items 2 and 3 alone; the CRM's checks would then show red on the Overview whatever
+  their level until item 1. Blocked: the Overview's colours for the CRM's checks (1), and the
+  list and the 07:00 mail for problems that are over (2). Reply: "178 ok", or the items you do
+  not want.
 
 ## 177. `[crm-vitec]` Should the Vitec page's connections, the tenant's card "Offices Vitec lists" and "Check the login" also mark a QA office "(QA)"?
 
@@ -83,72 +98,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   in the first commit after production's worker log shows it ran.
 - b) **no**: each of them leaves a production login only when someone next saves that connection.
 - Smaller: b. Blocks nothing. Reply: a or b.
-
-## 173. `[core]` Who pings Core from outside, so you hear when the whole app or its server is down?
-
-- 2026-10-06 · Patric, 19:34 (UTC): "Do we need an externally pinged health check which returns
-  non-200 on issues? For example, if the entire app goes down due to disk space or server outage,
-  it cant alert."
-- **Why yes.** Core's own alert mails for its checks are sent by its worker (`engine/index.ts`,
-  the worker's tick runs `checkAlerts`). When the worker, the server or the database is gone,
-  nothing inside Core can mail. The plan already names the answer (strategy §2, Monitoring:
-  "Watched by Sentry Uptime"; next steps: "Left: an uptime alert on production's `/v1/health`"),
-  and it was never switched on: Sentry holds no uptime monitor (checked 2026-10-06 through the
-  Sentry connection).
-- a) **Sentry** (recommended): Sentry checks `https://core.kowboy.cloud/v1/health` every minute,
-  from several places in turn, and mails after 3 failed checks in a row (a failure: no answer
-  within the timeout, a DNS failure, or any answer outside 200 to 299; docs.sentry.io, Uptime
-  Monitoring). Every Sentry plan includes one uptime monitor, so it costs nothing; more need a
-  paid plan, so staging is not watched. Sentry is a service of its own, so it still mails when
-  DigitalOcean or the server is down. Set up through the Sentry connection, with no step for
-  Patric.
-- b) **DigitalOcean**: its own uptime check on the account the apps run on; it can fail together
-  with DigitalOcean.
-- c) **none**.
-- With a or b, the public `/v1/health` answers 500 only while a P0 is open, and 200 otherwise
-  (amends strategy §8.1, where any failing check answers 500). On 2026-10-06 staging answered 500
-  because one connection had no offices, a P2, which a monitor would have read as "Core is down".
-  The platform's own probe stays `/v1/ready`. The acceptance tests that expect 500 for a
-  non-P0 check change with it.
-- Smaller: c. Blocks nothing: the levels are built either way. Reply: a, b or c.
-
-## 172. `[core]` Adjust Core's health checks to the P0 to P3 levels as listed below?
-
-- 2026-10-06 · Patric, 19:34 (UTC), on 164: "OK in concept, look over the entire list of checks
-  and adjust any if needed, to match the new concept."
-- **Every check Core runs** (`engine/health.ts` and the Vitec code; the two fake CRMs run in
-  tests only), with 164's row, the level, and what changes.
-
-| Check                          | What it watches (164 row)                                                                                      | Level                                                             | Change                                                                                                                                                                                                          |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| database                       | Core reaches its database (1)                                                                                  | P0                                                                | none                                                                                                                                                                                                            |
-| schema                         | the database is not newer than the Core running (2)                                                            | P0                                                                | none                                                                                                                                                                                                            |
-| worker                         | the worker reported in the last 2 minutes (3)                                                                  | P0                                                                | while it is down, the Vitec checks it runs read "no report"; they count under this P0, never on their own (rule B)                                                                                              |
-| lifecycle                      | a change made in the admin area (a new connection, an office, a fetch someone asked for) waits under 5 min (4) | P2, P1 after an hour                                              | none; 164 called it the loading queue                                                                                                                                                                           |
-| subscribers                    | a site Core told of a change more than an hour ago that has not pulled since (7)                               | P1, per site                                                      | today any site that has not pulled for an hour is red, even with nothing new to pull; each site is told on its own, so a second site that stops is no longer missed                                             |
-| submissions.failing            | the latest form to a connection got an answer (22)                                                             | P2 while the CRM's code retries; P1 is a form that fails for good | built by the forms thread with the retry of 160 a                                                                                                                                                               |
-| vitec.webhook_lag              | Vitec's notifications wait under 5 minutes (14)                                                                | P2, P1 after an hour                                              | none                                                                                                                                                                                                            |
-| vitec.retries                  | no record failed 3 fetches in a row (15)                                                                       | P2, one line per connection per day                               | none                                                                                                                                                                                                            |
-| vitec.catch_up                 | four things in one check: a login Core cannot read (12), no offices (17), not caught up for 12 h or never (16) | split: login P1, offices P2, catching up P1                       | split into three, so each part has its own level                                                                                                                                                                |
-| vitec.catch_up after a restart | catching up since the worker started                                                                           | P3: shown with the checks, never told                             | today it marks Core as failing after every restart; question 23 made it the sign not to rebuild during a restore, and the check's own words keep saying "catching up", so the runbook reads those words instead |
-| vitec.offices                  | offices Vitec refuses, in their day of grace (19)                                                              | P2                                                                | none                                                                                                                                                                                                            |
-| vitec.connect                  | connections paused after 5 failed calls (13)                                                                   | P2, P1 after an hour                                              | the mail sent today the moment a connection pauses stops; it is told only when the pause lasts an hour                                                                                                          |
-| a check that cannot run        | any check that throws (24, rule E)                                                                             | P2, P1 after 15 minutes                                           | new, as 164 listed                                                                                                                                                                                              |
-
-- 2026-10-06 · Amended at 20:55 (UTC), before an answer: the subscribers row. Staging's sites
-  check was red that evening for a quiet site with nothing to pull. A WordPress site pulls at
-  once when Core rings it, and its own 15-minute timer runs only when someone visits, so a site
-  with no changes and no visitors does not pull for hours and is fine (the forms thread's
-  finding: one visit made it pull, and the check turned green). Only a site that is behind is
-  red now, read from what Core already keeps: the rings it sent and the site's last pull.
-- **New in what a person sees.** The Overview's check tiles take their level's colour: P0 and P1
-  red, P2 amber, P3 grey, and the line above them counts only P0 and P1. Today every failing
-  check is red, so a P2 would read as "something needs attention".
-- **Who builds what.** The engine's checks and the Overview: this thread. The Vitec checks'
-  changes (the split, the restart, a level on each): the Vitec office thread, from a spec through
-  the coordinator. `submissions.failing`: the forms thread. The level on a check is the one
-  optional word in the interface between the engine and a CRM's code that 164 named.
-- Reply: "172 ok", or a check with its new level.
 
 ## 171. `[core]` Adding a site's address to the bot check at Cloudflare: may Core keep Kowboy's Cloudflare account id as a second environment setting?
 
