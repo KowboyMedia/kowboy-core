@@ -686,7 +686,8 @@ generic capability item 21 in `docs/next-steps.md` asked for.
   record's office id, or `office_id` for a lead. `consent.at` becomes the interest's GDPR date and
   `consent.given` the form calls' "GDPR approved"; `source.page` becomes `Marketing.Referrer` and
   `source.utm` the UTM tag list.
-- **Eight settings, typed in the admin area on the connection's page**, each with its direction
+- **Eight settings, typed in the admin area on the connection's page** (seven of them removed
+  2026-10-06 with 155; see "Built 2026-10-06: the first version"), each with its direction
   and covered by `admin/directions.test.ts`. First the gate, Core's own: "Send forms to Vitec",
   empty or no until the office is confirmed as a demo or test customer (54 f) or goes live, and
   every form is refused before any call while it is not yes, so a connection that reads a client's
@@ -876,8 +877,9 @@ Not done, and not doable from here: the real send. Every call above ran against 
 only; the login in the environment reads a client's production office and is never a write
 target (AGENTS.md, "Stop and ask"; Patric, 2026-10-04). One real send per kind, and the search
 profile's two calls with the CRM function group, wait on a demo or test customer Patric has
-confirmed (question 54 f). The code holds the rule too: `submit` refuses every form before any
-call while the connection's "Send forms to Vitec" is not yes (`forms.test.ts`, the gate's test),
+confirmed (question 54 f). The code held the rule too until 2026-10-06, when the guard of 152
+replaced it: `submit` refused every form before any call while the connection's "Send forms to
+Vitec" was not yes (`forms.test.ts`, the gate's test),
 so the staging Core, which deploys on every push and whose connections read a client's production
 office, writes nothing however a form reaches it; the widget's refusal text to the visitor is
 "Formulär skickas inte till det här kontoret än".
@@ -1025,6 +1027,14 @@ staging when it is done:
   (deleted when 0.6.0 is installed) and the deploy script's line for it. The two database
   columns `subscribers.site_key` and `subscribers.origins` are dropped by migration 012 once
   staging runs the code without them.
+- **The seven forms fields of a Vitec connection are gone** (155 line 5): "Send forms to Vitec",
+  the lead source, the intake source, an interest's status, the e-mail and SMS confirmations and
+  the reminder, with their directions, the adapter's reading of them and the switch's test under
+  criterion 46. Nothing about forms is typed on a connection: the lead source, the intake source
+  and an interest's status are left to Vitec, and a booking asks Vitec for an e-mail confirmation
+  (the window tells the visitor so), no SMS and no reminder. The guard replaces the switch. The
+  CRM password stays, since the office check reads Vitec's office groups with it, and the search
+  profile uses it. Known bug 3 goes with the fields.
 - **A booking's times read right** (found on the staging site, 2026-10-06): Connect's form
   endpoint gives a viewing's and a time's moments as bare Swedish wall-clock time, as the records
   do, and the adapter read them as UTC, so the booking window showed a viewing at 17.50 as 19.50.

@@ -419,56 +419,11 @@ export const vitecAdmin: AdapterAdmin = {
       label: 'Customer or group id',
       help: 'The id Vitec issued this login for: a customer id such as M30011, or a group id such as G2. Core asks Vitec once a day which offices sit behind it; “Offices Vitec lists” below shows which ones reach the sites, and why.',
     },
-    // The forms (docs/forms.md): first whether they are sent at all, then the brokerage's own
-    // knobs in Vitec, copied through with every form a site sends. Core decides none of the
-    // knobs; empty leaves each to Vitec as described.
-    {
-      key: 'send_forms',
-      label: 'Send forms to Vitec',
-      help: 'Whether a site’s forms are sent to this office at all. Empty or no: every form is refused before any call to Vitec and nothing is written, while the sites still read the viewing slots. Yes only for an office confirmed as a demo or test customer or a customer that has gone live; a connection that reads a client’s production office for testing stays at no.',
-      options: [{ value: 'yes' }, { value: 'no' }],
-    },
-    {
-      key: 'lead_source_id',
-      label: 'Lead source for website leads',
-      help: 'Vitec’s id of the lead source the website’s forms are filed under; empty lets Vitec use its preselected one.',
-    },
-    {
-      key: 'assignment_source_id',
-      label: 'Intake source for valuations',
-      help: 'Vitec’s id of the intake source a seller’s valuation request is filed under; empty leaves it unset.',
-    },
-    {
-      key: 'interest_status',
-      label: 'Status of a website interest',
-      help: 'The status an interest sent from the website gets in Vitec; empty leaves it to Vitec.',
-      options: [
-        { value: 'Interested', label: 'Interested (Intresserad)' },
-        { value: 'VeryInterested', label: 'Very interested (Mycket intresserad)' },
-      ],
-    },
-    {
-      key: 'confirm_by_email',
-      label: 'Confirm a booking by e-mail',
-      help: 'Whether Vitec e-mails the visitor a confirmation of a viewing booking; empty means yes.',
-      options: [{ value: 'yes' }, { value: 'no' }],
-    },
-    {
-      key: 'confirm_by_sms',
-      label: 'Confirm a booking by SMS',
-      help: 'Whether Vitec sends the visitor an SMS confirmation of a viewing booking; empty means no.',
-      options: [{ value: 'yes' }, { value: 'no' }],
-    },
-    {
-      key: 'reminder_minutes',
-      label: 'Reminder before a viewing (minutes)',
-      help: 'How many minutes before the viewing Vitec reminds the visitor; empty means no reminder.',
-    },
     {
       key: 'crm_password',
       label: 'CRM password',
       secret: true,
-      help: 'The password of Vitec’s CRM function group for this customer, when Vitec issued a separate one; it makes the search profile. Empty uses the Connect password.',
+      help: 'The password of Vitec’s CRM function group for this customer, when Vitec issued a separate one. Core uses it for Vitec’s CRM calls: reading the office group “Webbplats”, and a visitor’s search profile when a form sends one. Empty uses the Connect password.',
     },
   ],
 

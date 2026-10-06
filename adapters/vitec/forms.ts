@@ -1,8 +1,9 @@
 // The forms (docs/forms.md, "The Vitec adapter's part"): the universal submission copied onto
 // Connect's form calls, and the form endpoint's viewings copied onto the universal slots. Nothing
-// is kept here: the person goes to Vitec and the answer goes back to the engine. The brokerage's
-// own knobs (a lead source, an intake source, a status, the confirmations, a reminder) are typed
-// on the connection's page beside the key pair and copied through; Core decides none of them.
+// is kept here: the person goes to Vitec and the answer goes back to the engine. Nothing about
+// forms is typed on a connection (question 155): Vitec's own defaults stand for the lead source,
+// the intake source and an interest's status, and a booking asks Vitec for an e-mail
+// confirmation, no SMS and no reminder.
 import * as connect from './api.js';
 import { isoDate } from './mappers.js';
 import type {
@@ -14,75 +15,11 @@ import type {
   SubmissionResult,
 } from '../../engine/adapter-api/index.js';
 
-/** The settings stored in the connection's login document, beside `username` and `password`. */
-export type FormSettings = {
-  /**
-   * Whether forms are sent to this office at all. False (the default, and "no") refuses every
-   * form before any call, so a connection that reads a client's production office for testing is
-   * never written to (Patric, 2026-10-04); yes is for a confirmed demo or test customer
-   * (question 54 f) or a customer gone live.
-   */
-  sendForms: boolean;
-  /** Vitec's id of the lead source the website's leads are filed under; null leaves it to Vitec. */
-  leadSourceId: string | null;
-  /** Vitec's id of the intake source for a seller's valuation request; null leaves it unset. */
-  assignmentSourceId: string | null;
-  /** The status an interest from the website gets (Interested, VeryInterested); null leaves it to Vitec. */
-  interestStatus: string | null;
-  confirmByEmail: boolean;
-  confirmBySms: boolean;
-  /** Minutes before the viewing Vitec reminds the visitor; null means no reminder. */
-  reminderMinutes: number | null;
-  /** The CRM function group's password, when Vitec issued a separate one; null uses the Connect password. */
-  crmPassword: string | null;
-};
-
-export const FORM_SETTING_KEYS = [
-  'send_forms',
-  'lead_source_id',
-  'assignment_source_id',
-  'interest_status',
-  'confirm_by_email',
-  'confirm_by_sms',
-  'reminder_minutes',
-  'crm_password',
-] as const;
-
-const text = (document: Record<string, unknown>, key: string): string | null => {
-  const value = document[key];
-  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
-};
-
-/** "yes" or "no" as the panel's choice stores it; a boolean as a test may store it. */
-const yesNo = (document: Record<string, unknown>, key: string, fallback: boolean): boolean => {
-  const value = document[key];
-  if (typeof value === 'boolean') return value;
-  if (value === 'yes') return true;
-  if (value === 'no') return false;
-  return fallback;
-};
-
-/** The settings as stored; a login document that cannot be read gives the defaults. */
-export function settingsOf(stored: string | null): FormSettings {
-  let document: Record<string, unknown> = {};
-  try {
-    const parsed = JSON.parse(stored ?? '{}') as unknown;
-    if (parsed && typeof parsed === 'object') document = parsed as Record<string, unknown>;
-  } catch {
-    // the defaults
-  }
-  const reminder = Number(text(document, 'reminder_minutes'));
-  return {
-    sendForms: yesNo(document, 'send_forms', false),
-    leadSourceId: text(document, 'lead_source_id'),
-    assignmentSourceId: text(document, 'assignment_source_id'),
-    interestStatus: text(document, 'interest_status'),
-    confirmByEmail: yesNo(document, 'confirm_by_email', true),
-    confirmBySms: yesNo(document, 'confirm_by_sms', false),
-    reminderMinutes: Number.isInteger(reminder) && reminder > 0 ? reminder : null,
-    crmPassword: text(document, 'crm_password'),
-  };
-}
+/**
+ * The login as the adapter reads it (index.ts, `credentialsOf`): the Connect key pair, and the CRM
+ * function group's own password when Vitec issued one, which the search profile is made with.
+ */
+export type Login = connect.Auth & { crmPassword: string | null };
 
 /** The universal home type onto Vitec's residential subtype (SearchProfileV2_SubtypeResidential). */
 const SUBTYPE: Record<NonNullable<SearchCriteria['object_type']>, string> = {
@@ -119,32 +56,22 @@ const traceOf = (connection: Connection, submission: Submission): EventContext =
 });
 
 type Sending = {
-  auth: connect.Auth;
-  settings: FormSettings;
+  login: Login;
   customerId: string;
   submission: Submission;
   trace: EventContext;
 };
 
-/** What the visitor reads while the connection's "Send forms to Vitec" is not yes. */
-export const NOT_SENT = 'Formulär skickas inte till det här kontoret än.';
-
-/**
- * Send one submission to Vitec and say what Vitec said. Never throws. Nothing leaves while the
- * connection's "Send forms to Vitec" is not yes: the refusal comes before any call.
- */
+/** Send one submission to Vitec and say what Vitec said. Never throws. */
 export async function submit(
   connection: Connection,
-  auth: connect.Auth,
+  login: Login,
   submission: Submission,
 ): Promise<SubmissionResult> {
-  const settings = settingsOf(connection.credentials);
-  if (!settings.sendForms) return { outcome: 'refused', reason: NOT_SENT };
   const customerId = submission.office_id;
   if (!customerId) return { outcome: 'failed', detail: 'no office (customer id) to send to' };
   const sending: Sending = {
-    auth,
-    settings,
+    login,
     customerId,
     submission,
     trace: traceOf(connection, submission),
@@ -179,9 +106,9 @@ async function send(sending: Sending): Promise<string | null> {
 
 /** `POST v2/Advertising/Form/{customerId}/Valuation`: the seller's lead. Answers the contact's id. */
 async function valuation(sending: Sending): Promise<string | null> {
-  const { auth, settings, customerId, submission, trace } = sending;
+  const { login, customerId, submission, trace } = sending;
   const answer = await connect.post(
-    auth,
+    login,
     `v2/Advertising/Form/${segment(customerId)}/Valuation`,
     {
       firstName: submission.person.first_name,
@@ -190,11 +117,8 @@ async function valuation(sending: Sending): Promise<string | null> {
       cellPhone: submission.person.phone,
       address: address(submission),
       gdpr: { hasApproved: submission.consent.given },
-      lead: {
-        assignmentSourceId: settings.assignmentSourceId,
-        leadSourceId: settings.leadSourceId,
-        message: submission.message ?? null,
-      },
+      // Null leaves the lead source to Vitec's preselected one and the intake source unset.
+      lead: { assignmentSourceId: null, leadSourceId: null, message: submission.message ?? null },
       marketing: marketing(submission),
     },
     trace,
@@ -204,12 +128,12 @@ async function valuation(sending: Sending): Promise<string | null> {
 
 /** `POST Advertising/Estate/{customerId}/{estateId}/interest`: answers nothing (204). */
 async function interest(sending: Sending): Promise<void> {
-  const { auth, settings, customerId, submission, trace } = sending;
+  const { login, customerId, submission, trace } = sending;
   await connect.post(
-    auth,
+    login,
     `Advertising/Estate/${segment(customerId)}/${segment(estateOf(submission))}/interest`,
     {
-      leadSourceId: settings.leadSourceId,
+      leadSourceId: null,
       marketing: marketing(submission),
       firstName: submission.person.first_name,
       lastName: submission.person.last_name,
@@ -218,7 +142,6 @@ async function interest(sending: Sending): Promise<void> {
       email: { emailAddress: submission.person.email },
       gdprApprovalDate: submission.consent.at,
       contactMessage: submission.message ?? null,
-      ...(settings.interestStatus ? { status: settings.interestStatus } : {}),
     },
     trace,
   );
@@ -226,9 +149,9 @@ async function interest(sending: Sending): Promise<void> {
 
 /** `POST v2/Advertising/Form/{customerId}/Estate/{estateId}/Viewing/Attend`: answers the contact's id. */
 async function booking(sending: Sending): Promise<string | null> {
-  const { auth, settings, customerId, submission, trace } = sending;
+  const { login, customerId, submission, trace } = sending;
   const answer = await connect.post(
-    auth,
+    login,
     `v2/Advertising/Form/${segment(customerId)}/Estate/${segment(estateOf(submission))}/Viewing/Attend`,
     {
       timeSlotId: submission.slot_id,
@@ -238,13 +161,11 @@ async function booking(sending: Sending): Promise<string | null> {
       cellPhone: submission.person.phone,
       address: address(submission),
       gdpr: { hasApproved: submission.consent.given },
-      lead: { leadSourceId: settings.leadSourceId, message: submission.message ?? null },
-      confirmation: {
-        isEmailEnabled: settings.confirmByEmail,
-        isSmsEnabled: settings.confirmBySms,
-      },
+      lead: { leadSourceId: null, message: submission.message ?? null },
+      // The window tells the visitor the brokerage confirms by e-mail.
+      confirmation: { isEmailEnabled: true, isSmsEnabled: false },
       marketing: marketing(submission),
-      reminderTime: settings.reminderMinutes,
+      reminderTime: null,
       // No rules of our own: Vitec applies the viewing's booking limit and deadline as it has them.
       validation: null,
     },
@@ -259,10 +180,10 @@ async function booking(sending: Sending): Promise<string | null> {
  * then `CRM/Contact/{customerId}/SearchProfile/Residential/{contactId}` with the criteria.
  */
 async function searchProfile(sending: Sending): Promise<string | null> {
-  const { auth, settings, customerId, submission, trace } = sending;
+  const { login, customerId, submission, trace } = sending;
   const criteria = submission.criteria;
   if (!criteria) throw new Error('a search profile without criteria');
-  const crmAuth = settings.crmPassword ? { ...auth, password: settings.crmPassword } : auth;
+  const crmAuth = { username: login.username, password: login.crmPassword ?? login.password };
   const contact = await connect.post(
     crmAuth,
     'Contacts/UpdatePerson',

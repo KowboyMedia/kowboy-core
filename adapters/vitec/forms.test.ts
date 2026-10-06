@@ -1,7 +1,7 @@
 // The forms through the Vitec adapter (docs/forms.md, "The Vitec adapter's part"): a site's
 // lead, interest, viewing booking and search profile reach the stand-in Connect as the calls the
-// documentation gives, with the brokerage's settings copied through, and Connect's answers come
-// back as delivered, refused or failed. The slots are the form endpoint under the universal
+// documentation gives, with nothing typed on the connection, and Connect's answers come back as
+// delivered, refused or failed. The slots are the form endpoint under the universal
 // names. The real send waits on a demo or test customer (question 54 f).
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -15,8 +15,6 @@ import {
   TOKEN,
   type Harness,
 } from '../../acceptance/harness.js';
-import type { Submission } from '../../engine/adapter-api/index.js';
-import * as forms from './forms.js';
 import { drainFetchList, runSchedules, vitecAdapter } from './index.js';
 import * as store from './store.js';
 import { PASSWORD, USERNAME, startFakeConnect, type FakeConnect } from './test/connect.js';
@@ -26,18 +24,11 @@ const OFFICE = 'M1';
 const ESTATE = 'OBJ1';
 const CHANGED = '2026-09-10T08:00:00.1234567+02:00';
 
-/** The key pair and the brokerage's own knobs, as the connection's page stores them. */
+/** The key pair and the id it was issued for, as the connection's page stores them. */
 const credentials = JSON.stringify({
   username: USERNAME,
   password: PASSWORD,
   customer_id: OFFICE,
-  send_forms: 'yes',
-  lead_source_id: 'LS-web',
-  assignment_source_id: 'IS-val',
-  interest_status: 'VeryInterested',
-  confirm_by_email: 'yes',
-  confirm_by_sms: 'no',
-  reminder_minutes: '60',
 });
 
 const person = {
@@ -144,7 +135,7 @@ afterEach(async () => {
 });
 
 describe('the Vitec adapter’s forms', () => {
-  it('sends a lead as the valuation request with the brokerage’s sources, and answers Vitec’s contact id', async () => {
+  it('sends a lead as the valuation request with the sources left to Vitec, and answers Vitec’s contact id', async () => {
     const answer = await post(submission('lead'));
     expect(answer.status).toBe(200);
     expect(answer.body).toMatchObject({ status: 'delivered', reference: 'C-1' });
@@ -157,7 +148,7 @@ describe('the Vitec adapter’s forms', () => {
       cellPhone: '0701234567',
       address: { streetAddress: 'Storgatan 1', zipCode: '211 22', city: 'Malmö' },
       gdpr: { hasApproved: true },
-      lead: { assignmentSourceId: 'IS-val', leadSourceId: 'LS-web', message: 'Hej!' },
+      lead: { assignmentSourceId: null, leadSourceId: null, message: 'Hej!' },
       marketing: {
         referrer: 'https://site.example/objekt/1',
         utmTags: [{ name: 'utm_source', value: 'hemnet' }],
@@ -165,7 +156,7 @@ describe('the Vitec adapter’s forms', () => {
     });
   });
 
-  it('sends an interest on the home with the status setting, and the valuation too when the visitor ticked the current-home box', async () => {
+  it('sends an interest on the home with its status left to Vitec, and the valuation too when the visitor ticked the current-home box', async () => {
     const answer = await post(submission('interest', { record, contact_about_current_home: true }));
     expect(answer.status).toBe(200);
     expect(answer.body).toMatchObject({ status: 'delivered', reference: null });
@@ -175,7 +166,7 @@ describe('the Vitec adapter’s forms', () => {
       `/v2/Advertising/Form/${OFFICE}/Valuation`,
     ]);
     expect(fake.forms[0]?.body).toEqual({
-      leadSourceId: 'LS-web',
+      leadSourceId: null,
       marketing: {
         referrer: 'https://site.example/objekt/1',
         utmTags: [{ name: 'utm_source', value: 'hemnet' }],
@@ -187,11 +178,10 @@ describe('the Vitec adapter’s forms', () => {
       email: { emailAddress: 'anna@example.se' },
       gdprApprovalDate: '2026-10-04T10:00:00Z',
       contactMessage: 'Hej!',
-      status: 'VeryInterested',
     });
     expect(fake.forms[1]?.body).toMatchObject({
       firstName: 'Anna',
-      lead: { leadSourceId: 'LS-web' },
+      lead: { leadSourceId: null },
     });
 
     // Both Connect calls sit in the form's chain on the home's timeline, without the person.
@@ -205,7 +195,7 @@ describe('the Vitec adapter’s forms', () => {
     expect(chain.map((event) => event.type)).toContain('submission.delivered');
   });
 
-  it('books a viewing slot with the confirmation and reminder settings, and relays Vitec’s refusal and silence', async () => {
+  it('books a viewing slot with an e-mail confirmation and no reminder, and relays Vitec’s refusal and silence', async () => {
     const booked = await post(submission('viewing', { record, slot_id: 'T-1' }));
     expect(booked.status).toBe(200);
     expect(booked.body).toMatchObject({ status: 'delivered', reference: 'C-1' });
@@ -218,13 +208,13 @@ describe('the Vitec adapter’s forms', () => {
       cellPhone: '0701234567',
       address: { streetAddress: 'Storgatan 1', zipCode: '211 22', city: 'Malmö' },
       gdpr: { hasApproved: true },
-      lead: { leadSourceId: 'LS-web', message: 'Hej!' },
+      lead: { leadSourceId: null, message: 'Hej!' },
       confirmation: { isEmailEnabled: true, isSmsEnabled: false },
       marketing: {
         referrer: 'https://site.example/objekt/1',
         utmTags: [{ name: 'utm_source', value: 'hemnet' }],
       },
-      reminderTime: 60,
+      reminderTime: null,
       validation: null,
     });
 
@@ -383,46 +373,5 @@ describe('the Vitec adapter’s forms', () => {
         (request) => request.path === `/v2/Advertising/Form/${OFFICE}/Estate/${ESTATE}`,
       ),
     ).toBe(true);
-  });
-
-  it('refuses every form before any call while “Send forms to Vitec” on the connection is not yes, so an unconfirmed office is never written to', async () => {
-    const auth = { username: USERNAME, password: PASSWORD };
-    const connection = (document: Record<string, unknown>) => ({
-      id: 'vitec-quiet',
-      tenantId: 1,
-      provider: 'vitec',
-      credentials: JSON.stringify({
-        username: USERNAME,
-        password: PASSWORD,
-        customer_id: OFFICE,
-        ...document,
-      }),
-      licensedOffices: [],
-      active: true,
-    });
-    const lead = submission('lead', { office_id: OFFICE }) as unknown as Submission;
-    const booking = submission('viewing', {
-      record,
-      office_id: OFFICE,
-      slot_id: 'T-1',
-    }) as unknown as Submission;
-
-    // Nothing typed, and "no": refused, the stand-in saw nothing.
-    expect(await forms.submit(connection({}), auth, lead)).toEqual({
-      outcome: 'refused',
-      reason: forms.NOT_SENT,
-    });
-    expect(await forms.submit(connection({ send_forms: 'no' }), auth, booking)).toEqual({
-      outcome: 'refused',
-      reason: forms.NOT_SENT,
-    });
-    expect(formsSent()).toEqual([]);
-
-    // "yes": the same lead leaves as the valuation request.
-    expect(await forms.submit(connection({ send_forms: 'yes' }), auth, lead)).toEqual({
-      outcome: 'delivered',
-      reference: expect.any(String),
-    });
-    expect(formsSent()).toEqual([`/v2/Advertising/Form/${OFFICE}/Valuation`]);
   });
 });

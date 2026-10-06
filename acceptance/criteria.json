@@ -493,11 +493,11 @@
       "phase": "engine",
       "tests": [
         "submissions a lead, an interest and a viewing reach the CRM with every field mapped, and answer delivered with the CRM’s reference",
-        "the Vitec adapter’s forms sends a lead as the valuation request with the brokerage’s sources, and answers Vitec’s contact id",
-        "the Vitec adapter’s forms sends an interest on the home with the status setting, and the valuation too when the visitor ticked the current-home box",
-        "the Vitec adapter’s forms books a viewing slot with the confirmation and reminder settings, and relays Vitec’s refusal and silence"
+        "the Vitec adapter’s forms sends a lead as the valuation request with the sources left to Vitec, and answers Vitec’s contact id",
+        "the Vitec adapter’s forms sends an interest on the home with its status left to Vitec, and the valuation too when the visitor ticked the current-home box",
+        "the Vitec adapter’s forms books a viewing slot with an e-mail confirmation and no reminder, and relays Vitec’s refusal and silence"
       ],
-      "note": "Proved against the fake polling CRM, which takes every kind (docs/forms.md): the universal submission of schemas/submission.v1.json lands in the stand-in with every field under its own names, and the site gets the CRM's reference. Proved for Vitec against the stand-in Connect (adapters/vitec/forms.test.ts): the lead is the valuation request, the interest the interest registration with the connection's status setting (and the valuation too when the current-home box is ticked, 141 a), the viewing the attendance with the confirmation and reminder settings; the bodies are compared field by field. The real send waits on a demo or test customer Patric has confirmed (question 54 f)."
+      "note": "Proved against the fake polling CRM, which takes every kind (docs/forms.md): the universal submission of schemas/submission.v1.json lands in the stand-in with every field under its own names, and the site gets the CRM's reference. Proved for Vitec against the stand-in Connect (adapters/vitec/forms.test.ts): the lead is the valuation request, the interest the interest registration with its status left to Vitec (and the valuation too when the current-home box is ticked, 141 a), the viewing the attendance with an e-mail confirmation, no SMS and no reminder; nothing about forms is typed on a connection (question 155); the bodies are compared field by field. The real send waits on a demo or test customer Patric has confirmed (question 54 f)."
     },
     {
       "ac": 44,
@@ -505,7 +505,7 @@
       "phase": "engine",
       "tests": [
         "submissions a refusal and a failure reach the visitor and the timeline without the person, and submissions.failing turns red then green",
-        "the Vitec adapter’s forms books a viewing slot with the confirmation and reminder settings, and relays Vitec’s refusal and silence"
+        "the Vitec adapter’s forms books a viewing slot with an e-mail confirmation and no reminder, and relays Vitec’s refusal and silence"
       ],
       "note": "The events, the submissions table and the error tracker's output are searched for the person's name, e-mail, phone and street and hold none; the check names the connection in `names` and not in its public detail. For Vitec: a 400 with Vitec's words is a refusal whose reason is those words with anything that looks like an e-mail address or a number scrubbed, a 500 is a failure, and the chain's crm.call events carry no body."
     },
@@ -522,11 +522,10 @@
       "phase": "engine",
       "tests": [
         "submissions another tenant’s record, a body outside the schema, a lead without an office, a kind the CRM does not take and the 61st in a minute are refused before any CRM call",
-        "the Vitec adapter’s forms refuses every form before any call while “Send forms to Vitec” on the connection is not yes, so an unconfirmed office is never written to",
         "submissions a Core that is not the live service refuses every form before any CRM call, and the visitor reads that it was not sent",
         "submissions the site’s server reads the bot check’s key, and a form without the window’s proof or with a failed one is refused before any CRM call, as is every form on a live Core without the check"
       ],
-      "note": "400 for the other tenant's record, a record Core does not hold, a value off the whitelist, a consent not given and an unknown field; 400 for a lead without office_id once the tenant has two offices; 501 from the fake webhook CRM, which lists no submissions; 429 on the 61st post from the token in a minute. The stand-in received nothing. The Vitec adapter adds its own gate: while the connection’s “Send forms to Vitec” is not yes (the default), every form is refused before any call to Vitec, so a connection that reads a client’s production office for testing is never written to (Patric, 2026-10-04). Outside the live service (staging and local, by the environment name) every form is refused before any CRM call with the reason the window shows, so a site tried on staging never writes to the brokerage whose office staging reads (question 152, built with 155). The server door checks the bot check’s proof the window earned, which the site’s server passes on in X-Core-Human: 403 without it or with one that fails, before any lookup; the live service with no bot check set up answers 503 to every form and reports it, so it never takes a form unchecked (known bug 4); the site’s server reads the check’s public key with its token."
+      "note": "400 for the other tenant's record, a record Core does not hold, a value off the whitelist, a consent not given and an unknown field; 400 for a lead without office_id once the tenant has two offices; 501 from the fake webhook CRM, which lists no submissions; 429 on the 61st post from the token in a minute. The stand-in received nothing. Outside the live service (staging and local, by the environment name) every form is refused before any CRM call with the reason the window shows, so a site tried on staging never writes to the brokerage whose office staging reads (question 152, built with 155). The server door checks the bot check’s proof the window earned, which the site’s server passes on in X-Core-Human: 403 without it or with one that fails, before any lookup; the live service with no bot check set up answers 503 to every form and reports it, so it never takes a form unchecked (known bug 4); the site’s server reads the check’s public key with its token."
     },
     {
       "ac": 47,

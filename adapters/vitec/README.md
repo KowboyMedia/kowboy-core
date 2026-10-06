@@ -111,14 +111,12 @@ is `POST Contacts/UpdatePerson` (whose duplicate check answers the existing or t
 id) followed by `POST CRM/Contact/{customerId}/SearchProfile/Residential/{contactId}`, both in
 the CRM function group. The customer id is the office Core filled in. A ticked "contact me about
 my current home" (question 141 a) sends the valuation too, on the same person. The slots are
-`GET v2/Advertising/Form/{customerId}/Estate/{estateId}` under the universal names. The
-brokerage's own knobs are typed on the connection's page beside the key pair and copied through:
-`send_forms` first (empty or `no` refuses every form before any call and writes nothing, so a
-connection that reads a client's production office for testing is never written to; `yes` only
-for a confirmed demo or test customer or a customer gone live), then `lead_source_id`,
-`assignment_source_id`, `interest_status`, `confirm_by_email`, `confirm_by_sms`,
-`reminder_minutes` and `crm_password` (the CRM function group's, when Vitec issued a separate
-one). Vitec's 400, 404, 409 and 422 are a refusal with Vitec's words, scrubbed
+`GET v2/Advertising/Form/{customerId}/Estate/{estateId}` under the universal names, its bare
+Swedish times read in Vitec's zone as the records' are. Nothing about forms is typed on a
+connection (question 155): the lead source, the intake source and an interest's status are left
+to Vitec, and a booking asks for an e-mail confirmation, no SMS and no reminder. The search
+profile uses `crm_password` (the CRM function group's, when Vitec issued a separate one), as the
+office check does. Only the live service hands a form to the adapter (question 152). Vitec's 400, 404, 409 and 422 are a refusal with Vitec's words, scrubbed
 of anything that looks like an e-mail address or a number; anything else is a failure. Every
 call is a `crm.call` event in the form's chain on the home's timeline, without the body.
 `forms.test.ts` proves it against the stand-in; the real send waits on a demo or test customer

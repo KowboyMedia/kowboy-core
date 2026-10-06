@@ -75,6 +75,14 @@ a, seven of the eight fields go and only the CRM password stays in the login; wi
 settings also leave the login, show their stored values and draw their choices. Until then,
 nobody types into those fields.
 
+**The rest fixed on staging 2026-10-06** (the forms' first version, question 155 line 5): the
+seven forms fields left the Vitec connection, so nothing about forms is typed there and the
+fields that showed nothing stored and read "Yes" as no are gone. The CRM password stays, since
+the office check uses it too; like the other login fields it is never shown, and a save keeps it
+while it is left empty. The guard of question 152
+replaces "Send forms to Vitec": only the live service hands a form to the CRM. The entry leaves
+this file when the fix is on production.
+
 ## 4. `[core]` The forms' bot check lets every form through when its keys are missing
 
 **What happens.** With `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` unset, which is the case on
