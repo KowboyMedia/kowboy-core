@@ -782,6 +782,20 @@ client ports (item 16, first client by question 80).
       secure handshake while live Vitec answered. A QA login and "Check the login" show whether it
       answers Core; if it is another address, the constant in `adapters/vitec/api.ts` changes.
 
+29. **Confirm the forms’ features with Patric before checking the build** (Patric, 2026-10-06,
+    21:54 UTC: "Confirm with me the high level features of all the different forms, and
+    requirements/tests, and let me verify it before you will verify that it is correctly built and
+    working"). Components: `[core]`, `[crm-vitec]`, `[client-wordpress]`.
+    - First, a list for Patric: every form (book a viewing, interest, valuation, and any other the
+      theme or plugin carries), its high-level features, its requirements and the tests that prove
+      each one. Patric verifies that list. Only then is the build checked against the list he
+      approved, form by form, and nothing is called working before that.
+    - His reason: the session "Forms build review for production" "went complete apeshit, I dont
+      trust a character of code from that session", so all of its forms code is re-checked against
+      the approved list. What that session built is in its memory file
+      `forms-build-review-2026-10-05` and in `docs/forms.md` under "Built 2026-10-06".
+    - Starts when Patric says so.
+
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health
