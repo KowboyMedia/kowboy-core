@@ -3,7 +3,7 @@
 // engine, and nothing outside this adapter knows these shapes.
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Datatype, EventContext } from '../../engine/adapter-api/index.js';
-import { isBlocked } from './store.js';
+import { isBlocked, noteRefusal } from './store.js';
 
 /**
  * Vitec's systems a login can be for (question 169 a): `live`, the Connect the brokerages work in,
@@ -229,13 +229,24 @@ export type Page = {
 /** The start of an answer, for an error message: enough to see what Vitec sent, never the lot. */
 const snippet = (text: string): string => text.replace(/\s+/g, ' ').slice(0, 200);
 
-const officeCheck = new AsyncLocalStorage<true>();
+/** Who is passing the door, when it is not an ordinary request with a saved login. */
+type Passing = 'office check' | 'login trial';
+const passing = new AsyncLocalStorage<Passing>();
 
 /**
  * Run the office check (offices.ts) through the door: the one caller that asks Vitec about an
- * office it refuses, once a day or when a person presses "Fetch offices" (question 161 a).
+ * office it refuses, once a day or when a person presses "Fetch offices" (question 161 a). It
+ * settles its own refusals.
  */
-export const asOfficeCheck = <T>(run: () => Promise<T>): Promise<T> => officeCheck.run(true, run);
+export const asOfficeCheck = <T>(run: () => Promise<T>): Promise<T> =>
+  passing.run('office check', run);
+
+/**
+ * Run "Check the login" through the door: kept back from a refused office like any request, but a
+ * refusal it meets is the typed login's, which nothing has saved, so it blocks no office.
+ */
+export const asLoginTrial = <T>(run: () => Promise<T>): Promise<T> =>
+  passing.run('login trial', run);
 
 /**
  * The one door every request to Vitec passes, `get` and `post` alike (Patric, 2026-10-06: the
@@ -244,8 +255,29 @@ export const asOfficeCheck = <T>(run: () => Promise<T>): Promise<T> => officeChe
  * or its "Send again". Each request names the office or the customer or group id it is about.
  */
 async function door(environment: Environment, officeId: string): Promise<void> {
-  if (officeCheck.getStore()) return;
+  if (passing.getStore() === 'office check') return;
   if (await isBlocked({ environment, officeId })) throw new Blocked(environment, officeId);
+}
+
+/**
+ * On the way back through the door: a 401 or 403 to an advertising request with a saved login
+ * means Vitec will not let it read the office, so the door keeps that office's requests back from
+ * now on, and the worker's next tick blocks it and checks the offices (index.ts). Vitec's CRM
+ * category answers 401 when its function group is not granted, which says nothing of the office.
+ */
+async function refusedAt(
+  environment: Environment,
+  officeId: string,
+  path: string,
+  error: VitecError,
+): Promise<void> {
+  if (error.status !== 401 && error.status !== 403) return;
+  if (passing.getStore() || !/^(v2\/)?Advertising\//.test(path)) return;
+  try {
+    await noteRefusal({ environment, officeId }, error.message);
+  } catch {
+    // The refusal itself still reaches the caller; the fetch list blocks at its next refusal.
+  }
 }
 
 async function get(
@@ -286,7 +318,12 @@ async function get(
     call.response_bytes = Buffer.byteLength(text);
     if (response.status === 404) return null;
     if (!response.ok) {
-      throw new VitecError(response.status, `${path}: HTTP ${response.status} ${snippet(text)}`);
+      const error = new VitecError(
+        response.status,
+        `${path}: HTTP ${response.status} ${snippet(text)}`,
+      );
+      await refusedAt(auth.environment, officeId, path, error);
+      throw error;
     }
     try {
       return JSON.parse(text) as unknown;
@@ -366,10 +403,12 @@ export async function post(
     const text = await response.text();
     call.response_bytes = Buffer.byteLength(text);
     if (!response.ok) {
-      throw new VitecError(
+      const error = new VitecError(
         response.status,
         `${path}: HTTP ${String(response.status)} ${scrub(snippet(text))}`,
       );
+      await refusedAt(auth.environment, officeId, path, error);
+      throw error;
     }
     if (!text.trim()) return null;
     try {

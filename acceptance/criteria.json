@@ -170,12 +170,14 @@
       "title": "Health and alerting",
       "phase": "engine",
       "tests": [
-        "health is 500 while a check fails and 200 when everything passes (AC 17)",
+        "health is 500 only while Core is down for every customer, and 200 otherwise (AC 17, question 173)",
         "health answers anyone with counts and plain words, and keeps the names for the alerts (question 62)",
-        "alerts tells a change of a health check once, by mail with the names, and its recovery once",
-        "alerts tells an event that needs attention the moment it is written, naming the thing, where it is, and its link (questions 159 and 163)"
+        "health finds a site behind only when Core told it about changes over an hour ago and it has not fetched since (question 172)",
+        "alerts tells a problem once it has lasted its wait, once, and its end once (rules A and D)",
+        "alerts holds everything but a P0 while Core is down, and tells nothing of a problem that ends before its wait (rules A and B)",
+        "alerts tells an event that needs attention by its level: P1 at the next round, one line per cause, P2 in the 07:00 mail (questions 163 and 164)"
       ],
-      "note": "Sentry Uptime alerting waits on the account. Since 2026-10-06 (question 159) a check's change is a check.failed or check.recovered event, and the events that need the super admin's attention (engine/attention.ts) are listed on the Overview for seven days and told once each by mail and Slack."
+      "note": "The outside monitor is one Kowboy runs on /v1/health (UptimeRobot or similar), not Sentry (question 173); the page answers 500 only while a P0 check fails. Since 2026-10-06 every check has a level (question 172) and what Core tells follows the levels (question 164): a problem is a failing check or one site behind, opened and closed as a check.failed or check.recovered event, P0 told after five minutes and P1 after 15, each once with its end; P2 in one 07:00 mail; the events that need the super admin's attention (engine/attention.ts) are listed on the Overview for seven days."
     },
     {
       "ac": 18,

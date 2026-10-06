@@ -215,8 +215,14 @@ itself, all of it inside the adapter:
   at one door: every request to Vitec (`get` and `post` in `api.ts`) names its office, and a
   request about a blocked office is never sent, whoever asks, the fetch list, a listing, "compare
   with the CRM", "fetch again", "Check the login", a form or its "Send again"; only the office
-  check, run through `asOfficeCheck`, passes it. Each process reads the blocks at most once in five
-  seconds, and its own changes apply at once. A block and its
+  check, run through `asOfficeCheck`, passes it. A 401 or 403 that comes back to an advertising
+  request with a saved login, from a person's button or a form as well as the fetch list, is noted
+  at the same door (`noteRefusal`): the door keeps the office's requests back from then on, and the
+  worker's next tick blocks it, tells each connection that syncs it (`office.blocked`), holds those
+  connections and checks the offices. "Check the login" runs as a trial (`asLoginTrial`), so a typed
+  login's refusal blocks nothing, and a refusal from Vitec's CRM category (a function group not
+  granted) says nothing of the office. Each process reads the blocks at most once in five seconds,
+  and its own changes apply at once. A block and its
   end are logged (`office.blocked`, `office.unblocked`) once for each connection that syncs the
   office in that system, and a check settles the blocks before it takes offices off. The offices
   one check takes off for one reason, or one switch takes off, share one correlation id on their

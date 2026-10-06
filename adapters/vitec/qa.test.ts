@@ -151,11 +151,19 @@ afterEach(async () => {
 });
 
 describe('Vitec’s QA environment', () => {
-  it('reads the switch from the login: yes is QA, anything else live Vitec', () => {
+  it('reads the switch from the login: yes is QA, anything else live Vitec, and offers just no and yes', () => {
     expect(connect.loginOf(login({ qa: 'yes' }))?.environment).toBe('qa');
     expect(connect.loginOf(login({ qa: ' Yes ' }))?.environment).toBe('qa');
     expect(connect.loginOf(login({ qa: 'no' }))?.environment).toBe('live');
     expect(connect.loginOf(login())?.environment).toBe('live');
+
+    // The tenant page draws the switch from these two values as a tickbox: unticked is live Vitec.
+    const offered = vitecAdmin.credentials.find((field) => field.key === 'qa')?.options ?? [];
+    expect(offered.map(({ value }) => value)).toEqual(['no', 'yes']);
+    expect(offered.map(({ value }) => connect.loginOf(login({ qa: value }))?.environment)).toEqual([
+      'live',
+      'qa',
+    ]);
   });
 
   it('reads a QA login at QA’s address only, and keeps its homes apart from live Vitec’s with the same office id', async () => {

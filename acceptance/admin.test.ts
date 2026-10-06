@@ -646,8 +646,9 @@ describe('the admin area', () => {
     await db().query(
       "update events set at = now() - interval '8 days' where type = 'login.refused'",
     );
-    // The new site has never pulled: the check turns red, and only the site is listed, not the
-    // other red checks.
+    // Core told the new site about changes two hours ago, and it has never fetched: the sites check
+    // finds it behind, and only the site is listed, not the other failing checks.
+    await db().query("update subscribers set last_bell_at = now() - interval '2 hours'");
     await checkAlerts({
       environment: 'test',
       publicUrl: null,
@@ -656,35 +657,37 @@ describe('the admin area', () => {
     });
     const tenant = await api<{ data: { sites: { id: number }[] } }>(`/tenants/${String(tenantId)}`);
     const siteId = tenant.body.data.sites[0]?.id ?? 0;
+    const connection = 'Acme Mäklare’s Fake-webhook connection, short name acme-crm';
 
     const overview = await api<{ data: { attention: Record<string, unknown>[] } }>('/overview');
     expect(overview.body.data.attention).toEqual([
       expect.objectContaining({
         type: 'check.failed',
-        title: 'a site stopped pulling',
+        title: 'a site is not fetching its changes',
+        said: 'Core told the site about changes over an hour ago, and it has not fetched them since, so it may show homes that have changed or are gone. It has never fetched. Check that the site is up and that its plugin reaches Core.',
         what: 'site acme.se',
+        where: 'Acme Mäklare',
         link: `/tenants/${String(tenantId)}#site:${String(siteId)}`,
         tenantId,
         tenant: 'Acme Mäklare',
-        connectionId: null,
       }),
       // The connection is the thing itself, so it is not named again as where it is.
       expect.objectContaining({
         type: 'connection.paused',
-        what: 'connection acme-crm',
+        what: connection,
+        where: null,
         link: `/tenants/${String(tenantId)}#connection:acme-crm`,
         tenant: 'Acme Mäklare',
-        connectionId: null,
       }),
       expect.objectContaining({
         type: 'office.taken_off',
         title: 'an office was taken off the sites',
-        said: 'office 100 was taken off the sites: it is no longer in the office group the sites use',
-        what: 'office Lidingö (100)',
+        said: 'Office Lidingö (the CRM’s office id 100) was taken off the sites, with its homes and new-build projects: it is no longer in the office group the sites use. If that was meant, nothing needs doing. If not, undo the change the reason names; the sites then get the homes and new-build projects back.',
+        what: 'office Lidingö (the CRM’s office id 100)',
+        where: connection,
         link: `/records?tenant=${String(tenantId)}&office=100&deleted=true`,
         tenantId,
         tenant: 'Acme Mäklare',
-        connectionId: 'acme-crm',
       }),
       expect.objectContaining({
         type: 'check.failed',
