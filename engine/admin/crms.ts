@@ -3,6 +3,7 @@
 // it never inspects what any of it means, and no CRM is named anywhere in here.
 import { adminFor, adminProviders, manifestFor } from '../registry.js';
 import { connectionById, connectionsForProvider } from '../storage/connections.js';
+import { mergedLogin } from './login.js';
 import type { AdminDirections, AdminField, AdminSection, Datatype } from '../adapter-api/types.js';
 
 export type CrmSummary = {
@@ -77,6 +78,12 @@ export type ProbeInput = {
   connectionId?: string;
 };
 
+/** A saved connection of this CRM, whose stored login a check may use; none for another CRM. */
+async function storedLogin(connectionId: string | undefined, provider: string) {
+  const saved = connectionId ? await connectionById(connectionId) : null;
+  return saved?.provider === provider ? saved : null;
+}
+
 /**
  * Try a login (§3 A, Should). What a person typed becomes the adapter's own document, exactly as a
  * save would store it, so a yes here means a yes afterwards. On a saved connection the page has no
@@ -92,15 +99,15 @@ export async function probe(
   if (!admin?.probe) {
     return { ok: false, detail: `The ${provider} adapter cannot try a login.` };
   }
-  const typed = Object.entries(input.typed).filter(([, value]) => value !== '');
-  let credentials = typed.length > 0 ? JSON.stringify(Object.fromEntries(typed)) : null;
+  // What is typed goes over the stored login, as the save will store it.
+  const stored = await storedLogin(input.connectionId, provider);
+  let credentials = mergedLogin(input.typed, stored?.credentials ?? null);
   let officeIds = input.officeIds;
 
   if (credentials === null) {
     if (!input.connectionId) {
       return { ok: false, detail: 'Type the login first, or save the connection and try again.' };
     }
-    const stored = await connectionById(input.connectionId);
     if (!stored?.credentials) {
       return { ok: false, detail: 'This connection holds no login yet. Type one and try again.' };
     }

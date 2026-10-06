@@ -583,14 +583,10 @@ const refuseConnection = (connection: TenantInput['connections'][number]): strin
   if (!connection.id || !/^[a-z0-9][a-z0-9-]*$/.test(connection.id)) {
     return 'A connection needs a short name of lower-case letters, digits and dashes.';
   }
-  if (!connection.provider) return `The connection ${connection.id} needs a CRM.`;
-  // A CRM is asked for one office at a time — every call names it — so there is nothing to
-  // iterate and no way to discover the offices a login covers. A connection with none named
-  // fetches nothing at all and looks perfectly healthy while doing it, which is the one state
-  // worth refusing outright (Patric, 2026-09-21: "how can an office list be empty?").
-  return connection.licensedOffices && connection.licensedOffices.length > 0
-    ? null
-    : `The connection ${connection.id} needs at least one office.`;
+  // No office named means every office the CRM gives the login, which an adapter may learn from
+  // the CRM itself (question 147 a, 2026-10-06, reversing the rule of 2026-09-21 that refused an
+  // empty list); a connection that ends up with none says so in its health check.
+  return connection.provider ? null : `The connection ${connection.id} needs a CRM.`;
 };
 
 const refuseSite = (site: TenantInput['sites'][number]): string | null => {

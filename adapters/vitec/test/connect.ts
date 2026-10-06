@@ -42,6 +42,13 @@ export type FakeConnect = {
   refuseNext(message: string): void;
   /** What the form endpoint answers for this estate: its viewings and time slots. */
   setForm(officeId: string, estateId: string, payload: Record<string, unknown>): void;
+  /** The office groups a customer keeps in Vitec's CRM (`CRM/Officegroups/{customerId}`). */
+  setGroups(
+    customerId: string,
+    groups: { id: string; name: string; offices: { id: string }[] }[],
+  ): void;
+  /** Answer 403 for this customer's office groups: the login lacks the CRM rights. */
+  forbidGroups(customerId: string): void;
   maxInFlight: number;
   close(): Promise<void>;
 };
@@ -82,9 +89,32 @@ export function startFakeConnect(): Promise<FakeConnect> {
     forms: [],
     refuseNext: (message) => (refusal = message),
     setForm: (officeId, estateId, payload) => formData.set(`${officeId}/${estateId}`, payload),
+    setGroups: (customerId, list) => groups.set(customerId, list),
+    forbidGroups: (customerId) => groupsForbidden.add(customerId),
     maxInFlight: 0,
     close: () => Promise.resolve(),
   };
+  const groups = new Map<string, unknown[]>();
+  const groupsForbidden = new Set<string>();
+  /** `CRM/Officegroups/{customerId}`: the stored groups, none, or a refusal. */
+  const answerGroups = (
+    pathname: string,
+    reply: (status: number, body: unknown) => void,
+  ): boolean => {
+    if (!pathname.startsWith('/CRM/Officegroups/')) return false;
+    const customerId = decodeURIComponent(pathname.split('/')[3] ?? '');
+    if (groupsForbidden.has(customerId)) reply(403, { message: 'forbidden' });
+    else reply(200, groups.get(customerId) ?? []);
+    return true;
+  };
+  /** The calls outside `Advertising/`: the forms' calls and the office groups. */
+  const answerOutsideAdvertising = (
+    method: string,
+    path: string,
+    text: string,
+    reply: (status: number, body: unknown) => void,
+    noContent: () => void,
+  ): boolean => answerForm(method, path, text, reply, noContent) || answerGroups(path, reply);
   let refusal: string | null = null;
   const formData = new Map<string, Record<string, unknown>>();
 
@@ -226,7 +256,8 @@ export function startFakeConnect(): Promise<FakeConnect> {
           return response.end(trouble.body);
         }
         const text = Buffer.concat(chunks).toString('utf8');
-        if (answerForm(request.method ?? 'GET', url.pathname, text, reply, noContent)) return;
+        const method = request.method ?? 'GET';
+        if (answerOutsideAdvertising(method, url.pathname, text, reply, noContent)) return;
         const [, advertising, resource, officeId, id] = url.pathname.split('/');
         const datatype = resource ? RESOURCES[resource] : undefined;
         if (advertising !== 'Advertising' || !datatype || !officeId) return reply(404, {});

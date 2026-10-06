@@ -20,6 +20,7 @@ import {
   type ConnectionListRow,
 } from '../storage/connections.js';
 import { queueLifecycle } from '../lifecycle.js';
+import { mergedLogin } from './login.js';
 import { queryEvents } from '../events.js';
 import { itemCounts } from '../storage/items.js';
 import { submissionCounts, type SubmissionCounts } from '../storage/submissions.js';
@@ -292,11 +293,20 @@ export async function readTenant(id: number): Promise<TenantView | null> {
   };
 }
 
-/** Empty credentials mean "keep what is stored"; anything typed becomes the adapter's document. */
-const credentialsOf = (input: ConnectionInput): string | null => {
-  const typed = Object.entries(input.credentials ?? {}).filter(([, value]) => value !== '');
-  return typed.length === 0 ? null : JSON.stringify(Object.fromEntries(typed));
-};
+/**
+ * Nothing typed keeps what is stored; anything typed goes over the stored fields, so one field
+ * typed never loses the others. A connection moved to another CRM starts from what is typed.
+ */
+async function credentialsOf(
+  input: ConnectionInput,
+  before: ConnectionListRow | undefined,
+): Promise<string | null> {
+  const stored =
+    before && before.provider === input.provider
+      ? ((await connectionById(input.id))?.credentials ?? null)
+      : null;
+  return mergedLogin(input.credentials, stored);
+}
 
 export type SaveResult = { id: number; changes: string[] };
 
@@ -345,7 +355,7 @@ async function saveConnections(tenantId: number, wanted: ConnectionInput[]): Pro
       id: connection.id,
       tenantId,
       provider: connection.provider,
-      credentials: credentialsOf(connection),
+      credentials: await credentialsOf(connection, before),
       licensedOffices: connection.licensedOffices,
       active: connection.active,
     });

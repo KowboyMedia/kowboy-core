@@ -77,21 +77,27 @@ three times). The tenant's page holds any number of connections, of the same CRM
 each with the CRM's own login fields, the offices it may see, a **Check the login** button that
 tries the CRM before anything is saved, and whatever the adapter reports about that connection.
 
-**A connection names at least one office**, and the save refuses it otherwise (Patric, 2026-09-21).
-A CRM is asked for one office at a time — every call carries it — and no CRM offers a list of the
-offices a login covers, so a connection with none named would fetch nothing at all while looking
-perfectly healthy. Two tenants may name the same office: the record is fetched once and written
+**Offices may be left empty** (question 147 a, 2026-10-06, reversing the rule of 2026-09-21
+that refused it): no office named means every office the CRM gives the login. An adapter that can
+learn its offices from the CRM does so and says how in its setup steps (Vitec: the office group
+"Webbplats", or every office behind the login's id); one that ends up with none says so in its
+health check. Two tenants may name the same office: the record is fetched once and written
 for each of them, each with its own copies, its own version numbers and its own sites, which is
 how two sites can show one brokerage's listings. Core does not warn about that; the page says it
 where the offices are typed.
 Its sites are on the same page with their bell address, their bell secret, their public site key
 for the forms widget and the addresses the widget may be used from (empty: the bell address's
 site), their setup checklist, what they reported applied and failed, and their own errors.
-Under a Vitec connection, **Offices Vitec lists** shows what Vitec answered when Core last asked
-which offices sit behind each id the connection names (a customer id or a group id), each office
-read on its own with this login: readable, or why not. Core asks once a day and at every worker
-start; **Check offices now** asks at the worker's next tick, and its explanation sits beside it.
-It changes nothing yet: what is synced is still decided by the offices typed.
+Under a Vitec connection, **Offices Vitec lists** says in plain words which offices reach the
+sites and why, for a reader who must explain it to the brokerage: Core asks Vitec once a day, and
+at each worker start, which offices sit behind the login's customer or group id, reads each one,
+and uses those in the brokerage's office group "Webbplats" in Vitec, or every office when there is
+no such group or it holds none of them (Patric, closing question 154). The card shows the last
+check, what reaches the sites, the office groups Vitec answered, and each office with whether it
+reads and whether it is on the sites. **Check offices now** asks at the worker's next tick, and its
+explanation sits beside it. An office that came is loaded; one that went is tombstoned with all its
+records, so each site deletes it at its next sync, and the tombstones stay for the retention
+window. While offices are typed under "Offices it may see", those are used instead.
 Under each connection, one line counts the forms visitors sent through Core to that CRM in the
 last day (docs/forms.md): delivered, refused by the CRM, unanswered by the CRM; red when any went
 unanswered. The visitor is never stored in Core, so the line has counts and nothing else.
@@ -103,7 +109,9 @@ the page is removed with its records.
 **A saved secret is not on the page at all.** A stored password or key never leaves Core: the field
 shows `••••••••••••` where a secret exists, and that mask is the box's placeholder, not its value —
 there is nothing in the page for a browser, an extension or a screenshot to read. Leaving it as it
-is keeps the stored login; typing over it replaces it.
+is keeps the stored login; a field typed goes over that field alone, and every field not typed
+keeps its stored value (known bug 3, fixed 2026-10-06: a save used to keep only what was typed).
+A stored field cannot be emptied from the page.
 
 Because of that, **Check the login** on a saved connection has nothing to send, so Core tries the
 login it already holds, with the offices that connection is licensed for. Typed values, when there

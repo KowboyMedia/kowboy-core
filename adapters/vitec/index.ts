@@ -5,7 +5,8 @@
 //          ──► Remove: notFound, no fetch
 //   every 12 h ──► "what changed since the last catch-up, less one hour" ──► fetch list
 //   every 24 h ──► Vitec's full id list against the ids seen ──► missing ones removed
-//   every 24 h ──► the offices Vitec lists behind each id, each read on its own ──► shown (offices.ts)
+//   every 24 h ──► the offices behind the login's id, each read; the group "webbplats" or all ──►
+//                  offices that came are loaded, offices that went are taken off (offices.ts)
 //
 // Core syncs what Vitec lists for the sites, the marketed estates, and nothing else (Patric,
 // 2026-09-17): in the list means on the sites; a Remove notification, or an id gone from the list,
@@ -29,7 +30,8 @@ import * as store from './store.js';
 import * as forms from './forms.js';
 import { changedAtOf, isoDate, mappers, referencedIds } from './mappers.js';
 import { refetchOffice, vitecAdmin } from './admin/index.js';
-import { checkOffices } from './offices.js';
+import { CHECK_EVERY_MS, checkOffices, lastCheck, officesOf } from './offices.js';
+import { DATATYPES } from '../../engine/adapter-api/index.js';
 import type {
   Adapter,
   AdapterApi,
@@ -47,8 +49,6 @@ const CATCH_UP_EVERY_MS = 12 * 3_600_000;
 const CATCH_UP_OVERLAP_MS = 3_600_000;
 const CATCH_UP_LIMIT_MS = 13 * 3_600_000;
 const COMPARE_EVERY_MS = 24 * 3_600_000;
-/** Which offices sit behind each id a connection names is asked once a day (offices.ts). */
-const OFFICES_CHECK_EVERY_MS = 24 * 3_600_000;
 const LAG_LIMIT_MS = 5 * 60_000;
 const RETRIES_RED = 3;
 /** A connection pauses after this many failures in a row on Vitec's side. */
@@ -59,8 +59,18 @@ const PAUSE_MAX_MS = 30 * 60_000;
 const BLOCK_BASE_MS = 3_600_000;
 const BLOCK_MAX_MS = 24 * 3_600_000;
 
-type Credentials = { username: string; password: string };
-type Live = { connection: Connection; credentials: Credentials };
+/**
+ * The login as the connection's page stores it: the Connect key pair, the customer or group id
+ * Vitec issued it for, and the CRM function group's own password when Vitec issued one.
+ */
+type Credentials = {
+  username: string;
+  password: string;
+  customerId: string | null;
+  crmPassword: string | null;
+};
+/** A connection the adapter works for, with the offices it syncs (`officesOf`). */
+type Live = { connection: Connection; credentials: Credentials; offices: string[] };
 
 /** Vitec's notification `type` per datatype; users are documented as both `User` and `Agent`. */
 const NOTIFIED: Record<string, Datatype> = {
@@ -102,9 +112,18 @@ const scheduleTick = (): Promise<void> => {
 function credentialsOf(connection: Connection): Credentials | null {
   if (!connection.credentials) return null;
   try {
-    const parsed = JSON.parse(connection.credentials) as Partial<Credentials>;
-    if (typeof parsed.username === 'string' && typeof parsed.password === 'string') {
-      return { username: parsed.username, password: parsed.password };
+    const parsed = JSON.parse(connection.credentials) as Record<string, unknown>;
+    const text = (key: string): string | null => {
+      const value = parsed[key];
+      return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+    };
+    if (typeof parsed['username'] === 'string' && typeof parsed['password'] === 'string') {
+      return {
+        username: parsed['username'],
+        password: parsed['password'],
+        customerId: text('customer_id'),
+        crmPassword: text('crm_password'),
+      };
     }
   } catch {
     // reported below as unreadable
@@ -112,13 +131,13 @@ function credentialsOf(connection: Connection): Credentials | null {
   return null;
 }
 
-/** Active connections with readable credentials and at least one office. The rest show up in `vitec.catch_up`. */
+/** Active connections with a readable login. One with no offices yet shows up in `vitec.catch_up`. */
 async function live(current: AdapterApi): Promise<Live[]> {
   const result: Live[] = [];
   for (const connection of await current.connections()) {
-    if (!connection.active || connection.licensedOffices.length === 0) continue;
+    if (!connection.active) continue;
     const credentials = credentialsOf(connection);
-    if (credentials) result.push({ connection, credentials });
+    if (credentials) result.push({ connection, credentials, offices: await officesOf(connection) });
   }
   return result;
 }
@@ -215,7 +234,7 @@ async function skippedOffices(targets: Live[]): Promise<string[]> {
   const skipped = new Set((await store.blockedOffices()).map((office) => office.officeId));
   for (const target of targets) {
     if (paused(await pauseOf(target.connection.id))) {
-      for (const officeId of target.connection.licensedOffices) skipped.add(officeId);
+      for (const officeId of target.offices) skipped.add(officeId);
     }
   }
   return [...skipped];
@@ -228,7 +247,7 @@ async function skippedOffices(targets: Live[]): Promise<string[]> {
  */
 async function probeOffices(current: AdapterApi, targets: Live[]): Promise<void> {
   for (const office of await store.probesDue()) {
-    const owner = targets.find((t) => t.connection.licensedOffices.includes(office.officeId));
+    const owner = targets.find((t) => t.offices.includes(office.officeId));
     if (!owner) {
       await store.unblockOffice(office.officeId);
       continue;
@@ -347,10 +366,13 @@ const routes: Route[] = [
       }
       // Never fetch inside the request: a burst must not become a burst of Connect calls.
       const correlationId = randomUUID();
-      const owner = (await api.connections()).find(
-        (candidate) =>
-          candidate.active && candidate.licensedOffices.includes(notification.officeId),
-      );
+      let owner: Connection | undefined;
+      for (const candidate of await api.connections()) {
+        if (candidate.active && (await officesOf(candidate)).includes(notification.officeId)) {
+          owner = candidate;
+          break;
+        }
+      }
       await arrived(
         {
           outcome: 'queued',
@@ -400,7 +422,7 @@ async function drainOnce(): Promise<void> {
  * removal, tombstoned in each of them without a fetch: the record left the sites' scope.
  */
 async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi): Promise<void> {
-  const owners = targets.filter((live) => live.connection.licensedOffices.includes(entry.officeId));
+  const owners = targets.filter((live) => live.offices.includes(entry.officeId));
   if (entry.reason === 'remove') {
     for (const { connection } of owners) {
       await current.notFound(connection, entry.datatype, entry.remoteId);
@@ -602,7 +624,7 @@ async function load(live: Live, offices: readonly string[], datatype?: Datatype)
   await enqueueListed(listed, 'load', false);
   await enqueueMissing(listed);
   // Only a load of every office is a catch-up and a comparison of the whole connection.
-  const whole = live.connection.licensedOffices.every((officeId) => offices.includes(officeId));
+  const whole = live.offices.every((officeId) => offices.includes(officeId));
   if (whole && !datatype) {
     await markCatchUp(live.connection.id, startedAt);
     await store.setState(live.connection.id, 'compare_at', startedAt.toISOString());
@@ -642,7 +664,7 @@ async function refetch(
 
 /** Resync (strategy §7.2): reload everything listed, and remove every id no longer listed. */
 async function resync(live: Live, datatype?: Datatype): Promise<void> {
-  await load(live, live.connection.licensedOffices, datatype);
+  await load(live, live.offices, datatype);
 }
 
 async function markCatchUp(connectionId: string, startedAt: Date): Promise<void> {
@@ -658,15 +680,77 @@ async function catchUp(live: Live): Promise<void> {
   const startedAt = new Date();
   const until = await store.getState(live.connection.id, 'catch_up_until');
   const since = until ? new Date(new Date(until).getTime() - CATCH_UP_OVERLAP_MS) : undefined;
-  const listed = await listAll(live, live.connection.licensedOffices, connect.LISTABLE, since);
+  const listed = await listAll(live, live.offices, connect.LISTABLE, since);
   await enqueueListed(listed, 'catch_up', true);
   await markCatchUp(live.connection.id, startedAt);
 }
 
 async function compare(live: Live): Promise<void> {
   const startedAt = new Date();
-  await enqueueMissing(await listAll(live, live.connection.licensedOffices, connect.LISTABLE));
+  await enqueueMissing(await listAll(live, live.offices, connect.LISTABLE));
   await store.setState(live.connection.id, 'compare_at', startedAt.toISOString());
+}
+
+/**
+ * Ask Vitec which offices to sync (offices.ts) and act on the difference with `target.offices`,
+ * what was synced before: an office that went is taken off the sites, and an office that came is
+ * loaded. Offices typed on the connection are loaded by the engine's offices_added instead.
+ */
+async function checkAndApply(current: AdapterApi, target: Live): Promise<Live> {
+  const { credentials, connection } = target;
+  const ids = credentials.customerId ? [credentials.customerId] : connection.licensedOffices;
+  const crmAuth = credentials.crmPassword
+    ? { ...credentials, password: credentials.crmPassword }
+    : credentials;
+  const check = await checkOffices(
+    connection.id,
+    credentials,
+    crmAuth,
+    ids,
+    connection.licensedOffices,
+  );
+  const next = { ...target, offices: check.offices };
+  for (const officeId of target.offices.filter((office) => !check.offices.includes(office))) {
+    await takeOff(current, connection, officeId);
+  }
+  if (connection.licensedOffices.length > 0) return next;
+  const added = check.offices.filter((office) => !target.offices.includes(office));
+  if (added.length > 0) await load(next, added);
+  return next;
+}
+
+/** A new connection loads every office it syncs: the typed ones, or the ones Vitec gives. */
+async function connectionAdded(current: AdapterApi, target: Live): Promise<void> {
+  const typed = target.connection.licensedOffices;
+  if (typed.length > 0) await load({ ...target, offices: typed }, typed);
+  else await checkAndApply(current, target);
+}
+
+/**
+ * The typed offices changed. Between typed offices the engine's own removal is enough, and Vitec
+ * is not asked. Offices Vitec chose before and no longer typed go; with none typed now, the engine
+ * took the typed ones off, and Vitec's choice is loaded afresh.
+ */
+async function typedChanged(current: AdapterApi, target: Live): Promise<void> {
+  const typed = target.connection.licensedOffices.length > 0;
+  const last = await lastCheck(target.connection.id);
+  if (typed && (!last || last.source === 'typed')) return;
+  await checkAndApply(current, { ...target, offices: typed ? (last?.offices ?? []) : [] });
+}
+
+/**
+ * An office no longer synced (Patric, 2026-10-06: "an office that is removed regardless of method
+ * needs to have their data pulled from client sites"): every record of it is tombstoned, so each
+ * site deletes it at its next sync, and the tombstone stays for the engine's retention window.
+ */
+async function takeOff(
+  current: AdapterApi,
+  connection: Connection,
+  officeId: string,
+): Promise<void> {
+  if (!officeId) return; // an empty office would be every office
+  for (const datatype of DATATYPES)
+    await current.presentIds(connection, datatype, { officeId }, []);
 }
 
 const ageMs = (iso: string | null): number =>
@@ -688,6 +772,19 @@ const span = (ms: number): string => {
  */
 let startPending = true;
 
+/** One connection's schedules that are due: the offices first, then the catch-up and the
+ * comparison over the offices the check chose. */
+async function runDue(current: AdapterApi, given: Live, startup: boolean): Promise<void> {
+  const due = async (key: string, every: number): Promise<boolean> =>
+    startup || ageMs(await store.getState(given.connection.id, key)) >= every;
+  const target = (await due('offices_check_at', CHECK_EVERY_MS))
+    ? await checkAndApply(current, given)
+    : given;
+  if (target.offices.length === 0) return;
+  if (await due('catch_up_at', CATCH_UP_EVERY_MS)) await catchUp(target);
+  if (await due('compare_at', COMPARE_EVERY_MS)) await compare(target);
+}
+
 async function tickOnce(): Promise<void> {
   const current = engine;
   if (!current) return;
@@ -696,28 +793,17 @@ async function tickOnce(): Promise<void> {
   const targets = await live(current);
   await resumeDue(targets);
   await probeOffices(current, targets);
-  for (const target of targets) {
+  for (const given of targets) {
     try {
-      const catchUpAge = ageMs(await store.getState(target.connection.id, 'catch_up_at'));
-      if (startup || catchUpAge >= CATCH_UP_EVERY_MS) await catchUp(target);
-      const compareAge = ageMs(await store.getState(target.connection.id, 'compare_at'));
-      if (startup || compareAge >= COMPARE_EVERY_MS) await compare(target);
-      const checkAge = ageMs(await store.getState(target.connection.id, 'offices_check_at'));
-      if (startup || checkAge >= OFFICES_CHECK_EVERY_MS) {
-        await checkOffices(
-          target.connection.id,
-          target.credentials,
-          target.connection.licensedOffices,
-        );
-      }
+      await runDue(current, given, startup);
     } catch (error) {
       failed = true;
       await current.logEvent(
         'schedule.failed',
-        { connection_id: target.connection.id, detail: String(error) },
-        { connectionId: target.connection.id },
+        { connection_id: given.connection.id, detail: String(error) },
+        { connectionId: given.connection.id },
       );
-      current.report(error, { where: 'vitec schedule', connection_id: target.connection.id });
+      current.report(error, { where: 'vitec schedule', connection_id: given.connection.id });
     }
   }
   if (startup && !failed) {
@@ -754,8 +840,8 @@ async function catchUpHealth(current: AdapterApi): Promise<HealthResult> {
       note('connection(s) whose login is not readable', `${connection.id}: login not readable`);
       continue;
     }
-    if (connection.licensedOffices.length === 0) {
-      note('connection(s) with no offices', `${connection.id}: no offices configured`);
+    if ((await officesOf(connection)).length === 0) {
+      note('connection(s) with no offices', `${connection.id}: no offices to sync`);
       continue;
     }
     const age = ageMs(await store.getState(connection.id, 'catch_up_at'));
@@ -823,9 +909,13 @@ export const vitecAdapter: Adapter = {
     given.onLifecycle(async (event) => {
       const credentials = credentialsOf(event.connection);
       if (!credentials || !event.connection.active) return;
-      const target = { connection: event.connection, credentials };
-      if (event.type === 'connection_added') await load(target, event.connection.licensedOffices);
+      const target = { connection: event.connection, credentials, offices: [] as string[] };
+      if (event.type === 'connection_added') return connectionAdded(given, target);
+      target.offices = await officesOf(event.connection);
       if (event.type === 'offices_added') await load(target, event.officeIds);
+      if (event.type === 'offices_added' || event.type === 'offices_removed') {
+        await typedChanged(given, target);
+      }
       if (event.type === 'resync') await resync(target, event.datatype);
       if (event.type === 'refetch') await refetch(target, event.records);
     });

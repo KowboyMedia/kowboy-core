@@ -309,6 +309,31 @@ export function getOne(
   );
 }
 
+/** One office group as Vitec's CRM keeps it: its name and the ids of the offices in it. */
+export type OfficeGroup = { id: string; name: string; officeIds: string[] };
+
+/**
+ * The office groups a brokerage keeps in Vitec (`GET CRM/Officegroups/{customerId}`, the
+ * version 1 CRM category, docs/inputs/vitec/api/). Answered with the CRM function group's rights;
+ * an empty list when Connect answers 404.
+ */
+export async function officeGroups(
+  auth: Auth,
+  customerId: string,
+  trace?: EventContext,
+): Promise<OfficeGroup[]> {
+  const answer = await get(auth, `CRM/Officegroups/${segment(customerId)}`, {}, trace);
+  if (!Array.isArray(answer)) return [];
+  const text = (value: unknown): string => (typeof value === 'string' ? value : '');
+  return answer.map((group: Record<string, unknown>) => ({
+    id: text(group['id']),
+    name: text(group['name']),
+    officeIds: (Array.isArray(group['offices']) ? group['offices'] : [])
+      .map((office: Record<string, unknown>) => text(office['id']))
+      .filter((id) => id !== ''),
+  }));
+}
+
 /** One page of a list endpoint, or null when Connect answers 404. */
 export function page(
   auth: Auth,

@@ -3,7 +3,7 @@
 // (docs/admin-panel-design.md §3). The browser journeys in `admin/e2e` walk the same ground with a
 // real browser; this suite proves the API underneath them.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { harness, until, type Harness } from './harness.js';
+import { connectionById, harness, until, type Harness } from './harness.js';
 import { fakeWebhookAdapter } from '../adapters/fake-webhook/index.js';
 import * as crm from '../adapters/fake-webhook/crm.js';
 import { db } from '../engine/storage/db.js';
@@ -230,15 +230,15 @@ describe('the admin area', () => {
     expect(badBell.status).toBe(400);
     expect(badBell.body.error).toContain('http');
 
-    // A CRM is asked for one office at a time, so a connection with none named would fetch
-    // nothing while looking healthy. It is refused at the field (Patric, 2026-09-21).
-    const noOffice = await api<{ error: string }>('/tenants', {
+    // A connection names its CRM. No office named is allowed since question 147 a (2026-10-06):
+    // it means every office the CRM gives the login.
+    const noCrm = await api<{ error: string }>('/tenants', {
       method: 'POST',
       body: tenantBody({
         connections: [
           {
             id: 'acme-crm',
-            provider: 'fake-webhook',
+            provider: '',
             credentials: { key: 'a-key' },
             licensedOffices: [],
             active: true,
@@ -246,8 +246,8 @@ describe('the admin area', () => {
         ],
       }),
     });
-    expect(noOffice.status).toBe(400);
-    expect(noOffice.body.error).toContain('office');
+    expect(noCrm.status).toBe(400);
+    expect(noCrm.body.error).toContain('CRM');
   });
 
   it('holds one tenant with two CRM connections (U1, a Must of 2026-09-20)', async () => {
@@ -307,6 +307,26 @@ describe('the admin area', () => {
     }>(`/tenants/${String(id)}`);
     expect(read.body.data.displayName).toBe('Acme Mäklare AB');
     expect(read.body.data.connections[0]?.hasCredentials).toBe(true);
+
+    // One field typed goes over the stored ones and loses none of them (known bug 3).
+    await api(`/tenants/${String(id)}`, {
+      method: 'PATCH',
+      body: tenantBody({
+        connections: [
+          {
+            id: 'acme-crm',
+            provider: 'fake-webhook',
+            credentials: { region: 'south' },
+            licensedOffices: ['100'],
+            active: true,
+          },
+        ],
+      }),
+    });
+    expect(JSON.parse((await connectionById('acme-crm'))?.credentials ?? '{}')).toEqual({
+      key: 'a-key',
+      region: 'south',
+    });
   });
 
   it('searches, sorts and pages the records, and shows one whole (U3, AC 42)', async () => {

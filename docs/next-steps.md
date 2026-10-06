@@ -526,13 +526,17 @@ client ports (item 16, first client by question 80).
       added on that tenant, "it says 'Yes' on all offices": the group lists its offices and each
       one reads. He then asked whether Vitec's office groups could pick the site's offices
       (question 154).
-    - **Step 2, after Patric's look at step 1:** the rest of 147 a. The id field next to the
-      Connect password (known bug 3 fixed first, since saving one typed field erases the login);
-      "Offices it may see" gone for Vitec with the connection's own list empty; the save's rule
-      that a connection names at least one office reversed (`engine/admin/index.ts`); the
-      adapter's loads, catch-ups and comparisons over the offices that read; an office that
-      leaves Vitec's list removed with its records; the group case (`G12` on the
-      svenskamaklarhuset.se tenant) proven by that tenant's first load.
+    - **Step 2, done 2026-10-06** (Patric's answer to 154: "I want to use every office belonging
+      to the group "webbplats", if zero or the group doesnt exist, use all offices by listing as
+      above"): the field "Customer or group id" next to the Connect password; the offices synced
+      are those in the office group "webbplats" in Vitec, or every office that reads; an office
+      that came is loaded and one that went is tombstoned with its records; a check Vitec did not
+      answer keeps the last offices; the save's rule that a connection names an office is
+      reversed; known bug 3's erasing is fixed; the card "Offices Vitec lists" and the Vitec setup
+      steps say it in plain words (Patric: "Put a note in the admin panel explaining this in simple
+      terms"). Left: question 156 (whether the page leaves out "Offices it may see" for Vitec);
+      until then, offices typed there win, and the svenskamaklarhuset.se tenant takes its offices
+      from Vitec once `G12` sits in "Customer or group id" and "Offices it may see" is empty.
     - **Component:** `[crm-vitec]`, and `[core]` for the reversed save rule.
 
 25. **Check that every admin button explains itself beside it** (Patric, 2026-10-06: "make note of

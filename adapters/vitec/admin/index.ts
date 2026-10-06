@@ -9,7 +9,7 @@ import * as connect from '../api.js';
 import * as store from '../store.js';
 import { mappers } from '../mappers.js';
 import { directions } from './directions.js';
-import { lastCheck } from '../offices.js';
+import { lastCheck, officesOf, WEBSITE_GROUP, type OfficesCheck } from '../offices.js';
 import type {
   AdapterAdmin,
   AdminAction,
@@ -19,7 +19,7 @@ import type {
   Connection,
 } from '../../../engine/adapter-api/index.js';
 
-type Credentials = { username: string; password: string };
+type Credentials = { username: string; password: string; customerId: string | null };
 
 /** The reset that makes the worker's next tick run a schedule now. */
 const LONG_AGO = '1970-01-01T00:00:00.000Z';
@@ -27,9 +27,15 @@ const LONG_AGO = '1970-01-01T00:00:00.000Z';
 /** The login as stored: a JSON document with the Connect key pair, or null when unreadable. */
 export function credentialsOf(stored: string | null): Credentials | null {
   try {
-    const parsed = JSON.parse(stored ?? '') as Partial<Credentials>;
-    return typeof parsed.username === 'string' && typeof parsed.password === 'string'
-      ? { username: parsed.username, password: parsed.password }
+    const parsed = JSON.parse(stored ?? '') as Record<string, unknown>;
+    const customerId = parsed['customer_id'];
+    return typeof parsed['username'] === 'string' && typeof parsed['password'] === 'string'
+      ? {
+          username: parsed['username'],
+          password: parsed['password'],
+          customerId:
+            typeof customerId === 'string' && customerId.trim() !== '' ? customerId.trim() : null,
+        }
       : null;
   } catch {
     return null;
@@ -63,7 +69,7 @@ async function scheduleOf(connection: Connection): Promise<Schedule> {
     store.getState(connection.id, 'compare_at'),
     store.getState(connection.id, 'catch_up_until'),
     store.getState(connection.id, 'paused_until'),
-    store.summary(connection.licensedOffices),
+    officesOf(connection).then((offices) => store.summary(offices)),
   ]);
   const paused = Boolean(pausedUntil) && new Date(pausedUntil ?? 0).getTime() > Date.now();
   return { catchUpAt, compareAt, until, pausedUntil, counts, paused };
@@ -106,7 +112,7 @@ async function connectionsSection(connections: Connection[]): Promise<AdminSecti
     rows.push({
       cells: [
         connection.id,
-        connection.licensedOffices.join(', '),
+        (await officesOf(connection)).join(', '),
         connection.active,
         schedule.paused
           ? {
@@ -273,17 +279,23 @@ const ACTIONS: Record<string, (params: Record<string, string>) => Promise<string
 
 // ---- Trying a login, looking at one record ---------------------------------------------------
 
-/** One list request per office with the typed login: a yes says Vitec answered for every office. */
+/**
+ * One list request per id with the typed login, the customer or group id when one is typed and
+ * else each office typed: a yes says Vitec answered for every one.
+ */
 async function probe(
   stored: string,
   officeIds: string[],
 ): Promise<{ ok: boolean; detail: string }> {
   const auth = credentialsOf(stored);
   if (!auth) return { ok: false, detail: 'The login needs a username and a password.' };
-  if (officeIds.length === 0) return { ok: false, detail: 'Name at least one office to try.' };
+  const ids = auth.customerId ? [auth.customerId] : officeIds;
+  if (ids.length === 0) {
+    return { ok: false, detail: 'Type the customer or group id the login was issued for.' };
+  }
   const answers: string[] = [];
   let ok = true;
-  for (const officeId of officeIds) {
+  for (const officeId of ids) {
     try {
       const page = await connect.page(auth, 'office', officeId, 0, undefined, 1);
       answers.push(
@@ -310,18 +322,68 @@ async function officeFor(
   given: string | null,
 ): Promise<string | null> {
   if (given) return given;
-  for (const officeId of connection.licensedOffices) {
+  const offices = await officesOf(connection);
+  for (const officeId of offices) {
     if (await store.isKnown(officeId, datatype, remoteId)) return officeId;
   }
-  return connection.licensedOffices[0] ?? null;
+  return offices[0] ?? null;
 }
 
-/** What Vitec listed behind each id the connection names, and whether each office read. */
+/** What reaches the sites, in words, from the last check. */
+function reachText(check: OfficesCheck | null): AdminValue {
+  if (!check) return { text: 'not checked yet', state: 'muted' };
+  const count = check.offices.length;
+  const groupFound = check.ids.some((checked) =>
+    checked.groups.some((group) => group.name.trim().toLowerCase() === WEBSITE_GROUP),
+  );
+  const refused = check.ids.find((checked) => checked.groupsError)?.groupsError;
+  switch (check.source) {
+    case 'group':
+      return { text: `the ${count} office(s) in the group “Webbplats”`, state: 'ok' };
+    case 'all':
+      return {
+        text: `every office (${count}): ${
+          refused
+            ? `${refused}, so the group “Webbplats” cannot be read`
+            : groupFound
+              ? 'the group “Webbplats” holds none of these offices'
+              : 'there is no group “Webbplats” in Vitec'
+        }`,
+        state: 'ok',
+      };
+    case 'typed':
+      return { text: 'the offices typed under “Offices it may see”', state: 'ok' };
+    case 'kept':
+      return count > 0
+        ? {
+            text: `the ${count} office(s) of the last answer: Vitec did not answer this time, and Core asks again within the hour`,
+            state: 'warn',
+          }
+        : { text: 'nothing yet: Vitec has not given an office that reads', state: 'bad' };
+  }
+}
+
+/** The office groups Vitec answered, by name, or why there are none. */
+function groupsText(check: OfficesCheck | null): AdminValue {
+  if (!check) return null;
+  const refused = check.ids.find((checked) => checked.groupsError)?.groupsError;
+  const names = check.ids.flatMap((checked) =>
+    checked.groups.map((group) => `${group.name} (${group.officeIds.length})`),
+  );
+  if (names.length > 0) return names.join(', ');
+  return refused ? { text: refused, state: 'bad' } : 'none';
+}
+
+/**
+ * Which offices reach the sites and why, for a cold reader who must explain it to the brokerage
+ * (Patric, 2026-10-06): the rule, the answer of the last check, and each office Vitec listed.
+ */
 async function officesSection(connection: Connection): Promise<AdminSection> {
   const check = await lastCheck(connection.id);
+  const synced = new Set(check?.offices ?? []);
   const rows = (check?.ids ?? []).flatMap((checked) =>
     checked.error
-      ? [{ cells: [checked.id, { text: checked.error, state: 'bad' as const }, null, null] }]
+      ? [{ cells: [checked.id, { text: checked.error, state: 'bad' as const }, null, null, null] }]
       : checked.offices.map((office) => ({
           cells: [
             checked.id,
@@ -330,15 +392,20 @@ async function officesSection(connection: Connection): Promise<AdminSection> {
             office.readable
               ? { text: 'yes', state: 'ok' as const }
               : { text: office.detail ?? 'no', state: 'bad' as const },
+            synced.has(office.customerId),
           ],
         })),
   );
   return {
     title: 'Offices Vitec lists',
-    help: 'Once a day Core asks Vitec which offices sit behind each id under “Offices it may see”, a customer id or a group id, and reads each office on its own to make sure this login may read it. This shows what Vitec answered; what is synced is still decided by the ids typed under “Offices it may see”.',
-    items: [{ label: 'Last check', value: moment(check?.at ?? null) }],
+    help: 'Which offices reach this tenant’s sites is decided in Vitec, not here. Once a day Core asks Vitec which offices sit behind the customer or group id above, and reads each one with this login. If the brokerage has an office group called “Webbplats” in Vitec with some of those offices in it, only those reach the sites; otherwise every office does. To choose, ask the brokerage to make the office group “Webbplats” in Vitec and put the website’s offices in it; nothing changes here. When an office leaves the group, or Vitec, everything of it (its homes, its agents, the office itself) is taken off the sites at the next check: each site deletes it when it next updates, and Core keeps the removal on record, so a site that was offline deletes it too. Reading the groups takes the login’s rights to Vitec’s CRM, with the CRM password when one is typed; without them every office is used. While offices are typed under “Offices it may see”, those are used instead.',
+    items: [
+      { label: 'Last check', value: moment(check?.at ?? null) },
+      { label: 'Reaches the sites', value: reachText(check) },
+      { label: 'Office groups in Vitec', value: groupsText(check) },
+    ],
     table: {
-      columns: ['Id typed', 'Office', 'Name', 'Readable with this login'],
+      columns: ['Id typed', 'Office', 'Name', 'Readable with this login', 'On the sites'],
       rows,
       empty: 'Not checked yet: the first check runs at the worker’s next tick.',
     },
@@ -346,7 +413,7 @@ async function officesSection(connection: Connection): Promise<AdminSection> {
       {
         id: 'check_offices',
         label: 'Check offices now',
-        help: 'Asks Vitec now, instead of waiting for the daily check, which offices sit behind each id this connection names, and reads each one to see that this login may read it. Press it after a brokerage opens or closes an office, or after its login changed. It runs within a minute; reload the page to see the answer.',
+        help: 'Asks Vitec now, instead of waiting for the daily check, which offices sit behind the id and which are in the group “Webbplats”, and acts on the answer: an office that came is loaded, and one that went is taken off the sites. Press it after the brokerage changed its offices or its group “Webbplats” in Vitec. It runs within a minute; reload the page to see the answer.',
         params: { connection: connection.id },
       },
     ],
@@ -362,6 +429,11 @@ export const vitecAdmin: AdapterAdmin = {
       required: true,
     },
     { key: 'password', label: 'Connect password', secret: true, required: true },
+    {
+      key: 'customer_id',
+      label: 'Customer or group id',
+      help: 'The id Vitec issued this login for: a customer id such as M30011, or a group id such as G2. Core asks Vitec once a day which offices sit behind it; “Offices Vitec lists” below shows which ones reach the sites, and why.',
+    },
     // The forms (docs/forms.md): first whether they are sent at all, then the brokerage's own
     // knobs in Vitec, copied through with every form a site sends. Core decides none of the
     // knobs; empty leaves each to Vitec as described.
@@ -484,10 +556,10 @@ export const vitecAdmin: AdapterAdmin = {
   },
 
   async queue(connections): Promise<AdminQueued[]> {
+    const offices = await Promise.all(connections.map((connection) => officesOf(connection)));
     return (await store.entries(200)).map((entry) => ({
       connectionId:
-        connections.find((connection) => connection.licensedOffices.includes(entry.officeId))?.id ??
-        null,
+        connections.find((_, index) => offices[index]?.includes(entry.officeId))?.id ?? null,
       officeId: entry.officeId,
       datatype: entry.datatype,
       remoteId: entry.remoteId,

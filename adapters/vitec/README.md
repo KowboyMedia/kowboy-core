@@ -42,18 +42,24 @@ vitec.test.ts   the adapter against the real engine and the stand-in
 - **Comparison.** Once a day per connection, and at every worker start: Vitec's full id list
   against the ids seen. An id the list no longer holds is removed, without a fetch: the list
   defines what exists for the sites. A `Remove` whose webhook was lost is caught here.
-- **Offices behind each id** (`offices.ts`). Once a day per connection, at every worker start,
-  and at the next tick after "Check offices now": for each id the connection names (a customer id
-  `M30011`, or a group id `G2`), Vitec's office list for that id, then each listed office read on
-  its own under its own customer id, so a 403 shows which office this login may not read. Reads
-  only; the answer is kept in `vitec_state` and shown on the tenant's page. It changes nothing
-  that is synced (a proof first, before the connection takes its offices from it).
+- **Which offices are synced** (`offices.ts`; questions 147 a and 154, 2026-10-06). Once a day per
+  connection, at every worker start, and at the next tick after "Check offices now": Vitec's office
+  list for the login's customer or group id (`customer_id` in the login, `M30011` or `G2`), each
+  listed office read on its own under its own customer id, and the brokerage's office groups
+  (`GET CRM/Officegroups/{id}`, the version 1 CRM category, with the CRM password when one is
+  typed). The offices that read and sit in the group "webbplats" (any case) are synced; with no
+  such group, or none of its offices readable, every office that reads is. An office that came is
+  loaded; one that went is tombstoned with all its records (`presentIds` per datatype, scoped to the
+  office), so each site deletes it at its next sync. A check Vitec did not answer (down, busy,
+  broken) keeps the last offices and is tried again within the hour. Offices typed on the
+  connection win while there are any; the engine adds and removes those (`offices_added`,
+  `offices_removed`). The answer is kept in `vitec_state` and shown on the tenant's page.
 - **Resync** (`event: resync`, optionally with a datatype) reloads everything listed and removes
   every id no longer listed.
 - **Health.** `vitec.webhook_lag` (a webhook waiting more than 5 min), `vitec.retries` (a record
   that failed three fetches in a row), `vitec.catch_up` (red from a worker start until the
   catch-up, the comparison and their fetches are done; then a connection whose last catch-up is
-  older than 13 h, whose credentials cannot be read, or which has no offices). The checks run in
+  older than 13 h, whose credentials cannot be read, or which has no office to sync). The checks run in
   the worker and are recorded for the web process every 30 s.
 
 ## Mappers: the universal names, the spine on top, the rest mirrored
@@ -74,16 +80,18 @@ the rules ledger. `mappers.test.ts` holds one Connect-shaped fixture per datatyp
 
 ## Setting up a connection
 
-The directions are data the adapter describes for the admin panel (`admin/directions.ts`, shown
-by the panel once it exists), built from what the adapter reads and kept true by
-`admin/directions.test.ts`: the tenant, the connection with the Connect key pair and the offices
-(customer ids, `M30011` and the like), the notification URL and the subscriptions to ask Vitec
-for, and the health checks to watch. A connection without offices fetches nothing and
-`vitec.catch_up` says so. A connection is saved with the engine's `upsertConnection` (the login
-as one JSON document `{"username":"…","password":"…"}`, stored encrypted) and loaded by queueing
-the lifecycle event `connection_added`, which the worker delivers to the adapter. Adding an
-office later: set the connection's offices, then queue `offices_added` with the new ids; only
-those are loaded.
+The directions are data the adapter describes for the admin panel (`admin/directions.ts`),
+built from what the adapter reads and kept true by `admin/directions.test.ts`: the tenant, the
+connection with the Connect key pair and the customer or group id, which offices reach the sites
+(the office group "Webbplats" in Vitec, or every office) and how to tell the brokerage, the
+notification URL and the subscriptions to ask Vitec for, and the health checks to watch. A
+connection with no office to sync fetches nothing and `vitec.catch_up` says so. A connection is
+saved with the engine's `upsertConnection` (the login as one JSON document
+`{"username":"…","password":"…","customer_id":"…"}`, stored encrypted; a save puts the typed
+fields over the stored ones) and loaded by queueing the lifecycle event `connection_added`, which
+the worker delivers to the adapter: with no office typed, the adapter checks its offices with
+Vitec and loads them. Offices typed on the connection still work as before: set them, then queue
+`offices_added` with the new ids; only those are loaded.
 
 ## Forms from the sites (docs/forms.md)
 

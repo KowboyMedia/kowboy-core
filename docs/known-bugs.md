@@ -64,7 +64,13 @@ document. That was already true before the forms: typing only a new Vitec passwo
 username. The forms build put its eight settings into the same document
 (`adapters/vitec/forms.ts`, `settingsOf`).
 
-**What fixing it takes.** A save keeps every stored field that was not typed. With question 144
+**Fixed on staging 2026-10-06** (the Vitec office build, `engine/admin/login.ts`): a save, and
+"Check the login", put the typed fields over the stored ones, so typing one field no longer loses
+the others; `acceptance/admin.test.ts` proves it. What remains is the forms fields' own: they show
+nothing stored, draw their choices as free text and read "Yes" with a capital as no. The entry
+leaves this file when the fix is on production.
+
+**What fixing it took.** A save keeps every stored field that was not typed. With question 144
 a, seven of the eight fields go and only the CRM password stays in the login; with b, the
 settings also leave the login, show their stored values and draw their choices. Until then,
 nobody types into those fields.
