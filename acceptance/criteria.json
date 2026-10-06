@@ -133,7 +133,7 @@
       "tests": [
         "operations loads only the added office, and gives other offices no new seq (AC 14)",
         "two adapters, one engine resyncs a connection on request (AC 14)",
-        "the Vitec adapter loads an added office without a new seq for the others (AC 14)",
+        "the Vitec adapter loads an office that joined the group “Webbplats” without a new seq for the others (AC 14)",
         "the Vitec adapter tombstones what Vitec no longer lists on a resync (AC 14)",
         "restore (AC 41) delivers a queued lifecycle event, and counts one nobody takes"
       ],

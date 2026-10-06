@@ -114,3 +114,22 @@ drain's parallel state reads start before anything awaits them.
 **What fixing it takes.** Read the pool sizes against the database's connection limit, and make
 the drain's first reads awaited where they start; seen in the worker log read through
 DigitalOcean.
+
+## 6. `[client-wordpress]` The WordPress test site in a cloud session answers a critical error, so the WordPress suites cannot run there
+
+**What happens.** On 2026-10-06, in a cloud session whose start hook reported "WordPress prepared",
+`npm run test:wordpress` failed 17 of 21 template tests and the WordPress browser journeys: every
+page the tests fetch came back empty or as WordPress's "There has been a critical error on this
+website", and a `wp eval` call died with a PHP fatal (`array_keys(): Argument #1 must be of type
+array, null given`). The sync suite against Core passed 20 of 21; the one failure is the must-use
+updater offering a release (AC 21), which reads the same site. The engine's own suites, the admin
+area's journeys and the acceptance tests all passed in the same session, so the acceptance report
+was not regenerated there: it would have recorded the site's state as Core's.
+
+**Why.** Not established. The PHP side of the prepared site is at fault, not Core: Core answered
+every pull. Likely the prepared WordPress install or its PHP does not match what the theme
+"Kowboy 2026" and the plugin now need.
+
+**What fixing it takes.** Run `clients/wordpress/test/setup.sh` by hand in a cloud session and read
+the PHP error log, then fix the start hook or the setup script so the site renders; regenerate
+`acceptance/report.md` where the WordPress suites run.
