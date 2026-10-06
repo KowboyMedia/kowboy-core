@@ -1,4 +1,5 @@
-// The shell every page sits in: the navigation on the left, the environment, version and running
+// The shell every page sits in: the navigation on the left with "Go to…" above it and "Sign out"
+// under it, each with its sentence (definition of done 4), the environment, version and running
 // time in the top bar (§3 B, Should), the command palette, and the toasts.
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router';
@@ -47,12 +48,13 @@ export function Layout() {
       <header className="sticky top-0 z-30 flex items-center gap-3 border-b bg-card px-3 py-2">
         <Button
           variant="ghost"
-          size="icon"
+          size="sm"
           className="md:hidden"
-          aria-label="Show the navigation"
+          aria-expanded={open}
           onClick={() => setOpen((was) => !was)}
         >
           <Menu aria-hidden="true" />
+          {open ? 'Hide the menu' : 'Show the menu'}
         </Button>
         <span className="font-semibold">Kowboy Core</span>
         {me && (
@@ -63,31 +65,29 @@ export function Layout() {
         <span className="hidden text-xs text-muted-foreground sm:inline">
           {me ? `Version ${me.version}, started ${ago(me.startedAt)}` : ''}
         </span>
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={openPalette}
-            title="Jump to a page, a tenant or a record id"
-          >
-            <Search aria-hidden="true" />
-            Go to…
-            <kbd className="ml-1 hidden rounded border px-1 text-xs text-muted-foreground sm:inline">
-              {shortcut()}
-            </kbd>
-          </Button>
-          <span className="hidden text-xs text-muted-foreground sm:inline">{me?.email}</span>
-          <Button variant="outline" size="sm" onClick={() => logout()}>
-            Sign out
-          </Button>
-        </div>
       </header>
 
       <div className="flex flex-1">
         <nav
-          className={cn('w-56 shrink-0 border-r bg-card p-2 md:block', open ? 'block' : 'hidden')}
+          className={cn(
+            'w-56 shrink-0 flex-col gap-3 border-r bg-card p-2 md:flex',
+            open ? 'flex' : 'hidden',
+          )}
           aria-label="Sections"
         >
+          <div className="flex flex-col gap-1">
+            <Button variant="outline" size="sm" className="justify-start" onClick={openPalette}>
+              <Search aria-hidden="true" />
+              Go to…
+              <kbd className="ml-auto rounded border px-1 text-xs text-muted-foreground">
+                {shortcut()}
+              </kbd>
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Finds a page, a tenant, or a record by the CRM’s id for it. {shortcut()} opens it from
+              any page.
+            </p>
+          </div>
           <ul className="flex flex-col gap-0.5">
             {NAV.map((item) => {
               const Icon = ICONS[item.icon] ?? Gauge;
@@ -111,6 +111,17 @@ export function Layout() {
               );
             })}
           </ul>
+          <div className="flex flex-col gap-1 border-t pt-3">
+            {me?.email && (
+              <p className="break-all text-xs text-muted-foreground">Signed in as {me.email}.</p>
+            )}
+            <Button variant="outline" size="sm" className="self-start" onClick={() => logout()}>
+              Sign out
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Signs you out on this device only. Your other devices stay signed in.
+            </p>
+          </div>
         </nav>
 
         <main className="min-w-0 flex-1 p-4">

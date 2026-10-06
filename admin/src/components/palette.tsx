@@ -59,12 +59,12 @@ export function Palette() {
           <Command.Input
             value={query}
             onValueChange={setQuery}
-            placeholder="Go to a page, a tenant, or paste a record id…"
+            placeholder="Go to a page or a tenant, or paste the CRM’s id for a record…"
             className="w-full border-b bg-transparent px-4 py-3 text-sm outline-none"
           />
           <Command.List className="max-h-80 overflow-y-auto p-2">
             <Command.Empty className="px-2 py-6 text-center text-sm text-muted-foreground">
-              Nothing by that name. A record id searches the records.
+              No page or tenant by that name. Paste the CRM’s id for a record to find it.
             </Command.Empty>
             <Command.Group heading="Pages" className="px-1 text-xs text-muted-foreground">
               {NAV.map((item) => (
@@ -99,7 +99,7 @@ export function Palette() {
                   onSelect={() => go(`/records?id=${encodeURIComponent(query.trim())}`)}
                   className="cursor-pointer rounded-md px-2 py-2 text-sm text-foreground data-[selected=true]:bg-accent"
                 >
-                  Records with the id “{query.trim()}”
+                  Records whose CRM id is “{query.trim()}”
                 </Command.Item>
               </Command.Group>
             )}

@@ -55,13 +55,15 @@ test('journey: U1 onboard a customer, watch the first load, take the secrets', a
 
   await page.getByRole('button', { name: 'Add a CRM connection' }).click();
   const connection = page.getByRole('region', { name: 'A new CRM connection' });
-  await connection.getByLabel('Name', { exact: true }).fill('acme-crm');
+  await connection.getByLabel('Short name', { exact: true }).fill('acme-crm');
   await connection.getByLabel('CRM', { exact: true }).selectOption('fake-webhook');
   await connection.getByLabel('Pretend key').fill('a-key');
 
   // The login is tried before anything is saved.
   await connection.getByRole('button', { name: 'Check login' }).click();
-  await expect(connection.getByText('The CRM takes the login.', { exact: false })).toBeVisible();
+  await expect(
+    connection.getByText('The check passed: The CRM takes the key', { exact: false }),
+  ).toBeVisible();
 
   await page.getByRole('button', { name: 'Add a site' }).click();
   const site = page.getByRole('region', { name: 'A new site' });
@@ -174,7 +176,7 @@ test('journey: U4 manual sync — pick a scope and how far to go, then watch it'
   await expect(page.getByRole('heading', { name: 'Manual sync', exact: true })).toBeVisible();
   // The scope is picked, never typed (Patric, 2026-09-21), and the same as on Records.
   await tick(page, 'Tenants', TENANT);
-  await tick(page, 'Offices', 'Lidingö (office id 100)');
+  await tick(page, 'Offices', 'Lidingö (the CRM’s office id 100)');
   await tick(page, 'Entity types', 'Homes');
   await expect(page.getByTestId('covers')).toContainText('3 live records now');
 

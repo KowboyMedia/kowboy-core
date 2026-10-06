@@ -7,14 +7,14 @@
 import type { ServerResponse } from 'node:http';
 import { db } from '../storage/db.js';
 import { latestEventId, queryEvents, type EventFields, type EventRow } from '../events.js';
-import { connections, connectionsForProvider, tenants } from '../storage/connections.js';
+import { connectionsForProvider } from '../storage/connections.js';
 import { itemKey } from '../storage/items.js';
 import { adminFor, adminProviders } from '../registry.js';
 import { openJobs } from '../jobs.js';
 import { healthReport } from '../health.js';
 import { report } from '../errors.js';
-import { summarise } from './summary.js';
-import { counted, sentence } from './words.js';
+import { namedFor, summarise, type Names } from './summary.js';
+import { clock, counted, sentence } from './words.js';
 import type { Scope } from './scope.js';
 import type { AdminQueued } from '../adapter-api/types.js';
 import type { Response } from '../http/server.js';
@@ -126,15 +126,14 @@ const waitingRow = (entry: AdminQueued, tenant: { id: number; name: string } | n
  * every wait is a fetch: a record the CRM no longer lists waits its turn to leave the sites.
  */
 function waiting(entry: AdminQueued): string {
-  const tries = counted(entry.attempts, 'try', 'tries');
-  const why = `It waits because ${entry.reason}.`;
-  if (entry.nextAt === null)
-    return entry.lastError === null
-      ? `Core stopped trying after ${tries}. ${why}`
-      : `Core stopped trying after ${tries}. The last try failed: ${sentence(entry.lastError)} ${why}`;
+  if (entry.nextAt === null) {
+    const failed =
+      entry.lastError === null ? '' : ` The last try failed: ${sentence(entry.lastError)}`;
+    return `Core gave up after ${counted(entry.attempts, 'try', 'tries')}, so nothing about it changes on the sites.${failed} It was waiting because ${entry.reason}. Once the cause is fixed, “Fetch again” on the record’s page or Manual sync asks the CRM again.`;
+  }
   if (entry.lastError !== null)
-    return `The last try failed, and Core tries again: ${sentence(entry.lastError)} ${why}`;
-  return `Waiting its turn. ${why}`;
+    return `The last try failed: ${sentence(entry.lastError)} Core tries again at ${clock(new Date(entry.nextAt))}. It waits because ${entry.reason}.`;
+  return `Waiting its turn, because ${entry.reason}.`;
 }
 
 type MovedRow = {
@@ -145,6 +144,7 @@ type MovedRow = {
   tenant_id: number | null;
   tenant: string | null;
   connection_id: string | null;
+  subscriber_id: string | null;
   datatype: string | null;
   remote_id: string | null;
   office_id: string | null;
@@ -152,7 +152,7 @@ type MovedRow = {
 };
 
 /** One row for a record that has moved, from the event that moved it. */
-const movedRow = (event: MovedRow): FlowRow => ({
+const movedRow = (event: MovedRow, names: Names): FlowRow => ({
   key: keyOf({
     connectionId: event.connection_id,
     datatype: event.datatype,
@@ -169,7 +169,7 @@ const movedRow = (event: MovedRow): FlowRow => ({
   remoteId: event.remote_id,
   name: event.name,
   queuedAt: event.at.toISOString(),
-  what: summarise(event.type, event.fields),
+  what: summarise(event.type, event.fields, namedFor(event, names)),
   attempt: null,
   site: typeof event.fields['client'] === 'string' ? event.fields['client'] : null,
 });
@@ -183,8 +183,8 @@ const movedRow = (event: MovedRow): FlowRow => ({
 async function moved(scope: Scope, limit: number): Promise<MovedRow[]> {
   const { rows } = await db().query<MovedRow>(
     `with recent as (
-       select e.id, e.at, e.type, e.fields, e.tenant_id, e.connection_id, e.datatype,
-              e.remote_id, i.office_id
+       select e.id, e.at, e.type, e.fields, e.tenant_id, e.connection_id, e.subscriber_id,
+              e.datatype, e.remote_id, i.office_id
        from events e
        left join items i on i.tenant_id = e.tenant_id and i.connection_id = e.connection_id
                         and i.datatype = e.datatype and i.remote_id = e.remote_id
@@ -223,6 +223,37 @@ async function moved(scope: Scope, limit: number): Promise<MovedRow[]> {
 }
 
 /**
+ * The tenants', connections' and sites' names for the sentences, read one query after the other
+ * like the rest of Flow, and without the tokens and logins the storage's own reads decrypt.
+ */
+export async function namesInTurn(): Promise<Names> {
+  const tenants = await db().query<{ id: number; display_name: string }>(
+    'select id, display_name from tenants',
+  );
+  const connections = await db().query<{ id: string; tenant_id: number; provider: string }>(
+    'select id, tenant_id, provider from connections',
+  );
+  const sites = await db().query<{ id: string; tenant_id: number; label: string }>(
+    'select id, tenant_id, label from subscribers',
+  );
+  return {
+    tenants: new Map(tenants.rows.map((row) => [Number(row.id), row.display_name])),
+    connections: new Map(
+      connections.rows.map((row) => [
+        row.id,
+        { tenantId: Number(row.tenant_id), provider: row.provider },
+      ]),
+    ),
+    sites: new Map(
+      sites.rows.map((row) => [
+        Number(row.id),
+        { tenantId: Number(row.tenant_id), label: row.label },
+      ]),
+    ),
+  };
+}
+
+/**
  * The list: what waits on a CRM, and what has moved since, inside the scope. One row per record,
  * in the state it reached last, the newest queued first. A record waiting on a CRM right now wins
  * over whatever it did before; otherwise the newest event for it is the state it is in.
@@ -233,20 +264,19 @@ export async function flow(scope: Scope, limit = 100): Promise<FlowRow[]> {
   // at a time and leaves the rest of the pool to the rest of Core.
   const events = await moved(scope, top);
   const queued = await fromAdapters(scope);
-  const connectionRows = await connections();
-  const everyTenant = await tenants();
+  const names = await namesInTurn();
   const rows = new Map<string, FlowRow>();
   for (const event of events) {
-    const row = movedRow(event);
+    const row = movedRow(event, names);
     rows.set(row.key, row);
   }
-  const tenantOf = new Map(connectionRows.map((row) => [row.id, row.tenant_id]));
-  const names = new Map(everyTenant.map((tenant) => [tenant.id, tenant.display_name]));
   for (const entry of queued) {
-    const tenantId = entry.connectionId ? (tenantOf.get(entry.connectionId) ?? null) : null;
+    const tenantId = entry.connectionId
+      ? (names.connections.get(entry.connectionId)?.tenantId ?? null)
+      : null;
     const waiting = waitingRow(
       entry,
-      tenantId === null ? null : { id: tenantId, name: names.get(tenantId) ?? '' },
+      tenantId === null ? null : { id: tenantId, name: names.tenants.get(tenantId) ?? '' },
     );
     if (!inScope(scope, waiting)) continue;
     rows.set(waiting.key, waiting);
@@ -295,7 +325,11 @@ export function stream(afterId: number): Response {
           const fresh = await queryEvents({ afterId: after, limit: 200 });
           if (fresh.length > 0) {
             after = Number(fresh[fresh.length - 1]?.id ?? after);
-            send('events', fresh.map(toStreamEvent));
+            const names = await namesInTurn();
+            send(
+              'events',
+              fresh.map((event) => toStreamEvent(event, names)),
+            );
           }
           const jobs = await openJobs();
           const asJson = JSON.stringify(jobs);
@@ -339,7 +373,7 @@ export function stream(afterId: number): Response {
   };
 }
 
-export const toStreamEvent = (event: EventRow): Record<string, unknown> => ({
+export const toStreamEvent = (event: EventRow, names: Names): Record<string, unknown> => ({
   id: Number(event.id),
   at: event.at.toISOString(),
   type: event.type,
@@ -350,6 +384,6 @@ export const toStreamEvent = (event: EventRow): Record<string, unknown> => ({
   remoteId: event.remote_id,
   subscriberId: event.subscriber_id === null ? null : Number(event.subscriber_id),
   // The same sentence the timeline reads, so one event never says two things.
-  said: summarise(event.type, event.fields),
+  said: summarise(event.type, event.fields, namedFor(event, names)),
   fields: event.fields,
 });

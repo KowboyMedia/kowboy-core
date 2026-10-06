@@ -254,6 +254,46 @@ describe('the admin area', () => {
     expect(noCrm.body.error).toContain('CRM');
   });
 
+  it('never moves a connection to another tenant by its short name (tenant isolation)', async () => {
+    const made = await api<{ data: { id: number } }>('/tenants', {
+      method: 'POST',
+      body: tenantBody(),
+    });
+    expect(made.status).toBe(200);
+
+    // A second tenant typed with the first one's short name: Core files a connection by its short
+    // name alone, so saving it would hand Acme's connection, stored login and all, to Bravo.
+    const taken = await api<{ error: string }>('/tenants', {
+      method: 'POST',
+      body: tenantBody({ displayName: 'Bravo Mäklare', sites: [] }),
+    });
+    expect(taken.status).toBe(409);
+    expect(taken.body.error).toBe(
+      'The short name acme-crm already belongs to Acme Mäklare’s Fake-webhook connection, so Core saved nothing. Type another short name for this connection.',
+    );
+    const listed = await api<{ data: { displayName: string }[] }>('/tenants');
+    expect(listed.body.data.map((row) => row.displayName)).not.toContain('Bravo Mäklare');
+    expect((await connectionById('acme-crm'))?.tenantId).toBe(made.body.data.id);
+
+    // The same short name twice on one page is refused too, before anything is saved.
+    const connection = {
+      id: 'acme-two',
+      provider: 'fake-webhook',
+      credentials: { key: 'a-key' },
+      licensedOffices: ['100'],
+      active: true,
+    };
+    const twice = await api<{ error: string }>(`/tenants/${String(made.body.data.id)}`, {
+      method: 'PATCH',
+      body: tenantBody({ connections: [connection, connection] }),
+    });
+    expect(twice.status).toBe(409);
+    expect(twice.body.error).toBe(
+      'Two connections on this page have the short name acme-two, so Core saved nothing. Give each its own short name.',
+    );
+    expect(await connectionById('acme-two')).toBeNull();
+  });
+
   it('holds one tenant with two CRM connections (U1, a Must of 2026-09-20)', async () => {
     const made = await api<{ data: { id: number } }>('/tenants', {
       method: 'POST',
@@ -411,7 +451,9 @@ describe('the admin area', () => {
     expect(await count(`tenant=${bravo}&deleted=false&datatype=property`)).toBe(3);
     const slip = await api<{ error: string }>('/records?datatype=house');
     expect(slip.status).toBe(400);
-    expect(slip.body.error).toContain('is not an entity type Core knows');
+    expect(slip.body.error).toBe(
+      'The address asks for a kind of record Core does not know (“house”). Pick the entity types in the box instead.',
+    );
 
     const one = await api<{
       data: {
@@ -984,7 +1026,9 @@ describe('the admin area', () => {
     expect(said.map((event) => event.fields['level'])).toEqual(['send', 'recompute', 'fetch']);
     const slip = await sync('everything', {});
     expect(slip.status).toBe(400);
-    expect(slip.body.error).toBe('Say how far to go: fetch, recompute, send.');
+    expect(slip.body.error).toBe(
+      'Pick how far the sync goes: from the CRM, from the recompute, or to the sites only.',
+    );
     // A scope Core cannot read is refused in words too, never a database error.
     const odd = await sync('send', { tenantIds: ['x'] });
     expect(odd.status).toBe(400);
@@ -1049,7 +1093,7 @@ describe('the admin area', () => {
     expect(view.sites[0]?.took?.seq).toBe(view.row.seq);
     const took = view.timeline.find((step) => step.type === 'site.applied');
     expect(took?.site).toEqual({ id: site.id, name: 'acme.se' });
-    expect(took?.said).toBe('the site acme.se took it');
+    expect(took?.said).toBe('The site acme.se took this version.');
     expect(view.timeline.find((step) => step.type === 'entity.written')?.seq).toBe(view.row.seq);
 
     // Compared with the CRM, writing nothing: the same at first, then the field the CRM changed.

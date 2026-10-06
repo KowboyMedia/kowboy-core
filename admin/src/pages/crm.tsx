@@ -1,6 +1,6 @@
 // One CRM's page (U7): its setup directions, its settings, and the sections it reports, drawn with
 // the same components as everything else. The app never knows what any of it means.
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { useCustom, useCustomMutation } from '@refinedev/core';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -45,7 +45,17 @@ export function CrmPage() {
   };
 
   if (query.isLoading) return <p className="text-sm text-muted-foreground">Looking…</p>;
-  if (!page) return <Empty what="Core knows no CRM by that name." />;
+  if (!page)
+    return (
+      <Empty
+        what="Core knows no CRM by that name."
+        next={
+          <Link className="underline" to="/crms">
+            Open CRMs to see the ones Core can read.
+          </Link>
+        }
+      />
+    );
 
   return (
     <>

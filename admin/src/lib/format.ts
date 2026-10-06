@@ -13,6 +13,8 @@ export {
   entity,
   lasting,
   listed,
+  number,
+  officeNamed,
 } from '../../../engine/admin/words';
 
 const NEVER = '—';

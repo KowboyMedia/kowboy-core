@@ -22,7 +22,7 @@ const LEVELS: { level: Level; label: string; does: string }[] = [
   {
     level: 'fetch',
     label: 'Fetch from the CRM, recompute and send to the sites',
-    does: 'Core asks the CRM for the records again, computes them again from the rules, and sends them to the sites. The CRM is called.',
+    does: 'Core asks the CRM for the records again, computes them again from the rules, and sends them to the sites. With only tenants or entity types picked, Core reads the CRM’s whole list, so a record the CRM no longer lists also leaves the sites. The CRM is called.',
   },
   {
     level: 'recompute',

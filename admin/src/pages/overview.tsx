@@ -12,7 +12,7 @@ import { Explained } from '@/components/explained';
 import { PageHeader } from '@/components/layout';
 import { useLive } from '@/lib/live';
 import { SERIES } from '@/lib/series';
-import { ago, capital, count, entity, moment } from '@/lib/format';
+import { ago, capital, count, counted, entity, moment } from '@/lib/format';
 import { firstSentence, inWords } from '../../../engine/admin/words';
 
 /** How much a failing check matters: P0 Core is down, P1 a customer is cut off, P2 worth a look, P3 for the record. */
@@ -406,7 +406,7 @@ export function Overview() {
                   <p key={job.id} className="text-sm text-muted-foreground">
                     {job.state === 'queued'
                       ? 'A recompute waits to start. Core runs one recompute at a time.'
-                      : `A recompute is running. ${count(job.progress.examined ?? 0)} of ${count(job.progress.total ?? 0)} records are done.`}
+                      : `A recompute is running: ${count(job.progress.examined ?? 0)} done, out of ${counted(job.progress.total ?? 0, 'record', 'records')}.`}
                   </p>
                 ))}
               </div>
@@ -421,7 +421,9 @@ export function Overview() {
           <CardDescription>
             When each site last fetched its changes, and how the site answered the last time Core
             told it about changes. A site that refuses the call most likely holds another bell
-            secret than its tenant’s page shows.
+            secret than its tenant’s page shows. An error code or no answer means the site did not
+            fetch at once; it still fetches on its own schedule, so check that the site is up. A
+            site Core does not tell of changes fetches them only on its own schedule.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -450,9 +452,9 @@ export function Overview() {
               },
               {
                 key: 'active',
-                header: 'On or off',
+                header: 'Core tells it of changes',
                 cell: (row) => (
-                  <Badge tone={row.active ? 'ok' : 'muted'}>{row.active ? 'On' : 'Off'}</Badge>
+                  <Badge tone={row.active ? 'ok' : 'muted'}>{row.active ? 'Yes' : 'No'}</Badge>
                 ),
               },
               { key: 'pull', header: 'Last fetch', cell: (row) => ago(row.lastPullAt) },

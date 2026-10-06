@@ -28,7 +28,7 @@ import { audit } from './audit.js';
 import { overview } from './overview.js';
 import { act, crmPage, crms, probe } from './crms.js';
 import { configuration, setMaintenance } from './configuration.js';
-import { flow, stream, toStreamEvent } from './feed.js';
+import { flow, namesInTurn, stream, toStreamEvent } from './feed.js';
 import { inspect, previewRecord, readRecord, search } from './records.js';
 import {
   auditedOn,
@@ -43,7 +43,14 @@ import {
 } from './runs.js';
 import { scopeFromBody, scopeFromQuery, scopeOptions } from './scope.js';
 import { auditSentAgain, failedForms, sendAgainAsked } from './forms.js';
-import { listTenants, readTenant, removeTenant, saveTenant, type TenantInput } from './tenants.js';
+import {
+  listTenants,
+  readTenant,
+  refuseShortNames,
+  removeTenant,
+  saveTenant,
+  type TenantInput,
+} from './tenants.js';
 import {
   body,
   fail,
@@ -64,6 +71,11 @@ export { configureAdmin };
 
 const datatype = (value: string | undefined): Datatype | undefined =>
   DATATYPES.find((known) => known === value);
+
+/** A tenant or site the address names that Core does not hold, and where to look instead. */
+const NO_TENANT = 'Core holds no tenant with this number. Open Tenants to find the one you want.';
+const NO_SITE =
+  'Core holds no site with this number. Open the tenant’s page to find the site you want.';
 
 const routes: AdminRoute[] = [
   // ---- Getting in ------------------------------------------------------------------------------
@@ -189,7 +201,7 @@ const routes: AdminRoute[] = [
     path: '/tenants/:id',
     handler: async (request) => {
       const tenant = await readTenant(Number(request.params['id']));
-      return tenant ? one(tenant) : fail(404, 'There is no such tenant.');
+      return tenant ? one(tenant) : fail(404, NO_TENANT);
     },
   },
   {
@@ -200,6 +212,8 @@ const routes: AdminRoute[] = [
       if ('error' in parsed) return parsed.error;
       const refused = refuseTenant(parsed.value);
       if (refused) return fail(400, refused);
+      const taken = await refuseShortNames(null, parsed.value.connections ?? []);
+      if (taken) return fail(409, taken);
       const saved = await saveTenant(null, parsed.value);
       await audit(
         request.session,
@@ -219,7 +233,9 @@ const routes: AdminRoute[] = [
       const refused = refuseTenant(parsed.value);
       if (refused) return fail(400, refused);
       const id = Number(request.params['id']);
-      if (!(await tenantById(id))) return fail(404, 'There is no such tenant.');
+      if (!(await tenantById(id))) return fail(404, NO_TENANT);
+      const taken = await refuseShortNames(id, parsed.value.connections ?? []);
+      if (taken) return fail(409, taken);
       const saved = await saveTenant(id, parsed.value);
       await audit(request.session, 'tenant_saved', { changes: saved.changes }, { tenantId: id });
       return one({ ...(await readTenant(id)), changes: saved.changes });
@@ -231,7 +247,7 @@ const routes: AdminRoute[] = [
     handler: async (request) => {
       const id = Number(request.params['id']);
       const tenant = await tenantById(id);
-      if (!tenant) return fail(404, 'There is no such tenant.');
+      if (!tenant) return fail(404, NO_TENANT);
       await audit(
         request.session,
         'tenant_removed',
@@ -247,7 +263,7 @@ const routes: AdminRoute[] = [
     path: '/tenants/:id/token',
     handler: async (request) => {
       const id = Number(request.params['id']);
-      if (!(await tenantById(id))) return fail(404, 'There is no such tenant.');
+      if (!(await tenantById(id))) return fail(404, NO_TENANT);
       const token = newSecret();
       await updateTenant(id, { token });
       await audit(request.session, 'token_rotated', {}, { tenantId: id });
@@ -259,7 +275,7 @@ const routes: AdminRoute[] = [
     path: '/tenants/:id/ring',
     handler: async (request) => {
       const id = Number(request.params['id']);
-      if (!(await tenantById(id))) return fail(404, 'There is no such tenant.');
+      if (!(await tenantById(id))) return fail(404, NO_TENANT);
       const kind = text(request, 'kind') === 'forcerefresh' ? 'forcerefresh' : 'delta';
       await ring(id, kind);
       await audit(request.session, 'rang', { kind }, { tenantId: id });
@@ -274,7 +290,7 @@ const routes: AdminRoute[] = [
     handler: async (request) => {
       const id = Number(request.params['id']);
       const site = (await subscribers()).find((one_) => Number(one_.id) === id);
-      if (!site) return fail(404, 'There is no such site.');
+      if (!site) return fail(404, NO_SITE);
       const bellSecret = newSecret();
       await updateSubscriber(id, { bellSecret });
       await audit(
@@ -295,7 +311,7 @@ const routes: AdminRoute[] = [
     handler: async (request) => {
       const id = Number(request.params['id']);
       const site = (await subscribers()).find((one_) => Number(one_.id) === id);
-      if (!site) return fail(404, 'There is no such site.');
+      if (!site) return fail(404, NO_SITE);
       const kind = text(request, 'kind') === 'forcerefresh' ? 'forcerefresh' : 'delta';
       await ring(site.tenant_id, kind, id);
       await audit(
@@ -399,8 +415,9 @@ const routes: AdminRoute[] = [
       if ('error' in parsed) return parsed.error;
       const scope = await toScope(parsed.value);
       const job = await queueRecompute(scope, request.session.email);
-      await audit(request.session, 'recompute_queued', { job, scope: describe(parsed.value) });
-      return one({ job, scope: describe(parsed.value) });
+      const said = await describe(parsed.value);
+      await audit(request.session, 'recompute_queued', { job, scope: said });
+      return one({ job, scope: said });
     },
   },
   {
@@ -411,7 +428,7 @@ const routes: AdminRoute[] = [
       if ('error' in parsed) return parsed.error;
       const outcome = await fetchAgain(parsed.value);
       await audit(request.session, 'fetch_again', {
-        scope: describe(parsed.value),
+        scope: await describe(parsed.value),
         queued: outcome.queued,
       });
       return one(outcome);
@@ -425,7 +442,11 @@ const routes: AdminRoute[] = [
       if ('error' in parsed) return parsed.error;
       const given = parsed.value ?? {};
       const level = LEVELS.find((known) => known === given['level']);
-      if (!level) return fail(400, `Say how far to go: ${LEVELS.join(', ')}.`);
+      if (!level)
+        return fail(
+          400,
+          'Pick how far the sync goes: from the CRM, from the recompute, or to the sites only.',
+        );
       const read = scopeFromBody(given);
       if ('error' in read) return fail(400, read.error);
       // A record's page names its record; Manual sync names a scope. Never both at once.
@@ -441,7 +462,7 @@ const routes: AdminRoute[] = [
       await audit(
         request.session,
         'synced',
-        { level, scope: describe(input) },
+        { level, scope: await describe(input) },
         await auditedOn(input),
       );
       return one({ detail });
@@ -472,7 +493,11 @@ const routes: AdminRoute[] = [
         newestFirst: text(request, 'oldest') !== 'true',
         limit: number(request, 'limit', 100),
       });
-      return page(rows.map(toStreamEvent), rows.length);
+      const names = await namesInTurn();
+      return page(
+        rows.map((row) => toStreamEvent(row, names)),
+        rows.length,
+      );
     },
   },
 
@@ -570,14 +595,19 @@ const routes: AdminRoute[] = [
   },
 ];
 
-const refuseConnection = (connection: TenantInput['connections'][number]): string | null => {
+const refuseConnection = (
+  connection: TenantInput['connections'][number],
+  tenant: string,
+): string | null => {
   if (!connection.id || !/^[a-z0-9][a-z0-9-]*$/.test(connection.id)) {
-    return 'A CRM connection needs a name of lower-case letters, digits and dashes, such as acme-crm.';
+    return 'A CRM connection needs a short name of lower-case letters, digits and dashes, such as acme-crm.';
   }
   // No office named means every office the CRM gives the login, which an adapter may learn from
   // the CRM itself (question 147 a, 2026-10-06, reversing the rule of 2026-09-21 that refused an
   // empty list); a connection that ends up with none says so in its health check.
-  return connection.provider ? null : `Pick the CRM of the connection ${connection.id}.`;
+  return connection.provider
+    ? null
+    : `Pick the CRM for ${tenant}’s connection, short name ${connection.id}.`;
 };
 
 const refuseSite = (site: TenantInput['sites'][number]): string | null => {
@@ -601,7 +631,7 @@ function deviceOf(request: Request): string | null {
 function refuseTenant(input: TenantInput): string | null {
   if (!input.displayName || input.displayName.trim() === '') return 'A tenant needs a name.';
   for (const connection of input.connections ?? []) {
-    const refused = refuseConnection(connection);
+    const refused = refuseConnection(connection, input.displayName.trim());
     if (refused) return refused;
   }
   for (const site of input.sites ?? []) {
@@ -637,7 +667,10 @@ async function dispatch(method: string, request: Request): Promise<Response> {
     if (!session) return fail(401, 'Sign in to use the admin area.');
     return guarded(route, request, params, session);
   }
-  return fail(404, 'There is no such admin call.');
+  return fail(
+    404,
+    'Core does not know this request. Reload the page, so the admin area matches this Core.',
+  );
 }
 
 /** A handler's own failure is the panel's message, not a blank 500. */

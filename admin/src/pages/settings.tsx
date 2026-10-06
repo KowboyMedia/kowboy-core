@@ -310,19 +310,16 @@ export function SettingsPage() {
           <CardHeader>
             <CardTitle>Changes to the database’s layout</CardTitle>
             <CardDescription>
-              Each change Core has made to how its database is laid out, oldest first. Core does not
-              start on a database that holds a change it does not know, so an older Core never runs
-              on a newer database.
+              A new version of Core changes how its database is laid out when it starts. Core does
+              not start on a database that holds a change it does not know, so an older Core never
+              runs on a newer database.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="flex flex-wrap gap-1">
-              {config.migrations.map((migration) => (
-                <li key={migration}>
-                  <Badge tone="neutral">{migration}</Badge>
-                </li>
-              ))}
-            </ul>
+            <p className="text-sm">
+              Core has made {counted(config.migrations.length, 'change', 'changes')} to this
+              database’s layout so far.
+            </p>
           </CardContent>
         </Card>
       </div>

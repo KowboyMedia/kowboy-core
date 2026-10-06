@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { listed } from '@/lib/format';
+import { listed, number } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 export type Column<T> = {
@@ -80,6 +80,15 @@ export function DataTable<T>({
   const optional = columns
     .filter((column) => column.optional)
     .map((column) => `“${column.header}”`);
+  // What the pager and the column names do when pressed, said once under the table.
+  const how = [
+    page && 'Back and Next turn the page, and the box beside them sets how many rows a page shows.',
+    onSort &&
+      columns.some((column) => column.sortAs) &&
+      'Press a column’s name to sort by it, and again to turn the order round.',
+  ]
+    .filter(Boolean)
+    .join(' ');
   const headerButton = (column: Column<T>): ReactNode => {
     if (!column.sortAs || !onSort) return column.header;
     const active = sort?.field === column.sortAs;
@@ -202,7 +211,7 @@ export function DataTable<T>({
           <span>
             {page.total === 0
               ? 'Nothing to show'
-              : `${(page.page - 1) * page.size + 1}–${Math.min(page.page * page.size, page.total)} of ${page.total}`}
+              : `${number((page.page - 1) * page.size + 1)} to ${number(Math.min(page.page * page.size, page.total))} of ${number(page.total)}`}
           </span>
           <div className="flex items-center gap-2">
             <Select
@@ -236,6 +245,7 @@ export function DataTable<T>({
           </div>
         </div>
       )}
+      {how !== '' && <p className="text-xs text-muted-foreground">{how}</p>}
     </div>
   );
 }

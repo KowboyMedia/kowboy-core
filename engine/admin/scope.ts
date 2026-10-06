@@ -6,7 +6,7 @@ import { DATATYPES, type Datatype } from '../adapter-api/types.js';
 import { db } from '../storage/db.js';
 import { tenants } from '../storage/connections.js';
 import { itemCounts } from '../storage/items.js';
-import { entity, listed } from './words.js';
+import { entity, listed, officeNamed } from './words.js';
 
 export type Scope = {
   tenantIds?: number[];
@@ -39,10 +39,7 @@ export function scopeFromQuery(query: URLSearchParams): { scope: Scope } | { err
     const known = DATATYPES.find((datatype) => datatype === value);
     if (!known)
       return {
-        error: `“${value}” is not an entity type Core knows. It knows ${listed(
-          DATATYPES.map((datatype) => `${datatype} (${entity(datatype, true)})`),
-          DATATYPES.length,
-        )}.`,
+        error: `The address asks for a kind of record Core does not know (“${value}”). Pick the entity types in the box instead.`,
       };
     datatypes.push(known);
   }
@@ -74,21 +71,54 @@ export function scopeFromBody(
   return scopeFromQuery(query);
 }
 
-/** A scope in words, for the audit event and the message after a run. */
-export function describeScope(scope: Scope): string {
-  const parts: string[] = [];
-  if (scope.remoteId) parts.push(`the record whose CRM id is ${scope.remoteId}`);
-  if (scope.datatypes?.length)
-    parts.push(`the ${listed(scope.datatypes.map((datatype) => entity(datatype, true)))}`);
-  if (scope.officeIds?.length)
-    parts.push(
-      `${scope.officeIds.length === 1 ? 'office id' : 'office ids'} ${listed(scope.officeIds)}`,
-    );
-  if (scope.tenantIds?.length)
-    parts.push(
-      `${scope.tenantIds.length === 1 ? 'tenant' : 'tenants'} ${listed(scope.tenantIds.map(String))}`,
-    );
-  return parts.length === 0 ? 'every record in Core' : parts.join(' of ');
+/** The tenants' names by number, read for the few a sentence names. */
+export async function tenantNamesOf(ids: number[]): Promise<Map<number, string>> {
+  if (ids.length === 0) return new Map();
+  const { rows } = await db().query<{ id: number; display_name: string }>(
+    'select id, display_name from tenants where id = any($1::int[])',
+    [ids],
+  );
+  return new Map(rows.map((row) => [Number(row.id), row.display_name]));
+}
+
+/** The offices' names as their office records hold them, within the tenants when some are named. */
+export async function officeNamesOf(
+  ids: string[],
+  tenantIds: number[],
+): Promise<Map<string, string>> {
+  const { rows } = await db().query<{ remote_id: string; name: string | null }>(
+    `select distinct on (remote_id) remote_id, data->>'name' as name
+     from items
+     where datatype = 'office' and remote_id = any($1::text[])
+       and ($2::int[] is null or tenant_id = any($2::int[]))
+     order by remote_id, tombstoned_at nulls first`,
+    [ids, tenantIds.length > 0 ? tenantIds : null],
+  );
+  return new Map(rows.flatMap((row) => (row.name ? [[row.remote_id, row.name] as const] : [])));
+}
+
+/**
+ * A scope in words, for the audit event and the message after a run: "the homes of the office
+ * Lidingö (the CRM’s office id 100) of Acme", "every record in Core". Things by their names.
+ */
+export async function describeScope(scope: Scope): Promise<string> {
+  const what = scope.remoteId
+    ? `the record with the CRM’s id ${scope.remoteId}`
+    : scope.datatypes?.length
+      ? `the ${listed(scope.datatypes.map((datatype) => entity(datatype, true)))}`
+      : 'every record';
+  const owners: string[] = [];
+  const tenantIds = scope.tenantIds ?? [];
+  if (scope.officeIds?.length) {
+    const names = await officeNamesOf(scope.officeIds, tenantIds);
+    owners.push(`of ${listed(scope.officeIds.map((id) => officeNamed(id, names.get(id))))}`);
+  }
+  if (tenantIds.length > 0) {
+    const names = await tenantNamesOf(tenantIds);
+    owners.push(`of ${listed(tenantIds.map((id) => names.get(id) ?? 'a tenant since removed'))}`);
+  }
+  if (owners.length > 0) return [what, ...owners].join(' ');
+  return scope.remoteId ? what : `${what} in Core`;
 }
 
 export type ScopeOptions = {

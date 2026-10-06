@@ -60,6 +60,15 @@ export async function requestSignIn(rawEmail: string, remember = false): Promise
     detail: 'If that address may open the admin area, the link is on its way.',
   };
   await logEvent({ type: 'admin.sign_in_requested', fields: { email, allowed, remember } });
+  // Without a mail sender every address hears so, let in or not, so the answer gives away nobody.
+  const local = settings().environment === 'local';
+  if (!local && !mailConfigured()) {
+    return {
+      sent: false,
+      detail:
+        'Core cannot send mail, so no link was sent: the server setting POSTMARK_SERVER_TOKEN or MAIL_FROM is not set. Tell whoever maintains Core.',
+    };
+  }
   if (!allowed) return same;
 
   const token = newSecret();
@@ -72,14 +81,7 @@ export async function requestSignIn(rawEmail: string, remember = false): Promise
 
   // Locally there is no mail sender, and the link in the answer is the only way in. Anywhere
   // else it is mailed and never returned, whoever asked.
-  if (settings().environment === 'local' && !mailConfigured()) return { ...same, link };
-  if (!mailConfigured()) {
-    return {
-      sent: false,
-      detail:
-        'Core cannot send mail, so no link was sent: the server setting POSTMARK_SERVER_TOKEN or MAIL_FROM is not set. Tell whoever maintains Core.',
-    };
-  }
+  if (!mailConfigured()) return { ...same, link };
   await sendMail({
     to: email,
     subject: `Sign in to Kowboy Core (${settings().environment})`,

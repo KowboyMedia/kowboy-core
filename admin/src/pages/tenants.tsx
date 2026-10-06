@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/data-table';
 import { Empty } from '@/components/empty';
+import { Explained } from '@/components/explained';
 import { PageHeader } from '@/components/layout';
 import { ago, count, counted } from '@/lib/format';
 
@@ -76,9 +77,11 @@ export function Tenants() {
           <Empty
             what="No tenant yet. A tenant is one customer of Kowboy: its CRM connection and the sites that show its listings."
             next={
-              <Button asChild size="sm">
-                <Link to="/tenants/new">Make the first tenant</Link>
-              </Button>
+              <Explained what="Opens a new tenant’s page, where you name the customer and add its CRM connection and its sites.">
+                <Button asChild size="sm">
+                  <Link to="/tenants/new">Make the first tenant</Link>
+                </Button>
+              </Explained>
             }
           />
         }

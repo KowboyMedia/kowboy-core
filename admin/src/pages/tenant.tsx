@@ -396,7 +396,7 @@ function Connection({
       </h3>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${draft.key}-name`}>Name</Label>
+          <Label htmlFor={`${draft.key}-name`}>Short name</Label>
           <Input
             id={`${draft.key}-name`}
             value={draft.id}
@@ -405,7 +405,7 @@ function Connection({
           />
           <p className="text-xs text-muted-foreground">
             Lower-case letters, digits and dashes, such as acme-crm. Core files the connection’s
-            records under it, so it is fixed once saved.
+            records under it, so it cannot change once saved.
           </p>
         </div>
         <div className="flex flex-col gap-1">
@@ -448,7 +448,7 @@ function Connection({
       )}
       {checked && (
         <p className={cn('text-sm', checked.ok ? 'text-ok' : 'text-danger')}>
-          {checked.ok ? 'The CRM takes the login. ' : 'The CRM does not take the login. '}
+          {checked.ok ? 'The check passed: ' : 'The check did not pass: '}
           {checked.detail}
         </p>
       )}
@@ -709,7 +709,7 @@ export function TenantPage() {
   if (id !== null && !view) {
     return (
       <PageHeader
-        title={query.isError ? 'No such tenant' : 'Reading the tenant…'}
+        title={query.isError ? 'Core cannot show this tenant' : 'Reading the tenant…'}
         what={query.isError ? message(query.error) : ''}
       />
     );

@@ -6,7 +6,8 @@ import { readItem, searchItems, type ItemRow, type ItemSearch } from '../storage
 import { connectionById, connections, subscribers } from '../storage/connections.js';
 import { db } from '../storage/db.js';
 import { queryEvents, type EventFields, type EventRow } from '../events.js';
-import { summarise } from './summary.js';
+import { namedFor, summarise, type Names } from './summary.js';
+import { namesInTurn } from './feed.js';
 import { currentConfig } from './auth.js';
 import { crmName } from './words.js';
 import { adminFor } from '../registry.js';
@@ -46,6 +47,10 @@ const displayLine = (data: Canonical | null): string | null => {
   const line = (display as Record<string, unknown>)['address_line'];
   return typeof line === 'string' && line !== '' ? line : null;
 };
+
+/** A record by the name a person knows it by: its address, else its name. */
+export const recordName = (data: Canonical | null): string | null =>
+  displayLine(data) ?? read(data, 'name');
 
 export const toRow = (item: ItemRow, provider: string): RecordRow => ({
   tenantId: item.tenant_id,
@@ -98,28 +103,18 @@ const seqOf = (fields: EventFields): number | null => {
   return typeof value === 'number' ? value : null;
 };
 
-/**
- * A site's report, by the site's name: the page knows which site, which the shared sentence for
- * the event log does not.
- */
-function siteSaid(event: EventRow, name: string): string | null {
-  if (event.type === 'site.applied') return `the site ${name} took it`;
-  if (event.type !== 'site.failed') return null;
-  const detail = event.fields['detail'];
-  return `the site ${name} could not take it: ${typeof detail === 'string' && detail !== '' ? detail : 'it gave no reason'}`;
-}
-
-const toEvent = (event: EventRow, sites: Map<number, string>): TimelineEvent => {
+/** One step of the history, in the same sentence Flow and the event log give it, names and all. */
+const toEvent = (event: EventRow, names: Names): TimelineEvent => {
+  const named = namedFor(event, names);
   const siteId = event.subscriber_id === null ? null : Number(event.subscriber_id);
-  const site =
-    siteId === null ? null : { id: siteId, name: sites.get(siteId) ?? `number ${String(siteId)}` };
   return {
     id: Number(event.id),
     at: event.at.toISOString(),
     type: event.type,
     correlationId: event.correlation_id,
-    said: (site && siteSaid(event, site.name)) ?? summarise(event.type, event.fields),
-    site,
+    said: summarise(event.type, event.fields, named),
+    // A site since removed has no place to link to; its sentence says "a site".
+    site: siteId === null || !named.site ? null : { id: siteId, name: named.site },
     seq: seqOf(event.fields),
   };
 };
@@ -208,11 +203,11 @@ export async function readRecord(
   });
   if (!item) return null;
   const entity = { connectionId, datatype, remoteId };
-  const [events, sites] = await Promise.all([
+  const [events, sites, names] = await Promise.all([
     queryEvents({ entity, newestFirst: true, limit: 200 }),
     siteReports(connection.tenantId, entity),
+    namesInTurn(),
   ]);
-  const names = new Map(sites.map((site) => [site.id, site.name]));
   const display = item.data?.['display'];
   return {
     row: toRow(item, connection.provider),

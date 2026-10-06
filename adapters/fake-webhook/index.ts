@@ -305,7 +305,7 @@ const admin: AdapterAdmin = {
     }
     const unknownOffices = officeIds.filter((officeId) => crm.get('office', officeId) === null);
     return unknownOffices.length === 0
-      ? { ok: true, detail: `The CRM answers for ${officeIds.length} office(s).` }
+      ? { ok: true, detail: 'The CRM takes the key and knows every office picked.' }
       : { ok: false, detail: `The CRM has no office ${unknownOffices.join(', ')}.` };
   },
   /** One record fetched from the CRM and mapped on the spot, writing nothing. */

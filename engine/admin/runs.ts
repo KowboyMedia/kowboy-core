@@ -4,11 +4,12 @@
 // same scope, so a person learns it once.
 import type { Scope as RecomputeScope } from '../recompute.js';
 import { createJob } from '../jobs.js';
-import { connections, connectionById, subscribers, tenants } from '../storage/connections.js';
+import { connections, connectionById, subscribers } from '../storage/connections.js';
 import { itemsForScope, renumber, type ItemKey, type ItemRow } from '../storage/items.js';
 import { queueLifecycle } from '../lifecycle.js';
 import { ring } from '../bells.js';
-import { describeScope, type Scope } from './scope.js';
+import { describeScope, tenantNamesOf, type Scope } from './scope.js';
+import { recordName } from './records.js';
 import type { AuditContext } from './audit.js';
 import { counted, entity, listed } from './words.js';
 import { DATATYPES, type AdminRecord, type Datatype } from '../adapter-api/types.js';
@@ -84,10 +85,19 @@ export async function toScope(input: ScopeInput): Promise<RecomputeScope> {
   return scope;
 }
 
-/** What a scope says, in words, for the audit event. */
-export function describe(input: ScopeInput): string {
-  if (input.records && input.records.length > 0)
-    return counted(input.records.length, 'chosen record', 'chosen records');
+/** What a scope says, in words, for the audit event: one record by its name, else the scope. */
+export async function describe(input: ScopeInput): Promise<string> {
+  const records = input.records ?? [];
+  const only = records.length === 1 ? records[0] : undefined;
+  if (only) {
+    const [item] = await itemsForScope({ keys: await keysOf([only]) });
+    const name = recordName(item?.data ?? null);
+    return name
+      ? `the ${entity(only.datatype)} ${name}`
+      : `the ${entity(only.datatype)} with the CRM’s id ${only.remoteId}`;
+  }
+  if (records.length > 0)
+    return counted(records.length, 'record picked by name', 'records picked by name');
   return describeScope(input);
 }
 
@@ -120,10 +130,8 @@ async function refetch(items: ItemRow[]): Promise<FetchAgain> {
 
 /** The tenants' names, for a sentence: "Acme and Bravo", or how many when there are more. */
 async function tenantNames(ids: number[]): Promise<string> {
-  const names = new Map(
-    (await tenants()).map((tenant) => [Number(tenant.id), tenant.display_name]),
-  );
-  return listed(ids.map((id) => names.get(id) ?? `tenant ${String(id)}`));
+  const names = await tenantNamesOf(ids);
+  return listed(ids.map((id) => names.get(id) ?? 'a tenant since removed'));
 }
 
 /**

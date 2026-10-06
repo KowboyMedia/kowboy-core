@@ -13,8 +13,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Explained } from '@/components/explained';
 import { PageHeader } from '@/components/layout';
 import { useScopeOptions } from '@/components/scope-picker';
-import { anEntity, capital, counted, crmName, entity, exact, moment } from '@/lib/format';
-import { officeLabel, tenantName } from '@/lib/scope';
+import { anEntity, capital, counted, crmName, exact, moment, officeNamed } from '@/lib/format';
+import { officeName, tenantName } from '@/lib/scope';
 import type { RecordRow } from '@/pages/records';
 
 /** One event of the record's history, as Core says it. */
@@ -330,7 +330,7 @@ function Where({
             {row.deleted ? (
               <p className="text-sm">
                 Core took it off the sites on {moment(row.updatedAt)}. A removed record is not
-                fetched, built again or sent again.
+                fetched, recomputed or sent again.
               </p>
             ) : (
               <>
@@ -447,8 +447,8 @@ function Faces({ view }: { view: RecordView }) {
         <CardTitle>Its data</CardTitle>
         <CardDescription>
           The record as Core holds it, in three forms; pick one to see it. “The texts ready to show”
-          are the strings the sites display, made by the rules. “The unified record” is the CRM’s
-          fields under Core’s own names, the same for every CRM. “What the CRM sent” is its answer,
+          are the texts the sites show, made by the rules. “The unified record” is the CRM’s fields
+          under Core’s own names, the same for every CRM. “What the CRM sent” is its answer,
           untouched.
         </CardDescription>
       </CardHeader>
@@ -622,11 +622,18 @@ function OneRecord({
   const { row } = view;
   const tenant = tenantName(options, row.tenantId);
   const tenantPage = `/tenants/${String(row.tenantId)}`;
-  const office = row.officeId === null ? '' : officeLabel(options, row.officeId, row.tenantId);
+  const office =
+    row.officeId === null
+      ? ''
+      : officeNamed(row.officeId, officeName(options, row.officeId, row.tenantId));
   return (
     <>
       <PageHeader
-        title={row.addressLine ?? row.name ?? `${capital(entity(row.datatype))} ${row.remoteId}`}
+        title={
+          row.addressLine ??
+          row.name ??
+          `${capital(anEntity(row.datatype))}, the CRM’s id ${row.remoteId}`
+        }
         what={
           <>
             {capital(anEntity(row.datatype))} of{' '}
@@ -636,7 +643,7 @@ function OneRecord({
             {row.officeId !== null && row.datatype !== 'office' && (
               <>
                 {' '}
-                at {office.startsWith('office id') ? '' : 'the office '}
+                at{' '}
                 <Link
                   className="underline"
                   to={`/records?tenant=${String(row.tenantId)}&office=${encodeURIComponent(row.officeId)}`}

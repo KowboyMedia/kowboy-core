@@ -49,7 +49,7 @@ type FailedForm = {
   /** The CRM the connection logs in to. */
   provider: string;
   /** The site the visitor sent it from, when Core knows it. */
-  site: { id: number; name: string } | null;
+  site: { id: number; name: string | null } | null;
   /** The home's address or name, when Core still holds it. */
   home: string | null;
   kind: string;
@@ -217,7 +217,7 @@ function FormCard({
         </CardTitle>
         <CardDescription>
           Sent {exact(row.receivedAt)}
-          {row.site && (
+          {row.site?.name ? (
             <>
               {' '}
               from the site{' '}
@@ -228,6 +228,8 @@ function FormCard({
                 {row.site.name}
               </Link>
             </>
+          ) : (
+            row.site && ' from a site since removed'
           )}
           , through{' '}
           <Link
@@ -248,9 +250,11 @@ function FormCard({
                 className="underline"
                 to={`/records/${encodeURIComponent(row.connectionId)}/${row.datatype}/${encodeURIComponent(row.remoteId)}`}
               >
-                {row.home ?? row.remoteId}
+                {row.home ?? `The CRM’s id ${row.remoteId}`}
               </Link>
-              {row.home && `, the CRM’s id ${row.remoteId}`}
+              {row.home
+                ? `, the CRM’s id ${row.remoteId}`
+                : '. Core holds no address for this home.'}
             </Line>
           )}
           <Line label="Office">
@@ -274,7 +278,11 @@ function FormCard({
               <span className="whitespace-pre-wrap">{form.message}</span>
             </Line>
           )}
-          {form.slot_id && <Line label="Viewing time chosen">the CRM’s id {form.slot_id}</Line>}
+          {form.slot_id && (
+            <Line label="Viewing time chosen">
+              Core does not keep the time itself; the CRM’s id for it is {form.slot_id}.
+            </Line>
+          )}
           {form.contact_about_current_home !== undefined && (
             <Line label="Contact about their own home">
               {form.contact_about_current_home ? 'Yes' : 'No'}

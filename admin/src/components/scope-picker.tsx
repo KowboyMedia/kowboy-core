@@ -142,7 +142,7 @@ export function ScopePicker({
     })),
     ...value.officeIds
       .filter((id) => !offices.some((office) => office.id === id))
-      .map((id) => ({ value: id, label: id })),
+      .map((id) => ({ value: id, label: `The CRM’s office id ${id}` })),
   ];
 
   return (

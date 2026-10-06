@@ -2,7 +2,12 @@
 // them for 30 days, with what the visitor wrote and why, and "Send again". The list reads the kept
 // forms; sending again is the forms' own send (engine/http/submissions.ts), said here in the admin
 // area's words.
-import { contentOf, keptSubmissions, submissionById } from '../storage/submissions.js';
+import {
+  contentOf,
+  keptSubmissions,
+  submissionById,
+  type SubmissionRow,
+} from '../storage/submissions.js';
 import { connectionById, subscribers, tenantById } from '../storage/connections.js';
 import { readItem } from '../storage/items.js';
 import { db } from '../storage/db.js';
@@ -28,7 +33,8 @@ export type FailedForm = {
   /** The CRM the connection logs in to. */
   provider: string;
   /** The site the visitor sent it from, when Core knows it. */
-  site: { id: number; name: string } | null;
+  /** The site, by its name; null when the site has since been removed. */
+  site: { id: number; name: string | null } | null;
   kind: string;
   datatype: string | null;
   remoteId: string | null;
@@ -52,7 +58,7 @@ const outcomeOf = (outcome: string, detail: string | null): FailedOutcome => {
 };
 
 /** The site each form came from, as its first event says. */
-async function sitesOf(ids: string[]): Promise<Map<string, { id: number; name: string }>> {
+async function sitesOf(ids: string[]): Promise<Map<string, { id: number; name: string | null }>> {
   if (ids.length === 0) return new Map();
   const [{ rows }, sites] = await Promise.all([
     db().query<{ correlation_id: string; subscriber_id: string }>(
@@ -66,7 +72,7 @@ async function sitesOf(ids: string[]): Promise<Map<string, { id: number; name: s
   return new Map(
     rows.map((row) => {
       const id = Number(row.subscriber_id);
-      return [row.correlation_id, { id, name: names.get(id) ?? `number ${String(id)}` }];
+      return [row.correlation_id, { id, name: names.get(id) ?? null }];
     }),
   );
 }
@@ -128,7 +134,13 @@ const KINDS: Record<string, string> = {
 };
 
 /** What a sentence about a form that was not sent names. */
-type Named = { tenant: string; crm: string; connection: string; kind: string };
+type Named = {
+  tenant: string;
+  tenantId: number | null;
+  crm: string;
+  connection: string;
+  kind: string;
+};
 
 /** Why "Send again" did not send, in words naming the tenant, the connection and the CRM. */
 const REFUSALS: Record<Extract<SentAgain, { error: string }>['why'], (named: Named) => string> = {
@@ -136,8 +148,8 @@ const REFUSALS: Record<Extract<SentAgain, { error: string }>['why'], (named: Nam
     'Not sent: Core no longer keeps this form. Either the CRM has taken the form since, or 30 days have passed since the visitor sent it.',
   'on-its-way': () =>
     'Not sent: this form is being sent right now, perhaps by someone else. Reload the page in a minute to see how that send ended.',
-  paused: ({ connection }) =>
-    `Not sent: ${connection} is paused, so Core sends nothing through it.`,
+  paused: ({ connection, tenantId }) =>
+    `Not sent: ${connection} is paused, so Core sends nothing through it. Only the tenant’s old page can resume it, at /admin/tenants-old/${String(tenantId ?? '')}; press “Send again” after that.`,
   foreign: ({ tenant }) =>
     `Not sent: ${tenant} no longer has the CRM connection that this form’s home came through.`,
   gone: () =>
@@ -153,17 +165,23 @@ const REFUSALS: Record<Extract<SentAgain, { error: string }>['why'], (named: Nam
 async function refusal(id: string, why: keyof typeof REFUSALS): Promise<string> {
   // An id that names no form is never looked up: it may not even be one Core could have made.
   const row = why === 'no-form' ? null : await submissionById(id);
+  return REFUSALS[why](await namesOf(row));
+}
+
+/** What a refusal names about a form: its tenant, its CRM and connection, and its kind. */
+async function namesOf(row: SubmissionRow | null): Promise<Named> {
   const tenant = (row && (await tenantById(row.tenant_id))?.display_name) ?? 'the tenant';
   const connection = row ? await connectionById(row.connection_id) : null;
   const crm = connection ? crmName(connection.provider) : 'the CRM';
-  return REFUSALS[why]({
+  return {
     tenant,
+    tenantId: row?.tenant_id ?? null,
     crm,
     connection: connection
       ? `${tenant}’s ${crm} connection, short name ${connection.id},`
       : 'the CRM connection',
     kind: KINDS[row?.kind ?? ''] ?? 'this kind of form',
-  });
+  };
 }
 
 /**
