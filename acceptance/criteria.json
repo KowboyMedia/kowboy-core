@@ -542,7 +542,8 @@
       "title": "The widget's three forms pass a browser journey against Core on the staging site, and the browser never receives the tenant token or the CRM login",
       "phase": "engine",
       "tests": [
-        "journey: the three form buttons open the wizard, the forms reach the CRM through Core, and the browser never sees the tenant token",
+        "journey: the interest button opens the theme’s window, the form reaches the CRM through the site and Core, and the browser never calls Core",
+        "journey: the viewing and valuation buttons open the wizard, the forms reach the CRM through Core, and the browser never sees the tenant token",
         "the forms widget’s door answers the config, the record and the slots to the site key from the site’s origin, and sends a submission through to the CRM"
       ],
       "note": "Proved locally on the test WordPress with the real theme Kowboy 2026, plugin 0.5.7 and a real Core over the fake polling CRM (clients/wordpress/e2e/forms-widget.spec.ts): the interest, the booking of a live slot and the free valuation each confirmed, the profile step prefilled from the home, and no request carried the tenant token nor any answer contained it; the door's own test proves the config, the record, the slots, the preflight and the served widget. The same walk on the staging site is the last proof once the theme thread deploys plugin 0.5.7 with the site key (docs/forms.md, \"Built 2026-10-04: the widget\")."
