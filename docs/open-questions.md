@@ -90,21 +90,21 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 - b) **change**: name the items.
 - Smaller: a. Blocked: deleting the old record page. Answer a or b.
 
-## 181. `[core]` `[crm-vitec]` May the CRM code's interface gain the one answer that lets staging send a QA connection's forms?
+## 181. `[core]` `[crm-vitec]` Should staging send a QA connection's forms to Vitec's QA?
 
-- 2026-10-06 · Patric, 21:29 UTC, of the QA switch: it "changes base path, allows form submissions
-  even in staging, explain this". That settles what happens: a QA connection's forms go to Vitec's
-  QA from staging, and his 19:29 UTC rule that staging sites dry-run forms stays for every other
-  connection. It was asked here at 22:01 UTC as a choice between the two; that was withdrawn
-  the same evening, since his newest words answer it.
-- What needs his word is the piece that does it: the central forms guard cannot tell a test system
-  from a live one, because only the Vitec code knows which login is QA (his rule at 21:10 UTC),
-  so the CRM code's interface, a protected part, gains one optional answer, "is this connection a
-  test system?". The Vitec code answers yes for a login with the QA tickbox ticked; the guard then
-  lets that connection's forms through outside production and holds every other form as now.
-- a) **ok** (recommended): build that answer, so a QA connection's forms reach Vitec's QA from
-  staging.
-- b) **not now**: staging holds every form, QA included, until it is approved.
+- 2026-10-06 · Patric's own words differ: at 19:29 UTC, staging sites only dry-run forms; at
+  21:29 UTC, of the new tenant page's QA switch, it "changes base path, allows form submissions
+  even in staging, explain this". A form sent to a CRM outside production needs his own word, so
+  this is asked, not read from the newer words.
+- What a yes builds: the central forms guard cannot tell a test system from a live one, because
+  only the Vitec code knows which login is QA (his rule at 21:10 UTC), so the CRM code's
+  interface, a protected part, gains one optional answer, "is this connection a test system?".
+  The Vitec code answers yes for a login with the QA tickbox ticked; the guard lets that
+  connection's forms through outside production and holds every other form as now. A yes also
+  approves that piece of the interface.
+- a) **yes** (recommended): QA is Vitec's test accounts, in his words, so staging sends a QA
+  connection's forms there.
+- b) **no**: staging holds every form, QA included, and the tickbox's sentence says so.
 - Blocked: a form reaching Vitec's QA from staging. Reply: a or b.
 
 ## 180. `[admin]` The new tenant page: six things beyond Patric's list, or that need his word
