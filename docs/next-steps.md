@@ -424,16 +424,30 @@ client ports (item 16, first client by question 80).
     then failed forms. 165 was answered no at 20:58: no retry for a day; the Vitec code tries a
     call again within the form's 15 s, and a form that still fails reaches the visitor as an
     error. Open: 151 (the forms are built without "Söker du bostad?", as recommended, until it is
-    answered) and 166 (whether the plugin also tries again briefly when the site cannot reach
-    Core). The idea of drawing the bot check in a frame from Core's address is set aside by 155's
+    answered). 166 was answered yes at 21:43: when the site cannot reach Core, the plugin tries
+    the form again briefly with the same form id, then the visitor reads the error. The idea of drawing the bot check in a frame from Core's address is set aside by 155's
     line 6.
     **Built 2026-10-06** (docs/forms.md, "Built 2026-10-06: the first version"): the guard, the
     bot check, the three windows in theme 1.2.0 with plugin 0.6.0's two receivers, and the
     widget, the browser door and the site keys removed from Core, the plugin and the admin area;
     the seven Vitec forms fields removed; and, of 160 a, a form's details kept encrypted until the
     CRM has them (30 days when it refused or did not answer) and the admin page Failed forms
-    with "Send again", and the short retry in the Vitec code. Next: each site's address on
-    Cloudflare's list (waits on 171), and the alert for a failed form under 172's levels.
+    with "Send again", and the short retry in the Vitec code. Patric closed the forms session at
+    21:50 to save tokens; what it left, in order:
+    - Build 166 yes. In `core_client_forms_receive`, the plugin tries twice more, after 1 s and
+      3 s, when Core did not answer (a WP_Error, or a 502, 503 or 504 whose body is not a JSON
+      object, which every answer of Core's is), and only while the form is under 5 s old, so the
+      visitor waits at most about 30 s; the body goes again unchanged, so the form id is the same.
+      Core then answers a form id it already holds for that tenant with the first answer, before
+      the bot check, since the check's proof is spent after one use (`submit` in
+      engine/http/submissions.ts). A plugin version, the site deploy and the docs go with it.
+    - Check the forms against the one-password change (`d2627bd`): run
+      `adapters/vitec/forms.test.ts`, then a line in docs/forms.md, whose line 1049 still says the
+      search profile uses the CRM password.
+    - Each site's address on Cloudflare's list (waits on 171), and the alert for a failed form
+      under 172's levels.
+      The Failed forms page's texts and data are now edited by the admin rewrite directly, and QA
+      forms sent from staging wait on Patric's word (the QA work builds the guard side if he says yes).
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in

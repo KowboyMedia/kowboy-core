@@ -106,29 +106,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   illustrate it". Option a was drawn for him in the thread the same evening.
 - Smaller: c. Blocked: the Events rebuild. Answer a, b or c.
 
-## 166. `[client-wordpress]` When the site cannot reach Core at all, should the plugin try again briefly before the visitor reads the error?
-
-- 2026-10-06 · Patric, 18:12 (UTC), on 155: "we need to store the visitors data, thats the most
-  importnt part to recover if the system fails. But if its legally better to store it on-site,
-  then do that", and on 160: "the only purpose is to recover lost data". 160 a keeps a form from
-  the moment Core has it; Core is the better place for the details (`docs/decisions.md`,
-  2026-10-06). One case is left: the site cannot reach Core at all (Core down, a release that
-  broke it, the network between them). The plugin then tells the window the form failed, the
-  visitor reads "Det gick inte att skicka just nu" with their details still in the window, and
-  nothing is kept anywhere. 150 a gave the plugin nothing for forms but its receivers.
-- 2026-10-06 · Patric, 20:58 (UTC), closing 165 with no: "retry within a short period only, and
-  bubble back the error to the user - its important failed submits are bubbled to the user".
-  That rules out what a was (keep the form on the site, send it again for 30 days, and tell the
-  visitor it was received). The Vitec code now tries a call again within the form's 15 s, and
-  the visitor reads the error when it still fails. What is left here is whether the plugin does
-  the same when the site cannot reach Core.
-- a) **yes** (recommended): when the call to Core fails before Core answers (no connection, or
-  Core's address answering 502, 503 or 504 without Core's own answer), the plugin tries again
-  twice, after 1 s and 3 s, with the same form id, so Core takes the form once whatever
-  happened; then the visitor reads the error. Nothing is kept on the site.
-- b) **no**: one try; the visitor reads the error at once and sends again themselves.
-- Smaller: b. Blocked: nothing. Answer a or b.
-
 ## 151. `[crm-vitec]` Should Vitec sites skip the "Söker du bostad?" step?
 
 - 2026-10-05 · Patric, on 146's item 10: "Why would you want the crms password? The client site
