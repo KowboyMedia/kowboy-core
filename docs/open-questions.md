@@ -4,33 +4,30 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 156 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 157 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 154. `[crm-vitec]` Should the office check also show the brokerage's office groups from Vitec, to try them as the site's office list?
+## 156. `[core]` Should the tenant page leave out "Offices it may see" for a CRM whose adapter takes the offices from the CRM itself?
 
-- 2026-10-06 · Patric, after the office check showed every office behind `G12` as readable: "Is
-  it possible to use get office group for this, from the v1 api? Because that can be controlled
-  by the client inside their CRM, we can ask them to create a web site group. Dont build just
-  asking."
-- What Vitec offers (its documentation, saved 2026-10-04 under `docs/inputs/vitec/`):
-  `GET CRM/Officegroups/{customerId}` in the version 1 CRM category answers every office group
-  of the customer, each with its id, its name and its offices' ids. A brokerage keeps its groups
-  in Vitec itself, so a group "Webbplats" would decide which offices reach the sites, and the
-  office check would still read each one.
-- Not known, and only a call with the tenant's own login settles it: whether that login has
-  Vitec's CRM rights (Vitec grants them per customer apart from the advertising rights; the
-  partner login in the environment answered 401 for the CRM category on 2026-10-04), and
-  whether the call takes a group id such as `G12` or only a customer id. How the right group is
-  found (a name agreed with the brokerages, or chosen once per tenant) is asked after.
-- a) **yes** (recommended): the card "Offices Vitec lists" on the tenant's page gains one more
-  table, "Office groups in Vitec", each group with its name and its offices, or Vitec's refusal
-  in words; read only, once a day and on "Check offices now", nothing synced changes. b) **no**:
-  the office list stays every office behind the id, as approved.
-- Smaller: b. Blocked: nothing is built; the rest of option a of question 147 waits for
-  Patric's go either way. Answer a or b.
+- 2026-10-06 · Patric approved with question 147 a that a Vitec connection's field "Offices it may
+  see" goes away and its list stays empty, and answered 154 the same day: "I want to use every
+  office belonging to the group "webbplats", if zero or the group doesnt exist, use all offices by
+  listing as above." The tenant page draws that field for every CRM and names none, so leaving it
+  out for Vitec takes one more optional line in what an adapter tells the admin area
+  (`engine/adapter-api/`, a protected path): "this adapter takes its offices from the CRM". The
+  page reads it, leaves the field out and saves the connection's list empty.
+- What it does to the connections that exist (production has no Vitec connection yet): one that
+  names a group id there, such as `G12`, holds no homes under that id, so emptying it takes
+  nothing off a site. One that names its own office there loses that office's records from the
+  sites at its first save after this, and the adapter loads them again at once, so the site
+  takes its homes off and puts them back one time.
+- a) **yes** (recommended): the optional line, and the page leaves the field out for Vitec. b)
+  **no**: the field stays for every CRM, may now be left empty, and the Vitec setup text says to
+  leave it empty.
+- Smaller: b. Blocked: nothing; the rest of 147 a and 154 is built with the field still there.
+  Answer a or b.
 
 ## 150. `[core]` Where should the forms live?
 
