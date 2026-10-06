@@ -591,8 +591,8 @@ client ports (item 16, first client by question 80).
       links to it: an office to its removed records on Records, a connection or a site to its
       block on the tenant's page (`#connection:<id>`, `#site:<id>`, scrolled to once and ringed).
       The `check.failed` event of the sites check carries the sites in `sites`. An office is named
-      by `office_name` on its event, which the Vitec code does not send yet (asked of the office
-      thread), so until then it reads by its id. Known gap: a second site that stops pulling while
+      by `office_name` on its event, which the Vitec code sends since b0c36e6 (the name Vitec last
+      gave, kept from the previous check when Vitec refuses the office); without it, by its id. Known gap: a second site that stops pulling while
       the check is already red is neither told nor listed, because the check changes once; 164's
       rule A, built per thing, closes it.
     - **Step 2, the Vitec side, built 2026-10-06 by the office thread** (item 24): the adapter
