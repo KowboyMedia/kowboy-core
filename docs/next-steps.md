@@ -592,7 +592,8 @@ client ports (item 16, first client by question 80).
       kinds) and 163 (the words stay; every line names the exact thing, where, and links to it).
       Asked: 164, the colour per system (red is an alert, yellow is to be looked at), row by row;
       Patric answered rows 5, 18 and 23 at 19:22 UTC and asked for less noise with his P0 to P3
-      levels, so 164 now proposes the levels, five noise rules and a level per row.
+      levels, so 164 proposed the levels, five noise rules and a level per row; approved in concept
+      at 19:34 UTC (Step 3).
     - **Step 1b, names and links (163), built 2026-10-06:** each line of the card and each alert
       names the exact office, connection or site, its tenant (and an office's connection), and
       links to it: an office to its removed records on Records, a connection or a site to its
@@ -602,6 +603,22 @@ client ports (item 16, first client by question 80).
       gave, kept from the previous check when Vitec refuses the office); without it, by its id. Known gap: a second site that stops pulling while
       the check is already red is neither told nor listed, because the check changes once; 164's
       rule A, built per thing, closes it.
+    - **Step 3, the levels P0 to P3 (164, approved in concept 2026-10-06 19:34 UTC):** the
+      levels, the rules A to E and 164's rows are in `docs/decisions.md`; the table of rows as
+      asked is kept below. Waits on 172 (every check Core runs matched to a level, the Vitec
+      catch-up check split in three, the Overview's tiles coloured by level) and 173 (the outside
+      ping, Sentry recommended, and `/v1/health` answering 500 only for a P0). Then: a proof on
+      the engine's own checks first, then the rest. Rows (164): 1 database P0; 2 database version
+      P0; 3 worker P0; 4 loading queue (the `lifecycle` check) P2, P1 after an hour; 5 alerts not
+      sent P1, told through the other channel; 6 manual sync failed P3; 7 site not pulling P1; 8
+      site could not take records P2 per site per day; 9 site bell P3; 10 site errors P3 (Sentry);
+      11 CRM refuses the login P1; 12 stored login unreadable P1; 13 CRM not answering P2, P1 after
+      an hour; 14 CRM notifications waiting P2, P1 after an hour; 15 record failed 3 fetches P2 per
+      connection per day; 16 not caught up for 12 h P1; 17 connection with no offices P2; 18 record
+      still malformed after 3 fetches an hour apart P2 per connection per day; 19 office refused,
+      in its day of grace P2; 20 office taken off, still refused P1; 21 office taken off by choice
+      P2; 22 form not taken after a day of retries P1; 23 form refused by the CRM P1; 24 a check
+      that cannot run P2, P1 after 15 minutes.
     - **Step 2, the Vitec side, built 2026-10-06 by the office thread** (item 24): the adapter
       logs `office.taken_off` in `takeOff` with the reason in plain words, `login.refused` once
       when a check first finds the connection's id refused, and `connect.paused` and

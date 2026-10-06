@@ -4,10 +4,70 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 172 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 174 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 173. `[core]` Who pings Core from outside, so you hear when the whole app or its server is down?
+
+- 2026-10-06 · Patric, 19:34 (UTC): "Do we need an externally pinged health check which returns
+  non-200 on issues? For example, if the entire app goes down due to disk space or server outage,
+  it cant alert."
+- **Why yes.** Core's own alert mails for its checks are sent by its worker (`engine/index.ts`,
+  the worker's tick runs `checkAlerts`). When the worker, the server or the database is gone,
+  nothing inside Core can mail. The plan already names the answer (strategy §2, Monitoring:
+  "Watched by Sentry Uptime"; next steps: "Left: an uptime alert on production's `/v1/health`"),
+  and it was never switched on: Sentry holds no uptime monitor (checked 2026-10-06 through the
+  Sentry connection).
+- a) **Sentry** (recommended): Sentry checks `https://core.kowboy.cloud/v1/health` every minute,
+  from several places in turn, and mails after 3 failed checks in a row (a failure: no answer
+  within the timeout, a DNS failure, or any answer outside 200 to 299; docs.sentry.io, Uptime
+  Monitoring). Every Sentry plan includes one uptime monitor, so it costs nothing; more need a
+  paid plan, so staging is not watched. Sentry is a service of its own, so it still mails when
+  DigitalOcean or the server is down. Set up through the Sentry connection, with no step for
+  Patric.
+- b) **DigitalOcean**: its own uptime check on the account the apps run on; it can fail together
+  with DigitalOcean.
+- c) **none**.
+- With a or b, the public `/v1/health` answers 500 only while a P0 is open, and 200 otherwise
+  (amends strategy §8.1, where any failing check answers 500). On 2026-10-06 staging answered 500
+  because one connection had no offices, a P2, which a monitor would have read as "Core is down".
+  The platform's own probe stays `/v1/ready`. The acceptance tests that expect 500 for a
+  non-P0 check change with it.
+- Smaller: c. Blocks nothing: the levels are built either way. Reply: a, b or c.
+
+## 172. `[core]` Adjust Core's health checks to the P0 to P3 levels as listed below?
+
+- 2026-10-06 · Patric, 19:34 (UTC), on 164: "OK in concept, look over the entire list of checks
+  and adjust any if needed, to match the new concept."
+- **Every check Core runs** (`engine/health.ts` and the Vitec code; the two fake CRMs run in
+  tests only), with 164's row, the level, and what changes.
+
+| Check                          | What it watches (164 row)                                                                                      | Level                                                             | Change                                                                                                                                                                                                          |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| database                       | Core reaches its database (1)                                                                                  | P0                                                                | none                                                                                                                                                                                                            |
+| schema                         | the database is not newer than the Core running (2)                                                            | P0                                                                | none                                                                                                                                                                                                            |
+| worker                         | the worker reported in the last 2 minutes (3)                                                                  | P0                                                                | while it is down, the Vitec checks it runs read "no report"; they count under this P0, never on their own (rule B)                                                                                              |
+| lifecycle                      | a change made in the admin area (a new connection, an office, a fetch someone asked for) waits under 5 min (4) | P2, P1 after an hour                                              | none; 164 called it the loading queue                                                                                                                                                                           |
+| subscribers                    | every site pulled in the last hour (7)                                                                         | P1, per site                                                      | each site is told on its own, so a second site that stops is no longer missed                                                                                                                                   |
+| submissions.failing            | the latest form to a connection got an answer (22)                                                             | P2 while the CRM's code retries; P1 is a form that fails for good | built by the forms thread with the retry of 160 a                                                                                                                                                               |
+| vitec.webhook_lag              | Vitec's notifications wait under 5 minutes (14)                                                                | P2, P1 after an hour                                              | none                                                                                                                                                                                                            |
+| vitec.retries                  | no record failed 3 fetches in a row (15)                                                                       | P2, one line per connection per day                               | none                                                                                                                                                                                                            |
+| vitec.catch_up                 | four things in one check: a login Core cannot read (12), no offices (17), not caught up for 12 h or never (16) | split: login P1, offices P2, catching up P1                       | split into three, so each part has its own level                                                                                                                                                                |
+| vitec.catch_up after a restart | catching up since the worker started                                                                           | P3: shown with the checks, never told                             | today it marks Core as failing after every restart; question 23 made it the sign not to rebuild during a restore, and the check's own words keep saying "catching up", so the runbook reads those words instead |
+| vitec.offices                  | offices Vitec refuses, in their day of grace (19)                                                              | P2                                                                | none                                                                                                                                                                                                            |
+| vitec.connect                  | connections paused after 5 failed calls (13)                                                                   | P2, P1 after an hour                                              | the mail sent today the moment a connection pauses stops; it is told only when the pause lasts an hour                                                                                                          |
+| a check that cannot run        | any check that throws (24, rule E)                                                                             | P2, P1 after 15 minutes                                           | new, as 164 listed                                                                                                                                                                                              |
+
+- **New in what a person sees.** The Overview's check tiles take their level's colour: P0 and P1
+  red, P2 amber, P3 grey, and the line above them counts only P0 and P1. Today every failing
+  check is red, so a P2 would read as "something needs attention".
+- **Who builds what.** The engine's checks and the Overview: this thread. The Vitec checks'
+  changes (the split, the restart, a level on each): the Vitec office thread, from a spec through
+  the coordinator. `submissions.failing`: the forms thread. The level on a check is the one
+  optional word in the interface between the engine and a CRM's code that 164 named.
+- Reply: "172 ok", or a check with its new level.
 
 ## 171. `[core]` Adding a site's address to the bot check at Cloudflare: may Core keep Kowboy's Cloudflare account id as a second environment setting?
 
@@ -198,81 +258,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 - b) **no**: the interface stays as built; no automatic retry, as 160 b: a form the CRM did not
   take is kept 30 days and listed with "Send again".
 - Smaller: b. Blocked: the retry of 160 a; the rest of 160 a is built either way. Answer a or b.
-
-## 164. `[core]` Which level, P0 to P3, may each of Core's systems raise, and what does each level send?
-
-- 2026-10-06 · Patric, 18:06 (UTC), answering 162 with a: "there are multiple issues to be
-  alerted about. Red = alert. Yellow = should be looked at. Red causes disruption in
-  functionality. Yellow are handled issues but do not disrupt functionality. Maybe you have a
-  better criteria. List all systems, and wether or not something can go red or yellow. Remember,
-  low noise level is crucial here. Table format, let me approve each." And on 163: "If something
-  needs attention, state specifically which entity where, and link to it."
-- 2026-10-06 · Patric, 19:22 (UTC), on the first table (red, yellow or nothing per row): "5- red /
-  18 should have retries, but if still malformed, yellow / 23 - red / I feel this is too much
-  noise. How can we reduce it? My suggestion: We can use the Px system: I imagene red is P1 or P0,
-  notify admin using email. I imagine yellow is P2, what should we do with these? p3 can collected
-  but informative. Can be used to improve systems. What is your best suggestion?"
-- **The levels proposed** (his Px system; the first table's red is P0 or P1, yellow is P2, nothing
-  is P3). P0: Core is down for every customer; mailed (and sent to Slack where set) once it has
-  lasted 5 minutes. P1: one customer's sites or forms are disrupted and Core cannot fix it alone;
-  mailed once it has lasted 15 minutes, once when it starts and once when it is over. P2: Core
-  handled it and nothing is disrupted, but a person should look within a day; never mailed on its
-  own, one morning mail at 07:00 (Swedish time) lists only the P2s new since the last one, and
-  none is sent when nothing is new. P3: informative; kept in the event log only, to improve the
-  systems (what the log is for is question 168). P0 to P2 are listed in "Needs attention" on the
-  Overview for seven days, one line per thing with a count.
-- **The noise rules proposed.** A, wait: a failing check is told only once it has lasted 5 minutes
-  (P0) or 15 minutes (P1); a blip that clears first is only P3, so a restart or a release never
-  alerts. B, one cause, one mail: while a P0 is open nothing it causes is told on its own, and
-  while a CRM refuses a connection's login, that connection's offices and forms are not told on
-  their own. C, one conversation per thing: the "it is over" mail answers the "it started" mail,
-  and more of the same thing within an hour adds to its count on the Overview instead of sending
-  again. D, escalate, never repeat: nothing is sent again on a timer; a P2 that lasts past its
-  limit becomes P1 once. E, a check that cannot run is not a broken system: a check that throws
-  (as five Vitec checks did on staging on 2026-10-06, with the database's "remaining connection
-  slots" error) is one P2 line, "Core could not run N checks", and P1 when it lasts 15 minutes.
-- **Every system and its level** (First: the first table; Patric's answers marked).
-
-| #   | System              | What goes wrong                                                                             | Proposed                                    | First                                 |
-| --- | ------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------- |
-| 1   | Database            | Core cannot reach its database                                                              | P0                                          | red                                   |
-| 2   | Database version    | the database is newer than the Core running (a release taken back)                          | P0                                          | red                                   |
-| 3   | Background worker   | it stopped reporting: nothing syncs, no site is rung                                        | P0                                          | red                                   |
-| 4   | Loading queue       | a new connection or office has waited over 5 minutes to be loaded                           | P2, P1 after an hour                        | yellow                                |
-| 5   | Alerts              | a mail or a Slack message could not be sent                                                 | P1, sent through the other of the two       | red (Patric)                          |
-| 6   | Manual sync         | a run someone started failed                                                                | P3: that person sees it on Manual sync      | nothing                               |
-| 7   | Site pulling        | a site has not pulled for an hour                                                           | P1                                          | red                                   |
-| 8   | Site taking records | a site could not take one or more records                                                   | P2, one line per site per day               | yellow                                |
-| 9   | Site bell           | a site did not answer a bell                                                                | P3: the site pulls on its own; 7 catches it | nothing                               |
-| 10  | Site errors         | a site reported a programming error                                                         | P3: Sentry has it                           | nothing                               |
-| 11  | CRM login           | the CRM refuses the connection's login                                                      | P1                                          | red                                   |
-| 12  | Stored login        | Core cannot read the login it stored for a connection                                       | P1                                          | red                                   |
-| 13  | CRM answering       | the CRM failed 5 calls in a row; Core pauses and tries again                                | P2, P1 after an hour                        | yellow, red after an hour             |
-| 14  | CRM notifications   | a change the CRM announced has waited over 5 minutes                                        | P2, P1 after an hour                        | yellow                                |
-| 15  | Records fetched     | a record failed 3 fetches in a row; Core keeps trying                                       | P2, one line per connection per day         | yellow                                |
-| 16  | Catching up         | a connection has not caught up for 12 hours, or never did                                   | P1                                          | red                                   |
-| 17  | Connection offices  | a connection has no office to sync                                                          | P2                                          | yellow                                |
-| 18  | Dropped records     | a record is still malformed, or of an unknown kind, after 3 fetches an hour apart           | P2, one line per connection per day         | retried, then yellow (Patric)         |
-| 19  | Refused office      | the CRM refuses one office; it stays on the sites a day of grace                            | P2; row 20 when the grace ends              | yellow                                |
-| 20  | Office off, refused | an office left the sites because the CRM still refused it a day later                       | P1                                          | red                                   |
-| 21  | Office off, chosen  | an office left the sites because it left the group "Webbplats" or the id no longer lists it | P2                                          | yellow                                |
-| 22  | Form not answered   | the CRM did not take a form after the CRM's code retried it for a day (160 a)               | P1                                          | red                                   |
-| 23  | Form refused        | the CRM said no to a form                                                                   | P1                                          | red (Patric)                          |
-| 24  | Health checks       | a check could not run at all (rule E)                                                       | P2, P1 after 15 minutes                     | new: today it reads as its system red |
-
-- **What a yes costs.** Rows 13, 14, 15, 17 and 19 are checks in a CRM's own code that today
-  turn Core's public health answer to "failing" (500), which an uptime monitor reads as Core being
-  down. For one of them to be P2, a check needs one optional word, its level, in the interface
-  between the engine and a CRM's code, a protected file; a yes to any of those rows is also a yes
-  to that word, and a P2 check keeps the public answer at 200. Row 18's three fetches are built in
-  the CRM's code, which owns fetching. Rows 20 and 21 need the CRM's code to say which of the two
-  causes took an office off, one field on the event. New numbers: 5 and 15 minutes (rule A), an
-  hour (rules C and D, rows 4, 13 and 14), 07:00 (the P2 mail), three fetches an hour apart (row
-  18). New things Core runs: the morning P2 mail, and row 24. Every line follows Patric's 163
-  rule: it names the thing (the site, the office, the connection) and its tenant, and links to
-  that thing's place in the admin area.
-- Reply: "164 ok" for every level, rule and row as proposed, or the level, rule letter or row
-  number with its new value ("164 ok, except P2 no mail, 21 P3").
 
 ## 151. `[crm-vitec]` Should Vitec sites skip the "Söker du bostad?" step?
 
