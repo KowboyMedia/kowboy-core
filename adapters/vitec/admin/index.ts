@@ -275,24 +275,27 @@ async function probe(
   }
   const answers: string[] = [];
   let ok = true;
-  for (const officeId of ids) {
-    try {
-      const page = await connect.page(auth, 'office', officeId, 0, undefined, 1);
-      answers.push(
-        `${officeId}: Vitec answers, ${page?.totalRowCount ?? 0} office record(s) listed`,
-      );
-    } catch (error) {
-      ok = false;
-      const kind = connect.kindOf(error);
-      answers.push(
-        kind === 'forbidden'
-          ? `${officeId}: Vitec refuses this login for that office (${String(error)})`
-          : kind === 'blocked' && error instanceof Error
-            ? error.message
-            : `${officeId}: ${String(error)}`,
-      );
+  // A trial of a typed login: kept back from a refused office, and its refusals block nothing.
+  await connect.asLoginTrial(async () => {
+    for (const officeId of ids) {
+      try {
+        const page = await connect.page(auth, 'office', officeId, 0, undefined, 1);
+        answers.push(
+          `${officeId}: Vitec answers, ${page?.totalRowCount ?? 0} office record(s) listed`,
+        );
+      } catch (error) {
+        ok = false;
+        const kind = connect.kindOf(error);
+        answers.push(
+          kind === 'forbidden'
+            ? `${officeId}: Vitec refuses this login for that office (${String(error)})`
+            : kind === 'blocked' && error instanceof Error
+              ? error.message
+              : `${officeId}: ${String(error)}`,
+        );
+      }
     }
-  }
+  });
   return { ok, detail: answers.join('; ') };
 }
 
