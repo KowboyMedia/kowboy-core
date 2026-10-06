@@ -81,24 +81,28 @@ type Overview = {
     id: string;
     kind: string;
     state: string;
-    /** What it recomputes, in words: "the homes of Acme". */
-    what: string;
     progress: { examined?: number; total?: number };
   }[];
 };
 
+/** How many tenants are enabled, in words that agree with the numbers. */
+function enabledText(active: number, total: number): string {
+  if (total === 0) return 'There is no tenant yet';
+  if (total === 1) return active === 1 ? 'The one tenant is enabled' : 'The one tenant is disabled';
+  if (active === total) return `All ${count(total)} tenants are enabled`;
+  return `${count(active)} of the ${count(total)} tenants ${active === 1 ? 'is' : 'are'} enabled`;
+}
+
+/** A site's answer when Core last told it about changes: answered, refused, an error, or none. */
+const answered = (status: string): string => {
+  if (status === 'ok') return 'Answered';
+  const code = /^http (\d+)$/.exec(status)?.[1];
+  if (code === '401' || code === '403') return 'Refused';
+  return code ? `Error code ${code}` : 'No answer';
+};
+
 /** Fetched when this page opens, so the charting library never weighs on the rest of the app. */
 const DayChart = lazy(() => import('@/components/day-chart'));
-
-/** A site's answer the last time Core told it about changes (`bells.ts`), in words. */
-function answer(status: string | null): { said: string; tone: 'ok' | 'bad' | 'muted' } {
-  if (status === null) return { said: 'Not told yet', tone: 'muted' };
-  if (status === 'ok') return { said: 'Answered', tone: 'ok' };
-  if (status === 'failed') return { said: 'No answer', tone: 'bad' };
-  const code = /^http (\d+)$/.exec(status)?.[1];
-  if (code === '401' || code === '403') return { said: 'Refused', tone: 'bad' };
-  return { said: code ? `Error code ${code}` : status, tone: 'bad' };
-}
 
 /**
  * A check's sentence, with the page it names linked where the sentence names it, and that page
@@ -172,7 +176,6 @@ export function Overview() {
   const data = result?.data;
   const checks = Object.entries(data?.health?.checks ?? {});
   const verdictNow = verdict(checks);
-  const tenants = data?.tenants ?? { total: 0, active: 0 };
 
   const perDatatype = new Map<string, number>();
   for (const row of data?.records ?? []) {
@@ -185,23 +188,23 @@ export function Overview() {
         title="Overview"
         what="Whether Core is working, what needs a person, what Core did in the last 24 hours, and how each site is doing."
       >
-        <Explained what="Flow lists every record on its way from a CRM through Core to the sites, newest first, and shows where each one is. Open it when a change made in the CRM has not reached a site.">
-          <Button asChild variant="outline">
-            <Link to="/flow">Open Flow</Link>
-          </Button>
-        </Explained>
+        <span className="max-w-sm text-sm text-muted-foreground">
+          Flow lists every record on its way from a CRM through Core to the sites, newest first, and
+          shows where each one is. Open it when a change made in the CRM has not reached a site.
+        </span>
+        <Button asChild variant="outline">
+          <Link to="/flow">Open Flow</Link>
+        </Button>
       </PageHeader>
 
       {data?.maintenance && (
         <div className="mb-4 rounded-md border border-warn/50 bg-warn/10 p-3 text-sm">
-          <strong>Maintenance is on.</strong> Core tells no site about changes and starts no
-          recompute until it is turned off. Each site still fetches its changes on its own schedule,
-          so visitors see changes later than usual. When maintenance is turned off, Core tells each
-          site about the changes it held back. Maintenance is turned off on{' '}
+          <strong>Maintenance is on.</strong> Core tells no site about changes and runs no
+          recompute; the sites keep fetching on their own schedule. Turn it off in{' '}
           <Link className="underline" to="/settings">
             Settings
-          </Link>
-          .
+          </Link>{' '}
+          when the work on Core is done.
         </div>
       )}
 
@@ -275,11 +278,11 @@ export function Overview() {
             What needed a person in the last seven days, newest first: problems that change what the
             sites show, or that kept a visitor’s form from the brokerage. Each line says what
             happened, what it means for the sites and what to do, and the name in it opens that
-            office, connection, site or form. Core also sends these by mail and to Slack, where{' '}
+            office, connection, site or form. Core also sends these by mail and to Slack, to where{' '}
             <Link className="underline" to="/settings">
               Settings
             </Link>{' '}
-            says: a refused login, a form that did not reach the brokerage and an office the CRM
+            shows: a refused login, a form that did not reach the brokerage and an office the CRM
             still refuses within two minutes; a site still not fetching a quarter of an hour after
             its line appeared, and its end; and the rest in one mail at 07:00. While Core itself is
             down, the rest waits until it is back.
@@ -360,13 +363,11 @@ export function Overview() {
           <CardHeader>
             <CardTitle>What Core holds</CardTitle>
             <CardDescription>
-              The records on the sites now, for every tenant together. {count(tenants.active)} of
-              the {count(tenants.total)}{' '}
+              The records on the sites now, for every tenant together.{' '}
               <Link className="underline" to="/tenants">
-                tenants
-              </Link>{' '}
-              {tenants.active === 1 ? 'has' : 'have'} an active licence. A tenant’s sites keep what
-              they show and get no changes while the tenant has no active licence.
+                {enabledText(data?.tenants?.active ?? 0, data?.tenants?.total ?? 0)}
+              </Link>
+              ; a disabled tenant’s sites keep what they show and get no changes.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -386,7 +387,10 @@ export function Overview() {
                 {[...perDatatype.entries()].map(([datatype, live]) => (
                   <div key={datatype} className="flex justify-between">
                     <dt>
-                      <Link className="underline" to={`/records?datatype=${datatype}`}>
+                      <Link
+                        className="text-muted-foreground underline"
+                        to={`/records?datatype=${encodeURIComponent(datatype)}`}
+                      >
                         {capital(entity(datatype, true))}
                       </Link>
                     </dt>
@@ -400,9 +404,9 @@ export function Overview() {
                 <p className="mb-1 text-sm font-medium">Running now</p>
                 {(data?.jobs ?? []).map((job) => (
                   <p key={job.id} className="text-sm text-muted-foreground">
-                    {job.state === 'running'
-                      ? `A recompute of ${job.what} is running: ${count(job.progress.examined ?? 0)} of ${count(job.progress.total ?? 0)} records are done.`
-                      : `A recompute of ${job.what} waits to start. Core runs one recompute at a time.`}
+                    {job.state === 'queued'
+                      ? 'A recompute waits to start. Core runs one recompute at a time.'
+                      : `A recompute is running. ${count(job.progress.examined ?? 0)} of ${count(job.progress.total ?? 0)} records are done.`}
                   </p>
                 ))}
               </div>
@@ -415,9 +419,9 @@ export function Overview() {
         <CardHeader>
           <CardTitle>The sites</CardTitle>
           <CardDescription>
-            When each site last fetched its changes, and how it answered the last time Core told it
-            about changes. A site that refuses the call most likely holds another bell secret than
-            its tenant’s page shows.
+            When each site last fetched its changes, and how the site answered the last time Core
+            told it about changes. A site that refuses the call most likely holds another bell
+            secret than its tenant’s page shows.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -456,10 +460,14 @@ export function Overview() {
               {
                 key: 'status',
                 header: 'Its answer',
-                cell: (row) => {
-                  const said = answer(row.lastBellStatus);
-                  return <Badge tone={said.tone}>{said.said}</Badge>;
-                },
+                cell: (row) =>
+                  row.lastBellStatus === null ? (
+                    <span className="text-muted-foreground">Not told yet</span>
+                  ) : (
+                    <Badge tone={row.lastBellStatus === 'ok' ? 'ok' : 'bad'}>
+                      {answered(row.lastBellStatus)}
+                    </Badge>
+                  ),
               },
             ]}
             rows={data?.sites ?? []}
@@ -469,7 +477,7 @@ export function Overview() {
               <Empty
                 what="No site yet. A site is added on its tenant’s page, under Tenants."
                 next={
-                  <Explained what="Opens a new tenant’s page. The site is added there, with its address, and saved with the tenant.">
+                  <Explained what="Opens a new tenant’s page. The site is added there, with its address and where on it Core tells it about changes, and saved with the tenant.">
                     <Button asChild size="sm">
                       <Link to="/tenants/new">Make a tenant with a site</Link>
                     </Button>

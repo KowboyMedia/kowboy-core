@@ -76,7 +76,8 @@ export async function requestSignIn(rawEmail: string, remember = false): Promise
   if (!mailConfigured()) {
     return {
       sent: false,
-      detail: 'Core cannot send mail: POSTMARK_SERVER_TOKEN and MAIL_FROM are not set.',
+      detail:
+        'Core cannot send mail, so no link was sent: the server setting POSTMARK_SERVER_TOKEN or MAIL_FROM is not set. Tell whoever maintains Core.',
     };
   }
   await sendMail({

@@ -42,8 +42,7 @@ import {
   type ScopeInput,
 } from './runs.js';
 import { scopeFromBody, scopeFromQuery, scopeOptions } from './scope.js';
-import { auditSentAgain, failedForms } from './forms.js';
-import { sendAgain } from '../http/submissions.js';
+import { auditSentAgain, failedForms, sendAgainAsked } from './forms.js';
 import { listTenants, readTenant, removeTenant, saveTenant, type TenantInput } from './tenants.js';
 import {
   body,
@@ -491,7 +490,7 @@ const routes: AdminRoute[] = [
     path: '/forms/:id/send-again',
     handler: async (request) => {
       const id = request.params['id'] ?? '';
-      const sent = await sendAgain(id);
+      const sent = await sendAgainAsked(id);
       if ('error' in sent) return fail(sent.status, sent.error);
       await auditSentAgain(request.session, id, sent.answer.outcome);
       return one(sent.answer);
@@ -512,7 +511,7 @@ const routes: AdminRoute[] = [
     path: '/crms/:provider',
     handler: async (request) => {
       const found = await crmPage(request.params['provider'] ?? '');
-      return found ? one(found) : fail(404, 'No such CRM is registered here.');
+      return found ? one(found) : fail(404, 'Core knows no CRM by that name.');
     },
   },
   {
@@ -652,6 +651,10 @@ async function guarded(
     return await route.handler({ ...request, params, session } as AdminRequest);
   } catch (error) {
     report(error, { where: 'admin', path: request.path });
-    return fail(500, String(error instanceof Error ? error.message : error));
+    const said = error instanceof Error ? error.message : String(error);
+    return fail(
+      500,
+      `Core could not do that, because of an error nobody expected: ${said}. Try again; if it happens again, tell whoever maintains Core.`,
+    );
   }
 }

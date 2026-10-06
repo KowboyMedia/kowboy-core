@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/data-table';
 import { Empty } from '@/components/empty';
 import { PageHeader } from '@/components/layout';
+import { capital, counted, crmName, entity } from '@/lib/format';
 
 type CrmSummary = { provider: string; datatypes: string[]; connections: number };
 
@@ -20,26 +21,26 @@ export function Crms() {
         what="Each CRM Core can read, with its own setup directions, its settings and what it is doing."
       />
       <DataTable
-        caption={`${rows.length} CRM(s)`}
+        caption={`${counted(rows.length, 'CRM', 'CRMs')} that Core can read.`}
         columns={[
           {
             key: 'provider',
             header: 'CRM',
             cell: (row) => (
               <Link className="underline" to={`/crms/${row.provider}`}>
-                {row.provider}
+                {crmName(row.provider)}
               </Link>
             ),
           },
           { key: 'connections', header: 'Connections', cell: (row) => row.connections },
           {
             key: 'datatypes',
-            header: 'What it brings',
+            header: 'What Core reads from it',
             cell: (row) => (
               <span className="flex flex-wrap gap-1">
                 {row.datatypes.map((datatype) => (
                   <Badge key={datatype} tone="neutral">
-                    {datatype}
+                    {capital(entity(datatype, true))}
                   </Badge>
                 ))}
               </span>
@@ -49,7 +50,7 @@ export function Crms() {
         rows={rows}
         rowKey={(row) => row.provider}
         loading={query.isLoading}
-        empty={<Empty what="No CRM adapter is running in this Core." />}
+        empty={<Empty what="This Core can read no CRM yet." />}
       />
     </>
   );

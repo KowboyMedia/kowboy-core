@@ -383,6 +383,7 @@ describe('submissions', () => {
       'POST',
     );
     expect(again.status).toBe(404);
+    expect(again.body.error).toMatch(/^Not sent: Core no longer keeps this form\./);
     expect((await admin(cookie, '/forms/no-such-form/send-again', 'POST')).status).toBe(404);
 
     // Refused again: it stays, with the CRM's new reason.

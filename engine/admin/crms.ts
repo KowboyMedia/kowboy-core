@@ -4,7 +4,12 @@
 import { adminFor, adminProviders, manifestFor } from '../registry.js';
 import { connectionById, connectionsForProvider } from '../storage/connections.js';
 import { mergedLogin } from './login.js';
+import { crmName, sentence } from './words.js';
 import type { AdminDirections, AdminField, AdminSection, Datatype } from '../adapter-api/types.js';
+
+/** What went wrong, as the CRM's code said it, without the "Error: " a thrown error prints with. */
+const wordsOf = (error: unknown): string =>
+  sentence(error instanceof Error ? error.message : String(error));
 
 export type CrmSummary = {
   provider: string;
@@ -65,11 +70,11 @@ export async function act(
   params: Record<string, string>,
 ): Promise<{ message: string } | { error: string }> {
   const admin = adminFor(provider);
-  if (!admin) return { error: `No ${provider} adapter is registered.` };
+  if (!admin) return { error: `Core has no CRM called ${crmName(provider)}.` };
   try {
     return await admin.act(action, params, await connectionsForProvider(provider));
   } catch (error) {
-    return { error: String(error) };
+    return { error: wordsOf(error) };
   }
 }
 
@@ -100,7 +105,7 @@ export async function probe(
 ): Promise<{ ok: boolean; detail: string }> {
   const admin = adminFor(provider);
   if (!admin?.probe) {
-    return { ok: false, detail: `The ${provider} adapter cannot try a login.` };
+    return { ok: false, detail: `Core cannot try a login with ${crmName(provider)}.` };
   }
   // What is typed goes over the stored login, as the save will store it.
   const stored = await storedLogin(input.connectionId, provider);
@@ -122,6 +127,6 @@ export async function probe(
   try {
     return await admin.probe(credentials, officeIds);
   } catch (error) {
-    return { ok: false, detail: String(error) };
+    return { ok: false, detail: wordsOf(error) };
   }
 }

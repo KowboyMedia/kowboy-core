@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { listed } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 export type Column<T> = {
@@ -75,6 +76,10 @@ export function DataTable<T>({
   );
   const [chooser, setChooser] = useState(false);
   const shown = columns.filter((column) => !hidden.has(column.key));
+  // The chooser exists for the columns that start hidden; a table without any has no button.
+  const optional = columns
+    .filter((column) => column.optional)
+    .map((column) => `“${column.header}”`);
   const headerButton = (column: Column<T>): ReactNode => {
     if (!column.sortAs || !onSort) return column.header;
     const active = sort?.field === column.sortAs;
@@ -103,30 +108,36 @@ export function DataTable<T>({
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>{caption}</span>
         </div>
-        <div className="relative">
-          <Button variant="outline" size="sm" onClick={() => setChooser((open) => !open)}>
-            <Columns3 aria-hidden="true" /> Columns
-          </Button>
-          {chooser && (
-            <div className="absolute right-0 z-20 mt-1 w-56 rounded-md border bg-card p-2 shadow-lg">
-              {columns.map((column) => (
-                <label key={column.key} className="flex items-center gap-2 px-1 py-1 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={!hidden.has(column.key)}
-                    onChange={() => {
-                      const next = new Set(hidden);
-                      if (next.has(column.key)) next.delete(column.key);
-                      else next.add(column.key);
-                      setHidden(next);
-                    }}
-                  />
-                  {column.header}
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
+        {optional.length > 0 && (
+          <div className="relative flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              Picks which columns show. {listed(optional, optional.length)}{' '}
+              {optional.length === 1 ? 'is' : 'are'} hidden at first.
+            </span>
+            <Button variant="outline" size="sm" onClick={() => setChooser((open) => !open)}>
+              <Columns3 aria-hidden="true" /> Columns
+            </Button>
+            {chooser && (
+              <div className="absolute top-full right-0 z-20 mt-1 w-56 rounded-md border bg-card p-2 shadow-lg">
+                {columns.map((column) => (
+                  <label key={column.key} className="flex items-center gap-2 px-1 py-1 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={!hidden.has(column.key)}
+                      onChange={() => {
+                        const next = new Set(hidden);
+                        if (next.has(column.key)) next.delete(column.key);
+                        else next.add(column.key);
+                        setHidden(next);
+                      }}
+                    />
+                    {column.header}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="rounded-lg border bg-card">

@@ -12,6 +12,7 @@ import {
 import { Empty } from '@/components/empty';
 import { PageHeader } from '@/components/layout';
 import { useLive } from '@/lib/live';
+import { capital, crmName, entity } from '@/lib/format';
 
 type CrmPage = {
   provider: string;
@@ -44,14 +45,17 @@ export function CrmPage() {
   };
 
   if (query.isLoading) return <p className="text-sm text-muted-foreground">Looking…</p>;
-  if (!page) return <Empty what="No such CRM is registered in this Core." />;
+  if (!page) return <Empty what="Core knows no CRM by that name." />;
 
   return (
     <>
-      <PageHeader title={page.provider} what="What this CRM needs, and what it is doing right now.">
+      <PageHeader
+        title={crmName(page.provider)}
+        what="What this CRM needs, and what it is doing right now."
+      >
         {page.datatypes.map((datatype) => (
           <Badge key={datatype} tone="neutral">
-            {datatype}
+            {capital(entity(datatype, true))}
           </Badge>
         ))}
       </PageHeader>

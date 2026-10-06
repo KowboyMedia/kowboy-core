@@ -65,7 +65,7 @@ export function Value({ value }: { value: AdminValue }): ReactNode {
   if (value === null || value === undefined)
     return <span className="text-muted-foreground">—</span>;
   if (typeof value === 'boolean') {
-    return <Badge tone={value ? 'ok' : 'muted'}>{value ? 'yes' : 'no'}</Badge>;
+    return <Badge tone={value ? 'ok' : 'muted'}>{value ? 'Yes' : 'No'}</Badge>;
   }
   if (typeof value === 'number') return <span className="tabular-nums">{value}</span>;
   if (typeof value === 'string') return <span className="break-words">{value}</span>;
@@ -155,9 +155,7 @@ function SectionTable({ table, run }: { table: NonNullable<AdminSection['table']
       cell: (row) => (
         <div className="flex flex-wrap justify-end gap-1">
           {(row.actions ?? []).map((action) => (
-            <span key={action.id + JSON.stringify(action.params)} title={action.help}>
-              <Action action={action} run={run} />
-            </span>
+            <Action key={action.id + JSON.stringify(action.params)} action={action} run={run} />
           ))}
         </div>
       ),
@@ -165,12 +163,37 @@ function SectionTable({ table, run }: { table: NonNullable<AdminSection['table']
     });
   }
   return (
-    <DataTable
-      columns={columns}
-      rows={table.rows}
-      rowKey={(row) => JSON.stringify(row.cells)}
-      empty={<Empty what={table.empty ?? 'Nothing here.'} />}
-    />
+    <>
+      <DataTable
+        columns={columns}
+        rows={table.rows}
+        rowKey={(row) => JSON.stringify(row.cells)}
+        empty={<Empty what={table.empty ?? 'Nothing here.'} />}
+      />
+      <RowButtons table={table} />
+    </>
+  );
+}
+
+/**
+ * What each button in the rows does, once under the table: every row repeats the same buttons, so
+ * their sentences stand here, beside them, and never only on hover.
+ */
+function RowButtons({ table }: { table: NonNullable<AdminSection['table']> }) {
+  const helps = new Map<string, string>();
+  for (const action of table.rows.flatMap((row) => row.actions ?? [])) {
+    if (action.help && !helps.has(action.label)) helps.set(action.label, action.help);
+  }
+  if (helps.size === 0) return null;
+  return (
+    <dl className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-[minmax(0,10rem)_1fr]">
+      {[...helps].map(([label, help]) => (
+        <div key={label} className="contents">
+          <dt className="font-medium">“{label}” in a row</dt>
+          <dd className="text-muted-foreground">{help}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -218,7 +241,9 @@ export function Directions({ directions }: { directions: AdminDirections }) {
     <Card>
       <CardHeader>
         <CardTitle>Setting it up</CardTitle>
-        <CardDescription>What to do, in order, and the settings as they are now.</CardDescription>
+        <CardDescription>
+          What to do, in order, and the server settings this CRM reads, as they are now.
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <ol className="flex list-decimal flex-col gap-2 pl-5">

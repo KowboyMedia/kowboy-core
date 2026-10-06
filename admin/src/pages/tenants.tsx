@@ -55,11 +55,9 @@ export function Tenants() {
           { key: 'id', header: 'Number', cell: (row) => row.id },
           {
             key: 'active',
-            header: 'Licence',
+            header: 'Enabled',
             cell: (row) => (
-              <Badge tone={row.active ? 'ok' : 'bad'}>
-                {row.active ? 'licensed' : 'switched off'}
-              </Badge>
+              <Badge tone={row.active ? 'ok' : 'muted'}>{row.active ? 'Yes' : 'No'}</Badge>
             ),
           },
           { key: 'connections', header: 'CRM connections', cell: (row) => row.connections },

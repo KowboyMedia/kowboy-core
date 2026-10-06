@@ -11,6 +11,7 @@ export {
   crmName,
   entities,
   entity,
+  lasting,
   listed,
 } from '../../../engine/admin/words';
 
