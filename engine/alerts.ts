@@ -112,13 +112,13 @@ async function round(config: AlertConfig): Promise<Round> {
     'select name, ok, detail, since, notified_at from alert_state',
   );
   const kept = new Map(rows.map((row) => [row.name, row]));
-  const open = new Set(problems.map((problem) => problem.key));
   const isDown = problems.some((problem) => problem.level === 'P0');
   // The events that need attention: held while Core is down, read from where the last round stopped.
   const events = isDown ? null : await eventsSince(READ_UP_TO);
 
   // A problem ends when the round no longer finds it. A site's stays open while the sites check
   // cannot run, since it cannot say then which sites are behind.
+  const open = new Set(problems.map((problem) => problem.key));
   const ended = rows.filter(
     (row) =>
       !row.name.startsWith('alerts:') &&
@@ -131,35 +131,11 @@ async function round(config: AlertConfig): Promise<Round> {
       return row && !row.ok && !row.notified_at && due(problem.level, row.since, isDown);
     }),
   );
-
-  const told: Told[] = [];
-  for (const row of ended) {
-    const words = wordsOf(row);
-    if (row.ok || !row.notified_at || !words) continue;
-    told.push({
-      level: null,
-      heading: `Resolved after ${lasting(Date.now() - row.since.getTime())}`,
-      words,
-      change: `${row.name} resolved`,
-    });
-  }
-  for (const problem of dueNow) {
-    told.push({
-      level: problem.level,
-      heading: problem.level,
-      words: problem,
-      change: `${problem.key} ${problem.level}`,
-    });
-  }
-  for (const row of events?.rows ?? []) {
-    if (row.level !== 'P1') continue;
-    told.push({
-      level: row.level,
-      heading: row.level,
-      words: eventWords(row),
-      change: `event ${row.ids.join(',')} ${row.level}`,
-    });
-  }
+  const told = [
+    ...ended.flatMap(endTold),
+    ...[...dueNow].map(problemTold),
+    ...eventsTold(events?.rows ?? [], 'P1'),
+  ];
   if (told.length > 0) {
     await send(
       `Core ${config.environment}: ${subjectOf(told)}`,
@@ -172,29 +148,70 @@ async function round(config: AlertConfig): Promise<Round> {
   const result: Round = { opened: [], closed: [] };
   for (const row of ended) if (await close(row)) result.closed.push(row.name);
   for (const problem of problems) {
-    const row = kept.get(problem.key);
-    const words = JSON.stringify(wordsOnly(problem));
-    if (!row || row.ok) {
+    if (await keep(problem, kept.get(problem.key), dueNow.has(problem)))
       result.opened.push(problem.key);
-      await db().query(
-        `insert into alert_state (name, ok, detail, since, notified_at) values ($1, false, $2, now(), null)
-         on conflict (name) do update set ok = false, detail = excluded.detail, since = now(), notified_at = null`,
-        [problem.key, words],
-      );
-      await logEvent({ type: 'check.failed', fields: problem.fields });
-    } else if (dueNow.has(problem)) {
-      await db().query('update alert_state set detail = $2, notified_at = now() where name = $1', [
-        problem.key,
-        words,
-      ]);
-    } else if (!wordsOf(row)) {
-      // Kept before the levels and still open: it takes its words now, and is told no more than it was.
-      await db().query('update alert_state set detail = $2 where name = $1', [problem.key, words]);
-    }
   }
   if (events) await keepPlace(READ_UP_TO, events.until);
   if (!isDown) await morningMail(problems, kept, config);
   return result;
+}
+
+/** The end of a problem, told when its start was, in the words its start kept. */
+function endTold(row: StateRow): Told[] {
+  const words = wordsOf(row);
+  if (row.ok || !row.notified_at || !words) return [];
+  return [
+    {
+      level: null,
+      heading: `Resolved after ${lasting(Date.now() - row.since.getTime())}`,
+      words,
+      change: `${row.name} resolved`,
+    },
+  ];
+}
+
+const problemTold = (problem: Problem): Told => ({
+  level: problem.level,
+  heading: problem.level,
+  words: problem,
+  change: `${problem.key} ${problem.level}`,
+});
+
+/** The events that need attention at one level, as they are told. */
+const eventsTold = (rows: AttentionRow[], level: Level): Told[] =>
+  rows
+    .filter((row) => row.level === level)
+    .map((row) => ({
+      level,
+      heading: level,
+      words: eventWords(row),
+      change: `event ${row.ids.join(',')} ${level}`,
+    }));
+
+/**
+ * Keep an open problem: a new one starts, with a `check.failed` event, and true; one told now is
+ * marked told; one kept before the levels takes its words, and is told no more than it was.
+ */
+async function keep(problem: Problem, row: StateRow | undefined, told: boolean): Promise<boolean> {
+  const words = JSON.stringify(wordsOnly(problem));
+  if (!row || row.ok) {
+    await db().query(
+      `insert into alert_state (name, ok, detail, since, notified_at) values ($1, false, $2, now(), null)
+       on conflict (name) do update set ok = false, detail = excluded.detail, since = now(), notified_at = null`,
+      [problem.key, words],
+    );
+    await logEvent({ type: 'check.failed', fields: problem.fields });
+    return true;
+  }
+  if (told) {
+    await db().query('update alert_state set detail = $2, notified_at = now() where name = $1', [
+      problem.key,
+      words,
+    ]);
+  } else if (!wordsOf(row)) {
+    await db().query('update alert_state set detail = $2 where name = $1', [problem.key, words]);
+  }
+  return false;
 }
 
 /**
@@ -411,16 +428,10 @@ async function morningMail(
   if (!clock.last) return keepPlace(MORNING_MAIL, clock.until);
   // Once a day, and only once the events read reach 07:00, so the next mail starts after it.
   if (clock.last >= clock.due || clock.until < clock.due) return;
-  const told = startedBetween(problems, kept, clock.last, clock.until);
-  for (const row of await attentionBetween(clock.last, clock.until)) {
-    if (row.level !== 'P2') continue;
-    told.push({
-      level: row.level,
-      heading: row.level,
-      words: eventWords(row),
-      change: `event ${row.ids.join(',')} P2`,
-    });
-  }
+  const told = [
+    ...startedBetween(problems, kept, clock.last, clock.until),
+    ...eventsTold(await attentionBetween(clock.last, clock.until), 'P2'),
+  ];
   if (told.length > 0) {
     await send(
       `Core ${config.environment}: ${counted(told.length, 'thing', 'things')} to look at`,
@@ -445,7 +456,7 @@ function startedBetween(
     if (problem.level !== 'P2' || !row || row.notified_at) continue;
     const counts = row.since.getTime() + WAIT_MS.P2;
     if (counts <= after.getTime() || counts > until.getTime()) continue;
-    told.push({ level: 'P2', heading: 'P2', words: problem, change: `${problem.key} P2` });
+    told.push(problemTold(problem));
   }
   return told;
 }
