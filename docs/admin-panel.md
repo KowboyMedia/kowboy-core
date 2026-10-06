@@ -87,6 +87,11 @@ where the offices are typed.
 Its sites are on the same page with their bell address, their bell secret, their public site key
 for the forms widget and the addresses the widget may be used from (empty: the bell address's
 site), their setup checklist, what they reported applied and failed, and their own errors.
+Under a Vitec connection, **Offices Vitec lists** shows what Vitec answered when Core last asked
+which offices sit behind each id the connection names (a customer id or a group id), each office
+read on its own with this login: readable, or why not. Core asks once a day and at every worker
+start; **Check offices now** asks at the worker's next tick, and its explanation sits beside it.
+It changes nothing yet: what is synced is still decided by the offices typed.
 Under each connection, one line counts the forms visitors sent through Core to that CRM in the
 last day (docs/forms.md): delivered, refused by the CRM, unanswered by the CRM; red when any went
 unanswered. The visitor is never stored in Core, so the line has counts and nothing else.

@@ -9,6 +9,7 @@ import * as connect from '../api.js';
 import * as store from '../store.js';
 import { mappers } from '../mappers.js';
 import { directions } from './directions.js';
+import { lastCheck } from '../offices.js';
 import type {
   AdapterAdmin,
   AdminAction,
@@ -231,6 +232,11 @@ const ACTIONS: Record<string, (params: Record<string, string>) => Promise<string
     await store.setState(connection, 'compare_at', LONG_AGO);
     return `${connection} compares its list at the worker’s next tick.`;
   },
+  check_offices: async ({ connection }) => {
+    if (!connection) throw new Error('which connection?');
+    await store.setState(connection, 'offices_check_at', LONG_AGO);
+    return `${connection} asks Vitec for its offices at the worker’s next tick; reload the page in a minute to see the answer.`;
+  },
   resume: async ({ connection }) => {
     if (!connection) throw new Error('which connection?');
     await store.setState(connection, 'paused_until', '');
@@ -308,6 +314,43 @@ async function officeFor(
     if (await store.isKnown(officeId, datatype, remoteId)) return officeId;
   }
   return connection.licensedOffices[0] ?? null;
+}
+
+/** What Vitec listed behind each id the connection names, and whether each office read. */
+async function officesSection(connection: Connection): Promise<AdminSection> {
+  const check = await lastCheck(connection.id);
+  const rows = (check?.ids ?? []).flatMap((checked) =>
+    checked.error
+      ? [{ cells: [checked.id, { text: checked.error, state: 'bad' as const }, null, null] }]
+      : checked.offices.map((office) => ({
+          cells: [
+            checked.id,
+            `${office.customerId} (${office.officeId})`,
+            office.name,
+            office.readable
+              ? { text: 'yes', state: 'ok' as const }
+              : { text: office.detail ?? 'no', state: 'bad' as const },
+          ],
+        })),
+  );
+  return {
+    title: 'Offices Vitec lists',
+    help: 'Once a day Core asks Vitec which offices sit behind each id under “Offices it may see”, a customer id or a group id, and reads each office on its own to make sure this login may read it. This shows what Vitec answered; what is synced is still decided by the ids typed under “Offices it may see”.',
+    items: [{ label: 'Last check', value: moment(check?.at ?? null) }],
+    table: {
+      columns: ['Id typed', 'Office', 'Name', 'Readable with this login'],
+      rows,
+      empty: 'Not checked yet: the first check runs at the worker’s next tick.',
+    },
+    actions: [
+      {
+        id: 'check_offices',
+        label: 'Check offices now',
+        help: 'Asks Vitec now, instead of waiting for the daily check, which offices sit behind each id this connection names, and reads each one to see that this login may read it. Press it after a brokerage opens or closes an office, or after its login changed. It runs within a minute; reload the page to see the answer.',
+        params: { connection: connection.id },
+      },
+    ],
+  };
 }
 
 export const vitecAdmin: AdapterAdmin = {
@@ -417,6 +460,7 @@ export const vitecAdmin: AdapterAdmin = {
         ],
         actions: scheduleActions(connection, schedule),
       },
+      await officesSection(connection),
     ];
   },
 

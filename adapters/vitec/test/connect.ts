@@ -158,7 +158,8 @@ export function startFakeConnect(): Promise<FakeConnect> {
       .sort((a, b) => a.id.localeCompare(b.id))
       .map((record) => ({
         id: record.id,
-        customerId: officeId,
+        // A group id lists offices of several customers; each row carries the office's own.
+        customerId: typeof record['customerId'] === 'string' ? record['customerId'] : officeId,
         changedAt: record.changedAt ?? null,
       }));
     return {

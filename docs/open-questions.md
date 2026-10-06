@@ -153,40 +153,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   way.
 - Reply only if you disagree: no.
 
-## 147. `[crm-vitec]` Where does a Vitec connection's office list come from?
-
-- 2026-10-05 · Patric: the list of offices a Vitec connection syncs "needs to be maintained by a
-  super admin which is inconvenient"; his order of preference: from Vitec first, kept by the
-  site's own admin second, typed by the super admin third, and before Vitec's list is trusted,
-  each office it names is read on its own.
-- What Vitec offers (every method on Vitec Connect's help site, checked 2026-10-05): every call
-  names a customer id (`M30011`) or a group id (`G2`); no call lists the customers a login may
-  read. The advertising office list, `GET Advertising/Office/{id}`, returns one row per office
-  with that office's own customer id. With Norban's login and its own customer id it returns its
-  one office, which then reads on its own; any other id answers 403, an id that is not a customer
-  or group id 400. For a group: `G12` (Vitec's test account of Svenska Mäklarhuset) is an id for
-  the calls, and with that tenant's login any office reads (Patric, closing 148). The list for
-  `G12` itself could not be tried: the login sits on the staging tenant svenskamaklarhuset.se,
-  and the one-time check by staging Core that Patric allowed (149) was refused by this session's
-  permission check. That a group id lists the group's offices rests on Vitec's technical page
-  ("a group of customers can be called by its group number"), the list's per-row customer id,
-  and Patric's word; Core's own load proves it the first time a connection names a group id.
-- What option a changes in Core: the connection's field "Offices it may see" gives way to one id
-  typed next to the Connect username and password, the customer or group id Vitec issued the
-  password for (part of the adapter's login, so no engine change); the connection's own office
-  list is left empty, which the engine already reads as "every office the login can see"
-  (`engine/ingest.ts`), so the rule of 2026-09-21 that a connection names at least one office is
-  reversed; the adapter asks Vitec's office list for the id at the first load and at each daily
-  comparison, reads each listed office on its own, and loads only offices that read; an office
-  that leaves the list is removed with its records, as an estate that leaves the list is today.
-- a) **from Vitec** (recommended): one id typed once, next to the password; the offices come and
-  go with Vitec's list. b) **the site's admin keeps the list**: a page in the site's plugin where
-  the brokerage adds office ids, and a new Core address the plugin calls; Core reads each id with
-  Vitec's single-office call and stores it on a yes, refuses it on a no. c) **as is**: the super
-  admin types the office ids.
-- Smaller: a, which takes a field away and adds no page and no address. Blocked: nothing; the
-  first chain customer. Answer a, b or c.
-
 ## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite
 
 - 2026-10-04 · The acceptance list `acceptance/criteria.json` is a protected path, changed on

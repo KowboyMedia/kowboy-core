@@ -42,6 +42,12 @@ vitec.test.ts   the adapter against the real engine and the stand-in
 - **Comparison.** Once a day per connection, and at every worker start: Vitec's full id list
   against the ids seen. An id the list no longer holds is removed, without a fetch: the list
   defines what exists for the sites. A `Remove` whose webhook was lost is caught here.
+- **Offices behind each id** (`offices.ts`). Once a day per connection, at every worker start,
+  and at the next tick after "Check offices now": for each id the connection names (a customer id
+  `M30011`, or a group id `G2`), Vitec's office list for that id, then each listed office read on
+  its own under its own customer id, so a 403 shows which office this login may not read. Reads
+  only; the answer is kept in `vitec_state` and shown on the tenant's page. It changes nothing
+  that is synced (a proof first, before the connection takes its offices from it).
 - **Resync** (`event: resync`, optionally with a datatype) reloads everything listed and removes
   every id no longer listed.
 - **Health.** `vitec.webhook_lag` (a webhook waiting more than 5 min), `vitec.retries` (a record

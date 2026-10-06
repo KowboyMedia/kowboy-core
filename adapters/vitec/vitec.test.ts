@@ -14,6 +14,7 @@ import {
 } from '../../acceptance/harness.js';
 import { drainFetchList, runSchedules, vitecAdapter } from './index.js';
 import { vitecAdmin } from './admin/index.js';
+import { checkOffices, lastCheck } from './offices.js';
 import type { Connection, LifecycleEvent } from '../../engine/adapter-api/index.js';
 import * as store from './store.js';
 import { PASSWORD, USERNAME, startFakeConnect, type FakeConnect } from './test/connect.js';
@@ -721,5 +722,77 @@ describe('the Vitec adapter', () => {
     expect((await item('property', 'OBJ1'))?.['seq']).toBe(first?.['seq']);
     // Only the added office was listed and fetched.
     expect(fake.requests.every((request) => request.path.includes('/M2'))).toBe(true);
+  });
+
+  it('lists the offices behind a group id and reads each one, naming the ones this login may not read', async () => {
+    // A group lists offices of two customers; the login may read one of them and not the group G9.
+    fake.put('G1', 'office', { id: 'FIR1', customerId: 'M1', changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'FIR2', customerId: 'M2', changedAt: CHANGED });
+    fake.put('M1', 'office', { id: 'FIR1', customerId: 'M1', name: 'Kontor 1' });
+    fake.put('M2', 'office', { id: 'FIR2', customerId: 'M2', name: 'Kontor 2' });
+    fake.forbid('M2');
+    fake.forbid('G9');
+
+    const auth = { username: USERNAME, password: PASSWORD };
+    const check = await checkOffices(CONNECTION, auth, ['G1', 'G9']);
+
+    expect(check.ids).toEqual([
+      {
+        id: 'G1',
+        error: null,
+        offices: [
+          { customerId: 'M1', officeId: 'FIR1', name: 'Kontor 1', readable: true, detail: null },
+          {
+            customerId: 'M2',
+            officeId: 'FIR2',
+            name: null,
+            readable: false,
+            detail: 'Vitec refuses this login',
+          },
+        ],
+      },
+      { id: 'G9', error: 'Vitec refuses this login', offices: [] },
+    ]);
+    // Reads only, each office under its own customer id.
+    expect(fake.requests.map((request) => request.path)).toEqual([
+      '/Advertising/Office/G1',
+      '/Advertising/Office/M1/FIR1',
+      '/Advertising/Office/M2/FIR2',
+      '/Advertising/Office/G9',
+    ]);
+    expect(await lastCheck(CONNECTION)).toEqual(check);
+    expect(await store.getState(CONNECTION, 'offices_check_at')).toBe(check.at);
+  });
+
+  it('checks the offices at start and once a day, and "Check offices now" checks at the next tick', async () => {
+    seed(fake);
+    await start();
+    const first = await lastCheck(CONNECTION);
+    expect(first?.ids[0]?.offices).toEqual([
+      { customerId: OFFICE, officeId: OFFICE, name: 'Kontor 1', readable: true, detail: null },
+    ]);
+
+    // Within the day, a tick does not ask again.
+    const listed = (): number =>
+      fake.requests.filter((request) => request.path === `/Advertising/Office/${OFFICE}`).length;
+    fake.requests.length = 0;
+    await runSchedules();
+    expect(listed()).toBe(0);
+
+    // The button makes the next tick ask; the tenant's page shows what Vitec answered.
+    const connections = [await connection()];
+    const acted = await vitecAdmin.act('check_offices', { connection: CONNECTION }, connections);
+    expect(acted.message).toContain('next tick');
+    await runSchedules();
+    expect(listed()).toBe(1);
+    const own = await vitecAdmin.connection?.(connections[0] as Connection);
+    const section = own?.find((candidate) => candidate.title === 'Offices Vitec lists');
+    expect(section?.table?.rows[0]?.cells).toEqual([
+      OFFICE,
+      `${OFFICE} (${OFFICE})`,
+      'Kontor 1',
+      { text: 'yes', state: 'ok' },
+    ]);
+    expect(section?.actions?.[0]?.help).toBeTruthy();
   });
 });

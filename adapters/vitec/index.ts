@@ -5,6 +5,7 @@
 //          ──► Remove: notFound, no fetch
 //   every 12 h ──► "what changed since the last catch-up, less one hour" ──► fetch list
 //   every 24 h ──► Vitec's full id list against the ids seen ──► missing ones removed
+//   every 24 h ──► the offices Vitec lists behind each id, each read on its own ──► shown (offices.ts)
 //
 // Core syncs what Vitec lists for the sites, the marketed estates, and nothing else (Patric,
 // 2026-09-17): in the list means on the sites; a Remove notification, or an id gone from the list,
@@ -28,6 +29,7 @@ import * as store from './store.js';
 import * as forms from './forms.js';
 import { changedAtOf, isoDate, mappers, referencedIds } from './mappers.js';
 import { refetchOffice, vitecAdmin } from './admin/index.js';
+import { checkOffices } from './offices.js';
 import type {
   Adapter,
   AdapterApi,
@@ -45,6 +47,8 @@ const CATCH_UP_EVERY_MS = 12 * 3_600_000;
 const CATCH_UP_OVERLAP_MS = 3_600_000;
 const CATCH_UP_LIMIT_MS = 13 * 3_600_000;
 const COMPARE_EVERY_MS = 24 * 3_600_000;
+/** Which offices sit behind each id a connection names is asked once a day (offices.ts). */
+const OFFICES_CHECK_EVERY_MS = 24 * 3_600_000;
 const LAG_LIMIT_MS = 5 * 60_000;
 const RETRIES_RED = 3;
 /** A connection pauses after this many failures in a row on Vitec's side. */
@@ -698,6 +702,14 @@ async function tickOnce(): Promise<void> {
       if (startup || catchUpAge >= CATCH_UP_EVERY_MS) await catchUp(target);
       const compareAge = ageMs(await store.getState(target.connection.id, 'compare_at'));
       if (startup || compareAge >= COMPARE_EVERY_MS) await compare(target);
+      const checkAge = ageMs(await store.getState(target.connection.id, 'offices_check_at'));
+      if (startup || checkAge >= OFFICES_CHECK_EVERY_MS) {
+        await checkOffices(
+          target.connection.id,
+          target.credentials,
+          target.connection.licensedOffices,
+        );
+      }
     } catch (error) {
       failed = true;
       await current.logEvent(

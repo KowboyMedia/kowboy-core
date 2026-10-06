@@ -100,3 +100,7 @@ In addition to the handbook's definition:
    panel's own text, the adapter's setup directions and `docs/admin-panel.md`. The tests that read
    them stay green: `adapters/*/admin/directions.test.ts` (every setting, event, health check and
    credential field is named) and the acceptance test that every page a direction names exists.
+4. **Every button in the admin area explains itself beside it** (Patric, 2026-10-06: "next to its
+   button explain to a cold reader what it does, as always in admin UI"): a sentence or two that a
+   reader new to Core understands, saying what pressing it does and when to press it, shown next
+   to the button, never only on hover.

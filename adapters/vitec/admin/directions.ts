@@ -21,7 +21,7 @@ export function directions(): AdminDirections {
       },
       {
         title: 'Changes later',
-        text: 'Add an office on the tenant’s page and save: only the new one is loaded (the event offices_added), and an office taken away is taken off the sites (offices_removed). On Manual sync, “Fetch again from the CRM” with this connection as the scope fetches Vitec’s list once more, for one datatype or all, and removes what is no longer on it (resync); “Remove everything” on the tenant’s page (connection_removed) takes every record off the sites. On Records, tick rows and press “Fetch again” (refetch) to fetch those records once more, and “Ask the CRM now” on a record’s own page shows it raw and unified without writing anything.',
+        text: 'Add an office on the tenant’s page and save: only the new one is loaded (the event offices_added), and an office taken away is taken off the sites (offices_removed). On Manual sync, “Fetch again from the CRM” with this connection as the scope fetches Vitec’s list once more, for one datatype or all, and removes what is no longer on it (resync); “Remove everything” on the tenant’s page (connection_removed) takes every record off the sites. On Records, tick rows and press “Fetch again” (refetch) to fetch those records once more, and “Ask the CRM now” on a record’s own page shows it raw and unified without writing anything. On the tenant’s page, “Offices Vitec lists” shows, for each id typed as an office (a customer id, or a group id such as G2), the offices Vitec lists behind it and whether this login may read each one; Core asks once a day and at every worker start, and “Check offices now” asks at the next tick.',
       },
       {
         title: 'Forms',

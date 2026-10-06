@@ -508,6 +508,35 @@ client ports (item 16, first client by question 80).
       Default 134 (free text narrows the pills). The outline test and the combo box are the
       plugin's own code, with the reasons stated in the design.
 
+24. **A Vitec connection's offices come from Vitec** (Patric, 2026-10-06, closes question 147 with
+    a: "Do A, but you need to do a poc before writing everything. Check schedule is once per day
+    but we need to have ability to manually check a tenant").
+    - **Step 1, the proof, done 2026-10-06:** `adapters/vitec/offices.ts` asks Vitec's office list
+      for each id a connection names and reads each listed office on its own, under its own
+      customer id; once a day, at every worker start, and at the next tick after "Check offices
+      now" on the tenant's page, which shows the answer as "Offices Vitec lists". It changes
+      nothing synced. Proved against the stand-in (a group id listing offices of two customers,
+      one of them refused; an id the login may not use). A run against Vitec from this session
+      with the environment's login was refused by the session's permission check on 2026-10-06
+      and is not retried, so the real answer is the one staging Core shows on each tenant's page,
+      the svenskamaklarhuset.se tenant's above all.
+    - **Step 2, after Patric's look at step 1:** the rest of 147 a. The id field next to the
+      Connect password (known bug 3 fixed first, since saving one typed field erases the login);
+      "Offices it may see" gone for Vitec with the connection's own list empty; the save's rule
+      that a connection names at least one office reversed (`engine/admin/index.ts`); the
+      adapter's loads, catch-ups and comparisons over the offices that read; an office that
+      leaves Vitec's list removed with its records; the group case (`G12` on the
+      svenskamaklarhuset.se tenant) proven by that tenant's first load.
+    - **Component:** `[crm-vitec]`, and `[core]` for the reversed save rule.
+
+25. **Check that every admin button explains itself beside it** (Patric, 2026-10-06: "make note of
+    this, and add todo to check current ui"; AGENTS.md, definition of done 4). Go through every
+    page of the admin area and every button an adapter reports, and list each one whose
+    explanation is missing or only on hover. Known already: the buttons in a table's rows
+    (`admin/src/components/adapter-sections.tsx`, `SectionTable`) show their help only as a
+    hover title, and the confirm dialogs show it only once opened. The fix for the table rows is
+    a change to what a person sees, so it is asked as its own line before it is built.
+
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health
