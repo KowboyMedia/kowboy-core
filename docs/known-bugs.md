@@ -132,8 +132,8 @@ late is a trait of the drain's parallel state reads, not a cause.
 
 **What was done.** On staging since 2026-10-06: the engine's pool holds 2 connections a process
 and the adapter's 1, so six processes, both apps' web and worker and one app's new pair during a
-deploy, hold 18 of the 22 at most, and a query that finds its pool busy waits its turn instead of
-failing. The adapter's pool got the engine's guards against a dropped connection (a query fails
+deploy, hold 18 of the 22 at most, and a query that finds its pool busy waits its turn, up to ten
+seconds as before, instead of being refused by the database. The adapter's pool got the engine's guards against a dropped connection (a query fails
 after a minute and the connection is discarded), which with one connection is the difference
 between a stall and a recovery. Question 167 asks whether the engine should hand its one pool to
 the adapters instead. The entry leaves when the fix is live.

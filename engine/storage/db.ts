@@ -14,8 +14,10 @@ export function db(databaseUrl?: string): pg.Pool {
       // connected at once: each app's web and worker, and during a deploy the new web and worker
       // of one app while its old ones still run. 22 / 6 leaves 3 a process: 2 here and 1 in an
       // adapter's own pool, 18 in all with 4 to spare. A query that finds the pool busy waits
-      // its turn instead of failing with "remaining connection slots are reserved" (seen
-      // 2026-09-20 with one app on the cluster, and 2026-10-06 with two).
+      // its turn, for up to connectionTimeoutMillis below, instead of being refused by the
+      // database with "remaining connection slots are reserved" (seen 2026-09-20 with one app
+      // on the cluster, and 2026-10-06 with two). No code holds a connection while it asks the
+      // pool for another, so a pool this small cannot wait on itself.
       max: 2,
       // A connection the network silently dropped (a firewall change, a failover) must not hang a
       // query for good: it fails after a minute, and the pool discards the client it ran on.
