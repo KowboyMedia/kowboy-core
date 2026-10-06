@@ -152,11 +152,12 @@ check within a minute. The card's note says the rule in one paragraph of plain w
 brokerage (Patric, closing question 154; one paragraph, Patric 2026-10-06). The card is the only
 thing the Vitec adapter shows under a connection: the block of its schedules and fetch list went
 on 2026-10-06 (Patric: remove it); the Vitec page keeps them.
-A Vitec login can be for Vitec's QA environment, Vitec's test system (question 169 a): the login's
-tickbox **Use Vitec's QA environment**, ticked, sends every call of that login to QA's address, and
+A Vitec login can be for Vitec's QA environment, Vitec's test system (question 169 a): the login
+field **Use Vitec's QA environment** set to yes sends every call of that login to QA's address, and
 its records are kept apart from live Vitec's even where QA uses the same office ids. The adapter
-declares the field with the fixed values no and yes, which the tenant page draws as a tickbox
-(Patric, 2026-10-06: "a toggle/checkbox"); ticked stores yes, unticked no. The Vitec page
+declares the field with the fixed values no and yes, which the new tenant page (question 180) will
+draw as a tickbox, ticked storing yes and unticked no (Patric, 2026-10-06: "a toggle/checkbox");
+the current tenant page keeps a typed field, where yes means QA, until it goes. The Vitec page
 shows QA's notification address beside the live one, and its **Fetch list** and **Refused
 offices** mark a QA office "(QA)", as do the names in `vitec.offices` on Overview. A saved login
 switched to the other system syncs no office until the worker's next tick, which takes

@@ -159,6 +159,7 @@ describe('Vitec’s QA environment', () => {
 
     // The tenant page draws the switch from these two values as a tickbox: unticked is live Vitec.
     const offered = vitecAdmin.credentials.find((field) => field.key === 'qa')?.options ?? [];
+    expect(offered.map(({ value }) => value)).toEqual(['no', 'yes']);
     expect(offered.map(({ value }) => connect.loginOf(login({ qa: value }))?.environment)).toEqual([
       'live',
       'qa',
