@@ -14,7 +14,7 @@ import { openJobs } from '../jobs.js';
 import { healthReport } from '../health.js';
 import { report } from '../errors.js';
 import { summarise } from './summary.js';
-import { counted } from './words.js';
+import { counted, sentence } from './words.js';
 import type { Scope } from './scope.js';
 import type { AdminQueued } from '../adapter-api/types.js';
 import type { Response } from '../http/server.js';
@@ -121,16 +121,20 @@ const waitingRow = (entry: AdminQueued, tenant: { id: number; name: string } | n
   site: null,
 });
 
-/** Why a record waits on its CRM, in a sentence: the adapter says why, the engine what follows. */
+/**
+ * Why a record waits on its CRM, in a sentence: the adapter says why, the engine what follows. Not
+ * every wait is a fetch: a record the CRM no longer lists waits its turn to leave the sites.
+ */
 function waiting(entry: AdminQueued): string {
   const tries = counted(entry.attempts, 'try', 'tries');
+  const why = `It waits because ${entry.reason}.`;
   if (entry.nextAt === null)
     return entry.lastError === null
-      ? `Core stopped trying to fetch it from the CRM after ${tries}.`
-      : `Core stopped trying to fetch it from the CRM after ${tries}. The last try failed: ${entry.lastError}`;
+      ? `Core stopped trying after ${tries}. ${why}`
+      : `Core stopped trying after ${tries}. The last try failed: ${sentence(entry.lastError)} ${why}`;
   if (entry.lastError !== null)
-    return `The last try to fetch it from the CRM failed, and Core tries again: ${entry.lastError}`;
-  return `Waiting to be fetched from the CRM: ${entry.reason}.`;
+    return `The last try failed, and Core tries again: ${sentence(entry.lastError)} ${why}`;
+  return `Waiting its turn. ${why}`;
 }
 
 type MovedRow = {

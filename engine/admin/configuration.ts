@@ -46,39 +46,55 @@ export async function configuration(): Promise<Configuration> {
     eventRetentionDays: config.eventRetentionDays,
     bellThrottleMs: config.bellThrottleMs,
     set: [
-      { key: 'DATABASE_URL', set: config.databaseUrl !== '', what: 'where the records are kept' },
+      {
+        key: 'DATABASE_URL',
+        set: config.databaseUrl !== '',
+        what: 'Where Core keeps its records. Core does not start without it.',
+      },
       {
         key: 'CREDENTIALS_KEY',
         set: config.credentialsKey !== '',
-        what: 'what encrypts the CRM logins and the tokens',
+        what: 'The key that locks the CRM logins, the tokens and the kept forms in the database. Core does not start without it.',
       },
-      { key: 'SENTRY_DSN', set: config.sentryDsn !== null, what: 'where unexpected errors go' },
+      {
+        key: 'SENTRY_DSN',
+        set: config.sentryDsn !== null,
+        what: 'Where Core reports an error nobody expected, for the engineers.',
+      },
       {
         key: 'POSTMARK_SERVER_TOKEN',
         set: config.postmarkServerToken !== null,
-        what: 'what sends the mail',
+        what: 'The key Core sends its mail with: the sign-in links and the alerts.',
       },
-      { key: 'MAIL_FROM', set: config.mailFrom !== null, what: 'the address the mail comes from' },
+      {
+        key: 'MAIL_FROM',
+        set: config.mailFrom !== null,
+        what: 'The address Core’s mail comes from.',
+      },
       {
         key: 'PUBLIC_URL',
         set: config.publicUrl !== null,
-        what: 'where this Core is reached, for the links in alerts',
+        what: 'Core’s own web address, for the links in its alerts and mails.',
       },
-      { key: 'ALERT_EMAIL', set: config.alertEmail !== null, what: 'where an alert is mailed' },
+      {
+        key: 'ALERT_EMAIL',
+        set: config.alertEmail !== null,
+        what: 'The address Core mails its alerts to.',
+      },
       {
         key: 'ALERT_SLACK_WEBHOOK_URL',
         set: config.alertSlackWebhookUrl !== null,
-        what: 'where an alert is posted',
+        what: 'The Slack address Core posts its alerts to.',
       },
       {
         key: 'ADMIN_EMAILS',
         set: config.adminEmails.length > 0,
-        what: 'the addresses that may open this area',
+        what: 'The addresses that may sign in here, one by one.',
       },
       {
         key: 'ADMIN_EMAIL_DOMAINS',
         set: config.adminEmailDomains.length > 0,
-        what: 'whole domains that may open this area',
+        what: 'Whole domains, such as kowboy.se, whose every address may sign in here.',
       },
     ],
     alerts: {

@@ -34,7 +34,8 @@ export function SignIn() {
         <CardHeader>
           <CardTitle>Kowboy Core</CardTitle>
           <CardDescription>
-            The admin area. Type the address you work with and open the link that arrives.
+            The admin area of Kowboy Core. Type your work e-mail address, press “Send me a link” and
+            open the link that arrives by mail. There is no password.
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -101,7 +101,7 @@ test('journey: U2 keep it healthy — the verdict, and where a red check is fixe
   await expect(page.getByTestId('check-database')).toContainText('ok');
   await expect(page.getByTestId('environment')).toBeVisible();
   await expect(page.getByTestId('attention')).toContainText('Needs attention');
-  await expect(page.getByText('The last 24 hours')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'The last 24 hours' })).toBeVisible();
 });
 
 test('journey: U5 watch the flow — records in flight, coloured by state, by tenant', async ({
@@ -342,7 +342,9 @@ test('journey: U6 maintenance pauses Core’s own work, and says so everywhere',
   await go(page, 'Settings');
   await page.getByRole('button', { name: 'Turn maintenance off' }).click();
   await page.getByRole('button', { name: 'Turn it off' }).click();
-  await expect(page.getByText('the held bells go out now', { exact: false })).toBeVisible();
+  await expect(
+    page.getByText('Core tells the sites about the changes it held back.', { exact: false }),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Turn maintenance on' })).toBeVisible();
 });
 

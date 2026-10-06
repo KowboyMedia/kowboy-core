@@ -8,9 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Confirm } from '@/components/confirm';
 import { DataTable } from '@/components/data-table';
 import { Empty } from '@/components/empty';
+import { Explained } from '@/components/explained';
 import { PageHeader } from '@/components/layout';
 import { useLive } from '@/lib/live';
-import { moment } from '@/lib/format';
+import { counted, lasting, moment } from '@/lib/format';
 
 type Configuration = {
   environment: string;
@@ -62,7 +63,11 @@ export function SettingsPage() {
         errorNotification: false,
       });
       await query.refetch();
-      toast.success(on ? 'Maintenance is on.' : 'Maintenance is off; the held bells go out now.');
+      toast.success(
+        on
+          ? 'Maintenance is on. Core holds back its own work until you turn it off.'
+          : 'Maintenance is off. Core tells the sites about the changes it held back.',
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
     }
@@ -71,12 +76,14 @@ export function SettingsPage() {
   if (query.isLoading || !config) {
     return <p className="text-sm text-muted-foreground">Looking…</p>;
   }
+  const switched = config.switches.find((row) => row.key === 'maintenance');
+  const others = devices.length - 1;
 
   return (
     <>
       <PageHeader
         title="Settings"
-        what="How this Core is configured, and the one switch that pauses its own work."
+        what="How this Core is set up: what is running, which server settings have a value, where alerts go and who may sign in. Maintenance holds back Core’s own work while Core is being worked on."
       >
         <Badge tone={config.environment === 'production' ? 'bad' : 'warn'}>
           {config.environment}
@@ -89,42 +96,43 @@ export function SettingsPage() {
             <CardTitle className="flex items-center gap-2">
               Maintenance
               <Badge tone={config.maintenance ? 'warn' : 'ok'}>
-                {config.maintenance ? 'on' : 'off'}
+                {config.maintenance ? 'On' : 'Off'}
               </Badge>
             </CardTitle>
             <CardDescription>
-              While it is on, the sites still pull exactly as before — nothing a visitor sees
-              changes — but Core rings no site and takes no job. Changes meanwhile are remembered
-              and go out in one round when it is turned off.
+              While maintenance is on, Core tells no site about changes and runs no recompute. The
+              sites keep fetching on their own schedule, so visitors see no break, only later
+              updates. When it is turned off, Core tells each site at once about what changed
+              meanwhile.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {config.maintenance ? (
-              <Confirm
-                label="Turn maintenance off"
-                title="Turn maintenance off"
-                what="Core rings the sites it held back and starts taking jobs again."
-                confirmLabel="Turn it off"
-                variant="secondary"
-                onConfirm={() => setMaintenance(false)}
-              />
+              <Explained what="Tells each site at once about the changes held back, and runs recomputes again. Press it when the work on Core is done.">
+                <Confirm
+                  label="Turn maintenance off"
+                  title="Turn maintenance off"
+                  what="Core tells each site about the changes it held back, and runs recomputes again."
+                  confirmLabel="Turn it off"
+                  variant="secondary"
+                  onConfirm={() => setMaintenance(false)}
+                />
+              </Explained>
             ) : (
-              <Confirm
-                label="Turn maintenance on"
-                title="Turn maintenance on"
-                what="Core stops ringing sites and stops taking jobs until you turn this off. The sites keep pulling on their own schedule, so nothing a visitor sees changes."
-                confirmLabel="Turn it on"
-                onConfirm={() => setMaintenance(true)}
-              />
+              <Explained what="Holds back Core’s own work until you turn maintenance off. Press it while Core’s server or database is being worked on.">
+                <Confirm
+                  label="Turn maintenance on"
+                  title="Turn maintenance on"
+                  what="Core stops telling the sites about changes and stops running recomputes until you turn maintenance off. The sites keep fetching on their own schedule, so visitors see no break."
+                  confirmLabel="Turn it on"
+                  onConfirm={() => setMaintenance(true)}
+                />
+              </Explained>
             )}
-            {config.switches.length > 0 && (
+            {switched && (
               <p className="mt-3 text-xs text-muted-foreground">
-                {config.switches
-                  .map(
-                    (row) =>
-                      `${row.key} is ${row.value}, set ${moment(row.updated_at)}${row.updated_by ? ` by ${row.updated_by}` : ''}`,
-                  )
-                  .join(' · ')}
+                Last turned {switched.value} {moment(switched.updated_at)}
+                {switched.updated_by ? ` by ${switched.updated_by}` : ''}.
               </p>
             )}
           </CardContent>
@@ -135,41 +143,46 @@ export function SettingsPage() {
             <CardTitle>What is running</CardTitle>
           </CardHeader>
           <CardContent>
-            <dl className="grid grid-cols-[minmax(0,12rem)_1fr] gap-y-1 text-sm">
-              <dt className="text-muted-foreground">Version</dt>
+            <dl className="grid grid-cols-[minmax(0,14rem)_1fr] gap-x-3 gap-y-1 text-sm">
+              <dt className="text-muted-foreground">Core’s version</dt>
               <dd>{config.version}</dd>
               <dt className="text-muted-foreground">Running since</dt>
               <dd className="tabular-nums">{moment(config.startedAt)}</dd>
-              <dt className="text-muted-foreground">Rules version</dt>
-              <dd>{config.rulesVersion}</dd>
-              <dt className="text-muted-foreground">Contract version</dt>
-              <dd>{config.schemaVersion}</dd>
-              <dt className="text-muted-foreground">Reached at</dt>
-              <dd>{config.publicUrl ?? 'not set'}</dd>
-              <dt className="text-muted-foreground">Events kept</dt>
-              <dd>{config.eventRetentionDays} days</dd>
-              <dt className="text-muted-foreground">Bells at most every</dt>
-              <dd>{config.bellThrottleMs} ms</dd>
+              <dt className="text-muted-foreground">The rules that make the texts</dt>
+              <dd>Version {config.rulesVersion}</dd>
+              <dt className="text-muted-foreground">What the sites receive</dt>
+              <dd>Version {config.schemaVersion}</dd>
+              <dt className="text-muted-foreground">Core’s address</dt>
+              <dd>{config.publicUrl ?? 'Not set'}</dd>
+              <dt className="text-muted-foreground">The event log keeps</dt>
+              <dd>{counted(config.eventRetentionDays, 'day', 'days')}</dd>
+              <dt className="text-muted-foreground">A site is told of changes</dt>
+              <dd>
+                {config.bellThrottleMs < 1000
+                  ? 'As soon as something changes'
+                  : `At most once every ${lasting(config.bellThrottleMs)}`}
+              </dd>
             </dl>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>What is configured</CardTitle>
+            <CardTitle>Server settings</CardTitle>
             <CardDescription>
-              Whether each setting has a value, never the value itself.
+              Whether each of Core’s server settings has a value, never the value itself. They are
+              set where Core’s server runs, under the names shown.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="flex flex-col gap-1 text-sm">
+            <ul className="flex flex-col gap-2 text-sm">
               {config.set.map((row) => (
                 <li key={row.key} className="flex items-start justify-between gap-3">
                   <span>
-                    <code className="text-xs">{row.key}</code>
-                    <span className="block text-xs text-muted-foreground">{row.what}</span>
+                    {row.what}
+                    <code className="block text-xs text-muted-foreground">{row.key}</code>
                   </span>
-                  <Badge tone={row.set ? 'ok' : 'muted'}>{row.set ? 'set' : 'not set'}</Badge>
+                  <Badge tone={row.set ? 'ok' : 'muted'}>{row.set ? 'Set' : 'Not set'}</Badge>
                 </li>
               ))}
             </ul>
@@ -180,26 +193,34 @@ export function SettingsPage() {
           <CardHeader>
             <CardTitle>Alerts and access</CardTitle>
             <CardDescription>
-              Where Core tells someone a check went red, and who may open this area.
+              Where Core sends an alert when something needs attention, and who may sign in here.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <dl className="grid grid-cols-[minmax(0,12rem)_1fr] gap-y-1 text-sm">
-              <dt className="text-muted-foreground">By mail to</dt>
+            <dl className="grid grid-cols-[minmax(0,12rem)_1fr] gap-x-3 gap-y-1 text-sm">
+              <dt className="text-muted-foreground">Alerts by mail to</dt>
               <dd>
-                {config.alerts.email ?? 'nobody'}
+                {config.alerts.email ?? 'Nobody: the server setting ALERT_EMAIL is not set.'}
                 {config.alerts.email && !config.alerts.mail && (
-                  <span className="text-danger"> — but Core cannot send mail</span>
+                  <span className="block text-danger">
+                    Core cannot send mail, so no alert reaches this address: the server setting
+                    POSTMARK_SERVER_TOKEN or MAIL_FROM is not set.
+                  </span>
                 )}
               </dd>
-              <dt className="text-muted-foreground">To Slack</dt>
-              <dd>{config.alerts.slack ? 'yes' : 'no'}</dd>
+              <dt className="text-muted-foreground">Alerts to Slack</dt>
+              <dd>
+                {config.alerts.slack
+                  ? 'Yes'
+                  : 'No: the server setting ALERT_SLACK_WEBHOOK_URL is not set.'}
+              </dd>
               <dt className="text-muted-foreground">Who may sign in</dt>
               <dd>
                 {[
                   ...config.people,
                   ...config.peopleDomains.map((domain) => `anyone at ${domain}`),
-                ].join(', ') || 'nobody: neither ADMIN_EMAILS nor ADMIN_EMAIL_DOMAINS is set'}
+                ].join(', ') ||
+                  'Nobody yet: set the server setting ADMIN_EMAILS or ADMIN_EMAIL_DOMAINS.'}
                 <span className="block text-xs text-muted-foreground">
                   The sign-in page says the same thing to every address, so it never gives this
                   away.
@@ -226,10 +247,10 @@ export function SettingsPage() {
                   header: 'Device',
                   cell: (row) => (
                     <span className="break-all">
-                      {row.device ?? 'a browser that did not say'}
+                      {row.device ?? 'A browser that gave no name'}
                       {row.current && (
                         <Badge tone="ok" className="ml-2">
-                          this one
+                          This one
                         </Badge>
                       )}
                     </span>
@@ -237,7 +258,7 @@ export function SettingsPage() {
                 },
                 {
                   key: 'remembered',
-                  header: 'Remembered',
+                  header: 'Stays signed in',
                   cell: (row) => (
                     <Badge tone={row.remembered ? 'ok' : 'muted'}>
                       {row.remembered ? '30 days' : '14 days'}
@@ -257,27 +278,29 @@ export function SettingsPage() {
               ]}
               rows={devices}
               rowKey={(row) => `${row.signedInAt}|${row.device ?? ''}`}
-              empty={<Empty what="Only this one." />}
+              empty={<Empty what="Only this device is signed in." />}
             />
-            {devices.length > 1 && (
+            {others > 0 && (
               <div className="mt-3">
-                <Confirm
-                  label="Sign out everywhere else"
-                  title="Sign out of the other devices"
-                  what={`The other ${String(devices.length - 1)} device(s) are signed out at once and will need a new link. This one stays signed in.`}
-                  confirmLabel="Sign the others out"
-                  onConfirm={async () => {
-                    await mutateAsync({
-                      url: '/devices/forget-others',
-                      method: 'post',
-                      values: {},
-                      successNotification: false,
-                      errorNotification: false,
-                    });
-                    await refetchDevices();
-                    toast.success('The other devices are signed out.');
-                  }}
-                />
+                <Explained what="Signs you out at once on every other device, which then needs a new link to get in. Press it when a device you signed in on may be lost or used by someone else.">
+                  <Confirm
+                    label="Sign out everywhere else"
+                    title="Sign out of the other devices"
+                    what={`${others === 1 ? 'The other device is signed out at once and needs' : `The other ${counted(others, 'device', 'devices')} are signed out at once and need`} a new link to get in. This one stays signed in.`}
+                    confirmLabel="Sign the others out"
+                    onConfirm={async () => {
+                      await mutateAsync({
+                        url: '/devices/forget-others',
+                        method: 'post',
+                        values: {},
+                        successNotification: false,
+                        errorNotification: false,
+                      });
+                      await refetchDevices();
+                      toast.success('The other devices are signed out.');
+                    }}
+                  />
+                </Explained>
               </div>
             )}
           </CardContent>
@@ -285,10 +308,11 @@ export function SettingsPage() {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>What the database holds</CardTitle>
+            <CardTitle>Changes to the database’s layout</CardTitle>
             <CardDescription>
-              Every migration applied, in order. Core refuses to serve if the database is ahead of
-              it.
+              Each change Core has made to how its database is laid out, oldest first. Core does not
+              start on a database that holds a change it does not know, so an older Core never runs
+              on a newer database.
             </CardDescription>
           </CardHeader>
           <CardContent>
