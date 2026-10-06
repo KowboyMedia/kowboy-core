@@ -581,9 +581,9 @@ client ports (item 16, first client by question 80).
       event is mailed and Slacked once the moment it is written (`engine/alerts.ts` listens to the
       event log; a check's change goes with the checks' message as before, and is now also a
       `check.failed` or `check.recovered` event). Proved by `acceptance/operations.test.ts`
-      ("alerts") and `acceptance/admin.test.ts` with the fake adapter. Asked: 162 (every red check
-      in the list, or only a site that stopped pulling) and 163 (the words, as they read on
-      staging).
+      ("alerts") and `acceptance/admin.test.ts` with the fake adapter. Answered: 162 a (the four
+      kinds) and 163 (the words stay; every line names the exact thing, where, and links to it).
+      Asked: 164, the colour per system (red is an alert, yellow is to be looked at), row by row.
     - **Step 2, the Vitec side, built 2026-10-06 by the office thread** (item 24): the adapter
       logs `office.taken_off` in `takeOff` with the reason in plain words, `login.refused` once
       when a check first finds the connection's id refused, and `connect.paused` and

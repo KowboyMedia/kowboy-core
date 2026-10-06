@@ -4,46 +4,66 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 164 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 165 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 163. `[core]` The words of "Needs attention" and of its alerts, as they read on staging: keep them?
+## 164. `[core]` Red, yellow or nothing: which of Core's systems may raise which alert?
 
-- 2026-10-06 · Item 26 says the words of each line and of the alert are asked before they are
-  built; they can only be judged seen, so they stand on staging (the Overview, card "Needs
-  attention") and here. The card's note: "The important things of the last seven days: an office
-  taken off the sites, a connection paused after failures, a login the CRM refuses, and a site that
-  stopped pulling. Each one was also sent once by mail and Slack, where Settings says those are
-  set." Its columns: When, What happened, Tenant, Look into it ("Open the tenant", or "Go to
-  Tenants" when no tenant is known). Empty: "Nothing needed attention in the last seven days."
-- Each line, and each alert's subject after "Core staging:", is one of four titles: "an office was
-  taken off the sites", "a connection paused after failures", "the CRM refuses a login", "a site
-  stopped pulling". After the title comes the sentence the Events page reads: "office M30011 was
-  taken off the sites: it is no longer in the office group Webbplats in Vitec"; "the connection
-  paused after 5 failures in a row: Vitec answered 503"; "the CRM refuses the login: Vitec refuses
-  this login for G1"; "the check subscribers turned red: 1 site(s) have not pulled for an hour
-  (acme.se)". The mail's text is the tenant's name, the connection, the sentence, and a link to
-  the tenant's page in the admin area. The checks' own mail keeps its subject ("1 check(s)
-  failing", "all checks green again") and now reads its lines the same way as the Events page.
-- a) **yes** (recommended): the words stay. b) **no**: say which line, and its new words.
-- Smaller: a. Blocked: nothing. Answer a, or b with the words.
+- 2026-10-06 · Patric, 18:06 (UTC), answering 162 with a: "there are multiple issues to be
+  alerted about. Red = alert. Yellow = should be looked at. Red causes disruption in
+  functionality. Yellow are handled issues but do not disrupt functionality. Maybe you have a
+  better criteria. List all systems, and wether or not something can go red or yellow. Remember,
+  low noise level is crucial here. Table format, let me approve each." And on 163: "If something
+  needs attention, state specifically which entity where, and link to it."
+- **The rules proposed.** A, red: homes on the sites are wrong or missing, or a form does not
+  reach the brokerage, and Core cannot fix it alone; it is mailed and sent to Slack once when it
+  starts and once when it is over, and listed on the Overview. B, yellow: Core held it or works
+  around it and recovers alone, but a person should look within a day; it is listed on the
+  Overview for seven days and never mailed. C, quiet: a red that is over within five minutes is
+  never told, so a restart or a release never alerts; a yellow that repeats is one line per thing
+  per day, with a count. These sharpen Patric's own rule with two words: "alone" (Core cannot
+  recover by itself) and "a day" (how soon a yellow should be read).
+- **Every system and what it may raise** (Today: what Core does before this question).
 
-## 162. `[core]` "Needs attention" on the Overview: only the four kinds, or every health check that turned red?
+| #   | System              | What goes wrong                                                                             | Proposed                                             | Today                                        |
+| --- | ------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------- |
+| 1   | Database            | Core cannot reach its database                                                              | red                                                  | red                                          |
+| 2   | Database version    | the database is newer than the Core running (a release taken back)                          | red                                                  | red                                          |
+| 3   | Background worker   | it stopped reporting: nothing syncs, no site is rung                                        | red                                                  | red                                          |
+| 4   | Loading queue       | a new connection or office has waited over 5 minutes to be loaded                           | yellow                                               | red                                          |
+| 5   | Alerts              | a mail or a Slack message could not be sent                                                 | yellow                                               | not shown                                    |
+| 6   | Manual sync         | a run someone started failed                                                                | nothing: that person sees it on Manual sync          | nothing                                      |
+| 7   | Site pulling        | a site has not pulled for an hour                                                           | red                                                  | red                                          |
+| 8   | Site taking records | a site could not take one or more records                                                   | yellow, one line per site per day                    | the record's timeline                        |
+| 9   | Site bell           | a site did not answer a bell                                                                | nothing: the site pulls on its own; 7 catches a stop | nothing                                      |
+| 10  | Site errors         | a site reported a programming error                                                         | nothing: Sentry has it                               | Sentry                                       |
+| 11  | CRM login           | the CRM refuses the connection's login                                                      | red                                                  | listed and mailed                            |
+| 12  | Stored login        | Core cannot read the login it stored for a connection                                       | red                                                  | red                                          |
+| 13  | CRM answering       | the CRM failed 5 calls in a row; Core pauses and tries again                                | yellow; red when still failing after an hour         | red while paused, listed and mailed          |
+| 14  | CRM notifications   | a change the CRM announced has waited over 5 minutes                                        | yellow                                               | red                                          |
+| 15  | Records fetched     | a record failed 3 fetches in a row; Core keeps trying                                       | yellow, one line per connection per day              | red                                          |
+| 16  | Catching up         | a connection has not caught up for 12 hours, or never did                                   | red                                                  | red, and red for minutes after every restart |
+| 17  | Connection offices  | a connection has no office to sync                                                          | yellow                                               | red                                          |
+| 18  | Dropped records     | Core refused a record as malformed or of an unknown kind                                    | yellow, one line per connection per day              | the record's timeline                        |
+| 19  | Refused office      | the CRM refuses one office; it stays on the sites a day of grace                            | yellow                                               | red                                          |
+| 20  | Office off, refused | an office left the sites because the CRM still refused it a day later                       | red                                                  | listed and mailed                            |
+| 21  | Office off, chosen  | an office left the sites because it left the group "Webbplats" or the id no longer lists it | yellow                                               | listed and mailed                            |
+| 22  | Form not answered   | the CRM did not answer a form (its final shape follows question 160)                        | red                                                  | red                                          |
+| 23  | Form refused        | the CRM said no to a form                                                                   | yellow                                               | the record's timeline                        |
 
-- 2026-10-06 · Saved to staging on 2026-10-06 from 159 a: the card "Needs attention" on the Overview lists, for
-  seven days, an office taken off the sites, a connection paused after failures, a login the CRM
-  refuses, and a site that stopped pulling (the check that watches the sites turning red). Every
-  health check that turns red already mails and Slacks once, as before, and is now also an event,
-  so the other checks (the worker not reporting, a webhook waiting too long, records failing their
-  fetches, a form the CRM did not answer) could join the list with one line changed. 159 a named
-  the four, so the card shows the four and this asks about the rest. The words are question 163.
-- a) **the four kinds** (recommended, as built): the card stays about the things a person acts
-  on; a red check shows in the verdict above it while it lasts, and in the mail. b) **every red
-  check too**: the card also keeps a week of checks that turned red and recovered, which the
-  verdict no longer shows.
-- Smaller: a. Blocked: nothing. Answer a or b.
+- **What a yes costs.** Rows 13, 14, 15, 17 and 19 are checks in a CRM's own code that today
+  turn Core's public health answer to "failing" (500), which an uptime monitor reads as Core being
+  down. For one of them to be yellow, a check needs one optional word, "yellow", in the interface
+  between the engine and a CRM's code, a protected file; a yes to any of those rows is also a yes
+  to that word, and a yellow check keeps the public answer at 200. Rows 20 and 21 need the CRM's
+  code to say which of the two causes took an office off, one field on the event, built in the
+  Vitec code by the thread that owns it. Rule C's five minutes and row 13's hour are new numbers.
+  Every line follows Patric's 163 rule: it names the thing (the site, the office, the connection)
+  and its tenant, and links to that thing's place in the admin area.
+- Reply: "164 ok" for every row and rule as proposed, or the row number or rule letter with its
+  new value ("164 ok, except 13 red, 21 nothing").
 
 ## 161. `[crm-vitec]` Make the daily office check the only call Core sends for an office Vitec refuses?
 
