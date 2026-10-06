@@ -14,8 +14,8 @@ import type { HealthResult, Level } from './adapter-api/types.js';
 import { logEvent, type EventFields } from './events.js';
 import { mailConfigured, sendMail } from './mail.js';
 import { report } from './errors.js';
-import { attentionBetween, KINDS, type AttentionRow } from './attention.js';
-import { counted, lasting } from './admin/words.js';
+import { attentionBetween, connectionsNamed, KINDS, type AttentionRow } from './attention.js';
+import { capital, counted, lasting, listed } from './admin/words.js';
 
 export type AlertConfig = {
   environment: string;
@@ -122,11 +122,13 @@ async function closeEnded(rows: StateRow[], open: Set<string>, round: Round): Pr
     if (row.ok) continue;
     round.closed.push(row.name);
     const words = wordsOf(row);
+    // The thing it was about, when the check's title does not say it: "a site is not fetching its
+    // changes, site acme.se, of Acme".
     await logEvent({
       type: 'check.recovered',
       fields: {
         name: row.name.split(':')[0] ?? row.name,
-        detail: words.which ? `${words.title} (${words.which})` : words.title,
+        ...(words.which ? { detail: `${words.title}, ${words.which}` } : {}),
       },
     });
     if (!row.notified_at) continue;
@@ -179,7 +181,8 @@ async function openAndTell(
 /** The subject: the one thing told, or how many started and ended, and the worst level. */
 function subjectOf(told: Told[]): string {
   const [only] = told;
-  if (told.length === 1 && only) return `${only.level ?? 'Resolved'} · ${only.words.title}`;
+  if (told.length === 1 && only)
+    return `${only.level ?? 'Resolved'} · ${capital(only.words.title)}`;
   let worst: Level | null = null;
   for (const item of told) if (item.level) worst = higher(worst, item.level);
   const fresh = told.filter((item) => item.level !== null).length;
@@ -209,21 +212,26 @@ async function problemsNow(): Promise<Problem[]> {
     // The sites one by one, each with its own start and end (question 164, rule A per thing),
     // unless the check could not even name them.
     if (name === SITES_CHECK && check.names) problems.push(...(await sitesProblems(check)));
-    else problems.push(checkProblem(name, check));
+    else problems.push(await checkProblem(name, check));
   }
   return problems;
 }
 
-function checkProblem(name: string, check: HealthResult): Problem {
+/** A failing check as one problem; the things it names are its "Which", in words Core knows them by. */
+async function checkProblem(name: string, check: HealthResult): Promise<Problem> {
   const about = aboutCheck(name);
-  const names = check.names && check.names.length > 0 ? ` (${check.names.join('; ')})` : '';
+  const names = check.names ?? [];
+  const named =
+    about.named === 'connections'
+      ? (await connectionsNamed(names)).map((connection) => connection.label)
+      : names;
   return {
     key: name,
     level: levelOf(check),
     title: about.title,
-    which: null,
+    which: named.length > 0 ? listed(named, named.length) : null,
     where: null,
-    said: `${check.detail ?? 'The check fails.'}${names}`,
+    said: check.detail ?? 'The check fails.',
     link: about.page.to,
     fields: { name, detail: check.detail ?? null, names: check.names ?? [] },
   };
@@ -239,7 +247,7 @@ async function sitesProblems(check: HealthResult): Promise<Problem[]> {
     const fetched = site.lastPullAt
       ? `Its last fetch was ${lasting(Date.now() - site.lastPullAt.getTime())} ago.`
       : 'It has never fetched.';
-    const said = `Core told the site about changes over an hour ago, and it has not fetched them since, so it shows out-of-date homes. ${fetched} Check that the site is up and that its plugin reaches Core.`;
+    const said = `Core told the site about changes over an hour ago, and it has not fetched them since, so it may show homes that have changed or are gone. ${fetched} Check that the site is up and that its plugin reaches Core.`;
     const tenant = tenants.get(site.tenantId);
     return {
       key: `${SITES_CHECK}:${String(site.id)}`,
@@ -295,7 +303,7 @@ function wordsOf(row: StateRow): Words {
 /** One thing told: its level or "Resolved", the thing and where it is, what happened, and the way to it. */
 const paragraph = (heading: string, words: Words, config: AlertConfig): string =>
   [
-    `${heading} · ${words.title}`,
+    `${heading} · ${capital(words.title)}`,
     words.which && `Which: ${words.which}`,
     words.where && `Where: ${words.where}`,
     `What happened: ${words.said}`,

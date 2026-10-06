@@ -59,8 +59,11 @@ export const SITES_CHECK = 'subscribers';
 /** Where a check is put right in the admin area. */
 export type Page = { to: string; label: string };
 
-/** What a person reads about a check: its title, never its name, and the page where it is put right. */
-export type About = { title: string; page: Page };
+/**
+ * What a person reads about a check: its title, never its name, the page where it is put right,
+ * and what its `names` are when Core can name and link them.
+ */
+export type About = { title: string; page: Page; named?: 'connections' };
 
 /** The engine's own checks, in words (AGENTS.md, definition of done item 5). */
 const ABOUT: Record<string, About> = {
@@ -76,8 +79,9 @@ const ABOUT: Record<string, About> = {
     page: { to: '/flow', label: 'Flow' },
   },
   'submissions.failing': {
-    title: 'Forms reaching the CRMs',
+    title: 'Sending forms to the CRMs',
     page: { to: '/forms', label: 'Failed forms' },
+    named: 'connections',
   },
 };
 
@@ -198,7 +202,7 @@ export async function healthReport(): Promise<HealthReport> {
     return {
       ok: false,
       level: 'P1',
-      detail: `Core told ${counted(behind.length, 'site', 'sites')} about changes over an hour ago, and ${many ? 'they have' : 'it has'} not fetched them since, so ${many ? 'they show' : 'it shows'} out-of-date homes.`,
+      detail: `Core told ${counted(behind.length, 'site', 'sites')} about changes over an hour ago, and ${many ? 'they have' : 'it has'} not fetched them since, so ${many ? 'they' : 'it'} may show homes that have changed or are gone.`,
       names: behind.map((site) => site.label),
     };
   });
@@ -218,14 +222,14 @@ export async function healthReport(): Promise<HealthReport> {
   // green on the next one it takes (docs/forms.md). The connection ids go in `names`.
   checks['submissions.failing'] = await run('submissions.failing', async () => {
     const failing = await connectionsWithFailingSubmissions();
-    return failing.length === 0
-      ? { ok: true }
-      : {
-          ok: false,
-          level: 'P2',
-          detail: `The CRM did not answer the latest form sent through ${counted(failing.length, 'connection', 'connections')}, so a visitor’s form may not have reached the brokerage. Failed forms lists each one, to send again.`,
-          names: failing,
-        };
+    if (failing.length === 0) return { ok: true };
+    const many = failing.length > 1;
+    return {
+      ok: false,
+      level: 'P2',
+      detail: `The last form a visitor sent through ${many ? 'each of ' : ''}${counted(failing.length, 'CRM connection', 'CRM connections')} could not be sent. Send ${many ? 'those forms' : 'that form'} again on Failed forms once the cause shown there is fixed. The check turns green when the CRM answers a form through ${many ? 'every one of those connections' : 'that connection'}.`,
+      names: failing,
+    };
   });
 
   Object.assign(checks, await adapterChecks());

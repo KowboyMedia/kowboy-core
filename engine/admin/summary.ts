@@ -7,7 +7,8 @@
 // type nobody described readable rather than silent.
 import type { EventFields } from '../events.js';
 import { aboutCheck } from '../health.js';
-import { counted } from './words.js';
+import { NOT_LIVE } from '../registry.js';
+import { counted, sentence } from './words.js';
 
 const text = (fields: EventFields, key: string): string | null => {
   const value = fields[key];
@@ -25,10 +26,10 @@ const changedNames = (fields: EventFields): string[] => {
   return changed && typeof changed === 'object' ? Object.keys(changed as object) : [];
 };
 
-/** The names behind a check's count, as `check.failed` carries them. */
+/** The things a failing check names, as `check.failed` carries them, after its sentence. */
 const names = (fields: EventFields): string => {
   const value = fields['names'];
-  return Array.isArray(value) && value.length > 0 ? ` (${value.map(String).join('; ')})` : '';
+  return Array.isArray(value) && value.length > 0 ? ` Which: ${listed(value.map(String))}.` : '';
 };
 
 const listed = (names: string[], limit = 6): string =>
@@ -38,13 +39,12 @@ const listed = (names: string[], limit = 6): string =>
 
 /** A form submission by its kind, as the `submission.` events name it (docs/forms.md). */
 const FORMS: Record<string, string> = {
-  lead: 'a lead',
+  lead: 'a valuation or contact request',
   interest: 'an interest in the home',
   viewing: 'a viewing booking',
   search_profile: 'a search profile',
 };
-export const form = (fields: EventFields): string =>
-  FORMS[text(fields, 'kind') ?? ''] ?? 'a form submission';
+export const form = (fields: EventFields): string => FORMS[text(fields, 'kind') ?? ''] ?? 'a form';
 
 /** An office by its name, then the CRM's id for it (docs/admin-panel.md, "The words it uses"). */
 const office = (fields: EventFields): string => {
@@ -71,11 +71,21 @@ const SAY: Record<string, (fields: EventFields) => string> = {
   'site.error': (fields) => `a site reported: ${text(fields, 'message') ?? 'an error'}`,
   'submission.received': (fields) => `a visitor sent ${form(fields)} through a site`,
   'submission.delivered': (fields) =>
-    `the CRM took ${form(fields)}${text(fields, 'reference') ? ` (${text(fields, 'reference') ?? ''})` : ''}`,
-  'submission.refused': (fields) =>
-    `the CRM refused ${form(fields)}: ${text(fields, 'reason') ?? 'no reason given'}`,
+    `${form(fields)} was delivered to the CRM${text(fields, 'reference') ? `, which gave it the id ${text(fields, 'reference') ?? ''}` : ''}`,
+  'submission.refused': (fields) => {
+    const reason = text(fields, 'reason');
+    // Core's own answer outside production: the form never left Core.
+    if (reason === NOT_LIVE) {
+      return `Core held back ${form(fields)}, since only production sends forms to a CRM`;
+    }
+    return reason
+      ? `the CRM refused ${form(fields)}, with the reason “${reason}”`
+      : `the CRM refused ${form(fields)} and gave no reason`;
+  },
   'submission.failed': (fields) =>
-    `the CRM did not answer ${form(fields)}: ${text(fields, 'detail') ?? 'no cause given'}`,
+    text(fields, 'detail')
+      ? `${form(fields)} could not be sent to the CRM: ${text(fields, 'detail') ?? ''}`
+      : `${form(fields)} could not be sent to the CRM, and no cause was recorded`,
   bell: (fields) =>
     `rang its sites (${text(fields, 'kind') ?? 'delta'}, ${text(fields, 'status') ?? 'sent'})`,
   pull: (fields) => `a site pulled ${String(count(fields, 'items') ?? 0)} record(s)`,
@@ -97,11 +107,11 @@ const SAY: Record<string, (fields: EventFields) => string> = {
   'login.refused': (fields) =>
     `the CRM refuses this connection’s login, so nothing is fetched for it: ${text(fields, 'detail') ?? 'no reason given'}`,
   'check.failed': (fields) =>
-    `${aboutCheck(text(fields, 'name') ?? '?').title}: ${text(fields, 'detail') ?? 'the check fails'}${names(fields)}`,
+    `${aboutCheck(text(fields, 'name') ?? '?').title} started failing. ${sentence(text(fields, 'detail') ?? 'No cause was recorded')}${names(fields)}`,
   'check.recovered': (fields) =>
     text(fields, 'detail')
-      ? `resolved: ${text(fields, 'detail') ?? ''}`
-      : `${aboutCheck(text(fields, 'name') ?? '?').title}: passes again`,
+      ? `this problem ended: ${text(fields, 'detail') ?? ''}`
+      : `${aboutCheck(text(fields, 'name') ?? '?').title} passes again`,
   'job.queued': (fields) => `a run was queued (#${String(count(fields, 'job') ?? 0)})`,
   'job.done': (fields) =>
     `a run finished: ${String(count(fields, 'changed') ?? 0)} changed of ${String(count(fields, 'examined') ?? 0)}`,
@@ -126,6 +136,7 @@ const ADMIN: Record<string, string> = {
   synced: 'started a manual sync',
   crm_action: 'ran a CRM action',
   login_tried: 'tried a CRM login',
+  form_sent_again: 'sent a form to the CRM again',
   maintenance: 'changed maintenance',
 };
 

@@ -311,12 +311,13 @@ drive directly.
   the super admin is told about, each with its level. An office taken off the sites
   (`office.taken_off`) is P1 when the CRM still refused it within the week before, else P2; a
   connection Core paused because the CRM kept failing (`connection.paused`) is P2; a login the CRM
-  refuses (`login.refused`) is P1; a visitor's form the CRM did not answer or refused
-  (`submission.failed`, `submission.refused`) is P1; a site that is not fetching its changes (the
-  sites check's `check.failed` for it) is P1. The adapter logs the first three through the adapter
+  refuses (`login.refused`) is P1; a visitor's form that could not be sent or that the CRM refused
+  (`submission.failed`, `submission.refused`) is P1, but not a form Core held back outside
+  production (`submission.refused` with Core's own reason), which never left Core; a site that is
+  not fetching its changes (the sites check's `check.failed` for it) is P1. The adapter logs the first three through the adapter
   API with the connection in the context, and the engine logs the rest. The Overview lists them
-  for seven days, newest first, one line per thing: its title and a sentence of what happened,
-  what it means for the sites and what to do; which thing ("office Lidingö (the CRM's office id
+  for seven days, newest first, one line per thing: its title, and under it a sentence of what
+  happened, what it means for the sites and what to do; which thing ("office Lidingö (the CRM's office id
   M30011)", "Acme's Vitec connection, short name acme-crm", "a viewing booking a visitor sent",
   "site acme.se") as a link that opens it (the office's removed records on Records, the
   connection's or the site's block on the tenant's page, Failed forms); and where it is (the
@@ -332,7 +333,8 @@ drive directly.
   answer, so it can be read and sent again (`GET /v1/admin/forms` lists them, `POST
 /v1/admin/forms/:id/send-again` sends one again; Failed forms); the events `submission.received`,
   `.delivered`, `.refused` and `.failed` sit on the record's timeline; the check
-  `submissions.failing` is red while a connection's latest submission went unanswered by the CRM.
+  `submissions.failing` ("Sending forms to the CRMs") fails while the last form sent through a
+  connection could not be sent; the Overview and the alert name each such connection and link it.
   `GET /v1/submissions/bot-check` gives a site's server the bot check's public key (`engine/human.ts`,
   `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET`), and a form carries the proof its window earned in
   `X-Core-Human`. Only the live service hands a form to the CRM; elsewhere it stops just before.

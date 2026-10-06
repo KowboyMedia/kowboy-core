@@ -6,6 +6,7 @@ import { db } from './storage/db.js';
 import { SITES_CHECK, type SiteBehind } from './health.js';
 import { form, summarise } from './admin/summary.js';
 import { counted, crmName, listed, sentence } from './admin/words.js';
+import { NOT_LIVE } from './registry.js';
 import type { EventFields } from './events.js';
 import type { Level } from './adapter-api/types.js';
 
@@ -82,6 +83,8 @@ const REFUSED_DAYS = 7;
 
 /** The kind an event is, or null when it needs no attention. */
 export function kindOf(type: string, fields: EventFields): Kind | null {
+  // A form Core held back, because only production sends forms to a CRM, is no problem.
+  if (type === 'submission.refused' && fields['reason'] === NOT_LIVE) return null;
   return (
     KINDS.find(
       (kind) => kind.type === type && (kind.name === undefined || fields['name'] === kind.name),
@@ -130,6 +133,10 @@ type EventRow = {
 
 const COLUMNS = 'id, at, type, fields, correlation_id, tenant_id, connection_id';
 
+/** Leaves out a form Core held back outside production: its reason is Core's own sentence, the parameter. */
+const notHeldBack = (reason: string): string =>
+  `not (type = 'submission.refused' and fields->>'reason' is not distinct from ${reason})`;
+
 /**
  * The things that need attention, newest first, from the last seven days, one line per thing, each
  * named and placed as the alert names and places it (Patric, question 163: "state specifically
@@ -138,10 +145,10 @@ const COLUMNS = 'id, at, type, fields, correlation_id, tenant_id, connection_id'
 export async function attention(): Promise<AttentionRow[]> {
   const { rows } = await db().query<EventRow>(
     `select ${COLUMNS} from events
-     where at >= now() - ($1 || ' days')::interval and type = any($2::text[])
+     where at >= now() - ($1 || ' days')::interval and type = any($2::text[]) and ${notHeldBack('$3')}
      order by id desc
      limit 500`,
-    [ATTENTION_DAYS, [...new Set(KINDS.map((kind) => kind.type))]],
+    [ATTENTION_DAYS, [...new Set(KINDS.map((kind) => kind.type))], NOT_LIVE],
   );
   return lines(rows);
 }
@@ -153,9 +160,14 @@ export async function attention(): Promise<AttentionRow[]> {
 export async function attentionBetween(after: Date, until: Date): Promise<AttentionRow[]> {
   const { rows } = await db().query<EventRow>(
     `select ${COLUMNS} from events
-     where at > $1 and at <= $2 and type = any($3::text[])
+     where at > $1 and at <= $2 and type = any($3::text[]) and ${notHeldBack('$4')}
      order by id`,
-    [after, until, KINDS.filter((kind) => kind.name === undefined).map((kind) => kind.type)],
+    [
+      after,
+      until,
+      KINDS.filter((kind) => kind.name === undefined).map((kind) => kind.type),
+      NOT_LIVE,
+    ],
   );
   return lines(rows);
 }
@@ -294,6 +306,19 @@ function connectionWords(id: string, known: Known): string {
   const tenant = connection ? known.tenants.get(connection.tenantId) : undefined;
   if (!connection || !tenant) return `the connection with the short name ${id}`;
   return `${tenant}’s ${crmName(connection.provider)} connection, short name ${id}`;
+}
+
+/** Connections by their short names, each as a person knows it and with its block on its tenant's page. */
+export async function connectionsNamed(ids: string[]): Promise<{ label: string; to: string }[]> {
+  if (ids.length === 0) return [];
+  const known = await knownNow();
+  return ids.map((id) => {
+    const tenantId = known.connections.get(id)?.tenantId;
+    return {
+      label: connectionWords(id, known),
+      to: tenantId === undefined ? '/tenants' : `/tenants/${String(tenantId)}#connection:${id}`,
+    };
+  });
 }
 
 /** An event's tenant: its own, or its connection's. */

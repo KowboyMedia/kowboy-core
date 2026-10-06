@@ -654,7 +654,7 @@ describe('the admin area', () => {
       expect.objectContaining({
         type: 'check.failed',
         title: 'a site is not fetching its changes',
-        said: 'Core told the site about changes over an hour ago, and it has not fetched them since, so it shows out-of-date homes. It has never fetched. Check that the site is up and that its plugin reaches Core.',
+        said: 'Core told the site about changes over an hour ago, and it has not fetched them since, so it may show homes that have changed or are gone. It has never fetched. Check that the site is up and that its plugin reaches Core.',
         what: 'site acme.se',
         where: 'Acme Mäklare',
         link: `/tenants/${String(tenantId)}#site:${String(siteId)}`,

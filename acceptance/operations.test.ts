@@ -12,6 +12,7 @@ import { queueLifecycle } from '../engine/lifecycle.js';
 import type { LifecycleEvent } from '../engine/adapter-api/types.js';
 import { logEvent, queryEvents } from '../engine/events.js';
 import { recompute } from '../engine/recompute.js';
+import { NOT_LIVE } from '../engine/registry.js';
 
 const CONNECTION = 'fake-acme';
 
@@ -257,7 +258,7 @@ describe('health', () => {
     expect(body.checks['subscribers']).toEqual({
       ok: false,
       detail:
-        'Core told 1 site about changes over an hour ago, and it has not fetched them since, so it shows out-of-date homes.',
+        'Core told 1 site about changes over an hour ago, and it has not fetched them since, so it may show homes that have changed or are gone.',
     });
     expect(text).not.toContain('test site');
 
@@ -326,12 +327,12 @@ describe('alerts', () => {
     await aged('subscribers:1', '16 minutes');
     await checkAlerts(config);
     expect(running.mails).toHaveLength(1);
-    expect(running.mails[0]?.subject).toBe('Core test: P1 · a site is not fetching its changes');
+    expect(running.mails[0]?.subject).toBe('Core test: P1 · A site is not fetching its changes');
     expect(running.mails[0]?.text).toBe(
       [
-        'P1 · a site is not fetching its changes',
+        'P1 · A site is not fetching its changes',
         'Which: site test site, of Test tenant',
-        'What happened: Core told the site about changes over an hour ago, and it has not fetched them since, so it shows out-of-date homes. Its last fetch was 3 hours ago. Check that the site is up and that its plugin reaches Core.',
+        'What happened: Core told the site about changes over an hour ago, and it has not fetched them since, so it may show homes that have changed or are gone. Its last fetch was 3 hours ago. Check that the site is up and that its plugin reaches Core.',
         'Open it: https://core.example/admin/tenants/1#site:1',
       ].join('\n'),
     );
@@ -343,10 +344,10 @@ describe('alerts', () => {
     await pull(running.baseUrl, 'property');
     expect((await checkAlerts(config)).closed).toEqual(['subscribers:1']);
     expect(running.mails[1]?.subject).toBe(
-      'Core test: Resolved · a site is not fetching its changes',
+      'Core test: Resolved · A site is not fetching its changes',
     );
     expect(running.mails[1]?.text.split('\n')[0]).toBe(
-      'Resolved after 16 minutes · a site is not fetching its changes',
+      'Resolved after 16 minutes · A site is not fetching its changes',
     );
 
     // The start and the end are events, so the Overview lists the site for a week.
@@ -354,7 +355,7 @@ describe('alerts', () => {
       {
         name: 'subscribers',
         detail:
-          'Core told the site about changes over an hour ago, and it has not fetched them since, so it shows out-of-date homes. Its last fetch was 3 hours ago. Check that the site is up and that its plugin reaches Core.',
+          'Core told the site about changes over an hour ago, and it has not fetched them since, so it may show homes that have changed or are gone. Its last fetch was 3 hours ago. Check that the site is up and that its plugin reaches Core.',
         names: ['test site'],
         sites: [{ id: 1, tenantId: 1, label: 'test site' }],
       },
@@ -362,7 +363,7 @@ describe('alerts', () => {
     expect((await queryEvents({ type: 'check.recovered' })).map((event) => event.fields)).toEqual([
       {
         name: 'subscribers',
-        detail: 'a site is not fetching its changes (site test site, of Test tenant)',
+        detail: 'a site is not fetching its changes, site test site, of Test tenant',
       },
     ]);
   });
@@ -397,7 +398,7 @@ describe('alerts', () => {
       'Core test: 1 problem, the worst P1; 1 problem resolved',
     );
     expect(running.mails[1]?.text).toContain('Resolved after 6 minutes · Core’s worker');
-    expect(running.mails[1]?.text).toContain('P1 · a site is not fetching its changes');
+    expect(running.mails[1]?.text).toContain('P1 · A site is not fetching its changes');
   });
 
   it('tells an event that needs attention by its level: P1 at the next round, one line per cause, P2 in the 07:00 mail (questions 163 and 164)', async () => {
@@ -446,6 +447,14 @@ describe('alerts', () => {
       connectionId: CONNECTION,
       fields: { kind: 'viewing', detail: 'it did not answer within 20 seconds' },
     });
+    // A form Core held back outside production never left Core: no problem, told nowhere.
+    await logEvent({
+      type: 'submission.refused',
+      correlationId: 'form-2',
+      tenantId: TENANT,
+      connectionId: CONNECTION,
+      fields: { kind: 'interest', reason: NOT_LIVE },
+    });
     // The round reads up to ten seconds ago, so an event being written is never passed over.
     await db().query(
       "update alert_state set since = since - interval '1 minute' where name = 'alerts:events'",
@@ -459,16 +468,16 @@ describe('alerts', () => {
     expect(running.mails[0]?.subject).toBe('Core test: 2 problems, the worst P1');
     expect(running.mails[0]?.text).toBe(
       [
-        'P1 · an office was taken off the sites',
+        'P1 · An office was taken off the sites',
         'Which: offices Lidingö (the CRM’s office id 100) and the CRM’s office id 200',
         `Where: Test tenant’s Fake-webhook connection, short name ${CONNECTION}`,
         'What happened: 2 offices were taken off the sites, with their homes and agents: the CRM still refused them at the next daily check. Each office comes back on the sites, with its homes and agents, once this connection can read it from the CRM again.',
         'Open it: https://core.example/admin/records?tenant=1&office=100,200&deleted=true',
         '',
-        'P1 · a visitor’s form did not reach the CRM',
+        'P1 · A visitor’s form did not reach the CRM',
         'Which: a viewing booking a visitor sent',
         `Where: Test tenant’s Fake-webhook connection, short name ${CONNECTION}`,
-        'What happened: The CRM did not answer a viewing booking: it did not answer within 20 seconds. The brokerage does not have it yet. Failed forms keeps it for 30 days with what the visitor wrote; send it again there once the CRM answers.',
+        'What happened: A viewing booking could not be sent to the CRM: it did not answer within 20 seconds. The brokerage does not have it yet. Failed forms keeps it for 30 days with what the visitor wrote; send it again there once the CRM answers.',
         'Open it: https://core.example/admin/forms',
       ].join('\n'),
     );

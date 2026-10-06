@@ -11,7 +11,7 @@ import { Empty } from '@/components/empty';
 import { PageHeader } from '@/components/layout';
 import { useLive } from '@/lib/live';
 import { SERIES } from '@/lib/series';
-import { ago, count, moment } from '@/lib/format';
+import { ago, capital, count, moment } from '@/lib/format';
 
 /** How much a failing check matters: P0 Core is down, P1 a customer is cut off, P2 worth a look, P3 for the record. */
 type Level = 'P0' | 'P1' | 'P2' | 'P3';
@@ -187,13 +187,12 @@ export function Overview() {
         <CardHeader>
           <CardTitle>Needs attention</CardTitle>
           <CardDescription>
-            The important things of the last seven days: an office taken off the sites, a connection
-            Core paused because the CRM kept failing, a login the CRM refuses, a visitor’s form that
-            did not reach the CRM or that the CRM refused, and a site that is not fetching its
-            changes. Each line names the exact thing, and its name opens it. A refused login, a
-            form, a site, and an office the CRM still refused when it was taken off went out by mail
-            and Slack within a quarter of an hour; the rest are in the mail at 07:00. Settings says
-            where mail and Slack go.
+            Problems from the last seven days that change what the sites show, or that kept a
+            visitor’s form from the brokerage. Each line says what happened and what to do, and the
+            name in it opens the place where it is fixed. Core sent a refused login, a form, a site
+            that is not fetching and an office the CRM still refused within a quarter of an hour,
+            and the rest in its mail at 07:00, by mail and to Slack where Settings shows an address
+            for them.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -205,8 +204,8 @@ export function Overview() {
                 header: 'What happened',
                 cell: (row) => (
                   <>
-                    <span className="font-medium">{row.title}</span>
-                    <span className="text-muted-foreground"> — {row.said}</span>
+                    <p className="font-medium">{capital(row.title)}</p>
+                    <p className="text-sm text-muted-foreground">{row.said}</p>
                   </>
                 ),
               },
