@@ -8,11 +8,17 @@ export function db(databaseUrl?: string): pg.Pool {
     if (!databaseUrl) throw new Error('the database pool is not open yet');
     pool = new pg.Pool({
       connectionString: databaseUrl,
-      // Sized to the cluster: the smallest managed plan allows 22 connections, 3 of them kept
-      // for its superuser, and web and worker each run this pool and an adapter's own (3). Six
-      // here keeps the four pools under that limit, with the dashboard's parallel queries
-      // queueing instead of failing with "remaining connection slots are reserved" (2026-09-20).
-      max: 6,
+      // Sized to the cluster (docs/decisions.md, 2026-10-06). The smallest managed plan lets the
+      // apps open 22 connections (25 per GiB of RAM, 3 of them kept for the platform's own
+      // maintenance), and staging and production share that one cluster. Six processes can be
+      // connected at once: each app's web and worker, and during a deploy the new web and worker
+      // of one app while its old ones still run. 22 / 6 leaves 3 a process: 2 here and 1 in an
+      // adapter's own pool, 18 in all with 4 to spare. A query that finds the pool busy waits
+      // its turn, for up to connectionTimeoutMillis below, instead of being refused by the
+      // database with "remaining connection slots are reserved" (seen 2026-09-20 with one app
+      // on the cluster, and 2026-10-06 with two). No code holds a connection while it asks the
+      // pool for another, so a pool this small cannot wait on itself.
+      max: 2,
       // A connection the network silently dropped (a firewall change, a failover) must not hang a
       // query for good: it fails after a minute, and the pool discards the client it ran on.
       query_timeout: 60_000,
