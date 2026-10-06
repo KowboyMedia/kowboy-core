@@ -808,7 +808,9 @@ client ports (item 16, first client by question 80).
       whitelist" (37d0358) made `call` in `adapters/vitec/forms.ts` pass the office to the send,
       so a form to an office Vitec refuses fails at once, with no retry, and the visitor sees the
       error; and (f5e7779) a form whose advertising call gets a 401 or 403 blocks that office at
-      the worker's next tick, while the search profile's CRM calls block nothing.
+      the worker's next tick, while the search profile's CRM calls block nothing. Two lines on
+      that list are for Patric to settle: what a visitor reads when Vitec refuses a form without
+      giving words (`wordsOf` in forms.ts), and what happens to a form with no office.
     - Starts when Patric says so.
 
 ## Later, when Patric supplies them
