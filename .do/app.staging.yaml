@@ -15,7 +15,7 @@ services:
     environment_slug: node-js
     envs:
       - key: DATABASE_URL
-        value: ${db.DATABASE_URL}
+        value: ${db.staging.DATABASE_URL}
         scope: RUN_TIME
       - key: DATABASE_CA_CERT
         value: ${db.CA_CERT}
@@ -75,7 +75,7 @@ workers:
     environment_slug: node-js
     envs:
       - key: DATABASE_URL
-        value: ${db.DATABASE_URL}
+        value: ${db.staging.DATABASE_URL}
         scope: RUN_TIME
       - key: DATABASE_CA_CERT
         value: ${db.CA_CERT}

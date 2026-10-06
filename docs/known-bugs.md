@@ -124,41 +124,6 @@ them, which needs a question before it is built. The trap field and the minimum 
 window only; a program that skips them still needs the bot check's proof. The entry leaves this
 file when the fix is on production.
 
-## 5. `[core]` Staging's worker runs out of database connections when it starts
-
-**What happens.** When staging Core's worker restarted on 2026-10-05 at 20:35:45Z, its first
-second logged seven times "remaining connection slots are reserved for roles with the SUPERUSER
-attribute", each from the Vitec adapter's state reads (`store.getState` under `pauseOf`,
-`skippedOffices`, `drainOnce`), each reported by Node as a promise rejection handled late. A
-minute later it ran normally, and Core's health answer showed the database as fine.
-
-**Why.** Established on 2026-10-06. Staging and production run on one database cluster
-(`.do/app.staging.yaml`; strategy §4), and the smallest managed plan lets the apps open 22
-connections to it: 25 per GiB of RAM, 3 of them kept for the platform's own maintenance
-(DigitalOcean's limits page, read 2026-10-06). Every process ran two pools, the engine's of 6 and
-the Vitec adapter's of 3, so each app's web and worker could hold 18, both apps 36, and during a
-deploy, when an app's new web and worker start while its old ones still run, 54. A pool closes a
-connection only after ten idle seconds, and the worker's drain asks every quarter of a second, so a
-worker never lets its connections go. The errors came whenever the bursts met: a catch-up on one
-app, the Overview on the other, a deploy with its start-up catch-up. What made them frequent on
-2026-10-06: staging's worker repeated its whole first Vitec round every minute, because a group id
-was kept among the offices and Vitec refused its area list, so the round never finished (fixed at
-19:00 by the office session, 1e49b9f); that added a sequential round of reads and writes to every
-minute, on top of the bursts above. The sizing of 2026-09-20 counted 19 slots instead of 22 and one
-app instead of two; it was right the day it was made, when staging was alone on the cluster, and
-wrong from the release of 2026-09-23. That Node reported the rejections late is a trait of the
-drain's parallel state reads, not a cause.
-
-**What was done.** On staging since 2026-10-06, on live once question 175 or the next release takes
-it there: the engine's pool holds 2 connections a process and the adapter's 1, so six processes,
-both apps' web and worker and one app's new pair during a deploy, hold 18 of the 22 at most, and a
-query that finds its pool busy waits its turn, up to ten seconds as before, instead of being refused
-by the database. The adapter's pool got the engine's guards against a dropped connection (a query
-fails after a minute and the connection is discarded), which with one connection is the difference
-between a stall and a recovery. Question 167 asks whether the processes should share one pool in
-front of the database instead (DigitalOcean's own), or keep one pool each. The entry leaves when the
-fix is live.
-
 ## 6. `[client-wordpress]` The WordPress test site in a cloud session answers a critical error, so the WordPress suites cannot run there
 
 **What happens.** On 2026-10-06, in a cloud session whose start hook reported "WordPress prepared",

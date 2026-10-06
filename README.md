@@ -62,7 +62,11 @@ one fails. GitHub's branch protection (below) makes the checks the only way in, 
 agent merges on Patric's word, a dev with the merge button. `.github/workflows/deploy.yml` is a
 manual button that deploys `main` again without a merge, for a retry. Each app is a `web`
 service with its readiness probe on `/v1/ready` and a `worker`; the cluster is bound as
-`DATABASE_URL` with its CA as `DATABASE_CA_CERT`, which `scripts/start.sh` hands to Node. A spec
+`DATABASE_URL` with its CA as `DATABASE_CA_CERT`, which `scripts/start.sh` hands to Node. Staging's
+`DATABASE_URL` is `${db.staging.DATABASE_URL}`, the address of the cluster's connection pool
+`staging` (DigitalOcean's PgBouncer, transaction mode, 6 connections), which lends the database's
+connections to whichever process has a query; live connects directly until the next release gives
+it a pool of its own, `live` with 12 connections, set in the live app's own spec. A spec
 is changed by editing it and updating the app through the API; what DigitalOcean returns is
 committed back, secrets encrypted. Vitec is given each app's notification URL,
 `https://<app domain>/v1/hook/vitec/webhook/<that app's VITEC_WEBHOOK_TOKEN>`.

@@ -66,23 +66,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 - b) **no**: say what to change first; the old page stays until then.
 - Smaller: a. Blocked: deleting the old page. Answer a or b.
 
-## 175. `[core]` Should the database connection fix go live now, on its own, before the next release?
-
-- 2026-10-06 · Known bug 5: the pools' maximums added up to more than the 22 connections the cluster
-  admits. The fix (9659345, 18:34, with its comment corrected in 98b5357) is on staging only:
-  staging's copies now hold at most 2 + 1 each, live's still 6 + 3 each, so the two apps together
-  may still ask for 2 × 9 + 2 × 3 = 24, and 30 while either is updated. Live was green at 19:45.
-  Staging ran an hour on the new sizes with two start-up rounds and no database error, and every
-  test passes with them. A release to live is otherwise the whole of staging, on Patric's word
-  (README, Deploying). Found by a fact check of the answer given at 19:20, which had said no copy is
-  refused any more; true only once live has the fix.
-- a) **yes** (recommended): only these two numbers and the adapter pool's guard against a hung query
-  go to live, through the usual checks, and live restarts once; health read after. Option c of
-  question 167 needs this first.
-- b) **no**: the fix goes live with the next release; until then a refusal stays possible on either
-  app, more rarely than today.
-- Smaller: b. Blocked: nothing. Answer a or b.
-
 ## 171. `[core]` Adding a site's address to the bot check at Cloudflare: may Core keep Kowboy's Cloudflare account id as a second environment setting?
 
 - 2026-10-06 · 155's line 6, approved: each site's address goes on Cloudflare's list when the
@@ -147,56 +130,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   as received webhooks, sent bells, sent alerts etc. I dont understand your option "a" can you
   illustrate it". Option a was drawn for him in the thread the same evening.
 - Smaller: c. Blocked: the Events rebuild. Answer a, b or c.
-
-## 167. `[core]` How should Core's running copies share the database's 22 connections: as they are, with one pool per copy, or through one shared pool in front of the database?
-
-- 2026-10-06 · Patric, 18:22: "We get intermittent errors about reserved database connections, can
-  you solve it". 19:00, on the first wording of this question: "there is no way we need 22 database
-  connections at the same time", "a pool split into x smaller pools defeats the purpose of pooled
-  connections, or is the purpose to reserve connections to the db so everybody can move, even if
-  they move slower?", and of option c: "it sounds like the correct solution".
-- The words. A connection is an open line from a running copy of Core to the database; the cluster's
-  plan admits 22 at once (25 per GiB of RAM, 3 kept by DigitalOcean). A pool is the few connections
-  one running copy keeps open and reuses, with a maximum, so it does not open a new line for every
-  query and cannot take every line. Staging and live each run two copies, the web copy and the
-  worker, and an update starts the new copies before the old ones stop, so up to six copies are
-  connected at once. Each copy has two pools of its own, the engine's and the Vitec code's. A copy
-  cannot lend an idle connection to another copy, so the 22 are cut into private slices, and a pool
-  keeps a connection open for ten seconds after its last query, so a worker that asks every quarter
-  of a second never lets its slice go.
-- Why it ran out (known bug 5): the slices' maximums added up to 36, and to 54 during an update;
-  staging's worker was stuck repeating its whole first Vitec round every minute, because a group id
-  was kept as an office, which added a round of reads and writes to every minute (fixed 19:00,
-  1e49b9f); staging was updated many times that day. Core never needs 22 at once: Patric is right.
-  The fix of 18:34 (9659345) shrank the slices to 2 and 1 a copy, 6 × 3 = 18 of 22, so once live has
-  it too (question 175) no copy is refused, and a busy copy waits for its own slice, which is short
-  because Core's queries are. Until then live keeps 6 and 3 a copy, 2 × 9 + 2 × 3 = 24, so a refusal
-  stays possible, more rarely.
-- a) **one pool a copy**: the engine hands its pool to the Vitec code through the adapter interface
-  (protected), so each copy has one slice of 3 instead of two of 2 and 1. Still private slices.
-- b) **as today**: two slices a copy, 2 and 1.
-- c) **one shared pool in front of the database** (recommended): DigitalOcean's own pool (PgBouncer)
-  on the cluster. A pool there serves one database, so two: live 12 and staging 6, 18 of the 22, 4
-  left for direct use such as a backup. Every copy connects to its app's pool, which lends the real
-  connections to whichever copy has a query at that instant, so copies share instead of holding
-  slices; the one split left, live against staging, keeps staging from ever starving live. Core's
-  code needs no change to run through it: Core uses nothing that breaks behind such a pool (no
-  session settings, no LISTEN, no session locks, no named prepared statements, no temporary tables,
-  no cursors; checked 2026-10-06). The work: staging's pool made with the DigitalOcean key,
-  staging's database address changed in its settings (two lines) and staging updated; live the same
-  at the next release, so live never runs on a pool that staging has not run on first. Live's own
-  pools must be at 2 and 1 first (question 175), since DigitalOcean may keep a pool's connections
-  open while idle. Live's settings are changed from the live app's own copy of them, not from the
-  repository's, which lacks the mail key's sealed value. Afterwards the copies' own maximums can go
-  back up, two numbers in two files. Undo: the old address back. Not known: whether the key may
-  create pools (if not, two minutes in DigitalOcean's panel), whether creating a pool interrupts
-  anything (DigitalOcean's pages do not say; a copy moves only when its app is updated), and whether
-  the cluster's rule that only the two apps may connect covers the pool's address (probably the same
-  host; DigitalOcean's pages do not say). DigitalOcean's price list shows no charge for pools.
-  Question 87, the key, was closed on 2026-10-03: it works again; the first wording of this question
-  said otherwise, and recommended a for that reason.
-- Smaller: b. Blocked: nothing; the errors stop once the fix is live (question 175), whichever is
-  picked. Answer a, b or c.
 
 ## 166. `[client-wordpress]` When the site cannot reach Core at all, should the plugin keep the form until Core takes it?
 
