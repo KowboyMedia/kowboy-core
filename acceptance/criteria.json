@@ -450,7 +450,7 @@
         "the admin area holds one tenant with two CRM connections (U1, a Must of 2026-09-20)",
         "the admin area keeps the stored login when the save carries no new one (AC 42)",
         "the admin area scopes, sorts and pages the records, and shows one whole (U3, AC 42)",
-        "the admin area previews a recompute and runs one as a job with progress (U4, AC 42)",
+        "the admin area recomputes a scope as a job the worker runs (U4, AC 42)",
         "the admin area fetches named records again through the adapter (U3, question 57)",
         "the admin area rings a tenant’s sites and one site alone (U8, AC 42)",
         "the admin area rotates a token and a bell secret, each to a new value (U6, AC 42)",

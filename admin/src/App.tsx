@@ -13,7 +13,6 @@ import { Records } from '@/pages/records';
 import { RecordPage } from '@/pages/record';
 import { Tenants } from '@/pages/tenants';
 import { TenantPage } from '@/pages/tenant';
-import { ManualSync } from '@/pages/manual-sync';
 import { ManualSyncPage } from '@/pages/sync';
 import { FailedForms } from '@/pages/forms';
 import { Events } from '@/pages/events';
@@ -46,7 +45,6 @@ export function App() {
           { name: 'overview', list: '/' },
           { name: 'records', list: '/records' },
           { name: 'tenants', list: '/tenants', show: '/tenants/:id', create: '/tenants/new' },
-          { name: 'jobs', list: '/manual-sync' },
           { name: 'forms', list: '/forms' },
           { name: 'events', list: '/events' },
           { name: 'crms', list: '/crms', show: '/crms/:provider' },
@@ -78,8 +76,7 @@ export function App() {
               <Route path="new" element={<TenantPage />} />
               <Route path=":id" element={<TenantPage />} />
             </Route>
-            <Route path="manual-sync" element={<ManualSync />} />
-            <Route path="sync" element={<ManualSyncPage />} />
+            <Route path="manual-sync" element={<ManualSyncPage />} />
             <Route path="forms" element={<FailedForms />} />
             <Route path="events" element={<Events />} />
             <Route path="crms" element={<Outlet />}>

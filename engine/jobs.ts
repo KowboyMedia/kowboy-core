@@ -7,7 +7,7 @@ import { report } from './errors.js';
 import { inMaintenance } from './storage/settings.js';
 import { recompute, type Progress, type Scope } from './recompute.js';
 
-export type JobState = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+export type JobState = 'queued' | 'running' | 'done' | 'failed';
 
 export type JobRow = {
   id: string;
@@ -20,7 +20,6 @@ export type JobRow = {
   result: Progress | null;
   error: string | null;
   requested_by: string | null;
-  cancel_requested: boolean;
   created_at: Date;
   started_at: Date | null;
   finished_at: Date | null;
@@ -55,36 +54,12 @@ export async function getJob(id: number): Promise<JobRow | null> {
   return rows[0] ?? null;
 }
 
-/** The newest jobs first. */
-export async function listJobs(limit = 50): Promise<JobRow[]> {
-  const { rows } = await db().query<JobRow>('select * from jobs order by id desc limit $1', [
-    Math.min(Math.max(limit, 1), 500),
-  ]);
-  return rows;
-}
-
 /** Jobs still queued or running, for the live stream. */
 export async function openJobs(): Promise<JobRow[]> {
   const { rows } = await db().query<JobRow>(
     'select * from jobs where finished_at is null order by id',
   );
   return rows;
-}
-
-/**
- * Ask a job to stop. A queued one is cancelled at once; a running one stops after its current
- * batch and keeps the report so far. False when the job is already finished.
- */
-export async function cancelJob(id: number): Promise<boolean> {
-  const { rowCount } = await db().query(
-    `update jobs set
-       cancel_requested = true,
-       state = case when state = 'queued' then 'cancelled' else state end,
-       finished_at = case when state = 'queued' then now() else finished_at end
-     where id = $1 and finished_at is null`,
-    [id],
-  );
-  return (rowCount ?? 0) > 0;
 }
 
 /** Take the oldest queued job and run it to the end. The worker's tick; true when one ran. */
@@ -99,20 +74,17 @@ export async function runNextJob(): Promise<boolean> {
   const job = rows[0];
   if (!job) return false;
   const id = Number(job.id);
-  let cancelled = false;
   try {
     const result = await recompute(job.scope, {
       dryRun: job.dry_run,
       onProgress: async (progress) => {
-        const { rows: state } = await db().query<{ cancel_requested: boolean }>(
-          `update jobs set progress = $2 where id = $1 returning cancel_requested`,
-          [id, JSON.stringify({ ...progress, updated_at: new Date().toISOString() })],
-        );
-        cancelled = state[0]?.cancel_requested === true;
-        return !cancelled;
+        await db().query(`update jobs set progress = $2 where id = $1`, [
+          id,
+          JSON.stringify({ ...progress, updated_at: new Date().toISOString() }),
+        ]);
       },
     });
-    await finish(job, cancelled ? 'cancelled' : 'done', result, null);
+    await finish(job, 'done', result, null);
   } catch (error) {
     report(error, { where: 'job', job: id, kind: job.kind });
     await finish(job, 'failed', null, String(error));

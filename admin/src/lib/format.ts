@@ -1,6 +1,18 @@
 // How the area writes a moment, a number and an age, in one place, so every page says it the same
 // way. Dates are written as Sweden writes them (Patric, 2026-09-21): year first, then month, then
 // day, in Stockholm time — 2026-09-21 14:05 — and never the CRM's or the server's own zone.
+import { counted } from '../../../engine/admin/words';
+
+// Numbers with their nouns, entity types and CRMs in words, shared with the engine's answers.
+export {
+  anEntity,
+  capital,
+  counted,
+  crmName,
+  entities,
+  entity,
+  listed,
+} from '../../../engine/admin/words';
 
 const NEVER = '—';
 
@@ -46,11 +58,11 @@ export function exact(value: string | null | undefined): string {
 export function ago(value: string | null | undefined): string {
   const at = parse(value);
   if (!at) return 'never';
-  const seconds = Math.round((Date.now() - at.getTime()) / 1000);
-  if (seconds < 60) return `${Math.max(seconds, 0)} s ago`;
-  if (seconds < 3600) return `${Math.round(seconds / 60)} min ago`;
-  if (seconds < 86_400) return `${Math.round(seconds / 3600)} h ago`;
-  return `${Math.round(seconds / 86_400)} days ago`;
+  const seconds = Math.max(Math.round((Date.now() - at.getTime()) / 1000), 0);
+  if (seconds < 60) return `${counted(seconds, 'second', 'seconds')} ago`;
+  if (seconds < 3600) return `${counted(Math.round(seconds / 60), 'minute', 'minutes')} ago`;
+  if (seconds < 86_400) return `${counted(Math.round(seconds / 3600), 'hour', 'hours')} ago`;
+  return `${counted(Math.round(seconds / 86_400), 'day', 'days')} ago`;
 }
 
 export const count = (value: number | null | undefined): string =>

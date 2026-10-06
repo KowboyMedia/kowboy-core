@@ -7,14 +7,13 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useCustomMutation, useList } from '@refinedev/core';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Confirm } from '@/components/confirm';
 import { FlowList } from '@/components/flow';
 import { PageHeader } from '@/components/layout';
 import { ScopePicker, useScopeOptions } from '@/components/scope-picker';
-import { count } from '@/lib/format';
-import { EMPTY_SCOPE, readScope, sayScope, scopeBody, scopeQuery, writeScope } from '@/lib/scope';
+import { counted } from '@/lib/format';
+import { readScope, sayScope, scopeBody, scopeQuery, writeScope } from '@/lib/scope';
 
 type Level = 'fetch' | 'recompute' | 'send';
 
@@ -57,7 +56,7 @@ export function ManualSyncPage() {
   const said = sayScope(scope, options);
   const chosen = LEVELS.find((one) => one.level === level) ?? LEVELS[0];
   const covers =
-    total === undefined ? said : `${said}: ${count(total)} live record(s) Core holds now`;
+    total === undefined ? said : `${said}: ${counted(total, 'live record', 'live records')} now`;
 
   const start = async (): Promise<void> => {
     try {
@@ -85,8 +84,8 @@ export function ManualSyncPage() {
         <CardHeader>
           <CardTitle>What to sync</CardTitle>
           <CardDescription>
-            An empty box means all of it. The offices follow the tenants ticked. One record id
-            narrows it to that record.
+            A box left empty takes every tenant, office or entity type. The offices offered are
+            those of the tenants ticked. A record’s CRM id takes that one record only.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -138,23 +137,17 @@ export function ManualSyncPage() {
             <span className="text-sm text-muted-foreground">
               Starts the level picked for this scope, after saying what will happen.
             </span>
-            <Button
-              variant="ghost"
-              onClick={() => setParams(writeScope(params, EMPTY_SCOPE), { replace: true })}
-            >
-              Clear the scope
-            </Button>
-            <span className="text-sm text-muted-foreground">Empties every box above.</span>
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>In flight</CardTitle>
+          <CardTitle>Records on their way</CardTitle>
           <CardDescription>
-            The records of this scope on their way through Core, newest first, read again every
-            second: waiting for the CRM, in Core, then on a site.
+            The records picked above on their way from the CRM to the sites, newest first. A record
+            waits for the CRM, then is in Core, then is on a site. The list is read again every
+            second.
           </CardDescription>
         </CardHeader>
         <CardContent>

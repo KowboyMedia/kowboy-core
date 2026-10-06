@@ -11,6 +11,7 @@ import { Confirm } from '@/components/confirm';
 import { DataTable, type Column } from '@/components/data-table';
 import { Empty } from '@/components/empty';
 import { moment } from '@/lib/format';
+import { Explained } from '@/components/explained';
 
 export type AdminField = {
   key: string;
@@ -134,12 +135,9 @@ function Action({ action, run }: { action: AdminAction; run: Run }) {
 /** A button with the sentence that says what it does, for the blocks that have room for it. */
 function ExplainedAction({ action, run }: { action: AdminAction; run: Run }) {
   return (
-    <div className="flex max-w-md flex-col gap-1">
-      <div>
-        <Action action={action} run={run} />
-      </div>
-      {action.help && <p className="text-xs text-muted-foreground">{action.help}</p>}
-    </div>
+    <Explained what={action.help ?? ''}>
+      <Action action={action} run={run} />
+    </Explained>
   );
 }
 
@@ -201,7 +199,7 @@ export function AdapterSections({ sections, run }: { sections: AdminSection[]; r
             )}
             {section.table && <SectionTable table={section.table} run={run} />}
             {section.actions && section.actions.length > 0 && (
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-col gap-3">
                 {section.actions.map((action) => (
                   <ExplainedAction key={action.id} action={action} run={run} />
                 ))}

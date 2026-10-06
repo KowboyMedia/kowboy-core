@@ -41,31 +41,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 - Smaller: b, which builds nothing. Blocked: nothing; the QA switch works either way. Answer a
   or b.
 
-## 176. `[core]` Is the new Manual sync page right, so the old one can be deleted?
-
-- 2026-10-06 · Patric: "Manual sync: … needs greenfielded ui. Build one in parallell, then throw
-  the old." The new page is on staging beside the old one, which the menu calls "Manual sync
-  (old)", and is shown to him in screenshots in the "Debloat admin" thread
-  (`/mnt/project-files/admin-debloat/`).
-- **What the new page is.** The scope in four boxes, the same as on Records: tenants, offices,
-  entity types and one record id, several of each, an empty box meaning all of it. Then the
-  three levels as one choice, the full one picked: fetch from the CRM, recompute and send to the
-  sites; recompute and send; send only. Start says what will happen and how many live records
-  the scope holds before anything runs. Below, the Flow list of the same scope, the same
-  component as the Flow page, replaces the old list of runs. "Send to the sites only" gives the
-  scope's live records new places in the order the sites pull by and rings their sites, so
-  every site pulls exactly the scope again; a site takes the records it lacks or holds in
-  another version and leaves one it already holds unchanged as it is (decision 2026-10-06).
-- **What goes once it is approved** (the handbook's clean-up rule): the old page and its menu
-  entry; the preview of a whole scope and its call (a record's own page keeps its own preview,
-  and the release preview of acceptance criterion 36 is the engine's, not the page's); the
-  connections in the pickers' call; the old page's one-of-each scope fields where nothing else
-  sends them; the app's list of runs if nothing else reads it. The new page takes the old
-  address.
-- a) **yes**: the old page goes, with everything only it uses.
-- b) **no**: say what to change first; the old page stays until then.
-- Smaller: a. Blocked: deleting the old page. Answer a or b.
-
 ## 171. `[core]` Adding a site's address to the bot check at Cloudflare: may Core keep Kowboy's Cloudflare account id as a second environment setting?
 
 - 2026-10-06 · 155's line 6, approved: each site's address goes on Cloudflare's list when the

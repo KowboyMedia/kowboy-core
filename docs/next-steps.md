@@ -722,11 +722,12 @@ client ports (item 16, first client by question 80).
       records (`renumber` in `engine/storage/items.ts`). Gone with the old Records page: the
       search by words and its full-text index (migration 013), ticking rows, "select all", the
       columns call; gone from the area: housekeeping's button and call. The old Manual sync page
-      stays as "Manual sync (old)" until Patric approves the new one (176). Then it goes with what only
-      it uses: its page and navigation entry, `POST /runs/preview` and `preview()`, the
-      connections in `GET /scope`, the single-field scope inputs and `staleRulesOnly` where
-      nothing else sends them, the `jobs` resource of the app if nothing else lists jobs, and the
-      new page moves to `/manual-sync`.
+      went on Patric's word ("Remove manual sync (old)", 2026-10-06, 176 a) with what only it
+      used: its page and navigation entry, `POST /runs/preview` and `preview()`, the jobs list,
+      a job's own call and its stop (`GET /jobs`, `GET /jobs/:id`, `POST /jobs/:id/cancel`,
+      `listJobs`, `cancelJob` and the worker's reading of a stop request), the connections in
+      `GET /scope`, the one-of-each scope fields and "only records an older rules version made";
+      the new page took the address `/manual-sync`.
     - **Reviewed 2026-10-06** by a second agent, and fixed on staging: Records' "Both" showed the
       live records only; Flow narrowed to a tenant could miss records waiting on a busy adapter
       (an adapter now reports only for the connections it is asked about; the Vitec adapter's

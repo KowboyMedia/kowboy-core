@@ -31,12 +31,8 @@ import { configuration, setMaintenance } from './configuration.js';
 import { flow, stream, toStreamEvent } from './feed.js';
 import { inspect, previewRecord, readRecord, search } from './records.js';
 import {
-  cancelJob,
   describe,
   fetchAgain,
-  getJob,
-  listJobs,
-  preview,
   queueRecompute,
   sync,
   toScope,
@@ -396,16 +392,6 @@ const routes: AdminRoute[] = [
   // ---- Runs ------------------------------------------------------------------------------------
   {
     method: 'POST',
-    path: '/runs/preview',
-    handler: async (request) => {
-      const parsed = body<ScopeInput>(request);
-      if ('error' in parsed) return parsed.error;
-      const scope = await toScope(parsed.value);
-      return one({ scope: describe(parsed.value), report: await preview(scope) });
-    },
-  },
-  {
-    method: 'POST',
     path: '/runs/recompute',
     handler: async (request) => {
       const parsed = body<ScopeInput>(request);
@@ -444,32 +430,6 @@ const routes: AdminRoute[] = [
       const detail = await sync(level, read.scope, request.session.email);
       await audit(request.session, 'synced', { level, scope: describe(read.scope) });
       return one({ detail });
-    },
-  },
-  {
-    method: 'GET',
-    path: '/jobs',
-    handler: async (request) => {
-      const rows = await listJobs(number(request, 'limit', 50));
-      return page(rows, rows.length);
-    },
-  },
-  {
-    method: 'GET',
-    path: '/jobs/:id',
-    handler: async (request) => {
-      const job = await getJob(Number(request.params['id']));
-      return job ? one(job) : fail(404, 'There is no such job.');
-    },
-  },
-  {
-    method: 'POST',
-    path: '/jobs/:id/cancel',
-    handler: async (request) => {
-      const id = Number(request.params['id']);
-      const stopped = await cancelJob(id);
-      if (stopped) await audit(request.session, 'job_cancelled', { job: id });
-      return one({ cancelled: stopped });
     },
   },
 

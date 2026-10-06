@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input, Label } from '@/components/ui/input';
+import { capital, entity } from '@/lib/format';
 import { officeLabel, type Scope, type ScopeOptions } from '@/lib/scope';
 
 export function useScopeOptions(): ScopeOptions {
@@ -183,14 +184,17 @@ export function ScopePicker({
           id="scope-datatypes"
           label="Entity types"
           everything="every entity type"
-          items={options.datatypes.map((datatype) => ({ value: datatype, label: datatype }))}
+          items={options.datatypes.map((datatype) => ({
+            value: datatype,
+            label: capital(entity(datatype, true)),
+          }))}
           chosen={value.datatypes}
           onChange={(datatypes) => onChange({ ...value, datatypes })}
         />
       )}
       {fields.includes('id') && (
         <div className="flex flex-col gap-1">
-          <Label htmlFor="scope-id">One record id</Label>
+          <Label htmlFor="scope-id">One record, by the CRM’s id</Label>
           <Input
             id="scope-id"
             value={value.remoteId}

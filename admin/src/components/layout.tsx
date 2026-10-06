@@ -61,7 +61,7 @@ export function Layout() {
           </Badge>
         )}
         <span className="hidden text-xs text-muted-foreground sm:inline">
-          {me ? `v${me.version} · running since ${ago(me.startedAt)}` : ''}
+          {me ? `Version ${me.version}, started ${ago(me.startedAt)}` : ''}
         </span>
         <div className="ml-auto flex items-center gap-2">
           <Button
@@ -129,7 +129,7 @@ export function PageHeader({
   children,
 }: {
   title: string;
-  what: string;
+  what: React.ReactNode;
   children?: React.ReactNode;
 }) {
   return (

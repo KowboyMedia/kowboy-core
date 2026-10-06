@@ -16,11 +16,8 @@ import { connectionById } from './storage/connections.js';
 import { changedFields } from './ingest.js';
 import type { Canonical, Datatype } from './adapter-api/types.js';
 
-/**
- * What to recompute: everything, tenants, offices, datatypes, a connection, one record, a
- * selection, or only the rows an older rules version produced (SRS §3).
- */
-export type Scope = Omit<ScopeFilter, 'rulesVersionBefore'> & { staleRulesOnly?: boolean };
+/** What to recompute: everything, tenants, offices, datatypes, a connection, one record or a selection. */
+export type Scope = ScopeFilter;
 
 export type ImpactReport = {
   examined: number;
@@ -59,12 +56,8 @@ const BATCH = 200;
 export async function recompute(scope: Scope, options: RecomputeOptions = {}): Promise<Progress> {
   const exampleLimit = options.exampleLimit ?? 10;
   const failureLimit = options.failureLimit ?? 200;
-  const filter: ScopeFilter = {
-    ...scope,
-    rulesVersionBefore: scope.staleRulesOnly ? RULES_VERSION : undefined,
-  };
   const report: Progress = {
-    total: await countItems(filter),
+    total: await countItems(scope),
     examined: 0,
     changed: 0,
     unchanged: 0,
@@ -91,7 +84,7 @@ export async function recompute(scope: Scope, options: RecomputeOptions = {}): P
     let afterSeq = 0;
     let more = true;
     while (goOn && more) {
-      const items = await scopeBatch(filter, sold, afterSeq, BATCH);
+      const items = await scopeBatch(scope, sold, afterSeq, BATCH);
       for (const item of items) {
         afterSeq = Number(item.seq);
         await examine(item);
