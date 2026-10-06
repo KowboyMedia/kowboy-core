@@ -23,14 +23,6 @@ import { changes } from './http/changes.js';
 import { applied } from './http/applied.js';
 import { siteError } from './http/errors.js';
 import { botCheck, configureSubmissions, slots, submit } from './http/submissions.js';
-import {
-  formsConfig,
-  formsRecord,
-  formsSlots,
-  formsSubmit,
-  preflight,
-  widgetFile,
-} from './http/forms.js';
 import { configureHumanCheck, turnstile } from './human.js';
 import { deleteExpiredSubmissions } from './storage/submissions.js';
 import { configureCompression, jsonResponse, startServer, type RouteTable } from './http/server.js';
@@ -112,13 +104,6 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
     { method: 'POST', path: '/v1/submissions', handler: submit },
     { method: 'GET', path: '/v1/submissions/slots', handler: slots },
     { method: 'GET', path: '/v1/submissions/bot-check', handler: botCheck },
-    // The browser's door: the forms widget with a site's public key (docs/forms.md, the widget).
-    { method: 'OPTIONS', path: '/v1/forms/*', handler: preflight },
-    { method: 'GET', path: '/v1/forms/config', handler: formsConfig },
-    { method: 'GET', path: '/v1/forms/record', handler: formsRecord },
-    { method: 'GET', path: '/v1/forms/slots', handler: formsSlots },
-    { method: 'POST', path: '/v1/forms/submissions', handler: formsSubmit },
-    { method: 'GET', path: '/widget/forms.js', handler: () => widgetFile() },
     {
       method: 'GET',
       path: '/v1/health',

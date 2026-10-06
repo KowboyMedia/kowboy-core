@@ -31,9 +31,9 @@ export type Config = {
   /** How long a session lasts when the person asked to be remembered on that device. */
   adminRememberDays: number;
   /**
-   * The bot gate of the forms widget (docs/forms.md, question 138): Turnstile's public site key,
-   * which the browser renders the challenge with, and the secret Core verifies the token with.
-   * Both unset means no gate, the local and test setup.
+   * The bot check on every form (docs/forms.md, question 138): Turnstile's public site key, which
+   * a site's form window renders the challenge with, and the secret Core verifies its proof with.
+   * Both unset means no check: staging and local take forms without one, the live service none.
    */
   turnstileSiteKey: string | null;
   turnstileSecret: string | null;

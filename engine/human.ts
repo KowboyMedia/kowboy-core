@@ -1,15 +1,17 @@
-// The bot gate (docs/forms.md, question 138: Turnstile) behind one interface, so another service
-// can be chosen per site the day a brokerage insists. The browser gets the service's public site
-// key from the forms config and sends the token it earned with the submission; Core verifies it
-// here with the secret only Core holds. With no service configured there is no gate, which is
-// the local and test setup; production sets TURNSTILE_SITE_KEY and TURNSTILE_SECRET.
+// The bot check (docs/forms.md, question 138: Turnstile) behind one interface, so another service
+// can be chosen the day a brokerage insists. A site's server reads the service's public key from
+// Core (`GET /v1/submissions/bot-check`), its form window renders the challenge with it, and the
+// site's server passes the proof the window earned on with the form; Core verifies it here with
+// the secret only Core holds. With no service configured there is no check: staging and local
+// take forms without one, since they send none on, and the live service refuses every form
+// (engine/http/submissions.ts). Production sets TURNSTILE_SITE_KEY and TURNSTILE_SECRET.
 
 export type HumanCheck = {
   provider: 'turnstile';
-  /** The service's public key, which the browser renders the challenge with. */
+  /** The service's public key, which the form window renders the challenge with. */
   siteKey: string;
-  /** True when the token stands for a person; the address is the visitor's, when known. */
-  verify: (token: string, address: string | null) => Promise<boolean>;
+  /** True when the token stands for a person. */
+  verify: (token: string) => Promise<boolean>;
 };
 
 let check: HumanCheck | null = null;
@@ -18,16 +20,16 @@ export function configureHumanCheck(given: HumanCheck | null): void {
   check = given;
 }
 
-/** What the forms config tells the browser: which service to render, with which key; null for none. */
+/** What a site's server is told: which service to render, with which key; null for none. */
 export const humanCheck = (): { provider: string; site_key: string } | null =>
   check ? { provider: check.provider, site_key: check.siteKey } : null;
 
 /** True when there is no gate, or the token passes it. A missing token never passes a gate. */
-export async function verifyHuman(token: string | null, address: string | null): Promise<boolean> {
+export async function verifyHuman(token: string | null): Promise<boolean> {
   if (!check) return true;
   if (!token) return false;
   try {
-    return await check.verify(token, address);
+    return await check.verify(token);
   } catch {
     return false;
   }
@@ -40,9 +42,8 @@ export function turnstile(siteKey: string, secret: string): HumanCheck {
   return {
     provider: 'turnstile',
     siteKey,
-    async verify(token, address) {
+    async verify(token) {
       const body = new URLSearchParams({ secret, response: token });
-      if (address) body.set('remoteip', address);
       const response = await fetch(TURNSTILE_VERIFY, {
         method: 'POST',
         body,

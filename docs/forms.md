@@ -20,13 +20,16 @@ sending an interest on a single home, booking a viewing with the viewing slots s
 page, and creating a search profile; what Mspecs offers was unknown; a submission must be
 sendable securely from any client, WordPress or Lovable; and is this Core's work or a
 standalone widget for any site? A second agent reviewed this file on 2026-10-04 and its findings
-are worked in.
+are worked in. **Since 2026-10-06** (150 a, 155) the widget, its browser door and the public site
+keys are gone: the theme draws the three forms and the plugin's receivers pass them to Core with
+the site's token ("Built 2026-10-06: the first version"). The widget's sections below are the
+record of 137.
 
 **One thing to read first, because a note in chat was misread:** a site never contacts a CRM.
 In this design the visitor's browser talks to its own site, the site talks to Core with the
 tenant token it already holds, and Core talks to the CRM with the connection's login that only
-Core holds. The CRM logins stay in Core, which is also why they can cover several brokerages. With the widget (137 a) the browser talks to Core as well, with a public site key that can
-post a form and read slots and nothing else; the tenant token and the CRM login never reach it.
+Core holds. The CRM logins stay in Core, which is also why they can cover several brokerages. The widget of 137 a, with which the browser talked to Core as well through a public site
+key, is gone since 2026-10-06 (155); the tenant token and the CRM login never reach the browser.
 
 ## Terms
 
@@ -301,6 +304,9 @@ destination is dropped or ends in the free-text message, where nothing matches i
   did not build by one script tag: the door to the product that B wanted, without building B.
 
 ### The widget: one form UI for every client, served by Core (137: the widget, Patric, 2026-10-04)
+
+**Replaced 2026-10-06** by the theme's own form windows (150 a, 155) and removed from Core, the
+plugin and the admin area; this section is the record of 137.
 
 Patric's picture, which is the decision: a script tag that injects the installation code, hooks
 to any button, fills a config element, and brings its own JavaScript and CSS matched to the site.
@@ -715,6 +721,10 @@ generic capability item 21 in `docs/next-steps.md` asked for.
 
 ### The clients' part
 
+**Since 2026-10-06** (150 a, 155) the theme draws the forms and the plugin passes them on, close
+to the form-per-client alternative at the end of this section; see "Built 2026-10-06: the first
+version". The widget's tag and site key described next are gone.
+
 With the widget (137, decided) the clients' part is the script tag, a site-key setting and the
 buttons. **Every form on a site is a button that opens the wizard** (Patric, 2026-10-04, 21:08Z):
 a viewing's "Boka här" opens the booking, the property page's interest button opens the interest
@@ -758,9 +768,10 @@ browser never sees either.
 - Core stores and logs ids and outcomes, never the person; the consent and its time go to the CRM,
   which is where the person's data is meant to live. Sentry gets a failure's cause, never a field.
 - The bot gate is on from the first form (Patric, 2026-10-04): Core verifies the service's token
-  server-side (138), with the honeypot, a minimum time and the rate limit always on.
-- The widget (137) reaches the same endpoint with a public site key, the site's registered
-  domains as the Origin check, and CORS; the key can post a form and read slots, nothing else.
+  server-side (138), with the honeypot, a minimum time and the rate limit always on; the live
+  service refuses every form while the check is not set up (155).
+- The browser never reaches Core: the widget of 137, with its public site key and CORS, is gone
+  (155); the plugin's receivers call Core with the site's token.
 
 ### Acceptance, proposed (numbered on approval; `acceptance/` is protected)
 
@@ -877,6 +888,9 @@ put CRM knowledge in a client. The widget sends `object_type: null` unless Patri
 visitor asked; both adapters take null (Vitec: no subtypes, an open profile).
 
 ### Built 2026-10-04: the widget (plan item 3)
+
+**Removed 2026-10-06** with 155 (see "Built 2026-10-06: the first version"); what follows is what
+existed until then.
 
 What exists, proved by `acceptance/forms-widget.test.ts` (the door, under criteria 46 and 48) and
 the browser journey `clients/wordpress/e2e/forms-widget.spec.ts` (the three forms on the test
@@ -1002,6 +1016,15 @@ staging when it is done:
   `core_client_human_check()` reads the public key from Core once an hour (a failed read again
   after five minutes), kept per Core address and token, for the theme to print. The site key
   setting, its option and the widget's script tag are gone.
+- **The widget, the browser door and the site keys are gone** (155 lines 2 and 3), cleaned up as
+  a whole: Core's browser door (`engine/http/forms.ts`: `/v1/forms/config`, `/record`, `/slots`,
+  `/submissions` and the preflight) and the served widget (`/widget/forms.js`), the widget's
+  source `clients/forms-widget/` with its build and typecheck steps, the door's acceptance test,
+  the limit per visitor address with the socket address it read, a site's public key and its
+  addresses in the admin area's tenant page and in Core's code, the plugin's "Site key" option
+  (deleted when 0.6.0 is installed) and the deploy script's line for it. The two database
+  columns `subscribers.site_key` and `subscribers.origins` are dropped by migration 012 once
+  staging runs the code without them.
 - **Known, not built:** a free valuation from the footer names no office, so on a site whose
   brokerage has several offices Core answers 400 "office_id is required" and the window says the
   form could not be sent; the office is set on the site's side when such a site gets forms

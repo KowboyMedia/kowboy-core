@@ -49,9 +49,6 @@ type SiteView = {
   label: string;
   bellUrl: string;
   bellSecret: string;
-  /** The public key the site's forms widget sends, and the addresses it may be used from. */
-  siteKey: string;
-  origins: string[];
   active: boolean;
   lastPullAt: string | null;
   lastBellAt: string | null;
@@ -81,7 +78,7 @@ type ConnectionForm = {
   offices: string;
   active: boolean;
 };
-type SiteForm = { id?: number; label: string; bellUrl: string; origins: string; active: boolean };
+type SiteForm = { id?: number; label: string; bellUrl: string; active: boolean };
 type Form = {
   displayName: string;
   active: boolean;
@@ -112,7 +109,6 @@ const toForm = (tenant: TenantView): Form => ({
     id: site.id,
     label: site.label,
     bellUrl: site.bellUrl,
-    origins: site.origins.join(', '),
     active: site.active,
   })),
 });
@@ -234,7 +230,6 @@ export function TenantPage() {
           ...(site.id === undefined ? {} : { id: site.id }),
           label: site.label.trim(),
           bellUrl: site.bellUrl.trim(),
-          origins: offices(site.origins),
           active: site.active,
         })),
       };
@@ -653,17 +648,6 @@ export function TenantPage() {
                       placeholder="https://acme.se/wp-json/core/v1/bell"
                     />
                   </div>
-                  <div className="flex flex-col gap-1 md:col-span-2">
-                    <Label htmlFor={`site-origins-${String(index)}`}>
-                      Addresses its forms widget may be used from
-                    </Label>
-                    <Input
-                      id={`site-origins-${String(index)}`}
-                      value={site.origins}
-                      onChange={(event) => change({ origins: event.target.value })}
-                      placeholder="https://acme.se, https://www.acme.se (empty: the bell address’s site)"
-                    />
-                  </div>
                 </div>
                 {problem(`site-${String(index)}`) && (
                   <p className="mt-2 text-sm text-danger">{problem(`site-${String(index)}`)}</p>
@@ -674,10 +658,6 @@ export function TenantPage() {
                     <div className="mt-3">
                       <Label>Its bell secret</Label>
                       <Copy value={saved.bellSecret} label="bell secret" />
-                    </div>
-                    <div className="mt-3">
-                      <Label>Its site key, for the forms widget (public)</Label>
-                      <Copy value={saved.siteKey} label="site key" />
                     </div>
                     <ul className="mt-3 flex flex-col gap-1 text-sm">
                       {saved.checklist.map((step) => (
@@ -772,7 +752,7 @@ export function TenantPage() {
               onClick={() =>
                 setForm({
                   ...form,
-                  sites: [...form.sites, { label: '', bellUrl: '', origins: '', active: true }],
+                  sites: [...form.sites, { label: '', bellUrl: '', active: true }],
                 })
               }
             >

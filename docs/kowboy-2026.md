@@ -279,7 +279,7 @@ Two things from the staging site on a phone (Patric, 2026-10-04, 16:45Z), theme 
   bostad." on that step, since the profile step is not built (151, skip recommended). The window
   renders Cloudflare's challenge with the public key the plugin prints (`data-human-key`) and
   sends its token with the form; without a key there is no challenge. The widget's tag and the
-  site key setting are gone from the plugin.
+  site key setting are gone from the plugin, and the widget itself from Core.
 - **The form designs are approved** (Patric, 2026-10-05, 21:38Z: "All form designs approved."):
   the three buttons above and the wizard's windows as the staging site showed them (pictures in
   the project files under kowboy-2026/round-8 and round-9). The forms are rebuilt from zero in

@@ -117,53 +117,22 @@ export type SubscriberRow = {
   last_bell_status: string | null;
   last_pull_at: Date | null;
   last_client: string | null;
-  /** The public key the site's widget sends with a form (docs/forms.md, the widget's door). */
-  site_key: string;
-  /** The addresses the key may be used from; empty means the origin of the bell URL. */
-  origins: string[];
 };
 
 const SUBSCRIBER_COLUMNS =
-  'id, tenant_id, label, bell_url, bell_secret, active, last_bell_at, last_bell_status, last_pull_at, last_client, site_key, origins';
+  'id, tenant_id, label, bell_url, bell_secret, active, last_bell_at, last_bell_status, last_pull_at, last_client';
 
 export async function addSubscriber(input: {
   tenantId: number;
   label: string;
   bellUrl: string;
   bellSecret: string;
-  origins?: string[];
 }): Promise<number> {
   const { rows } = await db().query<{ id: string }>(
-    `insert into subscribers (tenant_id, label, bell_url, bell_secret, origins) values ($1,$2,$3,$4,$5) returning id`,
-    [input.tenantId, input.label, input.bellUrl, input.bellSecret, input.origins ?? []],
+    `insert into subscribers (tenant_id, label, bell_url, bell_secret) values ($1,$2,$3,$4) returning id`,
+    [input.tenantId, input.label, input.bellUrl, input.bellSecret],
   );
   return Number(rows[0]?.id);
-}
-
-/** The site a public site key belongs to, or null for a key no site carries. */
-export async function subscriberBySiteKey(key: string): Promise<SubscriberRow | null> {
-  const { rows } = await db().query<SubscriberRow>(
-    `select ${SUBSCRIBER_COLUMNS} from subscribers where site_key = $1`,
-    [key],
-  );
-  return rows[0] ?? null;
-}
-
-/** Where a site's widget may be used from: its registered addresses, else its bell URL's origin. */
-export function siteOrigins(site: { origins: string[]; bell_url: string }): string[] {
-  if (site.origins.length > 0) return site.origins;
-  try {
-    return [new URL(site.bell_url).origin];
-  } catch {
-    return [];
-  }
-}
-
-/** The site on whose address a browser is, for the preflight that carries no key yet; null for a stranger. */
-export async function subscriberByOrigin(origin: string): Promise<SubscriberRow | null> {
-  return (
-    (await subscribers()).find((site) => site.active && siteOrigins(site).includes(origin)) ?? null
-  );
 }
 
 /**
@@ -281,7 +250,7 @@ export async function setConnectionActive(id: string, active: boolean): Promise<
   await db().query('update connections set active = $2 where id = $1', [id, active]);
 }
 
-/** Change a site's label, bell URL, secret or widget addresses, or switch it off. */
+/** Change a site's label, bell URL or secret, or switch it off. */
 export async function updateSubscriber(
   id: number,
   changes: {
@@ -289,7 +258,6 @@ export async function updateSubscriber(
     bellUrl?: string;
     bellSecret?: string;
     active?: boolean;
-    origins?: string[];
   },
 ): Promise<void> {
   const sets: string[] = [];
@@ -302,7 +270,6 @@ export async function updateSubscriber(
   if (changes.bellUrl !== undefined) set('bell_url', changes.bellUrl);
   if (changes.bellSecret !== undefined) set('bell_secret', changes.bellSecret);
   if (changes.active !== undefined) set('active', changes.active);
-  if (changes.origins !== undefined) set('origins', changes.origins);
   if (sets.length === 0) return;
   await db().query(`update subscribers set ${sets.join(', ')} where id = $1`, values);
 }

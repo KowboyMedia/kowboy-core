@@ -390,7 +390,7 @@
    * A link to a place in the same view (the contact button to the agent, a form button to the
    * agent or the office when no form window is on duty): the browser's own jump cannot see
    * into a shadow root, so the script scrolls there, smoothly where the stylesheet says so
-   * (scroll-behavior). A click the form window or the widget has taken is left alone.
+   * (scroll-behavior). A click the form window has taken is left alone.
    */
   function setupAnchor(link) {
     if (!once(link, 'ready')) return;

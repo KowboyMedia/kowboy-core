@@ -77,7 +77,7 @@ usort($bids, fn (array $a, array $b): int => strcmp((string) ($b['placed_at'] ??
 $highest_bid = $display['highest_bid'] ?? null;
 
 $agents = core_client_items('agent', is_array($item['agent_ids'] ?? null) ? $item['agent_ids'] : []);
-// The home as the widget names it on a booking and an interest (docs/forms.md, "The clients' part").
+// The home as the form window names it on a booking and an interest (docs/forms.md, "The clients' part").
 $record = 'property:' . (string) core_client_connection_of($post_id) . ':' . (string) ($item['id'] ?? '');
 
 // This site's rule, as the design shows it: a sold home keeps its text, chips, plan and photos, and shows no fact tables.

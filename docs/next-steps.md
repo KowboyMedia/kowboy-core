@@ -425,6 +425,11 @@ client ports (item 16, first client by question 80).
     bostad?", as recommended, until it is answered), 165 (the adapter interface the retry needs;
     the rest of 160 a is built either way) and 166 (a form the site could not get to Core). The
     idea of drawing the bot check in a frame from Core's address is set aside by 155's line 6.
+    **Built 2026-10-06** (docs/forms.md, "Built 2026-10-06: the first version"): the guard, the
+    bot check, the three windows in theme 1.2.0 with plugin 0.6.0's two receivers, and the
+    widget, the browser door and the site keys removed from Core, the plugin and the admin area.
+    Next: each site's address on Cloudflare's list, the seven Vitec forms fields, then failed
+    forms.
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in

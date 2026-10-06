@@ -98,6 +98,17 @@ changing the form's data shape, reads the visitor's address the way the hosting 
 and the Settings page lists the two keys; the two keys go into the staging and live environments
 before the first form goes live. Done with question 144's answer.
 
+**Fixed on staging 2026-10-06** (the forms' first version, `engine/http/submissions.ts`): the live
+service refuses every form while the keys are missing (503, reported to the error tracker), and
+with the keys every form needs the proof its window earned (403 without it), checked before
+Core's limit, so a program without a proof neither reaches the CRM nor uses up the customer's 60 a
+minute; the tests give Core a stand-in check. The browser's door is gone, and with it the limit
+per visitor address and the header it read. What remains: the two keys are in no environment yet
+(they come with each site's address on Cloudflare's list), and the Settings page does not list
+them, which needs a question before it is built. The trap field and the minimum time stay in the
+window only; a program that skips them still needs the bot check's proof. The entry leaves this
+file when the fix is on production.
+
 ## 5. `[core]` Staging's worker runs out of database connections when it starts
 
 **What happens.** When staging Core's worker restarted on 2026-10-05 at 20:35:45Z, its first

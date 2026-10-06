@@ -519,8 +519,6 @@ Examples: golden/vitec/property/price-on-request
 | Adapter health recorded           | every 30 s; a record older than 2 min counts as failed                                         |
 | Form submissions per tenant token | 60 a minute, answered 429 above it (docs/forms.md)                                             |
 | Form submission: CRM answer       | 20 s, then the submission counts as failed; a repeated id answers the stored outcome for a day |
-| Form submissions per address      | 10 a minute through the widget's door, answered 429 above it (docs/forms.md)                   |
-| Forms widget cache                | 5 min (`/widget/forms.js`), so a fix reaches every site without a deploy of theirs             |
 
 ## 14. Features (the feature map, from 2026-10-03)
 
@@ -545,10 +543,12 @@ approved; this map grows as Patric describes wishes and is settled through the r
   Turnstile (138), a wizard whose last step is a search profile prefilled from the page (139),
   which Vitec takes in its version 1 API (131) and Mspecs as a lead with matching. Acceptance:
   the seven criteria proposed in `docs/forms.md`, numbered on approval (43 to 49). Built
-  2026-10-04: Core's part, the Vitec adapter's part against the stand-in, and the widget served at
-  `/widget/forms.js` with the plugin's tag; the browser reaches Core through a public site key
-  and the site's origin (`/v1/forms/*`), never the tenant token. Remaining: the staging deploy,
-  Turnstile's keys, the real Vitec send (54 f). Later: watching the
+  2026-10-04: Core's part and the Vitec adapter's part against the stand-in. Rebuilt 2026-10-06
+  (150 a, 155): the theme draws the three forms, the plugin's receivers pass them to Core with
+  the site's token, and Core checks the bot check's proof and hands a form to the CRM only from
+  the live service; the widget served by Core, its browser door and the public site keys of
+  2026-10-04 are gone, and the profile step waits on 151. Remaining: Turnstile's keys, keeping a
+  form until the CRM has it (160 a), the real Vitec send (54 f). Later: watching the
   final price, a step for the home the visitor has to sell. Out: cancelling a booking (Patric,
   2026-10-04).
 - `[client-wordpress]` **Search by place, and the list blocks in the plugin** (Patric,

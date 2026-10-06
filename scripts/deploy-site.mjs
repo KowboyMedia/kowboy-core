@@ -7,8 +7,7 @@
 //
 // The settings JSON, when given, holds any of core_client_url, core_client_token,
 // core_client_bell_secret, core_client_template_set, core_client_shadow_dom,
-// core_client_status_for_sale, core_client_status_coming, core_client_status_sold,
-// core_client_site_key (the forms widget's public key); the rest of
+// core_client_status_for_sale, core_client_status_coming, core_client_status_sold; the rest of
 // the form keeps its values. Secrets come from the environment or the JSON, never from a file in
 // the repository.
 import { execFileSync } from 'node:child_process';
@@ -244,7 +243,6 @@ const TEXT_SETTINGS = [
   'core_client_status_for_sale',
   'core_client_status_coming',
   'core_client_status_sold',
-  'core_client_site_key',
 ];
 
 /** The settings form as the page shows it: every field's current value, so a partial write keeps the rest. */

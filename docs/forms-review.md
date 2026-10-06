@@ -15,6 +15,9 @@ the list of everything a site must be able to configure, which is question 146. 
 145 is in `AGENTS.md`, "Stop and ask". The rest of this file is the review as it was answered, with
 one cell marked as corrected afterwards.
 
+**Since 2026-10-06** (150 a, 155) the widget, its browser door and the site keys are gone, so the
+rows below that keep them no longer hold.
+
 ## In short
 
 - `[core]` The build added about 2,000 lines of program code to Core, which grew by about 12

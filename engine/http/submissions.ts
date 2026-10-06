@@ -4,9 +4,7 @@
 // site's own server calls these with its token; the visitor's browser never does. Core
 // authenticates, checks the bot check's proof, validates, finds the connection and hands the
 // submission to that connection's adapter inside the request; it stores and logs the id and the
-// outcome, never the person, and reads nothing out of the submission to decide anything. The
-// browser's door (forms.ts, the widget with its public site key) comes through the same two
-// functions, `submitThrough` and `slotsThrough`, with the site already known.
+// outcome, never the person, and reads nothing out of the submission to decide anything.
 import { authenticate } from './changes.js';
 import { validateSlots, validateSubmission } from '../contract.js';
 import { connectionById, subscriberByBellUrl } from '../storage/connections.js';
@@ -31,7 +29,7 @@ import type {
   SubmissionResult,
 } from '../adapter-api/types.js';
 
-/** More than this from one tenant in a minute is answered 429 (strategy §13), whichever door. */
+/** More than this from one tenant in a minute is answered 429 (strategy §13). */
 export const SUBMISSIONS_PER_MINUTE = 60;
 /** How long Core waits for the CRM before the submission counts as failed (strategy §13). */
 export const SUBMISSION_TIMEOUT_MS = 20_000;
@@ -39,8 +37,8 @@ const MINUTE_MS = 60_000;
 /** How often a repeated id still in flight looks for the first request's answer. */
 const WAIT_STEP_MS = 50;
 
-/** Who came in, through either door: the tenant, and the site when it is known. */
-export type Door = { tenantId: number; subscriberId: number | null };
+/** Who came in: the tenant, and the site when it is known. */
+type Door = { tenantId: number; subscriberId: number | null };
 
 /**
  * Whether this Core hands forms to the CRM. Only the live service does (question 152): staging
@@ -72,7 +70,7 @@ export function resetSubmissionLimits(): void {
   recent.clear();
 }
 
-/** The server's door: the tenant token, the bot check's proof, and the site named by `X-Core-Site`. */
+/** A form: the tenant token, the bot check's proof, and the site named by `X-Core-Site`. */
 export async function submit(request: Request): Promise<Response> {
   const auth = await authenticate(request);
   if ('error' in auth) return jsonResponse(auth.status, { error: auth.error });
@@ -97,7 +95,7 @@ async function checkHuman(request: Request): Promise<Response | null> {
     report(new Error('a form was refused: the bot check is not set up'), { where: 'submission' });
     return jsonResponse(503, { error: 'the bot check is not set up' });
   }
-  const passed = await verifyHuman(request.headers['x-core-human'] ?? null, null);
+  const passed = await verifyHuman(request.headers['x-core-human'] ?? null);
   return passed ? null : jsonResponse(403, { error: 'the bot check did not pass' });
 }
 
@@ -111,7 +109,7 @@ export async function botCheck(request: Request): Promise<Response> {
   return jsonResponse(200, { human: humanCheck() });
 }
 
-export async function submitThrough(request: Request, door: Door): Promise<Response> {
+async function submitThrough(request: Request, door: Door): Promise<Response> {
   if (overLimit(door.tenantId)) {
     return jsonResponse(429, {
       error: `more than ${String(SUBMISSIONS_PER_MINUTE)} submissions in a minute; try again shortly`,
@@ -355,7 +353,7 @@ export async function slots(request: Request): Promise<Response> {
   return slotsThrough(request, { tenantId: auth.tenantId, subscriberId: null });
 }
 
-export async function slotsThrough(request: Request, door: Door): Promise<Response> {
+async function slotsThrough(request: Request, door: Door): Promise<Response> {
   const connectionId = request.query.get('connection_id');
   const remoteId = request.query.get('remote_id');
   if (!connectionId || !remoteId) {

@@ -87,9 +87,8 @@ list as empty; one that ends up with none says so in its health check. Two tenan
 for each of them, each with its own copies, its own version numbers and its own sites, which is
 how two sites can show one brokerage's listings. Core does not warn about that; the page says it
 where the offices are typed.
-Its sites are on the same page with their bell address, their bell secret, their public site key
-for the forms widget and the addresses the widget may be used from (empty: the bell address's
-site), their setup checklist, what they reported applied and failed, and their own errors.
+Its sites are on the same page with their bell address, their bell secret, their setup
+checklist, what they reported applied and failed, and their own errors.
 Under a Vitec connection, **Offices Vitec lists** says in plain words which offices reach the
 sites and why, for a reader who must explain it to the brokerage: Core asks Vitec once a day, and
 at each worker start, which offices sit behind the login's customer or group id, reads each one,
@@ -252,11 +251,11 @@ drive directly.
   the kind, the record and the CRM's answer, never the person; the events `submission.received`,
   `.delivered`, `.refused` and `.failed` sit on the record's timeline; the check
   `submissions.failing` is red while a connection's latest submission went unanswered by the CRM.
-  The browser's door (`engine/http/forms.ts`, the widget of docs/forms.md): `GET /v1/forms/config`,
-  `GET /v1/forms/record`, `GET /v1/forms/slots` and `POST /v1/forms/submissions` take a site's
-  public key and its origin over CORS, with the bot gate (`engine/human.ts`, `TURNSTILE_SITE_KEY`
-  and `TURNSTILE_SECRET`) on a submission and a limit per address; `GET /widget/forms.js` is the
-  widget itself, built into `dist/widget`.
+  `GET /v1/submissions/bot-check` gives a site's server the bot check's public key (`engine/human.ts`,
+  `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET`), and a form carries the proof its window earned in
+  `X-Core-Human`. Only the live service hands a form to the CRM; elsewhere it stops just before.
+  The visitor's browser never calls Core: it talks to its own site, whose server calls these
+  addresses with the site's token.
 - **Settings** (`engine/storage/settings.ts`): the switches a person throws, one row per key, read
   by whichever process needs them so web and worker agree without a restart.
 
