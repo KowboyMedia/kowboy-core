@@ -182,8 +182,8 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
                                 <?php if ($viewing['time'] !== '') : ?><span class="k-viewing__time"><?php echo esc_html($viewing['time']); ?></span><?php endif; ?>
                                 <?php if ($viewing['comment'] !== '') : ?><span class="k-viewing__comment"><?php echo esc_html($viewing['comment']); ?></span><?php endif; ?>
                             </div>
-                            <?php // Opens the booking wizard on this viewing (data-viewing picks its slot); without the widget, the agent's card. ?>
-                            <?php if ($viewing['bookable']) : ?><a class="k-button" href="#k-agents" data-core-form="viewing" data-record="<?php echo esc_attr($record); ?>"<?php echo $viewing['id'] === '' ? '' : ' data-viewing="' . esc_attr($viewing['id']) . '"'; ?>>Boka här</a><?php endif; ?>
+                            <?php // Opens the booking window on this viewing (data-viewing shows its times); without the window, the agent's card. ?>
+                            <?php if ($viewing['bookable']) : ?><a class="k-button" href="#k-agents" data-k-form="viewing" data-record="<?php echo esc_attr($record); ?>"<?php echo $viewing['id'] === '' ? '' : ' data-viewing="' . esc_attr($viewing['id']) . '"'; ?> data-home="<?php echo esc_attr($street); ?>">Boka här</a><?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                     <div class="k-viewing k-viewing--empty" data-viewings-empty <?php echo $upcoming > 0 ? 'hidden' : ''; ?>>

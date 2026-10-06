@@ -132,16 +132,6 @@ function core_client_settings_page(): void
                 <?php endforeach; ?>
             </table>
 
-            <h2>Forms</h2>
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row"><label for="core_client_site_key">Site key</label></th>
-                    <td><input type="text" id="core_client_site_key" name="core_client_site_key" class="regular-text" autocomplete="off"
-                               value="<?php echo esc_attr(core_client_site_key()); ?>" placeholder="pk_…">
-                        <p class="description">The public key of this site in Kowboy Core, on the site's row of the tenant's page. With it, every form button on the site (interest, viewing booking, free valuation) opens Core's form wizard; the consent line links the site's privacy policy page. Empty: the buttons lead to the agent's or the office's contact instead.</p></td>
-                </tr>
-            </table>
-
             <h2>Publishing</h2>
             <p class="description">What the site shows of each kind of record. Off, its pages answer 404, its archive is gone and every list of it is empty; the local copy and the sync go on as before.</p>
             <table class="form-table" role="presentation">

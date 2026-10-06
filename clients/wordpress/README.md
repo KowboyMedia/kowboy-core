@@ -17,7 +17,7 @@ core-client/                     the plugin
   includes/templates.php         the sets' registry, the override rule (theme first), the list function,
                                  the shortcode, the reload endpoint, the routing of single pages and archives
   includes/blocks.php            the two list blocks, their settings for a theme's wrappers, the pick endpoint
-  includes/forms.php             the form receiver on the WordPress API (the theme's window posts to it, it sends on to Core with the token), and for now the site key setting and the widget's script tag (docs/forms.md)
+  includes/forms.php             the two form receivers on the WordPress API (a form, which goes on to Core with the token and the bot check's proof; a viewing's times, read from Core) and the bot check's public key for the theme's window (docs/forms.md)
   includes/place-search.php      the search box: the places query, the box with its pills, its assets
   includes/view-page.php         the theme's header and footer around one view
   includes/packages.php          places the updater, keeps the package list, installs a set from the channel
@@ -39,16 +39,17 @@ test/                            setup.sh, install.php, driver.php, site.ts and 
                                  journey-site.ts for the journeys
 sync.test.ts                     the shared sync scenarios, the updater, the packaging, WP-CLI
 templates.test.ts                the theme, its blocks and the template machinery on a real WordPress
-e2e/, playwright.config.ts       the search box's browser journey
+e2e/, playwright.config.ts       the browser journeys: the search box, the three forms, the pages
 ```
 
 ## Installing it on a site
 
 1. Upload `core-client.zip` under Plugins → Add New → Upload Plugin and activate it. On activation
    the plugin puts its updater into `mu-plugins/` itself.
-2. Settings → Kowboy Core: the Core URL, the tenant token and the bell secret, and under Forms the
-   site key, which makes every form button open Core's wizard (docs/forms.md). The page shows the
+2. Settings → Kowboy Core: the Core URL, the tenant token and the bell secret. The page shows the
    bell URL to give Kowboy, `https://<site>/wp-json/core/v1/bell`, and the last successful sync.
+   The forms need nothing more: the theme's window talks to the plugin's receivers, which use the
+   same token (docs/forms.md).
 3. On the same page, under Templates: install a set with one click (the sets the update channel
    offers are listed there; a set can also be uploaded as a zip like any plugin), pick the set,
    and name which of the CRM's status ids this site lists as for sale, as coming and as sold.

@@ -7,7 +7,7 @@
 // makes, and the WP-Cron run a request spawns, meet a site that is done.
 import '../../../acceptance/setup.js';
 import { harness, TENANT, TOKEN, until } from '../../../acceptance/harness.js';
-import { addSubscriber, subscribers } from '../../../engine/storage/connections.js';
+import { addSubscriber } from '../../../engine/storage/connections.js';
 import { fakePollingAdapter, poll } from '../../../adapters/fake-polling/index.js';
 import * as crm from '../../../adapters/fake-polling/crm.js';
 import { BELL_SECRET, CONNECTION } from '../../client-driver.js';
@@ -39,17 +39,13 @@ for (const [option, value] of [
   await driver('option', `${option} ${value}`);
 }
 await driver('theme', 'kowboy-2026');
-// The site in Core, so its forms widget has a site key and an address it may be used from
-// (docs/forms.md, the widget's door); the key goes into the plugin's settings as a person pastes it.
-const siteId = await addSubscriber({
+// The site in Core, as the admin area adds it, so a form it passes on shows on its row.
+await addSubscriber({
   tenantId: TENANT,
   label: 'journey site',
   bellUrl: site.bellUrl,
   bellSecret: BELL_SECRET,
-  origins: [`http://127.0.0.1:${String(port)}`],
 });
-const siteKey = (await subscribers()).find((row) => Number(row.id) === siteId)?.site_key ?? '';
-await driver('option', `core_client_site_key ${JSON.stringify(siteKey)}`);
 fillTheCrm();
 // The bookable viewing of Kungsgatan 3 has two slots in the CRM, one of them full.
 crm.setShowings('P-3', [

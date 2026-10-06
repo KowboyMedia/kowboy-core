@@ -2119,10 +2119,65 @@ textarea.k-form__field {
   justify-content: space-between;
   gap: 10px;
 }
+.k-form__row > .k-button:last-child {
+  margin-left: auto;
+}
 .k-form__error {
   margin: 0;
   color: var(--k-form-bad);
   font-size: 14px;
+}
+/* A booking's steps, as approved: one bar per step, the steps reached in ink. */
+.k-form__progress {
+  display: flex;
+  gap: 6px;
+}
+.k-form__progress i {
+  flex: 1;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--k-border);
+}
+.k-form__progress i.is-on {
+  background: var(--k-ink);
+}
+.k-form__slots {
+  display: grid;
+  gap: 8px;
+}
+.k-form__slot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--k-border);
+  border-radius: 12px;
+  background: var(--k-white);
+  color: var(--k-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.k-form__slot[aria-checked='true'] {
+  border-color: var(--k-ink);
+  box-shadow: inset 0 0 0 1px var(--k-ink);
+}
+.k-form__slot[disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+.k-form__slot small {
+  color: var(--k-form-muted);
+  font-size: 13px;
+}
+.k-form__slot:focus-visible {
+  outline: 2px solid var(--k-ink);
+  outline-offset: 2px;
+}
+.k-form__human:empty {
+  display: none;
 }
 .k-form__big {
   font-size: 22px;

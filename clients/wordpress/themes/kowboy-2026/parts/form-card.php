@@ -1,11 +1,9 @@
 <?php
 // The form card, dark: "Ska du sälja din bostad?" in the footer of every page and "Är du
 // intresserad av bostaden?" on a property page, each a title, a text and one button (Patric,
-// 2026-10-04: a button in place of the fields). A form the theme draws itself (KOWBOY_FORMS,
-// functions.php) gets a button marked data-k-form that opens the theme's window
-// (parts/form-window.php); any other form's button carries the widget's mark, data-core-form,
-// and opens Core's wizard. On a page where neither is on duty the button leads to a contact
-// instead: the agent's card, or the office's details in the footer.
+// 2026-10-04: a button in place of the fields). The button is marked data-k-form and opens the
+// theme's window (parts/form-window.php); without the window, it leads to a contact instead: the
+// agent's card, or the office's details in the footer.
 //
 // In scope: $title, $text, $label (the button's words), $form (lead or interest), $record
 // (property:<connection>:<id>, or '' for a lead), $href (where the button leads otherwise), and
@@ -14,12 +12,11 @@
 declare(strict_types=1);
 
 $home = $home ?? '';
-$own = in_array($form, KOWBOY_FORMS, true);
-$marks = ($own ? ' data-k-form="' : ' data-core-form="') . esc_attr($form) . '"';
+$marks = ' data-k-form="' . esc_attr($form) . '"';
 if ($record !== '') {
     $marks .= ' data-record="' . esc_attr($record) . '"';
 }
-if ($own && $home !== '') {
+if ($home !== '') {
     $marks .= ' data-home="' . esc_attr($home) . '"';
 }
 ?>

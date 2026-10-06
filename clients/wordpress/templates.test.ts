@@ -449,10 +449,10 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('Föranmälan krävs');
     expect(body).toContain('Visningen som var');
     expect(body).toMatch(/<div class="k-viewing" data-viewing data-until="[^"]+" hidden>/);
-    // A bookable viewing's button opens the booking wizard on this home and viewing; without the widget, the agent's card.
+    // A bookable viewing's button opens the booking window on this home and viewing; without the window, the agent's card.
     expect(
       body.match(
-        /<a class="k-button" href="#k-agents" data-core-form="viewing" data-record="property:[^":]+:P-3" data-viewing="[^"]+">Boka här<\/a>/g,
+        /<a class="k-button" href="#k-agents" data-k-form="viewing" data-record="property:[^":]+:P-3" data-viewing="[^"]+" data-home="Kungsgatan 3">Boka här<\/a>/g,
       ),
     ).toHaveLength(1);
     // Without a viewing, the box's button takes the visitor to the agent's contact (Patric, 2026-10-04).
@@ -515,13 +515,17 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('sizes="(max-width: 767px) 250vw, 100vw"');
     expect(body).toContain('data-map data-lat="');
     // The interest card is a button, no fields on the page (Patric, 2026-10-04); since 2026-10-06 it
-    // opens the theme's own window (parts/form-window.php), the one form on the page, which posts
-    // to the plugin's receiver on the site, never to a CRM address.
+    // opens the theme's own window (parts/form-window.php), the one place with forms on the page,
+    // which talks to the plugin's receivers on the site, never to Core or a CRM, and carries the
+    // bot check's public key as Core gives it.
     expect(body).toMatch(
       /<a class="k-button k-button--light k-lead__button" href="#k-agents" data-k-form="interest" data-record="property:[^":]+:P-3" data-home="Kungsgatan 3">Anmäl intresse<\/a>/,
     );
-    expect(body).toMatch(/<dialog class="k-form" data-endpoint="[^"]*core\/v1\/forms"/);
+    expect(body).toMatch(
+      /<dialog class="k-form" data-endpoint="[^"]*core\/v1\/forms" data-slots="[^"]*core\/v1\/forms\/slots" data-human-key="1x00000000000000000000AA"/,
+    );
     expect(body.replace(/<dialog class="k-form"[\s\S]*?<\/dialog>/, '')).not.toContain('<form');
+    expect(body).not.toContain(core.baseUrl);
     expect(body).not.toContain('kowboy/v1/lead');
     // The header lies over the hero, with the bright logotype.
     expect(body).toContain('k-has-hero');
@@ -629,7 +633,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     // The title, and the footer's card on every page, its button opening the seller's lead.
     expect(agent.body).toContain('<title>Anna Andersson - ');
     expect(agent.body).toContain('<h2 class="k-lead__title">Ska du sälja din bostad?</h2>');
-    expect(agent.body).toContain('data-core-form="lead"');
+    expect(agent.body).toContain('data-k-form="lead"');
     expect(agent.body).not.toContain('k-field__label');
 
     const office = await page(await permalink('office', 'B-1'));
@@ -922,9 +926,9 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(home.body).toContain('class="k-list"');
     expect(home.body).toContain('<h2 class="k-lead__title">Ska du sälja din bostad?</h2>');
     expect(home.body.match(/k-lead__title/g)).toHaveLength(1); // the footer's card, once
-    // The footer's card is a button that opens the seller's lead; without the widget, the office's details.
+    // The footer's card is a button that opens the seller's lead; without the window, the office's details.
     expect(home.body).toContain(
-      '<a class="k-button k-button--light k-lead__button" href="#k-contact" data-core-form="lead">Boka fri värdering</a>',
+      '<a class="k-button k-button--light k-lead__button" href="#k-contact" data-k-form="lead">Boka fri värdering</a>',
     );
     expect(home.body).toContain('class="k-footer"');
     expect(home.body).toContain('<title>Hem - ');
@@ -1190,23 +1194,5 @@ describe('the plugin’s set machinery, with a set plugin', () => {
     const { body } = await page('/?post_type=core_property');
     expect(body).toContain('class="k-list"');
     expect(body).toContain('data-tab="for_sale">Till salu');
-  });
-});
-
-describe('the forms widget’s tag (docs/forms.md, the clients’ part)', () => {
-  it('prints Core’s widget script with the site key once the key is in the settings, and nothing without it', async () => {
-    await driver('option', 'core_client_site_key "pk_test_key"');
-    try {
-      const { body } = await page(await permalink('property', 'P-3'));
-      // WordPress writes the tag's attributes in alphabetical order.
-      expect(body).toContain(
-        `<script data-site-key="pk_test_key" defer src="${core.baseUrl}/widget/forms.js"></script>`,
-      );
-      expect(body.match(/widget\/forms\.js/g)).toHaveLength(1);
-    } finally {
-      await driver('option', 'core_client_site_key null');
-    }
-    const { body } = await page(await permalink('property', 'P-3'));
-    expect(body).not.toContain('widget/forms.js');
   });
 });

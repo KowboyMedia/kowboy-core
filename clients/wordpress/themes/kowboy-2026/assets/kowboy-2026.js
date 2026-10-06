@@ -1,7 +1,7 @@
 // The theme's script, on the page and inside every shadow root: the menu, the sliders (Swiper,
 // in vendor/), the list reloads against the plugin's endpoint, the collapsibles, the gallery's
 // "Visa fler bilder" and the full-screen slider a photo opens, the viewings that are over, the
-// map (Leaflet, in vendor/), and the form window the theme's own form buttons open.
+// map (Leaflet, in vendor/), and the form window every form button opens.
 (function () {
   'use strict';
 
@@ -405,10 +405,15 @@
 
   /**
    * Every word of the form window the visitor reads, in Swedish, as approved 2026-10-05 (the
-   * step's own words stand in parts/form-window.php).
+   * steps' own words stand in parts/form-window.php).
    */
   var FORM_TEXT = {
-    title: { interest: 'Är du intresserad av bostaden?' },
+    title: {
+      interest: 'Är du intresserad av bostaden?',
+      viewing: 'Boka visning',
+      lead: 'Ska du sälja din bostad?',
+    },
+    subtitleLead: 'Kostnadsfri värdering',
     sent: {
       interest: function (home) {
         return [
@@ -416,25 +421,92 @@
           (home ? home + '. ' : '') + 'Mäklaren hör av sig.',
         ];
       },
+      viewing: function (home, slot) {
+        return [
+          'Din plats är bokad',
+          [home, slot].filter(Boolean).join(' · ') + '. Du får en bekräftelse från mäklaren.',
+        ];
+      },
+      lead: function () {
+        return ['Tack, vi hör av oss', 'Kostnadsfri värdering. Mäklaren kontaktar dig.'];
+      },
     },
     send: 'Skicka',
     sending: 'Skickar…',
+    placesLeft: function (n) {
+      return n + ' ' + (n === 1 ? 'plats' : 'platser') + ' kvar';
+    },
+    full: 'Fullbokad',
+    personMissing: 'Fyll i alla fält och godkänn integritetspolicyn.',
+    humanWaiting: 'Robotkontrollen är inte klar än. Vänta en liten stund och försök igen.',
     refused: 'Det gick tyvärr inte',
+    refusedSlot: 'Någon hann före. Välj en annan tid.',
     failed: 'Det gick inte att skicka just nu',
     failedText: 'Mäklarsystemet svarade inte. Dina uppgifter finns kvar; försök igen om en stund.',
     tooMany: 'För många försök just nu. Vänta en stund och försök igen.',
+    notHuman: 'Robotkontrollen gick inte igenom. Försök igen.',
+    cannotLoad: 'Det gick inte att hämta formuläret. Ladda om sidan och försök igen.',
   };
+  /** Each form's steps before the answer: a booking picks its time first. */
+  var FORM_STEPS = { interest: ['person'], viewing: ['slot', 'person'], lead: ['person'] };
   /** The visitor's details after a sent form, in their own browser, so the next form is one tap. */
   var FORM_REMEMBER = 'core-forms:person';
   /** No form leaves before this long after the window opened: a bot measure the window keeps. */
   var FORM_MIN_OPEN_MS = 3000;
+  /** How long a send waits for the bot check's answer before asking the visitor to wait. */
+  var FORM_HUMAN_WAIT_MS = 8000;
+  var TURNSTILE_SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+
+  var turnstileLoading = null;
+  function loadTurnstile() {
+    if (window.turnstile) return Promise.resolve();
+    if (!turnstileLoading) {
+      turnstileLoading = new Promise(function (resolve, reject) {
+        var script = document.createElement('script');
+        script.src = TURNSTILE_SCRIPT;
+        script.async = true;
+        script.onload = function () {
+          resolve();
+        };
+        script.onerror = function () {
+          turnstileLoading = null;
+          reject(new Error('the bot check did not load'));
+        };
+        document.head.appendChild(script);
+      });
+    }
+    return turnstileLoading;
+  }
+
+  var formDay = new Intl.DateTimeFormat('sv-SE', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'Europe/Stockholm',
+  });
+  var formClock = new Intl.DateTimeFormat('sv-SE', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Stockholm',
+  });
+
+  /** "söndag 12 oktober · 13.00–13.30", from the slot's moments; what the CRM gave when one is missing. */
+  function slotLabel(startsAt, endsAt) {
+    var start = startsAt ? new Date(startsAt) : null;
+    var end = endsAt ? new Date(endsAt) : null;
+    if (!start || isNaN(start.getTime())) return startsAt || '';
+    var until = end && !isNaN(end.getTime()) ? '–' + formClock.format(end).replace(':', '.') : '';
+    return formDay.format(start) + ' · ' + formClock.format(start).replace(':', '.') + until;
+  }
 
   /**
-   * The form window (parts/form-window.php): the theme draws the forms it owns (KOWBOY_FORMS in
-   * functions.php; their buttons carry data-k-form, on the page or inside a shadow root) and
-   * posts each to the plugin's receiver on this site, which sends it on to Core. The page holds
-   * no key. The person is remembered in the visitor's own browser after a sent form, with a line
-   * saying so and "Glöm mig"; a filled honeypot is told it succeeded and sends nothing.
+   * The form window (parts/form-window.php): every form button (data-k-form, on the page or
+   * inside a shadow root) opens it, for an interest, a viewing booking or a free valuation. A
+   * booking reads the home's times from the plugin's receiver on this site and picks one; then the
+   * person's step, whose form goes to the plugin's other receiver, which sends it on to Core. The
+   * page holds no key but the bot check's public one. The person is remembered in the visitor's
+   * own browser after a sent form, with a line saying so and "Glöm mig"; a filled honeypot is told
+   * it succeeded and sends nothing.
    */
   function setupFormWindow(dialog) {
     if (!once(dialog, 'ready') || typeof dialog.showModal !== 'function') return;
@@ -447,16 +519,33 @@
     var kind = 'interest';
     var record = null;
     var home = '';
+    var viewingId = '';
+    var viewings = [];
+    var slotId = null;
     var openedAt = 0;
     var sending = false;
+    var humanWidget = null;
+    var humanToken = null;
 
     function show(step) {
       dialog.querySelectorAll('[data-form-step]').forEach(function (element) {
         element.hidden = element.dataset.formStep !== step;
       });
+      var steps = FORM_STEPS[kind];
+      var at = steps.indexOf(step);
+      var progress = mark('progress');
+      progress.hidden = steps.length < 2 || at < 0;
+      progress.innerHTML = steps
+        .map(function (_, index) {
+          return '<i class="' + (index <= at ? 'is-on' : '') + '"></i>';
+        })
+        .join('');
+      if (step === 'person') renderHuman();
       var first = dialog
         .querySelector('[data-form-step="' + step + '"]')
-        .querySelector('input:not([tabindex="-1"]), textarea, button');
+        .querySelector(
+          'input:not([tabindex="-1"]), .k-form__slot:not([disabled]), textarea, button:not([hidden])',
+        );
       if (first) first.focus();
     }
 
@@ -485,7 +574,9 @@
       });
       field('message').value = '';
       field('website').value = '';
+      field('current_home').checked = false;
       field('consent').checked = false;
+      mark('current-home').hidden = kind === 'lead';
       mark('remembered').hidden = !kept;
       mark('error').hidden = true;
       mark('send').disabled = false;
@@ -499,17 +590,153 @@
       return { datatype: 'property', connection_id: parts[1], remote_id: parts.slice(2).join(':') };
     }
 
+    /** The bot check's challenge, rendered while the visitor types; its token travels with the send. */
+    function renderHuman() {
+      var key = dialog.dataset.humanKey;
+      if (!key) return;
+      loadTurnstile()
+        .then(function () {
+          if (!window.turnstile) return;
+          if (humanWidget !== null) {
+            window.turnstile.reset(humanWidget);
+            humanToken = null;
+            return;
+          }
+          humanWidget = window.turnstile.render(mark('human'), {
+            sitekey: key,
+            appearance: 'interaction-only',
+            size: 'flexible',
+            callback: function (token) {
+              humanToken = token;
+            },
+            'expired-callback': function () {
+              humanToken = null;
+            },
+            'error-callback': function () {
+              humanToken = null;
+            },
+          });
+        })
+        .catch(function () {
+          // no challenge: the send asks the visitor to wait, and Core refuses a form without proof
+        });
+    }
+
+    /** The token, waiting a little for the challenge; null when the site has no bot check, false while it has none yet. */
+    function humanProof() {
+      if (!dialog.dataset.humanKey) return Promise.resolve(null);
+      var until = Date.now() + FORM_HUMAN_WAIT_MS;
+      return new Promise(function (resolve) {
+        (function poll() {
+          if (humanToken) return resolve(humanToken);
+          if (Date.now() >= until) return resolve(false);
+          setTimeout(poll, 200);
+        })();
+      });
+    }
+
+    function pickSlot(button) {
+      slotId = button.dataset.slot;
+      mark('slots')
+        .querySelectorAll('.k-form__slot')
+        .forEach(function (other) {
+          other.setAttribute('aria-checked', String(other === button));
+        });
+      mark('slot-error').hidden = true;
+    }
+
+    /** The home's times as the CRM has them now; a viewing's own button shows only that viewing's. */
+    function renderSlots() {
+      var box = mark('slots');
+      box.innerHTML = '';
+      var free = [];
+      viewings.forEach(function (viewing) {
+        (viewing.slots || []).forEach(function (slot) {
+          var button = document.createElement('button');
+          button.className = 'k-form__slot';
+          button.type = 'button';
+          button.setAttribute('role', 'radio');
+          button.setAttribute('aria-checked', 'false');
+          button.dataset.slot = slot.id;
+          var when = document.createElement('span');
+          when.textContent = slotLabel(slot.starts_at, slot.ends_at);
+          var spots = document.createElement('small');
+          var available = slot.available !== false;
+          spots.textContent = !available
+            ? FORM_TEXT.full
+            : slot.free_spots === null || slot.free_spots === undefined
+              ? ''
+              : FORM_TEXT.placesLeft(slot.free_spots);
+          button.append(when, spots);
+          if (available) free.push(button);
+          else button.disabled = true;
+          button.addEventListener('click', function () {
+            pickSlot(button);
+          });
+          box.appendChild(button);
+        });
+      });
+      mark('no-times').hidden = box.children.length > 0;
+      mark('next').disabled = free.length === 0;
+      mark('slot-error').hidden = true;
+      // A viewing's own button, with one free time: picked.
+      if (viewingId && free.length === 1) pickSlot(free[0]);
+    }
+
+    function loadSlots() {
+      // The receiver's address may carry a query of its own (?rest_route= without pretty permalinks).
+      var url = new URL(dialog.dataset.slots, window.location.href);
+      url.searchParams.set('connection_id', record.connection_id);
+      url.searchParams.set('remote_id', record.remote_id);
+      return fetch(url.toString(), { headers: { Accept: 'application/json' } })
+        .then(function (response) {
+          if (!response.ok) throw new Error('no times');
+          return response.json();
+        })
+        .then(function (body) {
+          var all = (body && body.viewings) || [];
+          var own = viewingId
+            ? all.filter(function (viewing) {
+                return viewing.id === viewingId;
+              })
+            : [];
+          viewings = own.length > 0 ? own : all;
+        });
+    }
+
     function open(button) {
       kind = button.dataset.kForm;
-      record = recordRef(button.dataset.record || '');
+      record = kind === 'lead' ? null : recordRef(button.dataset.record || '');
       home = button.dataset.home || '';
+      viewingId = button.dataset.viewing || '';
+      viewings = [];
+      slotId = null;
       openedAt = Date.now();
       mark('top').classList.remove('is-done');
       mark('title').textContent = FORM_TEXT.title[kind];
-      mark('subtitle').textContent = home;
+      mark('subtitle').textContent = kind === 'lead' ? FORM_TEXT.subtitleLead : home;
       resetPerson();
-      show('person');
       if (!dialog.open) dialog.showModal();
+      if (kind !== 'viewing') return show('person');
+      dialog.querySelectorAll('[data-form-step]').forEach(function (element) {
+        element.hidden = true;
+      });
+      mark('progress').hidden = true;
+      mark('loading').hidden = false;
+      var opened = openedAt;
+      (record ? loadSlots() : Promise.reject(new Error('no home')))
+        .then(function () {
+          if (opened !== openedAt) return;
+          mark('loading').hidden = true;
+          renderSlots();
+          show('slot');
+        })
+        .catch(function () {
+          if (opened !== openedAt) return;
+          mark('loading').hidden = true;
+          fail(FORM_TEXT.failed, FORM_TEXT.cannotLoad, false);
+          mark('retry').hidden = true;
+        });
     }
 
     /** The four fields and the consent, or null while one is missing. */
@@ -549,83 +776,131 @@
       });
     }
 
-    function fail(title, text) {
+    function fail(title, text, canGoBack) {
       mark('fail-title').textContent = title;
       mark('fail-text').textContent = text;
+      mark('back').hidden = !canGoBack;
+      mark('retry').hidden = false;
       show('fail');
+    }
+
+    function chosenSlot() {
+      var found = null;
+      viewings.forEach(function (viewing) {
+        (viewing.slots || []).forEach(function (slot) {
+          if (slot.id === slotId) found = slot;
+        });
+      });
+      return found;
     }
 
     /** The confirmation becomes the heading (Patric, 2026-10-04). */
     function sent() {
-      var words = FORM_TEXT.sent[kind](home);
+      var slot = chosenSlot();
+      var words = FORM_TEXT.sent[kind](home, slot ? slotLabel(slot.starts_at, slot.ends_at) : '');
       mark('title').textContent = words[0];
       mark('subtitle').textContent = words[1];
       mark('top').classList.add('is-done');
       show('end');
     }
 
-    /** The receiver's answer, which is Core's: 200 sent, 409 the CRM's refusal, 429 too many, else failed. */
+    /** The receiver's answer, which is Core's: 200 sent, 409 refused, 403 the bot check, 429 too many, else failed. */
     function answered(status, body) {
       if (status === 200) return sent();
-      if (status === 409) return fail(FORM_TEXT.refused, (body && body.reason) || '');
-      if (status === 429) return fail(FORM_TEXT.failed, FORM_TEXT.tooMany);
-      fail(FORM_TEXT.failed, FORM_TEXT.failedText);
+      if (status === 409) {
+        var reason = (body && body.reason) || (kind === 'viewing' ? FORM_TEXT.refusedSlot : '');
+        return fail(FORM_TEXT.refused, reason, kind === 'viewing');
+      }
+      if (status === 429) return fail(FORM_TEXT.failed, FORM_TEXT.tooMany, false);
+      if (status === 403) return fail(FORM_TEXT.failed, FORM_TEXT.notHuman, false);
+      fail(FORM_TEXT.failed, FORM_TEXT.failedText, false);
     }
 
-    function send() {
-      if (sending) return;
-      var person = readPerson();
-      if (!person) {
-        mark('error').hidden = false;
-        return;
-      }
-      mark('error').hidden = true;
-      // The honeypot filled: a bot, which is told it succeeded and sends nothing.
-      if (field('website').value !== '') return sent();
-      var submission = {
+    function submission(person) {
+      var form = {
         id: uuid(),
         kind: kind,
         person: person,
         consent: { given: true, at: new Date().toISOString() },
         source: source(),
       };
-      if (record) submission.record = record;
+      if (record) form.record = record;
+      if (kind === 'viewing') form.slot_id = slotId;
       var message = field('message').value.trim();
-      if (message) submission.message = message;
+      if (message) form.message = message;
+      if (kind !== 'lead' && field('current_home').checked) form.contact_about_current_home = true;
+      return form;
+    }
+
+    function send() {
+      if (sending) return;
+      var person = readPerson();
+      var error = mark('error');
+      if (!person) {
+        error.textContent = FORM_TEXT.personMissing;
+        error.hidden = false;
+        return;
+      }
+      error.hidden = true;
+      // The honeypot filled: a bot, which is told it succeeded and sends nothing.
+      if (field('website').value !== '') return sent();
+      var form = submission(person);
+      var spent = false;
       sending = true;
       mark('send').disabled = true;
       mark('send').textContent = FORM_TEXT.sending;
       new Promise(function (resolve) {
         setTimeout(resolve, Math.max(0, FORM_MIN_OPEN_MS - (Date.now() - openedAt)));
       })
-        .then(function () {
+        .then(humanProof)
+        .then(function (proof) {
+          if (proof === false) {
+            error.textContent = FORM_TEXT.humanWaiting;
+            error.hidden = false;
+            return;
+          }
+          var headers = { 'Content-Type': 'application/json' };
+          if (proof) headers['X-Core-Human'] = proof;
+          spent = true;
           return fetch(dialog.dataset.endpoint, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(submission),
+            headers: headers,
+            body: JSON.stringify(form),
+          }).then(function (response) {
+            return response
+              .json()
+              .catch(function () {
+                return {};
+              })
+              .then(function (body) {
+                if (response.status === 200) remember(person);
+                answered(response.status, body);
+              });
           });
         })
-        .then(function (response) {
-          return response
-            .json()
-            .catch(function () {
-              return {};
-            })
-            .then(function (body) {
-              if (response.status === 200) remember(person);
-              answered(response.status, body);
-            });
-        })
         .catch(function () {
-          fail(FORM_TEXT.failed, FORM_TEXT.failedText);
+          fail(FORM_TEXT.failed, FORM_TEXT.failedText, false);
         })
         .finally(function () {
           sending = false;
           mark('send').disabled = false;
           mark('send').textContent = FORM_TEXT.send;
+          // A token is good for one send: the next one earns its own.
+          if (spent && humanWidget !== null && window.turnstile) {
+            window.turnstile.reset(humanWidget);
+            humanToken = null;
+          }
         });
     }
 
+    dialog.querySelector('[data-form-step="slot"]').addEventListener('submit', function (event) {
+      event.preventDefault();
+      if (!slotId) {
+        mark('slot-error').hidden = false;
+        return;
+      }
+      show('person');
+    });
     dialog.querySelector('[data-form-step="person"]').addEventListener('submit', function (event) {
       event.preventDefault();
       send();
@@ -638,6 +913,24 @@
     });
     mark('retry').addEventListener('click', function () {
       show('person');
+    });
+    // After a refused booking: back to the times, read again, to pick another.
+    mark('back').addEventListener('click', function () {
+      slotId = null;
+      mark('fail-title').textContent = '';
+      dialog.querySelectorAll('[data-form-step]').forEach(function (element) {
+        element.hidden = true;
+      });
+      mark('loading').hidden = false;
+      loadSlots()
+        .catch(function () {
+          // the times read before stay
+        })
+        .then(function () {
+          mark('loading').hidden = true;
+          renderSlots();
+          show('slot');
+        });
     });
     mark('forget').addEventListener('click', function () {
       remember(null);

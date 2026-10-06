@@ -31,9 +31,11 @@ Optional: `SENTRY_ENVIRONMENT` names the environment (staging, production, local
 to Sentry, `PUBLIC_URL` is where Core is reached for the link in alerts, `ALERT_EMAIL` (mailed
 through Postmark: `MAIL_FROM`, `POSTMARK_SERVER_TOKEN`) and `ALERT_SLACK_WEBHOOK_URL` are where an
 alert goes when a health check changes state or an event needs attention (an office taken off
-the sites, a connection paused, a login refused; `engine/attention.ts`). `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` turn on
-the bot gate of the forms widget (docs/forms.md), which Core serves at `/widget/forms.js`; unset,
-the forms have no gate.
+the sites, a connection paused, a login refused; `engine/attention.ts`). `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` are the forms'
+bot check (Cloudflare Turnstile, docs/forms.md): a site's window renders the challenge with the
+public key, which the site's server reads from `GET /v1/submissions/bot-check`, and Core checks
+every form's proof with the secret. Unset, the live service (`SENTRY_ENVIRONMENT=production`)
+takes no form at all; staging and local take forms without the check, and send none to a CRM.
 
 The Vitec adapter's connection format, webhook URL and settings (`VITEC_WEBHOOK_TOKEN`,
 `VITEC_FETCH_CONCURRENCY`) are in [adapters/vitec/README.md](adapters/vitec/README.md).

@@ -317,6 +317,8 @@ function core_client_install(): void
         value text NOT NULL,
         PRIMARY KEY  (name)
     ) $charset;");
+    // The forms widget's site key (0.5.7 and 0.5.8) went with the widget; the theme draws the forms now.
+    delete_option('core_client_site_key');
     update_option('core_client_db_version', CORE_CLIENT_VERSION);
 }
 

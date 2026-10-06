@@ -3,7 +3,7 @@
 // fake polling CRM, which takes every kind, and the fake webhook CRM, which takes none.
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { harness, healthReport, pull, until, TOKEN, type Harness } from './harness.js';
+import { harness, healthReport, pull, until, HUMAN_TOKEN, TOKEN, type Harness } from './harness.js';
 import { fakePollingAdapter, poll } from '../adapters/fake-polling/index.js';
 import { fakeWebhookAdapter } from '../adapters/fake-webhook/index.js';
 import * as crm from '../adapters/fake-polling/crm.js';
@@ -17,6 +17,7 @@ import {
 } from '../engine/http/submissions.js';
 import { db } from '../engine/storage/db.js';
 import { registerSubmissions } from '../engine/registry.js';
+import { configureHumanCheck } from '../engine/human.js';
 
 const CONNECTION = 'polling-acme';
 const OTHER = 'webhook-acme';
@@ -72,7 +73,11 @@ const submission = (
 let running: Harness;
 let posted = 0;
 
-const post = async (body: unknown): Promise<{ status: number; body: Record<string, unknown> }> => {
+/** A form as the site's server passes it on: the token, and the proof the window earned. */
+const post = async (
+  body: unknown,
+  human: string | null = HUMAN_TOKEN,
+): Promise<{ status: number; body: Record<string, unknown> }> => {
   posted += 1;
   const response = await fetch(`${running.baseUrl}/v1/submissions`, {
     method: 'POST',
@@ -80,6 +85,7 @@ const post = async (body: unknown): Promise<{ status: number; body: Record<strin
       authorization: `Bearer ${TOKEN}`,
       'content-type': 'application/json',
       'x-core-client': 'test-site/1.0',
+      ...(human === null ? {} : { 'x-core-human': human }),
     },
     body: JSON.stringify(body),
   });
@@ -342,6 +348,49 @@ describe('submissions', () => {
     // Reading a viewing's times is no write, so it still asks the CRM.
     crm.setShowings(HOME, []);
     expect((await slots({ connection_id: CONNECTION, remote_id: HOME })).status).toBe(200);
+  });
+
+  it('the site’s server reads the bot check’s key, and a form without the window’s proof or with a failed one is refused before any CRM call, as is every form on a live Core without the check', async () => {
+    const send = vi.fn(fakePollingAdapter.submit);
+    registerSubmissions(fakePollingAdapter.manifest.provider, {
+      ...fakePollingAdapter,
+      submit: send,
+    });
+
+    const key = await fetch(`${running.baseUrl}/v1/submissions/bot-check`, {
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+    expect(key.status).toBe(200);
+    expect(await key.json()).toEqual({
+      human: { provider: 'turnstile', site_key: '1x00000000000000000000AA' },
+    });
+    const anonymous = await fetch(`${running.baseUrl}/v1/submissions/bot-check`);
+    expect(anonymous.status).toBe(401);
+
+    const body = submission('interest', { record });
+    const missing = await post(body, null);
+    expect(missing.status).toBe(403);
+    expect(missing.body).toEqual({ error: 'the bot check did not pass' });
+    expect((await post(body, 'a-bot')).status).toBe(403);
+    // Nothing was kept of either: the same id with the proof goes through.
+    expect((await post(body)).status).toBe(200);
+    expect(send).toHaveBeenCalledTimes(1);
+
+    // The live service with no check set up takes no form at all, and says so to the tracker.
+    const printed = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    configureHumanCheck(null);
+    const unguarded = await post(submission('interest', { record }));
+    expect(unguarded.status).toBe(503);
+    expect(unguarded.body).toEqual({ error: 'the bot check is not set up' });
+    expect(printed.mock.calls.map(String).join('\n')).toContain('the bot check is not set up');
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(
+      await (
+        await fetch(`${running.baseUrl}/v1/submissions/bot-check`, {
+          headers: { authorization: `Bearer ${TOKEN}` },
+        })
+      ).json(),
+    ).toEqual({ human: null });
   });
 
   it('the slots call answers the stand-in’s viewings and slots under the universal names', async () => {

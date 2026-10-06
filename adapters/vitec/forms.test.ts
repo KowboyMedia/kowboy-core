@@ -6,6 +6,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  HUMAN_TOKEN,
   harness,
   pull,
   queryEvents,
@@ -103,7 +104,11 @@ let running: Harness;
 const post = async (body: unknown): Promise<{ status: number; body: Record<string, unknown> }> => {
   const response = await fetch(`${running.baseUrl}/v1/submissions`, {
     method: 'POST',
-    headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' },
+    headers: {
+      authorization: `Bearer ${TOKEN}`,
+      'content-type': 'application/json',
+      'x-core-human': HUMAN_TOKEN,
+    },
     body: JSON.stringify(body),
   });
   return { status: response.status, body: (await response.json()) as Record<string, unknown> };

@@ -22,7 +22,7 @@ import { purgeTombstones } from './storage/items.js';
 import { changes } from './http/changes.js';
 import { applied } from './http/applied.js';
 import { siteError } from './http/errors.js';
-import { configureSubmissions, slots, submit } from './http/submissions.js';
+import { botCheck, configureSubmissions, slots, submit } from './http/submissions.js';
 import {
   formsConfig,
   formsRecord,
@@ -111,6 +111,7 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
     { method: 'POST', path: '/v1/errors', handler: siteError },
     { method: 'POST', path: '/v1/submissions', handler: submit },
     { method: 'GET', path: '/v1/submissions/slots', handler: slots },
+    { method: 'GET', path: '/v1/submissions/bot-check', handler: botCheck },
     // The browser's door: the forms widget with a site's public key (docs/forms.md, the widget).
     { method: 'OPTIONS', path: '/v1/forms/*', handler: preflight },
     { method: 'GET', path: '/v1/forms/config', handler: formsConfig },

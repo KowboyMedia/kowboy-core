@@ -269,6 +269,17 @@ Two things from the staging site on a phone (Patric, 2026-10-04, 16:45Z), theme 
   draws itself and their buttons carry `data-k-form`; the form posts to the plugin's receiver on
   the site, which sends it to Core with the site's token. The viewing booking and the free
   valuation still open the widget until the first version (155) stands.
+- **All three forms are the theme's own** (theme 1.2.0, plugin 0.6.0, 2026-10-06; question 155,
+  docs/forms.md "Built 2026-10-06: the first version"): every form button carries `data-k-form`
+  (`interest`, `viewing` on a viewing's "Boka här" with `data-viewing` and the street in
+  `data-home`, `lead` in the footer) and opens `parts/form-window.php`; `KOWBOY_FORMS` is gone.
+  A booking reads the home's times from the plugin's receiver `core/v1/forms/slots` and shows
+  them as in the approved screens (a viewing's own button picks its one free time), then the
+  person's step; the interest and the booking carry the box "Kontakta mig om min nuvarande
+  bostad." on that step, since the profile step is not built (151, skip recommended). The window
+  renders Cloudflare's challenge with the public key the plugin prints (`data-human-key`) and
+  sends its token with the form; without a key there is no challenge. The widget's tag and the
+  site key setting are gone from the plugin.
 - **The form designs are approved** (Patric, 2026-10-05, 21:38Z: "All form designs approved."):
   the three buttons above and the wizard's windows as the staging site showed them (pictures in
   the project files under kowboy-2026/round-8 and round-9). The forms are rebuilt from zero in

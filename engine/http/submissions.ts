@@ -1,6 +1,8 @@
-// `POST /v1/submissions` and `GET /v1/submissions/slots` (docs/forms.md, approved with question
-// 130): a site's form reaches the brokerage's CRM through Core, and the CRM's answer reaches the
-// visitor while they wait. Core authenticates, validates, finds the connection and hands the
+// `POST /v1/submissions`, `GET /v1/submissions/slots` and `GET /v1/submissions/bot-check`
+// (docs/forms.md, approved with question 130; the bot check's key with 155): a site's form reaches
+// the brokerage's CRM through Core, and the CRM's answer reaches the visitor while they wait. The
+// site's own server calls these with its token; the visitor's browser never does. Core
+// authenticates, checks the bot check's proof, validates, finds the connection and hands the
 // submission to that connection's adapter inside the request; it stores and logs the id and the
 // outcome, never the person, and reads nothing out of the submission to decide anything. The
 // browser's door (forms.ts, the widget with its public site key) comes through the same two
@@ -18,6 +20,7 @@ import {
 } from '../storage/submissions.js';
 import { logEvent } from '../events.js';
 import { report } from '../errors.js';
+import { humanCheck, verifyHuman } from '../human.js';
 import { manifestFor, submissionsFor } from '../registry.js';
 import { jsonResponse, type Request, type Response } from './server.js';
 import type {
@@ -69,15 +72,43 @@ export function resetSubmissionLimits(): void {
   recent.clear();
 }
 
-/** The server's door: the tenant token, and the site named by `X-Core-Site`. */
+/** The server's door: the tenant token, the bot check's proof, and the site named by `X-Core-Site`. */
 export async function submit(request: Request): Promise<Response> {
   const auth = await authenticate(request);
   if ('error' in auth) return jsonResponse(auth.status, { error: auth.error });
+  const notHuman = await checkHuman(request);
+  if (notHuman) return notHuman;
   const subscriberId = await subscriberByBellUrl(
     auth.tenantId,
     request.headers['x-core-site'] ?? null,
   );
   return submitThrough(request, { tenantId: auth.tenantId, subscriberId });
+}
+
+/**
+ * The proof the window earned from the bot check, which the site's server passes on in
+ * `X-Core-Human`, before anything else is read. The live service takes no form while the check is
+ * not set up (known bug 4); elsewhere no check means none, since the guard keeps every form there
+ * from the CRM anyway.
+ */
+async function checkHuman(request: Request): Promise<Response | null> {
+  if (!humanCheck()) {
+    if (!live) return null;
+    report(new Error('a form was refused: the bot check is not set up'), { where: 'submission' });
+    return jsonResponse(503, { error: 'the bot check is not set up' });
+  }
+  const passed = await verifyHuman(request.headers['x-core-human'] ?? null, null);
+  return passed ? null : jsonResponse(403, { error: 'the bot check did not pass' });
+}
+
+/**
+ * `GET /v1/submissions/bot-check`: the bot check's public key, which the site's window renders
+ * the challenge with, or null while there is no check.
+ */
+export async function botCheck(request: Request): Promise<Response> {
+  const auth = await authenticate(request);
+  if ('error' in auth) return jsonResponse(auth.status, { error: auth.error });
+  return jsonResponse(200, { human: humanCheck() });
 }
 
 export async function submitThrough(request: Request, door: Door): Promise<Response> {

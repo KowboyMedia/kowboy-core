@@ -133,6 +133,8 @@ beforeEach(async () => {
     async () => (await pull(running.baseUrl, 'property')).items.length === 1,
     'the home to be in Core',
   );
+  // The widget's door has no bot check unless a test gives it one.
+  configureHumanCheck(null);
 });
 
 afterEach(async () => {

@@ -4,6 +4,7 @@ import { startEngine, type Engine } from '../engine/index.js';
 import { startAdapter } from '../engine/adapter-api/index.js';
 import { adapterRoutes } from '../engine/http/server.js';
 import { configureMail, type Mail } from '../engine/mail.js';
+import { configureHumanCheck, type HumanCheck } from '../engine/human.js';
 import { db } from '../engine/storage/db.js';
 import { addSubscriber, createTenant, upsertConnection } from '../engine/storage/connections.js';
 import { deliverLifecycleEvents } from '../engine/lifecycle.js';
@@ -21,6 +22,18 @@ export { healthReport, type HealthReport } from '../engine/health.js';
 
 /** Where Core in a test sends its alerts (kept in `mails`) and where its links point. */
 export const ALERTS = { alertEmail: 'ops@example.test', publicUrl: 'https://core.example' };
+
+/**
+ * The bot check in a test: Cloudflare's documented test key, which always passes in a browser and
+ * hands out this dummy token, and a stand-in for Cloudflare's verification that takes only that
+ * token, so no test calls Cloudflare (Turnstile's testing page, updated 2026-05-05).
+ */
+export const HUMAN_TOKEN = 'XXXX.DUMMY.TOKEN.XXXX';
+export const HUMAN_CHECK: HumanCheck = {
+  provider: 'turnstile',
+  siteKey: '1x00000000000000000000AA',
+  verify: (token) => Promise.resolve(token === HUMAN_TOKEN),
+};
 
 /** The test tenant's number: the first one made after every reset. */
 export const TENANT = 1;
@@ -75,9 +88,13 @@ export async function harness(options: {
     });
   };
   keepMail();
-  // The stand-in CRMs are no brokerage, so this Core sends forms as the live service does; the
-  // guard's own test turns that off (question 152).
-  configureSubmissions({ live: true });
+  // The stand-in CRMs are no brokerage, so this Core sends forms as the live service does, behind
+  // the stand-in bot check; the guard's own test turns that off (question 152).
+  const asLive = (): void => {
+    configureSubmissions({ live: true });
+    configureHumanCheck(HUMAN_CHECK);
+  };
+  asLive();
 
   const bells: Bell[] = [];
   const bellServer = await listen((request, respond) => {
@@ -139,7 +156,7 @@ export async function harness(options: {
       await engine.stop();
       engine = await startEngine({ port, ...ALERTS });
       keepMail();
-      configureSubmissions({ live: true });
+      asLive();
       running.engine = engine;
       server = engine.listen(routes);
       for (const adapter of adapters) await startAdapter(adapter);

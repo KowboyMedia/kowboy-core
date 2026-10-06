@@ -1,6 +1,6 @@
 <?php
 // The footer: the form card ("Ska du sälja din bostad?", its words from the theme options, its
-// button opening the wizard) on every page (Patric, 2026-10-03 and 2026-10-04), then the dark
+// button opening the form window) on every page (Patric, 2026-10-03 and 2026-10-04), then the dark
 // logotype, the footer menu (with the areas archive, Patric, 2026-10-03), the office's contact
 // details and the copyright line.
 
@@ -12,7 +12,7 @@ $kowboy_email = (string) kowboy_option('kowboy_email');
 ?>
 </main>
 <footer class="k-footer">
-    <?php // The seller's lead ("free valuation"): a button that opens the wizard; without it, the office's details below. ?>
+    <?php // The seller's lead ("free valuation"): a button that opens the form window; without it, the office's details below. ?>
     <div class="k-container k-footer__lead"><?php echo kowboy_part('form-card', ['title' => (string) kowboy_option('kowboy_form_title'), 'text' => (string) kowboy_option('kowboy_form_text'), 'label' => 'Boka fri värdering', 'form' => 'lead', 'record' => '', 'href' => '#k-contact']); ?></div>
     <div class="k-container k-footer__row">
         <div class="k-footer__logo"><?php echo kowboy_logo(false); ?></div>
@@ -27,8 +27,8 @@ $kowboy_email = (string) kowboy_option('kowboy_email');
     </div>
     <p class="k-footer__copyright">© <?php echo esc_html(wp_date('Y') . ' ' . (string) kowboy_option('kowboy_copyright')); ?></p>
 </footer>
-<?php // The window the theme's own form buttons open (parts/form-window.php); it posts to the plugin's receiver on this site. ?>
-<?php if (function_exists('core_client_settings')) : ?><?php echo kowboy_part('form-window', ['endpoint' => rest_url('core/v1/forms'), 'policy' => (string) get_privacy_policy_url()]); ?><?php endif; ?>
+<?php // The window every form button opens (parts/form-window.php); it talks to the plugin's receivers on this site. ?>
+<?php if (function_exists('core_client_human_check')) : ?><?php echo kowboy_part('form-window', ['endpoint' => rest_url('core/v1/forms'), 'slots' => rest_url('core/v1/forms/slots'), 'policy' => (string) get_privacy_policy_url(), 'human' => core_client_human_check()]); ?><?php endif; ?>
 <?php wp_footer(); ?>
 </body>
 </html>

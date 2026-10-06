@@ -976,6 +976,36 @@ staging when it is done:
   reads a real brokerage's office, so no switch can open it. `configureSubmissions` in
   `engine/http/submissions.ts`, set in `engine/index.ts`; the test harness's Core sends, since its
   CRMs are stand-ins, and the guard's own test turns that off (`acceptance/submissions.test.ts`).
+- **The bot check** (155 lines 3 and 6; known bug 4): `GET /v1/submissions/bot-check` answers the
+  site's server, with its token, the check's provider and public key (`{ "human": { "provider":
+"turnstile", "site_key": … } }`, or `null` without a check). `POST /v1/submissions` reads the
+  proof the window earned from `X-Core-Human` before anything else and answers 403 "the bot check
+  did not pass" without it or when Cloudflare refuses it. The live service with no check set up
+  (`TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET` unset) answers 503 "the bot check is not set up" to
+  every form and reports it to the error tracker, so it never takes a form unchecked; staging and
+  local take forms without a check, since the guard sends none on. The tests give Core a stand-in
+  that takes the dummy token of Cloudflare's test key `1x00000000000000000000AA` (Turnstile's
+  testing page, updated 2026-05-05), so no test calls Cloudflare.
+- **The three windows in the theme** (155 line 1; theme 1.2.0): the interest, the viewing booking
+  and the free valuation in `parts/form-window.php`, with the approved words and look; the booking
+  starts with the home's times as the CRM has them now, with a bar per step. With 151 open, the
+  profile step is left out as recommended and the box "Kontakta mig om min nuvarande bostad."
+  sits on the person's step of the interest and the booking (`contact_about_current_home`). The
+  window loads Cloudflare's script only when the page carries the public key, renders the
+  challenge so that it shows only when it needs the visitor, waits up to eight seconds for its
+  token at the send and asks the visitor to wait when it has none, and earns a new token for each
+  send.
+- **The plugin's receivers** (155 line 2; plugin 0.6.0): `POST /wp-json/core/v1/forms` passes the
+  body on as it came, with `X-Core-Human` when the window sent one; `GET
+/wp-json/core/v1/forms/slots?connection_id=…&remote_id=…` reads the times from Core's
+  `GET /v1/submissions/slots`; both add the site's token and answer as Core answered.
+  `core_client_human_check()` reads the public key from Core once an hour (a failed read again
+  after five minutes), kept per Core address and token, for the theme to print. The site key
+  setting, its option and the widget's script tag are gone.
+- **Known, not built:** a free valuation from the footer names no office, so on a site whose
+  brokerage has several offices Core answers 400 "office_id is required" and the window says the
+  form could not be sent; the office is set on the site's side when such a site gets forms
+  (146's item 6).
 
 ## The decisions (the discover list)
 
