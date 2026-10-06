@@ -98,7 +98,8 @@ test('journey: U2 keep it healthy — the verdict, and where a red check is fixe
   page,
 }) => {
   await expect(page.getByTestId('verdict')).toBeVisible();
-  await expect(page.getByTestId('check-database')).toContainText('ok');
+  await expect(page.getByTestId('check-database')).toContainText('Fine');
+  await expect(page.getByTestId('check-database')).toContainText('Core reaches its database.');
   await expect(page.getByTestId('environment')).toBeVisible();
   await expect(page.getByTestId('attention')).toContainText('Needs attention');
   await expect(page.getByRole('heading', { name: 'The last 24 hours' })).toBeVisible();
@@ -134,7 +135,7 @@ test('journey: U3 support a customer — find a record, follow it to the sites, 
   await expect(page.getByRole('button', { name: 'Send again' })).toBeVisible();
   // The history reads as sentences, one change at a time (Patric, 2026-09-21).
   await expect(page.getByRole('heading', { name: 'What happened' })).toBeVisible();
-  await expect(page.getByText(/^Written/).first()).toBeVisible();
+  await expect(page.getByText(/^Saved for the first time/).first()).toBeVisible();
   // Its data in three forms, one at a time.
   await page.getByRole('tab', { name: 'What the CRM sent' }).click();
   await expect(page.getByRole('tabpanel')).toContainText('Kungsgatan 3');
@@ -203,7 +204,7 @@ test('journey: U4 manual sync — pick a scope and how far to go, then watch it'
     page.getByText('Core asks the CRM for 1 record again.', { exact: false }),
   ).toBeVisible();
   await expect(
-    page.locator('tr.flow-row', { hasText: 'identical to what Core held' }),
+    page.locator('tr.flow-row', { hasText: 'again, with nothing changed' }),
   ).toBeVisible();
 });
 
