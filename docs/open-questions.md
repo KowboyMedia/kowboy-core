@@ -57,7 +57,9 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   table with growing waits for one day, then marks it failed; (3) a failed form keeps its content
   and the error for 30 days, then goes; (4) a page in Core's admin lists the forms that failed,
   with their content and error, and a button that sends one again, with its explanation beside
-  it; (5) an alert when a form fails for good, through Core's existing error reporting.
+  it; (5) an alert when a form fails for good, as one more line of the super admin's
+  notifications (159 a, `docs/next-steps.md` item 26, built by its own thread), not a mechanism
+  of the forms' own.
 - a) **retry in the CRM's code, failed forms listed in the admin** (recommended): lines 1 to 5.
   b) **no retry**: lines 1, 3, 4 and 5; a person sends a failed form again by the button. c)
   **retry in the engine**: as a, with the retry in Core's engine, which needs the rule "the
