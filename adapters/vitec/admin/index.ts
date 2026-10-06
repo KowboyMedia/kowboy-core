@@ -441,7 +441,7 @@ export const vitecAdmin: AdapterAdmin = {
       key: 'qa',
       label: 'Use Vitec’s QA environment',
       help: `Tick this when the username and password above are a test account in Vitec’s QA environment, Vitec’s test system at ${connect.baseUrlOf('qa')}: every call then goes there, and its records are kept apart from live Vitec’s. Unticking it switches a saved connection back to live Vitec. A switch takes everything the other system gave off the sites, and the offices are loaded again from the system chosen. Give a test account a tenant of its own, so that test homes never reach a real website.`,
-      // Exactly no and yes: the tenant page draws such a field as a tickbox, ticked sending yes.
+      // Exactly no and yes: the new tenant page draws such a field as a tickbox, ticked sending yes.
       options: [{ value: 'no' }, { value: 'yes' }],
     },
   ],
