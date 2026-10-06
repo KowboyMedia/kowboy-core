@@ -1034,7 +1034,7 @@ async function noteRefusedLogin(
     await current.logEvent(
       'login.refused',
       {
-        detail: `Vitec no longer lets this username and password read ${checked.id}, the customer or group id on the connection. The offices behind it stay on the sites for one more day without updates, and leave the sites if Vitec still refuses at the next daily check. This happens, for example, when the brokerage’s Vitec subscription ended or the password changed. Ask the brokerage. If the password changed, type the new one in the field “Password” on the tenant’s page, press “Check the login” and save.`,
+        detail: `Vitec no longer lets this username and password read ${checked.id}, the customer or group id on the connection. The offices behind it stay on the sites for one more day without updates, and leave the sites if Vitec still refuses at the next daily check. This happens, for example, when the brokerage’s Vitec subscription ended or the password changed. Ask the brokerage. If the password changed, type the new one in the field “Password” on the tenant’s page, press “Check login” and save.`,
       },
       { connectionId: connection.id },
     );

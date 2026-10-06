@@ -366,7 +366,7 @@ async function probe(
     return {
       ok: false,
       detail:
-        'Vitec was not asked, because the field “Username” or “Password” is empty. Type both and press “Check the login” again.',
+        'Vitec was not asked, because the field “Username” or “Password” is empty. Type both and press “Check login” again.',
     };
   }
   const ids = auth.customerId ? [auth.customerId] : officeIds;
@@ -374,7 +374,7 @@ async function probe(
     return {
       ok: false,
       detail:
-        'Vitec was not asked, because the field “Customer or group id” is empty. Without the id, nothing reaches the sites. Type the id Vitec issued the login for, such as M30011 or G2, and press “Check the login” again.',
+        'Vitec was not asked, because the field “Customer or group id” is empty. Without the id, nothing reaches the sites. Type the id Vitec issued the login for, such as M30011 or G2, and press “Check login” again.',
     };
   }
   const answers: string[] = [];
@@ -397,7 +397,7 @@ async function probe(
         const kind = connect.kindOf(error);
         answers.push(
           kind === 'forbidden'
-            ? `Vitec does not let this username and password read ${officeId}. Check both with the brokerage or in Vitec’s partner portal, type them again and press “Check the login” again.`
+            ? `Vitec does not let this username and password read ${officeId}. Check both with the brokerage or in Vitec’s partner portal, type them again and press “Check login” again.`
             : kind === 'blocked' && error instanceof Error
               ? error.message
               : `The login could not be checked, because ${failureInWords(error)}. Try again in a few minutes.`,

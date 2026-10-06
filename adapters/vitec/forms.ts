@@ -316,7 +316,7 @@ function failedInWords(error: unknown, kind: string): string {
   }
   switch (connect.kindOf(error)) {
     case 'forbidden':
-      return 'Vitec does not let this login send forms. Check the login on the tenant’s page, then send the form again from Failed forms.';
+      return 'Vitec does not let this login send forms. Press “Check login” on the tenant’s page, then send the form again from Failed forms.';
     case 'broken':
       return `Vitec’s answer could not be read, so it is unclear whether Vitec took the ${form}. Check in Vitec before sending it again.`;
     case 'unavailable':

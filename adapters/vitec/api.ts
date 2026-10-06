@@ -268,7 +268,7 @@ export const asOfficeCheck = <T>(run: () => Promise<T>): Promise<T> =>
   passing.run('office check', run);
 
 /**
- * Run "Check the login" through the door: kept back from a refused office like any request, but a
+ * Run "Check login" through the door: kept back from a refused office like any request, but a
  * refusal it meets is the typed login's, which nothing has saved, so it blocks no office.
  */
 export const asLoginTrial = <T>(run: () => Promise<T>): Promise<T> =>
