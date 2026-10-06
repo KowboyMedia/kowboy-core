@@ -39,6 +39,19 @@ const WAIT_STEP_MS = 50;
 /** Who came in, through either door: the tenant, and the site when it is known. */
 export type Door = { tenantId: number; subscriberId: number | null };
 
+/**
+ * Whether this Core hands forms to the CRM. Only the live service does (question 152): staging
+ * reads a real brokerage's office, so a form tried there must never reach it. Everywhere else a
+ * form goes all the way to the CRM call and stops there, refused with this reason.
+ */
+let live = false;
+export const NOT_LIVE =
+  'Det här är en testsida, så formuläret skickades inte vidare till mäklaren.';
+
+export function configureSubmissions(settings: { live: boolean }): void {
+  live = settings.live;
+}
+
 const recent = new Map<number, number[]>();
 
 /** The limit per tenant, in this process: a sliding minute. */
@@ -216,12 +229,16 @@ async function connectionForOnlyOffice(tenantId: number): Promise<Found> {
 const usable = (connection: Connection): Found =>
   connection.active ? { connection } : { error: 'the connection is paused' };
 
-/** Ask the adapter, and count no answer in time, or an error, as a failure. Never throws. */
+/**
+ * Ask the adapter, and count no answer in time, or an error, as a failure. Never throws. Outside
+ * the live service the adapter is never asked.
+ */
 async function deliver(
   send: NonNullable<Adapter['submit']>,
   connection: Connection,
   submission: Submission,
 ): Promise<SubmissionResult> {
+  if (!live) return { outcome: 'refused', reason: NOT_LIVE };
   try {
     return await withinTime(send(connection, submission), SUBMISSION_TIMEOUT_MS);
   } catch (error) {

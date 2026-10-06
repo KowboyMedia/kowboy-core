@@ -22,7 +22,7 @@ import { purgeTombstones } from './storage/items.js';
 import { changes } from './http/changes.js';
 import { applied } from './http/applied.js';
 import { siteError } from './http/errors.js';
-import { slots, submit } from './http/submissions.js';
+import { configureSubmissions, slots, submit } from './http/submissions.js';
 import {
   formsConfig,
   formsRecord,
@@ -101,6 +101,8 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
       ? turnstile(config.turnstileSiteKey, config.turnstileSecret)
       : null,
   );
+  // Forms reach a CRM only from the live service (question 152); staging and local stop before it.
+  configureSubmissions({ live: config.environment === 'production' });
 
   const routes: RouteTable = [
     ...adminRoutes(),

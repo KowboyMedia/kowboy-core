@@ -10,8 +10,13 @@ import * as crm from '../adapters/fake-polling/crm.js';
 import { queryEvents } from '../engine/events.js';
 import { createTenant, upsertConnection } from '../engine/storage/connections.js';
 import { validateSlots } from '../engine/contract.js';
-import { SUBMISSIONS_PER_MINUTE } from '../engine/http/submissions.js';
+import {
+  configureSubmissions,
+  NOT_LIVE,
+  SUBMISSIONS_PER_MINUTE,
+} from '../engine/http/submissions.js';
 import { db } from '../engine/storage/db.js';
+import { registerSubmissions } from '../engine/registry.js';
 
 const CONNECTION = 'polling-acme';
 const OTHER = 'webhook-acme';
@@ -308,6 +313,35 @@ describe('submissions', () => {
     const over = await post(submission('interest', { record }));
     expect(over.status).toBe(429);
     expect(crm.formsTaken()).toHaveLength(SUBMISSIONS_PER_MINUTE - 7);
+  });
+
+  it('a Core that is not the live service refuses every form before any CRM call, and the visitor reads that it was not sent', async () => {
+    configureSubmissions({ live: false });
+    // Every call the engine makes to the stand-in's send goes through this.
+    const send = vi.fn(fakePollingAdapter.submit);
+    registerSubmissions(fakePollingAdapter.manifest.provider, {
+      ...fakePollingAdapter,
+      submit: send,
+    });
+
+    const body = submission('interest', { record });
+    const answer = await post(body);
+    expect(answer.status).toBe(409);
+    expect(answer.body).toEqual({ id: body['id'], status: 'refused', reason: NOT_LIVE });
+    // The same id again gets the same answer, and a lead to the office the same.
+    expect((await post(body)).body).toEqual(answer.body);
+    expect((await post(submission('lead'))).body).toMatchObject({ reason: NOT_LIVE });
+    expect(send).not.toHaveBeenCalled();
+    expect(crm.formsTaken()).toHaveLength(0);
+
+    // Everything before the CRM call ran as on the live service: the chain is in the timeline.
+    const chain = await queryEvents({ correlationId: body['id'] as string });
+    expect(chain.map((event) => event.type)).toEqual(['submission.received', 'submission.refused']);
+    expect(chain[1]?.fields).toMatchObject({ kind: 'interest', reason: NOT_LIVE });
+
+    // Reading a viewing's times is no write, so it still asks the CRM.
+    crm.setShowings(HOME, []);
+    expect((await slots({ connection_id: CONNECTION, remote_id: HOME })).status).toBe(200);
   });
 
   it('the slots call answers the stand-in’s viewings and slots under the universal names', async () => {

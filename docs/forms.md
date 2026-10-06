@@ -962,6 +962,21 @@ Core over the fake polling CRM; pictures in the project files under kowboy-2026/
 Not in the proof: the guard (152), the bot check, Turnstile, the removal of the widget, the
 browser door, the site keys and the seven Vitec fields, the Vitec send; each is a line of 155.
 
+### Built 2026-10-06: the first version (155) and failed forms (160 a)
+
+Patric approved 155 as listed and chose 160 a (18:12 UTC). Built in this order, each part on
+staging when it is done:
+
+- **The guard** (155 line 7, the Default 152): Core hands a form to the CRM only where its
+  environment name is `production` (`SENTRY_ENVIRONMENT`, `engine/config.ts`); everywhere else
+  the form goes all the way to the CRM call and stops there, refused with the reason "Det här är
+  en testsida, så formuläret skickades inte vidare till mäklaren.", which the window shows. The
+  id is claimed and the chain `submission.received`, `submission.refused` is logged as on the
+  live service; reading a viewing's times is a read and still asks the CRM. No setting: staging
+  reads a real brokerage's office, so no switch can open it. `configureSubmissions` in
+  `engine/http/submissions.ts`, set in `engine/index.ts`; the test harness's Core sends, since its
+  CRMs are stand-ins, and the guard's own test turns that off (`acceptance/submissions.test.ts`).
+
 ## The decisions (the discover list)
 
 | #   | Question                                                                                                                                                                            | Options                                                                                                                                                                                                                                                | Undo later?                       | Recommended                                                                                                     |

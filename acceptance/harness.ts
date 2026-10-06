@@ -8,7 +8,7 @@ import { db } from '../engine/storage/db.js';
 import { addSubscriber, createTenant, upsertConnection } from '../engine/storage/connections.js';
 import { deliverLifecycleEvents } from '../engine/lifecycle.js';
 import { clearRegistry, registerAdmin, registerSubmissions } from '../engine/registry.js';
-import { resetSubmissionLimits } from '../engine/http/submissions.js';
+import { configureSubmissions, resetSubmissionLimits } from '../engine/http/submissions.js';
 import { resetFormsLimits } from '../engine/http/forms.js';
 import type { Adapter } from '../engine/adapter-api/types.js';
 
@@ -75,6 +75,9 @@ export async function harness(options: {
     });
   };
   keepMail();
+  // The stand-in CRMs are no brokerage, so this Core sends forms as the live service does; the
+  // guard's own test turns that off (question 152).
+  configureSubmissions({ live: true });
 
   const bells: Bell[] = [];
   const bellServer = await listen((request, respond) => {
@@ -136,6 +139,7 @@ export async function harness(options: {
       await engine.stop();
       engine = await startEngine({ port, ...ALERTS });
       keepMail();
+      configureSubmissions({ live: true });
       running.engine = engine;
       server = engine.listen(routes);
       for (const adapter of adapters) await startAdapter(adapter);
