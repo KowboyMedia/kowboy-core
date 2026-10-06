@@ -1062,9 +1062,8 @@ staging when it is done:
   `engine/storage/submissions.ts`); then housekeeping empties it, and the row goes with the event
   retention as before. The events, the error tracker and the table in plain text still hold
   nothing about the person (criterion 44's tests, one of them on the kept details). On staging
-  every form keeps its details, since the guard refuses them all. The retry by the CRM's code
-  (line 2) waits on 165; the alert for a form that failed for good (line 5) comes with the retry,
-  as 172 gives `submissions.failing` its levels.
+  every form keeps its details, since the guard refuses them all. Nothing tries a form later (165
+  was answered no, below); the alert for a failed form (line 5) comes with 172's levels.
 - **Failed forms in the admin area, with "Send again"** (160 a line 4): the page Failed forms
   (`admin/src/pages/forms.tsx`) lists every form Core keeps that the CRM did not take, newest
   first: the kind, the tenant and when it was sent, why it is there (the CRM's reason or the
@@ -1080,6 +1079,20 @@ staging when it is done:
   outcome) on the form's chain. Proved by `acceptance/submissions.test.ts` over HTTP and by the
   admin journey "failed forms" in a browser (`admin/e2e/journeys.spec.ts`, where the journey
   Core's stand-in CRM takes an interest, so a form tried there is kept by the guard).
+- **A short retry while the visitor waits, then the error** (Patric, 20:58, closing 165 with no:
+  "retry within a short period only, and bubble back the error to the user - its important
+  failed submits are bubbled to the user"): the retry by the CRM's code for one day and the
+  visitor being told that such a form was received (160 a line 2) are withdrawn, and the adapter
+  interface stays as built. The Vitec code tries a form call Vitec could not take (5xx, 429, no
+  connection) twice more, after 1 s and 3 s, and only within 15 s of the form's start
+  (`FORM_TIME_MS` and `call` in `adapters/vitec/forms.ts`); no call starts after that and none
+  outlasts it (`post`'s `until` in `adapters/vitec/api.ts`), so the visitor hears the last
+  answer inside Core's 20 s and nothing reaches Vitec after they were told the form was not
+  sent. A refusal, a closed office and an answer that came back unreadable are never tried
+  again. Each try is a `crm.call` on the form's chain. A form that still fails answers 502, and
+  the window says "Det gick inte att skicka just nu" with the visitor's details still in it, as
+  before; Core keeps the form for Failed forms as built. Proved by
+  `adapters/vitec/forms.test.ts` against the stand-in Connect.
 - **Known, not built:** a free valuation from the footer names no office, so on a site whose
   brokerage has several offices Core answers 400 "office_id is required" and the window says the
   form could not be sent; the office is set on the site's side when such a site gets forms

@@ -131,7 +131,7 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   illustrate it". Option a was drawn for him in the thread the same evening.
 - Smaller: c. Blocked: the Events rebuild. Answer a, b or c.
 
-## 166. `[client-wordpress]` When the site cannot reach Core at all, should the plugin keep the form until Core takes it?
+## 166. `[client-wordpress]` When the site cannot reach Core at all, should the plugin try again briefly before the visitor reads the error?
 
 - 2026-10-06 · Patric, 18:12 (UTC), on 155: "we need to store the visitors data, thats the most
   importnt part to recover if the system fails. But if its legally better to store it on-site,
@@ -141,34 +141,18 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   broke it, the network between them). The plugin then tells the window the form failed, the
   visitor reads "Det gick inte att skicka just nu" with their details still in the window, and
   nothing is kept anywhere. 150 a gave the plugin nothing for forms but its receivers.
-- a) **keep it on the site** (recommended): the plugin keeps a form Core did not answer in the
-  site's database, sends it again with growing waits through the plugin's own job queue (Action
-  Scheduler, already there for the sync), deletes it the moment Core has it, and deletes it
-  unsent after 30 days with an error in the site's log; the visitor reads that the form was
-  received. Costs: a store and a schedule for forms in the plugin; the details sit in the site's
-  database, and in its backups, while Core cannot be reached.
-- b) **no**: the visitor tries again; nothing is kept on the site.
-- Smaller: b. Blocked: nothing; built after the first version. Answer a or b.
-
-## 165. `[core]` For 160 a: add to the adapter interface the two things a CRM's code needs to retry a form?
-
-- 2026-10-06 · Patric answered 160 with a: "the CRM's code retries it from its own table with
-  growing waits for one day, then marks it failed". A CRM's code gets a form only inside the
-  site's request (`submit` in `engine/adapter-api/types.ts`); it cannot read a form Core keeps
-  afterwards, nor tell Core how a retry ended. The interface is protected (`AGENTS.md`, "Stop and
-  ask"), and 155's line 4 kept it as built.
-- 2026-10-06 · Option a changed at 20:20 (UTC), after Patric asked that the guard be central
-  (19:29): the retry no longer reads a form's details out of Core. It asks Core to send the form
-  again, through the one step every send to a CRM passes, which stops it outside the live
-  service (`registerSubmissions` in `engine/registry.ts`).
-- a) **yes** (recommended): two additions any CRM's code may use: ask Core to send a form it
-  keeps again, which Core does as "Send again" does and answers with what the CRM said; and tell
-  Core when one failed for good. The Vitec code and the stand-in keep each form's id and its next
-  try in their own tables. The details never leave Core, and a CRM's code never sends a form by
-  itself, so a retry passes the guard like every other send.
-- b) **no**: the interface stays as built; no automatic retry, as 160 b: a form the CRM did not
-  take is kept 30 days and listed with "Send again".
-- Smaller: b. Blocked: the retry of 160 a; the rest of 160 a is built either way. Answer a or b.
+- 2026-10-06 · Patric, 20:58 (UTC), closing 165 with no: "retry within a short period only, and
+  bubble back the error to the user - its important failed submits are bubbled to the user".
+  That rules out what a was (keep the form on the site, send it again for 30 days, and tell the
+  visitor it was received). The Vitec code now tries a call again within the form's 15 s, and
+  the visitor reads the error when it still fails. What is left here is whether the plugin does
+  the same when the site cannot reach Core.
+- a) **yes** (recommended): when the call to Core fails before Core answers (no connection, or
+  Core's address answering 502, 503 or 504 without Core's own answer), the plugin tries again
+  twice, after 1 s and 3 s, with the same form id, so Core takes the form once whatever
+  happened; then the visitor reads the error. Nothing is kept on the site.
+- b) **no**: one try; the visitor reads the error at once and sends again themselves.
+- Smaller: b. Blocked: nothing. Answer a or b.
 
 ## 151. `[crm-vitec]` Should Vitec sites skip the "Söker du bostad?" step?
 

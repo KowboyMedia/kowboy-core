@@ -508,9 +508,10 @@
       "tests": [
         "submissions a refusal and a failure reach the visitor and the timeline without the person, and submissions.failing turns red then green",
         "submissions a form keeps its details encrypted until the CRM takes it, and one the CRM refused or did not take keeps them for 30 days",
-        "the Vitec adapter’s forms books a viewing slot with an e-mail confirmation and no reminder, and relays Vitec’s refusal and silence"
+        "the Vitec adapter’s forms books a viewing slot with an e-mail confirmation and no reminder, and relays Vitec’s refusal and silence",
+        "the Vitec adapter’s forms tries a call Vitec could not take again within the form’s short time, never a refusal, and the visitor hears it when Vitec stays down"
       ],
-      "note": "The events, the submissions table and the error tracker's output are searched for the person's name, e-mail, phone and street and hold none in plain text; a form the CRM refused or did not answer keeps its details encrypted with the key of the CRM logins for 30 days, so it can be sent again, and a form the CRM took keeps none (question 160 a); the check names the connection in `names` and not in its public detail. For Vitec: a 400 with Vitec's words is a refusal whose reason is those words with anything that looks like an e-mail address or a number scrubbed, a 500 is a failure, and the chain's crm.call events carry no body."
+      "note": "The Vitec code tries a call Vitec could not take twice more within the form's 15 s and never a refusal, so the failure the visitor reads is the last answer, inside Core's wait (question 165, answered no: no later retry). The events, the submissions table and the error tracker's output are searched for the person's name, e-mail, phone and street and hold none in plain text; a form the CRM refused or did not answer keeps its details encrypted with the key of the CRM logins for 30 days, so it can be sent again, and a form the CRM took keeps none (question 160 a); the check names the connection in `names` and not in its public detail. For Vitec: a 400 with Vitec's words is a refusal whose reason is those words with anything that looks like an e-mail address or a number scrubbed, a 500 is a failure, and the chain's crm.call events carry no body."
     },
     {
       "ac": 45,

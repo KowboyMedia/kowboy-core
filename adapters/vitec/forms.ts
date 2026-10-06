@@ -1,9 +1,10 @@
 // The forms (docs/forms.md, "The Vitec adapter's part"): the universal submission copied onto
 // Connect's form calls, and the form endpoint's viewings copied onto the universal slots. Nothing
-// is kept here: the person goes to Vitec and the answer goes back to the engine. Nothing about
-// forms is typed on a connection (question 155): Vitec's own defaults stand for the lead source,
-// the intake source and an interest's status, and a booking asks Vitec for an e-mail
-// confirmation, no SMS and no reminder.
+// is kept here: the person goes to Vitec and the answer goes back to the engine. A call Vitec
+// could not take is tried again within the form's short time, and when Vitec stays down the
+// visitor hears it while they wait (question 165). Nothing about forms is typed on a connection
+// (question 155): Vitec's own defaults stand for the lead source, the intake source and an
+// interest's status, and a booking asks Vitec for an e-mail confirmation, no SMS and no reminder.
 import * as connect from './api.js';
 import { isoDate } from './mappers.js';
 import type {
@@ -24,6 +25,16 @@ const SUBTYPE: Record<NonNullable<SearchCriteria['object_type']>, string> = {
 };
 
 const segment = encodeURIComponent;
+
+/**
+ * How long the Vitec code tries one form (question 165, Patric: "retry within a short period
+ * only, and bubble back the error to the user"). Core waits 20 s for the CRM (docs/forms.md), so
+ * the tries end before that: the visitor hears the last answer while they wait, and nothing
+ * reaches Vitec after they were told the form was not sent.
+ */
+const FORM_TIME_MS = 15_000;
+/** The waits before the second and the third try of a call Vitec could not take. */
+const RETRY_WAITS_MS = [1_000, 3_000];
 
 /** `Marketing` as every form call takes it: the page the form was on and its UTM tags. */
 const marketing = (submission: Submission): Record<string, unknown> => ({
@@ -54,6 +65,8 @@ type Sending = {
   customerId: string;
   submission: Submission;
   trace: EventContext;
+  /** When the form's time runs out (`FORM_TIME_MS` from its start). */
+  until: number;
 };
 
 /** Send one submission to Vitec and say what Vitec said. Never throws. */
@@ -69,6 +82,7 @@ export async function submit(
     customerId,
     submission,
     trace: traceOf(connection, submission),
+    until: Date.now() + FORM_TIME_MS,
   };
   try {
     const reference = await send(sending);
@@ -98,10 +112,37 @@ async function send(sending: Sending): Promise<string | null> {
   }
 }
 
+/**
+ * One form call, tried again while Vitec is down, busy or unreachable (5xx, 429, no connection),
+ * three tries at most and only within the form's time. A refusal is Vitec's answer, and an
+ * answer that came back unreadable may have been taken, so neither is tried again.
+ */
+async function call(
+  sending: Sending,
+  auth: connect.Auth,
+  path: string,
+  body: unknown,
+): Promise<unknown | null> {
+  for (let tried = 0; ; tried += 1) {
+    try {
+      return await connect.post(auth, path, body, sending.trace, sending.until);
+    } catch (error) {
+      const wait = RETRY_WAITS_MS[tried];
+      const again =
+        wait !== undefined &&
+        connect.kindOf(error) === 'unavailable' &&
+        Date.now() + wait < sending.until;
+      if (!again) throw error;
+      await new Promise((resolve) => setTimeout(resolve, wait));
+    }
+  }
+}
+
 /** `POST v2/Advertising/Form/{customerId}/Valuation`: the seller's lead. Answers the contact's id. */
 async function valuation(sending: Sending): Promise<string | null> {
-  const { login, customerId, submission, trace } = sending;
-  const answer = await connect.post(
+  const { login, customerId, submission } = sending;
+  const answer = await call(
+    sending,
     login,
     `v2/Advertising/Form/${segment(customerId)}/Valuation`,
     {
@@ -115,15 +156,15 @@ async function valuation(sending: Sending): Promise<string | null> {
       lead: { assignmentSourceId: null, leadSourceId: null, message: submission.message ?? null },
       marketing: marketing(submission),
     },
-    trace,
   );
   return contactIdOf(answer);
 }
 
 /** `POST Advertising/Estate/{customerId}/{estateId}/interest`: answers nothing (204). */
 async function interest(sending: Sending): Promise<void> {
-  const { login, customerId, submission, trace } = sending;
-  await connect.post(
+  const { login, customerId, submission } = sending;
+  await call(
+    sending,
     login,
     `Advertising/Estate/${segment(customerId)}/${segment(estateOf(submission))}/interest`,
     {
@@ -137,14 +178,14 @@ async function interest(sending: Sending): Promise<void> {
       gdprApprovalDate: submission.consent.at,
       contactMessage: submission.message ?? null,
     },
-    trace,
   );
 }
 
 /** `POST v2/Advertising/Form/{customerId}/Estate/{estateId}/Viewing/Attend`: answers the contact's id. */
 async function booking(sending: Sending): Promise<string | null> {
-  const { login, customerId, submission, trace } = sending;
-  const answer = await connect.post(
+  const { login, customerId, submission } = sending;
+  const answer = await call(
+    sending,
     login,
     `v2/Advertising/Form/${segment(customerId)}/Estate/${segment(estateOf(submission))}/Viewing/Attend`,
     {
@@ -163,7 +204,6 @@ async function booking(sending: Sending): Promise<string | null> {
       // No rules of our own: Vitec applies the viewing's booking limit and deadline as it has them.
       validation: null,
     },
-    trace,
   );
   return contactIdOf(answer);
 }
@@ -174,33 +214,29 @@ async function booking(sending: Sending): Promise<string | null> {
  * then `CRM/Contact/{customerId}/SearchProfile/Residential/{contactId}` with the criteria.
  */
 async function searchProfile(sending: Sending): Promise<string | null> {
-  const { login, customerId, submission, trace } = sending;
+  const { login, customerId, submission } = sending;
   const criteria = submission.criteria;
   if (!criteria) throw new Error('a search profile without criteria');
   const crmAuth = connect.crmAuthOf(login);
-  const contact = await connect.post(
-    crmAuth,
-    'Contacts/UpdatePerson',
-    {
-      customerId,
-      firstName: submission.person.first_name,
-      lastName: submission.person.last_name,
-      cellPhone: submission.person.phone,
-      email: { emailAddress: submission.person.email },
-      address: address(submission),
-      approval: submission.consent.given,
-      approvalDate: submission.consent.at,
-      gdprApprovalDate: submission.consent.at,
-      obtainThrough: 'Interest',
-    },
-    trace,
-  );
+  const contact = await call(sending, crmAuth, 'Contacts/UpdatePerson', {
+    customerId,
+    firstName: submission.person.first_name,
+    lastName: submission.person.last_name,
+    cellPhone: submission.person.phone,
+    email: { emailAddress: submission.person.email },
+    address: address(submission),
+    approval: submission.consent.given,
+    approvalDate: submission.consent.at,
+    gdprApprovalDate: submission.consent.at,
+    obtainThrough: 'Interest',
+  });
   const contactId = typeof contact === 'string' ? contact : contactIdOf(contact);
   if (!contactId) throw new Error('UpdatePerson answered no contact id');
   const codes = criteria.areas
     .map((area) => area.county_municipality_code)
     .filter((code): code is string => typeof code === 'string' && code !== '');
-  await connect.post(
+  await call(
+    sending,
     crmAuth,
     `CRM/Contact/${segment(customerId)}/SearchProfile/Residential/${segment(contactId)}`,
     {
@@ -217,7 +253,6 @@ async function searchProfile(sending: Sending): Promise<string | null> {
       numberOfRooms: criteria.rooms_min === null ? null : { minValue: criteria.rooms_min },
       isAutomaticProfile: false,
     },
-    trace,
   );
   return contactId;
 }

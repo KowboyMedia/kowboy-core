@@ -227,11 +227,58 @@ describe('the Vitec adapter’s forms', () => {
       reason: 'Visningen är fullbokad, kontakta [e-mail]',
     });
 
-    // Vitec is down: a failure, and nothing sent.
-    fake.failNext(1);
+    // Vitec stays down through the form's tries: a failure the visitor hears, and nothing sent.
+    fake.failNext(3);
     const failed = await post(submission('viewing', { record, slot_id: 'T-1' }));
     expect(failed.status).toBe(502);
     expect(failed.body).toMatchObject({ status: 'failed' });
+    expect(fake.forms).toHaveLength(2);
+  });
+
+  it('tries a call Vitec could not take again within the form’s short time, never a refusal, and the visitor hears it when Vitec stays down', async () => {
+    const attend = `/v2/Advertising/Form/${OFFICE}/Estate/${ESTATE}/Viewing/Attend`;
+    const asked = (): number => fake.requests.filter((request) => request.path === attend).length;
+
+    // Down once: the second try takes it, and the visitor reads that it was sent.
+    fake.failNext(1);
+    expect((await post(submission('viewing', { record, slot_id: 'T-1' }))).status).toBe(200);
+    expect(asked()).toBe(2);
+    expect(formsSent()).toEqual([attend]);
+
+    // Busy, with a Retry-After inside the form's time: the next try waits for it and goes.
+    fake.retryAfterNext(1);
+    expect((await post(submission('viewing', { record, slot_id: 'T-1' }))).status).toBe(200);
+    expect(asked()).toBe(4);
+
+    // A refusal is Vitec's answer, so it is asked once.
+    fake.refuseNext('Visningen är fullbokad');
+    expect((await post(submission('viewing', { record, slot_id: 'T-1' }))).status).toBe(409);
+    expect(asked()).toBe(5);
+
+    // Down through three tries: the visitor hears it while they wait, well inside Core's 20 s.
+    fake.failNext(3);
+    const form = submission('viewing', { record, slot_id: 'T-1' });
+    const started = Date.now();
+    const failed = await post(form);
+    expect(failed.status).toBe(502);
+    expect(failed.body).toMatchObject({ status: 'failed' });
+    expect(Date.now() - started).toBeLessThan(15_000);
+    expect(asked()).toBe(8);
+    // What reached Vitec's form handling: the two it took and the one it refused.
+    expect(formsSent()).toEqual([attend, attend, attend]);
+    // Each try is on the form's chain, and the form's end is the failure.
+    await until(
+      async () =>
+        (await queryEvents({ correlationId: form['id'] as string, type: 'crm.call' })).length === 3,
+      'the three tries on the form’s chain',
+    );
+    const tries = await queryEvents({ correlationId: form['id'] as string, type: 'crm.call' });
+    expect(tries.map((event) => event.fields['status'])).toEqual([500, 500, 500]);
+    const ended = await queryEvents({
+      correlationId: form['id'] as string,
+      type: 'submission.failed',
+    });
+    expect(ended).toHaveLength(1);
   });
 
   it('makes a search profile: the contact through UpdatePerson, then the residential profile with the criteria', async () => {

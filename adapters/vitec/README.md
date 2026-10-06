@@ -140,8 +140,12 @@ connection (question 155): the lead source, the intake source and an interest's 
 to Vitec, and a booking asks for an e-mail confirmation, no SMS and no reminder. The search
 profile uses `crm_password` (the CRM function group's, when Vitec issued a separate one), as the
 office check does. Only the live service hands a form to the adapter (question 152). Vitec's 400, 404, 409 and 422 are a refusal with Vitec's words, scrubbed
-of anything that looks like an e-mail address or a number; anything else is a failure. Every
-call is a `crm.call` event in the form's chain on the home's timeline, without the body.
+of anything that looks like an e-mail address or a number; anything else is a failure. A call
+Vitec could not take (5xx, 429, no connection) is tried twice more, after 1 s and 3 s, within
+15 s of the form's start, and no call starts or lasts after that, so the visitor hears the last
+answer while Core waits and nothing reaches Vitec after they were told it was not sent (question
+165). Every call, each try included, is a `crm.call` event in the form's chain on the home's
+timeline, without the body.
 `forms.test.ts` proves it against the stand-in; the real send waits on a demo or test customer
 Patric has confirmed (question 54 f), never the login in the environment.
 

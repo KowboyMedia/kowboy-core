@@ -286,12 +286,15 @@ export const scrub = (text: string): string =>
  * One POST with a JSON body, as the form calls are made (docs/forms.md): the answer parsed, null
  * when Connect answers with no body (204), and a `VitecError` with Vitec's words for anything
  * else, 404 included. The body is never in the event log; the status, size and time are.
+ * `until` is when the form's time runs out: no call starts after it and none outlasts it, so
+ * nothing reaches Vitec after the visitor was told the form was not sent.
  */
 export async function post(
   auth: Auth,
   path: string,
   body: unknown,
   trace?: EventContext,
+  until = Number.POSITIVE_INFINITY,
 ): Promise<unknown | null> {
   const url = new URL(`${baseUrlOf(auth.environment)}/${path}`);
   const limiter = limiters[auth.environment];
@@ -306,8 +309,15 @@ export async function post(
     trace,
   };
   try {
-    const response = await slot(limiter, () =>
-      fetch(url, {
+    const response = await slot(limiter, () => {
+      // The wait for a free slot, the speed limit or Vitec's Retry-After may have used it up.
+      const left = until - Date.now();
+      if (left <= 0) {
+        throw Object.assign(new Error(`${path}: not sent, the form's time ran out`), {
+          name: 'TimeoutError',
+        });
+      }
+      return fetch(url, {
         method: 'POST',
         headers: {
           authorization: `Basic ${Buffer.from(`${auth.username}:${auth.password}`).toString('base64')}`,
@@ -315,9 +325,9 @@ export async function post(
           'content-type': 'application/json',
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      }),
-    );
+        signal: AbortSignal.timeout(Math.min(REQUEST_TIMEOUT_MS, left)),
+      });
+    });
     call.status = response.status;
     if (response.status === 429 || response.status === 503)
       hold(limiter, response.headers.get('retry-after'));
