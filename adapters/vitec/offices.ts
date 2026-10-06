@@ -7,7 +7,10 @@
 // give (down, busy, broken) never changes the choice: the last one is kept and the check is tried
 // again within the hour. An office Vitec refuses (401 or 403, the office or its whole id) stays
 // synced for one more day and is taken off when the refusal still stands at the next daily check,
-// so a short outage or a password changed by mistake empties no site. Reads only. The answer is
+// so a short outage or a password changed by mistake empties no site. This check is the only call
+// that asks about a refused office (question 161 a): an id whose own list fails is asked nothing
+// more, so a cancelled brokerage costs one call a day, which also brings it back by itself once
+// Vitec answers again. Reads only. The answer is
 // kept in the adapter's state and shown on the tenant's page; index.ts loads the offices that came
 // and takes off the ones that went.
 import * as connect from './api.js';
@@ -138,6 +141,8 @@ async function checkId(
     if (refused.refused) checked.refusedSince = at;
     answered &&= refused.answered;
   }
+  // The groups only when the id's own list answered: a refused or silent id gets one call a day.
+  if (checked.error !== null) return { value: checked, answered };
   try {
     checked.groups = (await connect.officeGroups(crmAuth, id)).map(({ name, officeIds }) => ({
       name,

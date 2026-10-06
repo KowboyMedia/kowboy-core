@@ -15,10 +15,11 @@
 // means marketed and Remove means not any more.
 //
 // Vitec misbehaves at times (Patric, 2026-09-18), and the adapter guards itself: after five
-// failures in a row a connection pauses and probes its way back with growing waits; a 403 blocks
-// the office at once, its records wait, and one probe per cool-down brings it back with a full
-// load; a broken answer is kept in the event and retried; requests are capped per second and
-// Vitec's own Retry-After is honoured (api.ts).
+// failures in a row a connection pauses and probes its way back with growing waits; a 401 or 403
+// blocks the office at once and holds every other fetch of its login until the office check has
+// run, and from then on that check is the only call that asks about the office (question 161 a);
+// a broken answer is kept in the event and retried; requests are capped per second and Vitec's
+// own Retry-After is honoured (api.ts).
 //
 // A connection's credentials are a JSON document, `{"username", "password"}`: the Connect key
 // pair. Its licensed offices are the office ids, which are what Connect calls customer ids
@@ -62,9 +63,6 @@ const RETRIES_RED = 3;
 const PAUSE_AFTER = 5;
 const PAUSE_BASE_MS = 2 * 60_000;
 const PAUSE_MAX_MS = 30 * 60_000;
-/** An office Vitec refuses is probed after this long, doubling per failed probe. */
-const BLOCK_BASE_MS = 3_600_000;
-const BLOCK_MAX_MS = 24 * 3_600_000;
 
 /**
  * The login as the connection's page stores it: the Connect key pair, the customer or group id
@@ -215,9 +213,31 @@ async function resumeDue(targets: Live[]): Promise<void> {
   }
 }
 
+/** An office is blocked, told once: nothing is asked for it until the office check reads it. */
+async function markBlocked(
+  current: AdapterApi,
+  connectionId: string,
+  officeId: string,
+  detail: string,
+): Promise<void> {
+  if (!(await store.blockOffice(officeId, detail))) return;
+  await current.logEvent(
+    'office.blocked',
+    { office_id: officeId, connection_id: connectionId, detail },
+    { connectionId },
+  );
+  current.report(new Error('vitec office blocked'), {
+    office_id: officeId,
+    connection_id: connectionId,
+    detail,
+  });
+}
+
 /**
- * Vitec refused an office: block it at once, once, and have the next tick check the offices, so a
- * cancelled office is seen within a minute and taken off the sites a day later (question 158 b).
+ * Vitec refused an office at a fetch (question 161 a): block it, hold every other fetch of the same
+ * login, and have the next tick check the offices. A revoked login so costs one refused call, not
+ * one per office; the check then settles which offices stay blocked and releases the hold, and from
+ * then on it is the only call that asks about a blocked office: once a day (checkAndApply).
  */
 async function blockOffice(
   current: AdapterApi,
@@ -225,62 +245,35 @@ async function blockOffice(
   officeId: string,
   detail: string,
 ): Promise<void> {
-  const fresh = await store.blockOffice(officeId, detail, BLOCK_BASE_MS, BLOCK_MAX_MS);
-  if (!fresh) return;
+  await store.setState(live.connection.id, 'held', new Date().toISOString());
   await checkSoon(live.connection.id);
-  await current.logEvent(
-    'office.blocked',
-    { office_id: officeId, connection_id: live.connection.id, detail },
-    { connectionId: live.connection.id },
-  );
-  current.report(new Error('vitec office blocked'), {
-    office_id: officeId,
-    connection_id: live.connection.id,
-    detail,
-  });
+  await markBlocked(current, live.connection.id, officeId, detail);
 }
 
-/** Offices the drain leaves alone: blocked ones, and every office of a paused connection. */
+/** When the login's hold began, or null while it is not held. */
+const heldSince = async (connectionId: string): Promise<string | null> =>
+  (await store.getState(connectionId, 'held')) || null;
+
+const isHeld = async (connectionId: string): Promise<boolean> =>
+  (await heldSince(connectionId)) !== null;
+
+/** Offices the drain leaves alone: blocked ones, and every office of a paused or held connection. */
 async function skippedOffices(targets: Live[]): Promise<string[]> {
   const skipped = new Set((await store.blockedOffices()).map((office) => office.officeId));
   for (const target of targets) {
-    if (paused(await pauseOf(target.connection.id))) {
+    const id = target.connection.id;
+    if (paused(await pauseOf(id)) || (await isHeld(id))) {
       for (const officeId of target.offices) skipped.add(officeId);
     }
   }
   return [...skipped];
 }
 
-/**
- * One probe per blocked office whose cool-down has passed: a single list request. Back means
- * unblocked and loaded in full, so nothing that happened while it was refused is missed; refused
- * again means a longer cool-down.
- */
-async function probeOffices(current: AdapterApi, targets: Live[]): Promise<void> {
-  for (const office of await store.probesDue()) {
-    const owner = targets.find((t) => t.offices.includes(office.officeId));
-    if (!owner) {
-      await store.unblockOffice(office.officeId);
-      continue;
-    }
-    if (paused(await pauseOf(owner.connection.id))) continue;
-    const trace: EventContext = { connectionId: owner.connection.id };
-    try {
-      await connect.page(owner.credentials, 'office', office.officeId, 0, undefined, 1, trace);
-      await store.unblockOffice(office.officeId);
-      await current.logEvent(
-        'office.unblocked',
-        { office_id: office.officeId, probes: office.probes + 1 },
-        trace,
-      );
-      await load(owner, [office.officeId]);
-    } catch (error) {
-      if (connect.kindOf(error) === 'forbidden') {
-        await store.blockOffice(office.officeId, String(error), BLOCK_BASE_MS, BLOCK_MAX_MS);
-      } else {
-        await noteFailure(current, owner, String(error));
-      }
-    }
+/** A block on an office no connection syncs any more guards nothing and is dropped, without a call. */
+async function dropStrayBlocks(targets: Live[]): Promise<void> {
+  const synced = new Set(targets.flatMap((target) => target.offices));
+  for (const office of await store.blockedOffices()) {
+    if (!synced.has(office.officeId)) await store.unblockOffice(office.officeId);
   }
 }
 
@@ -540,19 +533,25 @@ async function queueReferences(entry: store.Entry, payload: unknown): Promise<vo
 /** What Vitec lists, per datatype and office: each id with its change date. */
 type Listed = Map<Datatype, Map<string, Map<string, string | null>>>;
 
-/** Every id Vitec lists for the given offices, per datatype and office. */
+/**
+ * Every id Vitec lists for the given offices, per datatype and office, blocked offices left out.
+ * A refusal blocks its office and holds the login (blockOffice), and nothing more is asked while
+ * the login is held: what was listed so far comes back with `complete` false.
+ */
 async function listAll(
   live: Live,
   offices: readonly string[],
   datatypes: readonly Datatype[],
   changedSince?: Date,
-): Promise<Listed> {
+): Promise<{ listed: Listed; complete: boolean }> {
   const listed: Listed = new Map();
   const blocked = new Set((await store.blockedOffices()).map((office) => office.officeId));
   for (const datatype of datatypes) {
     const perOffice = new Map<string, Map<string, string | null>>();
+    listed.set(datatype, perOffice);
     for (const officeId of offices) {
       if (blocked.has(officeId)) continue;
+      if (await isHeld(live.connection.id)) return { listed, complete: false };
       const ids = new Map<string, string | null>();
       const trace: EventContext = { connectionId: live.connection.id };
       try {
@@ -566,17 +565,15 @@ async function listAll(
           ids.set(row.id, isoDate(row.changedAt));
         }
       } catch (error) {
-        // A refused office stops here, the others go on; anything else fails the schedule.
+        // A refused office blocks and holds; anything else fails the schedule.
         if (connect.kindOf(error) !== 'forbidden' || !engine) throw error;
-        blocked.add(officeId);
         await blockOffice(engine, live, officeId, String(error));
-        continue;
+        return { listed, complete: false };
       }
       perOffice.set(officeId, ids);
     }
-    listed.set(datatype, perOffice);
   }
-  return listed;
+  return { listed, complete: true };
 }
 
 /**
@@ -631,9 +628,19 @@ const listable = (datatype?: Datatype): readonly Datatype[] =>
 /** Everything the given offices publish, onto the list after any webhook fetches. */
 async function load(live: Live, offices: readonly string[], datatype?: Datatype): Promise<void> {
   const startedAt = new Date();
-  const listed = await listAll(live, offices, listable(datatype));
+  const datatypes = listable(datatype);
+  const { listed, complete } = await listAll(live, offices, datatypes);
   await enqueueListed(listed, 'load', false);
   await enqueueMissing(listed);
+  if (!complete) {
+    const done = (officeId: string): boolean =>
+      datatypes.every((one) => listed.get(one)?.has(officeId));
+    await loadAfterCheck(
+      live.connection.id,
+      offices.filter((officeId) => !done(officeId)),
+    );
+    return;
+  }
   // Only a load of every office is a catch-up and a comparison of the whole connection.
   const whole = live.offices.every((officeId) => offices.includes(officeId));
   if (whole && !datatype) {
@@ -691,21 +698,43 @@ async function catchUp(live: Live): Promise<void> {
   const startedAt = new Date();
   const until = await store.getState(live.connection.id, 'catch_up_until');
   const since = until ? new Date(new Date(until).getTime() - CATCH_UP_OVERLAP_MS) : undefined;
-  const listed = await listAll(live, live.offices, connect.LISTABLE, since);
+  const { listed, complete } = await listAll(live, live.offices, connect.LISTABLE, since);
   await enqueueListed(listed, 'catch_up', true);
-  await markCatchUp(live.connection.id, startedAt);
+  // Cut short by a hold, it stays due and runs again after the office check.
+  if (complete) await markCatchUp(live.connection.id, startedAt);
 }
 
 async function compare(live: Live): Promise<void> {
   const startedAt = new Date();
-  await enqueueMissing(await listAll(live, live.offices, connect.LISTABLE));
-  await store.setState(live.connection.id, 'compare_at', startedAt.toISOString());
+  const { listed, complete } = await listAll(live, live.offices, connect.LISTABLE);
+  await enqueueMissing(listed);
+  if (complete) await store.setState(live.connection.id, 'compare_at', startedAt.toISOString());
+}
+
+/** Offices whose load a hold cut short: loaded in full once the office check has run. */
+async function loadAfterCheck(connectionId: string, offices: readonly string[]): Promise<void> {
+  const pending = new Set([...(await takeLoadsAfterCheck(connectionId)), ...offices]);
+  await store.setState(connectionId, 'load_after_check', JSON.stringify([...pending]));
+}
+
+async function takeLoadsAfterCheck(connectionId: string): Promise<string[]> {
+  const stored = await store.getState(connectionId, 'load_after_check');
+  await store.setState(connectionId, 'load_after_check', '');
+  try {
+    const parsed = JSON.parse(stored || '[]') as unknown;
+    return Array.isArray(parsed)
+      ? parsed.filter((one): one is string => typeof one === 'string')
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 /**
  * Ask Vitec which offices to sync (offices.ts) and act on the difference with `target.offices`,
  * what was synced before: an office that went is taken off the sites, and an office that came is
- * loaded. Offices typed on the connection are loaded by the engine's offices_added instead.
+ * loaded. The blocks follow the check, the login's hold ends, and every office that came, read
+ * again after a block, or had its load cut short by the hold is loaded in full.
  */
 async function checkAndApply(current: AdapterApi, target: Live): Promise<Live> {
   const { credentials, connection } = target;
@@ -720,9 +749,54 @@ async function checkAndApply(current: AdapterApi, target: Live): Promise<Live> {
   for (const officeId of target.offices.filter((office) => !check.offices.includes(office))) {
     await takeOff(current, connection, officeId, takenOffBecause(check, officeId));
   }
+  const back = await settleBlocks(current, connection, check);
+  // A hold that began after this check started waits for the next one, at the next tick.
+  const held = await heldSince(connection.id);
+  if (held !== null && held <= check.at) await store.setState(connection.id, 'held', '');
+  else if (held !== null) await checkSoon(connection.id);
   const added = check.offices.filter((office) => !target.offices.includes(office));
-  if (added.length > 0) await load(next, added);
+  const blocked = new Set((await store.blockedOffices()).map((office) => office.officeId));
+  const wanted = new Set([...added, ...back, ...(await takeLoadsAfterCheck(connection.id))]);
+  const toLoad = check.offices.filter((office) => wanted.has(office) && !blocked.has(office));
+  if (toLoad.length > 0) await load(next, toLoad);
   return next;
+}
+
+/**
+ * The blocks follow the check (question 161 a): an office Vitec refused, on its own or with the
+ * whole id, stays or becomes blocked while it is still synced, so no call asks about it until the
+ * next check; a blocked office that read is unblocked and returned, to be loaded in full, since
+ * nothing of it was fetched while it was blocked.
+ */
+async function settleBlocks(
+  current: AdapterApi,
+  connection: Connection,
+  check: OfficesCheck,
+): Promise<string[]> {
+  const seen = check.ids.flatMap((checked) => checked.offices);
+  const readable = new Set(seen.filter((office) => office.readable).map((o) => o.customerId));
+  const refusedId = check.ids.find((checked) => checked.refusedSince);
+  for (const officeId of check.offices) {
+    const office = seen.find((one) => one.customerId === officeId);
+    const detail = office?.refusedSince
+      ? (office.detail ?? 'Vitec refuses this login')
+      : refusedId && !readable.has(officeId)
+        ? `${refusedId.error ?? 'Vitec refuses this login'} for ${refusedId.id}`
+        : null;
+    if (detail) await markBlocked(current, connection.id, officeId, detail);
+  }
+  const back = [];
+  for (const office of await store.blockedOffices()) {
+    if (!readable.has(office.officeId)) continue;
+    await store.unblockOffice(office.officeId);
+    await current.logEvent(
+      'office.unblocked',
+      { office_id: office.officeId },
+      { connectionId: connection.id },
+    );
+    back.push(office.officeId);
+  }
+  return back;
 }
 
 /**
@@ -820,7 +894,7 @@ async function tickOnce(): Promise<void> {
   let failed = false;
   const targets = await live(current);
   await resumeDue(targets);
-  await probeOffices(current, targets);
+  await dropStrayBlocks(targets);
   for (const given of targets) {
     try {
       await runDue(current, given, startup);
@@ -971,13 +1045,12 @@ export const vitecAdapter: Adapter = {
     given.healthCheck(`${PROVIDER}.offices`, async () => {
       const blocked = await store.blockedOffices();
       if (blocked.length === 0) return { ok: true };
-      const nextProbe = Math.min(...blocked.map((office) => office.blockedUntil.getTime()));
       return {
         ok: false,
-        detail: `${blocked.length} office(s) refused by Vitec; the next probe is ${nextProbe <= Date.now() ? 'due' : `in ${span(nextProbe - Date.now())}`}`,
+        detail: `${blocked.length} office(s) refused by Vitec; only the daily office check asks about them`,
         names: blocked.map(
           (office) =>
-            `${office.officeId}: refused ${span(Date.now() - office.blockedAt.getTime())} ago, next probe ${office.blockedUntil.getTime() <= Date.now() ? 'due' : `in ${span(office.blockedUntil.getTime() - Date.now())}`}`,
+            `${office.officeId}: refused ${span(Date.now() - office.blockedAt.getTime())} ago`,
         ),
       };
     });

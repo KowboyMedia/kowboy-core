@@ -174,11 +174,18 @@ then answers 403 and whose hammering got Core blocked (Patric, 2026-09-18). The 
 itself, all of it inside the adapter:
 
 - **A refused office (401 or 403)** is blocked at the first refusal: nothing more is asked for it,
-  its waiting records are parked, and one probe per cool-down (an hour, doubling to a day) checks
-  whether it is back. Back means unblocked and loaded in full, so nothing that happened meanwhile is
-  missed. Its records stay on the sites as they are until a person removes the office at the panel
-  (question 38). `vitec.offices` is red while an office is blocked; the panel has "Probe now" and
-  "Forget".
+  and its waiting records are parked. The first refusal also holds every other fetch of the same
+  login and has the office check run at the next tick, so a revoked login costs one refused call,
+  not one per office. That check settles the blocks (an office it finds refused, on its own or with
+  the whole id, stays blocked; one that reads again is unblocked and loaded in full, so nothing that
+  happened meanwhile is missed) and releases the hold; a listing the hold cut short runs again, and
+  a load it cut short is finished after the check. From then on the office check, once a day, is
+  the only call that asks about a blocked office, and it asks for the office groups only when the
+  id's own list answered (question 161 a). A cancelled brokerage so costs about six refused calls
+  on the first day and one a day after, which also brings it back by itself when Vitec answers
+  again. A refused office stays on the sites for a day and is then taken off (question 158 b, under
+  "Which offices are synced"). `vitec.offices` is red while an office is blocked, and the panel
+  lists the blocked offices; "Check offices now" on the tenant's page asks at once.
 - **Vitec down, busy or unreachable** (timeouts, 5xx, 429, network errors) and **broken answers**
   count per connection: after five in a row the connection pauses, two minutes doubling to thirty,
   and shows red in `vitec.connect`. When the pause runs out the next fetches go through as a probe;

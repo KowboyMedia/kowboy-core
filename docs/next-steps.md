@@ -548,6 +548,13 @@ client ports (item 16, first client by question 80).
       its row saying since when, and is taken off when the refusal still stands at the next daily
       check; a refusal at any fetch makes the worker check within a minute. Telling the super
       admin is item 26.
+    - **Step 5, done 2026-10-06** (161 a, against an address ban at Vitec): the probes are gone. A
+      refusal at a fetch blocks the office and holds every other fetch of the login until the
+      office check at the next tick has run; that check settles the blocks (refused stays blocked,
+      read again is unblocked and loaded in full), finishes a load the hold cut short, and from
+      then on, once a day, is the only call that asks about a blocked office. The check asks for
+      the office groups only when the id's own list answered. The panel's "Probe now", "Forget"
+      and probe columns are gone.
     - **Component:** `[crm-vitec]`, and `[core]` for the reversed save rule.
 
 25. **Check that every admin button explains itself beside it** (Patric, 2026-10-06: "make note of

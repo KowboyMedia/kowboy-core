@@ -150,37 +150,15 @@ async function connectionsSection(connections: Connection[]): Promise<AdminSecti
 
 async function blockedSection(): Promise<AdminSection> {
   const rows = (await store.blockedOffices()).map((office) => ({
-    cells: [
-      office.officeId,
-      moment(office.blockedAt),
-      office.reason,
-      office.probes,
-      moment(office.blockedUntil),
-    ],
-    actions: [
-      {
-        id: 'probe',
-        label: 'Probe now',
-        help: 'Asks Vitec once for this office to see whether it answers again. A probe runs by itself each cool-down; this one runs at the worker’s next tick.',
-        params: { office: office.officeId },
-      },
-      {
-        id: 'forget',
-        label: 'Forget',
-        danger: true,
-        help: 'Drops the block without asking Vitec at all. For an office that has genuinely left the licence, so Core stops probing for it.',
-        confirm: `Drop the block on ${office.officeId} without a probe? For an office that left the licence.`,
-        params: { office: office.officeId },
-      },
-    ],
+    cells: [office.officeId, moment(office.blockedAt), office.reason],
   }));
   return {
     title: 'Refused offices',
-    help: 'An office Vitec answers 403 for is blocked at the first refusal: nothing is asked for it, its waiting records stay parked, and one probe per cool-down (an hour, doubling to a day) checks whether it is back; back means loaded again in full.',
+    help: 'An office is listed here when Vitec refuses to let the login read it. From that moment Core sends Vitec no call about the office, and its waiting records stay on the fetch list. The first refusal also stops every other call with the same login until Core has checked the offices, which happens within a minute. After that, Core checks the offices once a day, and that check is the only call that asks about a refused office. When Vitec lets the login read the office again, the office leaves this list and is loaded again in full. When Vitec still refuses it a day later, everything of that office is taken off the sites. “Check offices now” on the tenant’s page asks Vitec at once instead of waiting a day.',
     table: {
-      columns: ['Office', 'Refused since', 'What Vitec said', 'Failed probes', 'Next probe'],
+      columns: ['Office', 'Refused since', 'What Vitec said'],
       rows,
-      empty: 'No office is refused: Vitec answers for every licensed office.',
+      empty: 'No office is refused: Vitec answers for every office Core syncs.',
     },
   };
 }
@@ -264,16 +242,6 @@ const ACTIONS: Record<string, (params: Record<string, string>) => Promise<string
     if (!office || !known || !id) throw new Error('which record?');
     await store.drop(office, known, id);
     return `${datatype} ${id} of ${office} is off the list.`;
-  },
-  probe: async ({ office }) => {
-    if (!office) throw new Error('which office?');
-    await store.expediteProbe(office);
-    return `${office} is probed at the worker’s next tick.`;
-  },
-  forget: async ({ office }) => {
-    if (!office) throw new Error('which office?');
-    await store.unblockOffice(office);
-    return `${office} is no longer blocked.`;
   },
 };
 
@@ -416,7 +384,7 @@ async function officesSection(connection: Connection): Promise<AdminSection> {
   );
   return {
     title: 'Offices Vitec lists',
-    help: 'Which offices reach this tenant’s sites is decided in Vitec, not here. Once a day, Core asks Vitec which offices sit behind the customer or group id above and reads each one with this login. If the brokerage has made an office group called “Webbplats” in Vitec and put some of those offices in it, only those offices reach the sites. If there is no such group, or it holds none of these offices, every office does. So, to choose which offices show on the website, the brokerage makes the office group “Webbplats” in Vitec and puts the website’s offices in it; nothing is changed here. When an office leaves the group, everything of that office (its homes, its agents and the office itself) is taken off the sites at the next check. When Vitec stops letting this login read an office, for example after a cancelled subscription, Core checks again within a minute and keeps the office on the sites for one more day; if Vitec still refuses it at the next daily check, everything of that office is taken off the sites in the same way. Each site deletes it when it next updates, and Core remembers the removal, so a site that was offline deletes it too. One more thing: Vitec only shows office groups to a login that also has access to its CRM part, which Vitec grants separately (with its own password, typed below as the CRM password when Vitec issued one). Without that access Core cannot see any group and uses every office.',
+    help: 'Which offices reach this tenant’s sites is decided in Vitec, not here. Once a day, Core asks Vitec which offices sit behind the customer or group id above and reads each one with this login. If the brokerage has made an office group called “Webbplats” in Vitec and put some of those offices in it, only those offices reach the sites. If there is no such group, or it holds none of these offices, every office does. So, to choose which offices show on the website, the brokerage makes the office group “Webbplats” in Vitec and puts the website’s offices in it; nothing is changed here. When an office leaves the group, everything of that office (its homes, its agents and the office itself) is taken off the sites at the next check. When Vitec stops letting this login read an office, for example after a cancelled subscription, Core checks again within a minute and keeps the office on the sites for one more day; if Vitec still refuses it at the next daily check, everything of that office is taken off the sites in the same way. After the first refusal, Core asks Vitec about that office only in these checks. Each site deletes it when it next updates, and Core remembers the removal, so a site that was offline deletes it too. One more thing: Vitec only shows office groups to a login that also has access to its CRM part, which Vitec grants separately (with its own password, typed below as the CRM password when Vitec issued one). Without that access Core cannot see any group and uses every office.',
     items: [
       { label: 'Last check', value: lastCheckText(check) },
       { label: 'Office groups in Vitec', value: groupsText(check) },

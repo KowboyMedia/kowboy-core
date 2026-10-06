@@ -453,56 +453,41 @@ export async function drop(officeId: string, datatype: Datatype, remoteId: strin
   );
 }
 
-// ---- Offices Vitec refuses (403): blocked at once, probed once per cool-down --------------------
+// ---- Offices Vitec refuses (401 or 403): blocked until the office check reads them again --------
+// The columns blocked_until and probes are left from the probes (question 161 a removed them) and
+// are no longer read.
 
 export type BlockedOffice = {
   officeId: string;
   blockedAt: Date;
-  blockedUntil: Date;
   reason: string;
-  probes: number;
 };
 
 type OfficeRow = {
   office_id: string;
   blocked_at: Date;
-  blocked_until: Date;
   reason: string;
-  probes: number;
 };
 
 const toBlocked = (row: OfficeRow): BlockedOffice => ({
   officeId: row.office_id,
   blockedAt: row.blocked_at,
-  blockedUntil: row.blocked_until,
   reason: row.reason,
-  probes: row.probes,
 });
 
 /**
- * Stop all traffic to an office. The first block waits `baseMs` before a probe; every failed
- * probe doubles the wait up to `maxMs`. Returns true when the office was not blocked before.
+ * Stop all traffic to an office until the office check reads it again. Returns true when the
+ * office was not blocked before; a second refusal keeps the first date and takes the new reason.
  */
-export async function blockOffice(
-  officeId: string,
-  reason: string,
-  baseMs: number,
-  maxMs: number,
-): Promise<boolean> {
+export async function blockOffice(officeId: string, reason: string): Promise<boolean> {
   const { rows } = await (
     await db()
   ).query<{ fresh: boolean }>(
     `insert into vitec_office_state (office_id, blocked_until, reason)
-     values ($1, now() + ($2 || ' milliseconds')::interval, $3)
-     on conflict (office_id) do update set
-       reason = excluded.reason,
-       probes = case when vitec_office_state.blocked_until <= now()
-         then vitec_office_state.probes + 1 else vitec_office_state.probes end,
-       blocked_until = case when vitec_office_state.blocked_until <= now()
-         then now() + (least($2::numeric * power(2, vitec_office_state.probes + 1), $4::numeric)::bigint || ' milliseconds')::interval
-         else vitec_office_state.blocked_until end
+     values ($1, now(), $2)
+     on conflict (office_id) do update set reason = excluded.reason
      returning (xmax = 0) as fresh`,
-    [officeId, String(baseMs), reason.slice(0, 1000), String(maxMs)],
+    [officeId, reason.slice(0, 1000)],
   );
   return rows[0]?.fresh ?? false;
 }
@@ -514,23 +499,8 @@ export async function unblockOffice(officeId: string): Promise<void> {
 export async function blockedOffices(): Promise<BlockedOffice[]> {
   const { rows } = await (
     await db()
-  ).query<OfficeRow>('select * from vitec_office_state order by blocked_at');
-  return rows.map(toBlocked);
-}
-
-/** Blocked offices whose cool-down has passed: due for one probe each. */
-export async function probesDue(): Promise<BlockedOffice[]> {
-  const { rows } = await (
-    await db()
   ).query<OfficeRow>(
-    'select * from vitec_office_state where blocked_until <= now() order by blocked_at',
+    'select office_id, blocked_at, reason from vitec_office_state order by blocked_at',
   );
   return rows.map(toBlocked);
-}
-
-/** An operator's "probe now": the office is due at the worker's next tick. */
-export async function expediteProbe(officeId: string): Promise<void> {
-  await (
-    await db()
-  ).query('update vitec_office_state set blocked_until = now() where office_id = $1', [officeId]);
 }

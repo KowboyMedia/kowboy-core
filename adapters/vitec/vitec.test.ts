@@ -507,12 +507,13 @@ describe('the Vitec adapter', () => {
     });
   });
 
-  it('blocks an office at the first 403, probes it back and loads it again', async () => {
+  it('blocks an office at the first 403, and only the office check asks about it again (question 161 a)', async () => {
     seed(fake);
     await start();
     await drainFetchList();
     fake.forbid(OFFICE);
     fake.put(OFFICE, 'property', estate('OBJ2'));
+    fake.requests.length = 0;
     await notify('OBJ2');
     await drainFetchList();
     expect(fetchesOf('OBJ2')).toBe(1);
@@ -530,15 +531,23 @@ describe('the Vitec adapter', () => {
     expect(fetchesOf('OBJ3')).toBe(0);
     expect(await store.depth()).toBe(2);
 
-    // A probe that is refused again means a longer wait.
-    await store.expediteProbe(OFFICE);
+    // The office check at the next tick is the one call that asks: the id's own list, refused, so
+    // no office groups. The office stays blocked, and later ticks within the day ask nothing.
     await runSchedules();
-    expect((await store.blockedOffices())[0]?.probes).toBe(1);
+    await drainFetchList();
+    await runSchedules();
+    await drainFetchList();
+    expect(fake.requests.map((request) => request.path)).toEqual([
+      `/Advertising/Estate/${OFFICE}/OBJ2`,
+      `/Advertising/Office/${OFFICE}`,
+    ]);
+    expect((await health())['vitec.offices']?.ok).toBe(false);
 
-    // The office is back: one probe, then everything of it again, the parked records included.
+    // Vitec answers again: the next check unblocks the office and loads everything of it again,
+    // the parked records included.
     fake.allow(OFFICE);
     fake.put(OFFICE, 'property', estate('OBJ3'));
-    await store.expediteProbe(OFFICE);
+    await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
     await runSchedules();
     expect((await health())['vitec.offices']?.ok).toBe(true);
     await drainFetchList();
@@ -546,6 +555,53 @@ describe('the Vitec adapter', () => {
     expect(await item('property', 'OBJ3')).toBeDefined();
     const types = (await timelineOf('property', 'OBJ2')).map((event) => event.type);
     expect(types).toContain('entity.written');
+    const told = (await queryEvents({ connectionId: CONNECTION })).map((row) => row.type);
+    expect(told.filter((type) => type === 'office.blocked')).toHaveLength(1);
+    expect(told).toContain('office.unblocked');
+  });
+
+  it('holds every other fetch of the login until the office check has run, and finishes a load it cut short', async () => {
+    seed(fake);
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
+    await drainFetchList();
+    const fetched = (path: string): number =>
+      fake.requests.filter((request) => request.path === path).length;
+
+    // A refusal for one office holds the other office's notification too.
+    fake.forbid(OFFICE);
+    fake.put(OFFICE, 'property', estate('OBJ2'));
+    fake.put('M2', 'property', estate('OBJ3', 'M2'));
+    await notify('OBJ2');
+    await drainFetchList();
+    await hook({ type: 'Estate', event: 'Update', customerId: 'M2', id: 'OBJ3' });
+    await drainFetchList();
+    expect(fetched('/Advertising/Estate/M2/OBJ3')).toBe(0);
+
+    // The check finds only the one office refused: it stays blocked, the hold ends.
+    await runSchedules();
+    await drainFetchList();
+    expect(await item('property', 'OBJ3')).toBeDefined();
+    expect(await item('property', 'OBJ2')).toBeUndefined();
+    expect((await store.blockedOffices()).map((office) => office.officeId)).toEqual([OFFICE]);
+
+    // A resync meets a newly refused office first: the hold stops it, and the check finishes the
+    // load of the office that still reads.
+    fake.allow(OFFICE);
+    await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+    await runSchedules();
+    await drainFetchList();
+    expect(await store.blockedOffices()).toEqual([]);
+    fake.forbid(OFFICE);
+    fake.put('M2', 'property', estate('OBJ4', 'M2'));
+    fake.requests.length = 0;
+    await event('resync');
+    expect(fake.requests.map((request) => request.path)).toEqual([`/Advertising/Office/${OFFICE}`]);
+    await runSchedules();
+    await drainFetchList();
+    expect(await item('property', 'OBJ4')).toBeDefined();
   });
 
   it('pauses a connection after five failures in a row and resumes it with a probe', async () => {
@@ -788,7 +844,8 @@ describe('the Vitec adapter', () => {
         offices: [],
       },
     ]);
-    // Only the office that reads is synced, and nothing but reads went to Vitec.
+    // Only the office that reads is synced, nothing but reads went to Vitec, and the refused id
+    // was not asked for its groups (question 161 a).
     expect(check).toMatchObject({ offices: ['M1'], source: 'all' });
     expect(fake.requests.map((request) => request.path)).toEqual([
       '/Advertising/Office/G1',
@@ -796,7 +853,6 @@ describe('the Vitec adapter', () => {
       '/Advertising/Office/M2/FIR2',
       '/CRM/Officegroups/G1',
       '/Advertising/Office/G9',
-      '/CRM/Officegroups/G9',
     ]);
     expect(fake.forms).toHaveLength(0);
     expect(await lastCheck(CONNECTION)).toEqual(check);
