@@ -16,6 +16,12 @@ import {
   SUBMISSIONS_PER_MINUTE,
 } from '../engine/http/submissions.js';
 import { db } from '../engine/storage/db.js';
+import {
+  contentOf,
+  deleteExpiredSubmissions,
+  KEPT_DAYS,
+  type SubmissionRow,
+} from '../engine/storage/submissions.js';
 import { registerSubmissions } from '../engine/registry.js';
 import { configureHumanCheck } from '../engine/human.js';
 
@@ -105,10 +111,16 @@ const slots = async (
 const timeline = () =>
   queryEvents({ entity: { connectionId: CONNECTION, datatype: 'property', remoteId: HOME } });
 
-/** Every character Core wrote about the forms: the events, the outcomes table. */
+/**
+ * Every character Core wrote about the forms in plain text: the events, the outcomes table. A form
+ * the CRM has not taken is kept encrypted (question 160 a); that text is proved unreadable on its
+ * own, so here it counts only as kept or not.
+ */
 const everythingStored = async (): Promise<string> => {
   const events = await queryEvents({ tenantId: 1, limit: 5000 });
-  const rows = (await db().query('select * from submissions')).rows as unknown[];
+  const rows = (await db().query<SubmissionRow>('select * from submissions')).rows.map(
+    ({ content, ...row }) => ({ ...row, kept: content !== null }),
+  );
   return JSON.stringify({ events, rows });
 };
 
@@ -223,7 +235,8 @@ describe('submissions', () => {
     });
     expect(said[3]?.fields).toMatchObject({ kind: 'interest', detail: 'connection refused' });
 
-    // Nothing about the person anywhere Core writes: the events, the table, the error tracker.
+    // Nothing about the person in plain text anywhere Core writes: the events, the table, the
+    // error tracker.
     const stored = await everythingStored();
     const tracker = printed.mock.calls.map((call) => call.map(String).join(' ')).join('\n');
     expect(tracker).toContain('connection refused');
@@ -242,6 +255,44 @@ describe('submissions', () => {
     const delivered = await post(submission('lead'));
     expect(delivered.status).toBe(200);
     expect((await healthReport()).checks['submissions.failing']?.ok).toBe(true);
+  });
+
+  it('a form keeps its details encrypted until the CRM takes it, and one the CRM refused or did not take keeps them for 30 days', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const row = async (body: Record<string, unknown>): Promise<SubmissionRow | undefined> =>
+      (await db().query<SubmissionRow>('select * from submissions where id = $1', [body['id']]))
+        .rows[0];
+
+    // Taken: the outcome stays, the details go.
+    const taken = submission('interest', { record });
+    expect((await post(taken)).status).toBe(200);
+    expect(await row(taken)).toMatchObject({ outcome: 'delivered', content: null });
+
+    // Refused, and not answered: each keeps the form as the site sent it, with the office Core
+    // found for it, and none of it reads without the key.
+    crm.answerNext({ refuse: 'The showing is fully booked' });
+    const refused = submission('viewing', { record, slot_id: 'T-1' });
+    expect((await post(refused)).status).toBe(409);
+    crm.answerNext({ fail: 'connection refused' });
+    const failed = submission('interest', { record });
+    expect((await post(failed)).status).toBe(502);
+    for (const body of [refused, failed]) {
+      const kept = await row(body);
+      expect(kept?.content).toEqual(expect.any(String));
+      for (const plain of ['anna@example.se', 'Malmö', '211 22', 'Hej! Jag vill veta mer.']) {
+        expect(kept?.content).not.toContain(plain);
+      }
+      expect(kept && contentOf(kept)).toEqual({ ...body, office_id: OFFICE });
+    }
+
+    // After 30 days the details go, whatever the log's retention; the outcome stays with the log.
+    await db().query(
+      `update submissions set received_at = now() - ($2 || ' days')::interval where id = $1`,
+      [refused['id'], KEPT_DAYS + 1],
+    );
+    await deleteExpiredSubmissions(KEPT_DAYS * 3);
+    expect(await row(refused)).toMatchObject({ outcome: 'refused', content: null });
+    expect((await row(failed))?.content).toEqual(expect.any(String));
   });
 
   it('the same id posted twice sends once and answers the same outcome', async () => {

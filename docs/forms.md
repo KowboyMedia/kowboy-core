@@ -653,6 +653,9 @@ from them; it was weighed and set aside.
 - **Keep the outcome, never the person**: a `submissions` table with the id, kind, record, outcome,
   the CRM's reference and the time, so a repeated id answers the same and the admin area can list
   what was sent; no name, no e-mail, no phone is stored in Core, logged, or sent to Sentry.
+  Amended by 160 a (2026-10-06): the form itself is kept, encrypted, until the CRM has taken it,
+  and 30 days when the CRM refused it or did not answer, so a failed form can be sent again;
+  nothing about the person is logged or sent to Sentry, as before.
 - **Events** on the record's timeline, with a correlation id: `submission.received`, then
   `submission.delivered`, `submission.refused` or `submission.failed`, each with the kind and the
   outcome, never the person.
@@ -766,8 +769,10 @@ browser never sees either.
   the browser talks only to its own site over TLS, and the site to Core over TLS.
 - Core validates every submission against the schema, refuses a record that is not the tenant's,
   limits the rate per token, and makes a repeated id harmless.
-- Core stores and logs ids and outcomes, never the person; the consent and its time go to the CRM,
-  which is where the person's data is meant to live. Sentry gets a failure's cause, never a field.
+- Core logs ids and outcomes, never the person; the consent and its time go to the CRM, which is
+  where the person's data is meant to live. Sentry gets a failure's cause, never a field. Core
+  keeps a form itself only encrypted, with the key of the CRM logins, until the CRM has taken it,
+  and 30 days when the CRM refused it or did not answer (160 a).
 - The bot gate is on from the first form (Patric, 2026-10-04): Core verifies the service's token
   server-side (138), with the honeypot, a minimum time and the rate limit always on; the live
   service refuses every form while the check is not set up (155).
@@ -823,7 +828,9 @@ against the fake polling CRM, which takes every kind, and the fake webhook CRM, 
   once make one send.
 - The `submissions` table (migration 010): id, tenant, connection, kind, record, office, outcome,
   the CRM's reference, the refusal's reason or the failure's cause, the times; never the person.
-  Rows go with the event retention (30 days).
+  Rows go with the event retention (30 days). Since 160 a it also keeps the form itself,
+  encrypted, until the CRM has taken it ("Built 2026-10-06: the first version (155) and failed
+  forms (160 a)").
 - The events `submission.received`, `.delivered`, `.refused`, `.failed`, with the id as the
   correlation id, on the record's timeline and in words on the admin pages.
 - The health check `submissions.failing` (names the connections, counts in the public detail) and
@@ -1040,6 +1047,19 @@ staging when it is done:
   do, and the adapter read them as UTC, so the booking window showed a viewing at 17.50 as 19.50.
   `adapters/vitec/forms.ts` now reads them in Vitec's zone with the records' own `isoDate`; the
   slots test gives bare times, as Connect does.
+- **A form's details are kept until the CRM has them** (160 a lines 1 and 3): the `submissions`
+  table's new column `content` (migration 014, `014_submission_content.sql`) holds the form as
+  the site sent it, with the office Core found for it, encrypted with the key of the CRM logins
+  (`CREDENTIALS_KEY`, AES-256-GCM, as the logins are). Core writes it when it claims the id,
+  before the CRM is asked, and empties it the moment the CRM takes the form. A form the CRM
+  refused or did not answer keeps it, beside the CRM's answer, for 30 days (`KEPT_DAYS` in
+  `engine/storage/submissions.ts`); then housekeeping empties it, and the row goes with the event
+  retention as before. The events, the error tracker and the table in plain text still hold
+  nothing about the person (criterion 44's tests, one of them on the kept details). On staging
+  every form keeps its details, since the guard refuses them all. Next: the admin page of failed
+  forms with "Send again" (line 4); the retry by the CRM's code (line 2) waits on 165; the alert
+  for a form that failed for good (line 5) comes with the retry, as 172 gives
+  `submissions.failing` its levels.
 - **Known, not built:** a free valuation from the footer names no office, so on a site whose
   brokerage has several offices Core answers 400 "office_id is required" and the window says the
   form could not be sent; the office is set on the site's side when such a site gets forms

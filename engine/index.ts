@@ -24,7 +24,7 @@ import { applied } from './http/applied.js';
 import { siteError } from './http/errors.js';
 import { botCheck, configureSubmissions, slots, submit } from './http/submissions.js';
 import { configureHumanCheck, turnstile } from './human.js';
-import { deleteExpiredSubmissions } from './storage/submissions.js';
+import { configureSubmissionContent, deleteExpiredSubmissions } from './storage/submissions.js';
 import { configureCompression, jsonResponse, startServer, type RouteTable } from './http/server.js';
 import { SEQUENCE_JUMP, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
 import { adminRoutes, configureAdmin } from './admin/index.js';
@@ -73,6 +73,7 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
   await migrate();
   await advanceSequence();
   configureCredentials(config.credentialsKey);
+  configureSubmissionContent(config.credentialsKey);
   configureBells(config.bellThrottleMs);
   configureCompression(config.gzipLevel);
   configureMail(

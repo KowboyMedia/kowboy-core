@@ -4,7 +4,9 @@
 // site's own server calls these with its token; the visitor's browser never does. Core
 // authenticates, checks the bot check's proof, validates, finds the connection and hands the
 // submission to that connection's adapter inside the request; it stores and logs the id and the
-// outcome, never the person, and reads nothing out of the submission to decide anything.
+// outcome, keeps the form itself encrypted until the CRM has taken it, or 30 days when it never
+// does (question 160 a), never writes the person anywhere in plain text, and reads nothing out of
+// the submission to decide anything.
 import { authenticate } from './changes.js';
 import { validateSlots, validateSubmission } from '../contract.js';
 import { connectionById, subscriberByBellUrl } from '../storage/connections.js';
@@ -135,6 +137,7 @@ async function submitThrough(request: Request, door: Door): Promise<Response> {
     ...where,
     kind: submission.kind,
     officeId: submission.office_id ?? null,
+    submission,
   });
   if (!claim.claimed) {
     // The same id again: a double click or a retried request. The first request's answer is the

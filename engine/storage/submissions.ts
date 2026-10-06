@@ -1,7 +1,10 @@
 // The outcomes of form submissions (docs/forms.md): what Core keeps of a form a site posted. The
-// id, the kind, the record and what the CRM said, never the person.
+// id, the kind, the record and what the CRM said; and, until the CRM has taken the form, the form
+// itself, encrypted with the key of the CRM logins (question 160 a). A form the CRM refused or
+// never answered keeps it for 30 days, so it can be read and sent again.
 import { db } from './db.js';
-import type { SubmissionKind, SubmissionResult } from '../adapter-api/types.js';
+import { decrypt, encrypt } from './crypto.js';
+import type { Submission, SubmissionKind, SubmissionResult } from '../adapter-api/types.js';
 
 export type SubmissionOutcome = 'received' | 'delivered' | 'refused' | 'failed';
 
@@ -18,7 +21,23 @@ export type SubmissionRow = {
   detail: string | null;
   received_at: Date;
   answered_at: Date | null;
+  /** The form as the site sent it, encrypted; null once the CRM took it, or after 30 days. */
+  content: string | null;
 };
+
+/** How long a form the CRM did not take keeps its details (question 160 a). */
+export const KEPT_DAYS = 30;
+
+let contentKey = '';
+
+/** The key the details are encrypted with: the CRM logins' (CREDENTIALS_KEY). */
+export function configureSubmissionContent(key: string): void {
+  contentKey = key;
+}
+
+/** A kept form's details, as the site sent them; null when none are kept. */
+export const contentOf = (row: SubmissionRow): Submission | null =>
+  row.content ? (JSON.parse(decrypt(row.content, contentKey)) as Submission) : null;
 
 /** A repeated id inside this window answers the stored outcome; after it, the form is sent again. */
 export const REPEAT_WINDOW_MS = 24 * 60 * 60_000;
@@ -31,6 +50,8 @@ export type ClaimInput = {
   datatype: string | null;
   remoteId: string | null;
   officeId: string | null;
+  /** The form itself, kept encrypted until the CRM has it. */
+  submission: Submission;
 };
 
 /**
@@ -42,13 +63,13 @@ export async function claimSubmission(
   input: ClaimInput,
 ): Promise<{ claimed: true } | { claimed: false; existing: SubmissionRow }> {
   const { rows } = await db().query<SubmissionRow>(
-    `insert into submissions (id, tenant_id, connection_id, kind, datatype, remote_id, office_id, outcome)
-     values ($1, $2, $3, $4, $5, $6, $7, 'received')
+    `insert into submissions (id, tenant_id, connection_id, kind, datatype, remote_id, office_id, outcome, content)
+     values ($1, $2, $3, $4, $5, $6, $7, 'received', $9)
      on conflict (id) do update
        set tenant_id = excluded.tenant_id, connection_id = excluded.connection_id,
            kind = excluded.kind, datatype = excluded.datatype, remote_id = excluded.remote_id,
            office_id = excluded.office_id, outcome = 'received', reference = null, detail = null,
-           received_at = now(), answered_at = null
+           received_at = now(), answered_at = null, content = excluded.content
        where submissions.received_at < now() - ($8 || ' milliseconds')::interval
      returning *`,
     [
@@ -60,6 +81,7 @@ export async function claimSubmission(
       input.remoteId,
       input.officeId,
       REPEAT_WINDOW_MS,
+      encrypt(JSON.stringify(input.submission), contentKey),
     ],
   );
   if (rows[0]) return { claimed: true };
@@ -68,7 +90,7 @@ export async function claimSubmission(
   return { claimed: false, existing };
 }
 
-/** Record what the CRM said. */
+/** Record what the CRM said. A form the CRM took drops its details; any other keeps them. */
 export async function settleSubmission(id: string, result: SubmissionResult): Promise<void> {
   const reference = result.outcome === 'delivered' ? (result.reference ?? null) : null;
   const detail =
@@ -78,7 +100,9 @@ export async function settleSubmission(id: string, result: SubmissionResult): Pr
         ? result.detail
         : null;
   await db().query(
-    `update submissions set outcome = $2, reference = $3, detail = $4, answered_at = now() where id = $1`,
+    `update submissions set outcome = $2, reference = $3, detail = $4, answered_at = now(),
+       content = case when $2 = 'delivered' then null else content end
+     where id = $1`,
     [id, result.outcome, reference, detail],
   );
 }
@@ -122,8 +146,16 @@ export async function connectionsWithFailingSubmissions(): Promise<string[]> {
   return rows.map((row) => row.connection_id);
 }
 
-/** Outcomes older than the retention go, with the events that told of them. Housekeeping. */
+/**
+ * Outcomes older than the retention go, with the events that told of them, and a kept form's
+ * details go after 30 days whatever the retention. Housekeeping.
+ */
 export async function deleteExpiredSubmissions(days: number): Promise<number> {
+  await db().query(
+    `update submissions set content = null
+     where content is not null and received_at < now() - ($1 || ' days')::interval`,
+    [KEPT_DAYS],
+  );
   const { rowCount } = await db().query(
     `delete from submissions where received_at < now() - ($1 || ' days')::interval`,
     [days],
