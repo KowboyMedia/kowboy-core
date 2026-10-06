@@ -627,11 +627,14 @@ client ports (item 16, first client by question 80).
         once (`settleSwitch`, d8f24cc), and so can a login Vitec still refuses at the daily check
         or an id on the connection that no longer lists the offices. Each would be one alert per
         office. The fix: the CRM's code gives every office it takes off for one reason in one go
-        the same correlation id, and each office a `cause`, `refused` (row 20) or `chosen` (row
-        21; the switch is one); the engine tells each correlation id once, as one line naming
-        every office, its link opening Records on those offices' removed records. The Vitec part
-        went to the office thread as a spec through the coordinator (2026-10-06, 20:45 UTC).
-        Until this is built, each office is still mailed on its own.
+        the same correlation id (a spec sent to the office thread through the coordinator,
+        2026-10-06, 20:45 UTC), and the engine tells each correlation id once, as one line naming
+        every office, its link opening Records on those offices' removed records. Rows 20 and 21
+        are told apart from events Core already writes, so nothing new shows: an office taken off
+        within a week after an `office.blocked` for the same office and connection, with no
+        `office.unblocked` after it, is row 20 (still refused); any other is row 21 (by choice;
+        the switch is one). A line's level is the highest of its offices. Until this is built,
+        each office is still mailed on its own.
     - **Step 2, the Vitec side, built 2026-10-06 by the office thread** (item 24): the adapter
       logs `office.taken_off` in `takeOff` with the reason in plain words, `login.refused` once
       when a check first finds the connection's id refused, and `connect.paused` and
