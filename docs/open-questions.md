@@ -4,10 +4,39 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 161 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 162 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 161. `[crm-vitec]` Make the daily office check the only call Core sends for an office Vitec refuses?
+
+- 2026-10-06 · Patric, 13:11 (UTC): "An office that we no longer has access to, can cause vitec to
+  ban our ip, from repeated unauthorized requests. Make sure that does not happen. My best
+  suggestion is to give it a "yellow card", which prevents any calls to vitec for this office for
+  a period which increase exponentially/ exponential backoff, in the end (which is 1 day)
+  graveyard the office for x time and then delete its data automatically after x time. What is
+  your best suggestion? Remember to keep it simple".
+- What Core does today (read from the code, not measured): his yellow card is already there. The
+  first refusal blocks the office (no fetch, listing or catch-up asks for it), a probe asks again
+  after 1 h, doubling to a day (`BLOCK_BASE_MS`, `BLOCK_MAX_MS`), since question 158 b the office
+  is taken off the sites when still refused at the next daily check, and Core deletes removed
+  records by itself after 90 days (`TOMBSTONE_RETENTION_DAYS`, the housekeeping tick). What makes
+  calls pile up: the probes run per office, so a cancelled brokerage of 10 offices costs about
+  50 refused calls on the first day (10 first refusals, 4 probes each, the office checks), then 2
+  a day (the id's office list and its office groups). Vitec's limit for banning an address is not
+  known to me.
+- a) **yes** (recommended): the probes go; a blocked office stays blocked until the office check
+  says otherwise, and that check is the only call that asks about it: within a minute of the
+  first refusal, then once a day. The first refusal also holds every other fetch of that login
+  until that check has run, so a revoked login costs one refused call, not one per office. The
+  check asks for the office groups only when the id's own list answered. A cancelled brokerage
+  then costs up to about 6 refused calls on the first day (the fetches already under way, at most
+  5, and the check), then 1 a day, which also brings it back by itself if it is renewed. Taken off
+  after a day and deleted after 90 days stay as built. On the panel, the "Probe now" and "Forget"
+  buttons and the probe columns go; "Check offices now" does their job.
+- b) **keep**: as today.
+- Smaller: a (less code). Blocked: nothing. Answer a or b.
 
 ## 160. `[core]` Failed forms: how does Core keep, retry and show them?
 
