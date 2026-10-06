@@ -644,8 +644,11 @@ client ports (item 16, first client by question 80).
       when a check first finds the connection's id refused, and `connect.paused` and
       `connect.resumed` are renamed `connection.paused` and `connection.resumed`
       (`adapters/vitec/vitec.test.ts` asserts each).
-    - **Later:** a failed form submit as one more kind, once question 160 lands (the forms
-      thread); any kind beyond the list is asked first.
+    - **Later:** a form the CRM did not take (row 22) and a form it refused (row 23) as kinds,
+      linking to the Failed forms page (`/admin/forms`, built by the forms thread for 160 a). Their
+      `submission.failed` and `submission.refused` events carry the form's id as correlation id,
+      the connection and the record, never the visitor's details. Any kind beyond 164's rows is
+      asked first.
     - **Component:** `[core]`, `[admin]`.
 
 27. **Debloat the admin area** (Patric, 2026-10-06, 18:51 UTC: "We need to debloat admin";
