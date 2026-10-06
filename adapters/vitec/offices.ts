@@ -133,12 +133,7 @@ async function readOne(
   }
 }
 
-async function checkId(
-  auth: connect.Auth,
-  crmAuth: connect.Auth,
-  id: string,
-  at: string,
-): Promise<Answer<IdChecked>> {
+async function checkId(auth: connect.Auth, id: string, at: string): Promise<Answer<IdChecked>> {
   const checked: IdChecked = {
     id,
     offices: [],
@@ -163,7 +158,7 @@ async function checkId(
   // The groups only when the id's own list answered: a refused or silent id gets one call a day.
   if (checked.error !== null) return { value: checked, answered };
   try {
-    checked.groups = (await connect.officeGroups(crmAuth, id)).map(({ name, officeIds }) => ({
+    checked.groups = (await connect.officeGroups(auth, id)).map(({ name, officeIds }) => ({
       name,
       officeIds,
     }));
@@ -258,14 +253,13 @@ function choose(ids: IdChecked[]): { offices: string[]; source: Source } {
 export async function checkOffices(
   connectionId: string,
   auth: connect.Auth,
-  crmAuth: connect.Auth,
   ids: readonly string[],
 ): Promise<OfficesCheck> {
   const at = new Date().toISOString();
   const checked: IdChecked[] = [];
   let answered = true;
   for (const id of ids) {
-    const one = await checkId(auth, crmAuth, id, at);
+    const one = await checkId(auth, id, at);
     checked.push(one.value);
     answered &&= one.answered;
   }
@@ -307,7 +301,7 @@ export async function officesOf(connection: {
   return last?.environment === environment ? last.offices : [];
 }
 
-/** Make the worker's next tick check the offices, as the button "Check offices now" does. */
+/** Make the worker's next tick check the offices, as the button "Fetch offices" does. */
 export async function checkSoon(connectionId: string): Promise<void> {
   await store.setState(connectionId, 'offices_check_at', new Date(0).toISOString());
 }

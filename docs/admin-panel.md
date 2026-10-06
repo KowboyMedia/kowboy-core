@@ -144,14 +144,15 @@ and uses those in the brokerage's office group "Webbplats" in Vitec, or every of
 no such group or it holds none of them (Patric, closing question 154). The card shows the last
 check, the office groups Vitec answered, and each office with whether it reads and whether it is
 synced to the sites (question 157: the line "Reaches the sites" was removed, "I dont understand the
-purpose"). **Check offices now** asks at the worker's next tick, and its explanation sits beside
+purpose"). **Fetch offices** asks at the worker's next tick, and its explanation sits beside
 it. An office that came is loaded; one that went is tombstoned with all its records, so each site
 deletes it at its next sync, and the tombstones stay for the retention window. An office Vitec
 refuses (question 158 b) stays synced for one more day, its row saying since when, and is taken off
 when the refusal still stands at the next daily check; a refusal at any fetch makes the worker
-check within a minute. The card's note says all of this in plain words, for a reader who must tell the brokerage
-(Patric, closing question 154), including that Vitec shows office groups only to a login with
-access to its CRM part.
+check within a minute. The card's note says the rule in one paragraph of plain words, for a reader who must tell the
+brokerage (Patric, closing question 154; one paragraph, Patric 2026-10-06). The card is the only
+thing the Vitec adapter shows under a connection: the block of its schedules and fetch list went
+on 2026-10-06 (Patric: remove it); the Vitec page keeps them.
 A Vitec login can be for Vitec's QA environment, Vitec's test system (question 169 a): the login
 field **Vitec's QA environment** set to yes sends every call of that login to QA's address, and its
 records are kept apart from live Vitec's even where QA uses the same office ids. The Vitec page

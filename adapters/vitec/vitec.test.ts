@@ -751,13 +751,18 @@ describe('the Vitec adapter', () => {
     await drainFetchList();
     expect(await item('property', 'OBJ9')).toBeDefined();
 
-    // "Catch up now" makes the next tick run it; the connection's section says what the adapter knows.
+    // "Catch up now" makes the next tick run it; under the connection, only the offices Vitec lists.
     const acted = await vitecAdmin.act('catch_up', { connection: CONNECTION }, connections);
     expect(acted.message).toContain('next tick');
     expect(await store.getState(CONNECTION, 'catch_up_at')).toBe('1970-01-01T00:00:00.000Z');
-    expect(vitecAdmin.credentials.map((field) => field.label)).toContain('Connect username');
+    expect(vitecAdmin.credentials.map((field) => field.key)).toEqual([
+      'username',
+      'password',
+      'customer_id',
+      'qa',
+    ]);
     const own = await vitecAdmin.connection?.(connections[0] as Connection);
-    expect(own?.map((section) => section.title)).toContain('What Vitec knows');
+    expect(own?.map((section) => section.title)).toEqual(['Offices Vitec lists']);
   });
 
   it('fetches at most five records at once (proposal point 10)', async () => {
@@ -812,7 +817,7 @@ describe('the Vitec adapter', () => {
     fake.forbid('G9');
 
     const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
-    const check = await checkOffices(CONNECTION, auth, auth, ['G1', 'G9']);
+    const check = await checkOffices(CONNECTION, auth, ['G1', 'G9']);
 
     expect(check.ids).toEqual([
       {
@@ -863,6 +868,22 @@ describe('the Vitec adapter', () => {
     expect(await lastCheck(CONNECTION)).toEqual(check);
   });
 
+  it('uses one username and one password for every call, whatever else an old login stored', () => {
+    // A login saved before 2026-10-06 may still hold a "CRM password"; nothing reads it any more.
+    const stored = JSON.stringify({
+      username: USERNAME,
+      password: PASSWORD,
+      customer_id: 'G1',
+      crm_password: 'another',
+    });
+    expect(connect.loginOf(stored)).toEqual({
+      username: USERNAME,
+      password: PASSWORD,
+      environment: 'live',
+      customerId: 'G1',
+    });
+  });
+
   it('takes each office’s customer id from the office itself, and never syncs a group id', async () => {
     // The group's list rows leave the customer id out; each office's own record names it.
     fake.put('G1', 'office', {
@@ -884,14 +905,14 @@ describe('the Vitec adapter', () => {
     expect((await lastCheck(CONNECTION))?.offices).toEqual([]);
 
     const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
-    const check = await checkOffices(CONNECTION, auth, auth, ['G1']);
+    const check = await checkOffices(CONNECTION, auth, ['G1']);
     expect(check).toMatchObject({ offices: ['M1', 'M2'], source: 'all' });
     expect(check.ids[0]?.offices.map((office) => office.customerId)).toEqual(['M1', 'M2']);
 
     // Vitec does not answer: what is kept is the offices, never the group.
     fake.failNext(100);
     await store.setState(CONNECTION, 'offices_check', JSON.stringify(saved));
-    expect((await checkOffices(CONNECTION, auth, auth, ['G1'])).offices).toEqual([]);
+    expect((await checkOffices(CONNECTION, auth, ['G1'])).offices).toEqual([]);
   });
 
   it('uses every office when there is no group “Webbplats”, when it holds none of them, or when the login may not read the groups', async () => {
@@ -901,7 +922,7 @@ describe('the Vitec adapter', () => {
     fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2' });
     const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
     const check = (): Promise<{ offices: string[]; source: string }> =>
-      checkOffices(CONNECTION, auth, auth, ['G1']);
+      checkOffices(CONNECTION, auth, ['G1']);
 
     expect(await check()).toMatchObject({ offices: ['M1', 'M2'], source: 'all' });
 
@@ -912,7 +933,7 @@ describe('the Vitec adapter', () => {
     expect(await check()).toMatchObject({ offices: ['M2'], source: 'group' });
 
     fake.forbidGroups('G1');
-    const refused = await checkOffices(CONNECTION, auth, auth, ['G1']);
+    const refused = await checkOffices(CONNECTION, auth, ['G1']);
     expect(refused).toMatchObject({ offices: ['M1', 'M2'], source: 'all' });
     expect(refused.ids[0]?.groupsError).toBe('Vitec refuses this login its office groups');
   });
@@ -940,7 +961,7 @@ describe('the Vitec adapter', () => {
       );
     expect((await own())?.items?.[1]?.value).toBe('Webbplats (1), Övrigt (1)');
 
-    // The brokerage moves the website to the other office; "Check offices now" acts on it.
+    // The brokerage moves the website to the other office; "Fetch offices" acts on it.
     fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices: [{ id: 'M2' }] }]);
     await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
     await runSchedules();
@@ -1213,7 +1234,7 @@ describe('the Vitec adapter', () => {
     expect(last).toMatchObject({ offices: [OFFICE] });
   });
 
-  it('checks the offices at start and once a day, and "Check offices now" checks at the next tick', async () => {
+  it('checks the offices at start and once a day, and "Fetch offices" checks at the next tick', async () => {
     seed(fake);
     await start();
     const first = await lastCheck(CONNECTION);

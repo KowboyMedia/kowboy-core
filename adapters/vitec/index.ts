@@ -809,7 +809,7 @@ async function checkAndApply(current: AdapterApi, target: Live): Promise<Live> {
   const { credentials, connection } = target;
   const ids = credentials.customerId ? [credentials.customerId] : [];
   const before = await lastCheck(connection.id);
-  const check = await checkOffices(connection.id, credentials, connect.crmAuthOf(credentials), ids);
+  const check = await checkOffices(connection.id, credentials, ids);
   await noteRefusedLogin(current, connection, before, check);
   const next = { ...target, offices: check.offices };
   // The blocks first, so an office that reads again is told unblocked before it is taken off.

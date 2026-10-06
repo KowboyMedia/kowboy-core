@@ -77,9 +77,9 @@ nobody types into those fields.
 
 **The rest fixed on staging 2026-10-06** (the forms' first version, question 155 line 5): the
 seven forms fields left the Vitec connection, so nothing about forms is typed there and the
-fields that showed nothing stored and read "Yes" as no are gone. The CRM password stays, since
-the office check uses it too; like the other login fields it is never shown, and a save keeps it
-while it is left empty. The guard of question 152
+fields that showed nothing stored and read "Yes" as no are gone. The CRM password left the
+connection too on 2026-10-06 (Patric: a Vitec connection has one username and one password, used
+for every call). The guard of question 152
 replaces "Send forms to Vitec": only the live service hands a form to the CRM. The entry leaves
 this file when the fix is on production.
 

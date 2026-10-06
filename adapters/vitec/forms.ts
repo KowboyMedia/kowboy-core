@@ -217,8 +217,7 @@ async function searchProfile(sending: Sending): Promise<string | null> {
   const { login, customerId, submission } = sending;
   const criteria = submission.criteria;
   if (!criteria) throw new Error('a search profile without criteria');
-  const crmAuth = connect.crmAuthOf(login);
-  const contact = await call(sending, crmAuth, 'Contacts/UpdatePerson', {
+  const contact = await call(sending, login, 'Contacts/UpdatePerson', {
     customerId,
     firstName: submission.person.first_name,
     lastName: submission.person.last_name,
@@ -237,7 +236,7 @@ async function searchProfile(sending: Sending): Promise<string | null> {
     .filter((code): code is string => typeof code === 'string' && code !== '');
   await call(
     sending,
-    crmAuth,
+    login,
     `CRM/Contact/${segment(customerId)}/SearchProfile/Residential/${segment(contactId)}`,
     {
       subtypes: criteria.object_type ? [SUBTYPE[criteria.object_type]] : [],
