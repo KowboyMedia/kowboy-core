@@ -154,12 +154,19 @@ export type LifecycleEvent =
 export type LifecycleHandler = (event: LifecycleEvent) => Promise<void> | void;
 
 /**
+ * How much a failing check matters (questions 164 and 172): P0, Core is down for every customer;
+ * P1, one customer is disrupted; P2, someone should look at it; P3, it is only recorded.
+ */
+export type Level = 'P0' | 'P1' | 'P2' | 'P3';
+
+/**
  * One health check's answer. `detail` is for anyone: counts and plain words, never a customer's
  * name, a connection or an office id, because `/v1/health` is public (Patric, 2026-09-20,
  * question 62). What the detail counts goes in `names`, which the public answer leaves out and
- * the alerts and the panel carry.
+ * the alerts and the panel carry. `level` says how much a failing check matters; a failing check
+ * without one counts as P1 (question 172).
  */
-export type HealthResult = { ok: boolean; detail?: string; names?: string[] };
+export type HealthResult = { ok: boolean; detail?: string; names?: string[]; level?: Level };
 
 /** One HTTP route an adapter mounts itself (strategy §5.1). The engine never inspects the body. */
 export type Route = {

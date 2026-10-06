@@ -6,6 +6,8 @@
 // Adding an event type anywhere in Core means adding its line here. The one at the bottom keeps a
 // type nobody described readable rather than silent.
 import type { EventFields } from '../events.js';
+import { aboutCheck } from '../health.js';
+import { counted } from '../words.js';
 
 const text = (fields: EventFields, key: string): string | null => {
   const value = fields[key];
@@ -41,8 +43,17 @@ const FORMS: Record<string, string> = {
   viewing: 'a viewing booking',
   search_profile: 'a search profile',
 };
-const form = (fields: EventFields): string =>
+export const form = (fields: EventFields): string =>
   FORMS[text(fields, 'kind') ?? ''] ?? 'a form submission';
+
+/** An office by its name, then the CRM's id for it (docs/admin-panel.md, "The words it uses"). */
+const office = (fields: EventFields): string => {
+  const name = text(fields, 'office_name');
+  const id = text(fields, 'office_id') ?? '?';
+  return name
+    ? `office ${name} (the CRM’s office id ${id})`
+    : `the office with the CRM’s office id ${id}`;
+};
 
 const SAY: Record<string, (fields: EventFields) => string> = {
   'entity.written': (fields) => {
@@ -68,17 +79,29 @@ const SAY: Record<string, (fields: EventFields) => string> = {
   bell: (fields) =>
     `rang its sites (${text(fields, 'kind') ?? 'delta'}, ${text(fields, 'status') ?? 'sent'})`,
   pull: (fields) => `a site pulled ${String(count(fields, 'items') ?? 0)} record(s)`,
-  'alert.sent': (fields) => `alert sent: ${text(fields, 'subject') ?? 'a check changed'}`,
+  'alert.sent': (fields) => {
+    const outcomes = fields['outcomes'];
+    const by = Object.keys(outcomes && typeof outcomes === 'object' ? outcomes : {}).map(
+      (channel) => (channel === 'email' ? 'mail' : 'Slack'),
+    );
+    const subject = `“${text(fields, 'subject') ?? 'an alert'}”`;
+    return by.length > 0
+      ? `Core sent the alert ${subject} by ${by.join(' and ')}`
+      : `Core had the alert ${subject} to send, but neither mail nor Slack is set up in Settings`;
+  },
   'office.taken_off': (fields) =>
-    `office ${text(fields, 'office_id') ?? '?'} was taken off the sites: ${text(fields, 'reason') ?? 'no reason given'}`,
+    `${office(fields)} was taken off the sites, with its homes and agents: ${text(fields, 'reason') ?? 'no reason given'}`,
   'connection.paused': (fields) =>
-    `the connection paused after ${String(count(fields, 'failures') ?? 0)} failures in a row${text(fields, 'detail') ? `: ${text(fields, 'detail') ?? ''}` : ''}`,
+    `Core stopped calling the CRM for this connection for a while, after ${counted(count(fields, 'failures') ?? 0, 'failure', 'failures')} in a row${text(fields, 'detail') ? `: ${text(fields, 'detail') ?? ''}` : ''}`,
   'connection.resumed': () => 'the connection answers again',
   'login.refused': (fields) =>
-    `the CRM refuses the login: ${text(fields, 'detail') ?? 'no reason given'}`,
+    `the CRM refuses this connection’s login, so nothing is fetched for it: ${text(fields, 'detail') ?? 'no reason given'}`,
   'check.failed': (fields) =>
-    `the check ${text(fields, 'name') ?? '?'} turned red${text(fields, 'detail') ? `: ${text(fields, 'detail') ?? ''}` : ''}${names(fields)}`,
-  'check.recovered': (fields) => `the check ${text(fields, 'name') ?? '?'} is green again`,
+    `${aboutCheck(text(fields, 'name') ?? '?').title}: ${text(fields, 'detail') ?? 'the check fails'}${names(fields)}`,
+  'check.recovered': (fields) =>
+    text(fields, 'detail')
+      ? `resolved: ${text(fields, 'detail') ?? ''}`
+      : `${aboutCheck(text(fields, 'name') ?? '?').title}: passes again`,
   'job.queued': (fields) => `a run was queued (#${String(count(fields, 'job') ?? 0)})`,
   'job.done': (fields) =>
     `a run finished: ${String(count(fields, 'changed') ?? 0)} changed of ${String(count(fields, 'examined') ?? 0)}`,

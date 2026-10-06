@@ -41,18 +41,8 @@ export function redact(fields: EventFields): EventFields {
   return out;
 }
 
-/** Told of every event once it is written, in the process that wrote it; the alerts listen here. */
-export type EventListener = (event: EventRow) => void;
-
-let listener: EventListener | null = null;
-
-export function listenToEvents(next: EventListener | null): void {
-  listener = next;
-}
-
-/** The row as it will be written, its id unknown until it is. */
-const toRow = (event: EventInput): EventRow => ({
-  id: '0',
+/** The row as it will be written; the database gives it its id. */
+const toRow = (event: EventInput): Omit<EventRow, 'id'> => ({
   at: new Date(),
   type: event.type,
   correlation_id: event.correlationId ?? null,
@@ -71,9 +61,9 @@ const toRow = (event: EventInput): EventRow => ({
 export async function logEvent(event: EventInput): Promise<void> {
   const row = toRow(event);
   try {
-    const { rows } = await db().query<{ id: string }>(
+    await db().query(
       `insert into events (at, type, correlation_id, tenant_id, connection_id, datatype, remote_id, subscriber_id, fields)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`,
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
       [
         row.at,
         row.type,
@@ -86,7 +76,6 @@ export async function logEvent(event: EventInput): Promise<void> {
         JSON.stringify(row.fields),
       ],
     );
-    listener?.({ ...row, id: rows[0]?.id ?? '0' });
   } catch (error) {
     console.error('event log write failed', error);
   }

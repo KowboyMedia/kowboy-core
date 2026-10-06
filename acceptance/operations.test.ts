@@ -208,7 +208,17 @@ describe('operations', () => {
 });
 
 describe('health', () => {
-  it('is 500 while a check fails and 200 when everything passes (AC 17)', async () => {
+  /** The test site as Core last told it about changes and as it last fetched, so long ago. */
+  const site = (told: string | null, fetched: string | null): Promise<unknown> =>
+    db().query(
+      `update subscribers set
+         last_bell_at = case when $1::text is null then null else now() - $1::interval end,
+         last_pull_at = case when $2::text is null then null else now() - $2::interval end`,
+      [told, fetched],
+    );
+
+  it('is 500 only while Core is down for every customer, and 200 otherwise (AC 17, question 173)', async () => {
+    // The worker has never reported: a P0, Core is down.
     const failing = await fetch(`${running.baseUrl}/v1/health`);
     expect(failing.status).toBe(500);
     const failingBody = (await failing.json()) as {
@@ -219,30 +229,72 @@ describe('health', () => {
     expect(failingBody.checks['worker']?.ok).toBe(false);
 
     await heartbeat();
-    await pull(running.baseUrl, 'property');
-
     const passing = await fetch(`${running.baseUrl}/v1/health`);
     const passingBody = (await passing.json()) as { ok: boolean; checks: Record<string, unknown> };
     expect(passing.status).toBe(200);
     expect(passingBody.ok).toBe(true);
     expect(Object.keys(passingBody.checks)).toContain('fake-webhook.webhook_lag');
+
+    // A site behind is one customer cut off, a P1: the payload says so, the answer stays 200.
+    await site('2 hours', '3 hours');
+    const behind = await fetch(`${running.baseUrl}/v1/health`);
+    const behindBody = (await behind.json()) as {
+      ok: boolean;
+      checks: Record<string, { ok: boolean }>;
+    };
+    expect(behind.status).toBe(200);
+    expect(behindBody.ok).toBe(false);
+    expect(behindBody.checks['subscribers']?.ok).toBe(false);
   });
 
   it('answers anyone with counts and plain words, and keeps the names for the alerts (question 62)', async () => {
     await heartbeat();
-    await db().query("update subscribers set last_pull_at = now() - interval '2 hours'");
+    await site('2 hours', '3 hours');
 
     const response = await fetch(`${running.baseUrl}/v1/health`);
     const text = await response.text();
     const body = JSON.parse(text) as { checks: Record<string, { detail?: string }> };
-    expect(response.status).toBe(500);
     expect(body.checks['subscribers']).toEqual({
       ok: false,
-      detail: '1 site(s) have not pulled for an hour',
+      detail:
+        'Core told one site about changes over an hour ago, and it has not fetched them since, so it shows out-of-date homes.',
     });
     expect(text).not.toContain('test site');
 
-    expect((await healthReport()).checks['subscribers']?.names).toEqual(['test site']);
+    const report = await healthReport();
+    expect(report.checks['subscribers']?.names).toEqual(['test site']);
+    expect(report.checks['subscribers']?.level).toBe('P1');
+  });
+
+  it('finds a site behind only when Core told it about changes over an hour ago and it has not fetched since (question 172)', async () => {
+    await heartbeat();
+    const behind = async (): Promise<boolean> =>
+      !((await healthReport()).checks['subscribers']?.ok ?? true);
+
+    // A quiet site: nothing new, so it is not told, and does not fetch for hours. That is fine.
+    await site(null, '3 hours');
+    expect(await behind()).toBe(false);
+    // Told five minutes ago, after a fetch three hours ago: it has the hour to fetch.
+    await site('5 minutes', '3 hours');
+    expect(await behind()).toBe(false);
+    // Told over an hour ago and again since: the first message counts, from the event log.
+    await logEvent({
+      type: 'bell',
+      tenantId: TENANT,
+      subscriberId: 1,
+      fields: { kind: 'delta', status: 'ok' },
+    });
+    await db().query("update events set at = now() - interval '2 hours' where type = 'bell'");
+    expect(await behind()).toBe(true);
+    // A message from before its last fetch counts for nothing.
+    await site('5 minutes', '90 minutes');
+    expect(await behind()).toBe(false);
+    // It fetched after it was told.
+    await site('2 hours', '1 minute');
+    expect(await behind()).toBe(false);
+    // Told two hours ago, and it never fetched at all.
+    await site('2 hours', null);
+    expect(await behind()).toBe(true);
   });
 });
 
@@ -254,88 +306,192 @@ describe('alerts', () => {
     slackWebhookUrl: null,
   };
 
-  it('tells a change of a health check once, by mail with the names, and its recovery once', async () => {
+  /** Make a problem older, as if the round had first seen it that long ago. */
+  const aged = (key: string, by: string): Promise<unknown> =>
+    db().query(`update alert_state set since = since - $2::interval where name = $1`, [key, by]);
+
+  const behind = (): Promise<unknown> =>
+    db().query(
+      "update subscribers set last_bell_at = now() - interval '2 hours', last_pull_at = now() - interval '3 hours'",
+    );
+
+  it('tells a problem once it has lasted its wait, once, and its end once (rules A and D)', async () => {
     await heartbeat();
-    await db().query("update subscribers set last_pull_at = now() - interval '2 hours'");
+    await behind();
 
-    const red = await checkAlerts(config);
-    expect(red.map((change) => change.name)).toContain('subscribers');
+    // P1 waits 15 minutes: the problem opens, and only the event log knows.
+    expect((await checkAlerts(config)).opened).toEqual(['subscribers:1']);
+    expect(running.mails).toHaveLength(0);
+
+    await aged('subscribers:1', '16 minutes');
+    await checkAlerts(config);
     expect(running.mails).toHaveLength(1);
-    expect(running.mails[0]?.subject).toContain('1 check(s) failing');
-    expect(running.mails[0]?.text).toContain(
-      'the check subscribers turned red: 1 site(s) have not pulled for an hour (test site)',
-    );
-    expect(running.mails[0]?.text).toContain('https://core.example/v1/health');
-    // Each site it names, with its tenant and its place on the tenant's page (question 163).
-    expect(running.mails[0]?.text).toContain(
-      'site test site, tenant Test tenant: https://core.example/admin/tenants/1#site:1',
+    expect(running.mails[0]?.subject).toBe('Core test: P1 · a site is not fetching its changes');
+    expect(running.mails[0]?.text).toBe(
+      [
+        'P1 · a site is not fetching its changes',
+        'Which: site test site, of Test tenant',
+        'What happened: Core told the site about changes over an hour ago, and it has not fetched them since, so it shows out-of-date homes. Its last fetch was three hours ago. Check that the site is up and that its plugin reaches Core.',
+        'Open it: https://core.example/admin/tenants/1#site:1',
+      ].join('\n'),
     );
 
-    // Still red: told once, not every minute.
-    expect(await checkAlerts(config)).toEqual([]);
+    // Still behind: told once, not every minute.
+    await checkAlerts(config);
     expect(running.mails).toHaveLength(1);
 
     await pull(running.baseUrl, 'property');
-    const green = await checkAlerts(config);
-    expect(green).toEqual([{ name: 'subscribers', ok: true, detail: null, names: [] }]);
-    expect(running.mails[1]?.subject).toContain('all checks green again');
-    // A check turning green names no thing: the message is its sentence and the health page.
-    expect(running.mails[1]?.text).toBe(
-      'the check subscribers is green again\n\nhttps://core.example/v1/health',
+    expect((await checkAlerts(config)).closed).toEqual(['subscribers:1']);
+    expect(running.mails[1]?.subject).toBe(
+      'Core test: Resolved · a site is not fetching its changes',
+    );
+    expect(running.mails[1]?.text.split('\n')[0]).toBe(
+      'Resolved after 16 minutes · a site is not fetching its changes',
     );
 
-    // Each change is an event too, so the Overview can list a site that stopped pulling for a week.
-    const changes = await queryEvents({ type: 'check.failed' });
-    expect(changes.map((event) => event.fields)).toEqual([
+    // The start and the end are events, so the Overview lists the site for a week.
+    expect((await queryEvents({ type: 'check.failed' })).map((event) => event.fields)).toEqual([
       {
         name: 'subscribers',
-        detail: '1 site(s) have not pulled for an hour',
+        detail:
+          'Core told the site about changes over an hour ago, and it has not fetched them since, so it shows out-of-date homes. Its last fetch was three hours ago. Check that the site is up and that its plugin reaches Core.',
         names: ['test site'],
         sites: [{ id: 1, tenantId: 1, label: 'test site' }],
       },
     ]);
     expect((await queryEvents({ type: 'check.recovered' })).map((event) => event.fields)).toEqual([
-      { name: 'subscribers', detail: null, names: [] },
+      {
+        name: 'subscribers',
+        detail: 'a site is not fetching its changes (site test site, of Test tenant)',
+      },
     ]);
   });
 
-  it('tells an event that needs attention the moment it is written, naming the thing, where it is, and its link (questions 159 and 163)', async () => {
-    await logEvent({
-      type: 'office.taken_off',
-      connectionId: CONNECTION,
-      fields: { office_id: '100', reason: 'it is no longer in the office group the sites use' },
-    });
-    await until(() => running.mails.length === 1, 'the alert mail');
-    expect(running.mails[0]).toEqual({
-      to: 'ops@example.test',
-      subject: 'Core local: an office was taken off the sites',
-      text: [
-        `Which: office 100, tenant Test tenant, connection ${CONNECTION}`,
-        'What happened: office 100 was taken off the sites: it is no longer in the office group the sites use',
-        'Open it: https://core.example/admin/records?tenant=1&office=100&deleted=true',
-      ].join('\n'),
-    });
-    const sent = await queryEvents({ type: 'alert.sent' });
-    expect(sent).toHaveLength(1);
-    expect(sent[0]?.fields).toMatchObject({
-      type: 'office.taken_off',
-      outcomes: { email: 'sent' },
-    });
+  it('holds everything but a P0 while Core is down, and tells nothing of a problem that ends before its wait (rules A and B)', async () => {
+    // A site that catches up within its 15 minutes is only in the event log.
+    await heartbeat();
+    await behind();
+    await checkAlerts(config);
+    await pull(running.baseUrl, 'property');
+    expect((await checkAlerts(config)).closed).toEqual(['subscribers:1']);
+    expect(running.mails).toHaveLength(0);
+    expect(await queryEvents({ type: 'check.recovered' })).toHaveLength(1);
 
-    // An event nobody needs told about stays where it is: in the log alone. A second one that
-    // does is told again: once each, not once per kind.
-    await logEvent({ type: 'entity.unchanged', connectionId: CONNECTION, fields: {} });
+    // The worker stops reporting (a P0) while a site is behind (a P1).
+    await db().query("update heartbeats set at = now() - interval '10 minutes'");
+    await behind();
+    expect((await checkAlerts(config)).opened).toEqual(['worker', 'subscribers:1']);
+    await aged('worker', '6 minutes');
+    await aged('subscribers:1', '16 minutes');
+    await checkAlerts(config);
+    expect(running.mails).toHaveLength(1);
+    expect(running.mails[0]?.subject).toBe('Core test: P0 · Core’s worker');
+    expect(running.mails[0]?.text).toContain('Open it: https://core.example/admin/settings');
+    expect(running.mails[0]?.text).not.toContain('test site');
+
+    // Core is back: the end of the P0 and the site, held until now, go in one mail.
+    await heartbeat();
+    await checkAlerts(config);
+    expect(running.mails).toHaveLength(2);
+    expect(running.mails[1]?.subject).toBe(
+      'Core test: one problem, the worst P1; one problem resolved',
+    );
+    expect(running.mails[1]?.text).toContain('Resolved after six minutes · Core’s worker');
+    expect(running.mails[1]?.text).toContain('P1 · a site is not fetching its changes');
+  });
+
+  it('tells an event that needs attention by its level: P1 at the next round, one line per cause, P2 in the 07:00 mail (questions 163 and 164)', async () => {
+    await heartbeat();
+    // The first round starts reading the event log from now: nothing older is told again.
+    await logEvent({ type: 'login.refused', connectionId: CONNECTION, fields: { detail: 'old' } });
+    await db().query(
+      "update events set at = now() - interval '5 minutes' where type = 'login.refused'",
+    );
+    await checkAlerts(config);
+    expect(running.mails).toHaveLength(0);
+
+    // Vitec refused office 100, and a day later both offices left with one cause: one line, P1,
+    // because the CRM still refused one of them (row 20).
     await logEvent({
-      type: 'office.taken_off',
+      type: 'office.blocked',
       connectionId: CONNECTION,
-      fields: { office_id: '200', reason: 'the id on the connection no longer lists it' },
+      fields: { office_id: '100', connection_id: CONNECTION, detail: 'refused' },
     });
-    await until(() => running.mails.length === 2, 'the second alert mail');
-    expect(running.mails[1]?.text).toContain('office 200 was taken off the sites');
-    const told = await queryEvents({ type: 'alert.sent' });
-    expect(told.map((event) => event.fields['type'])).toEqual([
-      'office.taken_off',
-      'office.taken_off',
-    ]);
+    for (const [id, name] of [
+      ['100', 'Lidingö'],
+      ['200', ''],
+    ]) {
+      await logEvent({
+        type: 'office.taken_off',
+        connectionId: CONNECTION,
+        correlationId: 'check-1',
+        fields: {
+          office_id: id,
+          ...(name ? { office_name: name } : {}),
+          reason: 'the CRM still refused them at the next daily check',
+        },
+      });
+    }
+    // Paused after failures: P2, for the 07:00 mail.
+    await logEvent({
+      type: 'connection.paused',
+      connectionId: CONNECTION,
+      fields: { failures: 5, detail: 'the CRM did not answer' },
+    });
+    // A visitor's form the CRM did not take: P1, linked to Failed forms (row 22).
+    await logEvent({
+      type: 'submission.failed',
+      correlationId: 'form-1',
+      tenantId: TENANT,
+      connectionId: CONNECTION,
+      fields: { kind: 'viewing', detail: 'it did not answer within 20 seconds' },
+    });
+    // The round reads up to ten seconds ago, so an event being written is never passed over.
+    await db().query(
+      "update alert_state set since = since - interval '1 minute' where name = 'alerts:events'",
+    );
+    await db().query(
+      "update events set at = at - interval '20 seconds' where type <> 'login.refused'",
+    );
+
+    await checkAlerts(config);
+    expect(running.mails).toHaveLength(1);
+    expect(running.mails[0]?.subject).toBe('Core test: two problems, the worst P1');
+    expect(running.mails[0]?.text).toBe(
+      [
+        'P1 · an office was taken off the sites',
+        'Which: offices Lidingö (the CRM’s office id 100) and the CRM’s office id 200',
+        `Where: Test tenant’s Fake-webhook connection, short name ${CONNECTION}`,
+        'What happened: Two offices were taken off the sites, with their homes and agents: the CRM still refused them at the next daily check. Each office comes back on the sites, with its homes and agents, once this connection can read it from the CRM again.',
+        'Open it: https://core.example/admin/records?tenant=1&office=100,200&deleted=true',
+        '',
+        'P1 · a visitor’s form did not reach the CRM',
+        'Which: a viewing booking a visitor sent',
+        `Where: Test tenant’s Fake-webhook connection, short name ${CONNECTION}`,
+        'What happened: The CRM did not answer a viewing booking: it did not answer within 20 seconds. The brokerage does not have it yet. Failed forms keeps it for 30 days with what the visitor wrote; send it again there once the CRM answers.',
+        'Open it: https://core.example/admin/forms',
+      ].join('\n'),
+    );
+    const sent = await queryEvents({ type: 'alert.sent' });
+    expect(sent[0]?.fields).toMatchObject({ outcomes: { email: 'sent' } });
+
+    // Told once.
+    await checkAlerts(config);
+    expect(running.mails).toHaveLength(1);
+
+    // The next 07:00 mail carries the P2 things written since the last one.
+    await db().query(
+      "update alert_state set since = now() - interval '2 days' where name = 'alerts:morning'",
+    );
+    await checkAlerts(config);
+    expect(running.mails).toHaveLength(2);
+    expect(running.mails[1]?.subject).toBe('Core test: one thing to look at');
+    expect(running.mails[1]?.text).toContain(
+      'P2 · Core paused a connection because the CRM kept failing',
+    );
+    expect(running.mails[1]?.text).not.toContain('office');
+    // Once a day.
+    await checkAlerts(config);
+    expect(running.mails).toHaveLength(2);
   });
 });

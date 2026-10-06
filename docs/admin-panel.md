@@ -64,7 +64,7 @@ form to Failed forms, a CRM to its page.
 
 | Page                  | What it is for                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Overview**          | The verdict first: green, or which checks are red, why, and a link to where each is fixed. Then "Needs attention": the important things of the last seven days, each naming the exact office, connection or site, its tenant, and a link that opens it (`engine/attention.ts`). Then the day in figures and hourly charts, what Core holds per datatype, the sites' freshness, and any job running now.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **Overview**          | The verdict first: green, how many checks need attention now (P0 and P1), or none with amber or grey checks worth a look. Each check by its title, never its name, in its level's colour (P0 and P1 red, P2 amber, P3 grey) with the level on its badge, its sentence, the sites it finds behind as links, and a link to the page where it is put right. Then "Needs attention": the important things of the last seven days, each naming the exact office, connection, form or site, where it is, and a link that opens it (`engine/attention.ts`). Then the day in figures and hourly charts, what Core holds per datatype, the sites' freshness, and any job running now.                                                                                                                                                                                                                                                                                                             |
 | **Flow**              | One list of the records in flight, "Queued at" first and sorted by it, newest first, the hundred newest, read again every second while the page is open. The whole row is coloured by state: waiting for the CRM, in Core, on a site, error. Tenants and offices narrow it. The same list, the same component, sits on Manual sync for the scope of a run (Patric, 2026-10-06).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Records**           | Everything Core holds, narrowed by the same scope as Manual sync, live (on the sites), removed (left the CRM's list, kept 90 days) or both, sorted by any column, pages of 500 (25 to 500), a column chooser. A record's name, or its row, opens the record. Every choice is in the address, so a view is a link. Built from zero on 2026-10-06.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **Tenants**           | Tenants only. One tenant is one page and one Save: name, licence, its CRM connections, its sites. A link ending `#connection:<id>` or `#site:<id>` scrolls to that block and rings it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -278,34 +278,54 @@ drive directly.
   2026-09-20, question 63).
 - **Bells** (`engine/bells.ts`): ring every site of a tenant, or one of them, for changes or for
   everything; held while maintenance is on.
-- **Health** (`engine/health.ts`): the checks of the engine and of every adapter. `GET /v1/health`
-  is public, for an uptime monitor: 200 when every check passes, 500 when any fails, each check
-  with a detail in counts and plain words and never a customer's name (Patric, 2026-09-20,
-  question 62). The names behind a count (`names` on a check) reach the alerts and the area, not
-  the public answer.
-- **Alerts** (`engine/alerts.ts`): when a check turns red or green again, one message by mail
+- **Health** (`engine/health.ts`): the checks of the engine and of every adapter, each failing
+  one with its level (question 172): P0 Core is down for every customer, P1 one customer's sites
+  or forms are disrupted, P2 worth a look, P3 for the record only; a failing check without a level
+  counts as P1. `GET /v1/health` is public, for an uptime monitor Kowboy runs (question 173): 500
+  only while a P0 check fails, 200 otherwise, the same payload either way, each check with a
+  detail in counts and plain words and never a customer's name (Patric, 2026-09-20, question 62).
+  The names behind a count (`names` on a check) reach the alerts and the area, not the public
+  answer. The engine's checks: `database`, `schema` and `worker` P0; `subscribers` P1, failing
+  only for a site Core told about changes over an hour ago that has not fetched since;
+  `lifecycle` P2, P1 once work has waited an hour; `submissions.failing` P2. A check that throws
+  is P2, P1 after 15 minutes, and so is an adapter's check whose last report is over two minutes
+  old; both count as P3 while a P0 check fails, so one cause is one problem (rule B). The worker
+  records each adapter check for the web process without its level until question 178 is
+  answered, so the web process shows a failing adapter check as P1, while the worker's alerts use
+  its own level.
+- **Alerts** (`engine/alerts.ts`, question 164): the worker's round, once a minute. A problem is
+  a failing check, or one site the sites check finds behind; it opens when the round first sees it
+  and closes when the round no longer does, each a `check.failed` or `check.recovered` event (the
+  check's name, its detail and names, and for a site its number, tenant and name in `sites`). A P0
+  problem is told once it has lasted five minutes and a P1 once it has lasted 15, by mail
   (`ALERT_EMAIL`, through Postmark: `POSTMARK_SERVER_TOKEN`, `MAIL_FROM`) and to a Slack incoming
-  webhook (`ALERT_SLACK_WEBHOOK_URL`), with the detail, the names and a link to the health page
-  (`PUBLIC_URL`). Told once per change, never every minute; a check first seen green is not told.
-  Every change is also a `check.failed` or `check.recovered` event, with the check's name, detail
-  and names. Every send is an `alert.sent` event.
-- **Needs attention** (`engine/attention.ts`, questions 159 and 163, 2026-10-06): the few kinds
-  of event the super admin is told about. An office taken off the sites (`office.taken_off`), a
-  connection paused after failures (`connection.paused`) and a login the CRM refuses
-  (`login.refused`) are logged by the adapter through the adapter API with the connection in the
-  context; a site that stopped pulling is the `subscribers` check turning red (`check.failed`,
-  which carries the sites by number, tenant and name in `sites`). The Overview lists them for
-  seven days, newest first, one line per thing: which thing (`office Lidingö (M30011)` when the
-  event carries the office's name, else its id; `connection <id>`; `site <name>`), where it is
-  (its tenant, and the connection an office belongs to), the same sentence the Events page reads,
-  and a link that opens the thing: the office's removed records on Records, or the connection's
-  or the site's block on the tenant's page. A sites check without its sites (one written before
-  they were kept) is one line with the names the check gave, linking to Tenants. Each adapter
-  event is told once by mail and Slack the moment it is written, by the process that wrote it, in
-  three lines ("Which:", "What happened:", "Open it:" with the whole address when `PUBLIC_URL` is
-  set). A check's change goes with the checks' message above: each change's sentence, then one
-  line per site that stopped pulling with its link, then the link to the health page. The event
-  log is the one source: nothing is kept twice.
+  webhook (`ALERT_SLACK_WEBHOOK_URL`), once, and its end once if its start was told; one that ends
+  sooner is only in the event log (rules A and D). While a P0 is open only P0 problems are told,
+  and the rest wait until it ends (rule B). A P1 event on "Needs attention" is told at the next
+  round. What is due in one round goes in one message. The P2 problems that lasted 15 minutes and
+  the P2 events written since the last one go in one mail at 07:00 Stockholm time, none when
+  nothing is new; P3 stays in the event log. Each thing told reads: its level, or "Resolved after"
+  how long, and its title; "Which:" the thing; "Where:" its connection or tenant when the thing
+  does not say; "What happened:" what it means for the sites and what to do; "Open it:" its place
+  in the area, the whole address when `PUBLIC_URL` is set. Every send is one `alert.sent` event
+  with what it told.
+- **Needs attention** (`engine/attention.ts`, questions 159, 163 and 164): the few kinds of event
+  the super admin is told about, each with its level. An office taken off the sites
+  (`office.taken_off`) is P1 when the CRM still refused it within the week before, else P2; a
+  connection Core paused because the CRM kept failing (`connection.paused`) is P2; a login the CRM
+  refuses (`login.refused`) is P1; a visitor's form the CRM did not answer or refused
+  (`submission.failed`, `submission.refused`) is P1; a site that is not fetching its changes (the
+  sites check's `check.failed` for it) is P1. The adapter logs the first three through the adapter
+  API with the connection in the context, and the engine logs the rest. The Overview lists them
+  for seven days, newest first, one line per thing: its title and a sentence of what happened,
+  what it means for the sites and what to do; which thing ("office Lidingö (the CRM's office id
+  M30011)", "Acme's Vitec connection, short name acme-crm", "a viewing booking a visitor sent",
+  "site acme.se") as a link that opens it (the office's removed records on Records, the
+  connection's or the site's block on the tenant's page, Failed forms); and where it is (the
+  connection an office or a form came through, a site's tenant). The offices one cause took off
+  share a correlation id and are one line. A sites check without its sites (one written before
+  they were kept) is one line with the names the check gave, linking to Tenants. The event log is
+  the one source: nothing is kept twice.
 - **Form submissions** (`engine/http/submissions.ts`, docs/forms.md): `POST /v1/submissions` hands
   a site's form to the connection's adapter and answers what the CRM said; `GET
 /v1/submissions/slots` reads a home's viewings and slots live. The outcomes table keeps the id,
@@ -359,11 +379,15 @@ never inspects what they mean, and no CRM is named in `engine/` or in `admin/src
 enforces both.
 
 Three event types an adapter logs through `logEvent` reach the Overview's "Needs attention" and
-an alert (`engine/attention.ts`, question 159): `office.taken_off` with `office_id`, `office_name`
-when the adapter knows it (the office's record is removed by then) and `reason` in plain words,
-`connection.paused` with `failures` and `detail`, and `login.refused` with `detail`, each with the
-connection in the context so the engine finds the tenant. Any other event an adapter logs stays in
-the log.
+an alert (`engine/attention.ts`, questions 159 and 164): `office.taken_off` with `office_id`,
+`office_name` when the adapter knows it (the office's record is removed by then) and `reason` in
+plain words, `connection.paused` with `failures` and `detail`, and `login.refused` with `detail`,
+each with the connection in the context so the engine finds the tenant. The offices one cause
+takes off share one correlation id, so they are one line and one alert. An office taken off is P1
+when the adapter logged `office.blocked` for it on that connection, with no `office.unblocked`
+after, within the week before. The `reason` and `detail` are read by a cold reader in the alert
+and on the Overview: they say why in plain words, and what to do when only the CRM's side can put
+it right. Any other event an adapter logs stays in the log.
 
 ## How it is built
 

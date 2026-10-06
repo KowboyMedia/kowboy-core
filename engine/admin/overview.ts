@@ -2,13 +2,12 @@
 // then the sites. One call, because a dashboard that loads in eight requests feels like eight
 // pages.
 import { db } from '../storage/db.js';
-import { healthReport } from '../health.js';
+import { aboutCheck, healthReport, sitesBehind, SITES_CHECK, type About } from '../health.js';
 import { itemCounts } from '../storage/items.js';
 import { subscribers, tenants } from '../storage/connections.js';
 import { openJobs } from '../jobs.js';
 import { inMaintenance } from '../storage/settings.js';
 import { attention, type AttentionRow } from '../attention.js';
-import { summarise } from './summary.js';
 
 /** The event types the day's chart counts, in the order the legend shows them. */
 export const COUNTED = ['entity.written', 'pull', 'bell', 'site.applied', 'site.failed'] as const;
@@ -30,14 +29,17 @@ export type SiteRow = {
 };
 
 /** One thing that needs attention, as the Overview lists it (attention.ts). */
-export type NeedsAttention = Omit<AttentionRow, 'at' | 'fields' | 'kind'> & {
+export type NeedsAttention = Omit<AttentionRow, 'at' | 'kind' | 'ids' | 'level'> & {
   at: string;
   title: string;
-  said: string;
 };
 
 export type Overview = {
   health: Awaited<ReturnType<typeof healthReport>>;
+  /** Each check's title and the page where it is put right: the Overview never shows its name. */
+  about: Record<string, About>;
+  /** The things a failing check names, each a link to its place: the sites the sites check finds behind. */
+  links: Record<string, { label: string; to: string }[]>;
   maintenance: boolean;
   attention: NeedsAttention[];
   tenants: { total: number; active: number };
@@ -80,25 +82,41 @@ async function day(): Promise<Overview['day']> {
 }
 
 export async function overview(): Promise<Overview> {
-  const [health, maintenance, needs, allTenants, counts, figures, sites, jobs] = await Promise.all([
-    healthReport(),
-    inMaintenance(),
-    attention(),
-    tenants(),
-    itemCounts(),
-    day(),
-    subscribers(),
-    openJobs(),
-  ]);
+  const [health, behind, maintenance, needs, allTenants, counts, figures, sites, jobs] =
+    await Promise.all([
+      healthReport(),
+      sitesBehind(),
+      inMaintenance(),
+      attention(),
+      tenants(),
+      itemCounts(),
+      day(),
+      subscribers(),
+      openJobs(),
+    ]);
   const names = new Map(allTenants.map((tenant) => [tenant.id, tenant.display_name]));
   return {
     health,
+    about: Object.fromEntries(Object.keys(health.checks).map((name) => [name, aboutCheck(name)])),
+    links: {
+      [SITES_CHECK]: behind.map((site) => ({
+        label: `${site.label}, of ${names.get(site.tenantId) ?? 'an unknown tenant'}`,
+        to: `/tenants/${String(site.tenantId)}#site:${String(site.id)}`,
+      })),
+    },
     maintenance,
-    attention: needs.map(({ at, fields, kind, ...row }) => ({
-      ...row,
-      at: at.toISOString(),
-      title: kind.title,
-      said: summarise(row.type, fields),
+    attention: needs.map((row) => ({
+      key: row.key,
+      id: row.id,
+      at: row.at.toISOString(),
+      type: row.type,
+      title: row.kind.title,
+      said: row.said,
+      what: row.what,
+      where: row.where,
+      link: row.link,
+      tenantId: row.tenantId,
+      tenant: row.tenant,
     })),
     tenants: { total: allTenants.length, active: allTenants.filter((t) => t.active).length },
     records: counts.map((count) => ({

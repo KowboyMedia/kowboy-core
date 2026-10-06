@@ -608,8 +608,15 @@ client ports (item 16, first client by question 80).
       the check is already red is neither told nor listed, because the check changes once; 164's
       rule A, built per thing, closes it.
     - **Step 3, the levels P0 to P3 (164 in concept; 172 ok and 173 answered 2026-10-06, 20:56 and
-      20:57 UTC; in progress since):** the levels, the rules A to E, 164's rows, 172's checks and
-      173's outside ping are in `docs/decisions.md`. The plan, engine first (this thread):
+      20:57 UTC; the engine's part built on staging the same evening, except what waits on 178):**
+      the levels, the rules A to E, 164's rows, 172's checks and 173's outside ping are in
+      `docs/decisions.md`. Each line and each alert says what happened, what it means for the
+      sites and what to do (AGENTS.md, definition of done item 5); an alert tells each thing as its
+      level and title, "Which:", "Where:", "What happened:" and "Open it:". Waiting on 178: the
+      `level` column (until then the web process shows a CRM's failing check as P1, while the
+      worker's alerts use its level), the level on `check.failed` and its new event when a problem
+      moves up a level, the level on each line of "Needs attention", and the P2 problems that
+      ended before 07:00 in that mail. The plan, engine first (this thread):
       - A check's result carries its `level`, the adapter interface's one optional word; a failing
         check without one counts as P1. The engine's own: database, schema and worker P0;
         subscribers P1, red only for a site rung more than an hour ago that has not pulled since
@@ -628,8 +635,10 @@ client ports (item 16, first client by question 80).
         is told in the start's words, marked resolved; one mail conversation per problem (mail
         headers) comes later.
       - The events that need attention (`office.taken_off`, `connection.paused`,
-        `login.refused`) are read by the worker's round from the event log, after the last one
-        it read, instead of being told by the process that wrote them: `office.taken_off` is P1
+        `login.refused`, and the forms' `submission.failed` and `submission.refused`, rows 22 and
+        23, P1, linked to Failed forms) are read by the worker's round from the event log, after
+        the last one it read and up to ten seconds ago, instead of being told by the process that
+        wrote them: `office.taken_off` is P1
         when still refused (row 20, the `office.blocked` rule below), else P2; `connection.paused`
         P2 (the mail at the pause stops; the Vitec check `vitec.connect` makes it P1 after an
         hour); `login.refused` P1. The offices of one correlation id are one line, at the
@@ -647,7 +656,8 @@ client ports (item 16, first client by question 80).
         on each line of "Needs attention").
       - Then, by spec through the coordinator: the Vitec code gives each check its level, splits
         `vitec.catch_up` in three and makes catching up after a restart P3 (172); the forms code
-        keeps `submissions.failing` as it is (P2 in the engine), and rows 22 and 23 come later.
+        keeps `submissions.failing` as it is (P2 in the engine), and rows 22 and 23 are the forms'
+        own events (built with 165 no, 417d91b).
         Rows (164): 1 database P0; 2 database version
         P0; 3 worker P0; 4 loading queue (the `lifecycle` check) P2, P1 after an hour; 5 alerts not
         sent P1, told through the other channel; 6 manual sync failed P3; 7 site not pulling P1; 8
@@ -674,8 +684,7 @@ client ports (item 16, first client by question 80).
         `office.blocked` and `office.unblocked` once per connection that syncs the office, and
         settles the blocks before taking offices off (agreed with the office thread, 20:50 UTC). A
         line's level is the highest of its offices, so a switch made while one of its offices is
-        in its day of grace goes out as P1. Until this is built, each office is still mailed on
-        its own.
+        in its day of grace goes out as P1. Built on staging with the levels.
     - **Step 2, the Vitec side, built 2026-10-06 by the office thread** (item 24): the adapter
       logs `office.taken_off` in `takeOff` with the reason in plain words, `login.refused` once
       when a check first finds the connection's id refused, and `connect.paused` and

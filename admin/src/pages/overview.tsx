@@ -13,7 +13,21 @@ import { useLive } from '@/lib/live';
 import { SERIES } from '@/lib/series';
 import { ago, count, moment } from '@/lib/format';
 
-type Check = { ok: boolean; detail?: string; names?: string[] };
+/** How much a failing check matters: P0 Core is down, P1 a customer is cut off, P2 worth a look, P3 for the record. */
+type Level = 'P0' | 'P1' | 'P2' | 'P3';
+
+type Check = { ok: boolean; detail?: string; names?: string[]; level?: Level };
+
+/** A failing check's colour by its level (question 172): an alert is red, worth a look amber. */
+const TONE: Record<Level, 'bad' | 'warn' | 'muted'> = {
+  P0: 'bad',
+  P1: 'bad',
+  P2: 'warn',
+  P3: 'muted',
+};
+
+/** A failing check without a level counts as P1. */
+const levelOf = (check: Check): Level => check.level ?? 'P1';
 
 type SiteRow = {
   id: number;
@@ -33,16 +47,20 @@ type NeedsAttention = {
   type: string;
   title: string;
   said: string;
-  /** The thing itself, in words, and its place in the admin area. */
+  /** The thing itself, in words, its place in the admin area, and where it is when it does not say. */
   what: string;
   link: string;
+  where: string | null;
   tenantId: number | null;
   tenant: string | null;
-  connectionId: string | null;
 };
 
 type Overview = {
   health: { ok: boolean; checks: Record<string, Check> };
+  /** Each check's title and the page where it is put right. */
+  about: Record<string, { title: string; page: { to: string; label: string } }>;
+  /** The things a failing check names, each a link to its place. */
+  links: Record<string, { label: string; to: string }[]>;
   maintenance: boolean;
   attention: NeedsAttention[];
   tenants: { total: number; active: number };
@@ -57,21 +75,6 @@ type Overview = {
   }[];
 };
 
-/** What each health check is about, so a red one says where to go. */
-const WHERE: Record<string, { to: string; label: string }> = {
-  worker: { to: '/settings', label: 'Settings' },
-  subscribers: { to: '/tenants', label: 'Tenants' },
-  lifecycle: { to: '/flow', label: 'Flow' },
-  database: { to: '/settings', label: 'Settings' },
-  schema: { to: '/settings', label: 'Settings' },
-};
-
-/** Where a thing that needs attention is: its tenant and connection, when it has them. */
-const where = (row: NeedsAttention): string =>
-  [row.tenant && `tenant ${row.tenant}`, row.connectionId && `connection ${row.connectionId}`]
-    .filter((part) => part)
-    .join(', ');
-
 /** Fetched when this page opens, so the charting library never weighs on the rest of the app. */
 const DayChart = lazy(() => import('@/components/day-chart'));
 
@@ -81,7 +84,10 @@ export function Overview() {
   // An answer that has not arrived is an empty object, not undefined, so every read is guarded.
   const data = result?.data;
   const checks = Object.entries(data?.health?.checks ?? {});
-  const red = checks.filter(([, check]) => !check.ok);
+  const failing = checks.filter(([, check]) => !check.ok);
+  // The line above the checks counts the alerts only: P0 and P1 (question 172).
+  const red = failing.filter(([, check]) => TONE[levelOf(check)] === 'bad');
+  const amber = failing.filter(([, check]) => levelOf(check) === 'P2');
 
   const perDatatype = new Map<string, number>();
   for (const row of data?.records ?? []) {
@@ -119,36 +125,60 @@ export function Overview() {
               <>
                 <Badge tone="ok">All green</Badge> Everything Core checks is working.
               </>
+            ) : red.length > 0 ? (
+              <>
+                <Badge tone="bad">{red.length} red</Badge> Something needs attention now.
+              </>
             ) : (
               <>
-                <Badge tone="bad">{red.length} red</Badge> Something needs attention.
+                <Badge tone="ok">No alerts</Badge>
+                {amber.length > 0
+                  ? 'Nothing needs attention now; the amber checks below are worth a look.'
+                  : 'Nothing needs attention now; the grey checks below are only for the record.'}
               </>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {checks.map(([name, check]) => (
-              <div
-                key={name}
-                className="flex flex-col gap-1 rounded-md border p-3"
-                data-testid={`check-${name}`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{name}</span>
-                  <Badge tone={check.ok ? 'ok' : 'bad'}>{check.ok ? 'ok' : 'red'}</Badge>
+            {checks.map(([name, check]) => {
+              const about = data?.about?.[name];
+              const links = data?.links?.[name] ?? [];
+              return (
+                <div
+                  key={name}
+                  className="flex flex-col gap-1 rounded-md border p-3"
+                  data-testid={`check-${name}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">{about?.title ?? name}</span>
+                    <Badge tone={check.ok ? 'ok' : TONE[levelOf(check)]}>
+                      {check.ok ? 'ok' : levelOf(check)}
+                    </Badge>
+                  </div>
+                  {check.detail && <p className="text-sm text-muted-foreground">{check.detail}</p>}
+                  {links.length > 0 ? (
+                    <p className="flex flex-wrap gap-x-3 text-xs">
+                      {links.map((link) => (
+                        <Link key={link.to} className="underline" to={link.to}>
+                          {link.label}
+                        </Link>
+                      ))}
+                    </p>
+                  ) : (
+                    check.names &&
+                    check.names.length > 0 && (
+                      <p className="text-xs text-muted-foreground">{check.names.join('; ')}</p>
+                    )
+                  )}
+                  {!check.ok && about && (
+                    <Link className="text-sm underline" to={about.page.to}>
+                      Go to {about.page.label}
+                    </Link>
+                  )}
                 </div>
-                {check.detail && <p className="text-sm text-muted-foreground">{check.detail}</p>}
-                {check.names && check.names.length > 0 && (
-                  <p className="text-xs text-muted-foreground">{check.names.join('; ')}</p>
-                )}
-                {!check.ok && WHERE[name] && (
-                  <Link className="text-sm underline" to={WHERE[name]?.to ?? '/'}>
-                    Go to {WHERE[name]?.label}
-                  </Link>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -158,9 +188,12 @@ export function Overview() {
           <CardTitle>Needs attention</CardTitle>
           <CardDescription>
             The important things of the last seven days: an office taken off the sites, a connection
-            paused after failures, a login the CRM refuses, and a site that stopped pulling. Each
-            line names the exact office, connection or site, and its name opens it. Each one was
-            also sent once by mail and Slack, where Settings says those are set.
+            Core paused because the CRM kept failing, a login the CRM refuses, a visitor’s form that
+            did not reach the CRM or that the CRM refused, and a site that is not fetching its
+            changes. Each line names the exact thing, and its name opens it. A refused login, a
+            form, a site, and an office the CRM still refused when it was taken off went out by mail
+            and Slack within a quarter of an hour; the rest are in the mail at 07:00. Settings says
+            where mail and Slack go.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -185,7 +218,7 @@ export function Overview() {
                     <Link className="font-medium underline" to={row.link}>
                       {row.what}
                     </Link>
-                    {where(row) && <p className="text-xs text-muted-foreground">{where(row)}</p>}
+                    {row.where && <p className="text-xs text-muted-foreground">{row.where}</p>}
                   </>
                 ),
               },

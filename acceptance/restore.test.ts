@@ -159,7 +159,7 @@ describe('restore (AC 41)', () => {
     expect(health.ok).toBe(false);
     expect(health.checks['someone.catch_up']).toMatchObject({
       ok: false,
-      detail: expect.stringContaining('no report for'),
+      detail: expect.stringContaining('has not run this check for'),
     });
     expect((await fetch(`${running.baseUrl}/v1/ready`)).status).toBe(200);
   });

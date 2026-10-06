@@ -20,8 +20,9 @@ npm run start:web             # subscriber API, health, adapter endpoints
 npm run start:worker          # adapter background work, bells, housekeeping
 ```
 
-Migrations run at startup. `GET /v1/health` is public, for an uptime monitor: 200 when every
-check passes, 500 when any fails, each check explained in counts and plain words. The admin area
+Migrations run at startup. `GET /v1/health` is public, for an uptime monitor: 500 only while
+Core is down for every customer (a P0 check fails), 200 otherwise, each check explained in counts
+and plain words. The admin area
 is `/admin` on the web process, built into `dist/admin` by the same `npm run build`
 ([docs/admin-panel.md](docs/admin-panel.md)); `ADMIN_EMAILS` (addresses) and
 `ADMIN_EMAIL_DOMAINS` (whole domains) say who may open it, and a sign-in link is mailed to an
@@ -80,8 +81,8 @@ pushes, then Create. From then on nobody, agent or human, gets code into `stagin
 except through a pull request with green checks.
 
 **Restoring the database:** restore it in DigitalOcean, restart the app, nothing else (strategy
-§7.2). `/v1/health` stays red until every adapter has caught up; send no `forcerefresh` to a site
-while it is red. The platform's own probe is `/v1/ready`, which only asks whether the process can
+§7.2). Until every adapter has caught up, `/v1/health` answers `ok: false` with an adapter's check
+saying it is catching up; send no `forcerefresh` to a site until that check passes. The platform's own probe is `/v1/ready`, which only asks whether the process can
 serve, so a deploy is never held up by a site or an adapter.
 
 ## Checking it
