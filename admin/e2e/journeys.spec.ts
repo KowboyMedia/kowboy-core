@@ -262,14 +262,24 @@ test('journey: failed forms — read a form the CRM did not take, and send it ag
   await expect(form.getByText('Anna Svensson')).toBeVisible();
   await expect(form.getByText('anna@example.se')).toBeVisible();
   await expect(form.getByText('Hej! Jag vill gärna veta mer om bostaden.')).toBeVisible();
-  await expect(form.getByText('Det här är en testsida', { exact: false })).toBeVisible();
-  await expect(form.getByRole('link', { name: 'OBJ-1' })).toBeVisible();
+  // Core's own hold outside production says so in words, not in the site's Swedish answer.
+  await expect(form.getByText('Held back', { exact: true })).toBeVisible();
+  await expect(
+    form.getByText('Held back: only production sends forms to a CRM', { exact: false }),
+  ).toBeVisible();
+  // The home by its address, then the CRM's id for it.
+  await expect(form.getByRole('link', { name: 'Storgatan 12' })).toBeVisible();
+  await expect(form.getByText('the CRM’s id OBJ-1', { exact: false })).toBeVisible();
 
   // The button says beside it what it does, and asks before it sends.
-  await expect(form.getByText('Sends this form to the CRM again.', { exact: false })).toBeVisible();
+  await expect(
+    form.getByText('Sends this form to the CRM once more.', { exact: false }),
+  ).toBeVisible();
   await form.getByRole('button', { name: 'Send again' }).click();
   await page.getByRole('button', { name: 'Send it' }).click();
-  await expect(page.getByText('Refused again:', { exact: false })).toBeVisible();
+  await expect(
+    page.getByText('Held back again: only production sends forms to a CRM.', { exact: false }),
+  ).toBeVisible();
   await expect(form).toHaveCount(1);
 });
 

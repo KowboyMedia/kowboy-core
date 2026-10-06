@@ -115,10 +115,11 @@ export async function settleSubmission(id: string, result: SubmissionResult): Pr
  */
 export async function keptSubmissions(
   unansweredMs: number,
-): Promise<(SubmissionRow & { tenant: string })[]> {
-  const { rows } = await db().query<SubmissionRow & { tenant: string }>(
-    `select s.*, t.display_name as tenant
+): Promise<(SubmissionRow & { tenant: string; provider: string | null })[]> {
+  const { rows } = await db().query<SubmissionRow & { tenant: string; provider: string | null }>(
+    `select s.*, t.display_name as tenant, c.provider
      from submissions s join tenants t on t.id = s.tenant_id
+       left join connections c on c.id = s.connection_id
      where s.content is not null
        and (s.outcome in ('refused', 'failed')
             or (s.outcome = 'received'

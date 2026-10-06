@@ -181,14 +181,18 @@ function parseSubmission(request: Request): Parsed {
   return { submission: body as Submission };
 }
 
+/** Why a form cannot go, as a key, so the admin area can say it in its own words. */
+export type Refusal =
+  'foreign' | 'gone' | 'office' | 'which-office' | 'no-office' | 'paused' | 'kind';
+
 type Routed =
   | { connection: Connection; send: NonNullable<Adapter['submit']> }
-  | { status: number; error: string };
+  | { status: number; error: string; why: Refusal };
 
 /** The connection the submission goes through, and the adapter that takes this kind. */
 async function route(tenantId: number, submission: Submission): Promise<Routed> {
   const found = await findConnection(tenantId, submission);
-  if ('error' in found) return { status: 400, error: found.error };
+  if ('error' in found) return { status: 400, error: found.error, why: found.why };
   if (found.officeId && !submission.office_id) submission.office_id = found.officeId;
 
   const { connection } = found;
@@ -198,12 +202,13 @@ async function route(tenantId: number, submission: Submission): Promise<Routed> 
     return {
       status: 501,
       error: `this tenant's CRM takes no ${submission.kind.replace('_', ' ')}`,
+      why: 'kind',
     };
   }
   return { connection, send: handlers.submit };
 }
 
-type Found = { connection: Connection; officeId?: string } | { error: string };
+type Found = { connection: Connection; officeId?: string } | { error: string; why: Refusal };
 
 /**
  * Which connection the submission goes through: the record's for an interest or a viewing; for a
@@ -213,7 +218,7 @@ async function findConnection(tenantId: number, submission: Submission): Promise
   if (submission.record) {
     const connection = await connectionById(submission.record.connection_id);
     if (!connection || connection.tenantId !== tenantId) {
-      return { error: 'the record is not one of this tenant’s' };
+      return { error: 'the record is not one of this tenant’s', why: 'foreign' };
     }
     const item = await readItem({
       tenantId,
@@ -221,7 +226,7 @@ async function findConnection(tenantId: number, submission: Submission): Promise
       datatype: submission.record.datatype,
       remoteId: submission.record.remote_id,
     });
-    if (!item || item.deleted) return { error: 'no such record' };
+    if (!item || item.deleted) return { error: 'no such record', why: 'gone' };
     const found = usable(connection);
     return 'error' in found || !item.office_id ? found : { ...found, officeId: item.office_id };
   }
@@ -235,7 +240,7 @@ async function connectionForOffice(tenantId: number, officeId: string): Promise<
   const offices = await officesOfTenant(tenantId);
   const match = offices.find((office) => office.officeId === officeId);
   const connection = match ? await connectionById(match.connectionId) : null;
-  if (!connection) return { error: 'the office is not one of this tenant’s' };
+  if (!connection) return { error: 'the office is not one of this tenant’s', why: 'office' };
   return usable(connection);
 }
 
@@ -243,16 +248,18 @@ async function connectionForOffice(tenantId: number, officeId: string): Promise<
 async function connectionForOnlyOffice(tenantId: number): Promise<Found> {
   const offices = await officesOfTenant(tenantId);
   const distinct = new Set(offices.map((office) => office.officeId));
-  if (distinct.size > 1) return { error: 'office_id is required: this tenant has several offices' };
+  if (distinct.size > 1)
+    return { error: 'office_id is required: this tenant has several offices', why: 'which-office' };
   const only = offices[0];
   const connection = only ? await connectionById(only.connectionId) : null;
-  if (!only || !connection) return { error: 'this tenant has no office to receive it' };
+  if (!only || !connection)
+    return { error: 'this tenant has no office to receive it', why: 'no-office' };
   const found = usable(connection);
   return 'error' in found ? found : { ...found, officeId: only.officeId };
 }
 
 const usable = (connection: Connection): Found =>
-  connection.active ? { connection } : { error: 'the connection is paused' };
+  connection.active ? { connection } : { error: 'the connection is paused', why: 'paused' };
 
 /**
  * Ask the adapter, and count no answer in time, or an error, as a failure. Never throws. The send
@@ -348,7 +355,8 @@ function answerFrom(answer: Answer): Response {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** What a person's "Send again" got: the CRM's answer, or why nothing was sent. */
-export type SentAgain = { answer: Answer } | { status: number; error: string };
+export type SentAgain =
+  { answer: Answer } | { status: number; error: string; why: Refusal | 'no-form' | 'on-its-way' };
 
 /**
  * "Send again" in the admin area (question 160 a): a form Core keeps goes to its tenant's CRM
@@ -359,11 +367,17 @@ export type SentAgain = { answer: Answer } | { status: number; error: string };
 export async function sendAgain(id: string): Promise<SentAgain> {
   const row = UUID.test(id) ? await submissionById(id) : null;
   const submission = row ? contentOf(row) : null;
-  if (!row || !submission) return { status: 404, error: 'Core keeps no such form.' };
+  if (!row || !submission)
+    return { status: 404, error: 'Core keeps no such form.', why: 'no-form' };
   const routed = await route(row.tenant_id, submission);
-  if ('error' in routed) return { status: 409, error: `Not sent: ${routed.error}.` };
+  if ('error' in routed)
+    return { status: 409, error: `Not sent: ${routed.error}.`, why: routed.why };
   if (!(await claimAgain(id, UNANSWERED_MS))) {
-    return { status: 409, error: 'This form is on its way to the CRM now, or the CRM took it.' };
+    return {
+      status: 409,
+      error: 'This form is on its way to the CRM now, or the CRM took it.',
+      why: 'on-its-way',
+    };
   }
   const { connection, send } = routed;
   const result = await deliver(send, connection, submission);

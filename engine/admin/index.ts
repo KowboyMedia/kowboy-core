@@ -42,8 +42,7 @@ import {
   type ScopeInput,
 } from './runs.js';
 import { scopeFromBody, scopeFromQuery, scopeOptions } from './scope.js';
-import { auditSentAgain, failedForms } from './forms.js';
-import { sendAgain } from '../http/submissions.js';
+import { auditSentAgain, failedForms, sendAgainAsked } from './forms.js';
 import { listTenants, readTenant, removeTenant, saveTenant, type TenantInput } from './tenants.js';
 import {
   body,
@@ -491,7 +490,7 @@ const routes: AdminRoute[] = [
     path: '/forms/:id/send-again',
     handler: async (request) => {
       const id = request.params['id'] ?? '';
-      const sent = await sendAgain(id);
+      const sent = await sendAgainAsked(id);
       if ('error' in sent) return fail(sent.status, sent.error);
       await auditSentAgain(request.session, id, sent.answer.outcome);
       return one(sent.answer);
