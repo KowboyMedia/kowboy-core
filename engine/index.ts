@@ -22,7 +22,8 @@ import { purgeTombstones } from './storage/items.js';
 import { changes } from './http/changes.js';
 import { applied } from './http/applied.js';
 import { siteError } from './http/errors.js';
-import { botCheck, configureSubmissions, slots, submit } from './http/submissions.js';
+import { botCheck, slots, submit } from './http/submissions.js';
+import { configureLiveService } from './registry.js';
 import { configureHumanCheck, turnstile } from './human.js';
 import { configureSubmissionContent, deleteExpiredSubmissions } from './storage/submissions.js';
 import { configureCompression, jsonResponse, startServer, type RouteTable } from './http/server.js';
@@ -94,8 +95,9 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
       ? turnstile(config.turnstileSiteKey, config.turnstileSecret)
       : null,
   );
-  // Forms reach a CRM only from the live service (question 152); staging and local stop before it.
-  configureSubmissions({ live: config.environment === 'production' });
+  // Only the live service writes to a CRM (question 152); staging and local stop before it, in
+  // the registry, the one place the engine gets an adapter's send.
+  configureLiveService({ live: config.environment === 'production' });
 
   const routes: RouteTable = [
     ...adminRoutes(),

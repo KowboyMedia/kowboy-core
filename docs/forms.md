@@ -996,9 +996,15 @@ staging when it is done:
   en testsida, så formuläret skickades inte vidare till mäklaren.", which the window shows. The
   id is claimed and the chain `submission.received`, `submission.refused` is logged as on the
   live service; reading a viewing's times is a read and still asks the CRM. No setting: staging
-  reads a real brokerage's office, so no switch can open it. `configureSubmissions` in
-  `engine/http/submissions.ts`, set in `engine/index.ts`; the test harness's Core sends, since its
-  CRMs are stand-ins, and the guard's own test turns that off (`acceptance/submissions.test.ts`).
+  reads a real brokerage's office, so no switch can open it. The guard sits in
+  `registerSubmissions` in `engine/registry.ts`: the engine never imports adapter code (the seam,
+  checked on every change), so the registry is the one place it gets a CRM's send, and it keeps
+  only the guarded one. A site's form, "Send again" and any way to a CRM added later pass it
+  without anyone putting it there; it moved there from the form route on 2026-10-06, when Patric
+  asked that the circuit breaker be central and not depend on finding every use.
+  `configureLiveService` sets it in `engine/index.ts`; the test harness's Core sends, since its
+  CRMs are stand-ins, and the guard's own tests turn that off (`acceptance/submissions.test.ts`,
+  one of them a send by another way than the form route).
 - **The bot check** (155 lines 3 and 6; known bug 4): `GET /v1/submissions/bot-check` answers the
   site's server, with its token, the check's provider and public key (`{ "human": { "provider":
 "turnstile", "site_key": … } }`, or `null` without a check). `POST /v1/submissions` reads the

@@ -8,14 +8,9 @@ import { fakePollingAdapter, poll } from '../adapters/fake-polling/index.js';
 import { fakeWebhookAdapter } from '../adapters/fake-webhook/index.js';
 import * as crm from '../adapters/fake-polling/crm.js';
 import { queryEvents } from '../engine/events.js';
-import { createTenant, upsertConnection } from '../engine/storage/connections.js';
+import { connectionById, createTenant, upsertConnection } from '../engine/storage/connections.js';
 import { validateSlots } from '../engine/contract.js';
-import {
-  configureSubmissions,
-  NOT_LIVE,
-  SUBMISSIONS_PER_MINUTE,
-  UNANSWERED_MS,
-} from '../engine/http/submissions.js';
+import { sendAgain, SUBMISSIONS_PER_MINUTE, UNANSWERED_MS } from '../engine/http/submissions.js';
 import { db } from '../engine/storage/db.js';
 import {
   claimAgain,
@@ -25,7 +20,13 @@ import {
   type SubmissionRow,
 } from '../engine/storage/submissions.js';
 import type { FailedForm } from '../engine/admin/forms.js';
-import { registerSubmissions } from '../engine/registry.js';
+import type { Submission } from '../engine/adapter-api/types.js';
+import {
+  configureLiveService,
+  NOT_LIVE,
+  registerSubmissions,
+  submissionsFor,
+} from '../engine/registry.js';
 import { configureHumanCheck } from '../engine/human.js';
 
 const CONNECTION = 'polling-acme';
@@ -501,7 +502,7 @@ describe('submissions', () => {
   });
 
   it('a Core that is not the live service refuses every form before any CRM call, and the visitor reads that it was not sent', async () => {
-    configureSubmissions({ live: false });
+    configureLiveService({ live: false });
     // Every call the engine makes to the stand-in's send goes through this.
     const send = vi.fn(fakePollingAdapter.submit);
     registerSubmissions(fakePollingAdapter.manifest.provider, {
@@ -524,9 +525,43 @@ describe('submissions', () => {
     expect(chain.map((event) => event.type)).toEqual(['submission.received', 'submission.refused']);
     expect(chain[1]?.fields).toMatchObject({ kind: 'interest', reason: NOT_LIVE });
 
+    // The other way a form reaches a CRM, "Send again" in the admin area, passes the same step:
+    // the kept form is refused again with the same reason, and the CRM is never called.
+    expect(await sendAgain(body['id'] as string)).toEqual({
+      answer: { id: body['id'], outcome: 'refused', reference: null, detail: NOT_LIVE },
+    });
+    expect(send).not.toHaveBeenCalled();
+    expect(crm.formsTaken()).toHaveLength(0);
+
     // Reading a viewing's times is no write, so it still asks the CRM.
     crm.setShowings(HOME, []);
     expect((await slots({ connection_id: CONNECTION, remote_id: HOME })).status).toBe(200);
+  });
+
+  it('every way the engine sends to a CRM takes the CRM’s send from one place, which stops it outside the live service, so a send by any other way never reaches the CRM', async () => {
+    configureLiveService({ live: false });
+    const send = vi.fn(fakePollingAdapter.submit);
+    registerSubmissions(fakePollingAdapter.manifest.provider, {
+      ...fakePollingAdapter,
+      submit: send,
+    });
+    const connection = await connectionById(CONNECTION);
+    if (!connection) throw new Error('the stand-in connection is missing');
+    const form = submission('interest', { record }) as unknown as Submission;
+
+    // A way to the CRM that is neither a site's form nor "Send again", as a retry or a button
+    // added later would be: it takes the send from the registry, the only place the engine can
+    // get it, and calls it with none of the form route's steps around it.
+    const another = submissionsFor(fakePollingAdapter.manifest.provider)?.submit;
+    expect(await another?.(connection, form)).toEqual({ outcome: 'refused', reason: NOT_LIVE });
+    expect(send).not.toHaveBeenCalled();
+    expect(crm.formsTaken()).toHaveLength(0);
+
+    // The same call on the live service reaches the CRM, so what stopped it is the guard.
+    configureLiveService({ live: true });
+    expect(await another?.(connection, form)).toMatchObject({ outcome: 'delivered' });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(crm.formsTaken()).toHaveLength(1);
   });
 
   it('the site’s server reads the bot check’s key, and a form without the window’s proof or with a failed one is refused before any CRM call, as is every form on a live Core without the check', async () => {

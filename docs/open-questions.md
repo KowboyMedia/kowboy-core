@@ -285,10 +285,15 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   site's request (`submit` in `engine/adapter-api/types.ts`); it cannot read a form Core keeps
   afterwards, nor tell Core how a retry ended. The interface is protected (`AGENTS.md`, "Stop and
   ask"), and 155's line 4 kept it as built.
-- a) **yes** (recommended): two additions any CRM's code may use: read the forms Core keeps for
-  one of its connections, with their details; and tell Core how one ended (delivered, refused,
-  failed for good). The Vitec code and the stand-in keep each form's id and its next try in their
-  own tables, not the details, which stay in Core, encrypted.
+- 2026-10-06 · Option a changed at 20:20 (UTC), after Patric asked that the guard be central
+  (19:29): the retry no longer reads a form's details out of Core. It asks Core to send the form
+  again, through the one step every send to a CRM passes, which stops it outside the live
+  service (`registerSubmissions` in `engine/registry.ts`).
+- a) **yes** (recommended): two additions any CRM's code may use: ask Core to send a form it
+  keeps again, which Core does as "Send again" does and answers with what the CRM said; and tell
+  Core when one failed for good. The Vitec code and the stand-in keep each form's id and its next
+  try in their own tables. The details never leave Core, and a CRM's code never sends a form by
+  itself, so a retry passes the guard like every other send.
 - b) **no**: the interface stays as built; no automatic retry, as 160 b: a form the CRM did not
   take is kept 30 days and listed with "Send again".
 - Smaller: b. Blocked: the retry of 160 a; the rest of 160 a is built either way. Answer a or b.

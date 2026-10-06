@@ -8,8 +8,13 @@ import { configureHumanCheck, type HumanCheck } from '../engine/human.js';
 import { db } from '../engine/storage/db.js';
 import { addSubscriber, createTenant, upsertConnection } from '../engine/storage/connections.js';
 import { deliverLifecycleEvents } from '../engine/lifecycle.js';
-import { clearRegistry, registerAdmin, registerSubmissions } from '../engine/registry.js';
-import { configureSubmissions, resetSubmissionLimits } from '../engine/http/submissions.js';
+import {
+  clearRegistry,
+  configureLiveService,
+  registerAdmin,
+  registerSubmissions,
+} from '../engine/registry.js';
+import { resetSubmissionLimits } from '../engine/http/submissions.js';
 import type { Adapter } from '../engine/adapter-api/types.js';
 
 // The engine's operations an adapter's tests drive, re-exported so those tests import the harness
@@ -89,7 +94,7 @@ export async function harness(options: {
   // The stand-in CRMs are no brokerage, so this Core sends forms as the live service does, behind
   // the stand-in bot check; the guard's own test turns that off (question 152).
   const asLive = (): void => {
-    configureSubmissions({ live: true });
+    configureLiveService({ live: true });
     configureHumanCheck(HUMAN_CHECK);
   };
   asLive();

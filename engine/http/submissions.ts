@@ -23,7 +23,7 @@ import {
 import { logEvent } from '../events.js';
 import { report } from '../errors.js';
 import { humanCheck, verifyHuman } from '../human.js';
-import { manifestFor, submissionsFor } from '../registry.js';
+import { isLiveService, manifestFor, submissionsFor } from '../registry.js';
 import { jsonResponse, type Request, type Response } from './server.js';
 import type {
   Adapter,
@@ -48,19 +48,6 @@ export const UNANSWERED_MS = 2 * SUBMISSION_TIMEOUT_MS;
 
 /** Who came in: the tenant, and the site when it is known. */
 type Door = { tenantId: number; subscriberId: number | null };
-
-/**
- * Whether this Core hands forms to the CRM. Only the live service does (question 152): staging
- * reads a real brokerage's office, so a form tried there must never reach it. Everywhere else a
- * form goes all the way to the CRM call and stops there, refused with this reason.
- */
-let live = false;
-export const NOT_LIVE =
-  'Det här är en testsida, så formuläret skickades inte vidare till mäklaren.';
-
-export function configureSubmissions(settings: { live: boolean }): void {
-  live = settings.live;
-}
 
 const recent = new Map<number, number[]>();
 
@@ -100,7 +87,7 @@ export async function submit(request: Request): Promise<Response> {
  */
 async function checkHuman(request: Request): Promise<Response | null> {
   if (!humanCheck()) {
-    if (!live) return null;
+    if (!isLiveService()) return null;
     report(new Error('a form was refused: the bot check is not set up'), { where: 'submission' });
     return jsonResponse(503, { error: 'the bot check is not set up' });
   }
@@ -268,15 +255,15 @@ const usable = (connection: Connection): Found =>
   connection.active ? { connection } : { error: 'the connection is paused' };
 
 /**
- * Ask the adapter, and count no answer in time, or an error, as a failure. Never throws. Outside
- * the live service the adapter is never asked.
+ * Ask the adapter, and count no answer in time, or an error, as a failure. Never throws. The send
+ * is the one the registry keeps, which outside the live service refuses before the adapter is
+ * asked (the guard, `registerSubmissions` in engine/registry.ts).
  */
 async function deliver(
   send: NonNullable<Adapter['submit']>,
   connection: Connection,
   submission: Submission,
 ): Promise<SubmissionResult> {
-  if (!live) return { outcome: 'refused', reason: NOT_LIVE };
   try {
     return await withinTime(send(connection, submission), SUBMISSION_TIMEOUT_MS);
   } catch (error) {

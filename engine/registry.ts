@@ -7,6 +7,7 @@ import type {
   Manifest,
   Mapper,
   Mappers,
+  SubmissionResult,
 } from './adapter-api/types.js';
 
 /**
@@ -58,12 +59,42 @@ export function adminProviders(): string[] {
 }
 
 /**
+ * Whether this Core is the live service, the only one that writes to a CRM (question 152):
+ * staging reads a real brokerage's office, so nothing tried there may reach it. Set once at
+ * start from the environment's name; a Core never told stays off.
+ */
+let live = false;
+export const NOT_LIVE =
+  'Det här är en testsida, så formuläret skickades inte vidare till mäklaren.';
+
+export function configureLiveService(settings: { live: boolean }): void {
+  live = settings.live;
+}
+
+export const isLiveService = (): boolean => live;
+
+/**
  * What an adapter does with a form submission. Registered for both roles like the admin: the
  * web process answers a site's form inside the request (the departure approved with question
  * 130), and the engine hands the submission on without reading what the CRM makes of it.
+ *
+ * The guard sits here. The engine never imports adapter code (the seam, checked on every
+ * change), so this is the one place it gets an adapter's `submit`, and the registry keeps only
+ * the guarded one: outside the live service it answers refused with `NOT_LIVE` and the adapter
+ * is never called. A site's form, "Send again" and any way to a CRM added later all pass it
+ * without anyone putting it there. Reading a viewing's times is no write and is not guarded.
  */
 export function registerSubmissions(provider: string, handlers: SubmissionHandlers): void {
-  submissionHandlers.set(provider, { submit: handlers.submit, slots: handlers.slots });
+  const { submit, slots } = handlers;
+  submissionHandlers.set(provider, {
+    submit:
+      submit &&
+      ((connection, submission) =>
+        live
+          ? submit(connection, submission)
+          : Promise.resolve<SubmissionResult>({ outcome: 'refused', reason: NOT_LIVE })),
+    slots,
+  });
 }
 
 export function submissionsFor(provider: string): SubmissionHandlers | null {
@@ -91,11 +122,12 @@ export function registeredHealthChecks(): Map<string, () => Promise<HealthResult
   return healthChecks;
 }
 
-/** Test helper: a fresh process has an empty registry. */
+/** Test helper: a fresh process has an empty registry, and is not the live service. */
 export function clearRegistry(): void {
   registrations.clear();
   lifecycleHandlers.clear();
   healthChecks.clear();
   admins.clear();
   submissionHandlers.clear();
+  live = false;
 }
