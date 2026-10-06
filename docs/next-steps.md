@@ -622,6 +622,16 @@ client ports (item 16, first client by question 80).
       in its day of grace P2; 20 office taken off, still refused P1; 21 office taken off by choice
       P2; 22 form not taken after a day of retries P1; 23 form refused by the CRM P1; 24 a check
       that cannot run P2, P1 after 15 minutes.
+      - **One cause, many offices (rule B), a case raised 2026-10-06:** a login switched between
+        live Vitec and its QA environment takes every office of its last check off the sites at
+        once (`settleSwitch`, d8f24cc), and so can a login Vitec still refuses at the daily check
+        or an id on the connection that no longer lists the offices. Each would be one alert per
+        office. The fix: the CRM's code gives every office it takes off for one reason in one go
+        the same correlation id, and each office a `cause`, `refused` (row 20) or `chosen` (row
+        21; the switch is one); the engine tells each correlation id once, as one line naming
+        every office, its link opening Records on those offices' removed records. The Vitec part
+        went to the office thread as a spec through the coordinator (2026-10-06, 20:45 UTC).
+        Until this is built, each office is still mailed on its own.
     - **Step 2, the Vitec side, built 2026-10-06 by the office thread** (item 24): the adapter
       logs `office.taken_off` in `takeOff` with the reason in plain words, `login.refused` once
       when a check first finds the connection's id refused, and `connect.paused` and
