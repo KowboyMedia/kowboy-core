@@ -9,7 +9,7 @@ import * as connect from '../api.js';
 import * as store from '../store.js';
 import { mappers } from '../mappers.js';
 import { directions } from './directions.js';
-import { lastCheck, officesOf, WEBSITE_GROUP, type OfficesCheck } from '../offices.js';
+import { checkSoon, lastCheck, officesOf, type OfficesCheck } from '../offices.js';
 import type {
   AdapterAdmin,
   AdminAction,
@@ -240,7 +240,7 @@ const ACTIONS: Record<string, (params: Record<string, string>) => Promise<string
   },
   check_offices: async ({ connection }) => {
     if (!connection) throw new Error('which connection?');
-    await store.setState(connection, 'offices_check_at', LONG_AGO);
+    await checkSoon(connection);
     return `${connection} asks Vitec for its offices at the worker’s next tick; reload the page in a minute to see the answer.`;
   },
   resume: async ({ connection }) => {
@@ -329,36 +329,42 @@ async function officeFor(
   return offices[0] ?? null;
 }
 
-/** What reaches the sites, in words, from the last check. */
-function reachText(check: OfficesCheck | null): AdminValue {
-  if (!check) return { text: 'not checked yet', state: 'muted' };
-  const count = check.offices.length;
-  const groupFound = check.ids.some((checked) =>
-    checked.groups.some((group) => group.name.trim().toLowerCase() === WEBSITE_GROUP),
-  );
-  const refused = check.ids.find((checked) => checked.groupsError)?.groupsError;
-  switch (check.source) {
-    case 'group':
-      return { text: `the ${count} office(s) in the group “Webbplats”`, state: 'ok' };
-    case 'all':
-      return {
-        text: `every office (${count}): ${
-          refused
-            ? `${refused}, so the group “Webbplats” cannot be read`
-            : groupFound
-              ? 'the group “Webbplats” holds none of these offices'
-              : 'there is no group “Webbplats” in Vitec'
-        }`,
-        state: 'ok',
+/** A Swedish date and time for a sentence: `2026-10-06 14:31`, Stockholm time. */
+const when = (iso: string): string =>
+  new Date(iso)
+    .toLocaleString('sv-SE', {
+      timeZone: 'Europe/Stockholm',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    .replace(',', '');
+
+/** The last check's time, carrying the warning when Vitec did not answer it. */
+function lastCheckText(check: OfficesCheck | null): AdminValue {
+  if (!check) return moment(null);
+  if (check.source !== 'kept') return moment(check.at);
+  return check.offices.length > 0
+    ? {
+        text: `${when(check.at)}: Vitec did not answer, so the offices of the last answer stay synced and Core asks again within the hour`,
+        state: 'warn',
+      }
+    : { text: `${when(check.at)}: Vitec has listed no office that reads`, state: 'bad' };
+}
+
+/** A refused office's cell: since when, and what follows (question 158 b). */
+function refusedText(since: string, synced: boolean): AdminValue {
+  return synced
+    ? {
+        text: `no: Vitec refuses this login since ${when(since)}; taken off the sites if still refused at the next daily check`,
+        state: 'warn',
+      }
+    : {
+        text: `no: Vitec refuses this login since ${when(since)}; taken off the sites`,
+        state: 'bad',
       };
-    case 'kept':
-      return count > 0
-        ? {
-            text: `the ${count} office(s) of the last answer: Vitec did not answer this time, and Core asks again within the hour`,
-            state: 'warn',
-          }
-        : { text: 'nothing yet: Vitec has not given an office that reads', state: 'bad' };
-  }
 }
 
 /** The office groups Vitec answered, by name, or why there are none. */
@@ -381,7 +387,19 @@ async function officesSection(connection: Connection): Promise<AdminSection> {
   const synced = new Set(check?.offices ?? []);
   const rows = (check?.ids ?? []).flatMap((checked) =>
     checked.error
-      ? [{ cells: [checked.id, { text: checked.error, state: 'bad' as const }, null, null, null] }]
+      ? [
+          {
+            cells: [
+              checked.id,
+              checked.refusedSince
+                ? refusedText(checked.refusedSince, synced.size > 0)
+                : { text: checked.error, state: 'bad' as const },
+              null,
+              null,
+              null,
+            ],
+          },
+        ]
       : checked.offices.map((office) => ({
           cells: [
             checked.id,
@@ -389,21 +407,22 @@ async function officesSection(connection: Connection): Promise<AdminSection> {
             office.name,
             office.readable
               ? { text: 'yes', state: 'ok' as const }
-              : { text: office.detail ?? 'no', state: 'bad' as const },
+              : office.refusedSince
+                ? refusedText(office.refusedSince, synced.has(office.customerId))
+                : { text: office.detail ?? 'no', state: 'bad' as const },
             synced.has(office.customerId),
           ],
         })),
   );
   return {
     title: 'Offices Vitec lists',
-    help: 'Which offices reach this tenant’s sites is decided in Vitec, not here. Once a day, Core asks Vitec which offices sit behind the customer or group id above and reads each one with this login. If the brokerage has made an office group called “Webbplats” in Vitec and put some of those offices in it, only those offices reach the sites. If there is no such group, or it holds none of these offices, every office does. So, to choose which offices show on the website, the brokerage makes the office group “Webbplats” in Vitec and puts the website’s offices in it; nothing is changed here. When an office leaves the group, or Vitec stops letting this login read it, everything of that office (its homes, its agents and the office itself) is taken off the sites at the next check. Each site deletes it when it next updates, and Core remembers the removal, so a site that was offline deletes it too. One more thing: Vitec only shows office groups to a login that also has access to its CRM part, which Vitec grants separately (with its own password, typed below as the CRM password when Vitec issued one). Without that access Core cannot see any group and uses every office.',
+    help: 'Which offices reach this tenant’s sites is decided in Vitec, not here. Once a day, Core asks Vitec which offices sit behind the customer or group id above and reads each one with this login. If the brokerage has made an office group called “Webbplats” in Vitec and put some of those offices in it, only those offices reach the sites. If there is no such group, or it holds none of these offices, every office does. So, to choose which offices show on the website, the brokerage makes the office group “Webbplats” in Vitec and puts the website’s offices in it; nothing is changed here. When an office leaves the group, everything of that office (its homes, its agents and the office itself) is taken off the sites at the next check. When Vitec stops letting this login read an office, for example after a cancelled subscription, Core checks again within a minute and keeps the office on the sites for one more day; if Vitec still refuses it at the next daily check, everything of that office is taken off the sites in the same way. Each site deletes it when it next updates, and Core remembers the removal, so a site that was offline deletes it too. One more thing: Vitec only shows office groups to a login that also has access to its CRM part, which Vitec grants separately (with its own password, typed below as the CRM password when Vitec issued one). Without that access Core cannot see any group and uses every office.',
     items: [
-      { label: 'Last check', value: moment(check?.at ?? null) },
-      { label: 'Reaches the sites', value: reachText(check) },
+      { label: 'Last check', value: lastCheckText(check) },
       { label: 'Office groups in Vitec', value: groupsText(check) },
     ],
     table: {
-      columns: ['Id typed', 'Office', 'Name', 'Readable with this login', 'On the sites'],
+      columns: ['Id typed', 'Office', 'Name', 'Readable with this login', 'Synced to the sites'],
       rows,
       empty: 'Not checked yet: the first check runs at the worker’s next tick.',
     },
@@ -411,7 +430,7 @@ async function officesSection(connection: Connection): Promise<AdminSection> {
       {
         id: 'check_offices',
         label: 'Check offices now',
-        help: 'Asks Vitec now, instead of waiting for the daily check, which offices sit behind the id and which are in the group “Webbplats”, and acts on the answer: an office that came is loaded, and one that went is taken off the sites. Press it after the brokerage changed its offices or its group “Webbplats” in Vitec. It runs within a minute; reload the page to see the answer.',
+        help: 'Asks Vitec now, instead of waiting for the daily check, which offices sit behind the id and which are in the group “Webbplats”, and acts on the answer: an office that came is loaded, one that left the group is taken off the sites, and one Vitec refuses is taken off once the refusal has stood a day. Press it after the brokerage changed its offices or its group “Webbplats” in Vitec. It runs within a minute; reload the page to see the answer.',
         params: { connection: connection.id },
       },
     ],

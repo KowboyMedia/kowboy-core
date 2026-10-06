@@ -538,10 +538,12 @@ client ports (item 16, first client by question 80).
       Vitec (the manifest's `officesFromCrm`), a save stores the list empty, and the engine reads
       it as empty, so a list typed before (the svenskamaklarhuset.se tenant's `G12`, which had kept
       every record out as unlicensed) no longer counts; the card's note was rewritten in plainer
-      words (Patric: "This description doesnt make sense at all"). Open: question 157 (the three
-      card lines added without a question) and Patric's ask of 12:15 (UTC) that an office Vitec
-      stops letting the login read is taken off the sites and told to the super admin as an
-      important event.
+      words (Patric: "This description doesnt make sense at all").
+    - **Step 4, done 2026-10-06** (157 and 158 b): the card loses "Reaches the sites" and names
+      the column "Synced to the sites"; an office Vitec refuses stays synced for a day of grace,
+      its row saying since when, and is taken off when the refusal still stands at the next daily
+      check; a refusal at any fetch makes the worker check within a minute. Telling the super
+      admin is item 26.
     - **Component:** `[crm-vitec]`, and `[core]` for the reversed save rule.
 
 25. **Check that every admin button explains itself beside it** (Patric, 2026-10-06: "make note of
@@ -551,6 +553,20 @@ client ports (item 16, first client by question 80).
     (`admin/src/components/adapter-sections.tsx`, `SectionTable`) show their help only as a
     hover title, and the confirm dialogs show it only once opened. The fix for the table rows is
     a change to what a person sees, so it is asked as its own line before it is built.
+
+26. **Notifications for the super admin** (Patric, 2026-10-06, closes question 159 with a: "Make
+    sure we have some kind of notification system, with sufficient high level results in an
+    alert. This is a new feature, add it outside of this scope."). An event for every office taken
+    off the sites (the tenant, the office, why: it left the group "Webbplats", or Vitec refuses
+    it); a section "Needs attention" on the Overview listing the important events of the last
+    seven days (an office taken off, a connection paused after failures, a login refused, a site
+    that stopped pulling), each with a link; and each such event sent once by mail and Slack where
+    `ALERT_EMAIL` and `ALERT_SLACK_WEBHOOK_URL` are set, as the red checks are today
+    (`engine/alerts.ts`). Its own thread: what counts as important beyond those four, the words of
+    each line and of the alert, and any line beyond 159 a's list are asked before they are built.
+    Until it is built, an office taken off the sites shows only on the tenant's page, in the card
+    "Offices Vitec lists".
+    - **Component:** `[core]`, `[admin]`.
 
 ## Later, when Patric supplies them
 

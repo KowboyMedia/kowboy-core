@@ -752,20 +752,36 @@ describe('the Vitec adapter', () => {
       {
         id: 'G1',
         error: null,
+        refusedSince: null,
         groups: [],
         groupsError: null,
         offices: [
-          { customerId: 'M1', officeId: 'FIR1', name: 'Kontor 1', readable: true, detail: null },
+          {
+            customerId: 'M1',
+            officeId: 'FIR1',
+            name: 'Kontor 1',
+            readable: true,
+            detail: null,
+            refusedSince: null,
+          },
           {
             customerId: 'M2',
             officeId: 'FIR2',
             name: null,
             readable: false,
             detail: 'Vitec refuses this login',
+            refusedSince: check.at,
           },
         ],
       },
-      { id: 'G9', error: 'Vitec refuses this login', groups: [], groupsError: null, offices: [] },
+      {
+        id: 'G9',
+        error: 'Vitec refuses this login',
+        refusedSince: check.at,
+        groups: [],
+        groupsError: null,
+        offices: [],
+      },
     ]);
     // Only the office that reads is synced, and nothing but reads went to Vitec.
     expect(check).toMatchObject({ offices: ['M1'], source: 'all' });
@@ -825,10 +841,7 @@ describe('the Vitec adapter', () => {
       (await vitecAdmin.connection?.(await connection()))?.find(
         (section) => section.title === 'Offices Vitec lists',
       );
-    expect((await own())?.items?.[1]?.value).toEqual({
-      text: 'the 1 office(s) in the group “Webbplats”',
-      state: 'ok',
-    });
+    expect((await own())?.items?.[1]?.value).toBe('Webbplats (1), Övrigt (1)');
 
     // The brokerage moves the website to the other office; "Check offices now" acts on it.
     fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices: [{ id: 'M2' }] }]);
@@ -887,12 +900,94 @@ describe('the Vitec adapter', () => {
     expect(fake.forms).toHaveLength(0);
   });
 
+  it('keeps an office Vitec refuses for a day of grace, then takes it off, the whole id too; a refusal at a fetch checks within a minute', async () => {
+    seed(fake);
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
+    fake.put('M2', 'property', estate('OBJ2', 'M2'));
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
+    await drainFetchList();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE, 'M2'], source: 'all' });
+    const check = async (): Promise<void> => {
+      await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+      await runSchedules();
+      await drainFetchList();
+    };
+    /** Move the first refusal back in time, as a day's checks would find it. */
+    const age = async (hours: number): Promise<void> => {
+      const stored = JSON.parse((await store.getState(CONNECTION, 'offices_check')) ?? '{}');
+      const since = new Date(Date.now() - hours * 3_600_000).toISOString();
+      for (const id of stored.ids) {
+        if (id.refusedSince) id.refusedSince = since;
+        for (const office of id.offices) if (office.refusedSince) office.refusedSince = since;
+      }
+      await store.setState(CONNECTION, 'offices_check', JSON.stringify(stored));
+    };
+    const cell = async (row: number): Promise<unknown> =>
+      (await vitecAdmin.connection?.(await connection()))?.find(
+        (section) => section.title === 'Offices Vitec lists',
+      )?.table?.rows[row]?.cells[3];
+
+    // Vitec refuses one office: still synced, and the row says since when and what follows.
+    fake.forbid('M2');
+    await check();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE, 'M2'], source: 'all' });
+    expect((await item('property', 'OBJ2'))?.['deleted']).toBe(false);
+    expect(await cell(1)).toMatchObject({
+      text: expect.stringContaining('taken off the sites if still refused at the next daily check'),
+      state: 'warn',
+    });
+
+    // The refusal has stood a day: the office goes, with everything of it.
+    await age(25);
+    await check();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE], source: 'all' });
+    expect((await item('property', 'OBJ2'))?.['deleted']).toBe(true);
+    expect((await item('office', 'M2'))?.['deleted']).toBe(true);
+    expect(await cell(1)).toMatchObject({ state: 'bad' });
+
+    // The whole id is refused (a cancelled subscription): a day of grace, then every office goes.
+    fake.forbid('G1');
+    await check();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE] });
+    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
+    await age(25);
+    await check();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [] });
+    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
+    expect((await item('office', OFFICE))?.['deleted']).toBe(true);
+    expect(fake.forms).toHaveLength(0);
+  });
+
+  it('checks the offices at the next tick after a refusal at a fetch', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    fake.forbid(OFFICE);
+    fake.put(OFFICE, 'property', estate('OBJ2'));
+    await notify('OBJ2');
+    await drainFetchList();
+    expect(await store.getState(CONNECTION, 'offices_check_at')).toBe(new Date(0).toISOString());
+    await runSchedules();
+    const last = await lastCheck(CONNECTION);
+    expect(last?.ids[0]?.refusedSince).toBeTruthy();
+    expect(last).toMatchObject({ offices: [OFFICE] });
+  });
+
   it('checks the offices at start and once a day, and "Check offices now" checks at the next tick', async () => {
     seed(fake);
     await start();
     const first = await lastCheck(CONNECTION);
     expect(first?.ids[0]?.offices).toEqual([
-      { customerId: OFFICE, officeId: OFFICE, name: 'Kontor 1', readable: true, detail: null },
+      {
+        customerId: OFFICE,
+        officeId: OFFICE,
+        name: 'Kontor 1',
+        readable: true,
+        detail: null,
+        refusedSince: null,
+      },
     ]);
     expect(first).toMatchObject({ offices: [OFFICE], source: 'all' });
 

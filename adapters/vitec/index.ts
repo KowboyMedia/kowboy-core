@@ -30,7 +30,7 @@ import * as store from './store.js';
 import * as forms from './forms.js';
 import { changedAtOf, isoDate, mappers, referencedIds } from './mappers.js';
 import { refetchOffice, vitecAdmin } from './admin/index.js';
-import { CHECK_EVERY_MS, checkOffices, officesOf } from './offices.js';
+import { CHECK_EVERY_MS, checkOffices, checkSoon, officesOf } from './offices.js';
 import { DATATYPES } from '../../engine/adapter-api/index.js';
 import type {
   Adapter,
@@ -208,7 +208,10 @@ async function resumeDue(targets: Live[]): Promise<void> {
   }
 }
 
-/** Vitec refused an office: block it at once, once. */
+/**
+ * Vitec refused an office: block it at once, once, and have the next tick check the offices, so a
+ * cancelled office is seen within a minute and taken off the sites a day later (question 158 b).
+ */
 async function blockOffice(
   current: AdapterApi,
   live: Live,
@@ -217,6 +220,7 @@ async function blockOffice(
 ): Promise<void> {
   const fresh = await store.blockOffice(officeId, detail, BLOCK_BASE_MS, BLOCK_MAX_MS);
   if (!fresh) return;
+  await checkSoon(live.connection.id);
   await current.logEvent(
     'office.blocked',
     { office_id: officeId, connection_id: live.connection.id, detail },
