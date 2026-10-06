@@ -37,12 +37,25 @@ import * as connect from './api.js';
 import * as store from './store.js';
 import * as forms from './forms.js';
 import { changedAtOf, isoDate, mappers, referencedIds } from './mappers.js';
-import { hookPath, officeLabel, refetchOffice, vitecAdmin } from './admin/index.js';
+import { hookPath, refetchOffice, vitecAdmin } from './admin/index.js';
+import {
+  agree,
+  connectionNamed,
+  counted,
+  failureInWords,
+  lasting,
+  officeNamed,
+  recordNamed,
+  sentence,
+  when,
+} from './words.js';
 import {
   CHECK_EVERY_MS,
   checkOffices,
   checkSoon,
   lastCheck,
+  NO_SUCH_OFFICE,
+  OFFICE_REFUSED,
   officesOf,
   type OfficesCheck,
 } from './offices.js';
@@ -67,6 +80,8 @@ const CATCH_UP_OVERLAP_MS = 3_600_000;
 const CATCH_UP_LIMIT_MS = 13 * 3_600_000;
 const COMPARE_EVERY_MS = 24 * 3_600_000;
 const LAG_LIMIT_MS = 5 * 60_000;
+/** A notification waiting this long, or a connection paused this long, matters at once (172). */
+const URGENT_AFTER_MS = 3_600_000;
 const RETRIES_RED = 3;
 /** A connection pauses after this many failures in a row on Vitec's side. */
 const PAUSE_AFTER = 5;
@@ -145,20 +160,29 @@ async function live(current: AdapterApi): Promise<Live[]> {
 
 // ---- The guards: a paused connection, a blocked office ----------------------------------------
 
-type Pause = { failures: number; pausedUntil: number | null; pauseMs: number; probing: boolean };
+type Pause = {
+  failures: number;
+  pausedUntil: number | null;
+  pauseMs: number;
+  probing: boolean;
+  /** When the first pause of this run of failures began; null once Vitec answered again. */
+  pausedSince: number | null;
+};
 
 async function pauseOf(connectionId: string): Promise<Pause> {
-  const [failures, until, pauseMs, probing] = await Promise.all([
+  const [failures, until, pauseMs, probing, since] = await Promise.all([
     store.getState(connectionId, 'failures'),
     store.getState(connectionId, 'paused_until'),
     store.getState(connectionId, 'pause_ms'),
     store.getState(connectionId, 'probing'),
+    store.getState(connectionId, 'paused_since'),
   ]);
   return {
     failures: Number(failures ?? 0),
     pausedUntil: until ? new Date(until).getTime() : null,
     pauseMs: Number(pauseMs ?? PAUSE_BASE_MS),
     probing: probing === '1',
+    pausedSince: since ? new Date(since).getTime() : null,
   };
 }
 
@@ -166,7 +190,7 @@ const paused = (pause: Pause): boolean =>
   pause.pausedUntil !== null && pause.pausedUntil > Date.now();
 
 /** A call failed on Vitec's side: count it, and pause the connection at PAUSE_AFTER in a row. */
-async function noteFailure(current: AdapterApi, live: Live, detail: string): Promise<void> {
+async function noteFailure(current: AdapterApi, live: Live, error: unknown): Promise<void> {
   const id = live.connection.id;
   // Fetches fail side by side, so the count and the pause are both settled in the database.
   const failures = await store.increment(id, 'failures');
@@ -175,24 +199,31 @@ async function noteFailure(current: AdapterApi, live: Live, detail: string): Pro
   if (paused(pause)) return;
   const until = new Date(Date.now() + pause.pauseMs);
   if (!(await store.setIfEmpty(id, 'paused_until', until.toISOString()))) return;
+  await store.setIfEmpty(id, 'paused_since', new Date().toISOString());
   await store.setState(id, 'pause_ms', String(Math.min(pause.pauseMs * 2, PAUSE_MAX_MS)));
   await store.setState(id, 'probing', '');
+  const detail = `the last call failed because ${failureInWords(error)}. Core asks Vitec nothing for this connection until ${when(until)}, then tries again by itself and waits longer after each new failure, at most ${lasting(PAUSE_MAX_MS)}. Until Vitec answers, the sites keep showing the homes as they are, and changes wait. Nothing needs doing while Vitec is down. Once Vitec answers again, “Ask Vitec again now” on the Vitec page starts at once.`;
   await current.logEvent(
     'connection.paused',
     { connection_id: id, failures, until: until.toISOString(), detail },
     { connectionId: id },
   );
-  current.report(new Error('vitec connection paused'), { connection_id: id, failures, detail });
+  current.report(new Error('vitec connection paused'), {
+    connection_id: id,
+    failures,
+    detail: String(error),
+  });
 }
 
 /** Vitec answered: the run of failures ends, and a probing connection is back for good. */
 async function noteSuccess(current: AdapterApi, live: Live): Promise<void> {
   const id = live.connection.id;
   const pause = await pauseOf(id);
-  if (pause.failures === 0 && !pause.probing) return;
+  if (pause.failures === 0 && !pause.probing && pause.pausedSince === null) return;
   await store.setState(id, 'failures', '0');
   await store.setState(id, 'pause_ms', String(PAUSE_BASE_MS));
   await store.setState(id, 'probing', '');
+  await store.setState(id, 'paused_since', '');
   if (pause.probing) {
     await current.logEvent('connection.resumed', { connection_id: id }, { connectionId: id });
   }
@@ -330,6 +361,23 @@ type Notification = {
   reason: 'webhook' | 'remove';
 };
 
+/**
+ * What a notification Core turned away or left alone means, for the event a person reads; Vitec
+ * gets the short answer.
+ */
+const LATER =
+  'The change still reaches the sites with the next catch-up, within 12 hours, and a removal with the next comparison, within a day.';
+const TURNED_AWAY: Record<string, string> = {
+  'bad token':
+    'A notification came to Vitec’s address with a wrong secret, so Core turned it away. If Vitec sent it, Vitec holds an old address. Give Vitec the address under “Notification addresses and call limits” on the Vitec page again.',
+  'malformed body': `Core could not read the notification, so it turned it away. ${LATER}`,
+  'type is required': `The notification did not say what kind of record changed, so Core turned it away. ${LATER}`,
+  'customerId and id are required': `The notification did not name the office or the record, so Core turned it away. ${LATER}`,
+  'a type Core does not sync':
+    'The notification was about a kind of record the sites do not show, so Core did nothing. Nothing needs doing.',
+};
+const turnedAway = (answer: string): string => TURNED_AWAY[answer] ?? answer;
+
 /** Vitec sends the parameters as JSON and as query parameters (notifications.md); JSON first. */
 function parseNotification(
   body: Buffer,
@@ -409,16 +457,20 @@ async function notified(
       context,
     );
   if (!tokenMatches(path?.split('/').pop(), expected)) {
-    await arrived({ outcome: 'rejected', detail: 'bad token', response: 401 });
+    await arrived({ outcome: 'rejected', detail: turnedAway('bad token'), response: 401 });
     return { status: 401, body: { error: 'bad token' } };
   }
   const notification = parseNotification(request.body, query);
   if ('error' in notification) {
-    await arrived({ outcome: 'rejected', detail: notification.error, response: 400 });
+    await arrived({ outcome: 'rejected', detail: turnedAway(notification.error), response: 400 });
     return { status: 400, body: { error: notification.error } };
   }
   if (!notification.datatype) {
-    await arrived({ outcome: 'ignored', detail: 'a type Core does not sync', response: 202 });
+    await arrived({
+      outcome: 'ignored',
+      detail: turnedAway('a type Core does not sync'),
+      response: 202,
+    });
     return { status: 202, body: { ignored: true } };
   }
   // Never fetch inside the request: a burst must not become a burst of Connect calls.
@@ -496,7 +548,7 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
         office_id: entry.officeId,
         datatype: entry.datatype,
         remote_id: entry.remoteId,
-        detail: `no active connection licenses this office${entry.environment === 'qa' ? ' in Vitec’s QA environment' : ''}`,
+        detail: `No connection fetches this record’s office${entry.environment === 'qa' ? ' in Vitec’s QA environment' : ''} any more, for example because the office left the group “Webbplats” or its connection was paused. Core did not fetch the record. Nothing needs doing.`,
       },
       { correlationId: entry.correlationId, datatype: entry.datatype, remoteId: entry.remoteId },
     );
@@ -552,21 +604,21 @@ async function failed(
   }
   if (kind === 'forbidden') {
     await store.park(entry);
-    await blockOffice(current, live, entry.officeId, String(error));
+    await blockOffice(current, live, entry.officeId, sentence(OFFICE_REFUSED));
     return;
   }
-  if (kind !== 'other') await noteFailure(current, live, String(error));
-  const outcome = await store.requeue(entry, String(error));
+  if (kind !== 'other') await noteFailure(current, live, error);
+  const outcome = await store.requeue(entry, sentence(failureInWords(error)));
   if (outcome === 'given_up') {
     const fields = {
       office_id: entry.officeId,
       datatype: entry.datatype,
       remote_id: entry.remoteId,
       attempts: entry.attempts + 1,
-      detail: String(error),
+      detail: `Core gave up fetching this ${recordNamed(entry.datatype)} from Vitec after ${String(entry.attempts + 1)} failed tries. The last try failed because ${failureInWords(error)}. The sites show the ${recordNamed(entry.datatype)} as it was before. Once Vitec answers for it, press “Retry now” beside it in the fetch list on the Vitec page.`,
     };
     await current.logEvent('fetch.failed', fields, trace);
-    current.report(new Error('vitec fetch given up'), fields);
+    current.report(new Error('vitec fetch given up'), { ...fields, error: String(error) });
   }
 }
 
@@ -629,7 +681,7 @@ async function listAll(
         // and holds; anything else fails the schedule.
         if (connect.kindOf(error) === 'blocked') return { listed, complete: false };
         if (connect.kindOf(error) !== 'forbidden' || !engine) throw error;
-        await blockOffice(engine, live, officeId, String(error));
+        await blockOffice(engine, live, officeId, sentence(OFFICE_REFUSED));
         return { listed, complete: false };
       }
       perOffice.set(officeId, ids);
@@ -813,11 +865,14 @@ async function settleSwitch(current: AdapterApi, target: Live): Promise<Live> {
   const { connection, credentials } = target;
   const before = await lastCheck(connection.id);
   if (!before || before.environment === credentials.environment) return target;
-  const now = credentials.environment === 'qa' ? 'Vitec’s QA environment' : 'live Vitec';
+  const toQa = credentials.environment === 'qa';
+  const [now, other] = toQa
+    ? ['Vitec’s QA environment, Vitec’s test system', 'live Vitec']
+    : ['live Vitec', 'Vitec’s QA environment'];
+  const reason = `someone switched the connection’s login to ${now}, on the tenant’s page. The homes, new-build projects and offices ${other} gave left the sites, and their agents stay. Core now loads the offices from ${toQa ? 'the QA environment' : 'live Vitec'}. Nothing needs doing if the switch was meant. To undo it, type ${toQa ? 'no' : 'yes'} in the field “Use Vitec’s QA environment” on the tenant’s page and save.`;
   // One switch, one cause: every office it takes off shares one id.
   const correlationId = randomUUID();
   for (const officeId of before.offices) {
-    const reason = `the login was switched to ${now}`;
     await takeOff(current, connection, officeId, reason, before.names[officeId], correlationId);
   }
   await store.clearState(connection.id);
@@ -880,9 +935,9 @@ async function settleBlocks(
   for (const officeId of check.offices) {
     const office = seen.find((one) => one.customerId === officeId);
     const detail = office?.refusedSince
-      ? (office.detail ?? 'Vitec refuses this login')
+      ? sentence(OFFICE_REFUSED)
       : refusedId && !readable.has(officeId)
-        ? `${refusedId.error ?? 'Vitec refuses this login'} for ${refusedId.id}`
+        ? `Vitec does not let this login read ${refusedId.id}, the customer or group id the office is listed under.`
         : null;
     if (detail) await markBlocked(current, connection.id, { environment, officeId }, detail);
   }
@@ -938,17 +993,29 @@ async function takeOff(
   );
 }
 
+/** What leaving the sites took, said after every reason an office leaves them. */
+const LEFT =
+  'Its homes, its new-build projects and the office itself left the sites, and its agents stay.';
+
 /** Why an office the last check synced is not synced now, in plain words. */
 function takenOffBecause(check: OfficesCheck, officeId: string): string {
   const seen = check.ids
     .flatMap((checked) => checked.offices)
     .find((office) => office.customerId === officeId);
-  const refused = 'Vitec still refused it at the next daily check';
-  if (seen?.readable) return 'it is no longer in the office group Webbplats in Vitec';
+  const refused = `Vitec has refused for a day to let this login read the office. ${LEFT} This happens, for example, when the brokerage’s Vitec subscription for the office ended or the password changed. Ask the brokerage. When Vitec lets the login read the office again, the office comes back at the next daily check, or within a minute after “Fetch offices” on the tenant’s page.`;
+  if (seen?.readable) {
+    return `the brokerage took the office out of its office group “Webbplats” in Vitec. ${LEFT} Nothing needs doing if the brokerage meant it. To bring the office back, the brokerage puts it in the group again, and “Fetch offices” on the tenant’s page acts on it within a minute.`;
+  }
   if (seen?.refusedSince) return refused;
-  if (seen) return seen.detail ?? 'it no longer reads with this login';
+  if (seen?.detail === NO_SUCH_OFFICE) {
+    return `Vitec still lists the office behind the customer or group id, but answers that the office does not exist when Core reads it. ${LEFT} Ask Vitec about the office if it should be on the sites.`;
+  }
+  if (seen) {
+    return `Vitec still lists the office behind the customer or group id, but Core could not read it, because ${seen.detail ?? 'the call to Vitec failed'}. ${LEFT} Ask Vitec why the office cannot be read.`;
+  }
   if (check.ids.some((checked) => checked.refusedSince)) return refused;
-  return 'the id on the connection no longer lists it';
+  const ids = check.ids.map((checked) => checked.id).join(' and ');
+  return `Vitec no longer lists the office behind ${ids || 'the customer or group id'}, the customer or group id on the connection. ${LEFT} If the office should be on the sites, check the field “Customer or group id” on the tenant’s page with the brokerage.`;
 }
 
 /**
@@ -966,7 +1033,9 @@ async function noteRefusedLogin(
     if (before?.ids.find((one) => one.id === checked.id)?.refusedSince) continue;
     await current.logEvent(
       'login.refused',
-      { detail: `${checked.error ?? 'Vitec refuses this login'} for ${checked.id}` },
+      {
+        detail: `Vitec no longer lets this username and password read ${checked.id}, the customer or group id on the connection. The offices behind it stay on the sites for one more day without updates, and leave the sites if Vitec still refuses at the next daily check. This happens, for example, when the brokerage’s Vitec subscription ended or the password changed. Ask the brokerage. If the password changed, type the new one in the field “Password” on the tenant’s page, press “Check the login” and save.`,
+      },
       { connectionId: connection.id },
     );
   }
@@ -974,14 +1043,6 @@ async function noteRefusedLogin(
 
 const ageMs = (iso: string | null): number =>
   iso ? Date.now() - new Date(iso).getTime() : Number.POSITIVE_INFINITY;
-
-/** A length of time for a health line: `40 s`, `12 min`, `3 h`. */
-const span = (ms: number): string => {
-  const seconds = Math.max(0, Math.round(ms / 1000));
-  if (seconds < 60) return `${seconds} s`;
-  if (seconds < 3_600) return `${Math.round(seconds / 60)} min`;
-  return `${Math.round(seconds / 3_600)} h`;
-};
 
 /**
  * The two schedules, checked every minute. After a start, each connection runs both whatever their
@@ -1032,7 +1093,10 @@ async function tickOnce(): Promise<void> {
     } catch (error) {
       await current.logEvent(
         'schedule.failed',
-        { connection_id: given.connection.id, detail: String(error) },
+        {
+          connection_id: given.connection.id,
+          detail: `Core’s regular work for this connection stopped with an error, because ${failureInWords(error)}. Core tries again within a minute. Nothing needs doing unless this repeats every minute. If it does, the Vitec page shows whether Vitec answers.`,
+        },
         { connectionId: given.connection.id },
       );
       current.report(error, { where: 'vitec schedule', connection_id: given.connection.id });
@@ -1046,47 +1110,146 @@ async function tickOnce(): Promise<void> {
 
 // ---- Health -----------------------------------------------------------------------------------
 
-/** A red check's answer: what is wrong in counts and plain words, and which ones, kept apart. */
-function unhealthy(problems: Map<string, string[]>, prefix: string[] = []): HealthResult {
-  const names = [...problems.values()].flat();
-  if (prefix.length === 0 && names.length === 0) return { ok: true };
-  const counted = [...problems.entries()]
-    .filter(([, which]) => which.length > 0)
-    .map(([what, which]) => `${which.length} ${what}`);
-  return { ok: false, detail: [...prefix, ...counted].join('; '), names };
+// Each check has a level (question 172) and says, for a cold reader, what is wrong, what it means
+// for the sites and what to do (AGENTS.md, definition of done 5). `detail` is public on
+// /v1/health, so it holds counts and words only; the connections and offices go in `names`.
+
+/** A notification Core has not handled yet: P2, and P1 once it has waited an hour. */
+async function webhookHealth(): Promise<HealthResult> {
+  const wait = await store.oldestWebhookWaitMs();
+  if (wait === null || wait <= LAG_LIMIT_MS) return { ok: true };
+  return {
+    ok: false,
+    level: wait > URGENT_AFTER_MS ? 'P1' : 'P2',
+    detail: `Vitec told Core about a change ${lasting(wait)} ago, and Core has not handled it yet, so the sites show that change late. It usually clears by itself, and Flow shows what waits.`,
+  };
 }
 
-async function catchUpHealth(current: AdapterApi): Promise<HealthResult> {
-  const problems = new Map<string, string[]>([
-    ['connection(s) whose login is not readable', []],
-    ['connection(s) with no offices', []],
-    ['connection(s) not caught up for over 12 h', []],
-    ['connection(s) never caught up', []],
-  ]);
-  const note = (what: string, which: string): void => {
-    problems.get(what)?.push(which);
+/** Records that failed their last fetches: P2. */
+async function retriesHealth(): Promise<HealthResult> {
+  const count = await store.retrying(RETRIES_RED);
+  if (count === 0) return { ok: true };
+  const them = agree(count, 'it', 'them');
+  return {
+    ok: false,
+    level: 'P2',
+    detail: `${counted(count, 'record', 'records')} failed to fetch from Vitec ${String(RETRIES_RED)} times in a row, so the sites show ${them} as before. Core tries each one again, up to ${String(store.MAX_ATTEMPTS)} times. The fetch list on the Vitec page shows ${them}, with “Retry now” and “Drop”.`,
   };
-  for (const connection of await current.connections()) {
-    if (!connection.active) continue;
-    if (!credentialsOf(connection)) {
-      note('connection(s) whose login is not readable', `${connection.id}: login not readable`);
-      continue;
-    }
-    if ((await officesOf(connection)).length === 0) {
-      note('connection(s) with no offices', `${connection.id}: no offices to sync`);
-      continue;
-    }
-    const age = ageMs(await store.getState(connection.id, 'catch_up_at'));
-    if (age > CATCH_UP_LIMIT_MS) {
-      if (Number.isFinite(age)) {
-        note(
-          'connection(s) not caught up for over 12 h',
-          `${connection.id}: last catch-up ${Math.round(age / 3_600_000)} h ago`,
-        );
-      } else note('connection(s) never caught up', `${connection.id}: never caught up`);
+}
+
+/** Active connections whose saved login Core cannot read: P1. */
+async function loginHealth(current: AdapterApi): Promise<HealthResult> {
+  const unreadable = (await current.connections()).filter(
+    (connection) => connection.active && !credentialsOf(connection),
+  );
+  if (unreadable.length === 0) return { ok: true };
+  const n = unreadable.length;
+  return {
+    ok: false,
+    level: 'P1',
+    detail: `Core cannot read the saved Vitec login of ${counted(n, 'connection', 'connections')}, so nothing is fetched for ${agree(n, 'it', 'them')} and ${agree(n, 'its', 'their')} sites get no new changes. Save the login again on the tenant’s page.`,
+    names: unreadable.map((connection) => connectionNamed(connection.id)),
+  };
+}
+
+/** Connections whose office check chose no office: P2. */
+async function officesNoneHealth(current: AdapterApi): Promise<HealthResult> {
+  const empty: string[] = [];
+  for (const target of await live(current)) {
+    // Before its first check a connection has no offices yet; "catching up" covers that time.
+    if (target.offices.length === 0 && (await lastCheck(target.connection.id)) !== null) {
+      empty.push(connectionNamed(target.connection.id));
     }
   }
-  return unhealthy(problems, startPending ? ['catching up since the worker started'] : []);
+  if (empty.length === 0) return { ok: true };
+  const n = empty.length;
+  return {
+    ok: false,
+    level: 'P2',
+    detail: `${counted(n, 'connection has', 'connections have')} no offices to fetch, so ${agree(n, 'its', 'their')} sites show no homes from ${agree(n, 'it', 'them')}. Check the customer or group id saved on the tenant’s page, and the office group “Webbplats” in Vitec.`,
+    names: empty,
+  };
+}
+
+/**
+ * Catching up after the worker started: P3. A connection not caught up for over 13 hours, or
+ * never: P1. Restoring a database waits for this check to pass (strategy §7.2).
+ */
+async function catchUpHealth(current: AdapterApi): Promise<HealthResult> {
+  if (startPending) {
+    return {
+      ok: false,
+      level: 'P3',
+      detail:
+        'Core is catching up with Vitec since the worker started, so the sites may lag behind for a few minutes. Wait for this to pass before you run Manual sync.',
+    };
+  }
+  const behind: string[] = [];
+  for (const target of await live(current)) {
+    if (target.offices.length === 0) continue;
+    const age = ageMs(await store.getState(target.connection.id, 'catch_up_at'));
+    if (age <= CATCH_UP_LIMIT_MS) continue;
+    const name = connectionNamed(target.connection.id);
+    behind.push(
+      Number.isFinite(age)
+        ? `${name}, last caught up ${lasting(age)} ago`
+        : `${name}, never caught up`,
+    );
+  }
+  if (behind.length === 0) return { ok: true };
+  const n = behind.length;
+  return {
+    ok: false,
+    level: 'P1',
+    detail: `Core has not caught up ${counted(n, 'connection', 'connections')} with Vitec for over ${lasting(CATCH_UP_LIMIT_MS)}, so a change Vitec did not tell Core about may be missing from ${agree(n, 'its', 'their')} sites. The Vitec page shows each connection’s last catch-up, and “Catch up now” runs one.`,
+    names: behind,
+  };
+}
+
+/** Offices Vitec refuses: P2. */
+async function refusedHealth(current: AdapterApi): Promise<HealthResult> {
+  const blocked = await store.blockedOffices();
+  if (blocked.length === 0) return { ok: true };
+  const targets = await live(current);
+  const names: string[] = [];
+  for (const office of blocked) {
+    let name: string | null = null;
+    for (const target of targets.filter((one) => syncs(one, office))) {
+      name ??= (await lastCheck(target.connection.id))?.names[office.officeId] ?? null;
+    }
+    const since = lasting(Date.now() - office.blockedAt.getTime());
+    names.push(`${officeNamed(office, name)}, refused ${since} ago`);
+  }
+  return {
+    ok: false,
+    level: 'P2',
+    detail: `Vitec refuses to let Core read ${counted(blocked.length, 'office', 'offices')}. Each stays on the sites for a day after the first refusal, without updates, and then leaves them with its homes and new-build projects if Vitec still refuses it. Its agents stay. Ask the brokerage about a refused office. Core asks Vitec about it again only at the daily office check, and “Fetch offices” on the tenant’s page asks within a minute.`,
+    names,
+  };
+}
+
+/** Connections paused after failures on Vitec's side: P2, and P1 once Vitec has failed an hour. */
+async function pausedHealth(current: AdapterApi): Promise<HealthResult> {
+  const names: string[] = [];
+  let urgent = false;
+  for (const connection of await current.connections()) {
+    const pause = await pauseOf(connection.id);
+    if (!paused(pause)) continue;
+    const failing = Date.now() - (pause.pausedSince ?? Date.now());
+    urgent ||= failing > URGENT_AFTER_MS;
+    const again = lasting((pause.pausedUntil ?? 0) - Date.now());
+    names.push(
+      `${connectionNamed(connection.id)}, failing for ${lasting(failing)}, asked again in ${again}`,
+    );
+  }
+  if (names.length === 0) return { ok: true };
+  const n = names.length;
+  return {
+    ok: false,
+    level: urgent ? 'P1' : 'P2',
+    detail: `Core stopped asking Vitec for ${counted(n, 'connection', 'connections')} after ${String(PAUSE_AFTER)} failed calls in a row, so ${agree(n, 'its', 'their')} sites get no new changes meanwhile. Core asks Vitec again by itself. Once Vitec answers again, “Ask Vitec again now” on the Vitec page starts at once.`,
+    names,
+  };
 }
 
 export const vitecAdapter: Adapter = {
@@ -1110,7 +1273,8 @@ export const vitecAdapter: Adapter = {
     if (!credentials) {
       return Promise.resolve({
         outcome: 'failed' as const,
-        detail: 'the connection’s login is not readable',
+        detail:
+          'the form was not sent to Vitec, because the connection has no username or password saved. Type them on the tenant’s page, save, and send the form again from Failed forms.',
       });
     }
     return forms.submit(connection, credentials, submission);
@@ -1167,45 +1331,13 @@ export const vitecAdapter: Adapter = {
       if (event.type === 'refetch') await refetch(target, event.records);
     });
 
-    given.healthCheck(`${PROVIDER}.webhook_lag`, async () => {
-      const wait = await store.oldestWebhookWaitMs();
-      return wait !== null && wait > LAG_LIMIT_MS
-        ? { ok: false, detail: `a webhook has waited ${Math.round(wait / 1000)} s` }
-        : { ok: true };
-    });
-    given.healthCheck(`${PROVIDER}.retries`, async () => {
-      const count = await store.retrying(RETRIES_RED);
-      return count === 0
-        ? { ok: true }
-        : { ok: false, detail: `${count} record(s) failed ${RETRIES_RED} fetches in a row` };
-    });
+    given.healthCheck(`${PROVIDER}.webhook_lag`, webhookHealth);
+    given.healthCheck(`${PROVIDER}.retries`, retriesHealth);
+    given.healthCheck(`${PROVIDER}.login`, () => loginHealth(given));
+    given.healthCheck(`${PROVIDER}.no_offices`, () => officesNoneHealth(given));
     given.healthCheck(`${PROVIDER}.catch_up`, () => catchUpHealth(given));
-    given.healthCheck(`${PROVIDER}.offices`, async () => {
-      const blocked = await store.blockedOffices();
-      if (blocked.length === 0) return { ok: true };
-      return {
-        ok: false,
-        detail: `${blocked.length} office(s) refused by Vitec; only the daily office check asks about them`,
-        names: blocked.map(
-          (office) =>
-            `${officeLabel(office)}: refused ${span(Date.now() - office.blockedAt.getTime())} ago`,
-        ),
-      };
-    });
-    given.healthCheck(`${PROVIDER}.connect`, async () => {
-      const pausedOnes: string[] = [];
-      for (const connection of await given.connections()) {
-        const pause = await pauseOf(connection.id);
-        if (paused(pause)) {
-          pausedOnes.push(
-            `${connection.id}: paused for another ${span((pause.pausedUntil ?? 0) - Date.now())}`,
-          );
-        }
-      }
-      return unhealthy(
-        new Map([[`connection(s) paused after ${PAUSE_AFTER} failures in a row`, pausedOnes]]),
-      );
-    });
+    given.healthCheck(`${PROVIDER}.offices`, () => refusedHealth(given));
+    given.healthCheck(`${PROVIDER}.connect`, () => pausedHealth(given));
 
     drainTimer = setInterval(() => void scheduleDrain(), DRAIN_MS);
     drainTimer.unref?.();

@@ -9,7 +9,15 @@ import * as connect from '../api.js';
 import * as store from '../store.js';
 import { mappers } from '../mappers.js';
 import { directions } from './directions.js';
-import { checkSoon, lastCheck, officesOf, type OfficesCheck } from '../offices.js';
+import {
+  checkSoon,
+  lastCheck,
+  NO_SUCH_OFFICE,
+  officesOf,
+  type OfficeSeen,
+  type OfficesCheck,
+} from '../offices.js';
+import { connectionNamed, counted, failureInWords, recordNamed, sentence, when } from '../words.js';
 import type {
   AdapterAdmin,
   AdminAction,
@@ -30,9 +38,50 @@ const LONG_AGO = '1970-01-01T00:00:00.000Z';
 export const hookPath = (environment: connect.Environment): string =>
   environment === 'qa' ? 'qa' : 'webhook';
 
-/** An office as the panel names it: a QA office is marked QA, live Vitec's stays bare. */
-export const officeLabel = ({ environment, officeId }: store.Office): string =>
-  environment === 'qa' ? `${officeId} (QA)` : officeId;
+/**
+ * An office as the panel names it: its name as Vitec last gave it, when a connection's office
+ * check kept it, then Vitec's id for it. A QA office is marked QA, live Vitec's stays bare.
+ */
+export const officeLabel = (office: store.Office, names?: OfficeNames): string => {
+  const name = names?.get(placeOf(office));
+  const id = `Vitec’s office id ${office.officeId}${office.environment === 'qa' ? ' (QA)' : ''}`;
+  return name ? `${name}, ${id}` : id;
+};
+
+/** The names of the offices the connections' last checks kept, by system and office id. */
+type OfficeNames = Map<string, string>;
+const placeOf = ({ environment, officeId }: store.Office): string => `${environment}:${officeId}`;
+
+async function officeNames(connections: Connection[]): Promise<OfficeNames> {
+  const names: OfficeNames = new Map();
+  for (const connection of connections) {
+    const check = await lastCheck(connection.id);
+    if (!check) continue;
+    const listed = check.ids.flatMap((checked) => checked.offices);
+    for (const office of listed) {
+      if (office.name)
+        names.set(
+          placeOf({ environment: check.environment, officeId: office.customerId }),
+          office.name,
+        );
+    }
+    for (const [officeId, name] of Object.entries(check.names)) {
+      names.set(placeOf({ environment: check.environment, officeId }), name);
+    }
+  }
+  return names;
+}
+
+/** Why a record waits on the fetch list, in words (the stored reason stays the code's). */
+const WAITS: Record<store.Reason, string> = {
+  webhook: 'Vitec sent a notification that it changed',
+  remove: 'Vitec no longer lists it, so it leaves the sites',
+  load: 'Core loads its office in full',
+  catch_up: 'the catch-up found it changed',
+  reference: 'another record names it, as a home names its housing cooperative',
+  refetch: 'someone asked to fetch it again',
+};
+const waitsBecause = (reason: store.Reason): string => WAITS[reason] ?? reason;
 
 /** The system a connection's login is for; an unreadable login counts as live Vitec's. */
 const environmentOf = (connection: Connection): connect.Environment =>
@@ -44,14 +93,17 @@ const environmentIn = (params: Record<string, string>): connect.Environment =>
 
 const moment = (value: string | Date | null | undefined): AdminValue =>
   value && new Date(value).toISOString() === LONG_AGO
-    ? { text: 'due at the worker’s next tick', state: 'warn' }
+    ? { text: 'Runs within a minute', state: 'warn' }
     : { moment: value ? new Date(value).toISOString() : null };
 
 const webhookUrl = (environment: connect.Environment): AdminValue => {
   const token = process.env['VITEC_WEBHOOK_TOKEN'];
   return token
-    ? `/v1/hook/vitec/${hookPath(environment)}/${token} on this app’s domain`
-    : { text: 'VITEC_WEBHOOK_TOKEN is not set; the listener answers 503', state: 'bad' };
+    ? `Core’s own address, followed by /v1/hook/vitec/${hookPath(environment)}/${token}`
+    : {
+        text: 'Not set up. The server setting VITEC_WEBHOOK_TOKEN is empty, so Core turns every notification from Vitec away, and changes reach the sites only with the catch-up, up to 12 hours later. Set it in Core’s server settings.',
+        state: 'bad',
+      };
 };
 
 type Schedule = {
@@ -82,47 +134,77 @@ const scheduleActions = (connection: Connection, schedule: Schedule): AdminActio
   {
     id: 'catch_up',
     label: 'Catch up now',
-    help: 'Asks Vitec for everything that changed since the last catch-up and fetches it. This runs by itself every few minutes; press it when a notification looks to have been missed and you do not want to wait.',
+    help: 'Asks Vitec within a minute for everything that changed since the last catch-up, and fetches it. A catch-up runs by itself every 12 hours. Press it when a change made in Vitec has not reached the sites, for example because a notification went missing.',
     params: { connection: connection.id },
   },
   {
     id: 'compare',
     label: 'Compare now',
-    help: 'Fetches Vitec’s own list of what is marketed and removes from Core anything no longer on it. This runs by itself once a day; press it when a listing has been taken off the website and should disappear from the sites now.',
+    help: 'Asks Vitec within a minute for its whole list of what is marketed, and takes off the sites every home, new-build project, agent, office or area no longer on it. A comparison runs by itself once a day. Press it when a home the brokerage stopped marketing in Vitec still shows on the sites.',
     params: { connection: connection.id },
   },
   ...(schedule.paused
     ? [
         {
           id: 'resume',
-          label: 'Resume now',
-          help: 'This connection stopped asking Vitec after five failures in a row and is waiting out its pause. Press this to start again at once, once you believe Vitec is answering.',
+          label: 'Ask Vitec again now',
+          help: 'Core stopped asking Vitec for this connection after five failed calls in a row, and asks again by itself at the time under State. Press this to ask again at once, for example when Vitec says its service is back.',
           params: { connection: connection.id },
         },
       ]
     : []),
 ];
 
-const fetchListText = (counts: store.Summary): string =>
-  `${counts.waiting} waiting · ${counts.retrying} retrying · ${counts.givenUp} given up`;
+const fetchListText = (counts: store.Summary): string => {
+  const { waiting, retrying, givenUp } = counts;
+  if (waiting + retrying + givenUp === 0) return 'Nothing waiting';
+  const some = (n: number, words: string): string =>
+    n === 0 ? `none ${words}` : `${counted(n, 'record', 'records')} ${words}`;
+  return `${some(waiting, 'waiting')}, ${some(retrying, 'to be tried again')}, ${givenUp === 0 ? 'none' : String(givenUp)} given up`;
+};
+
+/** A connection's state: fetching, or why not. */
+function stateOf(connection: Connection, schedule: Schedule, offices: string[]): AdminValue {
+  if (!connection.active)
+    return {
+      text: 'Paused on the tenant’s page, so Core asks Vitec nothing for it',
+      state: 'muted',
+    };
+  if (!connect.loginOf(connection.credentials))
+    return {
+      text: 'Fetching nothing, because the login has no username or password',
+      state: 'bad',
+    };
+  if (schedule.paused) {
+    return {
+      text: `Not asking Vitec until ${when(schedule.pausedUntil ?? new Date())}, after five failed calls in a row`,
+      state: 'bad',
+    };
+  }
+  if (offices.length === 0)
+    return { text: 'Fetching nothing, because Vitec has given no office', state: 'warn' };
+  return { text: 'Fetching', state: 'ok' };
+}
 
 // ---- The Vitec page ---------------------------------------------------------------------------
 
-async function connectionsSection(connections: Connection[]): Promise<AdminSection> {
+async function connectionsSection(
+  connections: Connection[],
+  names: OfficeNames,
+): Promise<AdminSection> {
   const rows = [];
   for (const connection of connections) {
     const schedule = await scheduleOf(connection);
+    const offices = await officesOf(connection);
+    const environment = environmentOf(connection);
     rows.push({
       cells: [
         connection.id,
-        (await officesOf(connection)).join(', '),
+        offices.length === 0
+          ? 'No office yet'
+          : offices.map((officeId) => officeLabel({ environment, officeId }, names)).join(' and '),
         connection.active,
-        schedule.paused
-          ? {
-              text: `paused until ${new Date(schedule.pausedUntil ?? 0).toISOString()}`,
-              state: 'bad' as const,
-            }
-          : { text: 'fetching', state: 'ok' as const },
+        stateOf(connection, schedule, offices),
         moment(schedule.catchUpAt),
         moment(schedule.until),
         moment(schedule.compareAt),
@@ -133,40 +215,41 @@ async function connectionsSection(connections: Connection[]): Promise<AdminSecti
   }
   return {
     title: 'Connections and schedules',
-    help: 'A catch-up fetches everything that changed since the last one, in case a notification was missed; a comparison fetches Vitec’s list and removes what is no longer on it. Both run on their own; the buttons run them at the worker’s next tick.',
+    help: 'Every 12 hours, a catch-up asks Vitec for everything that changed since the last catch-up, in case a notification went missing. Once a day, a comparison reads Vitec’s whole list and takes off the sites whatever is no longer on it. Both run by themselves. The buttons in a row run them for that connection within a minute.',
     table: {
       columns: [
         'Connection',
         'Offices',
-        'Active',
+        'Fetching',
         'State',
         'Last catch-up',
-        'Changes since',
+        'Changes fetched up to',
         'Last comparison',
         'Fetch list',
       ],
       rows,
-      empty: 'No Vitec connections yet: make a tenant with the CRM vitec.',
+      empty:
+        'No tenant has a Vitec connection yet. To add one, open Tenants, press “New tenant” and choose vitec as its CRM.',
     },
   };
 }
 
-async function blockedSection(): Promise<AdminSection> {
+async function blockedSection(names: OfficeNames): Promise<AdminSection> {
   const rows = (await store.blockedOffices()).map((office) => ({
-    cells: [officeLabel(office), moment(office.blockedAt), office.reason],
+    cells: [officeLabel(office, names), moment(office.blockedAt), office.reason],
   }));
   return {
     title: 'Refused offices',
-    help: 'An office is listed here when Vitec refuses to let the login read it. From that moment Core sends Vitec no call about the office, and its waiting records stay on the fetch list. The first refusal also stops every other call with the same login until Core has checked the offices, which happens within a minute. After that, Core checks the offices once a day, and that check is the only call that asks about a refused office. When Vitec lets the login read the office again, the office leaves this list and is loaded again in full. When Vitec still refuses it a day later, everything of that office is taken off the sites. “Fetch offices” on the tenant’s page asks Vitec at once instead of waiting a day.',
+    help: 'An office shows here when Vitec refuses to let the login read it, for example after a cancelled subscription or a changed password. From then on, Core asks Vitec about the office only at the daily office check, and the office’s homes on the sites stop updating. The first refusal also stops every call with the same login until Core has checked the offices, within a minute. When Vitec lets the login read the office again, the office leaves this list and is loaded again in full. When Vitec still refuses it a day after the first refusal, the office leaves the sites with its homes and new-build projects, and its agents stay. Ask the brokerage about a refused office. After a fix, press “Fetch offices” on the tenant’s page, and Core checks within a minute.',
     table: {
       columns: ['Office', 'Refused since', 'What Vitec said'],
       rows,
-      empty: 'No office is refused: Vitec answers for every office Core syncs.',
+      empty: 'No office is refused. Vitec answers for every office Core fetches.',
     },
   };
 }
 
-async function fetchListSection(): Promise<AdminSection> {
+async function fetchListSection(names: OfficeNames): Promise<AdminSection> {
   const rows = (await store.entries(50)).map((entry) => {
     const params = {
       office: entry.officeId,
@@ -176,26 +259,28 @@ async function fetchListSection(): Promise<AdminSection> {
     };
     return {
       cells: [
-        officeLabel(entry),
-        entry.datatype,
-        entry.remoteId,
-        entry.reason,
+        officeLabel(entry, names),
+        recordNamed(entry.datatype),
+        `Vitec’s id ${entry.remoteId}`,
+        waitsBecause(entry.reason),
         entry.attempts,
-        entry.nextAt ? moment(entry.nextAt) : { text: 'given up', state: 'bad' as const },
+        entry.nextAt
+          ? moment(entry.nextAt)
+          : { text: 'Given up after six failed tries', state: 'bad' as const },
         entry.lastError,
       ],
       actions: [
         {
           id: 'retry',
           label: 'Retry now',
-          help: 'Puts this record at the front of the fetch list, whatever its attempt count. For a record that was given up on after six failures and that you believe Vitec can answer for now.',
+          help: 'Puts this record back in line to be fetched now, with its count of tries from zero. Press it for a record Core gave up on after six failed tries, once you believe Vitec answers for it again.',
           params,
         },
         {
           id: 'drop',
           label: 'Drop',
           danger: true,
-          help: 'Takes this record off the fetch list without fetching it. Core keeps whatever it already holds for it; the next notification or comparison will put it back.',
+          help: 'Takes this record off the fetch list without fetching it. The sites keep the record as they show it now. Vitec’s next notification about the record puts it back, and so does a catch-up after it changes again in Vitec. A dropped removal comes back with the next daily comparison. Press it for a record Core gave up on that should not be fetched, for example while you ask Vitec about it.',
           params,
         },
       ],
@@ -203,57 +288,66 @@ async function fetchListSection(): Promise<AdminSection> {
   });
   return {
     title: 'Fetch list',
-    help: 'Records Core is about to fetch: notifications and “fetch again” first, then loads and catch-ups. A retrying record failed and waits for its next attempt; after six failures it is given up, and Retry or Drop is yours. A connection that fails five times in a row pauses, two minutes doubling to thirty, and probes its way back.',
+    help: 'The first 50 records Core is about to fetch from Vitec or take off the sites. Notifications, removals and “Fetch again” go first, then the loads of whole offices and the catch-ups. A record that failed is tried again after 10 seconds, and after twice as long each further time. After six failed tries Core gives the record up, and it waits here for “Retry now” or “Drop”. When five calls in a row fail for one connection, Core stops asking Vitec for that connection for two minutes, then for twice as long each time, at most 30 minutes.',
     table: {
-      columns: ['Office', 'Datatype', 'Record', 'Reason', 'Attempts', 'Due', 'Last error'],
+      columns: ['Office', 'Type', 'Record', 'Why it waits', 'Tries', 'Next try', 'Last error'],
       rows,
-      empty: 'The fetch list is empty: nothing is waiting to be fetched.',
+      empty: 'Nothing is waiting to be fetched from Vitec or taken off the sites.',
     },
   };
 }
 
+const NO_CONNECTION =
+  'Nothing was done, because the button did not say which connection it is for. Reload the page and press it again.';
+const NO_RECORD =
+  'Nothing was done, because the button did not say which record it is for. Reload the page and press it again.';
+
+/** A record on the fetch list, as a toast names it. */
+const recordIn = (datatype: string, id: string, office: store.Office): string =>
+  `The ${recordNamed(datatype)} with Vitec’s id ${id}, of ${officeLabel(office)},`;
+
 /** What the page's buttons do; a schedule is run by making it overdue for the worker's next tick. */
 const ACTIONS: Record<string, (params: Record<string, string>) => Promise<string>> = {
   catch_up: async ({ connection }) => {
-    if (!connection) throw new Error('which connection?');
+    if (!connection) throw new Error(NO_CONNECTION);
     await store.setState(connection, 'catch_up_at', LONG_AGO);
-    return `${connection} catches up at the worker’s next tick.`;
+    return `${connectionNamed(connection)} asks Vitec for its changes within a minute.`;
   },
   compare: async ({ connection }) => {
-    if (!connection) throw new Error('which connection?');
+    if (!connection) throw new Error(NO_CONNECTION);
     await store.setState(connection, 'compare_at', LONG_AGO);
-    return `${connection} compares its list at the worker’s next tick.`;
+    return `${connectionNamed(connection)} compares Vitec’s list within a minute. Whatever Vitec no longer lists then leaves the sites.`;
   },
   check_offices: async ({ connection }) => {
-    if (!connection) throw new Error('which connection?');
+    if (!connection) throw new Error(NO_CONNECTION);
     await checkSoon(connection);
-    return `${connection} asks Vitec for its offices at the worker’s next tick; reload the page in a minute to see the answer.`;
+    return `Core asks Vitec within a minute which offices reach the sites through the Vitec connection with the short name ${connection}. Reload this page in a minute to see the answer.`;
   },
   resume: async ({ connection }) => {
-    if (!connection) throw new Error('which connection?');
+    if (!connection) throw new Error(NO_CONNECTION);
     await store.setState(connection, 'paused_until', '');
     await store.setState(connection, 'failures', '0');
-    return `${connection} fetches again.`;
+    return `${connectionNamed(connection)} asks Vitec again now.`;
   },
   retry: async (params) => {
     const { office, datatype, id } = params;
     const known = mappers[datatype as keyof typeof mappers]
       ? (datatype as store.Entry['datatype'])
       : null;
-    if (!office || !known || !id) throw new Error('which record?');
+    if (!office || !known || !id) throw new Error(NO_RECORD);
     const where = { environment: environmentIn(params), officeId: office };
     await store.expediteOne(where, known, id);
-    return `${datatype} ${id} of ${officeLabel(where)} is fetched next.`;
+    return `${recordIn(known, id, where)} is fetched again now.`;
   },
   drop: async (params) => {
     const { office, datatype, id } = params;
     const known = mappers[datatype as keyof typeof mappers]
       ? (datatype as store.Entry['datatype'])
       : null;
-    if (!office || !known || !id) throw new Error('which record?');
+    if (!office || !known || !id) throw new Error(NO_RECORD);
     const where = { environment: environmentIn(params), officeId: office };
     await store.drop(where, known, id);
-    return `${datatype} ${id} of ${officeLabel(where)} is off the list.`;
+    return `${recordIn(known, id, where)} is off the fetch list. The sites keep it as they show it now.`;
   },
 };
 
@@ -268,10 +362,20 @@ async function probe(
   officeIds: string[],
 ): Promise<{ ok: boolean; detail: string }> {
   const auth = connect.loginOf(stored);
-  if (!auth) return { ok: false, detail: 'The login needs a username and a password.' };
+  if (!auth) {
+    return {
+      ok: false,
+      detail:
+        'Vitec was not asked, because the field “Username” or “Password” is empty. Type both and press “Check the login” again.',
+    };
+  }
   const ids = auth.customerId ? [auth.customerId] : officeIds;
   if (ids.length === 0) {
-    return { ok: false, detail: 'Type the customer or group id the login was issued for.' };
+    return {
+      ok: false,
+      detail:
+        'Vitec was not asked, because the field “Customer or group id” is empty. Without the id, nothing reaches the sites. Type the id Vitec issued the login for, such as M30011 or G2, and press “Check the login” again.',
+    };
   }
   const answers: string[] = [];
   let ok = true;
@@ -280,23 +384,28 @@ async function probe(
     for (const officeId of ids) {
       try {
         const page = await connect.page(auth, 'office', officeId, 0, undefined, 1);
+        const listed = page?.totalRowCount ?? 0;
+        // A yes with no office would mislead: nothing would reach the sites.
+        if (listed === 0) ok = false;
         answers.push(
-          `${officeId}: Vitec answers, ${page?.totalRowCount ?? 0} office record(s) listed`,
+          listed === 0
+            ? `Vitec accepts the login but lists no office behind ${officeId}, so nothing would reach the sites. Check the customer or group id with the brokerage.`
+            : `Vitec accepts the login and lists ${counted(listed, 'office', 'offices')} behind ${officeId}.`,
         );
       } catch (error) {
         ok = false;
         const kind = connect.kindOf(error);
         answers.push(
           kind === 'forbidden'
-            ? `${officeId}: Vitec refuses this login for that office (${String(error)})`
+            ? `Vitec does not let this username and password read ${officeId}. Check both with the brokerage or in Vitec’s partner portal, type them again and press “Check the login” again.`
             : kind === 'blocked' && error instanceof Error
               ? error.message
-              : `${officeId}: ${String(error)}`,
+              : `The login could not be checked, because ${failureInWords(error)}. Try again in a few minutes.`,
         );
       }
     }
   });
-  return { ok, detail: answers.join('; ') };
+  return { ok, detail: answers.join(' ') };
 }
 
 /** The office a record was seen under, when the caller does not know it. */
@@ -315,42 +424,76 @@ async function officeFor(
   return offices[0] ?? null;
 }
 
-/** A Swedish date and time for a sentence: `2026-10-06 14:31`, Stockholm time. */
-const when = (iso: string): string =>
-  new Date(iso)
-    .toLocaleString('sv-SE', {
-      timeZone: 'Europe/Stockholm',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-    .replace(',', '');
-
-/** The last check's time, carrying the warning when Vitec did not answer it. */
+/** The last check: when, and what it means when Vitec did not answer or listed no office. */
 function lastCheckText(check: OfficesCheck | null): AdminValue {
   if (!check) return moment(null);
+  const at = when(check.at);
+  if (check.ids.length === 0 && check.offices.length === 0) {
+    return {
+      text: 'No customer or group id is typed above, so Core has not asked Vitec, and nothing reaches the sites. Type the id Vitec issued the login for in the field “Customer or group id”, save, and press “Fetch offices”.',
+      state: 'bad',
+    };
+  }
   if (check.source !== 'kept') return moment(check.at);
+  if (!check.answered) {
+    return check.offices.length > 0
+      ? {
+          text: `Vitec did not answer the check at ${at}. The offices of the last answer stay on the sites, and Core asks again within the hour. Nothing needs doing.`,
+          state: 'warn',
+        }
+      : {
+          text: `Vitec did not answer the check at ${at}, so nothing reaches the sites yet. Core asks again within the hour.`,
+          state: 'bad',
+        };
+  }
+  const ids = check.ids.map((checked) => checked.id).join(' and ');
   return check.offices.length > 0
     ? {
-        text: `${when(check.at)}: Vitec did not answer, so the offices of the last answer stay synced and Core asks again within the hour`,
+        text: `At the check at ${at}, Vitec listed no office this login may read behind ${ids}, so the offices of the last answer stay on the sites. Check the customer or group id and the login’s rights with the brokerage.`,
         state: 'warn',
       }
-    : { text: `${when(check.at)}: Vitec has listed no office that reads`, state: 'bad' };
+    : {
+        text: `At the check at ${at}, Vitec listed no office this login may read behind ${ids}, so nothing reaches the sites. Check the customer or group id and the login’s rights with the brokerage.`,
+        state: 'bad',
+      };
 }
 
 /** A refused office's cell: since when, and what follows (question 158 b). */
 function refusedText(since: string, synced: boolean): AdminValue {
   return synced
     ? {
-        text: `no: Vitec refuses this login since ${when(since)}; taken off the sites if still refused at the next daily check`,
+        text: `No. Vitec has refused this login since ${when(since)}. The office stays on the sites until the next daily check, and leaves them if Vitec still refuses it then.`,
         state: 'warn',
       }
     : {
-        text: `no: Vitec refuses this login since ${when(since)}; taken off the sites`,
+        text: `No. Vitec has refused this login since ${when(since)}, and the office is not on the sites.`,
         state: 'bad',
       };
+}
+
+/** A refused id's cell: the same, for every office behind it. */
+function refusedIdText(since: string, synced: boolean): AdminValue {
+  return synced
+    ? {
+        text: `Vitec has refused this login the whole id since ${when(since)}. The offices behind the id stay on the sites until the next daily check, and leave them if Vitec still refuses then.`,
+        state: 'warn',
+      }
+    : {
+        text: `Vitec has refused this login the whole id since ${when(since)}, and no office behind it is on the sites.`,
+        state: 'bad',
+      };
+}
+
+/** Whether an office Vitec listed reads with the login, and if not, why. */
+function readableText(office: OfficeSeen, synced: boolean): AdminValue {
+  if (office.readable) return { text: 'Yes', state: 'ok' };
+  if (office.refusedSince) return refusedText(office.refusedSince, synced);
+  if (office.detail === NO_SUCH_OFFICE)
+    return { text: `No. ${office.detail}, so it does not reach the sites.`, state: 'bad' };
+  return {
+    text: `No. Core could not read it, because ${office.detail ?? 'the call to Vitec failed'}.`,
+    state: 'bad',
+  };
 }
 
 /** The office groups Vitec answered, by name, or why there are none. */
@@ -358,10 +501,13 @@ function groupsText(check: OfficesCheck | null): AdminValue {
   if (!check) return null;
   const refused = check.ids.find((checked) => checked.groupsError)?.groupsError;
   const names = check.ids.flatMap((checked) =>
-    checked.groups.map((group) => `${group.name} (${group.officeIds.length})`),
+    checked.groups.map(
+      (group) => `${group.name} with ${counted(group.officeIds.length, 'office', 'offices')}`,
+    ),
   );
-  if (names.length > 0) return names.join(', ');
-  return refused ? { text: refused, state: 'bad' } : 'none';
+  if (names.length > 0) return names.join(' and ');
+  if (refused) return { text: sentence(refused), state: 'bad' };
+  return 'None, so every office behind the id reaches the sites.';
 }
 
 /**
@@ -377,11 +523,11 @@ async function officesSection(connection: Connection): Promise<AdminSection> {
           {
             cells: [
               checked.id,
+              null,
+              null,
               checked.refusedSince
-                ? refusedText(checked.refusedSince, synced.size > 0)
-                : { text: checked.error, state: 'bad' as const },
-              null,
-              null,
+                ? refusedIdText(checked.refusedSince, synced.size > 0)
+                : { text: sentence(checked.error), state: 'bad' as const },
               null,
             ],
           },
@@ -389,34 +535,38 @@ async function officesSection(connection: Connection): Promise<AdminSection> {
       : checked.offices.map((office) => ({
           cells: [
             checked.id,
-            `${office.customerId} (${office.officeId})`,
+            office.customerId,
             office.name,
-            office.readable
-              ? { text: 'yes', state: 'ok' as const }
-              : office.refusedSince
-                ? refusedText(office.refusedSince, synced.has(office.customerId))
-                : { text: office.detail ?? 'no', state: 'bad' as const },
+            readableText(office, synced.has(office.customerId)),
             synced.has(office.customerId),
           ],
         })),
   );
   return {
     title: 'Offices Vitec lists',
-    help: 'Which offices reach this tenant’s sites is decided in Vitec, not here. Once a day, Core asks Vitec which offices sit behind the customer or group id; when the brokerage has an office group called “Webbplats” in Vitec, only the offices in it reach the sites, and otherwise every office does. An office that leaves the group, or that Vitec still refuses to let this login read a day after the first refusal, is taken off the sites with its homes and agents.',
+    help: 'Vitec decides which offices reach this tenant’s sites, and nothing is chosen here. Once a day, Core asks Vitec which offices sit behind the customer or group id above. When the brokerage keeps an office group called “Webbplats” in Vitec, only the offices in that group reach the sites. When there is no such group, or it holds none of these offices, every office behind the id reaches the sites. An office that leaves the group leaves the sites at the next check, with its homes and new-build projects, and its agents stay. An office Vitec refuses to let this login read stays on the sites for one more day, and leaves them if Vitec still refuses it then.',
     items: [
       { label: 'Last check', value: lastCheckText(check) },
       { label: 'Office groups in Vitec', value: groupsText(check) },
     ],
     table: {
-      columns: ['Id typed', 'Office', 'Name', 'Readable with this login', 'Synced to the sites'],
+      columns: [
+        'Customer or group id',
+        'Vitec’s office id',
+        'Office',
+        'Readable with this login',
+        'Synced to the sites',
+      ],
       rows,
-      empty: 'Not checked yet: the first check runs at the worker’s next tick.',
+      empty: check
+        ? 'No office to show, because no customer or group id is typed above.'
+        : 'Core has not asked Vitec about the offices yet. The first check runs within a minute of the save. Reload the page to see it.',
     },
     actions: [
       {
         id: 'check_offices',
         label: 'Fetch offices',
-        help: 'Asks Vitec now, instead of at the daily check, which offices to sync, and loads or takes off offices by its answer. Press it after the brokerage changed its offices or its group “Webbplats” in Vitec, then reload the page in a minute.',
+        help: 'Asks Vitec within a minute, instead of at the daily check, which offices reach the sites, and loads or takes off offices by its answer. Press it after the brokerage changed its offices or its group “Webbplats” in Vitec, then reload the page in a minute.',
         params: { connection: connection.id },
       },
     ],
@@ -435,7 +585,7 @@ export const vitecAdmin: AdapterAdmin = {
     {
       key: 'customer_id',
       label: 'Customer or group id',
-      help: 'The id Vitec issued this login for: a customer id such as M30011, or a group id such as G2. Core asks Vitec once a day which offices sit behind it; “Offices Vitec lists” below shows which ones reach the sites, and why.',
+      help: 'The id Vitec issued this login for, a customer id such as M30011 or a group id such as G2. Without it, Core cannot ask Vitec for offices, and nothing reaches the sites. Core asks Vitec once a day which offices sit behind the id. After the save, the card “Offices Vitec lists” below shows which offices reach the sites. A changed id counts from the next daily check, or within a minute after “Fetch offices”.',
     },
     {
       key: 'qa',
@@ -449,21 +599,22 @@ export const vitecAdmin: AdapterAdmin = {
   directions,
 
   async panel(connections) {
+    const names = await officeNames(connections);
     return [
       {
-        title: 'Notification URL',
-        help: 'Give this address to Vitec for the subscription. Vitec then calls it for every Update and Remove of an estate advertised on the website, and Core fetches or removes the record. For a login to Vitec’s QA environment, give Vitec’s QA environment the address “URL for Vitec’s QA” instead.',
+        title: 'Notification addresses and call limits',
+        help: 'Vitec tells Core at these addresses each time a home on the website, a new-build project, an agent, an office or an area changes or is removed. Core then fetches the record or takes it off the sites, usually within seconds. Ask Vitec to send the brokerage’s notifications to the address for live Vitec. For a login to Vitec’s QA environment, ask Vitec to send QA’s notifications to the address for Vitec’s QA. Without notifications, changes still reach the sites with the catch-up, up to 12 hours later.',
         items: [
-          { label: 'URL', value: webhookUrl('live') },
-          { label: 'URL for Vitec’s QA', value: webhookUrl('qa') },
-          { label: 'Vitec Connect', value: connect.baseUrlOf('live') },
-          { label: 'Requests at once', value: connect.concurrency() },
-          { label: 'Requests per second', value: connect.requestsPerSecond() },
+          { label: 'Address for live Vitec', value: webhookUrl('live') },
+          { label: 'Address for Vitec’s QA', value: webhookUrl('qa') },
+          { label: 'Live Vitec’s address', value: connect.baseUrlOf('live') },
+          { label: 'Calls to Vitec at once', value: connect.concurrency() },
+          { label: 'Calls to Vitec per second', value: connect.requestsPerSecond() },
         ],
       },
-      await connectionsSection(connections),
-      await blockedSection(),
-      await fetchListSection(),
+      await connectionsSection(connections, names),
+      await blockedSection(names),
+      await fetchListSection(names),
     ];
   },
 
@@ -473,7 +624,10 @@ export const vitecAdmin: AdapterAdmin = {
 
   async act(action, params) {
     const run = ACTIONS[action];
-    if (!run) throw new Error(`no such action: ${action}`);
+    if (!run)
+      throw new Error(
+        'Nothing was done, because Vitec’s page has no such button any more. Reload the page.',
+      );
     return { message: await run(params) };
   },
 
@@ -481,7 +635,11 @@ export const vitecAdmin: AdapterAdmin = {
 
   async inspect(connection, record) {
     const auth = connect.loginOf(connection.credentials);
-    if (!auth) throw new Error('the connection’s login is not readable');
+    if (!auth) {
+      throw new Error(
+        'Vitec was not asked, because the connection has no username or password saved. Type them on the tenant’s page and save.',
+      );
+    }
     const officeId = await officeFor(
       connection,
       auth.environment,
@@ -489,7 +647,11 @@ export const vitecAdmin: AdapterAdmin = {
       record.remoteId,
       record.officeId,
     );
-    if (!officeId) throw new Error('the connection has no office to ask for');
+    if (!officeId) {
+      throw new Error(
+        'Vitec was not asked, because Vitec has given this connection no office yet. The card “Offices Vitec lists” on the tenant’s page says why.',
+      );
+    }
     const raw = await connect.getOne(auth, record.datatype, officeId, record.remoteId);
     if (raw === null) return null;
     const mapper = mappers[record.datatype];
@@ -515,7 +677,7 @@ export const vitecAdmin: AdapterAdmin = {
       datatype: entry.datatype,
       remoteId: entry.remoteId,
       queuedAt: entry.queuedAt.toISOString(),
-      reason: entry.reason,
+      reason: waitsBecause(entry.reason),
       attempts: entry.attempts,
       nextAt: entry.nextAt?.toISOString() ?? null,
       lastError: entry.lastError,
