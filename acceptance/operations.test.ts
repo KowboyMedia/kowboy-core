@@ -312,7 +312,7 @@ describe('alerts', () => {
       text: [
         `Which: office 100, tenant Test tenant, connection ${CONNECTION}`,
         'What happened: office 100 was taken off the sites: it is no longer in the office group the sites use',
-        `Open it: https://core.example/admin/records?connection=${CONNECTION}&office=100&deleted=true&tenant=1`,
+        'Open it: https://core.example/admin/records?tenant=1&office=100&deleted=true',
       ].join('\n'),
     });
     const sent = await queryEvents({ type: 'alert.sent' });

@@ -166,8 +166,11 @@ function places(
   if (row.type === 'office.taken_off') {
     // The office's name comes with the event: its record in Core is already removed by then.
     const office = text('office_id');
-    const scope = new URLSearchParams({ connection, office, deleted: 'true' });
-    if (tenantId !== null) scope.set('tenant', String(tenantId));
+    const scope = new URLSearchParams({
+      ...(tenantId === null ? {} : { tenant: String(tenantId) }),
+      office,
+      deleted: 'true',
+    });
     return [
       {
         what: text('office_name')

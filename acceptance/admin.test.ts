@@ -685,7 +685,7 @@ describe('the admin area', () => {
         title: 'an office was taken off the sites',
         said: 'office 100 was taken off the sites: it is no longer in the office group the sites use',
         what: 'office Lidingö (100)',
-        link: `/records?connection=acme-crm&office=100&deleted=true&tenant=${String(tenantId)}`,
+        link: `/records?tenant=${String(tenantId)}&office=100&deleted=true`,
         tenantId,
         tenant: 'Acme Mäklare',
         connectionId: 'acme-crm',
