@@ -4,10 +4,44 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 165 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 167 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 166. `[client-wordpress]` When the site cannot reach Core at all, should the plugin keep the form until Core takes it?
+
+- 2026-10-06 · Patric, 18:12 (UTC), on 155: "we need to store the visitors data, thats the most
+  importnt part to recover if the system fails. But if its legally better to store it on-site,
+  then do that", and on 160: "the only purpose is to recover lost data". 160 a keeps a form from
+  the moment Core has it; Core is the better place for the details (`docs/decisions.md`,
+  2026-10-06). One case is left: the site cannot reach Core at all (Core down, a release that
+  broke it, the network between them). The plugin then tells the window the form failed, the
+  visitor reads "Det gick inte att skicka just nu" with their details still in the window, and
+  nothing is kept anywhere. 150 a gave the plugin nothing for forms but its receivers.
+- a) **keep it on the site** (recommended): the plugin keeps a form Core did not answer in the
+  site's database, sends it again with growing waits through the plugin's own job queue (Action
+  Scheduler, already there for the sync), deletes it the moment Core has it, and deletes it
+  unsent after 30 days with an error in the site's log; the visitor reads that the form was
+  received. Costs: a store and a schedule for forms in the plugin; the details sit in the site's
+  database, and in its backups, while Core cannot be reached.
+- b) **no**: the visitor tries again; nothing is kept on the site.
+- Smaller: b. Blocked: nothing; built after the first version. Answer a or b.
+
+## 165. `[core]` For 160 a: add to the adapter interface the two things a CRM's code needs to retry a form?
+
+- 2026-10-06 · Patric answered 160 with a: "the CRM's code retries it from its own table with
+  growing waits for one day, then marks it failed". A CRM's code gets a form only inside the
+  site's request (`submit` in `engine/adapter-api/types.ts`); it cannot read a form Core keeps
+  afterwards, nor tell Core how a retry ended. The interface is protected (`AGENTS.md`, "Stop and
+  ask"), and 155's line 4 kept it as built.
+- a) **yes** (recommended): two additions any CRM's code may use: read the forms Core keeps for
+  one of its connections, with their details; and tell Core how one ended (delivered, refused,
+  failed for good). The Vitec code and the stand-in keep each form's id and its next try in their
+  own tables, not the details, which stay in Core, encrypted.
+- b) **no**: the interface stays as built; no automatic retry, as 160 b: a form the CRM did not
+  take is kept 30 days and listed with "Send again".
+- Smaller: b. Blocked: the retry of 160 a; the rest of 160 a is built either way. Answer a or b.
 
 ## 164. `[core]` Red, yellow or nothing: which of Core's systems may raise which alert?
 
@@ -65,86 +99,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 - Reply: "164 ok" for every row and rule as proposed, or the row number or rule letter with its
   new value ("164 ok, except 13 red, 21 nothing").
 
-## 160. `[core]` Failed forms: how does Core keep, retry and show them?
-
-- 2026-10-06 · Patric, 12:36 (UTC): "Add feature (outside of this scope): We need submit
-  visibility / log in Core, and retry logic + fail with error logging. The important thing is
-  that we need to be able to fetch failed submits for any reason." Today (the door of 2026-10-04,
-  kept by 155) Core sends a form inside the request and tells the visitor sent, refused or
-  failed; it keeps the form's id and outcome, never the person, so a failed form cannot be sent
-  again from Core, and nothing retries. Keeping a form for a retry means keeping the visitor's
-  data in Core until the CRM has taken it, which Vitec's own advice asks for ("Kan inte
-  informationen sparas bör den mellanlagras för omförsök",
-  `docs/inputs/vitec/technical-information.md`) and which needs a time after which it is dropped.
-  The engine has no schedules of its own (`AGENTS.md`); a CRM's code owns its retries in its own
-  tables, as the Vitec adapter does for fetches.
-- The lines, each new: (1) Core keeps the form's content with its id until the CRM has taken it,
-  then drops the content and keeps the outcome; (2) when the CRM does not answer, the visitor is
-  told the form was received and will be handled, and the CRM's code retries it from its own
-  table with growing waits for one day, then marks it failed; (3) a failed form keeps its content
-  and the error for 30 days, then goes; (4) a page in Core's admin lists the forms that failed,
-  with their content and error, and a button that sends one again, with its explanation beside
-  it; (5) an alert when a form fails for good, as one more line of the super admin's
-  notifications (159 a, `docs/next-steps.md` item 26, built by its own thread), not a mechanism
-  of the forms' own.
-- a) **retry in the CRM's code, failed forms listed in the admin** (recommended): lines 1 to 5.
-  b) **no retry**: lines 1, 3, 4 and 5; a person sends a failed form again by the button. c)
-  **retry in the engine**: as a, with the retry in Core's engine, which needs the rule "the
-  engine has no schedules" changed.
-- Smaller: b; Patric asked for retries, so a. Blocked: nothing now; built after 155. Answer a, b
-  or c.
-
-## 155. `[core]` The forms as Patric described them on 2026-10-06: is this list their first version?
-
-- 2026-10-06 · Patric answered 150 a at 12:36 (UTC), "Confirm your assumptions holds, if yes,
-  build it like explained above", and wrote "155: clarify". Rewritten here in plainer words from
-  his own description of 11:54 (`docs/decisions.md`). Each line is new or kept from 2026-10-04
-  and is asked here before it is built (`AGENTS.md`, "Stop and ask"); the proof, the last line, is
-  built now from what exists.
-  1. **The forms in the default template** `[client-wordpress]`: the complete set, book a viewing,
-     send interest and free valuation, drawn by the theme "Kowboy 2026" in its own markup and
-     styles with the approved look and steps (`docs/decisions.md`, 2026-10-05); the three buttons
-     stay as they are. The "Söker du bostad?" step follows 151 (skip recommended; the proof leaves
-     it out).
-  2. **The form receivers in the plugin** `[client-wordpress]`: two WordPress API addresses and
-     nothing else for forms. One takes a filled form from the page and sends it on to Core with
-     the token the site already syncs with; one reads a viewing's times from Core for the booking
-     window. The plugin's forms code of 2026-10-04 (the script tag and the "Site key" setting)
-     goes.
-  3. **The form receivers in Core** `[core]`: three addresses for a site's server, opened by the
-     site's token: send a form and read a viewing's times (both from 2026-10-04, kept), and read
-     the bot check's public key (new). Core maps the token to the tenant, refuses a property or an
-     office that is not the tenant's, and sends through that connection's CRM login. The browser
-     door, the window served by Core and the public site keys of 2026-10-04 go.
-  4. **The hand-off to the CRM's code** `[core]`: the capability a CRM's code offers for sending a
-     form and reading a viewing's times, in the adapter interface (protected) as built 2026-10-04;
-     kept as it is.
-  5. **The Vitec send** `[crm-vitec]`: interest, viewing booking and free valuation through Vitec's
-     advertising calls, as built 2026-10-04 against the stand-in; the seven forms fields on a Vitec
-     connection go (known bug 3 goes with them), so nothing about forms is typed on a connection.
-  6. **The bot check** `[core]`: Cloudflare Turnstile in the window; the plugin passes its proof to
-     Core with the form; Core checks it with one global pair of keys, the environment settings of
-     2026-10-04 (146's item 8). Each site's address goes on Cloudflare's list when the site is
-     saved in Core's admin, with a Cloudflare key kept as an environment setting (new; 146's item
-     4); it takes a Cloudflare account, created once.
-  7. **The guard** `[core]`: outside the live service no form reaches a CRM; Core answers that it
-     was not sent, and the window tells the visitor so (152).
-  8. **The log** `[core]`: the form's id and outcome in Core's table of forms (from 2026-10-04, no
-     person in it), which also stops a double click from sending twice; every call Core makes for
-     a form as events in Core's event log, "in detail if something breaks": the form's id and
-     kind, the property, the connection, the step reached, the CRM's answer and timing, and the
-     full error text; never the visitor's name, phone, e-mail or message. Keeping a form for a
-     retry and fetching the failed ones is 160.
-- Not in it: a page, setting or count in Core's admin area; anything for Lovable or Mspecs; the
-  window served by Core. 9. **The acceptance criterion** `[handbook]`: criterion 48 names the widget's three-form
-  journey; reworded to name the theme's journey and the widget's (acceptance is protected).
-- Proof first (Patric on 147: "you need to do a poc before writing everything"): **built
-  2026-10-06** (`docs/forms.md`, "Built 2026-10-06: the proof"), the interest form end to end on
-  the local test site, theme to plugin to Core to the stand-in CRM, with the Vitec switch still
-  off on staging; nothing else before this list stands.
-- a) **yes** (recommended): built as listed. b) **no**: name the lines to strike or change.
-- Smaller: a. Blocked: the rest of the forms after the proof. Answer a or b.
-
 ## 151. `[crm-vitec]` Should Vitec sites skip the "Söker du bostad?" step?
 
 - 2026-10-05 · Patric, on 146's item 10: "Why would you want the crms password? The client site
@@ -184,21 +138,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   list; until then the step is hidden for that office, which needs the adapter interface change
   named in 146's item 10.
 - Smaller: a. Blocked: nothing now; the rebuild's Vitec part. Answer a or b.
-
-## 152. `[core]` Default: a staging or test run of the forms never sends a form to a CRM; only the live one does, with no setting
-
-- 2026-10-05 · Patric, on 146's item 9: "Why would I want a setting to disable all forms centrally,
-  I dont understand this option". It was never for turning the forms off on the live service. It
-  existed because staging reads a real brokerage's live office (the Vitec login on staging is a
-  client's production office): without a guard, a form tried on the staging site would land in that
-  brokerage's CRM as a real lead or booking, which the rule of 2026-10-04 forbids (`AGENTS.md`,
-  "Stop and ask"). Core already knows which one it is, by the environment name it gives its alerts
-  and error reports (staging, production or local, `engine/config.ts`), so no new setting is needed:
-  the forms send only where that name is production, and everywhere else they stop before the CRM
-  and answer that the form was not sent. This replaces the "Send forms to Vitec" switch on every
-  Vitec connection, and 146's item 9. The first real send to Vitec's test customer (54 f), once that
-  customer exists, is asked then.
-- Reply only if you disagree: no.
 
 ## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite
 

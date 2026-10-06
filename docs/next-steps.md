@@ -412,24 +412,19 @@ client ports (item 16, first client by question 80).
     site's own or automatic, apart from the bot check's keys, one global setting where the forms are
     received. **150 answered 2026-10-06** (`docs/decisions.md`): the forms live in the default
     template, drawn by the theme, and Core sends them; the plugin only passes them on with the
-    site's token. Open: the first version's lines (155, clarified 2026-10-06 and asked again), the
-    Vitec search-profile step (151, skip recommended), no CRM send outside the live service (152, a
-    Default) and failed forms kept, retried and listed (160). **The proof built 2026-10-06**
-    (Patric, 12:36Z: "build it like explained above"; docs/forms.md, "Built 2026-10-06: the
-    proof"): theme 1.1.9 draws the interest window and posts it to plugin 0.5.8's receiver on the
-    site, which sends it to Core with the site's token; proved by the browser journey
-    `clients/wordpress/e2e/forms-theme.spec.ts` against the fake CRM. Nothing else before 155
-    stands. The rebuild's first
-    unknown, tested before anything is built on it: whether Cloudflare's bot check, drawn in a small
-    frame served from Core's address inside the form window, checks that address rather than the
-    site's (Cloudflare's pages do not say). If it does, one address at Cloudflare covers every site,
-    with no list to keep, no Cloudflare key and no limit of ten sites per pair of keys; the form
-    window stays drawn in the page and the site is still found from the page's address; the costs
-    are a frame that only the sites' own pages may show, and Cloudflare seeing one address for every
-    site, so telling the sites apart rests on the form's own address alone; and Cloudflare sells one
-    setup for any address as part of its Enterprise plan, for "Multi-tenant applications such as
-    SaaS platforms serving multiple customer domains" (Any Hostname page, updated 2026-04-16), so
-    its Turnstile terms are read before the test. Nothing beyond the proof is built until 155 stands.
+    site's token. **The proof built 2026-10-06** (Patric, 12:36Z: "build it like explained
+    above"; docs/forms.md, "Built 2026-10-06: the proof"): theme 1.1.9 draws the interest window
+    and posts it to plugin 0.5.8's receiver on the site, which sends it to Core with the site's
+    token; proved by the browser journey `clients/wordpress/e2e/forms-theme.spec.ts` against the
+    fake CRM. **155 and 160 answered 2026-10-06, 18:12Z** (`docs/decisions.md`): the first
+    version is 155's list (the three forms in the theme, the plugin's two receivers, Core's three
+    addresses, the guard of 152, Turnstile with each site's address put on Cloudflare's list, the
+    seven Vitec forms fields, the widget, the browser door and the site keys gone), and failed
+    forms are kept, retried by the CRM's code and listed with "Send again" (160 a). Built in that
+    order: the first version, then failed forms. Open: 151 (the forms are built without "Söker du
+    bostad?", as recommended, until it is answered), 165 (the adapter interface the retry needs;
+    the rest of 160 a is built either way) and 166 (a form the site could not get to Core). The
+    idea of drawing the bot check in a frame from Core's address is set aside by 155's line 6.
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in
