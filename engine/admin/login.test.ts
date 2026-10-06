@@ -1,8 +1,10 @@
-// A stored login keeps only the fields its adapter declares at the next save (Patric's rule for
-// a removed feature, 2026-10-06).
-import { beforeEach, describe, expect, it } from 'vitest';
+// A stored login keeps only the fields its adapter declares at the next save, and loses named
+// fields an adapter dropped (Patric's rule for a removed feature, 2026-10-06).
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { harness, type Harness } from '../../acceptance/harness.js';
 import { registerAdmin } from '../registry.js';
-import { mergedLogin } from './login.js';
+import { connectionById } from '../storage/connections.js';
+import { mergedLogin, removeLoginFields } from './login.js';
 import type { AdapterAdmin } from '../adapter-api/types.js';
 
 const PROVIDER = 'stand-in';
@@ -15,8 +17,24 @@ const admin: AdapterAdmin = {
   act: () => Promise.resolve({ message: '' }),
 };
 
-beforeEach(() => {
+const login = async (id: string): Promise<unknown> =>
+  JSON.parse((await connectionById(id))?.credentials ?? 'null');
+
+let running: Harness;
+
+beforeEach(async () => {
+  running = await harness({
+    connections: [
+      { id: 'mine', provider: PROVIDER, credentials: JSON.stringify({ key: 'k', gone: 'x' }) },
+      { id: 'other', provider: 'not-mine', credentials: JSON.stringify({ key: 'k', gone: 'x' }) },
+      { id: 'only-gone', provider: PROVIDER, credentials: JSON.stringify({ gone: 'x' }) },
+    ],
+  });
   registerAdmin(PROVIDER, admin);
+});
+
+afterEach(async () => {
+  await running.stop();
 });
 
 describe('a stored login', () => {
@@ -34,5 +52,14 @@ describe('a stored login', () => {
       extra: 'y',
     });
     expect(mergedLogin({}, stored, PROVIDER)).toBeNull();
+  });
+
+  it('loses exactly the named fields of one provider, and is never emptied', async () => {
+    expect(await removeLoginFields(PROVIDER, ['gone'])).toBe(1);
+    expect(await login('mine')).toEqual({ key: 'k' });
+    expect(await login('other')).toEqual({ key: 'k', gone: 'x' });
+    expect(await login('only-gone')).toEqual({ gone: 'x' });
+    // Run again, nothing is left to remove.
+    expect(await removeLoginFields(PROVIDER, ['gone'])).toBe(0);
   });
 });
