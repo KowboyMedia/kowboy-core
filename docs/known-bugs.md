@@ -136,19 +136,21 @@ worker never lets its connections go. The errors came whenever the bursts met: a
 app, the Overview on the other, a deploy with its start-up catch-up. What made them frequent on
 2026-10-06: staging's worker repeated its whole first Vitec round every minute, because a group id
 was kept among the offices and Vitec refused its area list, so the round never finished (fixed at
-19:00 by the office session, 1e49b9f); that kept the worker's pools busy without a pause. The sizing
-of 2026-09-20 counted 19 slots instead of 22 and one app instead of two; it was right the day it was
-made, when staging was alone on the cluster, and wrong from the release of 2026-09-23. That Node
-reported the rejections late is a trait of the drain's parallel state reads, not a cause.
+19:00 by the office session, 1e49b9f); that added a sequential round of reads and writes to every
+minute, on top of the bursts above. The sizing of 2026-09-20 counted 19 slots instead of 22 and one
+app instead of two; it was right the day it was made, when staging was alone on the cluster, and
+wrong from the release of 2026-09-23. That Node reported the rejections late is a trait of the
+drain's parallel state reads, not a cause.
 
-**What was done.** On staging since 2026-10-06: the engine's pool holds 2 connections a process and
-the adapter's 1, so six processes, both apps' web and worker and one app's new pair during a deploy,
-hold 18 of the 22 at most, and a query that finds its pool busy waits its turn, up to ten seconds as
-before, instead of being refused by the database. The adapter's pool got the engine's guards against
-a dropped connection (a query fails after a minute and the connection is discarded), which with one
-connection is the difference between a stall and a recovery. Question 167 asks whether the processes
-should share one pool in front of the database instead (DigitalOcean's own), or keep one pool each.
-The entry leaves when the fix is live.
+**What was done.** On staging since 2026-10-06, on live once question 175 or the next release takes
+it there: the engine's pool holds 2 connections a process and the adapter's 1, so six processes,
+both apps' web and worker and one app's new pair during a deploy, hold 18 of the 22 at most, and a
+query that finds its pool busy waits its turn, up to ten seconds as before, instead of being refused
+by the database. The adapter's pool got the engine's guards against a dropped connection (a query
+fails after a minute and the connection is discarded), which with one connection is the difference
+between a stall and a recovery. Question 167 asks whether the processes should share one pool in
+front of the database instead (DigitalOcean's own), or keep one pool each. The entry leaves when the
+fix is live.
 
 ## 6. `[client-wordpress]` The WordPress test site in a cloud session answers a critical error, so the WordPress suites cannot run there
 
