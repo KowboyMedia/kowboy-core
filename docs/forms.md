@@ -1025,6 +1025,11 @@ staging when it is done:
   (deleted when 0.6.0 is installed) and the deploy script's line for it. The two database
   columns `subscribers.site_key` and `subscribers.origins` are dropped by migration 012 once
   staging runs the code without them.
+- **A booking's times read right** (found on the staging site, 2026-10-06): Connect's form
+  endpoint gives a viewing's and a time's moments as bare Swedish wall-clock time, as the records
+  do, and the adapter read them as UTC, so the booking window showed a viewing at 17.50 as 19.50.
+  `adapters/vitec/forms.ts` now reads them in Vitec's zone with the records' own `isoDate`; the
+  slots test gives bare times, as Connect does.
 - **Known, not built:** a free valuation from the footer names no office, so on a site whose
   brokerage has several offices Core answers 400 "office_id is required" and the window says the
   form could not be sent; the office is set on the site's side when such a site gets forms

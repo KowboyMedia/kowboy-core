@@ -313,23 +313,26 @@ describe('the Vitec adapter’s forms', () => {
   });
 
   it('answers the slots from Connect’s form endpoint under the universal names', async () => {
+    // Connect gives bare Swedish wall-clock times, as on the records (staging, 2026-10-06: a
+    // viewing at 17.50 on the home's page read 19.50 in the booking window); an offset, when
+    // given, is honoured.
     fake.setForm(OFFICE, ESTATE, {
       id: ESTATE,
       office: { customerId: OFFICE, name: 'Kontor 1' },
       viewings: [
         {
           id: 'V1',
-          startsAt: '2026-10-10T12:00:00+02:00',
-          endsAt: '2026-10-10T13:00:00+02:00',
-          deadlineAt: '2026-10-09T12:00:00+02:00',
+          startsAt: '2026-10-10T12:00:00',
+          endsAt: '2026-10-10T13:00:00',
+          deadlineAt: '2026-10-09T12:00:00',
           isSelfRegistrationEnabled: true,
           isVisible: true,
           comment: 'Välkommen',
           timeSlots: [
             {
               id: 'T1',
-              startsAt: '2026-10-10T12:00:00+02:00',
-              endsAt: '2026-10-10T12:15:00+02:00',
+              startsAt: '2026-10-10T12:00:00',
+              endsAt: '2026-10-10T12:15:00',
               isRegistrationAvailable: true,
             },
             {

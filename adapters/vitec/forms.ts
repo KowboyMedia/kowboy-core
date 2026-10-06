@@ -4,6 +4,7 @@
 // own knobs (a lead source, an intake source, a status, the confirmations, a reminder) are typed
 // on the connection's page beside the key pair and copied through; Core decides none of them.
 import * as connect from './api.js';
+import { isoDate } from './mappers.js';
 import type {
   Connection,
   EventContext,
@@ -340,11 +341,8 @@ function outcomeOf(error: unknown): SubmissionResult {
 
 // ---- The slots -------------------------------------------------------------------------------
 
-const moment = (value: unknown): string | null => {
-  if (typeof value !== 'string' || value === '') return null;
-  const time = Date.parse(value);
-  return Number.isNaN(time) ? null : new Date(time).toISOString();
-};
+/** A viewing's moment: Connect gives Swedish wall-clock time, read in Vitec's zone as on the records. */
+const moment = isoDate;
 const flag = (value: unknown): boolean | null => (typeof value === 'boolean' ? value : null);
 const rows = (value: unknown): Record<string, unknown>[] =>
   Array.isArray(value) ? value.filter((row) => row && typeof row === 'object') : [];
