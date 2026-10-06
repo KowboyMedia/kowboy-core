@@ -45,12 +45,12 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   against the ids seen. An id the list no longer holds is removed, without a fetch: the list
   defines what exists for the sites. A `Remove` whose webhook was lost is caught here.
 - **Which offices are synced** (`offices.ts`; questions 147 a and 154, 2026-10-06). Once a day per
-  connection, at every worker start, and at the next tick after "Check offices now": Vitec's office
+  connection, at every worker start, and at the next tick after "Fetch offices": Vitec's office
   list for the login's customer or group id (`customer_id` in the login, `M30011` or `G2`), each
   listed office read on its own under its own customer id (the one its record gives: a group's list
   rows may leave it out), and the brokerage's office groups
-  (`GET CRM/Officegroups/{id}`, the version 1 CRM category, with the CRM password when one is
-  typed). The offices that read and sit in the group "webbplats" (any case) are synced; with no
+  (`GET CRM/Officegroups/{id}`, the version 1 CRM category, with the same login: one username
+  and one password for every call, Patric 2026-10-06). The offices that read and sit in the group "webbplats" (any case) are synced; with no
   such group, or none of its offices readable, every office that reads is. An office that came is
   loaded; one that went is tombstoned with all its records (`presentIds` per datatype, scoped to the
   office), so each site deletes it at its next sync. A check Vitec did not answer (down, busy,
@@ -137,9 +137,7 @@ my current home" (question 141 a) sends the valuation too, on the same person. T
 `GET v2/Advertising/Form/{customerId}/Estate/{estateId}` under the universal names, its bare
 Swedish times read in Vitec's zone as the records' are. Nothing about forms is typed on a
 connection (question 155): the lead source, the intake source and an interest's status are left
-to Vitec, and a booking asks for an e-mail confirmation, no SMS and no reminder. The search
-profile uses `crm_password` (the CRM function group's, when Vitec issued a separate one), as the
-office check does. Only the live service hands a form to the adapter (question 152). Vitec's 400, 404, 409 and 422 are a refusal with Vitec's words, scrubbed
+to Vitec, and a booking asks for an e-mail confirmation, no SMS and no reminder. Only the live service hands a form to the adapter (question 152). Vitec's 400, 404, 409 and 422 are a refusal with Vitec's words, scrubbed
 of anything that looks like an e-mail address or a number; anything else is a failure. A call
 Vitec could not take (5xx, 429, no connection) is tried twice more, after 1 s and 3 s, within
 15 s of the form's start, and no call starts or lasts after that, so the visitor hears the last
@@ -213,7 +211,7 @@ itself, all of it inside the adapter:
   on the first day and one a day after, which also brings it back by itself when Vitec answers
   again. A refused office stays on the sites for a day and is then taken off (question 158 b, under
   "Which offices are synced"). `vitec.offices` is red while an office is blocked, and the panel
-  lists the blocked offices; "Check offices now" on the tenant's page asks at once. A block and its
+  lists the blocked offices; "Fetch offices" on the tenant's page asks at once. A block and its
   end are logged (`office.blocked`, `office.unblocked`) once for each connection that syncs the
   office in that system, and a check settles the blocks before it takes offices off. The offices
   one check takes off for one reason, or one switch takes off, share one correlation id on their

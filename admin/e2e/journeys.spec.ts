@@ -48,7 +48,7 @@ test.beforeEach(async ({ page }) => {
 
 test('journey: U1 onboard a customer, watch the first load, take the secrets', async ({ page }) => {
   await go(page, 'Tenants');
-  await expect(page.getByText('No customer yet.', { exact: false })).toBeVisible();
+  await expect(page.getByText('No tenant yet.', { exact: false })).toBeVisible();
 
   await page.getByRole('link', { name: 'Make the first tenant' }).click();
   await page.getByLabel('Name').first().fill(TENANT);
@@ -106,28 +106,28 @@ test('journey: U5 watch the flow — records in flight, coloured by state, by te
 }) => {
   await go(page, 'Flow');
   await expect(page.getByRole('heading', { name: 'Flow' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'OBJ-1' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('link', { name: 'Storgatan 12' })).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('tr.flow-fetched').first()).toBeVisible();
   // When each was queued comes first, and the list is sorted by it (Patric, 2026-10-06).
   await expect(page.getByRole('columnheader').first()).toHaveText(/Queued at/);
   await tick(page, 'Tenants', TENANT);
   await expect(page).toHaveURL(/tenant=\d+/);
-  await expect(page.getByRole('link', { name: 'OBJ-1' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Storgatan 12' })).toBeVisible();
 });
 
 test('journey: U3 support a customer — find a record and see everything about it', async ({
   page,
 }) => {
   await go(page, 'Records');
-  await page.getByLabel('One record id').fill('OBJ-2');
+  await page.getByLabel('One record, by the CRM’s id').fill('OBJ-2');
   await expect(page.getByRole('link', { name: 'Kungsgatan 3' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('link', { name: 'Storgatan 12' })).toHaveCount(0);
 
   await page.getByRole('link', { name: 'Kungsgatan 3' }).click();
-  await expect(page.getByRole('heading', { name: 'The CRM’s payload' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'What the CRM sent' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'The unified record' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'The prepared strings' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Its timeline' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'The texts ready to show' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'What happened to it' })).toBeVisible();
   // The history reads as sentences, not as payloads (Patric, 2026-09-21).
   await expect(page.getByRole('columnheader', { name: 'What happened' })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'written', exact: false }).first()).toBeVisible();
@@ -138,13 +138,13 @@ test('journey: U3 support a customer — find a record and see everything about 
 
   // The CRM, asked on the spot, writing nothing.
   await page.getByRole('button', { name: 'Ask the CRM now' }).click();
-  await expect(page.getByRole('heading', { name: 'The CRM, just now' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'From the CRM, just now' })).toBeVisible();
 });
 
 test('journey: U3 scope, sort and choose the columns of the grid', async ({ page }) => {
   await go(page, 'Records');
   // The same scope as Manual sync: tenants, offices, entity types and one record id.
-  await tick(page, 'Entity types', 'property');
+  await tick(page, 'Entity types', 'Homes');
   await expect(page).toHaveURL(/datatype=property/);
   await expect(page.getByRole('link', { name: 'Storgatan 12' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('link', { name: 'Lidingö', exact: true })).toHaveCount(0);
@@ -153,14 +153,14 @@ test('journey: U3 scope, sort and choose the columns of the grid', async ({ page
   await expect(page).toHaveURL(/sort=remote_id/);
 
   await page.getByRole('button', { name: 'Columns' }).click();
-  await page.getByRole('checkbox', { name: 'Connection' }).check();
-  await expect(page.getByRole('columnheader', { name: 'Connection' })).toBeVisible();
+  await page.getByRole('checkbox', { name: 'CRM connection' }).check();
+  await expect(page.getByRole('columnheader', { name: 'CRM connection' })).toBeVisible();
 
   // Live, removed or both; nothing has been removed yet.
   await page.getByRole('button', { name: 'Removed', exact: true }).click();
-  await expect(page.getByText('No record is in this scope.')).toBeVisible();
-  await page.getByRole('button', { name: 'Show everything' }).click();
-  await expect(page.getByRole('link', { name: 'Lidingö', exact: true })).toBeVisible();
+  await expect(page.getByText('No record matches what is picked.', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Both', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'Storgatan 12' })).toBeVisible();
 });
 
 test('journey: U4 manual sync — pick a scope and how far to go, then watch it', async ({
@@ -170,9 +170,9 @@ test('journey: U4 manual sync — pick a scope and how far to go, then watch it'
   await expect(page.getByRole('heading', { name: 'Manual sync', exact: true })).toBeVisible();
   // The scope is picked, never typed (Patric, 2026-09-21), and the same as on Records.
   await tick(page, 'Tenants', TENANT);
-  await tick(page, 'Offices', 'Lidingö (100)');
-  await tick(page, 'Entity types', 'property');
-  await expect(page.getByTestId('covers')).toContainText('3 live record(s)');
+  await tick(page, 'Offices', 'Lidingö (office id 100)');
+  await tick(page, 'Entity types', 'Homes');
+  await expect(page.getByTestId('covers')).toContainText('3 live records now');
 
   // The full level is the default; a shorter one is a pick, and it says what it does first.
   await expect(page.getByRole('radio', { name: /^Fetch from the CRM/ })).toBeChecked();
@@ -180,19 +180,21 @@ test('journey: U4 manual sync — pick a scope and how far to go, then watch it'
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('Nothing is fetched or computed.');
   await page.getByRole('button', { name: 'Start it' }).click();
-  await expect(page.getByText('3 record(s) go to the sites of 1 tenant(s) again.')).toBeVisible();
+  await expect(
+    page.getByText('Core sent 3 records to the sites of Acme Mäklare again.', { exact: false }),
+  ).toBeVisible();
 
   // The full level for one record, its id typed key by key: the CRM is asked again, and the list
   // below, the same as the Flow page, shows what that fetch found.
-  await page.getByLabel('One record id').pressSequentially('OBJ-2');
+  await page.getByLabel('One record, by the CRM’s id').pressSequentially('OBJ-2');
   await expect(page).toHaveURL(/id=OBJ-2/);
-  await expect(page.getByTestId('covers')).toContainText('1 live record(s)');
+  await expect(page.getByTestId('covers')).toContainText('1 live record now');
   await page.getByRole('radio', { name: /^Fetch from the CRM/ }).check();
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('The CRM is called.');
   await page.getByRole('button', { name: 'Start it' }).click();
   await expect(
-    page.getByText('1 record(s) will be fetched from the CRM again.', { exact: false }),
+    page.getByText('Core asks the CRM for 1 record again.', { exact: false }),
   ).toBeVisible();
   await expect(
     page.locator('tr.flow-row', { hasText: 'identical to what Core held' }),
@@ -205,12 +207,12 @@ test('journey: U8 try things — ring a site and fetch a record again', async ({
   await expect(page.getByText('Rang every site of this tenant.')).toBeVisible();
 
   await go(page, 'Records');
-  await page.getByLabel('One record id').fill('OBJ-1');
+  await page.getByLabel('One record, by the CRM’s id').fill('OBJ-1');
   await page.getByRole('link', { name: 'Storgatan 12' }).click();
   // Fetching again asks the CRM for the same record and writes only what differs, so it asks
   // nothing first (Patric, 2026-09-21: it is not dangerous, it is idempotent).
   await page.getByRole('button', { name: 'Fetch again' }).click();
-  await expect(page.getByText('fetched from the CRM again', { exact: false })).toBeVisible();
+  await expect(page.getByText('Core asks the CRM for 1 record again.')).toBeVisible();
 });
 
 test('journey: failed forms — read a form the CRM did not take, and send it again', async ({

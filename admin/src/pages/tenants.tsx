@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/data-table';
 import { Empty } from '@/components/empty';
 import { PageHeader } from '@/components/layout';
-import { ago, count } from '@/lib/format';
+import { ago, count, counted } from '@/lib/format';
 
 type TenantSummary = {
   id: number;
@@ -28,14 +28,20 @@ export function Tenants() {
 
   return (
     <>
-      <PageHeader title="Tenants" what="Every customer, its CRM connections and its sites.">
+      <PageHeader
+        title="Tenants"
+        what="Every customer of Kowboy, with its CRM connections and its sites. Open a tenant to change it."
+      >
+        <span className="max-w-xs text-sm text-muted-foreground">
+          Adds a customer: you name it, add its CRM connection and its sites, then save.
+        </span>
         <Button asChild>
           <Link to="/tenants/new">New tenant</Link>
         </Button>
       </PageHeader>
 
       <DataTable
-        caption={`${rows.length} tenant(s)`}
+        caption={counted(rows.length, 'tenant', 'tenants')}
         columns={[
           {
             key: 'name',
@@ -51,24 +57,26 @@ export function Tenants() {
             key: 'active',
             header: 'Licence',
             cell: (row) => (
-              <Badge tone={row.active ? 'ok' : 'bad'}>{row.active ? 'on' : 'off'}</Badge>
+              <Badge tone={row.active ? 'ok' : 'bad'}>
+                {row.active ? 'licensed' : 'switched off'}
+              </Badge>
             ),
           },
-          { key: 'connections', header: 'CRMs', cell: (row) => row.connections },
+          { key: 'connections', header: 'CRM connections', cell: (row) => row.connections },
           { key: 'sites', header: 'Sites', cell: (row) => row.sites },
           {
             key: 'records',
             header: 'Records',
             cell: (row) => <span className="tabular-nums">{count(row.records)}</span>,
           },
-          { key: 'pull', header: 'Last pull', cell: (row) => ago(row.lastPullAt) },
+          { key: 'pull', header: 'A site last fetched', cell: (row) => ago(row.lastPullAt) },
         ]}
         rows={rows}
         rowKey={(row) => String(row.id)}
         loading={query.isLoading}
         empty={
           <Empty
-            what="No customer yet. A tenant is one customer: its CRM login, the offices it may see, and the sites that show its listings."
+            what="No tenant yet. A tenant is one customer of Kowboy: its CRM connection and the sites that show its listings."
             next={
               <Button asChild size="sm">
                 <Link to="/tenants/new">Make the first tenant</Link>

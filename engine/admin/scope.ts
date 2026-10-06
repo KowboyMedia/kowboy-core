@@ -4,8 +4,9 @@
 // means exactly what it means on the others.
 import { DATATYPES, type Datatype } from '../adapter-api/types.js';
 import { db } from '../storage/db.js';
-import { connections, tenants } from '../storage/connections.js';
+import { tenants } from '../storage/connections.js';
 import { itemCounts } from '../storage/items.js';
+import { entity, listed } from './words.js';
 
 export type Scope = {
   tenantIds?: number[];
@@ -36,7 +37,13 @@ export function scopeFromQuery(query: URLSearchParams): { scope: Scope } | { err
   const datatypes: Datatype[] = [];
   for (const value of list(query, 'datatype')) {
     const known = DATATYPES.find((datatype) => datatype === value);
-    if (!known) return { error: `“${value}” is not a datatype Core knows.` };
+    if (!known)
+      return {
+        error: `“${value}” is not an entity type Core knows. It knows ${listed(
+          DATATYPES.map((datatype) => `${datatype} (${entity(datatype, true)})`),
+          DATATYPES.length,
+        )}.`,
+      };
     datatypes.push(known);
   }
   if (datatypes.length > 0) scope.datatypes = datatypes;
@@ -70,20 +77,22 @@ export function scopeFromBody(
 /** A scope in words, for the audit event and the message after a run. */
 export function describeScope(scope: Scope): string {
   const parts: string[] = [];
-  if (scope.remoteId) parts.push(`the record ${scope.remoteId}`);
-  if (scope.datatypes?.length) parts.push(`the ${scope.datatypes.join(', ')} records`);
-  if (scope.officeIds?.length) parts.push(`office ${scope.officeIds.join(', ')}`);
-  if (scope.tenantIds?.length) parts.push(`tenant ${scope.tenantIds.join(', ')}`);
+  if (scope.remoteId) parts.push(`the record whose CRM id is ${scope.remoteId}`);
+  if (scope.datatypes?.length)
+    parts.push(`the ${listed(scope.datatypes.map((datatype) => entity(datatype, true)))}`);
+  if (scope.officeIds?.length)
+    parts.push(
+      `${scope.officeIds.length === 1 ? 'office id' : 'office ids'} ${listed(scope.officeIds)}`,
+    );
+  if (scope.tenantIds?.length)
+    parts.push(
+      `${scope.tenantIds.length === 1 ? 'tenant' : 'tenants'} ${listed(scope.tenantIds.map(String))}`,
+    );
   return parts.length === 0 ? 'every record in Core' : parts.join(' of ');
 }
 
 export type ScopeOptions = {
-  tenants: {
-    id: number;
-    name: string;
-    /** Read by the Manual sync page that is being replaced; goes with it. */
-    connections: { id: string; provider: string; offices: string[] }[];
-  }[];
+  tenants: { id: number; name: string }[];
   /** Every office Core holds records for, live or removed, named as its office record names it. */
   offices: { tenantId: number; id: string; name: string | null }[];
   /** Every datatype Core holds, so the picker offers no entity nobody has. */
@@ -97,9 +106,8 @@ export type ScopeOptions = {
  * its removed records are kept, so a link to them shows the office in its filter.
  */
 export async function scopeOptions(): Promise<ScopeOptions> {
-  const [rows, everyConnection, counts, offices] = await Promise.all([
+  const [rows, counts, offices] = await Promise.all([
     tenants(),
-    connections(),
     itemCounts(),
     db().query<{ tenant_id: number; office_id: string; name: string | null }>(
       `select held.tenant_id, held.office_id, named.name
@@ -113,17 +121,7 @@ export async function scopeOptions(): Promise<ScopeOptions> {
     ),
   ]);
   return {
-    tenants: rows.map((tenant) => ({
-      id: tenant.id,
-      name: tenant.display_name,
-      connections: everyConnection
-        .filter((connection) => connection.tenant_id === tenant.id)
-        .map((connection) => ({
-          id: connection.id,
-          provider: connection.provider,
-          offices: connection.licensed_offices,
-        })),
-    })),
+    tenants: rows.map((tenant) => ({ id: tenant.id, name: tenant.display_name })),
     offices: offices.rows.map((row) => ({
       tenantId: row.tenant_id,
       id: row.office_id,

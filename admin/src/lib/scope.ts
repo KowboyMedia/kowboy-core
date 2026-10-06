@@ -1,6 +1,7 @@
 // The scope every list and run is narrowed by (Patric, 2026-10-06): tenants, offices, entity
 // types and one record id, the same on Records, Flow and Manual sync. It lives in the address,
 // so a scoped view is a link, and it is sent to Core as the admin API takes it.
+import { entity, listed } from './format';
 
 export type Scope = {
   tenantIds: number[];
@@ -80,8 +81,9 @@ export const tenantName = (options: ScopeOptions, id: number | null): string =>
   options.tenants.find((tenant) => tenant.id === id)?.name ?? (id === null ? '—' : String(id));
 
 /**
- * An office as a person knows it: its name, then its id. Two tenants can hold the same office id
- * under different names, so the name is the one the given tenant's records use when there is one.
+ * An office as a person knows it: its name, then the CRM's office id, said as such. Two tenants
+ * can hold the same office id under different names, so the name is the one the given tenant's
+ * records use when there is one.
  */
 export function officeLabel(
   options: ScopeOptions,
@@ -91,27 +93,23 @@ export function officeLabel(
   if (id === null) return '—';
   const same = options.offices.filter((office) => office.id === id);
   const name = (same.find((office) => office.tenantId === tenantId) ?? same[0])?.name;
-  return name ? `${name} (${id})` : id;
+  return name ? `${name} (office id ${id})` : `office id ${id}`;
 }
-
-const few = (names: string[]): string =>
-  names.length <= 3
-    ? names.join(', ')
-    : `${names.slice(0, 3).join(', ')} and ${String(names.length - 3)} more`;
 
 /** The scope in words, for a confirmation: what a run will touch. */
 export function sayScope(scope: Scope, options: ScopeOptions): string {
   if (isEverything(scope)) return 'every record in Core';
   const parts: string[] = [];
-  if (idOf(scope) !== '') parts.push(`the record ${idOf(scope)}`);
-  if (scope.datatypes.length > 0) parts.push(`the ${few(scope.datatypes)} records`);
+  if (idOf(scope) !== '') parts.push(`the record whose CRM id is ${idOf(scope)}`);
+  if (scope.datatypes.length > 0)
+    parts.push(`the ${listed(scope.datatypes.map((datatype) => entity(datatype, true)))}`);
   if (scope.officeIds.length > 0)
     parts.push(
-      `${scope.officeIds.length === 1 ? 'the office' : 'the offices'} ${few(scope.officeIds.map((id) => officeLabel(options, id)))}`,
+      `${scope.officeIds.length === 1 ? 'the office' : 'the offices'} ${listed(scope.officeIds.map((id) => officeLabel(options, id)))}`,
     );
   if (scope.tenantIds.length > 0)
     parts.push(
-      `${scope.tenantIds.length === 1 ? 'the tenant' : 'the tenants'} ${few(scope.tenantIds.map((id) => tenantName(options, id)))}`,
+      `${scope.tenantIds.length === 1 ? 'the tenant' : 'the tenants'} ${listed(scope.tenantIds.map((id) => tenantName(options, id)))}`,
     );
   return parts.join(' of ');
 }

@@ -7,7 +7,7 @@ import { Link } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Sort } from '@/components/data-table';
 import { Empty } from '@/components/empty';
-import { exact } from '@/lib/format';
+import { capital, counted, entity, exact } from '@/lib/format';
 import { officeLabel, scopeQuery, type Scope, type ScopeOptions } from '@/lib/scope';
 
 export type FlowState = 'queued' | 'fetched' | 'applied' | 'error';
@@ -21,6 +21,7 @@ export type FlowRow = {
   officeId: string | null;
   datatype: string | null;
   remoteId: string | null;
+  name: string | null;
   queuedAt: string;
   what: string;
   attempt: number | null;
@@ -34,7 +35,7 @@ export const STATES: Record<
   queued: { label: 'waiting for the CRM', tone: 'warn', row: 'flow-queued' },
   fetched: { label: 'in Core', tone: 'neutral', row: 'flow-fetched' },
   applied: { label: 'on a site', tone: 'ok', row: 'flow-applied' },
-  error: { label: 'error', tone: 'bad', row: 'flow-error' },
+  error: { label: 'failed', tone: 'bad', row: 'flow-error' },
 };
 
 /** How many rows the list holds, and how often it is read again. */
@@ -71,7 +72,7 @@ export function FlowList({ scope, options }: { scope: Scope; options: ScopeOptio
         ))}
       </div>
       <DataTable
-        caption={`${String(rows.length)} record(s) in flight, the newest ${String(TOP)} at most, read again every second`}
+        caption={`${counted(rows.length, 'record', 'records')} on the way, the newest ${String(TOP)} at most. The list is read again every second.`}
         columns={[
           {
             key: 'queuedAt',
@@ -84,24 +85,54 @@ export function FlowList({ scope, options }: { scope: Scope; options: ScopeOptio
             header: 'State',
             cell: (row) => <Badge tone={STATES[row.state].tone}>{STATES[row.state].label}</Badge>,
           },
-          { key: 'tenant', header: 'Tenant', cell: (row) => row.tenant ?? '—' },
+          {
+            key: 'tenant',
+            header: 'Tenant',
+            cell: (row) =>
+              row.tenantId === null ? (
+                '—'
+              ) : (
+                <Link className="underline" to={`/tenants/${String(row.tenantId)}`}>
+                  {row.tenant ?? `tenant ${String(row.tenantId)}`}
+                </Link>
+              ),
+          },
           {
             key: 'office',
             header: 'Office',
-            cell: (row) => officeLabel(options, row.officeId, row.tenantId),
+            cell: (row) =>
+              row.officeId === null ? (
+                '—'
+              ) : (
+                <Link
+                  className="underline"
+                  to={`/records?${new URLSearchParams({ ...(row.tenantId === null ? {} : { tenant: String(row.tenantId) }), office: row.officeId }).toString()}`}
+                >
+                  {officeLabel(options, row.officeId, row.tenantId)}
+                </Link>
+              ),
           },
-          { key: 'datatype', header: 'Entity', cell: (row) => row.datatype ?? '—' },
+          {
+            key: 'datatype',
+            header: 'Entity type',
+            cell: (row) => (row.datatype === null ? '—' : capital(entity(row.datatype))),
+          },
           {
             key: 'remote',
             header: 'Record',
             cell: (row) =>
               row.connectionId && row.datatype && row.remoteId ? (
-                <Link
-                  className="font-mono text-xs underline"
-                  to={`/records/${encodeURIComponent(row.connectionId)}/${row.datatype}/${encodeURIComponent(row.remoteId)}`}
-                >
-                  {row.remoteId}
-                </Link>
+                <div className="flex flex-col">
+                  <Link
+                    className="underline"
+                    to={`/records/${encodeURIComponent(row.connectionId)}/${row.datatype}/${encodeURIComponent(row.remoteId)}`}
+                  >
+                    {row.name ?? `CRM id ${row.remoteId}`}
+                  </Link>
+                  {row.name !== null && (
+                    <span className="text-xs text-muted-foreground">CRM id {row.remoteId}</span>
+                  )}
+                </div>
               ) : (
                 '—'
               ),
@@ -109,14 +140,14 @@ export function FlowList({ scope, options }: { scope: Scope; options: ScopeOptio
           { key: 'what', header: 'What happened', cell: (row) => row.what },
           {
             key: 'attempt',
-            header: 'Attempt',
+            header: 'Tries so far',
             cell: (row) => (row.attempt === null ? '—' : row.attempt),
             optional: true,
           },
           {
             key: 'site',
-            header: 'The site said',
-            cell: (row) => row.site ?? '—',
+            header: 'Site’s plugin',
+            cell: (row) => (row.site === null ? '—' : row.site.replace('/', ' version ')),
             optional: true,
           },
         ]}
@@ -127,7 +158,7 @@ export function FlowList({ scope, options }: { scope: Scope; options: ScopeOptio
         onSort={setSort}
         loading={query.isLoading}
         empty={
-          <Empty what="Nothing is in flight in this scope. When a CRM sends something, or a run touches a record, it appears here as it happens." />
+          <Empty what="No record is on its way for what is picked. When a CRM reports a change, or a manual sync starts, its records show here within a second." />
         }
       />
     </div>

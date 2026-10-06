@@ -137,7 +137,6 @@ export type ScopeFilter = {
   remoteId?: string;
   /** Named records, whatever else the scope says. */
   keys?: ItemKey[];
-  rulesVersionBefore?: string;
 };
 
 type Where = { clauses: string[]; values: unknown[] };
@@ -165,7 +164,6 @@ function scopeWhere(scope: ScopeFilter, deleted: boolean | null = false): Where 
   const datatypes = listed(scope.datatypes, scope.datatype);
   if (datatypes.length > 0) add('datatype = any(?::text[])', datatypes);
   if (scope.remoteId) add('remote_id = ?', scope.remoteId);
-  if (scope.rulesVersionBefore) add('rules_version <> ?', scope.rulesVersionBefore);
   if (scope.keys) {
     const n = where.values.length;
     where.values.push(

@@ -11,7 +11,7 @@ import { logEvent, queryEvents } from '../engine/events.js';
 import { checkAlerts } from '../engine/alerts.js';
 import { inMaintenance } from '../engine/storage/settings.js';
 import { flushBells } from '../engine/bells.js';
-import { runNextJob } from '../engine/jobs.js';
+import { getJob, runNextJob } from '../engine/jobs.js';
 import { PAGE_NAMES, pagesNamedIn } from '../engine/admin/pages.js';
 import { adapters as shipped } from '../main.js';
 import { fakePollingAdapter } from '../adapters/fake-polling/index.js';
@@ -408,7 +408,7 @@ describe('the admin area', () => {
     expect(await count(`tenant=${bravo}&deleted=false&datatype=property`)).toBe(3);
     const slip = await api<{ error: string }>('/records?datatype=house');
     expect(slip.status).toBe(400);
-    expect(slip.body.error).toContain('not a datatype');
+    expect(slip.body.error).toContain('is not an entity type Core knows');
 
     const one = await api<{
       data: {
@@ -434,7 +434,7 @@ describe('the admin area', () => {
     expect(JSON.stringify(one.body.data.timeline)).not.toContain('Storgatan');
   });
 
-  it('previews a recompute and runs one as a job with progress (U4, AC 42)', async () => {
+  it('recomputes a scope as a job the worker runs (U4, AC 42)', async () => {
     await api('/tenants', { method: 'POST', body: tenantBody() });
     crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
     crm.put('property', 'OBJ-1', property('OBJ-1'));
@@ -445,29 +445,15 @@ describe('the admin area', () => {
       'the property to load',
     );
 
-    const before = (await api<{ total: number }>('/records')).body.total;
-    const preview = await api<{
-      data: { scope: string; report: { examined: number; changed: number } };
-    }>('/runs/preview', { method: 'POST', body: { datatype: 'property' } });
-    expect(preview.body.data.scope).toContain('property');
-    expect(preview.body.data.report.examined).toBe(1);
-    // A preview writes nothing: the records are exactly as they were (AC 36).
-    expect((await api<{ total: number }>('/records')).body.total).toBe(before);
-
     const queued = await api<{ data: { job: number } }>('/runs/recompute', {
       method: 'POST',
-      body: { datatype: 'property' },
+      body: { datatypes: ['property'] },
     });
     expect(queued.body.data.job).toBeGreaterThan(0);
-    const list = await api<{ data: { id: string; state: string }[] }>('/jobs');
-    expect(list.body.data[0]?.state).toBe('queued');
-
     await runNextJob();
-    const done = await api<{ data: { state: string; result: { examined: number } } }>(
-      `/jobs/${String(queued.body.data.job)}`,
-    );
-    expect(done.body.data.state).toBe('done');
-    expect(done.body.data.result.examined).toBe(1);
+    const done = await getJob(queued.body.data.job);
+    expect(done?.state).toBe('done');
+    expect(done?.result?.examined).toBe(1);
   });
 
   it('fetches named records again through the adapter (U3, question 57)', async () => {
@@ -949,7 +935,9 @@ describe('the admin area', () => {
     const rung = await bells();
     const sent = await sync('send', { remoteId: 'OBJ-1' });
     expect(sent.status).toBe(200);
-    expect(sent.body.data.detail).toBe('1 record(s) go to the sites of 1 tenant(s) again.');
+    expect(sent.body.data.detail).toBe(
+      'Core sent 1 record to the sites of Acme Mäklare again. Each site takes the ones it lacks or holds in another version.',
+    );
     expect(await seqOf('OBJ-1')).toBeGreaterThan(Math.max(one, two));
     expect(await seqOf('OBJ-2')).toBe(two);
     await flushBells();
@@ -958,14 +946,14 @@ describe('the admin area', () => {
 
     // Recompute and send: a recompute of the scope runs in the background, and the send goes now.
     const recomputed = await sync('recompute', { officeIds: ['100'], datatypes: ['property'] });
-    expect(recomputed.body.data.detail).toContain('The recompute runs in the background.');
-    expect(recomputed.body.data.detail).toContain('2 record(s) go to the sites');
+    expect(recomputed.body.data.detail).toContain('Core recomputes them in the background.');
+    expect(recomputed.body.data.detail).toContain('Core sent 2 records to the sites');
     expect(await runNextJob()).toBe(true);
 
     // The whole way: the CRM is asked for the scope again and a recompute is queued, both in the
     // background, and the send goes now; what the fetch changes goes to the sites as it is written.
     const fetched = await sync('fetch', { remoteId: 'OBJ-2' });
-    expect(fetched.body.data.detail).toContain('1 record(s) will be fetched from the CRM again.');
+    expect(fetched.body.data.detail).toContain('Core asks the CRM for 1 record again.');
     await running.deliver();
     expect(await queryEvents({ type: 'lifecycle.refetch', limit: 10 })).toHaveLength(1);
     expect(await runNextJob()).toBe(true);

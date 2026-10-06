@@ -424,16 +424,30 @@ client ports (item 16, first client by question 80).
     then failed forms. 165 was answered no at 20:58: no retry for a day; the Vitec code tries a
     call again within the form's 15 s, and a form that still fails reaches the visitor as an
     error. Open: 151 (the forms are built without "Söker du bostad?", as recommended, until it is
-    answered) and 166 (whether the plugin also tries again briefly when the site cannot reach
-    Core). The idea of drawing the bot check in a frame from Core's address is set aside by 155's
+    answered). 166 was answered yes at 21:43: when the site cannot reach Core, the plugin tries
+    the form again briefly with the same form id, then the visitor reads the error. The idea of drawing the bot check in a frame from Core's address is set aside by 155's
     line 6.
     **Built 2026-10-06** (docs/forms.md, "Built 2026-10-06: the first version"): the guard, the
     bot check, the three windows in theme 1.2.0 with plugin 0.6.0's two receivers, and the
     widget, the browser door and the site keys removed from Core, the plugin and the admin area;
     the seven Vitec forms fields removed; and, of 160 a, a form's details kept encrypted until the
     CRM has them (30 days when it refused or did not answer) and the admin page Failed forms
-    with "Send again", and the short retry in the Vitec code. Next: each site's address on
-    Cloudflare's list (waits on 171), and the alert for a failed form under 172's levels.
+    with "Send again", and the short retry in the Vitec code. Patric closed the forms session at
+    21:50 to save tokens; what it left, in order:
+    - Build 166 yes. In `core_client_forms_receive`, the plugin tries twice more, after 1 s and
+      3 s, when Core did not answer (a WP_Error, or a 502, 503 or 504 whose body is not a JSON
+      object, which every answer of Core's is), and only while the form is under 5 s old, so the
+      visitor waits at most about 30 s; the body goes again unchanged, so the form id is the same.
+      Core then answers a form id it already holds for that tenant with the first answer, before
+      the bot check, since the check's proof is spent after one use (`submit` in
+      engine/http/submissions.ts). A plugin version, the site deploy and the docs go with it.
+    - Check the forms against the one-password change (`d2627bd`): run
+      `adapters/vitec/forms.test.ts`, then a line in docs/forms.md, whose line 1049 still says the
+      search profile uses the CRM password.
+    - Each site's address on Cloudflare's list (waits on 171), and the alert for a failed form
+      under 172's levels.
+      The Failed forms page's texts and data are now edited by the admin rewrite directly, and QA
+      forms sent from staging wait on Patric's word (the QA work builds the guard side if he says yes).
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in
@@ -731,11 +745,12 @@ client ports (item 16, first client by question 80).
       records (`renumber` in `engine/storage/items.ts`). Gone with the old Records page: the
       search by words and its full-text index (migration 013), ticking rows, "select all", the
       columns call; gone from the area: housekeeping's button and call. The old Manual sync page
-      stays as "Manual sync (old)" until Patric approves the new one (176). Then it goes with what only
-      it uses: its page and navigation entry, `POST /runs/preview` and `preview()`, the
-      connections in `GET /scope`, the single-field scope inputs and `staleRulesOnly` where
-      nothing else sends them, the `jobs` resource of the app if nothing else lists jobs, and the
-      new page moves to `/manual-sync`.
+      went on Patric's word ("Remove manual sync (old)", 2026-10-06, 176 a) with what only it
+      used: its page and navigation entry, `POST /runs/preview` and `preview()`, the jobs list,
+      a job's own call and its stop (`GET /jobs`, `GET /jobs/:id`, `POST /jobs/:id/cancel`,
+      `listJobs`, `cancelJob` and the worker's reading of a stop request), the connections in
+      `GET /scope`, the one-of-each scope fields and "only records an older rules version made";
+      the new page took the address `/manual-sync`.
     - **Reviewed 2026-10-06** by a second agent, and fixed on staging: Records' "Both" showed the
       live records only; Flow narrowed to a tenant could miss records waiting on a busy adapter
       (an adapter now reports only for the connections it is asked about; the Vitec adapter's
@@ -757,6 +772,13 @@ client ports (item 16, first client by question 80).
       offices taken off the sites and is loaded again in full; a connection whose start-up round
       fails runs it again alone; the Vitec page's fetch list and refused offices, and
       `vitec.offices`, mark a QA office "(QA)"; the setup steps say all of it.
+    - **Renamed on staging 2026-10-06** (Patric, 21:29 UTC, in his rebuild of the tenant page: "is
+      supposed to be a toggle/checkbox "Use Vitec's QA environment". If checked, use Vitecs test
+      accounts"): the field reads "Use Vitec’s QA environment" and still takes yes or no. Drawing
+      it as a tickbox waits on a checkbox in the field description every CRM shares, which the new
+      tenant page (item 27) raises with Patric. His same message says the switch "allows form
+      submissions even in staging", against his 19:29 UTC rule that staging only dry-runs forms;
+      nothing is built on that until he settles it.
     - Tests: `adapters/vitec/qa.test.ts` (two stand-in Connects sharing office M1: loads,
       notifications, the daily comparison, a refusal and the office check after it, a switch from
       QA to live, a start-up round QA fails, Retry-After, "Check the login", a form, the page's
@@ -768,6 +790,20 @@ client ports (item 16, first client by question 80).
     - Open: the QA address is as Patric remembered it; on 2026-10-06 it cut off a cloud session's
       secure handshake while live Vitec answered. A QA login and "Check the login" show whether it
       answers Core; if it is another address, the constant in `adapters/vitec/api.ts` changes.
+
+29. **Confirm the forms’ features with Patric before checking the build** (Patric, 2026-10-06,
+    21:54 UTC: "Confirm with me the high level features of all the different forms, and
+    requirements/tests, and let me verify it before you will verify that it is correctly built and
+    working"). Components: `[core]`, `[crm-vitec]`, `[client-wordpress]`.
+    - First, a list for Patric: every form (book a viewing, interest, valuation, and any other the
+      theme or plugin carries), its high-level features, its requirements and the tests that prove
+      each one. Patric verifies that list. Only then is the build checked against the list he
+      approved, form by form, and nothing is called working before that.
+    - His reason: the session "Forms build review for production" "went complete apeshit, I dont
+      trust a character of code from that session", so all of its forms code is re-checked against
+      the approved list. What that session built is in its memory file
+      `forms-build-review-2026-10-05` and in `docs/forms.md` under "Built 2026-10-06".
+    - Starts when Patric says so.
 
 ## Later, when Patric supplies them
 

@@ -96,7 +96,7 @@ export const authProvider: AuthProvider = {
 /** Which resources a message from the stream makes stale. */
 const TOUCHED: Record<string, string[]> = {
   events: ['events', 'overview', 'records', 'tenants'],
-  jobs: ['jobs', 'overview'],
+  jobs: ['overview'],
   health: ['overview', 'settings'],
 };
 

@@ -12,7 +12,7 @@ import { DataTable, DEFAULT_PAGE_SIZE, type Sort } from '@/components/data-table
 import { Empty } from '@/components/empty';
 import { PageHeader } from '@/components/layout';
 import { ScopePicker, useScopeOptions } from '@/components/scope-picker';
-import { count, moment } from '@/lib/format';
+import { capital, counted, crmName, entity, moment } from '@/lib/format';
 import {
   isEverything,
   officeLabel,
@@ -96,7 +96,7 @@ export function Records() {
     <>
       <PageHeader
         title="Records"
-        what="Everything Core holds. Narrow it to tenants, offices, entity types or one record id; an empty box means all of it. Open a row to see what the CRM sent, what Core made of it and its history."
+        what="Every record Core holds. Pick tenants, offices, entity types or one record to see fewer; a box left empty takes all of its kind. Open a record to see what the CRM sent, what Core made of it and what happened to it."
       />
 
       <Card className="mb-4">
@@ -108,48 +108,33 @@ export function Records() {
               options={options}
             />
           </div>
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <Label id="shown-label">Show</Label>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex gap-1" role="group" aria-labelledby="shown-label">
-                  {SHOWN.map((one) => (
-                    <Button
-                      key={one.label}
-                      size="sm"
-                      variant={deleted === one.value ? 'default' : 'outline'}
-                      aria-pressed={deleted === one.value}
-                      onClick={() => set('deleted', one.value)}
-                    >
-                      {one.label}
-                    </Button>
-                  ))}
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  Live records are on the sites. Removed records left the CRM’s list and are kept 90
-                  days.
-                </span>
+          <div className="flex flex-col gap-1">
+            <Label id="shown-label">Show</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex gap-1" role="group" aria-labelledby="shown-label">
+                {SHOWN.map((one) => (
+                  <Button
+                    key={one.label}
+                    size="sm"
+                    variant={deleted === one.value ? 'default' : 'outline'}
+                    aria-pressed={deleted === one.value}
+                    onClick={() => set('deleted', one.value)}
+                  >
+                    {one.label}
+                  </Button>
+                ))}
               </div>
-            </div>
-            <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">
-                Empties every box and shows every record.
+                Live records are on the sites. Removed records left the CRM’s list and are kept 90
+                days.
               </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!narrowed}
-                onClick={() => change(new URLSearchParams())}
-              >
-                Show everything
-              </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
       <DataTable
-        caption={`${count(total)} record(s)`}
+        caption={counted(total, 'record', 'records')}
         columns={[
           {
             key: 'what',
@@ -160,8 +145,8 @@ export function Records() {
                 <Link className="font-medium hover:underline" to={recordPath(row)}>
                   {row.addressLine ?? row.name ?? row.remoteId}
                 </Link>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {row.datatype} · {row.remoteId}
+                <span className="text-xs text-muted-foreground">
+                  {capital(entity(row.datatype))}, CRM id {row.remoteId}
                 </span>
               </div>
             ),
@@ -170,13 +155,27 @@ export function Records() {
             key: 'tenant',
             header: 'Tenant',
             sortAs: 'tenant_id',
-            cell: (row) => tenantName(options, row.tenantId),
+            cell: (row) => (
+              <Link className="underline" to={`/tenants/${String(row.tenantId)}`}>
+                {tenantName(options, row.tenantId)}
+              </Link>
+            ),
           },
           {
             key: 'office',
             header: 'Office',
             sortAs: 'office_id',
-            cell: (row) => officeLabel(options, row.officeId, row.tenantId),
+            cell: (row) =>
+              row.officeId === null ? (
+                '—'
+              ) : (
+                <Link
+                  className="underline"
+                  to={`/records?tenant=${String(row.tenantId)}&office=${encodeURIComponent(row.officeId)}`}
+                >
+                  {officeLabel(options, row.officeId, row.tenantId)}
+                </Link>
+              ),
           },
           {
             key: 'deleted',
@@ -188,7 +187,7 @@ export function Records() {
           },
           {
             key: 'updatedAt',
-            header: 'Written',
+            header: 'Changed in Core',
             sortAs: 'updated_at',
             cell: (row) => <span className="tabular-nums">{moment(row.updatedAt)}</span>,
           },
@@ -201,9 +200,16 @@ export function Records() {
           },
           {
             key: 'connection',
-            header: 'Connection',
+            header: 'CRM connection',
             sortAs: 'connection_id',
-            cell: (row) => row.connectionId,
+            cell: (row) => (
+              <Link
+                className="underline"
+                to={`/tenants/${String(row.tenantId)}#connection:${row.connectionId}`}
+              >
+                {crmName(row.provider)}, short name {row.connectionId}
+              </Link>
+            ),
             optional: true,
           },
         ]}
@@ -229,8 +235,8 @@ export function Records() {
           <Empty
             what={
               narrowed
-                ? 'No record is in this scope.'
-                : 'Core holds no records yet. They arrive when a tenant’s CRM connection loads.'
+                ? 'No record matches what is picked. Empty a box to see more.'
+                : 'Core holds no records yet. Records arrive when a tenant’s CRM connection has fetched them.'
             }
           />
         }

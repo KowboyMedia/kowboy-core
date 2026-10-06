@@ -16,7 +16,7 @@ export function Flow() {
     <>
       <PageHeader
         title="Flow"
-        what="Every record on its way through Core, newest first, read again every second. Narrow it to a tenant or an office; an empty box means all of them."
+        what="Every record on its way from the CRM through Core to the sites, newest first. The list is read again every second. Pick tenants or offices to see fewer; a box left empty takes every tenant or office."
       />
       <Card className="mb-4">
         <CardContent className="grid gap-3 pt-4 sm:grid-cols-2">

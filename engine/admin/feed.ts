@@ -14,6 +14,7 @@ import { openJobs } from '../jobs.js';
 import { healthReport } from '../health.js';
 import { report } from '../errors.js';
 import { summarise } from './summary.js';
+import { counted } from './words.js';
 import type { Scope } from './scope.js';
 import type { AdminQueued } from '../adapter-api/types.js';
 import type { Response } from '../http/server.js';
@@ -30,6 +31,8 @@ export type FlowRow = {
   officeId: string | null;
   datatype: string | null;
   remoteId: string | null;
+  /** The record's address or name, as Records shows it; null before Core holds the record. */
+  name: string | null;
   queuedAt: string;
   what: string;
   attempt: number | null;
@@ -111,13 +114,24 @@ const waitingRow = (entry: AdminQueued, tenant: { id: number; name: string } | n
   officeId: entry.officeId,
   datatype: entry.datatype,
   remoteId: entry.remoteId,
+  name: null,
   queuedAt: entry.queuedAt,
-  what:
-    entry.lastError ??
-    (entry.nextAt === null ? 'given up' : `waiting for the CRM (${entry.reason})`),
+  what: waiting(entry),
   attempt: entry.attempts,
   site: null,
 });
+
+/** Why a record waits on its CRM, in a sentence: the adapter says why, the engine what follows. */
+function waiting(entry: AdminQueued): string {
+  const tries = counted(entry.attempts, 'try', 'tries');
+  if (entry.nextAt === null)
+    return entry.lastError === null
+      ? `Core stopped trying to fetch it from the CRM after ${tries}.`
+      : `Core stopped trying to fetch it from the CRM after ${tries}. The last try failed: ${entry.lastError}`;
+  if (entry.lastError !== null)
+    return `The last try to fetch it from the CRM failed, and Core tries again: ${entry.lastError}`;
+  return `Waiting to be fetched from the CRM: ${entry.reason}.`;
+}
 
 type MovedRow = {
   id: string;
@@ -130,6 +144,7 @@ type MovedRow = {
   datatype: string | null;
   remote_id: string | null;
   office_id: string | null;
+  name: string | null;
 };
 
 /** One row for a record that has moved, from the event that moved it. */
@@ -148,6 +163,7 @@ const movedRow = (event: MovedRow): FlowRow => ({
   officeId: event.office_id,
   datatype: event.datatype,
   remoteId: event.remote_id,
+  name: event.name,
   queuedAt: event.at.toISOString(),
   what: summarise(event.type, event.fields),
   attempt: null,
@@ -156,8 +172,9 @@ const movedRow = (event: MovedRow): FlowRow => ({
 
 /**
  * The newest event per record among the newest events of the write path inside the scope, with
- * the record's office, the `limit` records that moved last. The scan runs backwards over the time
- * index and stops at the day's start or at the count, whichever comes first.
+ * the record's office, the `limit` records that moved last, each named as Records names it. The
+ * scan runs backwards over the time index and stops at the day's start or at the count, whichever
+ * comes first; only the rows shown read the record's name.
  */
 async function moved(scope: Scope, limit: number): Promise<MovedRow[]> {
   const { rows } = await db().query<MovedRow>(
@@ -178,12 +195,15 @@ async function moved(scope: Scope, limit: number): Promise<MovedRow[]> {
      newest as (
        select distinct on (r.connection_id, r.datatype, r.remote_id) r.*
        from recent r
-       order by r.connection_id, r.datatype, r.remote_id, r.id desc)
-     select n.*, t.display_name as tenant
-     from newest n
-     left join tenants t on t.id = n.tenant_id
-     order by n.at desc
-     limit $8`,
+       order by r.connection_id, r.datatype, r.remote_id, r.id desc),
+     top as (select n.* from newest n order by n.at desc limit $8)
+     select top.*, t.display_name as tenant,
+            coalesce(i.data->'display'->>'address_line', i.data->>'name') as name
+     from top
+     left join tenants t on t.id = top.tenant_id
+     left join items i on i.tenant_id = top.tenant_id and i.connection_id = top.connection_id
+                      and i.datatype = top.datatype and i.remote_id = top.remote_id
+     order by top.at desc`,
     [
       Object.keys(FROM_EVENT),
       scope.tenantIds?.length ? scope.tenantIds : null,

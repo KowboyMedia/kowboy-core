@@ -14,18 +14,11 @@ export type Environment = (typeof ENVIRONMENTS)[number];
 export type Auth = { username: string; password: string; environment: Environment };
 
 /**
- * A connection's login as its page stores it: the Connect key pair, the customer or group id Vitec
- * issued it for, the CRM function group's own password when Vitec issued one, and the system, QA
- * when the field `qa` says yes and live otherwise.
+ * A connection's login as its page stores it: one username and one password for every call (Patric,
+ * 2026-10-06), the customer or group id Vitec issued it for, and the system, QA when the field `qa`
+ * says yes and live otherwise.
  */
-export type Login = Auth & { customerId: string | null; crmPassword: string | null };
-
-/** The login for Vitec's CRM calls: the CRM function group's own password when Vitec issued one. */
-export const crmAuthOf = (login: Login): Auth => ({
-  username: login.username,
-  password: login.crmPassword ?? login.password,
-  environment: login.environment,
-});
+export type Login = Auth & { customerId: string | null };
 
 /** The stored login, or null when it holds no key pair. */
 export function loginOf(stored: string | null): Login | null {
@@ -43,7 +36,6 @@ export function loginOf(stored: string | null): Login | null {
       password: parsed['password'],
       environment: text('qa')?.toLowerCase() === 'yes' ? 'qa' : 'live',
       customerId: text('customer_id'),
-      crmPassword: text('crm_password'),
     };
   } catch {
     return null;
