@@ -82,7 +82,18 @@ function db(): Promise<pg.Pool> {
   if (!ready) {
     const url = process.env['DATABASE_URL'];
     if (!url) throw new Error('DATABASE_URL is not set');
-    pool = new pg.Pool({ connectionString: url, max: 3 });
+    pool = new pg.Pool({
+      connectionString: url,
+      // One connection: this pool and the engine's share the cluster's 22 slots with the other
+      // app and with a deploy's new processes (the arithmetic is in engine/storage/db.ts).
+      max: 1,
+      // The engine's pool has the same guards (docs/decisions.md, 2026-09-18): a query on a
+      // connection the network silently dropped fails after a minute and the pool discards that
+      // connection, which with one connection is the difference between a stall and a recovery.
+      query_timeout: 60_000,
+      connectionTimeoutMillis: 10_000,
+      keepAlive: true,
+    });
     pool.on('error', (error) => console.error('vitec: idle database client error', error));
     const opened = pool;
     ready = opened

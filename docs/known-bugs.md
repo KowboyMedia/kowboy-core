@@ -106,14 +106,26 @@ attribute", each from the Vitec adapter's state reads (`store.getState` under `p
 `skippedOffices`, `drainOnce`), each reported by Node as a promise rejection handled late. A
 minute later it ran normally, and Core's health answer showed the database as fine.
 
-**Why.** Not established. The managed database admits a fixed number of connections; during a
-deploy the old and the new web and worker processes are all connected at once, each with its own
-pool, which can fill the slots for a moment. That the rejections were handled late suggests the
-drain's parallel state reads start before anything awaits them.
+**Why.** Established on 2026-10-06. Staging and production run on one database cluster
+(`.do/app.staging.yaml`; strategy §4), and the smallest managed plan lets the apps open 22
+connections to it: 25 per GiB of RAM, 3 of them kept for the platform's own maintenance
+(DigitalOcean's limits page, read 2026-10-06). Every process ran two pools, the engine's of 6 and
+the Vitec adapter's of 3, so each app's web and worker could hold 18, both apps 36, and during a
+deploy, when an app's new web and worker start while its old ones still run, 54. A pool opens a
+connection only when a query needs one and closes it after ten idle seconds, so most of the time
+far fewer were open, and the errors came whenever the bursts met: a catch-up on one app, the
+Overview on the other, a deploy with its start-up catch-up. The sizing of 2026-09-20 counted 19
+slots instead of 22 and one app instead of two; it was right the day it was made, when staging was
+alone on the cluster, and wrong from the release of 2026-09-23. That Node reported the rejections
+late is a trait of the drain's parallel state reads, not a cause.
 
-**What fixing it takes.** Read the pool sizes against the database's connection limit, and make
-the drain's first reads awaited where they start; seen in the worker log read through
-DigitalOcean.
+**What was done.** On staging since 2026-10-06: the engine's pool holds 2 connections a process
+and the adapter's 1, so six processes, both apps' web and worker and one app's new pair during a
+deploy, hold 18 of the 22 at most, and a query that finds its pool busy waits its turn instead of
+failing. The adapter's pool got the engine's guards against a dropped connection (a query fails
+after a minute and the connection is discarded), which with one connection is the difference
+between a stall and a recovery. Question 167 asks whether the engine should hand its one pool to
+the adapters instead. The entry leaves when the fix is live.
 
 ## 6. `[client-wordpress]` The WordPress test site in a cloud session answers a critical error, so the WordPress suites cannot run there
 

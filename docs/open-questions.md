@@ -4,10 +4,34 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 167 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 168 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 167. `[core]` Should the engine hand its one database pool to the CRM adapters, instead of each adapter opening its own?
+
+- 2026-10-06 · Patric: "We get intermittent errors about reserved database connections, can you
+  solve it". The cause (known bug 5): staging and production share one database cluster whose
+  plan lets the apps open 22 connections, and every process ran two pools, the engine's and the
+  Vitec adapter's, which together could ask for far more. The fix on staging the same day keeps
+  two pools a process and sizes them to fit: 2 for the engine, 1 for the adapter, 18 for six
+  processes. That holds, but it splits each process's 3 connections by hand between two pools
+  that never know of each other, repeats the pool's guards in two files, and gives an adapter one
+  connection whatever it does. The adapter interface is protected (`AGENTS.md`, "Stop and ask"),
+  and the Concept keeps adapters off the engine's storage: this would hand them a connection to
+  the same database, not the engine's tables, and an adapter would still own its own tables.
+- a) **yes** (recommended): the adapter interface gains one thing, the process's database pool,
+  and an adapter runs its own tables through it; the Vitec adapter's own pool and its copy of the
+  guards go. One pool of 3 a process, one number, in one file.
+- b) **no**: the two pools a process stay as sized today.
+- c) **a connection pool in front of the cluster** instead (DigitalOcean's own, no extra cost on
+  the plan): the cluster then takes up to a thousand connections from the apps and holds a fixed
+  few to the database, and the apps' pools could stay at any size. Needs the platform token
+  (question 87, open since 2026-09-23) or a few clicks in DigitalOcean's panel, and both apps'
+  database address changed to the pool's. Core runs nothing such a pool refuses (no LISTEN, no
+  session settings, no named prepared statements; checked 2026-10-06).
+- Smaller: b. Blocked: nothing; the errors are fixed either way. Answer a, b or c.
 
 ## 166. `[client-wordpress]` When the site cannot reach Core at all, should the plugin keep the form until Core takes it?
 
