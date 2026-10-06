@@ -793,7 +793,11 @@ client ports (item 16, first client by question 80).
     - His reason: the session "Forms build review for production" "went complete apeshit, I dont
       trust a character of code from that session", so all of its forms code is re-checked against
       the approved list. What that session built is in its memory file
-      `forms-build-review-2026-10-05` and in `docs/forms.md` under "Built 2026-10-06".
+      `forms-build-review-2026-10-05` and in `docs/forms.md` under "Built 2026-10-06". The
+      re-check also covers what other threads changed in that code since: "Vitec office
+      whitelist" (37d0358) made `call` in `adapters/vitec/forms.ts` pass the office to the send,
+      so a form to an office Vitec refuses fails at once, with no retry, and the visitor sees the
+      error.
     - Starts when Patric says so.
 
 ## Later, when Patric supplies them
