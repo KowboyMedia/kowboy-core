@@ -240,6 +240,12 @@ untouched.
   that posts to the same endpoint with a per-site public key and a domain allow-list is a client
   of it, not a second product. That is a "later" line in the feature map.
 
+**Corrected 2026-10-06** (Patric, answering 150 with a): Mspecs also has one credential set per client, as
+far as he recalls, so the Mspecs claims in this section ("one provider account for every brokerage") are
+withdrawn; and each Vitec client has its own username and password within Kowboy's partner account, while
+Vitec's single credential for many clients is used for the CDN, not by Core. Question 150 was answered a,
+the forms drawn by the theme and sent by Core, for the other reasons above (`docs/decisions.md`).
+
 ## The form itself: one widget, what it asks, and the bot gate (Patric, 2026-10-04)
 
 Patric's second thought, after 129: the forms as a modal in a small remote widget, so that one
@@ -782,11 +788,10 @@ the forms are rebuilt from zero, not cut down (question 144): in concept everyth
 2026-10-04" is reverted and only what is necessary comes back, starting with the list of what a
 site must be able to configure (question 146, answered the same evening: every setting is the
 site's own or automatic, apart from the bot check's keys, one global setting where the forms are
-received; `docs/decisions.md`). Where the forms live is question 150: drawn by our theme and sent
-by Core (recommended since 2026-10-06, the form per client of 137 b), a separate app in Core's
-repository, inside Core, or drawn by our theme and sent by the plugin itself with the Vitec login
-typed on the site (option D above, raised again by Patric on 2026-10-06); the section "Where the
-writes live" above is the weighing of 2026-10-04, whose separate app had its own data.
+received; `docs/decisions.md`). Where the forms live was question 150, answered a on 2026-10-06
+(`docs/decisions.md`): drawn by our theme and sent by Core, the form per client of 137 b; the
+cloud app, inside Core and the plugin sending straight to Vitec (option D above) were set aside.
+The first version's lines are question 155, failed forms question 160.
 
 What exists, proved by acceptance criteria 43 to 47 and 49 (`acceptance/submissions.test.ts`)
 against the fake polling CRM, which takes every kind, and the fake webhook CRM, which takes none:
