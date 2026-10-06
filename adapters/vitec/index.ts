@@ -30,7 +30,14 @@ import * as store from './store.js';
 import * as forms from './forms.js';
 import { changedAtOf, isoDate, mappers, referencedIds } from './mappers.js';
 import { refetchOffice, vitecAdmin } from './admin/index.js';
-import { CHECK_EVERY_MS, checkOffices, checkSoon, officesOf } from './offices.js';
+import {
+  CHECK_EVERY_MS,
+  checkOffices,
+  checkSoon,
+  lastCheck,
+  officesOf,
+  type OfficesCheck,
+} from './offices.js';
 import { DATATYPES } from '../../engine/adapter-api/index.js';
 import type {
   Adapter,
@@ -177,7 +184,7 @@ async function noteFailure(current: AdapterApi, live: Live, detail: string): Pro
   await store.setState(id, 'pause_ms', String(Math.min(pause.pauseMs * 2, PAUSE_MAX_MS)));
   await store.setState(id, 'probing', '');
   await current.logEvent(
-    'connect.paused',
+    'connection.paused',
     { connection_id: id, failures, until: until.toISOString(), detail },
     { connectionId: id },
   );
@@ -193,7 +200,7 @@ async function noteSuccess(current: AdapterApi, live: Live): Promise<void> {
   await store.setState(id, 'pause_ms', String(PAUSE_BASE_MS));
   await store.setState(id, 'probing', '');
   if (pause.probing) {
-    await current.logEvent('connect.resumed', { connection_id: id }, { connectionId: id });
+    await current.logEvent('connection.resumed', { connection_id: id }, { connectionId: id });
   }
 }
 
@@ -706,10 +713,12 @@ async function checkAndApply(current: AdapterApi, target: Live): Promise<Live> {
   const crmAuth = credentials.crmPassword
     ? { ...credentials, password: credentials.crmPassword }
     : credentials;
+  const before = await lastCheck(connection.id);
   const check = await checkOffices(connection.id, credentials, crmAuth, ids);
+  await noteRefusedLogin(current, connection, before, check);
   const next = { ...target, offices: check.offices };
   for (const officeId of target.offices.filter((office) => !check.offices.includes(office))) {
-    await takeOff(current, connection, officeId);
+    await takeOff(current, connection, officeId, takenOffBecause(check, officeId));
   }
   const added = check.offices.filter((office) => !target.offices.includes(office));
   if (added.length > 0) await load(next, added);
@@ -725,10 +734,51 @@ async function takeOff(
   current: AdapterApi,
   connection: Connection,
   officeId: string,
+  reason: string,
 ): Promise<void> {
   if (!officeId) return; // an empty office would be every office
   for (const datatype of DATATYPES)
     await current.presentIds(connection, datatype, { officeId }, []);
+  // For the super admin's notifications (question 159 a): told once, at the moment it goes.
+  await current.logEvent(
+    'office.taken_off',
+    { office_id: officeId, reason },
+    { connectionId: connection.id },
+  );
+}
+
+/** Why an office the last check synced is not synced now, in plain words. */
+function takenOffBecause(check: OfficesCheck, officeId: string): string {
+  const seen = check.ids
+    .flatMap((checked) => checked.offices)
+    .find((office) => office.customerId === officeId);
+  const refused = 'Vitec still refused it at the next daily check';
+  if (seen?.readable) return 'it is no longer in the office group Webbplats in Vitec';
+  if (seen?.refusedSince) return refused;
+  if (seen) return seen.detail ?? 'it no longer reads with this login';
+  if (check.ids.some((checked) => checked.refusedSince)) return refused;
+  return 'the id on the connection no longer lists it';
+}
+
+/**
+ * The connection's own id is refused now and was not at the last check: told once, for the super
+ * admin's notifications (question 159 a); the offices it takes off are told one by one.
+ */
+async function noteRefusedLogin(
+  current: AdapterApi,
+  connection: Connection,
+  before: OfficesCheck | null,
+  check: OfficesCheck,
+): Promise<void> {
+  for (const checked of check.ids) {
+    if (!checked.refusedSince) continue;
+    if (before?.ids.find((one) => one.id === checked.id)?.refusedSince) continue;
+    await current.logEvent(
+      'login.refused',
+      { detail: `${checked.error ?? 'Vitec refuses this login'} for ${checked.id}` },
+      { connectionId: connection.id },
+    );
+  }
 }
 
 const ageMs = (iso: string | null): number =>

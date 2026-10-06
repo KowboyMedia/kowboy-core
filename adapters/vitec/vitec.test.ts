@@ -575,8 +575,13 @@ describe('the Vitec adapter', () => {
     expect((await health())['vitec.connect']?.ok).toBe(true);
     for (const id of ids) expect(await item('property', id)).toBeDefined();
     const types = (await queryEvents({ connectionId: CONNECTION })).map((row) => row.type);
-    expect(types).toContain('connect.paused');
-    expect(types).toContain('connect.resumed');
+    expect(types).toContain('connection.paused');
+    expect(types).toContain('connection.resumed');
+    const pausedEvent = (await queryEvents({ connectionId: CONNECTION })).find(
+      (row) => row.type === 'connection.paused',
+    );
+    expect(typeof pausedEvent?.fields['failures']).toBe('number');
+    expect(pausedEvent?.fields['detail']).toBeTruthy();
   });
 
   it('keeps the start of a broken answer and fetches the record at the next try', async () => {
@@ -852,6 +857,13 @@ describe('the Vitec adapter', () => {
     expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
     expect((await item('office', OFFICE))?.['deleted']).toBe(true);
     expect((await item('property', 'OBJ2'))?.['deleted']).toBe(false);
+    // Told once, for the super admin's notifications.
+    const takenOff = (await queryEvents({ connectionId: CONNECTION })).filter(
+      (row) => row.type === 'office.taken_off',
+    );
+    expect(takenOff.map((row) => row.fields)).toEqual([
+      { office_id: OFFICE, reason: 'it is no longer in the office group Webbplats in Vitec' },
+    ]);
 
     // Vitec does not answer: the offices stay as they were, and the check is due within the hour.
     await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
@@ -958,6 +970,20 @@ describe('the Vitec adapter', () => {
     expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
     expect((await item('office', OFFICE))?.['deleted']).toBe(true);
     expect(fake.forms).toHaveLength(0);
+
+    // For the super admin: each office once as it went, the refused login once as it began.
+    const events = await queryEvents({ connectionId: CONNECTION });
+    expect(
+      events.filter((row) => row.type === 'office.taken_off').map((row) => row.fields),
+    ).toEqual(
+      expect.arrayContaining([
+        { office_id: 'M2', reason: 'Vitec still refused it at the next daily check' },
+        { office_id: OFFICE, reason: 'Vitec still refused it at the next daily check' },
+      ]),
+    );
+    const refused = events.filter((row) => row.type === 'login.refused');
+    expect(refused).toHaveLength(1);
+    expect(refused[0]?.fields['detail']).toBe('Vitec refuses this login for G1');
   });
 
   it('checks the offices at the next tick after a refusal at a fetch', async () => {
