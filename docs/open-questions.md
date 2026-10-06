@@ -4,10 +4,26 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 174 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 175 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 174. `[core]` May the worker remove the seven old forms fields from production's stored Vitec logins once, at the next release?
+
+- 2026-10-06 · The seven forms fields left the Vitec connection (155 line 5): "Send forms to
+  Vitec", the lead source, the intake source, an interest's status, the e-mail and SMS
+  confirmations and the reminder. A stored value of one of them stays in a login until someone
+  saves that connection, since a save drops a field the login form no longer has (Patric's
+  clean-up rule, 2026-10-06).
+- A one-time step at the worker's start removed exactly those seven from every stored Vitec login
+  on staging and logged 0 changed (19:41 UTC). It was taken out again before any release, so
+  production never runs it.
+- a) **yes** (recommended): the step comes back, runs once on production at the next release,
+  removes only those seven and never the Vitec username, password or CRM password, and comes out
+  in the first commit after production's worker log shows it ran.
+- b) **no**: each of them leaves a production login only when someone next saves that connection.
+- Smaller: b. Blocks nothing. Reply: a or b.
 
 ## 173. `[core]` Who pings Core from outside, so you hear when the whole app or its server is down?
 
