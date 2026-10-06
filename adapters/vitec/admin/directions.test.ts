@@ -44,9 +44,10 @@ describe('the Vitec setup directions', () => {
     for (const check of checks) expect(text, check).toContain(`vitec.${check}`);
   });
 
-  it('name every credential field and the webhook path', () => {
+  it('name every credential field and both webhook paths, live and QA', () => {
     for (const credential of vitecAdmin.credentials) expect(text).toContain(credential.label);
     expect(text).toContain('/v1/hook/vitec/webhook/');
+    expect(text).toContain('/v1/hook/vitec/qa/');
   });
 
   it('describe every setting with its value and what it does', () => {

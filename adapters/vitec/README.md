@@ -20,7 +20,8 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   (Patric, 2026-09-17). In the list: on the sites. A `Remove` notification, or an id gone from the
   list: removed, without a fetch. Nothing here reads a field's value.
 - **Webhooks.** Vitec POSTs its notification (`type`, `event`, `customerId`, `id`) to
-  `/v1/hook/vitec/webhook/<VITEC_WEBHOOK_TOKEN>`. The record goes on the fetch list and the answer
+  `/v1/hook/vitec/webhook/<VITEC_WEBHOOK_TOKEN>`, and Vitec's QA environment to
+  `/v1/hook/vitec/qa/<VITEC_WEBHOOK_TOKEN>`. The record goes on the fetch list and the answer
   is 202 at once; nothing is fetched inside the request. Types carried: `Estate`, `Project`,
   `User` (also `Agent`), `Office`, `Area`; any other type is answered 202 and ignored. An `Update`
   is fetched; a `Remove` tombstones the record. The estate subscription at Vitec is limited to
@@ -32,7 +33,8 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   lists included. A failed fetch is retried with exponential backoff (10 s, doubling) and never
   treated as a delete; after six failures the record waits for the next signal or an operator, and
   a `fetch.failed` event is logged and the error reported through the adapter API. A record is
-  fetched once and ingested into every connection that licenses its office.
+  fetched once and ingested into every connection that syncs its office in the same system,
+  live Vitec or QA.
 - **Initial load.** `connection_added` lists everything the connection's offices publish, in
   reference order (offices, agents, areas, projects, properties), and puts it on the list;
   `offices_added` does the same for the added offices only. Associations have no list endpoint: they are fetched when a property names one.
@@ -60,6 +62,23 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   office, not even from an answer saved before question 156 a: listing homes, agents or areas
   under a group is not asking for one office, and Vitec answers its areas with an error. The
   answer is kept in `vitec_state` and shown on the tenant's page.
+- **Vitec's QA environment** (question 169 a, 2026-10-06). A login whose field `qa` is `yes`
+  (any case; any other value, or none, is live Vitec) is for Vitec's QA environment, its test copy
+  of Connect: every call of it, its forms included, goes to `https://connect-qa.maklare.vitec.net`
+  (`api.ts`; the address Patric remembered, unconfirmed until a QA login answers), and its
+  notifications arrive at `/v1/hook/vitec/qa/…`. QA may hold the same office ids as live Vitec, so
+  the adapter's lists keep a QA office as `qa:<office id>` (`store.ts`): a QA notification, fetch,
+  seen id, comparison or refusal never touches live Vitec's office of the same id, and the live
+  rows are as they were. Each system has its own requests at once, requests per second and
+  Retry-After, and drains its own part of the fetch list, so a slow or busy QA never holds up live
+  Vitec's fetches; a connection whose start-up round fails runs it again alone, so a QA that is
+  down never makes live Vitec list everything each minute. Each office check records the system
+  it asked; a saved login switched to the other system has every office of the last check taken
+  off the sites (`office.taken_off`, "the login was switched to …"), its state cleared, and its
+  offices checked and loaded in full at the same tick. The Vitec page's fetch list and refused
+  offices, and the names in `vitec.offices`, mark a QA office "(QA)". Give a QA login a tenant of
+  its own: its records reach that tenant's sites like any other. `qa.test.ts` proves it with two
+  stand-ins sharing one office id.
 - **Resync** (`event: resync`, optionally with a datatype) reloads everything listed and removes
   every id no longer listed.
 - **Health.** `vitec.webhook_lag` (a webhook waiting more than 5 min), `vitec.retries` (a record
@@ -93,7 +112,8 @@ connection with the Connect key pair and the customer or group id, which offices
 notification URL and the subscriptions to ask Vitec for, and the health checks to watch. A
 connection with no office to sync fetches nothing and `vitec.catch_up` says so. A connection is
 saved with the engine's `upsertConnection` (the login as one JSON document
-`{"username":"…","password":"…","customer_id":"…"}`, stored encrypted; a save puts the typed
+`{"username":"…","password":"…","customer_id":"…"}`, with `"qa":"yes"` for a login to Vitec's
+QA environment, stored encrypted; a save puts the typed
 fields over the stored ones) and loaded by queueing the lifecycle event `connection_added`, which
 the worker delivers to the adapter: the adapter checks its offices with Vitec and loads them. The
 connection's own office list stays empty (the manifest's `officesFromCrm`, question 156 a): the
@@ -124,13 +144,13 @@ Patric has confirmed (question 54 f), never the login in the environment.
 
 ## Environment
 
-| Variable                    | Meaning                                                                                 |
-| --------------------------- | --------------------------------------------------------------------------------------- |
-| `VITEC_WEBHOOK_TOKEN`       | The secret in the webhook URL. Without it the listener answers 503.                     |
-| `VITEC_BASE_URL`            | `https://connect.maklare.vitec.net` unless the tests point it at the stand-in.          |
-| `VITEC_FETCH_CONCURRENCY`   | Connect requests at once, default 5.                                                    |
-| `VITEC_REQUESTS_PER_SECOND` | The speed limit towards Connect, default 10; the tests raise it.                        |
-| `DATABASE_URL`              | Where the adapter's own tables live (`vitec_fetch_list`, `vitec_known`, `vitec_state`). |
+| Variable                    | Meaning                                                                                                           |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `VITEC_WEBHOOK_TOKEN`       | The secret in the webhook URL. Without it the listener answers 503.                                               |
+| `VITEC_BASE_URL`            | `https://connect.maklare.vitec.net` unless the tests point it at the stand-in; QA's address is fixed in `api.ts`. |
+| `VITEC_FETCH_CONCURRENCY`   | Connect requests at once, default 5, for live Vitec and QA each.                                                  |
+| `VITEC_REQUESTS_PER_SECOND` | The speed limit towards Connect, default 10, for live Vitec and QA each; the tests raise it.                      |
+| `DATABASE_URL`              | Where the adapter's own tables live (`vitec_fetch_list`, `vitec_known`, `vitec_state`).                           |
 
 ## Verified against Connect (2026-09-17)
 

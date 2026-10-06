@@ -25,6 +25,8 @@ const TOKEN = 'hook-token';
 const CHANGED = '2026-09-10T08:00:00.1234567+02:00';
 
 const credentials = JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: OFFICE });
+/** The office in live Vitec, as the adapter's lists keep it. */
+const LIVE_OFFICE = { environment: 'live' as const, officeId: OFFICE };
 
 const estate = (id: string, officeId = OFFICE, extra: Record<string, unknown> = {}) => ({
   id,
@@ -238,7 +240,7 @@ describe('the Vitec adapter', () => {
 
     expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
     expect(fetchesOf('OBJ1')).toBe(0);
-    expect(await store.isKnown(OFFICE, 'property', 'OBJ1')).toBe(false);
+    expect(await store.isKnown(LIVE_OFFICE, 'property', 'OBJ1')).toBe(false);
   });
 
   it('brings a record back on an Update after a Remove, and removes it on a Remove after an Update (AC 33)', async () => {
@@ -378,7 +380,7 @@ describe('the Vitec adapter', () => {
       'offices_check',
       JSON.stringify({ at: until, ids: [], offices: [OFFICE], source: 'all' }),
     );
-    await store.remember(OFFICE, 'property', 'OBJ1', unchanged);
+    await store.remember(LIVE_OFFICE, 'property', 'OBJ1', unchanged);
 
     await start();
     await drainFetchList();
@@ -808,7 +810,7 @@ describe('the Vitec adapter', () => {
     fake.forbid('M2');
     fake.forbid('G9');
 
-    const auth = { username: USERNAME, password: PASSWORD };
+    const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
     const check = await checkOffices(CONNECTION, auth, auth, ['G1', 'G9']);
 
     expect(check.ids).toEqual([
@@ -880,7 +882,7 @@ describe('the Vitec adapter', () => {
     await store.setState(CONNECTION, 'offices_check', JSON.stringify(saved));
     expect((await lastCheck(CONNECTION))?.offices).toEqual([]);
 
-    const auth = { username: USERNAME, password: PASSWORD };
+    const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
     const check = await checkOffices(CONNECTION, auth, auth, ['G1']);
     expect(check).toMatchObject({ offices: ['M1', 'M2'], source: 'all' });
     expect(check.ids[0]?.offices.map((office) => office.customerId)).toEqual(['M1', 'M2']);
@@ -896,7 +898,7 @@ describe('the Vitec adapter', () => {
     fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
     fake.put('M1', 'office', { id: 'M1', customerId: 'M1', name: 'Kontor 1' });
     fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2' });
-    const auth = { username: USERNAME, password: PASSWORD };
+    const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
     const check = (): Promise<{ offices: string[]; source: string }> =>
       checkOffices(CONNECTION, auth, auth, ['G1']);
 

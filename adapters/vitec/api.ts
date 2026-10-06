@@ -3,8 +3,52 @@
 // engine, and nothing outside this adapter knows these shapes.
 import type { Datatype, EventContext } from '../../engine/adapter-api/index.js';
 
-/** The Connect key pair from the partner portal (technical-information.md). */
-export type Auth = { username: string; password: string };
+/**
+ * Vitec's systems a login can be for (question 169 a): `live`, the Connect the brokerages work in,
+ * and `qa`, Vitec's QA environment, a test copy of it at its own address. Nothing else differs.
+ */
+export const ENVIRONMENTS = ['live', 'qa'] as const;
+export type Environment = (typeof ENVIRONMENTS)[number];
+
+/** The Connect key pair from the partner portal (technical-information.md), and its system. */
+export type Auth = { username: string; password: string; environment: Environment };
+
+/**
+ * A connection's login as its page stores it: the Connect key pair, the customer or group id Vitec
+ * issued it for, the CRM function group's own password when Vitec issued one, and the system, QA
+ * when the field `qa` says yes and live otherwise.
+ */
+export type Login = Auth & { customerId: string | null; crmPassword: string | null };
+
+/** The login for Vitec's CRM calls: the CRM function group's own password when Vitec issued one. */
+export const crmAuthOf = (login: Login): Auth => ({
+  username: login.username,
+  password: login.crmPassword ?? login.password,
+  environment: login.environment,
+});
+
+/** The stored login, or null when it holds no key pair. */
+export function loginOf(stored: string | null): Login | null {
+  try {
+    const parsed = JSON.parse(stored ?? '') as Record<string, unknown>;
+    const text = (key: string): string | null => {
+      const value = parsed[key];
+      return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+    };
+    if (typeof parsed['username'] !== 'string' || typeof parsed['password'] !== 'string') {
+      return null;
+    }
+    return {
+      username: parsed['username'],
+      password: parsed['password'],
+      environment: text('qa')?.toLowerCase() === 'yes' ? 'qa' : 'live',
+      customerId: text('customer_id'),
+      crmPassword: text('crm_password'),
+    };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * One row of a list endpoint: identity and change date only, named as Connect names them. The
@@ -46,45 +90,71 @@ export const requestsPerSecond = (): number =>
 /** How long a Retry-After is honoured at most. */
 const HOLD_MAX_MS = 5 * 60_000;
 
-let inFlight = 0;
-const waiting: (() => void)[] = [];
-let nextStartAt = 0;
-let holdUntil = 0;
+/** One system's traffic: requests running and waiting, the next start, and Vitec's own hold. */
+type Limiter = {
+  inFlight: number;
+  waiting: (() => void)[];
+  nextStartAt: number;
+  holdUntil: number;
+};
+
+const idle = (): Limiter => ({ inFlight: 0, waiting: [], nextStartAt: 0, holdUntil: 0 });
+
+/**
+ * Each system has its own limits (question 169 a): the requests at once, the requests per second
+ * and a Retry-After Vitec asked for. With each system's own turn at the fetch list (index.ts), a
+ * slow or busy QA never holds up live Vitec's fetches.
+ */
+const limiters: Record<Environment, Limiter> = { live: idle(), qa: idle() };
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Wait for the speed limit, and for any Retry-After Vitec asked for. */
-async function pace(): Promise<void> {
+async function pace(limiter: Limiter): Promise<void> {
   const interval = 1000 / requestsPerSecond();
   const now = Date.now();
-  const at = Math.max(now, nextStartAt, holdUntil);
-  nextStartAt = at + interval;
+  const at = Math.max(now, limiter.nextStartAt, limiter.holdUntil);
+  limiter.nextStartAt = at + interval;
   if (at > now) await sleep(at - now);
 }
 
 /** Honour a Retry-After header (seconds, or a date), for at most HOLD_MAX_MS. */
-function hold(header: string | null): void {
+function hold(limiter: Limiter, header: string | null): void {
   if (!header) return;
   const seconds = Number(header);
   const ms = Number.isFinite(seconds) ? seconds * 1000 : new Date(header).getTime() - Date.now();
-  if (ms > 0) holdUntil = Date.now() + Math.min(ms, HOLD_MAX_MS);
+  if (ms > 0) limiter.holdUntil = Date.now() + Math.min(ms, HOLD_MAX_MS);
 }
 
 /** Run `send` once a slot is free and the speed limit allows. */
-async function slot<T>(send: () => Promise<T>): Promise<T> {
-  if (inFlight >= concurrency()) await new Promise<void>((resolve) => waiting.push(resolve));
-  inFlight += 1;
+async function slot<T>(limiter: Limiter, send: () => Promise<T>): Promise<T> {
+  if (limiter.inFlight >= concurrency()) {
+    await new Promise<void>((resolve) => limiter.waiting.push(resolve));
+  }
+  limiter.inFlight += 1;
   try {
-    await pace();
+    await pace(limiter);
     return await send();
   } finally {
-    inFlight -= 1;
-    waiting.shift()?.();
+    limiter.inFlight -= 1;
+    limiter.waiting.shift()?.();
   }
 }
 
-export const baseUrl = (): string =>
-  (process.env['VITEC_BASE_URL'] ?? 'https://connect.maklare.vitec.net').replace(/\/$/, '');
+/** Vitec's QA environment, at the address Patric remembered (question 169 a). */
+const QA_URL = 'https://connect-qa.maklare.vitec.net';
+let qaUrl = QA_URL;
+
+/** Where a system's Connect is: the live one from VITEC_BASE_URL, QA's at its own address. */
+export const baseUrlOf = (environment: Environment): string =>
+  environment === 'qa'
+    ? qaUrl
+    : (process.env['VITEC_BASE_URL'] ?? 'https://connect.maklare.vitec.net').replace(/\/$/, '');
+
+/** Test use: QA at a stand-in, or back at Vitec's own address with null. */
+export function pointQaAt(url: string | null): void {
+  qaUrl = url ?? QA_URL;
+}
 
 /** One request as it went, for the event log: what was asked, what came back, how long it took. */
 export type Call = {
@@ -156,7 +226,8 @@ async function get(
   query: Record<string, string>,
   trace?: EventContext,
 ): Promise<unknown | null> {
-  const url = new URL(`${baseUrl()}/${path}`);
+  const url = new URL(`${baseUrlOf(auth.environment)}/${path}`);
+  const limiter = limiters[auth.environment];
   for (const [name, value] of Object.entries(query)) url.searchParams.set(name, value);
   const startedAt = Date.now();
   const call: Call = {
@@ -169,7 +240,7 @@ async function get(
     trace,
   };
   try {
-    const response = await slot(() =>
+    const response = await slot(limiter, () =>
       fetch(url, {
         headers: {
           authorization: `Basic ${Buffer.from(`${auth.username}:${auth.password}`).toString('base64')}`,
@@ -180,7 +251,7 @@ async function get(
     );
     call.status = response.status;
     if (response.status === 429 || response.status === 503)
-      hold(response.headers.get('retry-after'));
+      hold(limiter, response.headers.get('retry-after'));
     const text = await response.text();
     call.response_bytes = Buffer.byteLength(text);
     if (response.status === 404) return null;
@@ -222,7 +293,8 @@ export async function post(
   body: unknown,
   trace?: EventContext,
 ): Promise<unknown | null> {
-  const url = new URL(`${baseUrl()}/${path}`);
+  const url = new URL(`${baseUrlOf(auth.environment)}/${path}`);
+  const limiter = limiters[auth.environment];
   const startedAt = Date.now();
   const call: Call = {
     method: 'POST',
@@ -234,7 +306,7 @@ export async function post(
     trace,
   };
   try {
-    const response = await slot(() =>
+    const response = await slot(limiter, () =>
       fetch(url, {
         method: 'POST',
         headers: {
@@ -248,7 +320,7 @@ export async function post(
     );
     call.status = response.status;
     if (response.status === 429 || response.status === 503)
-      hold(response.headers.get('retry-after'));
+      hold(limiter, response.headers.get('retry-after'));
     const text = await response.text();
     call.response_bytes = Buffer.byteLength(text);
     if (!response.ok) {

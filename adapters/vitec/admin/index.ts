@@ -19,38 +19,38 @@ import type {
   Connection,
 } from '../../../engine/adapter-api/index.js';
 
-type Credentials = { username: string; password: string; customerId: string | null };
-
 /** The reset that makes the worker's next tick run a schedule now. */
 const LONG_AGO = '1970-01-01T00:00:00.000Z';
 
-/** The login as stored: a JSON document with the Connect key pair, or null when unreadable. */
-export function credentialsOf(stored: string | null): Credentials | null {
-  try {
-    const parsed = JSON.parse(stored ?? '') as Record<string, unknown>;
-    const customerId = parsed['customer_id'];
-    return typeof parsed['username'] === 'string' && typeof parsed['password'] === 'string'
-      ? {
-          username: parsed['username'],
-          password: parsed['password'],
-          customerId:
-            typeof customerId === 'string' && customerId.trim() !== '' ? customerId.trim() : null,
-        }
-      : null;
-  } catch {
-    return null;
-  }
-}
+/**
+ * Where each of Vitec's systems sends its notifications, under /v1/hook/vitec/: live Vitec to
+ * `webhook/…` and its QA environment to `qa/…` (question 169 a). The routes in ../index.ts and the
+ * address shown here both come from this.
+ */
+export const hookPath = (environment: connect.Environment): string =>
+  environment === 'qa' ? 'qa' : 'webhook';
+
+/** An office as the panel names it: a QA office is marked QA, live Vitec's stays bare. */
+export const officeLabel = ({ environment, officeId }: store.Office): string =>
+  environment === 'qa' ? `${officeId} (QA)` : officeId;
+
+/** The system a connection's login is for; an unreadable login counts as live Vitec's. */
+const environmentOf = (connection: Connection): connect.Environment =>
+  connect.loginOf(connection.credentials)?.environment ?? 'live';
+
+/** The system an action's parameters name: QA only when they say so. */
+const environmentIn = (params: Record<string, string>): connect.Environment =>
+  params['environment'] === 'qa' ? 'qa' : 'live';
 
 const moment = (value: string | Date | null | undefined): AdminValue =>
   value && new Date(value).toISOString() === LONG_AGO
     ? { text: 'due at the worker’s next tick', state: 'warn' }
     : { moment: value ? new Date(value).toISOString() : null };
 
-const webhookUrl = (): AdminValue => {
+const webhookUrl = (environment: connect.Environment): AdminValue => {
   const token = process.env['VITEC_WEBHOOK_TOKEN'];
   return token
-    ? `/v1/hook/vitec/webhook/${token} on this app’s domain`
+    ? `/v1/hook/vitec/${hookPath(environment)}/${token} on this app’s domain`
     : { text: 'VITEC_WEBHOOK_TOKEN is not set; the listener answers 503', state: 'bad' };
 };
 
@@ -69,7 +69,10 @@ async function scheduleOf(connection: Connection): Promise<Schedule> {
     store.getState(connection.id, 'compare_at'),
     store.getState(connection.id, 'catch_up_until'),
     store.getState(connection.id, 'paused_until'),
-    officesOf(connection).then((offices) => store.summary(offices)),
+    officesOf(connection).then((offices) => {
+      const environment = environmentOf(connection);
+      return store.summary(offices.map((officeId) => ({ environment, officeId })));
+    }),
   ]);
   const paused = Boolean(pausedUntil) && new Date(pausedUntil ?? 0).getTime() > Date.now();
   return { catchUpAt, compareAt, until, pausedUntil, counts, paused };
@@ -150,7 +153,7 @@ async function connectionsSection(connections: Connection[]): Promise<AdminSecti
 
 async function blockedSection(): Promise<AdminSection> {
   const rows = (await store.blockedOffices()).map((office) => ({
-    cells: [office.officeId, moment(office.blockedAt), office.reason],
+    cells: [officeLabel(office), moment(office.blockedAt), office.reason],
   }));
   return {
     title: 'Refused offices',
@@ -165,10 +168,15 @@ async function blockedSection(): Promise<AdminSection> {
 
 async function fetchListSection(): Promise<AdminSection> {
   const rows = (await store.entries(50)).map((entry) => {
-    const params = { office: entry.officeId, datatype: entry.datatype, id: entry.remoteId };
+    const params = {
+      office: entry.officeId,
+      environment: entry.environment,
+      datatype: entry.datatype,
+      id: entry.remoteId,
+    };
     return {
       cells: [
-        entry.officeId,
+        officeLabel(entry),
         entry.datatype,
         entry.remoteId,
         entry.reason,
@@ -227,21 +235,25 @@ const ACTIONS: Record<string, (params: Record<string, string>) => Promise<string
     await store.setState(connection, 'failures', '0');
     return `${connection} fetches again.`;
   },
-  retry: async ({ office, datatype, id }) => {
+  retry: async (params) => {
+    const { office, datatype, id } = params;
     const known = mappers[datatype as keyof typeof mappers]
       ? (datatype as store.Entry['datatype'])
       : null;
     if (!office || !known || !id) throw new Error('which record?');
-    await store.expediteOne(office, known, id);
-    return `${datatype} ${id} of ${office} is fetched next.`;
+    const where = { environment: environmentIn(params), officeId: office };
+    await store.expediteOne(where, known, id);
+    return `${datatype} ${id} of ${officeLabel(where)} is fetched next.`;
   },
-  drop: async ({ office, datatype, id }) => {
+  drop: async (params) => {
+    const { office, datatype, id } = params;
     const known = mappers[datatype as keyof typeof mappers]
       ? (datatype as store.Entry['datatype'])
       : null;
     if (!office || !known || !id) throw new Error('which record?');
-    await store.drop(office, known, id);
-    return `${datatype} ${id} of ${office} is off the list.`;
+    const where = { environment: environmentIn(params), officeId: office };
+    await store.drop(where, known, id);
+    return `${datatype} ${id} of ${officeLabel(where)} is off the list.`;
   },
 };
 
@@ -255,7 +267,7 @@ async function probe(
   stored: string,
   officeIds: string[],
 ): Promise<{ ok: boolean; detail: string }> {
-  const auth = credentialsOf(stored);
+  const auth = connect.loginOf(stored);
   if (!auth) return { ok: false, detail: 'The login needs a username and a password.' };
   const ids = auth.customerId ? [auth.customerId] : officeIds;
   if (ids.length === 0) {
@@ -285,6 +297,7 @@ async function probe(
 /** The office a record was seen under, when the caller does not know it. */
 async function officeFor(
   connection: Connection,
+  environment: connect.Environment,
   datatype: store.Entry['datatype'],
   remoteId: string,
   given: string | null,
@@ -292,7 +305,7 @@ async function officeFor(
   if (given) return given;
   const offices = await officesOf(connection);
   for (const officeId of offices) {
-    if (await store.isKnown(officeId, datatype, remoteId)) return officeId;
+    if (await store.isKnown({ environment, officeId }, datatype, remoteId)) return officeId;
   }
   return offices[0] ?? null;
 }
@@ -425,6 +438,11 @@ export const vitecAdmin: AdapterAdmin = {
       secret: true,
       help: 'The password of Vitec’s CRM function group for this customer, when Vitec issued a separate one. Core uses it for Vitec’s CRM calls: reading the office group “Webbplats”, and a visitor’s search profile when a form sends one. Empty uses the Connect password.',
     },
+    {
+      key: 'qa',
+      label: 'Vitec’s QA environment',
+      help: `Type yes when Vitec issued this login for Vitec’s QA environment. The QA environment is Vitec’s test system. Every call of a QA login goes to the QA address, ${connect.baseUrlOf('qa')}. Core keeps the records of a QA login apart from the records of live Vitec. A new login with this field empty is a login to live Vitec. On a saved login, an empty field keeps the earlier answer. Typing no switches a saved login back to live Vitec. A switch takes everything the other system gave off the sites. The offices are then loaded again from the system typed. Give a QA login a tenant of its own, so that test records never reach a real website.`,
+    },
   ],
 
   directions,
@@ -433,10 +451,11 @@ export const vitecAdmin: AdapterAdmin = {
     return [
       {
         title: 'Notification URL',
-        help: 'Give this address to Vitec for the subscription. Vitec then calls it for every Update and Remove of an estate advertised on the website, and Core fetches or removes the record.',
+        help: 'Give this address to Vitec for the subscription. Vitec then calls it for every Update and Remove of an estate advertised on the website, and Core fetches or removes the record. For a login to Vitec’s QA environment, give Vitec’s QA environment the address “URL for Vitec’s QA” instead.',
         items: [
-          { label: 'URL', value: webhookUrl() },
-          { label: 'Vitec Connect', value: connect.baseUrl() },
+          { label: 'URL', value: webhookUrl('live') },
+          { label: 'URL for Vitec’s QA', value: webhookUrl('qa') },
+          { label: 'Vitec Connect', value: connect.baseUrlOf('live') },
           { label: 'Requests at once', value: connect.concurrency() },
           { label: 'Requests per second', value: connect.requestsPerSecond() },
         ],
@@ -461,7 +480,7 @@ export const vitecAdmin: AdapterAdmin = {
                   text: `paused until ${new Date(schedule.pausedUntil ?? 0).toISOString()}`,
                   state: 'bad',
                 }
-              : credentialsOf(connection.credentials)
+              : connect.loginOf(connection.credentials)
                 ? { text: 'fetching', state: 'ok' }
                 : { text: 'the login is not readable', state: 'bad' },
           },
@@ -485,9 +504,15 @@ export const vitecAdmin: AdapterAdmin = {
   probe,
 
   async inspect(connection, record) {
-    const auth = credentialsOf(connection.credentials);
+    const auth = connect.loginOf(connection.credentials);
     if (!auth) throw new Error('the connection’s login is not readable');
-    const officeId = await officeFor(connection, record.datatype, record.remoteId, record.officeId);
+    const officeId = await officeFor(
+      connection,
+      auth.environment,
+      record.datatype,
+      record.remoteId,
+      record.officeId,
+    );
     if (!officeId) throw new Error('the connection has no office to ask for');
     const raw = await connect.getOne(auth, record.datatype, officeId, record.remoteId);
     if (raw === null) return null;
@@ -497,11 +522,19 @@ export const vitecAdmin: AdapterAdmin = {
 
   async queue(connections): Promise<AdminQueued[]> {
     const offices = await Promise.all(connections.map((connection) => officesOf(connection)));
-    // Only these connections' offices: the answer is bounded, and the engine asks for the
-    // connections it shows.
-    return (await store.entries(200, offices.flat())).map((entry) => ({
+    // Only these connections' offices, each in its system: the answer is bounded, and the engine
+    // asks for the connections it shows.
+    const theirs = connections.flatMap((connection, index) =>
+      (offices[index] ?? []).map((officeId) => ({
+        environment: environmentOf(connection),
+        officeId,
+      })),
+    );
+    return (await store.entries(200, theirs)).map((entry) => ({
       connectionId:
-        connections.find((_, index) => offices[index]?.includes(entry.officeId))?.id ?? null,
+        connections.find((connection, index) =>
+          store.holds(environmentOf(connection), offices[index] ?? [], entry),
+        )?.id ?? null,
       officeId: entry.officeId,
       datatype: entry.datatype,
       remoteId: entry.remoteId,

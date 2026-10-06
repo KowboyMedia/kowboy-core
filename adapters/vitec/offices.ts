@@ -66,6 +66,8 @@ export type Source = 'group' | 'all' | 'kept';
 
 export type OfficesCheck = {
   at: string;
+  /** The system asked (question 169 a); a check kept from before QA existed was live Vitec's. */
+  environment: connect.Environment;
   ids: IdChecked[];
   /** The offices synced, by the customer id their records carry. */
   offices: string[];
@@ -279,6 +281,7 @@ export async function checkOffices(
       : { offices: last?.offices ?? [], source: 'kept' as const };
   const result: OfficesCheck = {
     at,
+    environment: auth.environment,
     ids: checked,
     ...choice,
     names: namesOf(checked, last, choice.offices),
@@ -308,6 +311,7 @@ export async function lastCheck(connectionId: string): Promise<OfficesCheck | nu
     const parsed = JSON.parse(stored) as Partial<OfficesCheck>;
     return {
       at: parsed.at ?? '',
+      environment: parsed.environment === 'qa' ? 'qa' : 'live',
       ids: (parsed.ids ?? []).map((checked) => ({
         ...checked,
         refusedSince: checked.refusedSince ?? null,

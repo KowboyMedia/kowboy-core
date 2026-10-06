@@ -15,12 +15,6 @@ import type {
   SubmissionResult,
 } from '../../engine/adapter-api/index.js';
 
-/**
- * The login as the adapter reads it (index.ts, `credentialsOf`): the Connect key pair, and the CRM
- * function group's own password when Vitec issued one, which the search profile is made with.
- */
-export type Login = connect.Auth & { crmPassword: string | null };
-
 /** The universal home type onto Vitec's residential subtype (SearchProfileV2_SubtypeResidential). */
 const SUBTYPE: Record<NonNullable<SearchCriteria['object_type']>, string> = {
   apartment: 'Apartment',
@@ -56,7 +50,7 @@ const traceOf = (connection: Connection, submission: Submission): EventContext =
 });
 
 type Sending = {
-  login: Login;
+  login: connect.Login;
   customerId: string;
   submission: Submission;
   trace: EventContext;
@@ -65,7 +59,7 @@ type Sending = {
 /** Send one submission to Vitec and say what Vitec said. Never throws. */
 export async function submit(
   connection: Connection,
-  login: Login,
+  login: connect.Login,
   submission: Submission,
 ): Promise<SubmissionResult> {
   const customerId = submission.office_id;
@@ -183,7 +177,7 @@ async function searchProfile(sending: Sending): Promise<string | null> {
   const { login, customerId, submission, trace } = sending;
   const criteria = submission.criteria;
   if (!criteria) throw new Error('a search profile without criteria');
-  const crmAuth = { username: login.username, password: login.crmPassword ?? login.password };
+  const crmAuth = connect.crmAuthOf(login);
   const contact = await connect.post(
     crmAuth,
     'Contacts/UpdatePerson',

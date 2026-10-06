@@ -25,12 +25,19 @@
 // pair. Its licensed offices are the office ids, which are what Connect calls customer ids
 // (M30011 and the like): every URL and notification carries one. They are also the fetch scope,
 // so a connection without offices fetches nothing and says so in `vitec.catch_up`.
+//
+// A login whose field `qa` says yes is for Vitec's QA environment (question 169 a): its calls go
+// to QA's address with their own speed limit, its notifications arrive at /v1/hook/vitec/qa/…,
+// and its offices are kept apart from live Vitec's in every list, since QA may hold the same
+// office ids. A notification, a fetch or a refusal of one system never touches the other's, and
+// each system drains its own part of the fetch list. A login switched from one system to the
+// other has everything the first gave taken off the sites, and is loaded again from the second.
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import * as connect from './api.js';
 import * as store from './store.js';
 import * as forms from './forms.js';
 import { changedAtOf, isoDate, mappers, referencedIds } from './mappers.js';
-import { refetchOffice, vitecAdmin } from './admin/index.js';
+import { hookPath, officeLabel, refetchOffice, vitecAdmin } from './admin/index.js';
 import {
   CHECK_EVERY_MS,
   checkOffices,
@@ -48,6 +55,8 @@ import type {
   EventContext,
   HealthResult,
   Route,
+  RouteRequest,
+  RouteResponse,
 } from '../../engine/adapter-api/index.js';
 
 const PROVIDER = 'vitec';
@@ -64,18 +73,12 @@ const PAUSE_AFTER = 5;
 const PAUSE_BASE_MS = 2 * 60_000;
 const PAUSE_MAX_MS = 30 * 60_000;
 
-/**
- * The login as the connection's page stores it: the Connect key pair, the customer or group id
- * Vitec issued it for, and the CRM function group's own password when Vitec issued one.
- */
-type Credentials = {
-  username: string;
-  password: string;
-  customerId: string | null;
-  crmPassword: string | null;
-};
 /** A connection the adapter works for, with the offices it syncs (`officesOf`). */
-type Live = { connection: Connection; credentials: Credentials; offices: string[] };
+type Live = { connection: Connection; credentials: connect.Login; offices: string[] };
+
+/** Whether a connection syncs this office: the same office id in Vitec's other system is another. */
+const syncs = (target: Live, office: store.Office): boolean =>
+  store.holds(target.credentials.environment, target.offices, office);
 
 /** Vitec's notification `type` per datatype; users are documented as both `User` and `Agent`. */
 const NOTIFIED: Record<string, Datatype> = {
@@ -90,23 +93,34 @@ const NOTIFIED: Record<string, Datatype> = {
 let engine: AdapterApi | null = null;
 let drainTimer: NodeJS.Timeout | null = null;
 let scheduleTimer: NodeJS.Timeout | null = null;
-/** Drains run one after another; a second one waiting would find nothing the first will not. */
-let draining: Promise<void> = Promise.resolve();
-let drainWaiting = false;
+/**
+ * Each system drains its own part of the fetch list (question 169 a), so a slow or busy QA never
+ * holds up live Vitec's fetches. Within a system, drains run one after another; a second one
+ * waiting would find nothing the first will not.
+ */
+const draining: Record<connect.Environment, Promise<void>> = {
+  live: Promise.resolve(),
+  qa: Promise.resolve(),
+};
+const drainWaiting: Record<connect.Environment, boolean> = { live: false, qa: false };
 let scheduling: Promise<void> = Promise.resolve();
 
 const serial = (run: () => Promise<void>, chain: Promise<void>): Promise<void> =>
   chain.then(run, run);
 
-const scheduleDrain = (): Promise<void> => {
-  if (!drainWaiting) {
-    drainWaiting = true;
-    draining = serial(() => {
-      drainWaiting = false;
-      return drainOnce();
-    }, draining);
+const drainIn = (environment: connect.Environment): Promise<void> => {
+  if (!drainWaiting[environment]) {
+    drainWaiting[environment] = true;
+    draining[environment] = serial(() => {
+      drainWaiting[environment] = false;
+      return drainOnce(environment);
+    }, draining[environment]);
   }
-  return draining;
+  return draining[environment];
+};
+
+const scheduleDrain = async (): Promise<void> => {
+  await Promise.all(connect.ENVIRONMENTS.map(drainIn));
 };
 
 const scheduleTick = (): Promise<void> => {
@@ -114,27 +128,9 @@ const scheduleTick = (): Promise<void> => {
   return scheduling;
 };
 
-function credentialsOf(connection: Connection): Credentials | null {
-  if (!connection.credentials) return null;
-  try {
-    const parsed = JSON.parse(connection.credentials) as Record<string, unknown>;
-    const text = (key: string): string | null => {
-      const value = parsed[key];
-      return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
-    };
-    if (typeof parsed['username'] === 'string' && typeof parsed['password'] === 'string') {
-      return {
-        username: parsed['username'],
-        password: parsed['password'],
-        customerId: text('customer_id'),
-        crmPassword: text('crm_password'),
-      };
-    }
-  } catch {
-    // reported below as unreadable
-  }
-  return null;
-}
+/** The connection's login, or null when it is not readable (reported in `vitec.catch_up`). */
+const credentialsOf = (connection: Connection): connect.Login | null =>
+  connect.loginOf(connection.credentials);
 
 /** Active connections with a readable login. One with no offices yet shows up in `vitec.catch_up`. */
 async function live(current: AdapterApi): Promise<Live[]> {
@@ -217,17 +213,17 @@ async function resumeDue(targets: Live[]): Promise<void> {
 async function markBlocked(
   current: AdapterApi,
   connectionId: string,
-  officeId: string,
+  office: store.Office,
   detail: string,
 ): Promise<void> {
-  if (!(await store.blockOffice(officeId, detail))) return;
+  if (!(await store.blockOffice(office, detail))) return;
   await current.logEvent(
     'office.blocked',
-    { office_id: officeId, connection_id: connectionId, detail },
+    { office_id: office.officeId, connection_id: connectionId, detail },
     { connectionId },
   );
   current.report(new Error('vitec office blocked'), {
-    office_id: officeId,
+    office_id: office.officeId,
     connection_id: connectionId,
     detail,
   });
@@ -247,7 +243,8 @@ async function blockOffice(
 ): Promise<void> {
   await store.setState(live.connection.id, 'held', new Date().toISOString());
   await checkSoon(live.connection.id);
-  await markBlocked(current, live.connection.id, officeId, detail);
+  const { environment } = live.credentials;
+  await markBlocked(current, live.connection.id, { environment, officeId }, detail);
 }
 
 /** When the login's hold began, or null while it is not held. */
@@ -258,22 +255,30 @@ const isHeld = async (connectionId: string): Promise<boolean> =>
   (await heldSince(connectionId)) !== null;
 
 /** Offices the drain leaves alone: blocked ones, and every office of a paused or held connection. */
-async function skippedOffices(targets: Live[]): Promise<string[]> {
-  const skipped = new Set((await store.blockedOffices()).map((office) => office.officeId));
+async function skippedOffices(targets: Live[]): Promise<store.Office[]> {
+  const skipped: store.Office[] = await store.blockedOffices();
   for (const target of targets) {
     const id = target.connection.id;
     if (paused(await pauseOf(id)) || (await isHeld(id))) {
-      for (const officeId of target.offices) skipped.add(officeId);
+      const { environment } = target.credentials;
+      skipped.push(...target.offices.map((officeId) => ({ environment, officeId })));
     }
   }
-  return [...skipped];
+  return skipped;
 }
+
+/** The offices of one system that Vitec refuses, by office id. */
+const blockedIn = async (environment: connect.Environment): Promise<Set<string>> =>
+  new Set(
+    (await store.blockedOffices())
+      .filter((office) => office.environment === environment)
+      .map((office) => office.officeId),
+  );
 
 /** A block on an office no connection syncs any more guards nothing and is dropped, without a call. */
 async function dropStrayBlocks(targets: Live[]): Promise<void> {
-  const synced = new Set(targets.flatMap((target) => target.offices));
   for (const office of await store.blockedOffices()) {
-    if (!synced.has(office.officeId)) await store.unblockOffice(office.officeId);
+    if (!targets.some((target) => syncs(target, office))) await store.unblockOffice(office);
   }
 }
 
@@ -334,88 +339,98 @@ const tokenMatches = (given: string | undefined, expected: string): boolean =>
   given.length === expected.length &&
   timingSafeEqual(Buffer.from(given), Buffer.from(expected));
 
-const routes: Route[] = [
-  {
-    method: 'POST',
-    path: 'webhook/*',
-    handler: async (request, api) => {
-      const expected = process.env['VITEC_WEBHOOK_TOKEN'];
-      if (!expected) return { status: 503, body: { error: 'VITEC_WEBHOOK_TOKEN is not set' } };
-      // Every arrival goes in the event log with what Vitec sent, kept as long as the log keeps
-      // events (Patric, 2026-09-20, question 63), and a queued one onto its record's timeline (AC 16).
-      const [path, query] = request.url.split('?');
-      const arrived = (fields: Record<string, unknown>, context?: EventContext): Promise<void> =>
-        api.logEvent(
-          'webhook.received',
-          {
-            path: '/v1/hook/vitec/webhook',
-            body: bodyOf(request.body),
-            ...(query ? { query } : {}),
-            ...fields,
-          },
-          context,
-        );
-      if (!tokenMatches(path?.split('/').pop(), expected)) {
-        await arrived({ outcome: 'rejected', detail: 'bad token', response: 401 });
-        return { status: 401, body: { error: 'bad token' } };
-      }
-      const notification = parseNotification(request.body, query);
-      if ('error' in notification) {
-        await arrived({ outcome: 'rejected', detail: notification.error, response: 400 });
-        return { status: 400, body: { error: notification.error } };
-      }
-      if (!notification.datatype) {
-        await arrived({ outcome: 'ignored', detail: 'a type Core does not sync', response: 202 });
-        return { status: 202, body: { ignored: true } };
-      }
-      // Never fetch inside the request: a burst must not become a burst of Connect calls.
-      const correlationId = randomUUID();
-      let owner: Connection | undefined;
-      for (const candidate of await api.connections()) {
-        if (candidate.active && (await officesOf(candidate)).includes(notification.officeId)) {
-          owner = candidate;
-          break;
-        }
-      }
-      await arrived(
-        {
-          outcome: 'queued',
-          office_id: notification.officeId,
-          datatype: notification.datatype,
-          remote_id: notification.id,
-          event: notification.reason,
-          response: 202,
-        },
-        {
-          correlationId,
-          connectionId: owner?.id ?? null,
-          datatype: notification.datatype,
-          remoteId: notification.id,
-        },
-      );
-      await store.enqueue([
-        {
-          officeId: notification.officeId,
-          datatype: notification.datatype,
-          remoteId: notification.id,
-          reason: notification.reason,
-          correlationId,
-        },
-      ]);
-      return { status: 202, body: { queued: true, correlation_id: correlationId } };
+/** The first active connection that syncs this office in its system: the record's timeline. */
+async function ownerOf(api: AdapterApi, office: store.Office): Promise<Connection | undefined> {
+  return (await live(api)).find((target) => syncs(target, office))?.connection;
+}
+
+/**
+ * One notification from Vitec, checked, logged and put on the fetch list. Each system sends to its
+ * own address (`hookPath`), so the address says which system the notification's office is in.
+ */
+async function notified(
+  environment: connect.Environment,
+  request: RouteRequest,
+  api: AdapterApi,
+): Promise<RouteResponse> {
+  const expected = process.env['VITEC_WEBHOOK_TOKEN'];
+  if (!expected) return { status: 503, body: { error: 'VITEC_WEBHOOK_TOKEN is not set' } };
+  // Every arrival goes in the event log with what Vitec sent, kept as long as the log keeps
+  // events (Patric, 2026-09-20, question 63), and a queued one onto its record's timeline (AC 16).
+  const [path, query] = request.url.split('?');
+  const arrived = (fields: Record<string, unknown>, context?: EventContext): Promise<void> =>
+    api.logEvent(
+      'webhook.received',
+      {
+        path: `/v1/hook/vitec/${hookPath(environment)}`,
+        body: bodyOf(request.body),
+        ...(query ? { query } : {}),
+        ...fields,
+      },
+      context,
+    );
+  if (!tokenMatches(path?.split('/').pop(), expected)) {
+    await arrived({ outcome: 'rejected', detail: 'bad token', response: 401 });
+    return { status: 401, body: { error: 'bad token' } };
+  }
+  const notification = parseNotification(request.body, query);
+  if ('error' in notification) {
+    await arrived({ outcome: 'rejected', detail: notification.error, response: 400 });
+    return { status: 400, body: { error: notification.error } };
+  }
+  if (!notification.datatype) {
+    await arrived({ outcome: 'ignored', detail: 'a type Core does not sync', response: 202 });
+    return { status: 202, body: { ignored: true } };
+  }
+  // Never fetch inside the request: a burst must not become a burst of Connect calls.
+  const correlationId = randomUUID();
+  const owner = await ownerOf(api, { environment, officeId: notification.officeId });
+  await arrived(
+    {
+      outcome: 'queued',
+      office_id: notification.officeId,
+      datatype: notification.datatype,
+      remote_id: notification.id,
+      event: notification.reason,
+      response: 202,
     },
-  },
-];
+    {
+      correlationId,
+      connectionId: owner?.id ?? null,
+      datatype: notification.datatype,
+      remoteId: notification.id,
+    },
+  );
+  await store.enqueue([
+    {
+      environment,
+      officeId: notification.officeId,
+      datatype: notification.datatype,
+      remoteId: notification.id,
+      reason: notification.reason,
+      correlationId,
+    },
+  ]);
+  return { status: 202, body: { queued: true, correlation_id: correlationId } };
+}
+
+const routes: Route[] = connect.ENVIRONMENTS.map((environment): Route => ({
+  method: 'POST',
+  path: `${hookPath(environment)}/*`,
+  handler: (request, api) => notified(environment, request, api),
+}));
 
 // ---- The fetch list ---------------------------------------------------------------------------
 
-async function drainOnce(): Promise<void> {
+/** One system's due records, a batch at a time; with nothing due, one question and no more. */
+async function drainOnce(environment: connect.Environment): Promise<void> {
   const current = engine;
-  if (!current) return;
+  if (!current || !(await store.anyDue(environment))) return;
   const targets = await live(current);
   for (;;) {
     if (!engine) return;
-    const claimed = await store.claim(connect.concurrency(), await skippedOffices(targets));
+    const skipped = await skippedOffices(targets);
+    const claimed = await store.claim(environment, connect.concurrency(), skipped);
     if (claimed.length === 0) return;
     await Promise.all(claimed.map((entry) => fetchOne(entry, targets, current)));
   }
@@ -426,12 +441,12 @@ async function drainOnce(): Promise<void> {
  * removal, tombstoned in each of them without a fetch: the record left the sites' scope.
  */
 async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi): Promise<void> {
-  const owners = targets.filter((live) => live.offices.includes(entry.officeId));
+  const owners = targets.filter((target) => syncs(target, entry));
   if (entry.reason === 'remove') {
     for (const { connection } of owners) {
       await current.notFound(connection, entry.datatype, entry.remoteId);
     }
-    await store.forget(entry.officeId, entry.datatype, entry.remoteId);
+    await store.forget(entry, entry.datatype, entry.remoteId);
     return;
   }
   const first = owners[0];
@@ -442,7 +457,7 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
         office_id: entry.officeId,
         datatype: entry.datatype,
         remote_id: entry.remoteId,
-        detail: 'no active connection licenses this office',
+        detail: `no active connection licenses this office${entry.environment === 'qa' ? ' in Vitec’s QA environment' : ''}`,
       },
       { correlationId: entry.correlationId, datatype: entry.datatype, remoteId: entry.remoteId },
     );
@@ -467,7 +482,7 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
       for (const { connection } of owners) {
         await current.notFound(connection, entry.datatype, entry.remoteId);
       }
-      await store.forget(entry.officeId, entry.datatype, entry.remoteId);
+      await store.forget(entry, entry.datatype, entry.remoteId);
       return;
     }
     for (const { connection } of owners) {
@@ -475,7 +490,7 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
         correlationId: entry.correlationId,
       });
     }
-    await store.remember(entry.officeId, entry.datatype, entry.remoteId, changedAtOf(payload));
+    await store.remember(entry, entry.datatype, entry.remoteId, changedAtOf(payload));
     await queueReferences(entry, payload);
   } catch (error) {
     await failed(entry, first, error, current, trace);
@@ -515,8 +530,9 @@ async function failed(
 async function queueReferences(entry: store.Entry, payload: unknown): Promise<void> {
   const missing = [];
   for (const reference of referencedIds(entry.datatype, payload)) {
-    if (!(await store.isKnown(entry.officeId, reference.datatype, reference.id))) {
+    if (!(await store.isKnown(entry, reference.datatype, reference.id))) {
       missing.push({
+        environment: entry.environment,
         officeId: entry.officeId,
         datatype: reference.datatype,
         remoteId: reference.id,
@@ -545,7 +561,7 @@ async function listAll(
   changedSince?: Date,
 ): Promise<{ listed: Listed; complete: boolean }> {
   const listed: Listed = new Map();
-  const blocked = new Set((await store.blockedOffices()).map((office) => office.officeId));
+  const blocked = await blockedIn(live.credentials.environment);
   for (const datatype of datatypes) {
     const perOffice = new Map<string, Map<string, string | null>>();
     listed.set(datatype, perOffice);
@@ -581,6 +597,7 @@ async function listAll(
  * seen at its last fetch (Patric, 2026-09-17); a load or resync fetches everything listed.
  */
 async function enqueueListed(
+  environment: connect.Environment,
   listed: Listed,
   reason: store.Reason,
   onlyChanged: boolean,
@@ -589,28 +606,36 @@ async function enqueueListed(
   for (const [datatype, perOffice] of listed) {
     for (const [officeId, ids] of perOffice) {
       const seen = onlyChanged
-        ? await store.known(officeId, datatype)
+        ? await store.known({ environment, officeId }, datatype)
         : new Map<string, string | null>();
       const wanted = [...ids].filter(
         ([id, changedAt]) => changedAt === null || seen.get(id) !== changedAt,
       );
       await store.enqueue(
-        wanted.map(([remoteId]) => ({ officeId, datatype, remoteId, reason, correlationId })),
+        wanted.map(([remoteId]) => ({
+          environment,
+          officeId,
+          datatype,
+          remoteId,
+          reason,
+          correlationId,
+        })),
       );
     }
   }
 }
 
 /** The ids seen before that Vitec no longer lists: they left the sites' scope, so they are removed. */
-async function enqueueMissing(listed: Listed): Promise<void> {
+async function enqueueMissing(environment: connect.Environment, listed: Listed): Promise<void> {
   const correlationId = randomUUID();
   for (const [datatype, perOffice] of listed) {
     for (const [officeId, ids] of perOffice) {
-      const missing = [...(await store.known(officeId, datatype)).keys()].filter(
+      const missing = [...(await store.known({ environment, officeId }, datatype)).keys()].filter(
         (id) => !ids.has(id),
       );
       await store.enqueue(
         missing.map((remoteId) => ({
+          environment,
           officeId,
           datatype,
           remoteId,
@@ -630,8 +655,8 @@ async function load(live: Live, offices: readonly string[], datatype?: Datatype)
   const startedAt = new Date();
   const datatypes = listable(datatype);
   const { listed, complete } = await listAll(live, offices, datatypes);
-  await enqueueListed(listed, 'load', false);
-  await enqueueMissing(listed);
+  await enqueueListed(live.credentials.environment, listed, 'load', false);
+  await enqueueMissing(live.credentials.environment, listed);
   if (!complete) {
     const done = (officeId: string): boolean =>
       datatypes.every((one) => listed.get(one)?.has(officeId));
@@ -661,15 +686,18 @@ async function refetch(
 ): Promise<void> {
   const correlationId = randomUUID();
   const entries = [];
+  const { environment } = live.credentials;
   for (const record of records) {
     const officeId = await refetchOffice(
       live.connection,
+      environment,
       record.datatype,
       record.remoteId,
       record.officeId,
     );
     if (!officeId) continue;
     entries.push({
+      environment,
       officeId,
       datatype: record.datatype,
       remoteId: record.remoteId,
@@ -699,7 +727,7 @@ async function catchUp(live: Live): Promise<void> {
   const until = await store.getState(live.connection.id, 'catch_up_until');
   const since = until ? new Date(new Date(until).getTime() - CATCH_UP_OVERLAP_MS) : undefined;
   const { listed, complete } = await listAll(live, live.offices, connect.LISTABLE, since);
-  await enqueueListed(listed, 'catch_up', true);
+  await enqueueListed(live.credentials.environment, listed, 'catch_up', true);
   // Cut short by a hold, it stays due and runs again after the office check.
   if (complete) await markCatchUp(live.connection.id, startedAt);
 }
@@ -707,7 +735,7 @@ async function catchUp(live: Live): Promise<void> {
 async function compare(live: Live): Promise<void> {
   const startedAt = new Date();
   const { listed, complete } = await listAll(live, live.offices, connect.LISTABLE);
-  await enqueueMissing(listed);
+  await enqueueMissing(live.credentials.environment, listed);
   if (complete) await store.setState(live.connection.id, 'compare_at', startedAt.toISOString());
 }
 
@@ -731,6 +759,24 @@ async function takeLoadsAfterCheck(connectionId: string): Promise<string[]> {
 }
 
 /**
+ * A login switched between live Vitec and its QA environment since its last office check
+ * (question 169 a): every office the other system gave is taken off the sites, and the connection
+ * starts again as a new one would, its offices checked and loaded in full from its system now.
+ */
+async function settleSwitch(current: AdapterApi, target: Live): Promise<Live> {
+  const { connection, credentials } = target;
+  const before = await lastCheck(connection.id);
+  if (!before || before.environment === credentials.environment) return target;
+  const now = credentials.environment === 'qa' ? 'Vitec’s QA environment' : 'live Vitec';
+  for (const officeId of before.offices) {
+    const reason = `the login was switched to ${now}`;
+    await takeOff(current, connection, officeId, reason, before.names[officeId]);
+  }
+  await store.clearState(connection.id);
+  return { ...target, offices: [] };
+}
+
+/**
  * Ask Vitec which offices to sync (offices.ts) and act on the difference with `target.offices`,
  * what was synced before: an office that went is taken off the sites, and an office that came is
  * loaded. The blocks follow the check, the login's hold ends, and every office that came, read
@@ -739,11 +785,8 @@ async function takeLoadsAfterCheck(connectionId: string): Promise<string[]> {
 async function checkAndApply(current: AdapterApi, target: Live): Promise<Live> {
   const { credentials, connection } = target;
   const ids = credentials.customerId ? [credentials.customerId] : [];
-  const crmAuth = credentials.crmPassword
-    ? { ...credentials, password: credentials.crmPassword }
-    : credentials;
   const before = await lastCheck(connection.id);
-  const check = await checkOffices(connection.id, credentials, crmAuth, ids);
+  const check = await checkOffices(connection.id, credentials, connect.crmAuthOf(credentials), ids);
   await noteRefusedLogin(current, connection, before, check);
   const next = { ...target, offices: check.offices };
   for (const officeId of target.offices.filter((office) => !check.offices.includes(office))) {
@@ -752,13 +795,13 @@ async function checkAndApply(current: AdapterApi, target: Live): Promise<Live> {
       check.ids.flatMap((one) => one.offices).find((one) => one.customerId === officeId)?.name;
     await takeOff(current, connection, officeId, takenOffBecause(check, officeId), name);
   }
-  const back = await settleBlocks(current, connection, check);
+  const back = await settleBlocks(current, connection, credentials.environment, check);
   // A hold that began after this check started waits for the next one, at the next tick.
   const held = await heldSince(connection.id);
   if (held !== null && held <= check.at) await store.setState(connection.id, 'held', '');
   else if (held !== null) await checkSoon(connection.id);
   const added = check.offices.filter((office) => !target.offices.includes(office));
-  const blocked = new Set((await store.blockedOffices()).map((office) => office.officeId));
+  const blocked = await blockedIn(credentials.environment);
   const wanted = new Set([...added, ...back, ...(await takeLoadsAfterCheck(connection.id))]);
   const toLoad = check.offices.filter((office) => wanted.has(office) && !blocked.has(office));
   if (toLoad.length > 0) await load(next, toLoad);
@@ -774,6 +817,7 @@ async function checkAndApply(current: AdapterApi, target: Live): Promise<Live> {
 async function settleBlocks(
   current: AdapterApi,
   connection: Connection,
+  environment: connect.Environment,
   check: OfficesCheck,
 ): Promise<string[]> {
   const seen = check.ids.flatMap((checked) => checked.offices);
@@ -786,12 +830,12 @@ async function settleBlocks(
       : refusedId && !readable.has(officeId)
         ? `${refusedId.error ?? 'Vitec refuses this login'} for ${refusedId.id}`
         : null;
-    if (detail) await markBlocked(current, connection.id, officeId, detail);
+    if (detail) await markBlocked(current, connection.id, { environment, officeId }, detail);
   }
   const back = [];
   for (const office of await store.blockedOffices()) {
-    if (!readable.has(office.officeId)) continue;
-    await store.unblockOffice(office.officeId);
+    if (office.environment !== environment || !readable.has(office.officeId)) continue;
+    await store.unblockOffice(office);
     await current.logEvent(
       'office.unblocked',
       { office_id: office.officeId },
@@ -872,12 +916,16 @@ const span = (ms: number): string => {
 };
 
 /**
- * The two schedules, checked every minute. After a start, both run whatever their age, and the
- * fetch list is drained, before the adapter counts as caught up: a restart, and a database
- * restored to an earlier point, are made good within minutes and `vitec.catch_up` is red until
- * then (strategy §7.2). Later ticks run what is due.
+ * The two schedules, checked every minute. After a start, each connection runs both whatever their
+ * age, and the fetch list is drained, before the adapter counts as caught up: a restart, and a
+ * database restored to an earlier point, are made good within minutes and `vitec.catch_up` is red
+ * until then (strategy §7.2). A connection whose start-up round failed runs it again at the next
+ * tick, while the others run only what is due, so one system that is down never makes the other
+ * list everything once a minute. Later ticks run what is due.
  */
 let startPending = true;
+/** The connections whose start-up round is still to run; null until the first tick names them. */
+let toStart: Set<string> | null = null;
 
 /** One connection's schedules that are due: the offices first, then the catch-up and the
  * comparison over the offices the check chose. */
@@ -895,16 +943,16 @@ async function runDue(current: AdapterApi, given: Live, startup: boolean): Promi
 async function tickOnce(): Promise<void> {
   const current = engine;
   if (!current) return;
-  const startup = startPending;
-  let failed = false;
-  const targets = await live(current);
+  const targets: Live[] = [];
+  for (const target of await live(current)) targets.push(await settleSwitch(current, target));
+  const starting = (toStart ??= new Set(targets.map((target) => target.connection.id)));
   await resumeDue(targets);
   await dropStrayBlocks(targets);
   for (const given of targets) {
     try {
-      await runDue(current, given, startup);
+      await runDue(current, given, starting.has(given.connection.id));
+      starting.delete(given.connection.id);
     } catch (error) {
-      failed = true;
       await current.logEvent(
         'schedule.failed',
         { connection_id: given.connection.id, detail: String(error) },
@@ -913,7 +961,7 @@ async function tickOnce(): Promise<void> {
       current.report(error, { where: 'vitec schedule', connection_id: given.connection.id });
     }
   }
-  if (startup && !failed) {
+  if (startPending && !targets.some((target) => starting.has(target.connection.id))) {
     await scheduleDrain();
     startPending = false;
   }
@@ -1026,7 +1074,7 @@ export const vitecAdapter: Adapter = {
       ) {
         // A new connection, or the engine's own office list changed (for this adapter only ever
         // to empty): Vitec is asked which offices to sync, and every one of them is loaded.
-        await checkAndApply(given, target);
+        await checkAndApply(given, await settleSwitch(given, target));
         return;
       }
       target.offices = await officesOf(event.connection);
@@ -1055,7 +1103,7 @@ export const vitecAdapter: Adapter = {
         detail: `${blocked.length} office(s) refused by Vitec; only the daily office check asks about them`,
         names: blocked.map(
           (office) =>
-            `${office.officeId}: refused ${span(Date.now() - office.blockedAt.getTime())} ago`,
+            `${officeLabel(office)}: refused ${span(Date.now() - office.blockedAt.getTime())} ago`,
         ),
       };
     });
@@ -1089,7 +1137,8 @@ export const vitecAdapter: Adapter = {
     connect.onCall(null);
     engine = null;
     startPending = true;
-    await draining;
+    toStart = null;
+    await Promise.all(Object.values(draining));
     await scheduling;
     await store.close();
   },

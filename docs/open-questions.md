@@ -4,10 +4,27 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 177 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 178 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 177. `[crm-vitec]` Should the Vitec page's connections, the tenant's card "Offices Vitec lists" and "Check the login" also mark a QA office "(QA)"?
+
+- 2026-10-06 · Asked by the "New CRM vitec-qa" thread after a review of the QA build. Question
+  169 a approved the mark "(QA)" on the Vitec page's fetch list and refused offices only. The
+  build had put it in three more places; they are taken out again until this is answered.
+- **Why it matters.** A login is never shown back on its page, so once it is saved, nothing on
+  the pages tells a QA connection from a live one. With the mark, the Vitec page's list of
+  connections shows "M1 (QA)" in the QA connection's row, the tenant's card "Offices Vitec
+  lists" shows "M1 (QA)" as the id typed, and "Check the login" answers "M1 (QA): Vitec
+  answers …", so the person checking a QA login sees that QA answered. Without it, all three
+  show "M1" for both systems, and the connection's own name and its tenant are the only hints.
+- a) **yes** (recommended): the three places mark a QA office "(QA)" too.
+- b) **no**: only the fetch list, the refused offices and the names in `vitec.offices` mark it,
+  as now.
+- Smaller: b, which builds nothing. Blocked: nothing; the QA switch works either way. Answer a
+  or b.
 
 ## 176. `[core]` Is the new Manual sync page right, so the old one can be deleted?
 
@@ -145,60 +162,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   Cloudflare does not answer that to such a key, no address is added and the save says so.
 - Smaller: a. Blocked: adding a site's address automatically, which a live site needs before its
   window can earn the bot check's proof. Answer a or b.
-
-## 170. `[crm-vitec]` May Core send a site's forms to Vitec's QA environment, from staging as well?
-
-- 2026-10-06 · Raised with 169, before anything for QA is built. A form reaches a CRM only where
-  Patric has confirmed the target as a demo or test system (AGENTS.md, 2026-10-04), and since 152
-  the staging Core stops every form before any CRM call, because staging's connections read real
-  brokerages. Vitec's QA environment is presumably a test system, but nothing from Vitec confirms
-  it, and a QA environment can hold copies of real brokerages' data, so a form sent there could
-  make Vitec's QA e-mail or text a real agent. If QA is where the forms are to be tested from
-  start to end (what 54 f asks Vitec for), the staging block must let forms to QA connections
-  through. The engine cannot tell a QA connection from a live one today, so that takes one
-  addition to the adapter interface, a protected path: a connection can say that it reaches a
-  test system.
-- a) **yes** (recommended, when Vitec gave QA for testing): Vitec's QA is a test system; forms to
-  QA connections are sent, from staging too; the staging block lets them through, with the
-  addition to the adapter interface above.
-- b) **no**: QA is for reading only; no form is ever sent there, and the staging block stays as
-  it is.
-- Smaller: b. Blocked: nothing today; the first real send of the forms to Vitec waits on 54 f or
-  on a. Answer a or b.
-
-## 169. `[crm-vitec]` Should Vitec's QA environment be a switch on a Vitec connection, instead of a CRM of its own called vitec-qa?
-
-- 2026-10-06 · Patric: "We need to add a CRM: vitec-qa. It's a functional clone of Vitec, but it
-  uses another base url for the calls", then, before anything was built: "should QA instead be a
-  checkbox/toggle somewhere, instead of a completely different CRM? For code reusability … but
-  also matching the purpose better".
-- **The address.** Assumed `https://connect-qa.maklare.vitec.net`, as Patric remembered it.
-  Vitec's name servers know it (it points to one of Vitec's development servers,
-  `svwsexterndev01.dev.maklare.vitec.net`), but no page of Vitec's names it, and on 2026-10-06 it
-  cut off a cloud session's connection during the secure handshake while Vitec's live address
-  answered the same session. Whether it answers Core is known once a QA login is tried with
-  "Check the login".
-- **Both ways reuse all of Vitec's code**: the same sync, office check, forms and admin page, with
-  the address as the one difference, and each address gets its own speed limit, so a slow QA
-  never holds up the live sync. One thing either way must add: the Vitec code keeps three lists
-  of its own (the records about to be fetched, the record ids seen per office, the offices Vitec
-  refuses), each kept by office id. A QA environment often holds the same office ids as the live
-  one (a copy of live data), so if QA's entries shared these lists, a notification from QA could
-  make Core fetch from live Vitec, or take a live home off a site. QA's lists are kept apart from
-  the live ones either way.
-- a) **switch** (recommended): one CRM in two of Vitec's environments, which is what QA is, and a
-  smaller admin. New in Core: a field "Vitec's QA environment" (yes or no, empty is no) in a
-  Vitec connection's login; a second notification address on the Vitec page, the one to give
-  Vitec's QA (`/v1/hook/vitec/qa/…`), with a sentence in the setup steps; the Vitec page's fetch
-  list and refused offices mark a QA office "QA"; the three lists gain the environment as part of
-  their key, the live rows unchanged. A QA connection's problems show on the same five Vitec
-  checks, named by its connection. More changes inside the Vitec code.
-- b) **own CRM**: "vitec-qa" in the tenant page's list of CRMs, with its own CRM page (the same as
-  Vitec's), its own notification address (`/v1/hook/vitec-qa/webhook/…`), five more checks on
-  the Overview (`vitec-qa.webhook_lag` and the four others), its own copy of the three lists, and
-  a second Vitec sync running in Core at all times, idle while no tenant uses QA. The live Vitec
-  code's logic and lists stay as they are.
-- Smaller: a in the admin, b inside the Vitec code. Blocked: the QA build. Answer a or b.
 
 ## 168. `[core]` The Events page: what the event log is for, and what replaces the page
 

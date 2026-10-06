@@ -679,6 +679,30 @@ client ports (item 16, first client by question 80).
       office two tenants hold is named once and by each tenant's own name; the send level says a
       site leaves a record it already holds unchanged as it is (decision of 2026-10-06).
 
+28. **Vitec's QA environment** (Patric, 2026-10-06, 18:51 UTC: "We need to add a CRM: vitec-qa.
+    It's a functional clone of Vitec, but it uses another base url for the calls"; then a switch on
+    a Vitec connection instead, question 169 a; its forms, question 170 yes, from the live service
+    only). Component: `[crm-vitec]`.
+    - **Built on staging 2026-10-06:** the login field "Vitec's QA environment" (yes, else live
+      Vitec) sends every call of the login to `https://connect-qa.maklare.vitec.net` with its own
+      requests at once, requests per second and Retry-After, and its own drain of the fetch list;
+      QA's notifications arrive at `/v1/hook/vitec/qa/<token>`; the adapter's lists keep a QA
+      office as `qa:<office id>`; a saved login switched to the other system has the first one's
+      offices taken off the sites and is loaded again in full; a connection whose start-up round
+      fails runs it again alone; the Vitec page's fetch list and refused offices, and
+      `vitec.offices`, mark a QA office "(QA)"; the setup steps say all of it.
+    - Tests: `adapters/vitec/qa.test.ts` (two stand-in Connects sharing office M1: loads,
+      notifications, the daily comparison, a refusal and the office check after it, a switch from
+      QA to live, a start-up round QA fails, Retry-After, "Check the login", a form, the page's
+      marks and row actions) and `adapters/vitec/admin/directions.test.ts` (the field and the QA
+      path named).
+    - Waits on question 177: whether the Vitec page's connections, the tenant's card "Offices Vitec
+      lists" and "Check the login" mark a QA office too.
+    - Interface: none; `engine/adapter-api` and the engine are untouched.
+    - Open: the QA address is as Patric remembered it; on 2026-10-06 it cut off a cloud session's
+      secure handshake while live Vitec answered. A QA login and "Check the login" show whether it
+      answers Core; if it is another address, the constant in `adapters/vitec/api.ts` changes.
+
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health
