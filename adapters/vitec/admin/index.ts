@@ -585,7 +585,7 @@ export const vitecAdmin: AdapterAdmin = {
     {
       key: 'customer_id',
       label: 'Customer or group id',
-      help: 'The id Vitec issued this login for, a customer id such as M30011 or a group id such as G2. Without it, Core cannot ask Vitec for offices, and nothing reaches the sites. Core asks Vitec once a day which offices sit behind the id. After the save, the card “Offices Vitec lists” below shows which offices reach the sites. A changed id counts from the next daily check, or within a minute after “Fetch offices”.',
+      help: 'The id Vitec issued this login for. Behind a group id, such as G2, are all the offices of the group; behind a customer id, such as M30011, only its own office, so a customer id loads only that office even when the brokerage has several. Without it, Core cannot ask Vitec for offices, and nothing reaches the sites. Core asks Vitec once a day which offices sit behind the id. After the save, the card “Offices Vitec lists” below shows which offices reach the sites. A changed id counts from the next daily check, or within a minute after “Fetch offices”.',
     },
     {
       key: 'qa',
