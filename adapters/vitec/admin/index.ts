@@ -422,11 +422,11 @@ export const vitecAdmin: AdapterAdmin = {
   credentials: [
     {
       key: 'username',
-      label: 'Connect username',
-      help: 'The key pair Vitec issues per customer in its partner portal.',
+      label: 'Username',
+      help: 'The username Vitec issued for this brokerage, shown with its password in Vitec’s partner portal. The one username and password are used for every call to Vitec.',
       required: true,
     },
-    { key: 'password', label: 'Connect password', secret: true, required: true },
+    { key: 'password', label: 'Password', secret: true, required: true },
     {
       key: 'customer_id',
       label: 'Customer or group id',
@@ -434,8 +434,8 @@ export const vitecAdmin: AdapterAdmin = {
     },
     {
       key: 'qa',
-      label: 'Vitec’s QA environment',
-      help: `Type yes when Vitec issued this login for Vitec’s QA environment. The QA environment is Vitec’s test system. Every call of a QA login goes to the QA address, ${connect.baseUrlOf('qa')}. Core keeps the records of a QA login apart from the records of live Vitec. A new login with this field empty is a login to live Vitec. On a saved login, an empty field keeps the earlier answer. Typing no switches a saved login back to live Vitec. A switch takes everything the other system gave off the sites. The offices are then loaded again from the system typed. Give a QA login a tenant of its own, so that test records never reach a real website.`,
+      label: 'Use Vitec’s QA environment',
+      help: `Type yes when Vitec issued this login for its QA environment, Vitec’s test system at ${connect.baseUrlOf('qa')}: every call then goes there, and its records are kept apart from live Vitec’s. Typing no switches a saved login back to live Vitec. A switch takes everything the other system gave off the sites, and the offices are loaded again from the system chosen. Give a QA login a tenant of its own, so that test homes never reach a real website.`,
     },
   ],
 

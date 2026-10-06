@@ -154,7 +154,7 @@ brokerage (Patric, closing question 154; one paragraph, Patric 2026-10-06). The 
 thing the Vitec adapter shows under a connection: the block of its schedules and fetch list went
 on 2026-10-06 (Patric: remove it); the Vitec page keeps them.
 A Vitec login can be for Vitec's QA environment, Vitec's test system (question 169 a): the login
-field **Vitec's QA environment** set to yes sends every call of that login to QA's address, and its
+field **Use Vitec's QA environment** set to yes sends every call of that login to QA's address, and its
 records are kept apart from live Vitec's even where QA uses the same office ids. The Vitec page
 shows QA's notification address beside the live one, and its **Fetch list** and **Refused
 offices** mark a QA office "(QA)", as do the names in `vitec.offices` on Overview. A saved login
