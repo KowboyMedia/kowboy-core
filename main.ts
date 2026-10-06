@@ -51,9 +51,10 @@ export async function main(role: string): Promise<{ engine: Engine; server: Serv
     return { engine, server };
   }
   if (role === 'worker') {
-    // One-time (Patric's rule for a removed feature, 2026-10-06; question 174 yes): the seven forms
-    // fields a Vitec connection no longer has leave the stored logins. Ships with the next release
-    // and comes out in the first commit after production's worker log shows it ran.
+    // One-time (Patric's rule for a removed feature, 2026-10-06; questions 174 and 179 yes): the
+    // seven forms fields and the CRM password a Vitec connection no longer has leave the stored
+    // logins. Ships with the next release and comes out in the first commit after production's
+    // worker log shows it ran.
     try {
       const cleaned = await removeLoginFields(vitecAdapter.manifest.provider, [
         'send_forms',
@@ -63,8 +64,9 @@ export async function main(role: string): Promise<{ engine: Engine; server: Serv
         'confirm_by_email',
         'confirm_by_sms',
         'reminder_minutes',
+        'crm_password',
       ]);
-      console.log(`removed the old forms fields from ${cleaned} stored login(s)`);
+      console.log(`removed the old forms fields and CRM password from ${cleaned} stored login(s)`);
     } catch (error) {
       report(error, { where: 'removing the old forms fields' });
     }

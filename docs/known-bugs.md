@@ -83,11 +83,12 @@ for every call). The guard of question 152
 replaces "Send forms to Vitec": only the live service hands a form to the CRM. The entry leaves
 this file when the fix is on production.
 
-**The stored values of the seven fields** (question 174, yes). A save drops a stored field the
-login form no longer has, but a login nobody saves keeps them. So the worker removes exactly those
-seven keys from every stored Vitec login when it starts (`main.ts`, `removeLoginFields` in
-`engine/admin/login.ts`) and logs "removed the old forms fields from N stored login(s)". Staging
-logged 0 on 2026-10-06. The step ships with the next release and comes out in the first commit
+**The stored values of the seven fields and the CRM password** (questions 174 and 179, yes). A
+save drops a stored field the login form no longer has, but a login nobody saves keeps them. So
+the worker removes exactly those eight keys from every stored Vitec login when it starts
+(`main.ts`, `removeLoginFields` in `engine/admin/login.ts`) and logs "removed the old forms fields
+and CRM password from N stored login(s)". Staging logged 0 for the seven on 2026-10-06; the CRM
+password was added after. The step ships with the next release and comes out in the first commit
 after production's worker log shows that line.
 
 ## 4. `[core]` The forms' bot check lets every form through when its keys are missing
