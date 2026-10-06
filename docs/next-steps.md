@@ -586,6 +586,12 @@ client ports (item 16, first client by question 80).
       ("alerts") and `acceptance/admin.test.ts` with the fake adapter. Answered: 162 a (the four
       kinds) and 163 (the words stay; every line names the exact thing, where, and links to it).
       Asked: 164, the colour per system (red is an alert, yellow is to be looked at), row by row.
+    - **Step 1b, names and links (163), built 2026-10-06:** each line of the card and each alert
+      names the exact office (its name and id), connection or site, its tenant and connection,
+      and links to it: an office to its removed records on Records, a connection or a site to its
+      block on the tenant's page (`#connection-<id>`, `#site-<id>`, scrolled to and ringed). The
+      `check.failed` event of the sites check carries the sites in `sites`. Known gap until 164
+      is built: a second site that stops pulling while the check is already red is not told.
     - **Step 2, the Vitec side, built 2026-10-06 by the office thread** (item 24): the adapter
       logs `office.taken_off` in `takeOff` with the reason in plain words, `login.refused` once
       when a check first finds the connection's id refused, and `connect.paused` and

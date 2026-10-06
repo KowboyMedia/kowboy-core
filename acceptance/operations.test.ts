@@ -266,6 +266,10 @@ describe('alerts', () => {
       'the check subscribers turned red: 1 site(s) have not pulled for an hour (test site)',
     );
     expect(running.mails[0]?.text).toContain('https://core.example/v1/health');
+    // Each site it names, with its tenant and its place on the tenant's page (question 163).
+    expect(running.mails[0]?.text).toContain(
+      'site test site, tenant Test tenant: https://core.example/admin/tenants/1#site-1',
+    );
 
     // Still red: told once, not every minute.
     expect(await checkAlerts(config)).toEqual([]);
@@ -283,6 +287,7 @@ describe('alerts', () => {
         name: 'subscribers',
         detail: '1 site(s) have not pulled for an hour',
         names: ['test site'],
+        sites: [{ id: 1, tenantId: 1, label: 'test site' }],
       },
     ]);
     expect((await queryEvents({ type: 'check.recovered' })).map((event) => event.fields)).toEqual([
@@ -290,7 +295,7 @@ describe('alerts', () => {
     ]);
   });
 
-  it('tells an event that needs attention the moment it is written, with the tenant and a link (question 159)', async () => {
+  it('tells an event that needs attention the moment it is written, naming the thing, where it is, and its link (questions 159 and 163)', async () => {
     await logEvent({
       type: 'office.taken_off',
       connectionId: CONNECTION,
@@ -300,7 +305,11 @@ describe('alerts', () => {
     expect(running.mails[0]).toEqual({
       to: 'ops@example.test',
       subject: 'Core local: an office was taken off the sites',
-      text: `Test tenant, ${CONNECTION}: office 100 was taken off the sites: it is no longer in the office group the sites use\n\nhttps://core.example/admin/tenants/1`,
+      text: [
+        `Which: office 100, tenant Test tenant, connection ${CONNECTION}`,
+        'What happened: office 100 was taken off the sites: it is no longer in the office group the sites use',
+        `Open it: https://core.example/admin/records?connection=${CONNECTION}&office=100&deleted=true&tenant=1`,
+      ].join('\n'),
     });
     const sent = await queryEvents({ type: 'alert.sent' });
     expect(sent).toHaveLength(1);

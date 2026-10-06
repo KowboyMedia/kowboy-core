@@ -27,11 +27,15 @@ type SiteRow = {
 };
 
 type NeedsAttention = {
+  key: string;
   id: number;
   at: string;
   type: string;
   title: string;
   said: string;
+  /** The thing itself, in words, and its place in the admin area. */
+  what: string;
+  link: string;
   tenantId: number | null;
   tenant: string | null;
   connectionId: string | null;
@@ -62,11 +66,11 @@ const WHERE: Record<string, { to: string; label: string }> = {
   schema: { to: '/settings', label: 'Settings' },
 };
 
-/** Where one thing that needs attention is looked into: its tenant's page, or the sites. */
-const lookInto = (row: NeedsAttention): { to: string; label: string } =>
-  row.tenantId === null
-    ? { to: '/tenants', label: 'Go to Tenants' }
-    : { to: `/tenants/${String(row.tenantId)}`, label: 'Open the tenant' };
+/** Where a thing that needs attention is: its tenant and connection, when it has them. */
+const where = (row: NeedsAttention): string =>
+  [row.tenant && `tenant ${row.tenant}`, row.connectionId && `connection ${row.connectionId}`]
+    .filter((part) => part)
+    .join(', ');
 
 /** Fetched when this page opens, so the charting library never weighs on the rest of the app. */
 const DayChart = lazy(() => import('@/components/day-chart'));
@@ -155,7 +159,8 @@ export function Overview() {
           <CardDescription>
             The important things of the last seven days: an office taken off the sites, a connection
             paused after failures, a login the CRM refuses, and a site that stopped pulling. Each
-            one was also sent once by mail and Slack, where Settings says those are set.
+            line names the exact office, connection or site, and its name opens it. Each one was
+            also sent once by mail and Slack, where Settings says those are set.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -173,22 +178,20 @@ export function Overview() {
                 ),
               },
               {
-                key: 'tenant',
-                header: 'Tenant',
-                cell: (row) => row.tenant ?? <span className="text-muted-foreground">—</span>,
-              },
-              {
-                key: 'go',
-                header: 'Look into it',
+                key: 'which',
+                header: 'Which, and where',
                 cell: (row) => (
-                  <Link className="underline" to={lookInto(row).to}>
-                    {lookInto(row).label}
-                  </Link>
+                  <>
+                    <Link className="font-medium underline" to={row.link}>
+                      {row.what}
+                    </Link>
+                    {where(row) && <p className="text-xs text-muted-foreground">{where(row)}</p>}
+                  </>
                 ),
               },
             ]}
             rows={data?.attention ?? []}
-            rowKey={(row) => String(row.id)}
+            rowKey={(row) => row.key}
             loading={query.isLoading}
             empty={<Empty what="Nothing needed attention in the last seven days." />}
           />

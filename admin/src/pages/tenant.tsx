@@ -2,7 +2,7 @@
 // are the same page: name, licence, its CRM connections with their logins and offices, and its
 // sites. Nothing reloads; every outcome is a toast; every dangerous button is red and asks first.
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { useCustomMutation, useList, useOne } from '@refinedev/core';
 import { toast } from 'sonner';
 import { Plus, Trash2 } from 'lucide-react';
@@ -170,6 +170,15 @@ export function TenantPage() {
   useEffect(() => {
     if (tenant) setForm(toForm(tenant));
   }, [tenant]);
+
+  // A link to one connection or site of this tenant (from "Needs attention" on the Overview)
+  // ends in its anchor: once that block is drawn, the page scrolls to it.
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (hash) document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView();
+  }, [hash, form]);
+  const linked = (anchor: string): string =>
+    hash === `#${anchor}` ? 'rounded-lg border p-3 ring-2 ring-warn' : 'rounded-lg border p-3';
 
   const found = problems(form);
   const problem = (key: string): string | undefined => (touched ? found[key] : undefined);
@@ -398,7 +407,11 @@ export function TenantPage() {
               setForm({ ...form, connections: next });
             };
             return (
-              <div key={index} className="rounded-lg border p-3">
+              <div
+                key={index}
+                id={`connection-${connection.id}`}
+                className={linked(`connection-${connection.id}`)}
+              >
                 <div className="grid gap-3 md:grid-cols-3">
                   <div className="flex flex-col gap-1">
                     <Label htmlFor={`connection-id-${String(index)}`}>Short name</Label>
@@ -600,7 +613,11 @@ export function TenantPage() {
               setForm({ ...form, sites: next });
             };
             return (
-              <div key={index} className="rounded-lg border p-3">
+              <div
+                key={index}
+                id={site.id === undefined ? undefined : `site-${String(site.id)}`}
+                className={linked(`site-${String(site.id)}`)}
+              >
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="flex flex-col gap-1">
                     <Label htmlFor={`site-label-${String(index)}`}>Name</Label>

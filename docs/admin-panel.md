@@ -36,16 +36,16 @@ has one button to forget every other device, for a laptop that goes missing.
 
 ## The pages
 
-| Page            | What it is for                                                                                                                                                                                                                                                                                                                                          |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Overview**    | The verdict first: green, or which checks are red, why, and a link to where each is fixed. Then "Needs attention": the important things of the last seven days, each with its tenant and where to look (`engine/attention.ts`). Then the day in figures and hourly charts, what Core holds per datatype, the sites' freshness, and any job running now. |
-| **Flow**        | One list of the records in flight, newest queued first, the whole row coloured by state — waiting for the CRM, in Core, on a site, error — tailing live and animating as rows arrive.                                                                                                                                                                   |
-| **Records**     | The search: the scope pickers, server-side filters, sort by any column, pages of 500 (25 to 500), a column chooser, and ticked rows that recompute, fetch again or ring. Every choice is in the address, so a view is a link.                                                                                                                           |
-| **Tenants**     | Tenants only. One tenant is one page and one Save: name, licence, its CRM connections, its sites.                                                                                                                                                                                                                                                       |
-| **Manual sync** | One scope, then a preview that writes nothing, then a job with progress, a cancel and a history. Fetch again from the CRM takes the same scope. Housekeeping is here. Called Runs until 2026-09-21.                                                                                                                                                     |
-| **Events**      | The whole log with its filters, a live tail, and one click to follow a chain. Panel saves, sign-ins and actions are `admin.*` events with the person on them, so "who did what" is a filter.                                                                                                                                                            |
-| **CRMs**        | One page per adapter, drawn from what the adapter reports: its directions, its settings, its notification URL and its sections. A second CRM appears by itself.                                                                                                                                                                                         |
-| **Settings**    | Configuration read-only (whether each setting is set, never its value), the migrations the database holds, the versions running, where alerts go, who may sign in, and maintenance.                                                                                                                                                                     |
+| Page            | What it is for                                                                                                                                                                                                                                                                                                                                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Overview**    | The verdict first: green, or which checks are red, why, and a link to where each is fixed. Then "Needs attention": the important things of the last seven days, each naming the exact office, connection or site, its tenant, and a link that opens it (`engine/attention.ts`). Then the day in figures and hourly charts, what Core holds per datatype, the sites' freshness, and any job running now. |
+| **Flow**        | One list of the records in flight, newest queued first, the whole row coloured by state — waiting for the CRM, in Core, on a site, error — tailing live and animating as rows arrive.                                                                                                                                                                                                                   |
+| **Records**     | The search: the scope pickers, server-side filters, sort by any column, pages of 500 (25 to 500), a column chooser, and ticked rows that recompute, fetch again or ring. Every choice is in the address, so a view is a link.                                                                                                                                                                           |
+| **Tenants**     | Tenants only. One tenant is one page and one Save: name, licence, its CRM connections, its sites. A link ending `#connection-<id>` or `#site-<id>` scrolls to that block and rings it.                                                                                                                                                                                                                  |
+| **Manual sync** | One scope, then a preview that writes nothing, then a job with progress, a cancel and a history. Fetch again from the CRM takes the same scope. Housekeeping is here. Called Runs until 2026-09-21.                                                                                                                                                                                                     |
+| **Events**      | The whole log with its filters, a live tail, and one click to follow a chain. Panel saves, sign-ins and actions are `admin.*` events with the person on them, so "who did what" is a filter.                                                                                                                                                                                                            |
+| **CRMs**        | One page per adapter, drawn from what the adapter reports: its directions, its settings, its notification URL and its sections. A second CRM appears by itself.                                                                                                                                                                                                                                         |
+| **Settings**    | Configuration read-only (whether each setting is set, never its value), the migrations the database holds, the versions running, where alerts go, who may sign in, and maintenance.                                                                                                                                                                                                                     |
 
 Every page: no reload, a toast for every outcome, one pattern for a list, a detail page, a form and
 a row's actions, a confirmation before anything dangerous, an empty state that says what to do
@@ -229,16 +229,21 @@ drive directly.
   (`PUBLIC_URL`). Told once per change, never every minute; a check first seen green is not told.
   Every change is also a `check.failed` or `check.recovered` event, with the check's name, detail
   and names. Every send is an `alert.sent` event.
-- **Needs attention** (`engine/attention.ts`, question 159, 2026-10-06): the few kinds of event
-  the super admin is told about. An office taken off the sites (`office.taken_off`), a connection
-  paused after failures (`connection.paused`) and a login the CRM refuses (`login.refused`) are
-  logged by the adapter through the adapter API with the connection in the context; a site that
-  stopped pulling is the `subscribers` check turning red (`check.failed`). The Overview lists them
-  for seven days, newest first, with the tenant (looked up from the connection) and a link to its
-  page, and the same sentence the Events page reads. Each adapter event is told once by mail and
-  Slack the moment it is written, by the process that wrote it, with the tenant, the connection,
-  the sentence and a link to the tenant's page in the area; a check's change goes with the checks'
-  message above. The event log is the one source: nothing is kept twice.
+- **Needs attention** (`engine/attention.ts`, questions 159 and 163, 2026-10-06): the few kinds
+  of event the super admin is told about. An office taken off the sites (`office.taken_off`), a
+  connection paused after failures (`connection.paused`) and a login the CRM refuses
+  (`login.refused`) are logged by the adapter through the adapter API with the connection in the
+  context; a site that stopped pulling is the `subscribers` check turning red (`check.failed`,
+  which carries the sites by number, tenant and name in `sites`). The Overview lists them for
+  seven days, newest first, one line per thing: which thing (`office Lidingö (M30011)`, or the
+  office's id when Core holds no name; `connection <id>`; `site <name>`), where it is (tenant and
+  connection), the same sentence the Events page reads, and a link that opens the thing: the
+  office's removed records on Records, or the connection's or the site's block on the tenant's
+  page. Each adapter event is told once by mail and Slack the moment it is written, by the process
+  that wrote it, in three lines ("Which:", "What happened:", "Open it:" with the whole address
+  when `PUBLIC_URL` is set); a check's change goes with the checks' message above, which ends with
+  one line per site that stopped pulling and its link. The event log is the one source: nothing is
+  kept twice.
 - **Form submissions** (`engine/http/submissions.ts`, docs/forms.md): `POST /v1/submissions` hands
   a site's form to the connection's adapter and answers what the CRM said; `GET
 /v1/submissions/slots` reads a home's viewings and slots live. The outcomes table keeps the id,

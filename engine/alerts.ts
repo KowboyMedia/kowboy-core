@@ -3,12 +3,13 @@
 // check is told once, not every minute, and its recovery once, with a link to the health page. An
 // event that needs attention (attention.ts): told the moment it is written, by the process that
 // wrote it, with the tenant and a link to its page in the admin area.
-import { healthReport } from './health.js';
+import { healthReport, SITES_CHECK, staleSites } from './health.js';
+import type { HealthResult } from './adapter-api/types.js';
 import { db } from './storage/db.js';
 import { listenToEvents, logEvent, type EventFields, type EventRow } from './events.js';
 import { mailConfigured, sendMail } from './mail.js';
 import { report } from './errors.js';
-import { attention } from './attention.js';
+import { kindOf, placesOf, type Place } from './attention.js';
 import { summarise } from './admin/summary.js';
 
 export type AlertConfig = {
@@ -31,31 +32,45 @@ export async function checkAlerts(config: AlertConfig): Promise<AlertChange[]> {
   const { rows } = await db().query<StateRow>('select name, ok from alert_state');
   const last = new Map(rows.map((row) => [row.name, row.ok]));
   const changes: AlertChange[] = [];
+  const places: Place[] = [];
   for (const [name, check] of Object.entries(health.checks)) {
-    const before = last.get(name);
-    // A check seen for the first time is told only when it is red: green is the expected state.
-    if (before === check.ok || (before === undefined && check.ok)) {
-      await db().query(
-        `insert into alert_state (name, ok, detail) values ($1, $2, $3)
-         on conflict (name) do update set detail = excluded.detail`,
-        [name, check.ok, check.detail ?? null],
-      );
-      continue;
-    }
+    const change = await keep(name, check, last.get(name));
+    if (!change) continue;
+    changes.push(change);
+    // The sites by number and tenant too, so the Overview and the alert can link to each one.
+    const sites = name === SITES_CHECK && !check.ok ? { sites: await staleSites() } : {};
+    const event = {
+      type: change.ok ? 'check.recovered' : 'check.failed',
+      fields: { name, detail: change.detail, names: change.names, ...sites },
+    };
+    await logEvent(event);
+    places.push(...(await placesOf({ ...event, tenant_id: null, connection_id: null })));
+  }
+  if (changes.length > 0) await tellChanges(changes, places, config);
+  return changes;
+}
+
+/** Keep a check's state, and say whether it changed in a way that is told. */
+async function keep(
+  name: string,
+  check: HealthResult,
+  before: boolean | undefined,
+): Promise<AlertChange | null> {
+  // A check seen for the first time is told only when it is red: green is the expected state.
+  if (before === check.ok || (before === undefined && check.ok)) {
     await db().query(
-      `insert into alert_state (name, ok, detail, since, notified_at) values ($1, $2, $3, now(), now())
-       on conflict (name) do update set ok = excluded.ok, detail = excluded.detail, since = now(), notified_at = now()`,
+      `insert into alert_state (name, ok, detail) values ($1, $2, $3)
+       on conflict (name) do update set detail = excluded.detail`,
       [name, check.ok, check.detail ?? null],
     );
-    const change = { name, ok: check.ok, detail: check.detail ?? null, names: check.names ?? [] };
-    changes.push(change);
-    await logEvent({
-      type: change.ok ? 'check.recovered' : 'check.failed',
-      fields: { name, detail: change.detail, names: change.names },
-    });
+    return null;
   }
-  if (changes.length > 0) await tellChanges(changes, config);
-  return changes;
+  await db().query(
+    `insert into alert_state (name, ok, detail, since, notified_at) values ($1, $2, $3, now(), now())
+     on conflict (name) do update set ok = excluded.ok, detail = excluded.detail, since = now(), notified_at = now()`,
+    [name, check.ok, check.detail ?? null],
+  );
+  return { name, ok: check.ok, detail: check.detail ?? null, names: check.names ?? [] };
 }
 
 /** From now on, an event that needs attention is told as soon as it is written. */
@@ -65,8 +80,15 @@ export function watchEvents(config: AlertConfig): void {
   });
 }
 
-/** The checks' message: every change of this minute in one, and a link to the health page. */
-async function tellChanges(changes: AlertChange[], config: AlertConfig): Promise<void> {
+/**
+ * The checks' message: every change of this minute in one, then each thing a red check names with
+ * its place in the admin area (a site that stopped pulling), and a link to the health page.
+ */
+async function tellChanges(
+  changes: AlertChange[],
+  places: Place[],
+  config: AlertConfig,
+): Promise<void> {
   const red = changes.filter((change) => !change.ok);
   const subject = `Core ${config.environment}: ${red.length > 0 ? `${red.length} check(s) failing` : 'all checks green again'}`;
   // The names the public health answer leaves out belong here: the alert goes to Kowboy alone.
@@ -78,30 +100,50 @@ async function tellChanges(changes: AlertChange[], config: AlertConfig): Promise
       names: change.names,
     }),
   );
-  await send(subject, lines, config.publicUrl ? `${config.publicUrl}/v1/health` : null, config, {
-    changes: changes.map((change) => `${change.name}=${change.ok ? 'ok' : 'red'}`),
-  });
+  await send(
+    subject,
+    [...lines, ...places.map((place) => `${which(place, null)}: ${opened(place, config)}`)],
+    config.publicUrl ? `${config.publicUrl}/v1/health` : null,
+    config,
+    { changes: changes.map((change) => `${change.name}=${change.ok ? 'ok' : 'red'}`) },
+  );
 }
 
+/** The thing, and where it is: "office Lidingö (M30011), tenant Acme Mäklare, connection acme-crm". */
+const which = (place: Place, connectionId: string | null): string =>
+  [
+    place.what,
+    place.tenant && `tenant ${place.tenant}`,
+    connectionId && `connection ${connectionId}`,
+  ]
+    .filter((part) => part)
+    .join(', ');
+
+/** The thing's place in the admin area, as a whole address when Core knows its own. */
+const opened = (place: Place, config: AlertConfig): string =>
+  config.publicUrl ? `${config.publicUrl}/admin${place.link}` : `the admin area, ${place.link}`;
+
 /**
- * One event that needs attention, read back as the Overview lists it: the tenant and the
- * connection, the same sentence the Events page reads, and a link to the tenant's page. A kind told
+ * One event that needs attention, as the Overview lists it: which thing, where it is, what
+ * happened in the sentence the Events page reads, and the link to it (question 163). A kind told
  * with the checks went with the other changes of its minute above.
  */
 async function tellEvent(event: EventRow, config: AlertConfig): Promise<void> {
-  const [row] = await attention({ id: Number(event.id) });
-  if (!row || row.kind.told !== 'on write') return;
-  const names = [row.tenant, row.connectionId].filter((name) => name);
-  const link = config.publicUrl
-    ? `${config.publicUrl}/admin${row.tenantId === null ? '' : `/tenants/${String(row.tenantId)}`}`
-    : null;
-  await send(
-    `Core ${config.environment}: ${row.kind.title}`,
-    [`${names.length > 0 ? `${names.join(', ')}: ` : ''}${summarise(row.type, row.fields)}`],
-    link,
-    config,
-    { event: row.id, type: row.type },
-  );
+  const kind = kindOf(event.type, event.fields);
+  if (kind?.told !== 'on write') return;
+  for (const place of await placesOf(event)) {
+    await send(
+      `Core ${config.environment}: ${kind.title}`,
+      [
+        `Which: ${which(place, event.connection_id)}`,
+        `What happened: ${summarise(event.type, event.fields)}`,
+        `Open it: ${opened(place, config)}`,
+      ],
+      null,
+      config,
+      { event: Number(event.id), type: event.type },
+    );
+  }
 }
 
 /** The message, then where it goes; every send is one `alert.sent` event, delivered or not. */

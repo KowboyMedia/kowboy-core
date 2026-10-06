@@ -38,6 +38,23 @@ export const RECORDED_STALE_MS = 2 * 60_000;
 /** A lifecycle event waiting longer than this has no worker to deliver it. */
 export const LIFECYCLE_WAIT_MS = 5 * 60_000;
 
+/** The check that watches the sites' pulls. */
+export const SITES_CHECK = 'subscribers';
+
+export type StaleSite = { id: number; tenantId: number; label: string };
+
+/** The active sites that have not pulled for an hour, each with its tenant. */
+export async function staleSites(): Promise<StaleSite[]> {
+  const { rows } = await db().query<{ id: string; tenant_id: number; label: string }>(
+    `select id, tenant_id, label from subscribers
+     where active = true
+       and (last_pull_at is null or last_pull_at < now() - ($1 || ' milliseconds')::interval)
+     order by id`,
+    [SUBSCRIBER_IDLE_MS],
+  );
+  return rows.map((row) => ({ id: Number(row.id), tenantId: row.tenant_id, label: row.label }));
+}
+
 export async function heartbeat(name = 'worker'): Promise<void> {
   await db().query(
     `insert into heartbeats (name, at) values ($1, now())
@@ -80,13 +97,8 @@ export async function healthReport(): Promise<HealthReport> {
       : { ok: false, detail: `last heartbeat ${Math.round(age / 1000)} s ago` };
   });
 
-  checks['subscribers'] = await run(async () => {
-    const { rows } = await db().query<{ label: string }>(
-      `select label from subscribers
-       where active = true
-         and (last_pull_at is null or last_pull_at < now() - ($1 || ' milliseconds')::interval)`,
-      [SUBSCRIBER_IDLE_MS],
-    );
+  checks[SITES_CHECK] = await run(async () => {
+    const rows = await staleSites();
     return rows.length === 0
       ? { ok: true }
       : {

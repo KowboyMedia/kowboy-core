@@ -173,7 +173,7 @@
         "health is 500 while a check fails and 200 when everything passes (AC 17)",
         "health answers anyone with counts and plain words, and keeps the names for the alerts (question 62)",
         "alerts tells a change of a health check once, by mail with the names, and its recovery once",
-        "alerts tells an event that needs attention the moment it is written, with the tenant and a link (question 159)"
+        "alerts tells an event that needs attention the moment it is written, naming the thing, where it is, and its link (questions 159 and 163)"
       ],
       "note": "Sentry Uptime alerting waits on the account. Since 2026-10-06 (question 159) a check's change is a check.failed or check.recovered event, and the events that need the super admin's attention (engine/attention.ts) are listed on the Overview for seven days and told once each by mail and Slack."
     },
@@ -456,7 +456,7 @@
         "the admin area rotates a token and a bell secret, each to a new value (U6, AC 42)",
         "the admin area removes a site with its history, and a tenant with everything (AC 42)",
         "the admin area shows the day, the verdict and the sites on one call (U2, U5, AC 42)",
-        "the admin area lists what needs attention from the last seven days, with its tenant (U2, question 159)",
+        "the admin area lists what needs attention from the last seven days, naming each thing, where it is, and its link (U2, questions 159 and 163)",
         "the admin area lists what is in flight, coloured by state (U5, Patric’s rule 3)",
         "the admin area reads the event log by every filter, and follows a chain (U3, U6, AC 42)",
         "the admin area brings an adapter’s own page, its directions and its actions (U7, question 61)",

@@ -8,6 +8,7 @@ import { fakeWebhookAdapter } from '../adapters/fake-webhook/index.js';
 import * as crm from '../adapters/fake-webhook/crm.js';
 import { db } from '../engine/storage/db.js';
 import { logEvent, queryEvents } from '../engine/events.js';
+import { checkAlerts } from '../engine/alerts.js';
 import { inMaintenance } from '../engine/storage/settings.js';
 import { flushBells } from '../engine/bells.js';
 import { runNextJob } from '../engine/jobs.js';
@@ -554,14 +555,24 @@ describe('the admin area', () => {
     expect(overview.body.data.tenants.total).toBe(2);
   });
 
-  it('lists what needs attention from the last seven days, with its tenant (U2, question 159)', async () => {
-    await api('/tenants', { method: 'POST', body: tenantBody() });
+  it('lists what needs attention from the last seven days, naming each thing, where it is, and its link (U2, questions 159 and 163)', async () => {
+    const made = await api<{ data: { id: number } }>('/tenants', {
+      method: 'POST',
+      body: tenantBody(),
+    });
+    const tenantId = made.body.data.id;
+    crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
+    await running.deliver();
+    await until(
+      async () => (await api<{ total: number }>('/records?datatype=office')).body.total === 1,
+      'the office to reach the records',
+    );
     await logEvent({
       type: 'office.taken_off',
       connectionId: 'acme-crm',
       fields: { office_id: '100', reason: 'it is no longer in the office group the sites use' },
     });
-    // Older than a week, and a red check that is not about the sites: neither is listed.
+    // Older than a week: not listed.
     await logEvent({
       type: 'login.refused',
       connectionId: 'acme-crm',
@@ -570,37 +581,38 @@ describe('the admin area', () => {
     await db().query(
       "update events set at = now() - interval '8 days' where type = 'login.refused'",
     );
-    await logEvent({
-      type: 'check.failed',
-      fields: { name: 'worker', detail: 'never reported', names: [] },
+    // The new site has never pulled: the check turns red, and only the site is listed, not the
+    // other red checks.
+    await checkAlerts({
+      environment: 'test',
+      publicUrl: null,
+      email: null,
+      slackWebhookUrl: null,
     });
-    await logEvent({
-      type: 'check.failed',
-      fields: {
-        name: 'subscribers',
-        detail: '1 site(s) have not pulled for an hour',
-        names: ['acme.se'],
-      },
-    });
+    const tenant = await api<{ data: { sites: { id: number }[] } }>(`/tenants/${String(tenantId)}`);
+    const siteId = tenant.body.data.sites[0]?.id ?? 0;
 
     const overview = await api<{ data: { attention: Record<string, unknown>[] } }>('/overview');
     expect(overview.body.data.attention).toEqual([
       expect.objectContaining({
         type: 'check.failed',
         title: 'a site stopped pulling',
-        said: 'the check subscribers turned red: 1 site(s) have not pulled for an hour (acme.se)',
-        tenantId: null,
-        tenant: null,
+        what: 'site acme.se',
+        link: `/tenants/${String(tenantId)}#site-${String(siteId)}`,
+        tenantId,
+        tenant: 'Acme Mäklare',
       }),
       expect.objectContaining({
         type: 'office.taken_off',
         title: 'an office was taken off the sites',
         said: 'office 100 was taken off the sites: it is no longer in the office group the sites use',
+        what: 'office Lidingö (100)',
+        link: `/records?connection=acme-crm&office=100&deleted=true&tenant=${String(tenantId)}`,
+        tenantId,
         tenant: 'Acme Mäklare',
         connectionId: 'acme-crm',
       }),
     ]);
-    expect(overview.body.data.attention[1]?.['tenantId']).toBeGreaterThan(1);
   });
 
   it('lists what is in flight, coloured by state (U5, Patric’s rule 3)', async () => {
