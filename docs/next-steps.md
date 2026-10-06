@@ -560,7 +560,11 @@ client ports (item 16, first client by question 80).
     off the sites (the tenant, the office, why: it left the group "Webbplats", or Vitec refuses
     it); a section "Needs attention" on the Overview listing the important events of the last
     seven days (an office taken off, a connection paused after failures, a login refused, a site
-    that stopped pulling), each with a link; and each such event sent once by mail and Slack where
+    that stopped pulling, and a form submit that failed, once the forms thread's log of submits
+    exists: Patric, 2026-10-06 12:36 UTC, asked that thread for "submit visibility / log in Core,
+    and retry logic + fail with error logging", so failed submits are one more source of this
+    list, not a mechanism of their own), each with a link; and each such event sent once by mail
+    and Slack where
     `ALERT_EMAIL` and `ALERT_SLACK_WEBHOOK_URL` are set, as the red checks are today
     (`engine/alerts.ts`). Its own thread: what counts as important beyond those four, the words of
     each line and of the alert, and any line beyond 159 a's list are asked before they are built.
