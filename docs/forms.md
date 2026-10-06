@@ -784,8 +784,9 @@ site must be able to configure (question 146, answered the same evening: every s
 site's own or automatic, apart from the bot check's keys, one global setting where the forms are
 received; `docs/decisions.md`). Where the forms live is question 150: drawn by our theme and sent
 by Core (recommended since 2026-10-06, the form per client of 137 b), a separate app in Core's
-repository, or inside Core; the section "Where the writes live" above is the weighing of
-2026-10-04, whose separate app had its own data.
+repository, inside Core, or drawn by our theme and sent by the plugin itself with the Vitec login
+typed on the site (option D above, raised again by Patric on 2026-10-06); the section "Where the
+writes live" above is the weighing of 2026-10-04, whose separate app had its own data.
 
 What exists, proved by acceptance criteria 43 to 47 and 49 (`acceptance/submissions.test.ts`)
 against the fake polling CRM, which takes every kind, and the fake webhook CRM, which takes none:

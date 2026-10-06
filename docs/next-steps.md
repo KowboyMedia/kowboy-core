@@ -412,8 +412,10 @@ client ports (item 16, first client by question 80).
     site's own or automatic, apart from the bot check's keys, one global setting where the forms are
     received. Open: where the forms live (150; since 2026-10-06 Patric's variant recommended, our
     theme draws the forms and Core sends them, its first version 155; the cloud app of his option C
-    is b, its first version 153; inside Core is c), the Vitec search-profile step (151, skip
-    recommended) and no CRM send outside the live service (152, a Default). The rebuild's first
+    is b, its first version 153; inside Core is c; at 11:54 he wrote "150 A" and in the same
+    message raised d, the plugin sending straight to Vitec with the login typed on the site, so a
+    stands unless he picks d), the Vitec search-profile step (151, skip recommended) and no CRM
+    send outside the live service (152, a Default). The rebuild's first
     unknown, tested before anything is built on it: whether Cloudflare's bot check, drawn in a small
     frame served from Core's address inside the form window, checks that address rather than the
     site's (Cloudflare's pages do not say). If it does, one address at Cloudflare covers every site,

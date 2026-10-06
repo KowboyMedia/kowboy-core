@@ -98,25 +98,68 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
      server, sending a form and reading a viewing's times, which exist from 2026-10-04
      (`POST /v1/submissions`, `GET /v1/submissions/slots`) and come back from zero, asked as lines
      (155).
-- The three options, the theme added on 2026-10-06:
+- 2026-10-06 · Patric, 11:54 (UTC): "150 A. Let me repeat the solution, if not matched, flag for
+  discussion because we are not aligned: Core has form receiver(s), the wp plugin has no form
+  specific things except form receivers using wp api, and the default template has: Complete set
+  of forms. The forms submit to wp api, the wp api submits serverside to core using the token,
+  core uses the token to map to vitec credentials, core submits to vitec. Each call is logged in
+  detail if something breaks." That is a, with two differences, flagged as he asked: (1) 146's
+  item 2 put a "Formulär" switch under the plugin's menu, and this description leaves the plugin
+  only the receivers, so 155's item 2 now follows the newer words and has no switch; (2) "logged
+  in detail": Core's rule for forms logs the id and the outcome, never the person
+  (`engine/http/submissions.ts`), so 155's item 8 names the detail (the ids, the step reached,
+  the CRM's answer and timing, the error text) and keeps the visitor's data out; keeping that
+  data for a retry would be a new line. In the same message: "WAIT: I see a lot less moving parts
+  by just adding a wp admin > kowboy > forms setting page, accepting vitec credentials. The wp
+  plugin sends directly to vitec using the credentials. Core is not even involved, at all.
+  Possibly that core could proxy and pass on the submitted form, with the benefit that the client
+  does not need to touch the api credentials. If Yes, how can we ensure that Client B with their
+  token can write to ClientB.property.sendInterest but not to ClientC.property.sendInterest by
+  just edit the form inputs? We cant have leaks between tenants." The direct send is d below: the
+  per-site plugin of 129's option D (`docs/forms.md`, "Where the writes live"), set aside on
+  2026-10-04 when 129 was answered a.
+- How Core keeps tenants apart (the door of 2026-10-04, `engine/http/submissions.ts`, which the
+  rebuild brings back): the form never chooses the login. The token, sent by the site's server
+  and never in the page, names the tenant; the form may only name a record or an office. Core
+  refuses a record whose connection is not that tenant's ("the record is not one of this
+  tenant's"), a record that does not exist under that connection ("no such record"), an office
+  that is not the tenant's, and a form id another tenant used; then it sends with that
+  connection's login and no other. Vitec is the second lock: its password is issued per customer,
+  and a call for another customer's estate answers 403 "Access violation" (verified 2026-10-05
+  with other ids). So a visitor who edits the inputs on B's site can make B's form fail, never
+  reach C. With d the question does not arise: a site holds only its own login.
+- What d gains: nothing in Core, no change to the adapter interface, no hop through Core, no
+  tenant question. What it costs: the seam ends for the forms (`AGENTS.md`: "no CRM name appears
+  in `engine/` or `clients/`" is a CI block, and the Concept says "Clients hold templates and a
+  sync loop"), a protected change; the Vitec login is copied into every WordPress site's database,
+  where every admin of the site, its host and any faulty plugin can read it, against Vitec's own
+  advice to store it encrypted and easy to change, and its warning that a leaked login gives an
+  attacker the partner's rights (`docs/inputs/vitec/technical-information.md`, "Säkerhet",
+  "Nyckelhantering"); an Mspecs site can never have it (one provider account for every brokerage,
+  not for a site); the Vitec calls are written in PHP for WordPress and again for Lovable, and a
+  Vitec change is a plugin update on every site; nothing but "no login typed here" keeps a staging
+  site from sending; and the log is per site. With a, Core's two addresses serve Lovable too, with
+  its own token.
+- The four options, the theme added on 2026-10-06, the plugin's own send at 11:54:
 
-  |                              | a) In our theme (Patric's variant)                                                                                              | b) Cloud app (Patric's option C)                                                                                          | c) Inside Core                                                                                                    |
-  | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-  | Who draws the window         | our theme, in its own markup and styles                                                                                         | a tag on the page (GTM or our plugin) draws the approved window                                                           | the same tag, served by Core                                                                                      |
-  | Its look                     | the theme's styles, all of it                                                                                                   | the eleven values set from outside                                                                                        | as b                                                                                                              |
-  | Its steps                    | the theme's code                                                                                                                | the window's code, the same on every site                                                                                 | as b                                                                                                              |
-  | How a form reaches Vitec     | the browser sends it to its own site; our plugin passes it to Core with the site's token; Core sends it with the login it holds | the browser sends it to the app with a public token; the app sends it with its own copy of the login                      | the browser sends it to Core with a public key; Core sends it with the login it holds                             |
-  | What visitors and bots reach | their own site only                                                                                                             | the app                                                                                                                   | Core's own program, beside the sites' updates, the CRM's notifications and the admin area                         |
-  | Sites                        | our WordPress sites; a Lovable site needs its own form                                                                          | any site, by one tag, where the page shows the home's Vitec id                                                            | our WordPress and Lovable sites; others once Core can hold a site with no bell address                            |
-  | Core itself                  | two addresses for a site's server, the guard, a log, and an addition to the adapter interface (protected)                       | untouched                                                                                                                 | the same as a, for browsers: a public key per site, the site's allowed addresses, and the window served from Core |
-  | The Vitec logins             | one copy, in Core                                                                                                               | a second copy where a brokerage's site also reads through Core                                                            | one copy, in Core                                                                                                 |
-  | Running cost                 | nothing new                                                                                                                     | one more program on staging and one on live, DigitalOcean's smallest size: $5 a month each (pricing page read 2026-10-05) | nothing new                                                                                                       |
-  | A fix to the window          | a theme update on every site                                                                                                    | one change, every site at once                                                                                            | as b                                                                                                              |
-  | From 2026-10-04              | Core's two addresses and the Vitec calls; the window is redrawn in the theme                                                    | the window, the Vitec calls and the bot check move into the app; new: the tenant list and the site's config               | all of it                                                                                                         |
-  | Rules that change            | the adapter interface, a protected path                                                                                         | a new top-level folder, named in `AGENTS.md`'s layout                                                                     | the adapter interface, a protected path                                                                           |
+  |                                     | a) In our theme (Patric's variant)                                                                                                                                        | b) Cloud app (Patric's option C)                                                                                          | c) Inside Core                                                                                                    | ---                                                                                                        |
+  | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+  | Who draws the window                | our theme, in its own markup and styles                                                                                                                                   | a tag on the page (GTM or our plugin) draws the approved window                                                           | the same tag, served by Core                                                                                      | our theme, as a                                                                                            |
+  | Its look                            | the theme's styles, all of it                                                                                                                                             | the eleven values set from outside                                                                                        | as b                                                                                                              | as a                                                                                                       |
+  | Its steps                           | the theme's code                                                                                                                                                          | the window's code, the same on every site                                                                                 | as b                                                                                                              | as a                                                                                                       |
+  | How a form reaches Vitec            | the browser sends it to its own site; our plugin passes it to Core with the site's token; Core sends it with the login it holds                                           | the browser sends it to the app with a public token; the app sends it with its own copy of the login                      | the browser sends it to Core with a public key; Core sends it with the login it holds                             | the browser sends it to its own site; our plugin sends it to Vitec with the login typed on the site        |
+  | What visitors and bots reach        | their own site only                                                                                                                                                       | the app                                                                                                                   | Core's own program, beside the sites' updates, the CRM's notifications and the admin area                         | their own site only                                                                                        |
+  | Sites                               | our WordPress sites; a Lovable site needs its own form                                                                                                                    | any site, by one tag, where the page shows the home's Vitec id                                                            | our WordPress and Lovable sites; others once Core can hold a site with no bell address                            | our WordPress sites with a Vitec office; never an Mspecs site; a Lovable site needs its own code and login |
+  | Core itself                         | two addresses for a site's server, the guard, a log, and an addition to the adapter interface (protected)                                                                 | untouched                                                                                                                 | the same as a, for browsers: a public key per site, the site's allowed addresses, and the window served from Core | untouched                                                                                                  |
+  | The Vitec logins                    | one copy, in Core                                                                                                                                                         | a second copy where a brokerage's site also reads through Core                                                            | one copy, in Core                                                                                                 | a copy in every WordPress site's database, typed by Kowboy                                                 |
+  | Running cost                        | nothing new                                                                                                                                                               | one more program on staging and one on live, DigitalOcean's smallest size: $5 a month each (pricing page read 2026-10-05) | nothing new                                                                                                       | nothing new                                                                                                |
+  | A fix to the window                 | a theme update on every site                                                                                                                                              | one change, every site at once                                                                                            | as b                                                                                                              | a theme update on every site; a Vitec change is a plugin update on every site                              |
+  | From 2026-10-04                     | Core's two addresses and the Vitec calls; the window is redrawn in the theme                                                                                              | the window, the Vitec calls and the bot check move into the app; new: the tenant list and the site's config               | all of it                                                                                                         | the window redrawn in the theme; the Vitec calls rewritten in PHP                                          |
+  | Rules that change                   | the adapter interface, a protected path                                                                                                                                   | a new top-level folder, named in `AGENTS.md`'s layout                                                                     | the adapter interface, a protected path                                                                           | the seam: "no CRM name in `clients/`" (a CI block) and "Clients never name a CRM" (`AGENTS.md`, protected) |
+  | A form on B's site reaching C's CRM | impossible: the token names the tenant, Core refuses a record or office that is not the tenant's, and the login it then uses is scoped by Vitec to that tenant's customer | the same, by the app's token and tenant list                                                                              | the same, by the site's public key                                                                                | impossible: the site holds only its own login                                                              |
 
-- The same in all three: the bot check, with each site's address on Cloudflare's list; the guard
-  of 152; the Vitec calls.
+- The same in all four: the bot check, with each site's address on Cloudflare's list, and the Vitec
+  calls; the guard of 152 in a, b and c.
 - Why a is recommended: it is the smallest. Nothing new runs, each Vitec login stays in one place,
   no key sits in the page, the browser reaches only its own site, and the theme styles the window
   and sets its steps. b was recommended from 2026-10-05 for leaving Core untouched and serving any
@@ -124,12 +167,20 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   if a site outside our WordPress sites is to get forms, which is for Patric to say. a's costs: a
   Lovable site needs its own form, and a site Kowboy does not build has none until the cloud app
   is built; the approved window is redrawn by the theme, with the same look and steps; and a fix
-  to the window is a theme update on every site, not one change in one place.
-- a) **theme** (recommended): our theme draws the forms and Core sends them. b) **cloud app**:
+  to the window is a theme update on every site, not one change in one place. d (11:54) is
+  smaller in Core, which it leaves untouched, and bigger everywhere else: the Vitec login copied
+  into every WordPress site's database, the Vitec calls written once per client type, no Mspecs
+  site ever, and the seam rule ended for the forms; a keeps one copy of each login and one set of
+  calls, behind two addresses a Lovable site can use as well.
+- a) **theme, Core sends** (recommended): Patric's description of 11:54; our theme draws the
+  forms, our plugin passes them to Core with the site's token, Core sends them. b) **cloud app**:
   Patric's option C, reading nothing from Core. c) **inside Core**: the one window, served by
-  Core.
-- Smaller: a. Blocked: the rebuild of the forms. Answer a, b or c. The letters changed on
-  2026-10-06 when the theme was added; until then a was the cloud app and b inside Core.
+  Core. d) **theme, plugin sends**: the Vitec login typed on a WordPress settings page, Core not
+  involved.
+- Smaller: a; d in Core alone. Blocked: the rebuild of the forms. Answer a, b, c or d. Patric
+  wrote "150 A" at 11:54 and raised d in the same message, so a stands unless he picks d. The
+  letters changed on 2026-10-06 when the theme was added; until then a was the cloud app and b
+  inside Core.
 
 ## 153. `[core]` Is this list the cloud app's first version?
 
@@ -168,9 +219,10 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   Each line is new and is asked here before it is built (`AGENTS.md`, "Stop and ask"):
   1. **The window**: our theme draws the approved form window in its own markup and styles, with
      the approved look and steps; the buttons stay as they are.
-  2. **The plugin**: the "Formulär" page under the plugin's menu with its on and off switch (146,
-     item 2), and one address on the site that passes a form to Core with the token the site
-     syncs with, and passes a viewing's times back.
+  2. **The plugin**: nothing for the forms but the receivers (Patric, 2026-10-06 11:54): one
+     address on the site that passes a form to Core with the token the site syncs with, and
+     passes a viewing's times back; the "Formulär" switch of 146's item 2 is dropped, and the
+     theme shows its forms wherever it has them.
   3. **Core's two addresses**: for a site's server, opened by the same token: send a form, and
      read a viewing's times; Core finds the brokerage's connection, and that CRM's code sends the
      form with the login Core holds.
@@ -182,8 +234,11 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   6. **The Vitec calls**: the interest, the viewing booking with its times read from Vitec when
      the window opens, and the free valuation; the profile step as 151 decides.
   7. **The guard**: staging never sends to a CRM (152).
-  8. **The log**: each form's outcome (sent, refused, failed) as an event in Core's event log,
-     with no personal data; errors reported the way Core's are.
+  8. **The log**: every call Core makes for a form as an event in Core's event log, "in detail
+     if something breaks" (Patric, 11:54): the form's id and kind, the record, the connection,
+     the step reached, the CRM's answer and how long it took, and the full error text when it
+     breaks; never the visitor's name, phone, e-mail or message; errors reported the way Core's
+     are.
 - Not in it: a page or setting in Core's admin area, a table of forms, form counts, a key in the
   page, the window served by Core, Mspecs and Lovable.
 - A proof first (Patric, 2026-10-06, on 147: "you need to do a poc before writing everything"):
