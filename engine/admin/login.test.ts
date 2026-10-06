@@ -1,17 +1,21 @@
 // A stored login keeps only the fields its adapter declares at the next save, and loses named
-// fields an adapter dropped (Patric's rule for a removed feature, 2026-10-06).
+// fields an adapter dropped (Patric's rule for a removed feature, 2026-10-06). The tenant page
+// shows what it holds of the fields that are not secret, and of a secret only that it is held.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { harness, type Harness } from '../../acceptance/harness.js';
 import { registerAdmin } from '../registry.js';
 import { connectionById } from '../storage/connections.js';
-import { mergedLogin, removeLoginFields } from './login.js';
+import { mergedLogin, removeLoginFields, shownLogin } from './login.js';
 import type { AdapterAdmin } from '../adapter-api/types.js';
 
 const PROVIDER = 'stand-in';
 
-/** A stand-in adapter's panel that declares one login field, `key`. */
+/** A stand-in adapter's panel that declares two login fields: `key`, and the secret `pin`. */
 const admin: AdapterAdmin = {
-  credentials: [{ key: 'key', label: 'Key' }],
+  credentials: [
+    { key: 'key', label: 'Key' },
+    { key: 'pin', label: 'PIN', secret: true },
+  ],
   directions: () => ({ steps: [], settings: [] }),
   panel: () => Promise.resolve([]),
   act: () => Promise.resolve({ message: '' }),
@@ -61,5 +65,17 @@ describe('a stored login', () => {
     expect(await login('only-gone')).toEqual({ gone: 'x' });
     // Run again, nothing is left to remove.
     expect(await removeLoginFields(PROVIDER, ['gone'])).toBe(0);
+  });
+
+  it('shows a field that is not secret as stored, a held secret only as held, and an empty field as empty', () => {
+    expect(shownLogin(JSON.stringify({ key: 'G12', pin: 'p', gone: 'x' }), PROVIDER)).toEqual({
+      shown: { key: 'G12' },
+      filled: ['key', 'pin'],
+    });
+    expect(shownLogin(JSON.stringify({ key: '', pin: 'p' }), PROVIDER)).toEqual({
+      shown: {},
+      filled: ['pin'],
+    });
+    expect(shownLogin(null, PROVIDER)).toEqual({ shown: {}, filled: [] });
   });
 });

@@ -36,6 +36,10 @@ type ConnectionView = {
   licensedOffices: string[];
   active: boolean;
   hasCredentials: boolean;
+  /** The stored value of each login field that is not secret and holds one. */
+  shown: Record<string, string>;
+  /** Every login field that holds a value, secret or not. */
+  filled: string[];
   lastIngestAt: string | null;
   lastError: string | null;
   loaded: { datatype: string; live: number }[];
@@ -485,10 +489,11 @@ export function TenantPage() {
                         id={`cred-${String(index)}-${field.key}`}
                         type={field.secret ? 'password' : 'text'}
                         autoComplete="off"
-                        value={connection.credentials[field.key] ?? ''}
-                        // A login Core holds shows as a mask. The value itself never leaves
-                        // the server, so it is not in this page even hidden; typing replaces it.
-                        placeholder={saved?.hasCredentials ? MASK : ''}
+                        // A field that is not secret shows what Core holds, and an empty one looks
+                        // empty. A secret Core holds shows as a mask: the secret never leaves the
+                        // server, so it is not in this page even hidden. Typing replaces either.
+                        value={connection.credentials[field.key] ?? saved?.shown[field.key] ?? ''}
+                        placeholder={field.secret && saved?.filled.includes(field.key) ? MASK : ''}
                         onChange={(event) =>
                           change({
                             credentials: {

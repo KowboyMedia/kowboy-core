@@ -48,6 +48,34 @@ export function mergedLogin(
   return JSON.stringify({ ...before, ...fields });
 }
 
+/** What the page shows of a stored login, field by field. */
+export type ShownLogin = {
+  /** The stored value of each field that is not secret and holds one. */
+  shown: Record<string, string>;
+  /** Every declared field that holds a value, secret or not. */
+  filled: string[];
+};
+
+/**
+ * A stored login as the tenant page shows it, per field its adapter declares: a field that is not
+ * secret shows what is stored, so an empty one looks empty; a secret one only says that it holds
+ * something, since a secret never leaves the server.
+ */
+export function shownLogin(stored: string | null, provider: string): ShownLogin {
+  const login = documentOf(stored) ?? {};
+  const result: ShownLogin = { shown: {}, filled: [] };
+  for (const field of adminFor(provider)?.credentials ?? []) {
+    const value = login[field.key];
+    if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
+      continue;
+    }
+    if (String(value).trim() === '') continue;
+    result.filled.push(field.key);
+    if (!field.secret) result.shown[field.key] = String(value);
+  }
+  return result;
+}
+
 /**
  * Remove exactly the named fields from every stored login of one provider, for fields its adapter
  * dropped. A login without them is left untouched, and a login is never emptied. A one-time step:

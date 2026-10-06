@@ -77,6 +77,10 @@ test('journey: U1 onboard a customer, watch the first load, take the secrets', a
 
   // The first load runs by itself and the page shows it without a reload.
   await expect(page.getByText('Loaded:', { exact: false })).toBeVisible({ timeout: 30_000 });
+
+  // A login field that is not secret shows what Core holds, read back from Core.
+  await page.reload();
+  await expect(page.getByLabel('Pretend key')).toHaveValue('a-key');
 });
 
 test('journey: U1 the page refuses what it cannot save, at the field', async ({ page }) => {

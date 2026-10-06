@@ -20,7 +20,7 @@ import {
   type ConnectionListRow,
 } from '../storage/connections.js';
 import { queueLifecycle } from '../lifecycle.js';
-import { mergedLogin } from './login.js';
+import { mergedLogin, shownLogin, type ShownLogin } from './login.js';
 import { queryEvents } from '../events.js';
 import { itemCounts } from '../storage/items.js';
 import { submissionCounts, type SubmissionCounts } from '../storage/submissions.js';
@@ -69,7 +69,7 @@ export type SiteView = {
   errors: { at: string; message: string; where: string; detail: string | null }[];
 };
 
-export type ConnectionView = {
+export type ConnectionView = ShownLogin & {
   id: string;
   provider: string;
   licensedOffices: string[];
@@ -194,17 +194,18 @@ async function connectionView(
 ): Promise<ConnectionView> {
   const admin = adminFor(row.provider);
   let sections: AdminSection[] = [];
-  if (admin?.connection) {
-    try {
-      // The adapter gets the connection as it is stored, login included: what it reports about a
-      // connection often depends on whether the login it holds still reads.
-      const connection = await connectionById(row.id);
-      if (connection) sections = await admin.connection(connection);
-    } catch (error) {
-      sections = [{ title: 'The CRM’s own report', help: String(error) }];
-    }
+  let stored: string | null = null;
+  try {
+    // The adapter gets the connection as it is stored, login included: what it reports about a
+    // connection often depends on whether the login it holds still reads.
+    const connection = await connectionById(row.id);
+    stored = connection?.credentials ?? null;
+    if (admin?.connection && connection) sections = await admin.connection(connection);
+  } catch (error) {
+    sections = [{ title: 'The CRM’s own report', help: String(error) }];
   }
   return {
+    ...shownLogin(stored, row.provider),
     id: row.id,
     provider: row.provider,
     licensedOffices: row.licensed_offices,
