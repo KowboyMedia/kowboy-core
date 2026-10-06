@@ -258,7 +258,7 @@ export function Overview() {
                 <p className="mb-1 text-sm font-medium">Running now</p>
                 {(data?.jobs ?? []).map((job) => (
                   <p key={job.id} className="text-sm text-muted-foreground">
-                    <Link className="underline" to="/manual-sync">
+                    <Link className="underline" to="/sync">
                       {job.kind} #{job.id}
                     </Link>{' '}
                     — {job.state}, {count(job.progress.examined ?? 0)} of{' '}

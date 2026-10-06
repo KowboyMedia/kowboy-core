@@ -4,10 +4,34 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 176 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 177 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 176. `[core]` Is the new Manual sync page right, so the old one can be deleted?
+
+- 2026-10-06 · Patric: "Manual sync: … needs greenfielded ui. Build one in parallell, then throw
+  the old." The new page is on staging beside the old one, which the menu calls "Manual sync
+  (old)", and is shown to him in screenshots in the "Debloat admin" thread
+  (`/mnt/project-files/admin-debloat/`).
+- **What the new page is.** The scope in four boxes, the same as on Records: tenants, offices,
+  entity types and one record id, several of each, an empty box meaning all of it. Then the
+  three levels as one choice, the full one picked: fetch from the CRM, recompute and send to the
+  sites; recompute and send; send only. Start says what will happen and how many live records
+  the scope holds before anything runs. Below, the Flow list of the same scope, the same
+  component as the Flow page, replaces the old list of runs. "Send to the sites only" gives the
+  scope's live records new places in the order the sites pull by and rings their sites, so
+  every site pulls exactly the scope again.
+- **What goes once it is approved** (the handbook's clean-up rule): the old page and its menu
+  entry; the preview of a whole scope and its call (a record's own page keeps its own preview,
+  and the release preview of acceptance criterion 36 is the engine's, not the page's); the
+  connections in the pickers' call; the old page's one-of-each scope fields where nothing else
+  sends them; the app's list of runs if nothing else reads it. The new page takes the old
+  address.
+- a) **yes**: the old page goes, with everything only it uses.
+- b) **no**: say what to change first; the old page stays until then.
+- Smaller: a. Blocked: deleting the old page. Answer a or b.
 
 ## 175. `[core]` Should the database connection fix go live now, on its own, before the next release?
 
@@ -201,6 +225,10 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   typed as numbers. That is what makes it read as thrown in.
 - **What would be lost.** Without the log: every reader above. Without the page alone: the four
   things it adds; the log and the other pages stand.
+- **A gap found on the way.** The chain id ties a CRM's notification, the fetch it caused and
+  the write together, and stops there: the bell, the site's pull and its applied report carry
+  none. The page's own words, "follow a chain to see one notification all the way to a site",
+  promise more than the log holds; today a record's own timeline is what shows a site taking it.
 - a) **the same list as Flow, for the past** (recommended): one page, built from zero, that
   reads like Flow does after this rebuild: plain sentences, newest first, the scope picked with
   the same picker as Records (tenants, offices, entity types, one id), a "who" filter for the
@@ -212,6 +240,9 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   on the admin area. Touches the tenant page, which the forms thread is editing.
 - c) **drop the page, change nothing else**: the log stays for the other readers and for agents
   through the API.
+- 2026-10-06 19:11 · Patric: "I understand the purpose of a complete system event log now, such
+  as received webhooks, sent bells, sent alerts etc. I dont understand your option "a" can you
+  illustrate it". Option a was drawn for him in the thread the same evening.
 - Smaller: c. Blocked: the Events rebuild. Answer a, b or c.
 
 ## 167. `[core]` How should Core's running copies share the database's 22 connections: as they are, with one pool per copy, or through one shared pool in front of the database?

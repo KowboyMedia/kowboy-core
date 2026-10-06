@@ -1,4 +1,4 @@
-import { db } from './db.js';
+import { db, takeWriteLock, transaction } from './db.js';
 import type { PoolClient } from 'pg';
 import type { Canonical, Datatype } from '../adapter-api/types.js';
 
@@ -121,54 +121,50 @@ export async function liveRemoteIds(
 }
 
 /**
- * A scope of live items: everything, a CRM (every connection of a provider), a tenant, a
- * connection, an office, a datatype, one record, or a list of records. The recompute and the
- * panel's actions share it.
+ * A scope of items: everything, tenants, offices, datatypes, one record, a connection, or a list
+ * of records (Patric, 2026-10-06: the same scope on Records, Flow and Manual sync). The
+ * recompute, the search and the panel's runs share it.
  */
 export type ScopeFilter = {
-  provider?: string;
+  tenantIds?: number[];
+  officeIds?: string[];
+  datatypes?: Datatype[];
+  /** One tenant, office or datatype, as the engine names one record's own. */
   tenantId?: number;
   connectionId?: string;
   officeId?: string;
   datatype?: Datatype;
   remoteId?: string;
-  /**
-   * Words in the unified record, the same full-text condition the records search uses. It is here
-   * so "select every record this search matches" is the search itself, not a list of ids the
-   * browser happened to have loaded (Patric, 2026-09-21).
-   */
-  text?: string;
   /** Named records, whatever else the scope says. */
   keys?: ItemKey[];
   rulesVersionBefore?: string;
 };
 
-/** The words of a free-text search as a prefix query, or null when there are none. */
-export const textQuery = (value: string): string | null => {
-  const words = value
-    .toLowerCase()
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter(Boolean);
-  return words.length === 0 ? null : words.map((word) => `${word}:*`).join(' & ');
-};
-
 type Where = { clauses: string[]; values: unknown[] };
 
-function scopeWhere(scope: ScopeFilter): Where {
-  const where: Where = { clauses: ['deleted = false'], values: [] };
+/** One or several of a thing, as the clause `= any(...)` takes them; empty means every one. */
+const listed = <T>(many: T[] | undefined, one: T | undefined): T[] =>
+  many && many.length > 0 ? many : one === undefined || one === '' ? [] : [one];
+
+/**
+ * The where clause of a scope. Live records unless `deleted` says otherwise (`undefined`: live
+ * and removed alike, which only the records search asks for).
+ */
+function scopeWhere(scope: ScopeFilter, deleted: boolean | undefined = false): Where {
+  const where: Where = { clauses: ['true'], values: [] };
   const add = (clause: string, value: unknown): void => {
     where.values.push(value);
     where.clauses.push(clause.replace('?', `$${where.values.length}`));
   };
-  if (scope.provider)
-    add('connection_id in (select id from connections where provider = ?)', scope.provider);
-  if (scope.tenantId) add('tenant_id = ?', scope.tenantId);
+  if (deleted !== undefined) add('deleted = ?', deleted);
+  const tenantIds = listed(scope.tenantIds, scope.tenantId);
+  if (tenantIds.length > 0) add('tenant_id = any(?::int[])', tenantIds);
   if (scope.connectionId) add('connection_id = ?', scope.connectionId);
-  if (scope.officeId) add('office_id = ?', scope.officeId);
-  if (scope.datatype) add('datatype = ?', scope.datatype);
+  const officeIds = listed(scope.officeIds, scope.officeId);
+  if (officeIds.length > 0) add('office_id = any(?::text[])', officeIds);
+  const datatypes = listed(scope.datatypes, scope.datatype);
+  if (datatypes.length > 0) add('datatype = any(?::text[])', datatypes);
   if (scope.remoteId) add('remote_id = ?', scope.remoteId);
-  const words = scope.text ? textQuery(scope.text) : null;
-  if (words) add(FULL_TEXT, words);
   if (scope.rulesVersionBefore) add('rules_version <> ?', scope.rulesVersionBefore);
   if (scope.keys) {
     const n = where.values.length;
@@ -184,50 +180,12 @@ function scopeWhere(scope: ScopeFilter): Where {
   return where;
 }
 
-/** The key a page uses for a record, and the one `officesOf` answers by. */
+/** The key a page uses for a record. */
 export const itemKey = (row: {
   connectionId: string;
   datatype: string;
   remoteId: string;
 }): string => `${row.connectionId}|${row.datatype}|${row.remoteId}`;
-
-/**
- * The office each of these records sits under, in one query. The event log does not carry the
- * office — an event says what happened, not where the record lives — so a page that shows both
- * reads it from the records themselves (Patric, 2026-09-21: Flow showed no office at all).
- */
-export async function officesOf(
-  keys: { connectionId: string; datatype: string; remoteId: string }[],
-): Promise<Map<string, string | null>> {
-  if (keys.length === 0) return new Map();
-  const { rows } = await db().query<{
-    connection_id: string;
-    datatype: string;
-    remote_id: string;
-    office_id: string | null;
-  }>(
-    `select i.connection_id, i.datatype, i.remote_id, i.office_id
-     from items i
-     join unnest($1::text[], $2::text[], $3::text[]) as k(connection_id, datatype, remote_id)
-       on i.connection_id = k.connection_id and i.datatype = k.datatype
-      and i.remote_id = k.remote_id`,
-    [
-      keys.map((key) => key.connectionId),
-      keys.map((key) => key.datatype),
-      keys.map((key) => key.remoteId),
-    ],
-  );
-  return new Map(
-    rows.map((row) => [
-      itemKey({
-        connectionId: row.connection_id,
-        datatype: row.datatype,
-        remoteId: row.remote_id,
-      }),
-      row.office_id,
-    ]),
-  );
-}
 
 /** Every stored item for a scope, for replay and recompute. */
 export async function itemsForScope(scope: ScopeFilter): Promise<ItemRow[]> {
@@ -239,11 +197,11 @@ export async function itemsForScope(scope: ScopeFilter): Promise<ItemRow[]> {
   return rows;
 }
 
-/** A scope in pages by seq, so a recompute of everything never holds everything in memory. */
 /**
- * One page of a scope by seq, either the records not sold or the sold ones: a recompute runs the
- * unsold first and the sold last, whatever the CRM (Patric, 2026-09-20, question 74). "Sold" is
- * the universal `sold_at` (the contract date) being set; a datatype without it is never sold.
+ * One page of a scope by seq, so a recompute of everything never holds everything in memory:
+ * either the records not sold or the sold ones, because a recompute runs the unsold first and the
+ * sold last, whatever the CRM (Patric, 2026-09-20, question 74). "Sold" is the universal
+ * `sold_at` (the contract date) being set; a datatype without it is never sold.
  */
 export async function scopeBatch(
   scope: ScopeFilter,
@@ -269,6 +227,47 @@ export async function countItems(scope: ScopeFilter): Promise<number> {
     where.values,
   );
   return Number(rows[0]?.n ?? 0);
+}
+
+/** How many records one page of a renumbering moves, each page its own short transaction. */
+const RENUMBER_PAGE = 1000;
+
+/**
+ * Give the live records of a scope new places in the order of changes, so every site of their
+ * tenants pulls them again at its next pull: Manual sync's "send to the sites" (Patric,
+ * 2026-10-06). Nothing about a record changes but its place. A removal needs no second sending:
+ * a site that missed one gets it at its next pull, or rebuilds once it is purged. Page by page,
+ * each under the write lock, so a site's pull never steps past a place still being given out; a
+ * record moved once is above the ceiling read at the start and is not moved twice.
+ */
+export async function renumber(
+  scope: ScopeFilter,
+): Promise<{ records: number; tenantIds: number[] }> {
+  const where = scopeWhere(scope);
+  const { rows: top } = await db().query<{ seq: string | null }>(
+    'select max(seq) as seq from items',
+  );
+  const ceiling = top[0]?.seq ?? '0';
+  const tenantIds = new Set<number>();
+  let records = 0;
+  for (;;) {
+    const moved = await transaction(async (client) => {
+      await takeWriteLock(client);
+      const { rows } = await client.query<{ tenant_id: number }>(
+        `update items set seq = nextval('item_seq')
+         where (tenant_id, connection_id, datatype, remote_id) in (
+           select tenant_id, connection_id, datatype, remote_id from items
+           where ${where.clauses.join(' and ')} and seq <= $${where.values.length + 1}
+           order by seq limit ${RENUMBER_PAGE})
+         returning tenant_id`,
+        [...where.values, ceiling],
+      );
+      return rows;
+    });
+    for (const row of moved) tenantIds.add(row.tenant_id);
+    records += moved.length;
+    if (moved.length < RENUMBER_PAGE) return { records, tenantIds: [...tenantIds] };
+  }
 }
 
 /**
@@ -310,18 +309,8 @@ export const SORTABLE = [
   'deleted',
 ] as const;
 
-export type ItemSearch = {
-  tenantId?: number;
-  provider?: string;
-  connectionId?: string;
-  datatype?: Datatype;
-  officeId?: string;
-  remoteId?: string;
-  /** Words looked for in the unified record's strings, each as a prefix. */
-  text?: string;
-  /** Written in Core at or after this moment, and before this one (ISO strings). */
-  writtenFrom?: string;
-  writtenTo?: string;
+export type ItemSearch = ScopeFilter & {
+  /** Live and removed alike when left out. */
   deleted?: boolean;
   sort?: (typeof SORTABLE)[number];
   dir?: 'asc' | 'desc';
@@ -330,42 +319,20 @@ export type ItemSearch = {
   size?: number;
 };
 
-/** The one full-text condition over the unified record (migration 006's index). */
-const FULL_TEXT = `jsonb_to_tsvector('simple', coalesce(data, '{}'::jsonb), '["string"]') @@ to_tsquery('simple', ?)`;
-
-/** Items by any mix of filters, one page, with the count of everything that matches. */
+/** Items in a scope, one page, with the count of everything that matches. */
 export async function searchItems(query: ItemSearch): Promise<{ rows: ItemRow[]; total: number }> {
-  const text = query.text ? textQuery(query.text) : null;
-  const filters: [string, unknown][] = [
-    ['tenant_id = ?', query.tenantId],
-    ['connection_id in (select id from connections where provider = ?)', query.provider],
-    ['connection_id = ?', query.connectionId],
-    ['datatype = ?', query.datatype],
-    ['office_id = ?', query.officeId],
-    ['remote_id = ?', query.remoteId],
-    ['updated_at >= ?', query.writtenFrom],
-    ['updated_at < ?', query.writtenTo],
-    ['deleted = ?', query.deleted],
-    [FULL_TEXT, text],
-  ];
-  const where: string[] = ['true'];
-  const values: unknown[] = [];
-  for (const [clause, value] of filters) {
-    if (value === undefined || value === null || value === '') continue;
-    values.push(value);
-    where.push(clause.replace('?', `$${values.length}`));
-  }
+  const where = scopeWhere(query, query.deleted);
   const sort = SORTABLE.find((column) => column === query.sort) ?? 'seq';
   const dir = query.dir === 'asc' ? 'asc' : 'desc';
   const size = Math.min(Math.max(query.size ?? 50, 1), 500);
   const offset = (Math.max(query.page ?? 1, 1) - 1) * size;
-  const condition = where.join(' and ');
+  const condition = where.clauses.join(' and ');
   const [{ rows }, count] = await Promise.all([
     db().query<ItemRow>(
       `select * from items where ${condition} order by ${sort} ${dir} nulls last, seq desc limit ${size} offset ${offset}`,
-      values,
+      where.values,
     ),
-    db().query<{ n: string }>(`select count(*) as n from items where ${condition}`, values),
+    db().query<{ n: string }>(`select count(*) as n from items where ${condition}`, where.values),
   ]);
   return { rows, total: Number(count.rows[0]?.n ?? 0) };
 }

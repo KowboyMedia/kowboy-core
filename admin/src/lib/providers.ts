@@ -4,20 +4,6 @@
 import type { AuthProvider, DataProvider, LiveProvider, LiveEvent } from '@refinedev/core';
 import { API, call, many, one, requestSignIn, withQuery } from './api';
 
-/** Which query parameter each of the grid's filters is. */
-const FILTER_KEYS: Record<string, string> = {
-  tenantId: 'tenant',
-  provider: 'provider',
-  connectionId: 'connection',
-  datatype: 'datatype',
-  officeId: 'office',
-  remoteId: 'id',
-  text: 'q',
-  from: 'from',
-  to: 'to',
-  deleted: 'deleted',
-};
-
 export const dataProvider: DataProvider = {
   getApiUrl: () => API,
 
@@ -33,9 +19,9 @@ export const dataProvider: DataProvider = {
     }
     for (const filter of filters ?? []) {
       if (!('field' in filter)) continue;
-      const key = FILTER_KEYS[filter.field] ?? filter.field;
+      // Every page names its filters by the query parameter itself.
       if (filter.value === undefined || filter.value === null || filter.value === '') continue;
-      query[key] = String(filter.value);
+      query[filter.field] = String(filter.value);
     }
     return many<never>(`/${resource}`, { query });
   },
@@ -109,7 +95,7 @@ export const authProvider: AuthProvider = {
 
 /** Which resources a message from the stream makes stale. */
 const TOUCHED: Record<string, string[]> = {
-  events: ['events', 'flow', 'overview', 'records', 'tenants'],
+  events: ['events', 'overview', 'records', 'tenants'],
   jobs: ['jobs', 'overview'],
   health: ['overview', 'settings'],
 };

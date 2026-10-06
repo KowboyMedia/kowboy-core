@@ -7,13 +7,13 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input, Label } from '@/components/ui/input';
+import { Input, Label, Select } from '@/components/ui/input';
 import { Confirm } from '@/components/confirm';
 import { DataTable } from '@/components/data-table';
 import { Empty } from '@/components/empty';
 import { JsonView } from '@/components/json-view';
 import { PageHeader } from '@/components/layout';
-import { ScopePicker, useScopeOptions, type ScopeValue } from '@/components/scope-picker';
+import { useCustom } from '@refinedev/core';
 import { count, moment } from '@/lib/format';
 
 type Report = {
@@ -95,26 +95,9 @@ export function ManualSync() {
   return (
     <>
       <PageHeader
-        title="Manual sync"
+        title="Manual sync (old)"
         what="Compute records again from what Core stores, or fetch them from the CRM again. Preview first; every run is a job you can watch and stop."
-      >
-        <Confirm
-          label="Housekeeping now"
-          title="Run housekeeping"
-          what="Events older than the retention window are deleted, tombstones older than 90 days are purged, and spent sign-in links and sessions are cleared. Nothing a site shows changes."
-          confirmLabel="Run it"
-          variant="secondary"
-          onConfirm={() =>
-            act(async () => {
-              const done = await post<{ events: number; tombstones: number; sessions: number }>(
-                '/runs/housekeeping',
-                {},
-              );
-              return `${count(done.events)} event(s), ${count(done.tombstones)} tombstone(s) and ${count(done.sessions)} session(s) cleared.`;
-            })
-          }
-        />
-      </PageHeader>
+      ></PageHeader>
 
       <Card className="mb-4">
         <CardHeader>
@@ -327,6 +310,126 @@ export function ManualSync() {
           />
         </CardContent>
       </Card>
+    </>
+  );
+}
+
+// ---- The picker this page was built on, kept with it until the page goes --------------------
+
+type ScopeValue = {
+  tenantId?: string;
+  connectionId?: string;
+  officeId?: string;
+  datatype?: string;
+};
+
+type ScopeOptions = {
+  tenants: {
+    id: number;
+    name: string;
+    connections: { id: string; provider: string; offices: string[] }[];
+  }[];
+  datatypes: string[];
+};
+
+function useScopeOptions(): ScopeOptions {
+  const { result } = useCustom<ScopeOptions>({ url: '/scope', method: 'get' });
+  return { tenants: result?.data?.tenants ?? [], datatypes: result?.data?.datatypes ?? [] };
+}
+
+function ScopePicker({
+  value,
+  onChange,
+  options,
+}: {
+  value: ScopeValue;
+  onChange: (next: ScopeValue) => void;
+  options: ScopeOptions;
+}) {
+  const tenant = options.tenants.find((one) => String(one.id) === value.tenantId);
+  const connections = tenant?.connections ?? [];
+  const connection = connections.find((one) => one.id === value.connectionId);
+  const offices = [
+    ...new Set((connection ? [connection] : connections).flatMap((one) => one.offices)),
+  ].sort();
+  const pick = (next: ScopeValue): void => onChange(next);
+
+  return (
+    <>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="scope-tenant">Tenant</Label>
+        <Select
+          id="scope-tenant"
+          value={value.tenantId ?? ''}
+          onChange={(event) => pick({ datatype: value.datatype, tenantId: event.target.value })}
+        >
+          <option value="">every tenant</option>
+          {options.tenants.map((one) => (
+            <option key={one.id} value={one.id}>
+              {one.name}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="scope-connection">CRM connection</Label>
+        <Select
+          id="scope-connection"
+          value={value.connectionId ?? ''}
+          disabled={connections.length === 0}
+          onChange={(event) =>
+            pick({
+              tenantId: value.tenantId,
+              datatype: value.datatype,
+              connectionId: event.target.value,
+            })
+          }
+        >
+          <option value="">
+            {value.tenantId === undefined || value.tenantId === ''
+              ? 'choose a tenant first'
+              : 'every connection of this tenant'}
+          </option>
+          {connections.map((one) => (
+            <option key={one.id} value={one.id}>
+              {one.id} ({one.provider})
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="scope-office">Office</Label>
+        <Select
+          id="scope-office"
+          value={value.officeId ?? ''}
+          disabled={offices.length === 0}
+          onChange={(event) => pick({ ...value, officeId: event.target.value })}
+        >
+          <option value="">
+            {offices.length === 0 ? 'choose a tenant first' : 'every office'}
+          </option>
+          {offices.map((office) => (
+            <option key={office} value={office}>
+              {office}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="scope-datatype">Entity type</Label>
+        <Select
+          id="scope-datatype"
+          value={value.datatype ?? ''}
+          onChange={(event) => pick({ ...value, datatype: event.target.value })}
+        >
+          <option value="">every entity</option>
+          {options.datatypes.map((datatype) => (
+            <option key={datatype} value={datatype}>
+              {datatype}
+            </option>
+          ))}
+        </Select>
+      </div>
     </>
   );
 }

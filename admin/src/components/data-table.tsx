@@ -1,7 +1,7 @@
 // The one list in the app (§3 I: one pattern each for a list, a detail page, a form and a row's
-// actions). Every column is declared once and the table does the rest: sorting by a header, ticking
-// rows, choosing which columns are shown, paging, a loading state and an empty state that says what
-// to do next. Sorting, filtering and paging are the server's, so nothing here holds a second copy
+// actions). Every column is declared once and the table does the rest: sorting by a header,
+// choosing which columns are shown, paging, a loading state and an empty state that says what to
+// do next. Sorting, filtering and paging are the server's, so nothing here holds a second copy
 // of the data.
 import { useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, ChevronsUpDown, Columns3 } from 'lucide-react';
@@ -39,23 +39,6 @@ export type DataTableProps<T> = {
   empty?: ReactNode;
   sort?: Sort;
   onSort?: (sort: Sort) => void;
-  /** Ticking rows is on only when the page says what to do with them. */
-  selected?: Set<string>;
-  onSelect?: (selected: Set<string>) => void;
-  /** Shown above the table when at least one row is ticked. */
-  selectionActions?: ReactNode;
-  /**
-   * Ticking the header box ticks the rows in front of a person; this offers the rest
-   * (Patric, 2026-09-21: Select all must mean all). When it is on, the page's actions work on
-   * everything the search matches, not on the rows loaded.
-   */
-  allMatching?: {
-    on: boolean;
-    total: number;
-    onChange: (on: boolean) => void;
-    /** What is being counted, for the sentence: "all 4 812 record(s) matching these filters". */
-    what: string;
-  };
   page?: {
     page: number;
     size: number;
@@ -82,10 +65,6 @@ export function DataTable<T>({
   empty,
   sort,
   onSort,
-  selected,
-  onSelect,
-  selectionActions,
-  allMatching,
   page,
   rowClass,
   onRowClick,
@@ -96,24 +75,6 @@ export function DataTable<T>({
   );
   const [chooser, setChooser] = useState(false);
   const shown = columns.filter((column) => !hidden.has(column.key));
-  const ticking = selected !== undefined && onSelect !== undefined;
-  const allTicked = ticking && rows.length > 0 && rows.every((row) => selected.has(rowKey(row)));
-
-  const toggleAll = (): void => {
-    if (!ticking) return;
-    const next = new Set(selected);
-    for (const row of rows) {
-      if (allTicked) next.delete(rowKey(row));
-      else next.add(rowKey(row));
-    }
-    onSelect(next);
-    // Ticking the header box off never leaves "and every other match" on behind it.
-    if (allTicked) allMatching?.onChange(false);
-  };
-
-  /** More matches exist than are loaded, so "all" is a choice a person has to make. */
-  const moreThanLoaded = allMatching !== undefined && allMatching.total > rows.length && allTicked;
-
   const headerButton = (column: Column<T>): ReactNode => {
     if (!column.sortAs || !onSort) return column.header;
     const active = sort?.field === column.sortAs;
@@ -140,28 +101,7 @@ export function DataTable<T>({
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          {ticking && selected.size > 0 ? (
-            <>
-              <span>
-                {allMatching?.on
-                  ? `all ${allMatching.total.toLocaleString('sv-SE')} ${allMatching.what} ticked`
-                  : `${String(selected.size)} ticked`}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  onSelect(new Set());
-                  allMatching?.onChange(false);
-                }}
-              >
-                Clear
-              </Button>
-              {selectionActions}
-            </>
-          ) : (
-            <span>{caption}</span>
-          )}
+          <span>{caption}</span>
         </div>
         <div className="relative">
           <Button variant="outline" size="sm" onClick={() => setChooser((open) => !open)}>
@@ -189,49 +129,10 @@ export function DataTable<T>({
         </div>
       </div>
 
-      {moreThanLoaded && allMatching && (
-        <div className="rounded-md border border-ring/40 bg-accent px-3 py-2 text-sm">
-          {allMatching.on ? (
-            <>
-              All {allMatching.total.toLocaleString('sv-SE')} {allMatching.what} are ticked, not
-              only the {rows.length.toLocaleString('sv-SE')} on this page.{' '}
-              <button
-                type="button"
-                className="underline"
-                onClick={() => allMatching.onChange(false)}
-              >
-                Only this page
-              </button>
-            </>
-          ) : (
-            <>
-              The {rows.length.toLocaleString('sv-SE')} rows on this page are ticked.{' '}
-              <button
-                type="button"
-                className="underline"
-                onClick={() => allMatching.onChange(true)}
-              >
-                Tick all {allMatching.total.toLocaleString('sv-SE')} {allMatching.what}
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
       <div className="rounded-lg border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
-              {ticking && (
-                <TableHead className="w-8">
-                  <input
-                    type="checkbox"
-                    aria-label="Tick every row on this page"
-                    checked={allTicked}
-                    onChange={toggleAll}
-                  />
-                </TableHead>
-              )}
               {shown.map((column) => (
                 <TableHead key={column.key} className={column.className}>
                   {headerButton(column)}
@@ -243,7 +144,7 @@ export function DataTable<T>({
             {loading && rows.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={shown.length + (ticking ? 1 : 0)}
+                  colSpan={shown.length}
                   className="py-10 text-center text-sm text-muted-foreground"
                 >
                   Loading…
@@ -252,7 +153,7 @@ export function DataTable<T>({
             )}
             {!loading && rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={shown.length + (ticking ? 1 : 0)} className="py-10">
+                <TableCell colSpan={shown.length} className="py-10">
                   <div className="text-center text-sm text-muted-foreground">{empty}</div>
                 </TableCell>
               </TableRow>
@@ -263,23 +164,16 @@ export function DataTable<T>({
                 <TableRow
                   key={key}
                   className={cn(rowClass?.(row), onRowClick && 'cursor-pointer')}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onClick={
+                    onRowClick
+                      ? (event) => {
+                          // A link or a button in the row does its own thing, once.
+                          if ((event.target as HTMLElement).closest('a, button, input')) return;
+                          onRowClick(row);
+                        }
+                      : undefined
+                  }
                 >
-                  {ticking && (
-                    <TableCell onClick={(event) => event.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        aria-label={`Tick ${key}`}
-                        checked={selected.has(key)}
-                        onChange={() => {
-                          const next = new Set(selected);
-                          if (next.has(key)) next.delete(key);
-                          else next.add(key);
-                          onSelect(next);
-                        }}
-                      />
-                    </TableCell>
-                  )}
                   {shown.map((column) => (
                     <TableCell key={column.key} className={column.className}>
                       {column.cell(row)}

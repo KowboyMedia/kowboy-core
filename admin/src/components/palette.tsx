@@ -101,13 +101,6 @@ export function Palette() {
                 >
                   Records with the id “{query.trim()}”
                 </Command.Item>
-                <Command.Item
-                  value={`text ${query}`}
-                  onSelect={() => go(`/records?q=${encodeURIComponent(query.trim())}`)}
-                  className="cursor-pointer rounded-md px-2 py-2 text-sm text-foreground data-[selected=true]:bg-accent"
-                >
-                  Records containing “{query.trim()}”
-                </Command.Item>
               </Command.Group>
             )}
           </Command.List>

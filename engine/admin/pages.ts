@@ -20,8 +20,13 @@ export const PAGES: Page[] = [
   { name: 'Tenants', path: '/tenants', what: 'Customers, their CRMs and their sites' },
   {
     name: 'Manual sync',
+    path: '/sync',
+    what: 'Fetch from the CRM, recompute or send to the sites, by scope',
+  },
+  {
+    name: 'Manual sync (old)',
     path: '/manual-sync',
-    what: 'Recompute or fetch from the CRM again, by scope',
+    what: 'The page being replaced; goes when the new one is approved',
   },
   { name: 'Events', path: '/events', what: 'Everything that happened' },
   { name: 'CRMs', path: '/crms', what: 'Each adapter’s own page' },

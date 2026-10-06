@@ -108,43 +108,6 @@ export type TenantSummary = {
   lastPullAt: string | null;
 };
 
-export type ScopeOptions = {
-  tenants: {
-    id: number;
-    name: string;
-    connections: { id: string; provider: string; offices: string[] }[];
-  }[];
-  /** Every datatype Core holds, so the picker offers no entity nobody has. */
-  datatypes: string[];
-};
-
-/**
- * What the scope pickers on Manual sync and on Records offer, in one call: a tenant, then its
- * connections, then that connection's offices (Patric, 2026-09-21: pick, do not type). One call
- * because three would make the second picker wait on a request every time the first changed.
- */
-export async function scopeOptions(): Promise<ScopeOptions> {
-  const [rows, everyConnection, counts] = await Promise.all([
-    tenants(),
-    allConnections(),
-    itemCounts(),
-  ]);
-  return {
-    tenants: rows.map((tenant) => ({
-      id: tenant.id,
-      name: tenant.display_name,
-      connections: everyConnection
-        .filter((connection) => connection.tenant_id === tenant.id)
-        .map((connection) => ({
-          id: connection.id,
-          provider: connection.provider,
-          offices: connection.licensed_offices,
-        })),
-    })),
-    datatypes: [...new Set(counts.map((count) => count.datatype))].sort(),
-  };
-}
-
 /** The list page: one row per tenant, with the figures that say whether it is working. */
 export async function listTenants(): Promise<TenantSummary[]> {
   const [rows, everyConnection, everySite, counts] = await Promise.all([

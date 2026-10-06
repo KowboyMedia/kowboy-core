@@ -9,19 +9,6 @@ import { adminFor } from '../registry.js';
 import { recompute } from '../recompute.js';
 import type { AdminRecord, Canonical, Datatype, MappedRecord } from '../adapter-api/types.js';
 
-/** The columns the grid can show and sort by, in the order they appear by default. */
-export const COLUMNS = [
-  'tenant_id',
-  'connection_id',
-  'datatype',
-  'remote_id',
-  'office_id',
-  'seq',
-  'updated_at',
-  'remote_updated_at',
-  'deleted',
-] as const;
-
 export type RecordRow = {
   tenantId: number;
   connectionId: string;

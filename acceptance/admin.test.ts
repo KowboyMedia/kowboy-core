@@ -330,8 +330,11 @@ describe('the admin area', () => {
     });
   });
 
-  it('searches, sorts and pages the records, and shows one whole (U3, AC 42)', async () => {
-    await api('/tenants', { method: 'POST', body: tenantBody() });
+  it('scopes, sorts and pages the records, and shows one whole (U3, AC 42)', async () => {
+    const made = await api<{ data: { id: number } }>('/tenants', {
+      method: 'POST',
+      body: tenantBody(),
+    });
     crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
     for (const ref of ['OBJ-1', 'OBJ-2', 'OBJ-3']) crm.put('property', ref, property(ref));
     await running.deliver();
@@ -355,9 +358,23 @@ describe('the admin area', () => {
     );
     expect(second.body.data.map((row) => row.remoteId)).toEqual(['OBJ-3']);
 
-    // The words of the record itself, through the full-text index.
-    const words = await api<{ total: number }>('/records?q=storgatan');
-    expect(words.body.total).toBe(3);
+    // The same scope as Flow and Manual sync: tenants, offices and entity types, each one or
+    // several, and one record id (Patric, 2026-10-06).
+    const count = async (query: string): Promise<number> =>
+      (await api<{ total: number }>(`/records?${query}`)).body.total;
+    await until(async () => (await count('datatype=office')) === 1, 'the office to load');
+    const tenant = String(made.body.data.id);
+    expect(await count(`tenant=${tenant}&datatype=property`)).toBe(3);
+    expect(await count(`tenant=${tenant},${String(made.body.data.id + 1)}`)).toBe(4);
+    expect(await count(`tenant=${String(made.body.data.id + 1)}`)).toBe(0);
+    expect(await count('datatype=property,office')).toBe(4);
+    expect(await count('office=100&datatype=property')).toBe(3);
+    expect(await count('office=999')).toBe(0);
+    expect(await count('id=OBJ-2')).toBe(1);
+    expect(await count('deleted=true')).toBe(0);
+    const slip = await api<{ error: string }>('/records?datatype=house');
+    expect(slip.status).toBe(400);
+    expect(slip.body.error).toContain('not a datatype');
 
     const one = await api<{
       data: {
@@ -439,47 +456,52 @@ describe('the admin area', () => {
     const events = await queryEvents({ type: 'lifecycle.refetch', limit: 10 });
     expect(events).toHaveLength(1);
 
-    // "Select all" on Records sends the search itself, never the rows the browser happened to have
-    // loaded: the engine resolves it to the same records, so a hundred thousand matches cost one
-    // call and one page of fifty costs no less (Patric, 2026-09-21).
-    const bySearch = await api<{ data: { queued: number } }>('/runs/fetch-again', {
+    // One record id, or an office, is the records Core holds there, each asked for again: an
+    // adapter told only "this office" may check the office and fetch none of its records.
+    const byId = await api<{ data: { queued: number } }>('/runs/fetch-again', {
       method: 'POST',
-      body: { text: 'storgatan', datatype: 'property' },
+      body: { remoteId: 'OBJ-1' },
     });
-    expect(bySearch.body.data.queued).toBe(1);
+    expect(byId.body.data.queued).toBe(1);
+    const byOffice = await api<{ data: { queued: number } }>('/runs/fetch-again', {
+      method: 'POST',
+      body: { officeIds: ['100'], datatypes: ['property'] },
+    });
+    expect(byOffice.body.data.queued).toBe(1);
     await running.deliver();
-    expect(await queryEvents({ type: 'lifecycle.refetch', limit: 10 })).toHaveLength(2);
-
-    // The same search as a recompute scope, in the words the confirmation shows.
-    const preview = await api<{ data: { scope: string; report: { examined: number } } }>(
-      '/runs/preview',
-      { method: 'POST', body: { text: 'storgatan' } },
-    );
-    expect(preview.body.data.scope).toContain('storgatan');
-    expect(preview.body.data.report.examined).toBe(1);
+    expect(await queryEvents({ type: 'lifecycle.refetch', limit: 10 })).toHaveLength(3);
   });
 
-  it('offers the pickers a scope is chosen from (Patric, 2026-09-21)', async () => {
-    // Tenant, then that tenant's CRM connections, then that connection's offices: Records and
-    // Manual sync both read this, so neither page asks a person to type a number they must know.
-    await api('/tenants', { method: 'POST', body: tenantBody() });
+  it('offers the pickers a scope is chosen from (Patric, 2026-09-21 and 2026-10-06)', async () => {
+    // Tenants, then the offices of the tenants picked, then the entity types: Records, Flow and
+    // Manual sync all read this, so no page asks a person to type a number they must know. The
+    // offices are the ones Core holds records for, named as their office record names them.
+    const made = await api<{ data: { id: number } }>('/tenants', {
+      method: 'POST',
+      body: tenantBody(),
+    });
+    crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
+    crm.put('property', 'OBJ-1', property('OBJ-1'));
+    await running.deliver();
+    await until(
+      async () => (await api<{ total: number }>('/records')).body.total === 2,
+      'the office and the property to load',
+    );
     const scope = await api<{
       data: {
-        tenants: {
-          id: number;
-          name: string;
-          connections: { id: string; provider: string; offices: string[] }[];
-        }[];
+        tenants: { id: number; name: string }[];
+        offices: { tenantId: number; id: string; name: string | null }[];
         datatypes: string[];
       };
     }>('/scope');
     expect(scope.status).toBe(200);
-    const tenant = scope.body.data.tenants.find((row) => row.name === 'Acme Mäklare');
-    expect(tenant).toBeDefined();
-    expect(tenant?.connections).toHaveLength(1);
-    expect(tenant?.connections[0]?.id).toBe('acme-crm');
-    expect(tenant?.connections[0]?.provider).toBe('fake-webhook');
-    expect(tenant?.connections[0]?.offices).toEqual(['100']);
+    expect(scope.body.data.tenants).toContainEqual(
+      expect.objectContaining({ id: made.body.data.id, name: 'Acme Mäklare' }),
+    );
+    expect(scope.body.data.offices).toEqual([
+      { tenantId: made.body.data.id, id: '100', name: 'Lidingö' },
+    ]);
+    expect(scope.body.data.datatypes).toEqual(['office', 'property']);
   });
 
   it('rings a tenant’s sites and one site alone (U8, AC 42)', async () => {
@@ -643,8 +665,11 @@ describe('the admin area', () => {
     ]);
   });
 
-  it('lists what is in flight, coloured by state (U5, Patric’s rule 3)', async () => {
-    await api('/tenants', { method: 'POST', body: tenantBody() });
+  it('lists what is in flight, coloured by state, by tenant and office (U5, Patric’s rule 3)', async () => {
+    const made = await api<{ data: { id: number } }>('/tenants', {
+      method: 'POST',
+      body: tenantBody(),
+    });
     crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
     crm.put('property', 'OBJ-1', property('OBJ-1'));
     await running.deliver();
@@ -673,6 +698,20 @@ describe('the admin area', () => {
     // (Patric, 2026-09-21: two tenants held the same records and the office column was empty).
     expect(row?.tenant).toBe('Acme Mäklare');
     expect(row?.officeId).toBe('100');
+
+    // Filtered by tenant and office, the same scope as Records and Manual sync (Patric,
+    // 2026-10-06), and never more than the hundred newest.
+    const ids = async (query: string): Promise<string[]> =>
+      (await api<{ data: { remoteId: string }[] }>(`/flow?${query}`)).body.data.map(
+        (one) => one.remoteId,
+      );
+    const tenant = String(made.body.data.id);
+    expect(await ids(`tenant=${tenant}`)).toContain('OBJ-1');
+    expect(await ids(`tenant=${tenant}&office=100`)).toContain('OBJ-1');
+    expect(await ids(`tenant=${String(made.body.data.id + 1)}`)).toEqual([]);
+    expect(await ids('office=999')).toEqual([]);
+    expect(await ids('limit=1')).toHaveLength(1);
+    expect((await api('/flow?tenant=abc')).status).toBe(400);
   });
 
   it('reads the event log by every filter, and follows a chain (U3, U6, AC 42)', async () => {
@@ -847,13 +886,58 @@ describe('the admin area', () => {
     expect(await runNextJob()).toBe(true);
   });
 
-  it('clears what housekeeping clears, on demand (AC 42)', async () => {
-    const done = await api<{ data: { events: number; tombstones: number; sessions: number } }>(
-      '/runs/housekeeping',
-      { method: 'POST' },
+  it('syncs a scope at each of three levels, each ending at the sites (Patric, 2026-10-06)', async () => {
+    await api('/tenants', { method: 'POST', body: tenantBody() });
+    crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
+    for (const ref of ['OBJ-1', 'OBJ-2']) crm.put('property', ref, property(ref));
+    await running.deliver();
+    await until(
+      async () => (await api<{ total: number }>('/records')).body.total === 3,
+      'the office and the two properties to load',
     );
-    expect(done.status).toBe(200);
-    expect(done.body.data.sessions).toBeGreaterThanOrEqual(0);
+    const seqOf = async (id: string): Promise<number> =>
+      (await api<{ data: { seq: number }[] }>(`/records?id=${id}`)).body.data[0]?.seq ?? 0;
+    const sync = (level: string, scope: Record<string, unknown>) =>
+      api<{ data: { detail: string }; error: string }>('/runs/sync', {
+        method: 'POST',
+        body: { level, ...scope },
+      });
+    await flushBells();
+    const bells = async (): Promise<number> =>
+      (await queryEvents({ type: 'bell', limit: 100 })).length;
+
+    // Send only: the records in the scope get new places in the order the sites pull by, so
+    // every site takes them again on the bell; nothing else moves, nothing is fetched or run.
+    const [one, two] = [await seqOf('OBJ-1'), await seqOf('OBJ-2')];
+    const rung = await bells();
+    const sent = await sync('send', { remoteId: 'OBJ-1' });
+    expect(sent.status).toBe(200);
+    expect(sent.body.data.detail).toBe('1 record(s) go to the sites of 1 tenant(s) again.');
+    expect(await seqOf('OBJ-1')).toBeGreaterThan(Math.max(one, two));
+    expect(await seqOf('OBJ-2')).toBe(two);
+    await flushBells();
+    expect(await bells()).toBeGreaterThan(rung);
+    expect(await runNextJob()).toBe(false);
+
+    // Recompute and send: a recompute of the scope runs in the background, and the send goes now.
+    const recomputed = await sync('recompute', { officeIds: ['100'], datatypes: ['property'] });
+    expect(recomputed.body.data.detail).toContain('The recompute runs in the background.');
+    expect(recomputed.body.data.detail).toContain('2 record(s) go to the sites');
+    expect(await runNextJob()).toBe(true);
+
+    // The whole way: the CRM is asked for the scope again, then the recompute, then the send.
+    const fetched = await sync('fetch', { remoteId: 'OBJ-2' });
+    expect(fetched.body.data.detail).toContain('1 record(s) will be fetched from the CRM again.');
+    await running.deliver();
+    expect(await queryEvents({ type: 'lifecycle.refetch', limit: 10 })).toHaveLength(1);
+    expect(await runNextJob()).toBe(true);
+
+    // Who started which, in the log; and a level nobody offers is a refusal in words.
+    const said = await queryEvents({ type: 'admin.synced', limit: 10 });
+    expect(said.map((event) => event.fields['level'])).toEqual(['send', 'recompute', 'fetch']);
+    const slip = await sync('everything', {});
+    expect(slip.status).toBe(400);
+    expect(slip.body.error).toBe('Say how far to go: fetch, recompute, send.');
   });
 
   it('streams what happens, so the pages need no reload (§3 I, Should)', async () => {

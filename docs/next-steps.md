@@ -648,14 +648,25 @@ client ports (item 16, first client by question 80).
     - Interface: none. `engine/adapter-api` is untouched; the admin API changes are its own
       (`GET /flow`, `GET /scope`, `GET /records`, the runs calls), which only the app calls.
     - Defaults taken: Flow's "Queued at first" is read as the first column and the sort key,
-      newest first; the Flow component takes a scope, so the Manual sync page and the Records
-      page render it with theirs; the Removed filter stays on Records because "Needs attention"
+      newest first; the Flow component takes a scope, so the Manual sync page renders it with its
+      own; the Removed filter stays on Records because "Needs attention"
       links an office to its removed homes (question 163).
-    - Decides: 168 (Events). The Manual sync page is a proposal with a screenshot before the old
-      one goes.
+    - Decides: 168 (Events) and 176 (the new Manual sync, shown in screenshots, approved so the
+      old one goes).
     - Not in it: the record's own page (its three faces and its timeline, decided 2026-09-21),
       the Overview, the tenant page (the forms and office threads edit it), the CRM pages,
       Settings.
+    - **Built on staging 2026-10-06:** Flow, Records and the new Manual sync as above, the
+      shared scope (`engine/admin/scope.ts`, `admin/src/components/scope-picker.tsx`), the
+      `POST /runs/sync` call with its three levels, and "send" as new places for a scope's live
+      records (`renumber` in `engine/storage/items.ts`). Gone with the old Records page: the
+      search by words and its full-text index (migration 013), ticking rows, "select all", the
+      columns call; gone from the area: housekeeping's button and call. The old Manual sync page
+      stays as "Manual sync (old)" until Patric approves the new one (176). Then it goes with what only
+      it uses: its page and navigation entry, `POST /runs/preview` and `preview()`, the
+      connections in `GET /scope`, the single-field scope inputs and `staleRulesOnly` where
+      nothing else sends them, the `jobs` resource of the app if nothing else lists jobs, and the
+      new page moves to `/manual-sync`.
 
 ## Later, when Patric supplies them
 

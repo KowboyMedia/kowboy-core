@@ -1,32 +1,32 @@
-// Runs (§3 D): one scope, then a preview that writes nothing, then a job that does the work with
-// progress and a cancel. Recompute and fetch-again take the same scope, so a person learns it
-// once. The engine already recomputes any scope; this file is only the translation from what a
-// person picked to what the engine and the adapters are asked to do.
-import { recompute, type Progress, type Scope } from '../recompute.js';
+// Runs: a scope, then what to do with it. The engine already recomputes any scope and the
+// adapters fetch what they are told to; this file is only the translation from what a person
+// picked to what the engine and the adapters are asked to do. Recompute and fetch again take the
+// same scope, so a person learns it once.
+import { recompute, type Progress, type Scope as RecomputeScope } from '../recompute.js';
 import { cancelJob, createJob, getJob, listJobs, type JobRow } from '../jobs.js';
 import { connections, connectionById } from '../storage/connections.js';
-import { itemsForScope, purgeTombstones, type ItemKey } from '../storage/items.js';
+import { itemsForScope, renumber, type ItemKey, type ItemRow } from '../storage/items.js';
 import { queueLifecycle } from '../lifecycle.js';
-import { deleteExpiredEvents } from '../events.js';
-import { deleteExpiredSessions, currentConfig } from './auth.js';
-import { TOMBSTONE_RETENTION_DAYS } from '../version.js';
+import { ring } from '../bells.js';
+import { describeScope, type Scope } from './scope.js';
 import type { AdminRecord, Datatype } from '../adapter-api/types.js';
 
-/** A scope as the page builds it. `records` is the grid's ticked rows. */
-export type ScopeInput = {
-  provider?: string;
+/**
+ * A scope as a page sends it: the shared scope (tenants, offices, entity types, one id), or one
+ * record's own connection, or a list of records as a record's page names itself. The single
+ * `tenantId`, `officeId`, `datatype` and `staleRulesOnly` are what the Manual sync page being
+ * replaced sends; they go with it.
+ */
+export type ScopeInput = Scope & {
   tenantId?: number;
   connectionId?: string;
   officeId?: string;
   datatype?: Datatype;
-  remoteId?: string;
-  /** Words in the record: the grid's own search, so "every match" is the search and not a list. */
-  text?: string;
   records?: { connectionId: string; datatype: Datatype; remoteId: string }[];
   staleRulesOnly?: boolean;
 };
 
-/** The ticked rows as the engine's keys. A record's tenant comes from its connection. */
+/** The named records as the engine's keys. A record's tenant comes from its connection. */
 async function keysOf(records: NonNullable<ScopeInput['records']>): Promise<ItemKey[]> {
   const tenants = new Map<string, number>();
   const keys: ItemKey[] = [];
@@ -47,21 +47,24 @@ async function keysOf(records: NonNullable<ScopeInput['records']>): Promise<Item
 
 /** The fields a scope may narrow by, each left out when the person did not pick it. */
 const NARROWED = [
-  'provider',
+  'tenantIds',
+  'officeIds',
+  'datatypes',
   'tenantId',
   'connectionId',
   'officeId',
   'datatype',
   'remoteId',
-  'text',
 ] as const;
 
 /** The scope in the engine's own terms. */
-export async function toScope(input: ScopeInput): Promise<Scope> {
-  const scope: Scope = {};
+export async function toScope(input: ScopeInput): Promise<RecomputeScope> {
+  const scope: RecomputeScope = {};
   for (const field of NARROWED) {
     const value = input[field];
-    if (value !== undefined && value !== '') Object.assign(scope, { [field]: value });
+    if (value === undefined || value === '' || (Array.isArray(value) && value.length === 0))
+      continue;
+    Object.assign(scope, { [field]: value });
   }
   if (input.staleRulesOnly) scope.staleRulesOnly = true;
   if (input.records && input.records.length > 0) scope.keys = await keysOf(input.records);
@@ -72,109 +75,107 @@ export async function toScope(input: ScopeInput): Promise<Scope> {
 export function describe(input: ScopeInput): string {
   const parts: string[] = [];
   if (input.records && input.records.length > 0)
-    parts.push(`${input.records.length} chosen record(s)`);
-  if (input.remoteId) parts.push(`the record ${input.remoteId}`);
-  if (input.text) parts.push(`the records containing “${input.text}”`);
+    parts.push(`${String(input.records.length)} chosen record(s)`);
+  if (input.connectionId) parts.push(`the connection ${input.connectionId}`);
   if (input.datatype) parts.push(`the ${input.datatype} records`);
   if (input.officeId) parts.push(`the office ${input.officeId}`);
-  if (input.connectionId) parts.push(`the connection ${input.connectionId}`);
-  if (input.tenantId) parts.push(`tenant ${input.tenantId}`);
-  if (input.provider) parts.push(`every ${input.provider} connection`);
+  if (input.tenantId) parts.push(`tenant ${String(input.tenantId)}`);
   if (input.staleRulesOnly) parts.push('only records an older rules version made');
+  const shared = describeScope(input);
+  if (shared !== 'every record in Core') parts.push(shared);
   return parts.length === 0 ? 'every record in Core' : parts.join(', ');
 }
 
 /** The impact preview (AC 36): everything examined, nothing written. */
-export const preview = (scope: Scope): Promise<Progress> => recompute(scope, { dryRun: true });
+export const preview = (scope: RecomputeScope): Promise<Progress> =>
+  recompute(scope, { dryRun: true });
 
 /** A recompute as a job the worker takes, so a long run has progress, a cancel and a history. */
-export const queueRecompute = (scope: Scope, by: string): Promise<number> =>
+export const queueRecompute = (scope: RecomputeScope, by: string): Promise<number> =>
   createJob({ kind: 'recompute', scope, dryRun: false, requestedBy: by });
 
 export type FetchAgain = { queued: number; detail: string };
 
-/** Named records go to their adapters as one `refetch` each, with the office they were seen under. */
-async function refetchRecords(records: NonNullable<ScopeInput['records']>): Promise<FetchAgain> {
+/** One or several of a thing: the page sends lists, a record's own page and the old page one. */
+const many = <T>(list: T[] | undefined, one: T | undefined): T[] =>
+  list && list.length > 0 ? list : one === undefined ? [] : [one];
+
+/** Stored records go to their adapters as one `refetch` per connection, with their offices. */
+async function refetch(items: ItemRow[]): Promise<FetchAgain> {
   const byConnection = new Map<string, AdminRecord[]>();
-  for (const record of records) {
-    const stored = await itemsForScope({
-      connectionId: record.connectionId,
-      datatype: record.datatype,
-      remoteId: record.remoteId,
-    });
-    const list = byConnection.get(record.connectionId) ?? [];
-    list.push({
-      datatype: record.datatype,
-      remoteId: record.remoteId,
-      officeId: stored[0]?.office_id ?? null,
-    });
-    byConnection.set(record.connectionId, list);
+  for (const item of items) {
+    const list = byConnection.get(item.connection_id) ?? [];
+    list.push({ datatype: item.datatype, remoteId: item.remote_id, officeId: item.office_id });
+    byConnection.set(item.connection_id, list);
   }
   let queued = 0;
-  for (const [connectionId, queuedRecords] of byConnection) {
-    if (await queueLifecycle(connectionId, 'refetch', { records: queuedRecords })) {
-      queued += queuedRecords.length;
-    }
+  for (const [connectionId, records] of byConnection) {
+    if (await queueLifecycle(connectionId, 'refetch', { records })) queued += records.length;
   }
-  return { queued, detail: `${queued} record(s) will be fetched from the CRM again.` };
+  return { queued, detail: `${String(queued)} record(s) will be fetched from the CRM again.` };
 }
 
 /**
- * Fetch the scope again from the CRM. Named records go to the adapters as a `refetch`; an office
- * is loaded as an office is loaded; anything wider is a `resync` of every connection in the scope.
- * The adapter decides how; the engine only says what.
+ * Fetch the scope again from the CRM. Named records, one record id or offices are lists of the
+ * records Core holds, and go to the adapters as a `refetch`; tenants and entity types alone are a
+ * `resync` of every connection in the scope, one per entity type when types are named. The
+ * adapter decides how; the engine only says what.
  */
 export async function fetchAgain(input: ScopeInput): Promise<FetchAgain> {
-  if (input.records && input.records.length > 0) return refetchRecords(input.records);
-
-  // A scope that names one record, or a search, is a list of records to the adapters: resolve it
-  // here rather than asking every connection to load everything again.
-  if (input.remoteId || input.text) {
-    const matched = await itemsForScope(await toScope(input));
-    return refetchRecords(
-      matched.map((item) => ({
-        connectionId: item.connection_id,
-        datatype: item.datatype,
-        remoteId: item.remote_id,
-      })),
-    );
+  if (input.records && input.records.length > 0) {
+    return refetch(await itemsForScope({ keys: await keysOf(input.records) }));
   }
-
+  if (input.remoteId || many(input.officeIds, input.officeId).length > 0) {
+    return refetch(await itemsForScope(await toScope(input)));
+  }
+  const tenantIds = many(input.tenantIds, input.tenantId);
   const wanted = (await connections()).filter(
     (row) =>
       (!input.connectionId || row.id === input.connectionId) &&
-      (!input.tenantId || row.tenant_id === input.tenantId) &&
-      (!input.provider || row.provider === input.provider) &&
-      (!input.officeId || row.licensed_offices.includes(input.officeId)),
+      (tenantIds.length === 0 || tenantIds.includes(row.tenant_id)),
   );
   if (wanted.length === 0) return { queued: 0, detail: 'No connection matches that scope.' };
-
+  const datatypes = many(input.datatypes, input.datatype);
   let queued = 0;
   for (const connection of wanted) {
-    const event = input.officeId
-      ? await queueLifecycle(connection.id, 'offices_added', { officeIds: [input.officeId] })
-      : await queueLifecycle(
-          connection.id,
-          'resync',
-          input.datatype ? { datatype: input.datatype } : {},
-        );
-    if (event) queued += 1;
+    for (const datatype of datatypes.length > 0 ? datatypes : [undefined]) {
+      if (await queueLifecycle(connection.id, 'resync', datatype ? { datatype } : {})) queued += 1;
+    }
   }
   return {
     queued,
-    detail: `${queued} connection(s) will load ${describe(input)} from the CRM again.`,
+    detail: `${String(queued)} connection(s) will load ${describe(input)} from the CRM again.`,
   };
 }
 
-export type Housekeeping = { events: number; tombstones: number; sessions: number };
-
-/** What the worker does every hour, on demand (§3 D, Must). */
-export async function housekeeping(): Promise<Housekeeping> {
+/** Send the scope to the sites again: new places for its records, then a ring for each tenant. */
+export async function send(input: ScopeInput): Promise<{ records: number; detail: string }> {
+  const moved = await renumber(await toScope(input));
+  for (const tenantId of moved.tenantIds) await ring(tenantId, 'delta');
   return {
-    events: await deleteExpiredEvents(currentConfig().eventRetentionDays),
-    tombstones: await purgeTombstones(TOMBSTONE_RETENTION_DAYS),
-    sessions: await deleteExpiredSessions(),
+    records: moved.records,
+    detail: `${String(moved.records)} record(s) go to the sites of ${String(moved.tenantIds.length)} tenant(s) again.`,
   };
+}
+
+/** How far a manual sync goes: each level does its own step and every step after it. */
+export const LEVELS = ['fetch', 'recompute', 'send'] as const;
+export type Level = (typeof LEVELS)[number];
+
+/**
+ * Manual sync (Patric, 2026-10-06): fetch from the CRM, recompute and send to the sites; or
+ * recompute and send; or send only. The fetch and the recompute run in the background, and what
+ * either changes is sent as it is written; the send gives the sites the whole scope at once.
+ */
+export async function sync(level: Level, input: ScopeInput, by: string): Promise<string> {
+  const said: string[] = [];
+  if (level === 'fetch') said.push((await fetchAgain(input)).detail);
+  if (level !== 'send') {
+    await queueRecompute(await toScope(input), by);
+    said.push('The recompute runs in the background.');
+  }
+  said.push((await send(input)).detail);
+  return said.join(' ');
 }
 
 export { cancelJob, getJob, listJobs };

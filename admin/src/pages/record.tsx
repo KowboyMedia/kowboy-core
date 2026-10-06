@@ -113,7 +113,7 @@ export function RecordPage() {
           onClick={() =>
             void say(async () => {
               await post('/runs/recompute', scope);
-              return 'The recompute is queued; watch it on Manual sync.';
+              return 'The recompute is queued. If it changes the record, Flow shows it.';
             })
           }
         >

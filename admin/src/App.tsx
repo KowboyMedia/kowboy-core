@@ -14,6 +14,7 @@ import { RecordPage } from '@/pages/record';
 import { Tenants } from '@/pages/tenants';
 import { TenantPage } from '@/pages/tenant';
 import { ManualSync } from '@/pages/manual-sync';
+import { ManualSyncPage } from '@/pages/sync';
 import { Events } from '@/pages/events';
 import { Crms } from '@/pages/crms';
 import { CrmPage } from '@/pages/crm';
@@ -40,7 +41,6 @@ export function App() {
         notificationProvider={notificationProvider}
         resources={[
           { name: 'overview', list: '/' },
-          { name: 'flow', list: '/flow' },
           { name: 'records', list: '/records' },
           { name: 'tenants', list: '/tenants', show: '/tenants/:id', create: '/tenants/new' },
           { name: 'jobs', list: '/manual-sync' },
@@ -75,6 +75,7 @@ export function App() {
               <Route path=":id" element={<TenantPage />} />
             </Route>
             <Route path="manual-sync" element={<ManualSync />} />
+            <Route path="sync" element={<ManualSyncPage />} />
             <Route path="events" element={<Events />} />
             <Route path="crms" element={<Outlet />}>
               <Route index element={<Crms />} />

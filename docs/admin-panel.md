@@ -36,16 +36,17 @@ has one button to forget every other device, for a laptop that goes missing.
 
 ## The pages
 
-| Page            | What it is for                                                                                                                                                                                                                                                                                                                                                                                          |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Overview**    | The verdict first: green, or which checks are red, why, and a link to where each is fixed. Then "Needs attention": the important things of the last seven days, each naming the exact office, connection or site, its tenant, and a link that opens it (`engine/attention.ts`). Then the day in figures and hourly charts, what Core holds per datatype, the sites' freshness, and any job running now. |
-| **Flow**        | One list of the records in flight, newest queued first, the whole row coloured by state — waiting for the CRM, in Core, on a site, error — tailing live and animating as rows arrive.                                                                                                                                                                                                                   |
-| **Records**     | The search: the scope pickers, server-side filters, sort by any column, pages of 500 (25 to 500), a column chooser, and ticked rows that recompute, fetch again or ring. Every choice is in the address, so a view is a link.                                                                                                                                                                           |
-| **Tenants**     | Tenants only. One tenant is one page and one Save: name, licence, its CRM connections, its sites. A link ending `#connection:<id>` or `#site:<id>` scrolls to that block and rings it.                                                                                                                                                                                                                  |
-| **Manual sync** | One scope, then a preview that writes nothing, then a job with progress, a cancel and a history. Fetch again from the CRM takes the same scope. Housekeeping is here. Called Runs until 2026-09-21.                                                                                                                                                                                                     |
-| **Events**      | The whole log with its filters, a live tail, and one click to follow a chain. Panel saves, sign-ins and actions are `admin.*` events with the person on them, so "who did what" is a filter.                                                                                                                                                                                                            |
-| **CRMs**        | One page per adapter, drawn from what the adapter reports: its directions, its settings, its notification URL and its sections. A second CRM appears by itself.                                                                                                                                                                                                                                         |
-| **Settings**    | Configuration read-only (whether each setting is set, never its value), the migrations the database holds, the versions running, where alerts go, who may sign in, and maintenance.                                                                                                                                                                                                                     |
+| Page                  | What it is for                                                                                                                                                                                                                                                                                                                                                                                          |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Overview**          | The verdict first: green, or which checks are red, why, and a link to where each is fixed. Then "Needs attention": the important things of the last seven days, each naming the exact office, connection or site, its tenant, and a link that opens it (`engine/attention.ts`). Then the day in figures and hourly charts, what Core holds per datatype, the sites' freshness, and any job running now. |
+| **Flow**              | One list of the records in flight, "Queued at" first and sorted by it, newest first, the hundred newest, read again every second while the page is open. The whole row is coloured by state: waiting for the CRM, in Core, on a site, error. Tenants and offices narrow it. The same list, the same component, sits on Manual sync for the scope of a run (Patric, 2026-10-06).                         |
+| **Records**           | Everything Core holds, narrowed by the same scope as Manual sync, live, removed or both, sorted by any column, pages of 500 (25 to 500), a column chooser. A record's name, or its row, opens the record. Every choice is in the address, so a view is a link. Built from zero on 2026-10-06.                                                                                                           |
+| **Tenants**           | Tenants only. One tenant is one page and one Save: name, licence, its CRM connections, its sites. A link ending `#connection:<id>` or `#site:<id>` scrolls to that block and rings it.                                                                                                                                                                                                                  |
+| **Manual sync**       | One scope, then how far to go: fetch from the CRM, recompute and send to the sites (the default); recompute and send; or send only. Below it, the Flow list for that scope. Built from zero on 2026-10-06; see below.                                                                                                                                                                                   |
+| **Manual sync (old)** | The page Manual sync replaces, kept until Patric approves the new one: a scope by tenant, connection, office and entity, a preview that writes nothing, a recompute as a job with progress, a cancel and a history, and fetch again.                                                                                                                                                                    |
+| **Events**            | The whole log with its filters, a live tail, and one click to follow a chain. Panel saves, sign-ins and actions are `admin.*` events with the person on them, so "who did what" is a filter.                                                                                                                                                                                                            |
+| **CRMs**              | One page per adapter, drawn from what the adapter reports: its directions, its settings, its notification URL and its sections. A second CRM appears by itself.                                                                                                                                                                                                                                         |
+| **Settings**          | Configuration read-only (whether each setting is set, never its value), the migrations the database holds, the versions running, where alerts go, who may sign in, and maintenance.                                                                                                                                                                                                                     |
 
 Every page: no reload, a toast for every outcome, one pattern for a list, a detail page, a form and
 a row's actions, a confirmation before anything dangerous, an empty state that says what to do
@@ -55,20 +56,39 @@ to know them (Patric, 2026-09-21: "⌘K — what is this?"). The top bar names t
 version and how long this process has been running.
 
 **The scope is picked, never typed.** One component (`admin/src/components/scope-picker.tsx`),
-reading one call (`GET /scope`), gives Records and Manual sync the same four boxes in the same
-order: tenant, then that tenant's CRM connections, then that connection's offices, then the kind of
-record. Narrowing a wider box empties the narrower ones, so a scope can never be one tenant with
-another tenant's connection under it. Nobody types a tenant number or a connection name anywhere
-(Patric, 2026-09-21).
-
-**Select all means all.** Ticking the header box ticks the rows in front of a person; when more
-match than are loaded, a line above the grid offers every match instead. With it on, the actions
-send the search itself — the filters the server just counted — so a hundred thousand matching
-records cost exactly what fifty cost.
+reading one call (`GET /scope`), gives Records, Flow and Manual sync the same boxes in the same
+order: tenants, then offices, then entity types, then one record id; Flow shows the first two.
+Several of each can be ticked, and an empty box means all of it. The offices offered are the ones
+Core holds records for, live or removed, grouped under their tenant and named as their office
+record names them; ticked tenants narrow them, and a tenant unticked takes its offices out of the
+scope. The scope lives in the address as `tenant=1,2&office=A,B&datatype=property&id=OBJ-1`, and
+the API reads it the same way, so a view is a link (Patric, 2026-09-21 and 2026-10-06).
 
 **Every date is Swedish**: `2026-09-21 14:05`, Stockholm time, and the figures are grouped the
 Swedish way (`12 345`). Anything older than a day is also shown as "3 days ago" where a glance is
 enough.
+
+### Manual sync
+
+Its purpose is to fetch data again (Patric, 2026-10-06). One scope, then one of three levels, each
+doing its own step and every step after it:
+
+- **Fetch from the CRM, recompute and send to the sites**, the default. Tenants alone, or with
+  entity types, fetch each of their connections' lists again and remove what is no longer on it
+  (`resync`, one per entity type ticked). An office or one record id narrows it to the records
+  Core holds there, each asked for again (`refetch`): an adapter told only "this office" may check
+  the office and fetch none of its records.
+- **Recompute and send to the sites**: the scope computed again from what Core holds, as a job the
+  worker takes. No CRM is called.
+- **Send to the sites only**: the live records of the scope get new places in the order the sites
+  pull by, and every site of their tenants is rung, so each pulls them again. Nothing is fetched
+  or computed.
+
+The fetch and the recompute run in the background, and whatever either changes goes to the sites
+as it is written; the send gives the sites the whole scope at once. **Start** says what will happen
+and how many live records the scope holds before anything runs. The Flow list below shows what the
+run does, record by record. Housekeeping runs on its own and has no button ("it has no use for
+manual run").
 
 ### A tenant is one page
 
@@ -169,24 +189,25 @@ One JSON API under `/v1/admin/`, and the browser app is its second user: everyth
 an agent can do, and nothing is done in two ways. Sign-in and the sign-in link are the only calls
 that need no session.
 
-| Call                                                                                              | What it does                                                           |
-| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `POST /sign-in`, `GET /sign-in/:token`, `POST /sign-out`, `GET /me`                               | Getting in and out, and who is in.                                     |
-| `GET /overview`, `GET /health`                                                                    | The verdict, the day, the sites, the open jobs.                        |
-| `GET /flow`                                                                                       | The records in flight, in the state each reached last.                 |
-| `GET /stream`                                                                                     | One server-sent stream: new events, the open jobs, the health verdict. |
-| `GET /tenants`, `GET /tenants/:id`, `POST /tenants`, `PATCH /tenants/:id`, `DELETE /tenants/:id`  | The tenant list, and one tenant read and written whole.                |
-| `POST /tenants/:id/token`, `POST /tenants/:id/ring`                                               | A new token; ring every site of a tenant.                              |
-| `POST /sites/:id/secret`, `POST /sites/:id/ring`                                                  | A new bell secret; ring one site.                                      |
-| `GET /devices`, `POST /devices/forget-others`                                                     | Where this person is signed in, and forgetting every other device.     |
-| `GET /scope`                                                                                      | The pickers: tenants, their connections, their offices, the datatypes. |
-| `GET /records`, `GET /records/:connection/:datatype/:id`                                          | The search, and one record whole with its timeline.                    |
-| `POST /records/:c/:d/:id/preview`, `POST /records/:c/:d/:id/inspect`                              | What a recompute would change; the CRM asked now, writing nothing.     |
-| `POST /runs/preview`, `POST /runs/recompute`, `POST /runs/fetch-again`, `POST /runs/housekeeping` | A scope previewed, run, fetched again, and housekeeping.               |
-| `GET /jobs`, `GET /jobs/:id`, `POST /jobs/:id/cancel`                                             | The runs and their progress.                                           |
-| `GET /events`                                                                                     | The log by any filter, paged by event number.                          |
-| `GET /crms`, `GET /crms/:provider`, `POST /crms/:provider/act`, `POST /crms/:provider/probe`      | Each adapter's page as data, its actions, and a login tried.           |
-| `GET /settings`, `POST /settings/maintenance`                                                     | The configuration, and the switch.                                     |
+| Call                                                                                             | What it does                                                                                |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `POST /sign-in`, `GET /sign-in/:token`, `POST /sign-out`, `GET /me`                              | Getting in and out, and who is in.                                                          |
+| `GET /overview`, `GET /health`                                                                   | The verdict, the day, the sites, the open jobs.                                             |
+| `GET /flow`                                                                                      | The records in flight in a scope, in the state each reached last, the newest `limit` (100). |
+| `GET /stream`                                                                                    | One server-sent stream: new events, the open jobs, the health verdict.                      |
+| `GET /tenants`, `GET /tenants/:id`, `POST /tenants`, `PATCH /tenants/:id`, `DELETE /tenants/:id` | The tenant list, and one tenant read and written whole.                                     |
+| `POST /tenants/:id/token`, `POST /tenants/:id/ring`                                              | A new token; ring every site of a tenant.                                                   |
+| `POST /sites/:id/secret`, `POST /sites/:id/ring`                                                 | A new bell secret; ring one site.                                                           |
+| `GET /devices`, `POST /devices/forget-others`                                                    | Where this person is signed in, and forgetting every other device.                          |
+| `GET /scope`                                                                                     | The pickers: tenants, the offices Core holds records for, the datatypes.                    |
+| `GET /records`, `GET /records/:connection/:datatype/:id`                                         | The records of a scope, sorted and paged; one record whole with its timeline.               |
+| `POST /records/:c/:d/:id/preview`, `POST /records/:c/:d/:id/inspect`                             | What a recompute would change; the CRM asked now, writing nothing.                          |
+| `POST /runs/sync`                                                                                | A manual sync of a scope at one of its three levels.                                        |
+| `POST /runs/preview`, `POST /runs/recompute`, `POST /runs/fetch-again`                           | A scope previewed, recomputed or fetched again (a record's page, and the old Manual sync).  |
+| `GET /jobs`, `GET /jobs/:id`, `POST /jobs/:id/cancel`                                            | The runs and their progress.                                                                |
+| `GET /events`                                                                                    | The log by any filter, paged by event number.                                               |
+| `GET /crms`, `GET /crms/:provider`, `POST /crms/:provider/act`, `POST /crms/:provider/probe`     | Each adapter's page as data, its actions, and a login tried.                                |
+| `GET /settings`, `POST /settings/maintenance`                                                    | The configuration, and the switch.                                                          |
 
 Proved by `acceptance/admin.test.ts` through HTTP and by the browser journeys in `admin/e2e`, both
 named under AC 42 in the acceptance report.
@@ -203,13 +224,14 @@ drive directly.
 - **Lifecycle events** (`engine/lifecycle.ts`): `connection_added`, `connection_removed`,
   `offices_added`, `offices_removed`, `resync` and `refetch` (named records fetched again) are
   queued in `lifecycle_events` and delivered to the adapter by the worker.
-- **Recompute** (`engine/recompute.ts`): any scope (everything, a CRM, a tenant, a connection, an
-  office, a datatype, one record, a list, or only records an older rules version made), as a
+- **Recompute** (`engine/recompute.ts`): any scope (everything, tenants, a connection, offices,
+  datatypes, one record, a list, or only records an older rules version made), as a
   preview that writes nothing or for real, in pages of 200 records with progress, the records not
   sold first and the sold ones (universal `sold_at` set) last (question 74). Long runs are jobs
   (`engine/jobs.ts`) the worker takes, with progress, a result, cancel and a history.
-- **Records** (`engine/storage/items.ts`): search with server-side filters, words in the unified
-  record (a full-text index), sort by any column, pages and a total.
+- **Records** (`engine/storage/items.ts`): the scope (tenants, offices, datatypes, one record
+  id, live or removed), sort by any column, pages and a total; and new places for a scope's live
+  records, so every site pulls them again (Manual sync's send).
 - **The event log** (`engine/events.ts`): the timeline query by record, connection, tenant, site,
   correlation id, type and time, paged by event number, newest first or oldest first. A `pull`
   event names the site that pulled, and so do a site's applied reports and its errors (the

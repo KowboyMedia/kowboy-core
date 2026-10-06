@@ -29,27 +29,22 @@ import { overview } from './overview.js';
 import { act, crmPage, crms, probe } from './crms.js';
 import { configuration, setMaintenance } from './configuration.js';
 import { flow, stream, toStreamEvent } from './feed.js';
-import { inspect, previewRecord, readRecord, search, COLUMNS } from './records.js';
+import { inspect, previewRecord, readRecord, search } from './records.js';
 import {
   cancelJob,
   describe,
   fetchAgain,
   getJob,
-  housekeeping,
   listJobs,
   preview,
   queueRecompute,
+  sync,
   toScope,
+  LEVELS,
   type ScopeInput,
 } from './runs.js';
-import {
-  listTenants,
-  readTenant,
-  removeTenant,
-  saveTenant,
-  scopeOptions,
-  type TenantInput,
-} from './tenants.js';
+import { scopeFromQuery, scopeOptions } from './scope.js';
+import { listTenants, readTenant, removeTenant, saveTenant, type TenantInput } from './tenants.js';
 import {
   body,
   fail,
@@ -169,7 +164,9 @@ const routes: AdminRoute[] = [
     method: 'GET',
     path: '/flow',
     handler: async (request) => {
-      const rows = await flow(number(request, 'limit', 200));
+      const read = scopeFromQuery(request.query);
+      if ('error' in read) return fail(400, read.error);
+      const rows = await flow(read.scope, number(request, 'limit', 100));
       return page(rows, rows.length);
     },
   },
@@ -325,19 +322,13 @@ const routes: AdminRoute[] = [
     method: 'GET',
     path: '/records',
     handler: async (request) => {
-      const refused = refuseBadFilters(request, ['from', 'to'], ['tenant', 'page', 'size']);
+      const read = scopeFromQuery(request.query);
+      if ('error' in read) return fail(400, read.error);
+      const refused = refuseBadFilters(request, [], ['page', 'size']);
       if (refused) return refused;
       const sort = SORTABLE.find((column) => column === text(request, 'sort'));
       const found = await search({
-        tenantId: text(request, 'tenant') ? Number(text(request, 'tenant')) : undefined,
-        provider: text(request, 'provider'),
-        connectionId: text(request, 'connection'),
-        datatype: datatype(text(request, 'datatype')),
-        officeId: text(request, 'office'),
-        remoteId: text(request, 'id'),
-        text: text(request, 'q'),
-        writtenFrom: text(request, 'from'),
-        writtenTo: text(request, 'to'),
+        ...read.scope,
         deleted: flag(request, 'deleted'),
         ...(sort ? { sort } : {}),
         dir: text(request, 'dir') === 'asc' ? 'asc' : 'desc',
@@ -346,11 +337,6 @@ const routes: AdminRoute[] = [
       });
       return page(found.rows, found.total);
     },
-  },
-  {
-    method: 'GET',
-    path: '/records/columns',
-    handler: () => one({ columns: COLUMNS, sortable: SORTABLE, datatypes: DATATYPES }),
   },
   {
     method: 'GET',
@@ -444,11 +430,15 @@ const routes: AdminRoute[] = [
   },
   {
     method: 'POST',
-    path: '/runs/housekeeping',
+    path: '/runs/sync',
     handler: async (request) => {
-      const done = await housekeeping();
-      await audit(request.session, 'housekeeping', done);
-      return one(done);
+      const parsed = body<ScopeInput & { level?: string }>(request);
+      if ('error' in parsed) return parsed.error;
+      const level = LEVELS.find((known) => known === parsed.value.level);
+      if (!level) return fail(400, `Say how far to go: ${LEVELS.join(', ')}.`);
+      const detail = await sync(level, parsed.value, request.session.email);
+      await audit(request.session, 'synced', { level, scope: describe(parsed.value) });
+      return one({ detail });
     },
   },
   {

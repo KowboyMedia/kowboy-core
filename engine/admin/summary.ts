@@ -101,7 +101,7 @@ const ADMIN: Record<string, string> = {
   inspected: 'asked the CRM for a record',
   recompute_queued: 'started a recompute',
   fetch_again: 'asked the CRM for records again',
-  housekeeping: 'ran housekeeping',
+  synced: 'started a manual sync',
   job_cancelled: 'stopped a run',
   crm_action: 'ran a CRM action',
   login_tried: 'tried a CRM login',
