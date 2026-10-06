@@ -298,7 +298,7 @@ async function credentialsOf(
     before && before.provider === input.provider
       ? ((await connectionById(input.id))?.credentials ?? null)
       : null;
-  return mergedLogin(input.credentials, stored);
+  return mergedLogin(input.credentials, stored, input.provider);
 }
 
 export type SaveResult = { id: number; changes: string[] };

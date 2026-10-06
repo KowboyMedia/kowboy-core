@@ -29,6 +29,7 @@ import { configureCompression, jsonResponse, startServer, type RouteTable } from
 import { SEQUENCE_JUMP, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
 import { adminRoutes, configureAdmin } from './admin/index.js';
 import { deleteExpiredSessions } from './admin/auth.js';
+import { dropUndeclaredLoginFields } from './admin/login.js';
 
 export { SEQUENCE_JUMP, STARTED_AT, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
 
@@ -158,6 +159,7 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
         await deleteExpiredSubmissions(config.eventRetentionDays);
         await purgeTombstones(TOMBSTONE_RETENTION_DAYS);
         await deleteExpiredSessions();
+        await dropUndeclaredLoginFields();
       }, HOUSEKEEPING_MS);
       tick(() => failStaleJobs(), ALERTS_MS);
     },

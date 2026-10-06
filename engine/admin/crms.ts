@@ -104,7 +104,7 @@ export async function probe(
   }
   // What is typed goes over the stored login, as the save will store it.
   const stored = await storedLogin(input.connectionId, provider);
-  let credentials = mergedLogin(input.typed, stored?.credentials ?? null);
+  let credentials = mergedLogin(input.typed, stored?.credentials ?? null, provider);
   let officeIds = input.officeIds;
 
   if (credentials === null) {

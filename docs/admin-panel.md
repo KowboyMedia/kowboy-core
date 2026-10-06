@@ -117,7 +117,10 @@ shows `••••••••••••` where a secret exists, and that mas
 there is nothing in the page for a browser, an extension or a screenshot to read. Leaving it as it
 is keeps the stored login; a field typed goes over that field alone, and every field not typed
 keeps its stored value (known bug 3, fixed 2026-10-06: a save used to keep only what was typed).
-A stored field cannot be emptied from the page.
+A stored field cannot be emptied from the page. A stored field the CRM's login form no longer has
+is dropped: at the next save, and for every connection at the worker's hourly housekeeping
+(`engine/admin/login.ts`), so the data a removed feature kept goes with it; a login is never
+emptied that way, and a connection whose CRM is not running in that process is left alone.
 
 Because of that, **Check the login** on a saved connection has nothing to send, so Core tries the
 login it already holds, with the offices that connection is licensed for. Typed values, when there
