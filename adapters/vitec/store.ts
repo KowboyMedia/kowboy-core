@@ -106,6 +106,10 @@ create table if not exists vitec_office_state (
 let pool: pg.Pool | null = null;
 let ready: Promise<pg.Pool> | null = null;
 
+/** How long a process trusts the blocks it read; this process's own changes apply at once. */
+const BLOCKS_FRESH_MS = 5_000;
+let blocks: { at: number; keys: Promise<Set<string>> } | null = null;
+
 /** The pool, opened on first use so the web process and the worker each get their own. */
 function db(): Promise<pg.Pool> {
   if (!ready) {
@@ -453,6 +457,7 @@ export async function reset(): Promise<void> {
   await (
     await db()
   ).query('truncate vitec_fetch_list, vitec_known, vitec_state, vitec_office_state');
+  blocks = null;
 }
 
 // ---- What the adapter's admin panel shows and touches (adapters/vitec/admin) ------------------
@@ -557,11 +562,83 @@ export async function blockOffice(office: Office, reason: string): Promise<boole
      returning (xmax = 0) as fresh`,
     [keyOf(office), reason.slice(0, 1000)],
   );
+  blocks = null;
   return rows[0]?.fresh ?? false;
 }
 
 export async function unblockOffice(office: Office): Promise<void> {
   await (await db()).query('delete from vitec_office_state where office_id = $1', [keyOf(office)]);
+  blocks = null;
+}
+
+/**
+ * Refusals met at the door (api.ts) by a request the fetch list did not make, a person's button or
+ * a form, kept in `vitec_state` under this name, which no connection's short name can be, until
+ * the worker's next tick blocks the office and tells its connections (index.ts).
+ */
+const DOOR = '(door)';
+const REFUSED = 'refused:';
+
+/** Note that Vitec refused the office at the door: from now on the door keeps its requests back. */
+export async function noteRefusal(office: Office, detail: string): Promise<void> {
+  await (
+    await db()
+  ).query(
+    `insert into vitec_state (connection_id, name, value) values ($1, $2, $3)
+     on conflict (connection_id, name) do nothing`,
+    [DOOR, `${REFUSED}${keyOf(office)}`, detail.slice(0, 1000)],
+  );
+  blocks = null;
+}
+
+/** The refusals met at the door that the worker has not yet turned into blocks. */
+export async function refusalsAtDoor(): Promise<(Office & { detail: string })[]> {
+  const { rows } = await (
+    await db()
+  ).query<{ name: string; value: string }>(
+    'select name, value from vitec_state where connection_id = $1 order by name',
+    [DOOR],
+  );
+  return rows
+    .filter((row) => row.name.startsWith(REFUSED))
+    .map((row) => ({ ...officeOf(row.name.slice(REFUSED.length)), detail: row.value }));
+}
+
+/** A refusal met at the door is settled: blocked by the worker, or concerning no connection. */
+export async function forgetRefusal(office: Office): Promise<void> {
+  await (
+    await db()
+  ).query('delete from vitec_state where connection_id = $1 and name = $2', [
+    DOOR,
+    `${REFUSED}${keyOf(office)}`,
+  ]);
+  blocks = null;
+}
+
+/**
+ * Whether Vitec refuses the office, asked before every request (api.ts): blocked, or refused at
+ * the door and not yet settled. Read from the tables at most once in five seconds per process, so
+ * the check costs the database almost nothing.
+ */
+export async function isBlocked(office: Office): Promise<boolean> {
+  if (!blocks || Date.now() - blocks.at >= BLOCKS_FRESH_MS) {
+    const keys = db()
+      .then((pool) =>
+        pool.query<{ office_id: string }>(
+          `select office_id from vitec_office_state
+           union all
+           select substr(name, ${REFUSED.length + 1}) from vitec_state
+            where connection_id = $1 and name like $2`,
+          [DOOR, `${REFUSED}%`],
+        ),
+      )
+      .then(({ rows }) => new Set(rows.map((row) => row.office_id)));
+    blocks = { at: Date.now(), keys };
+    keys.catch(() => {
+      if (blocks?.keys === keys) blocks = null;
+    });
+  }
+  return (await blocks.keys).has(keyOf(office));
 }
 
 export async function blockedOffices(): Promise<BlockedOffice[]> {

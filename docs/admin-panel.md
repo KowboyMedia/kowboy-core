@@ -152,9 +152,11 @@ check within a minute. The card's note says the rule in one paragraph of plain w
 brokerage (Patric, closing question 154; one paragraph, Patric 2026-10-06). The card is the only
 thing the Vitec adapter shows under a connection: the block of its schedules and fetch list went
 on 2026-10-06 (Patric: remove it); the Vitec page keeps them.
-A Vitec login can be for Vitec's QA environment, Vitec's test system (question 169 a): the login
-field **Use Vitec's QA environment** set to yes sends every call of that login to QA's address, and its
-records are kept apart from live Vitec's even where QA uses the same office ids. The Vitec page
+A Vitec login can be for Vitec's QA environment, Vitec's test system (question 169 a): the login's
+tickbox **Use Vitec's QA environment**, ticked, sends every call of that login to QA's address, and
+its records are kept apart from live Vitec's even where QA uses the same office ids. The adapter
+declares the field with the fixed values no and yes, which the tenant page draws as a tickbox
+(Patric, 2026-10-06: "a toggle/checkbox"); ticked stores yes, unticked no. The Vitec page
 shows QA's notification address beside the live one, and its **Fetch list** and **Refused
 offices** mark a QA office "(QA)", as do the names in `vitec.offices` on Overview. A saved login
 switched to the other system syncs no office until the worker's next tick, which takes
@@ -289,7 +291,7 @@ drive directly.
   is P2, P1 once it has thrown at every run for 15 minutes, and so is an adapter's check whose
   last report is over two minutes old, P1 once it is over 17; both count as P3 while a P0 check
   fails, so one cause is one problem (rule B). An adapter's check shows the title "Fetching from"
-  its CRM until a check can carry its own (question 180). The worker
+  its CRM until a check can carry its own (question 184). The worker
   records each adapter check for the web process without its level until question 178 is
   answered, so the web process shows a failing adapter check as P1, while the worker's alerts use
   its own level.

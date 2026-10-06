@@ -275,22 +275,27 @@ async function probe(
   }
   const answers: string[] = [];
   let ok = true;
-  for (const officeId of ids) {
-    try {
-      const page = await connect.page(auth, 'office', officeId, 0, undefined, 1);
-      answers.push(
-        `${officeId}: Vitec answers, ${page?.totalRowCount ?? 0} office record(s) listed`,
-      );
-    } catch (error) {
-      ok = false;
-      const kind = connect.kindOf(error);
-      answers.push(
-        kind === 'forbidden'
-          ? `${officeId}: Vitec refuses this login for that office (${String(error)})`
-          : `${officeId}: ${String(error)}`,
-      );
+  // A trial of a typed login: kept back from a refused office, and its refusals block nothing.
+  await connect.asLoginTrial(async () => {
+    for (const officeId of ids) {
+      try {
+        const page = await connect.page(auth, 'office', officeId, 0, undefined, 1);
+        answers.push(
+          `${officeId}: Vitec answers, ${page?.totalRowCount ?? 0} office record(s) listed`,
+        );
+      } catch (error) {
+        ok = false;
+        const kind = connect.kindOf(error);
+        answers.push(
+          kind === 'forbidden'
+            ? `${officeId}: Vitec refuses this login for that office (${String(error)})`
+            : kind === 'blocked' && error instanceof Error
+              ? error.message
+              : `${officeId}: ${String(error)}`,
+        );
+      }
     }
-  }
+  });
   return { ok, detail: answers.join('; ') };
 }
 
@@ -435,7 +440,9 @@ export const vitecAdmin: AdapterAdmin = {
     {
       key: 'qa',
       label: 'Use Vitec’s QA environment',
-      help: `Type yes when Vitec issued this login for its QA environment, Vitec’s test system at ${connect.baseUrlOf('qa')}: every call then goes there, and its records are kept apart from live Vitec’s. Typing no switches a saved login back to live Vitec. A switch takes everything the other system gave off the sites, and the offices are loaded again from the system chosen. Give a QA login a tenant of its own, so that test homes never reach a real website.`,
+      help: `Tick this when the username and password above are a test account in Vitec’s QA environment, Vitec’s test system at ${connect.baseUrlOf('qa')}: every call then goes there, and its records are kept apart from live Vitec’s. Unticking it switches a saved connection back to live Vitec. A switch takes everything the other system gave off the sites, and the offices are loaded again from the system chosen. Give a test account a tenant of its own, so that test homes never reach a real website.`,
+      // Exactly no and yes: the tenant page draws such a field as a tickbox, ticked sending yes.
+      options: [{ value: 'no' }, { value: 'yes' }],
     },
   ],
 

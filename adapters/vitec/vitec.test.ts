@@ -534,6 +534,34 @@ describe('the Vitec adapter', () => {
     expect(fetchesOf('OBJ3')).toBe(0);
     expect(await store.depth()).toBe(2);
 
+    // Nor by anything else: the door in front of every request keeps back a person's "compare
+    // with the CRM", "fetch again" and "check the login", and a form, so no call leaves.
+    const sent = fake.requests.length;
+    await expect(
+      required(vitecAdmin.inspect, 'inspect')(await connection(), {
+        datatype: 'property',
+        remoteId: 'OBJ2',
+        officeId: OFFICE,
+      }),
+    ).rejects.toThrow(`office ${OFFICE}`);
+    await queueLifecycle(CONNECTION, 'refetch', {
+      records: [{ datatype: 'property', remoteId: 'OBJ2', officeId: OFFICE }],
+    });
+    await running.deliver();
+    await drainFetchList();
+    const probe = required(vitecAdmin.probe, 'probe');
+    const login = JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: OFFICE });
+    expect(await probe(login, [])).toMatchObject({
+      ok: false,
+      detail: expect.stringContaining('Fetch offices'),
+    });
+    const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
+    await expect(
+      connect.post(auth, OFFICE, `v2/Advertising/Form/${OFFICE}/Valuation`, {}),
+    ).rejects.toBeInstanceOf(connect.Blocked);
+    expect(fake.requests.length).toBe(sent);
+    expect(fake.forms).toHaveLength(0);
+
     // The office check at the next tick is the one call that asks: the id's own list, refused, so
     // no office groups. The office stays blocked, and later ticks within the day ask nothing.
     await runSchedules();
@@ -561,6 +589,43 @@ describe('the Vitec adapter', () => {
     const told = (await queryEvents({ connectionId: CONNECTION })).map((row) => row.type);
     expect(told.filter((type) => type === 'office.blocked')).toHaveLength(1);
     expect(told).toContain('office.unblocked');
+  });
+
+  it('blocks an office that a person’s button meets refused, and tells its connection at the next tick; a typed login and a CRM refusal block nothing', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    fake.forbid(OFFICE);
+    fake.requests.length = 0;
+    const inspect = required(vitecAdmin.inspect, 'inspect');
+    const record = { datatype: 'property' as const, remoteId: 'OBJ1', officeId: OFFICE };
+
+    // The first press meets Vitec's refusal; the second is kept back at the door.
+    await expect(inspect(await connection(), record)).rejects.toBeInstanceOf(connect.VitecError);
+    await expect(inspect(await connection(), record)).rejects.toBeInstanceOf(connect.Blocked);
+    expect(fake.requests.map((request) => request.path)).toEqual([
+      `/Advertising/Estate/${OFFICE}/OBJ1`,
+    ]);
+
+    // The next tick blocks the office, tells the connection once, and checks the offices.
+    await runSchedules();
+    expect((await store.blockedOffices()).map((office) => office.officeId)).toEqual([OFFICE]);
+    expect(await store.refusalsAtDoor()).toEqual([]);
+    const told = (await queryEvents({ connectionId: CONNECTION })).map((row) => row.type);
+    expect(told.filter((type) => type === 'office.blocked')).toHaveLength(1);
+    expect(fake.requests.map((request) => request.path)).toContain(`/Advertising/Office/${OFFICE}`);
+
+    // A typed login on trial, and Vitec's CRM category refusing a function group, block nothing.
+    fake.forbid('M9');
+    const probe = required(vitecAdmin.probe, 'probe');
+    const typed = JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'M9' });
+    expect((await probe(typed, [])).ok).toBe(false);
+    const wrong = { username: USERNAME, password: 'not it', environment: 'live' as const };
+    await expect(connect.post(wrong, 'M8', 'Contacts/UpdatePerson', {})).rejects.toBeInstanceOf(
+      connect.VitecError,
+    );
+    expect(await store.refusalsAtDoor()).toEqual([]);
+    expect((await store.blockedOffices()).map((office) => office.officeId)).toEqual([OFFICE]);
   });
 
   it('holds every other fetch of the login until the office check has run, and finishes a load it cut short', async () => {

@@ -4,12 +4,12 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 181 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 185 (124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 180. `[core]` May a CRM's checks carry a title and links, so the Overview never shows a check's name?
+## 184. `[core]` May a CRM's checks carry a title and links, so the Overview never shows a check's name?
 
 - 2026-10-06 · Building 172 to AGENTS.md's definition of done item 5. The engine's own checks
   now show a title and a sentence, and the sites check links each site it finds behind. A CRM's
@@ -23,8 +23,89 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 | 2    | One optional word `links` on a failing check's result: each thing it names with its place in the admin area, kept the same way (a column). | Each connection or office a CRM's check names opens its page, as the sites check's sites already do.       |
 
 - Smaller: item 1 alone; the connections and offices then stay plain text under the check.
-  Blocked: the CRM's checks' titles and links on the Overview and in the alerts. Reply: "180 ok",
+  Blocked: the CRM's checks' titles and links on the Overview and in the alerts. Reply: "184 ok",
   or the items you do not want.
+
+## 183. `[admin]` Records and Manual sync: the parts Patric did not name, keep or drop each
+
+- 2026-10-06 · Patric, 21:30 UTC, of Manual sync's "Clear the scope": "was never specified. This
+  tells me you did not greenfield it as required." That button and Records' "Show everything"
+  came from the old pages and are gone. These are the other parts of the two pages that his
+  words of 18:51 UTC (Task 1) did not name.
+
+| Item | Page        | Part                                                                                                               | Recommended                                                                                 |
+| ---- | ----------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| 1    | Records     | "Live", "Removed" or "Both": live records are on the sites; removed ones left the CRM's list and are kept 90 days. | Keep: the alert about an office taken off the sites opens that office's removed homes here. |
+| 2    | Records     | Sorting by a click on a column's title.                                                                            | Keep.                                                                                       |
+| 3    | Records     | Pages of 500 records (25 to 500 to pick), with Back and Next.                                                      | Keep: Core holds thousands of records.                                                      |
+| 4    | Records     | The "Columns" button, which adds the columns "Changed in the CRM" and "CRM connection".                            | Drop the button and both columns; a record's own page shows both.                           |
+| 5    | Records     | A click anywhere on a row opens the record, as its name does.                                                      | Keep.                                                                                       |
+| 6    | Manual sync | Under the scope, one line: "This covers the homes of the tenant Acme: 637 live records now."                       | Keep: it says how much a run touches before it starts.                                      |
+| 7    | Manual sync | "Start" first says in a window what will happen, and runs on "Start it".                                           | Keep: the full level asks the CRM for every record in the scope.                            |
+| 8    | Manual sync | One sentence under each of the three levels, saying what it does.                                                  | Keep.                                                                                       |
+| 9    | Database    | The column that held a request to stop a run, which only the old Manual sync made.                                 | Drop it, with a one-time step at the release.                                               |
+
+- Reply "183 ok" for every recommendation, or name the items to change. Smaller: dropping more.
+  Blocked: nothing; both pages work as they are.
+
+## 182. `[admin]` The new record page: is this design right, so the old page goes once it is built?
+
+- 2026-10-06 · Patric, 21:37 UTC: "the single entity viewer is shit, create a new replacement.
+  Purpose: Troubleshoot its trace, view its data, retry things. Figure out what is best. Do not
+  anchor in the old". It is built from zero beside the old page and takes its address, so every
+  link (Flow, Records, Failed forms, the alerts) opens the new one; the old one stays reachable
+  at `/admin/records-old/…` until this is answered.
+
+| Item | Part                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | For                                               |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| 1    | The top: the record's name, then one sentence saying what it is, whose it is (tenant, office and CRM connection, each a link) and the CRM's id for it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Knowing what one looks at.                        |
+| 2    | "Where it is now", three steps in order, each with the buttons that act on it. **In the CRM**: when the CRM last changed it; "Compare with the CRM now" asks the CRM, writes nothing and lists the fields that differ from Core's copy; "Fetch again" asks the CRM again, recomputes and sends to the sites. **In Core**: when Core last wrote it, whether it is removed, and whether today's rules made its texts; "Recompute" works its texts out again and sends to the sites. **On the sites**: one line per site of the tenant, from the sites' own reports of the last 30 days: holds Core's copy, holds an earlier one, or could not take it and why; "Send again" sends it to every site again. | Troubleshooting and retrying.                     |
+| 3    | "What happened": the record's history in chains, newest first. A chain is one change, from the CRM's message to each site, each step a sentence with its time; each chain links to all its steps in the event log.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | The trace.                                        |
+| 4    | "Its data": three tabs, the texts ready to show, the unified record and what the CRM sent, each with "Copy" and its sentence beside it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Viewing its data.                                 |
+| 5    | Not carried over from the old page: "Preview a recompute" (step 2 says whether today's rules made it), "Ask the CRM now" (the comparison replaces it), "Tell the sites" ("Send again" replaces it) and the list of dates and versions (in the steps now).                                                                                                                                                                                                                                                                                                                                                                                                                                               | Nothing left that the three purposes do not need. |
+| 6    | Behind it: Core's answer for a record gains each site's last report on it and the current rules version, and Manual sync's call takes one record, so the three retry buttons are Manual sync's three levels for this record, the same code. No new address, table or event.                                                                                                                                                                                                                                                                                                                                                                                                                             | Items 2 and 3.                                    |
+
+- a) **yes** (recommended): as above; the old page goes, with what only it used, once the new
+  one is built and shown.
+- b) **change**: name the items.
+- Smaller: a. Blocked: deleting the old record page. Answer a or b.
+
+## 181. `[core]` `[crm-vitec]` Should a QA connection's forms go to Vitec's QA from the staging service?
+
+- 2026-10-06 · Patric, 21:29 UTC, of the new tenant page's QA switch: it "changes base path,
+  allows form submissions even in staging, explain this". Today the staging service sends no
+  form to any CRM, QA included (his words at 19:29 UTC: staging sites dry-run forms only), and the
+  central forms guard cannot tell a test system from a live one, because only the Vitec code
+  knows which login is QA (his rule at 21:10 UTC).
+- a) **yes** (recommended, his newest words): the CRM code's interface gains one optional
+  answer, "is this connection a test system?", which the Vitec code answers yes for a QA login;
+  the forms guard then lets that connection's forms through outside production, and holds every
+  other form as now. The interface is a protected part, so this answer also approves that piece.
+- b) **no**: staging keeps holding every form, QA included, and the switch's sentence says so.
+- Smaller: b, which builds nothing. Blocked: a form reaching Vitec's QA from staging. Answer a
+  or b.
+
+## 180. `[admin]` The new tenant page: six things beyond Patric's list, or that need his word
+
+- 2026-10-06 · Patric, 21:29 UTC, listed the new tenant page: the name, enabled or disabled, the
+  token with a way to make a new one; the CRM connections, each with its name and CRM, and for
+  Vitec the username, the password, the customer or group id, the QA switch, "Check login",
+  "Fetch offices" and the offices list, with the Flow list of the tenant under them; the sites,
+  each with its address, bell path and bell secret with a way to make a new one. It is built
+  from that list, from zero, beside the old page. These six need his word.
+
+| Item | What                                                                                                                                                                                                                                                                                                                                                                 | Why                                                                                                                                                                                                                                                                                                               | Recommended |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1    | A connection's name: **a)** a name of its own that can be changed (a new column `name`), while the short name stays the fixed key that Core files the records, events and links under, made by Core from the first name typed; **b)** the short name itself becomes changeable, and Core renames it in every record, event and link and in the CRM code's own lists. | His words: "Short name: make it editable". b also changes the CRM code's interface (a protected part) and rewrites stored history.                                                                                                                                                                                | a           |
+| 2    | The CRM code's interface gains one kind of login field, a checkbox stored as yes or no, so "Use Vitec's QA environment" is a tickbox.                                                                                                                                                                                                                                | His words: "a toggle/checkbox". The interface has no such field today, and it is a protected part.                                                                                                                                                                                                                | yes         |
+| 3    | The hint under "Customer or group id": "The id Vitec issued this login for. A group id, such as G12, loads every office in the group; a customer id, such as M30011, loads that one office."                                                                                                                                                                         | His words: "hint that any customer ID will work, if they have multiple". Core asks Vitec for exactly the id typed, and a login reads only the id it was issued for (Vitec refused any other on 2026-10-05), so a customer id loads only its own office. Inferred, not tested with a brokerage of several offices. | yes         |
+| 4    | Under each site, one line: when it last fetched changes, and what it answered when last told of changes.                                                                                                                                                                                                                                                             | The alert "a site stopped fetching" opens the site here; without the line the page says nothing about it.                                                                                                                                                                                                         | yes         |
+| 5    | "Remove this tenant" at the bottom of the page, with its sentence beside it.                                                                                                                                                                                                                                                                                         | Not in the list; without it no tenant can be removed.                                                                                                                                                                                                                                                             | yes         |
+| 6    | Once the old page is gone, the two switches only it had leave Core: a site's on/off switch, and a connection's pause switch, which the CRM code also reads through its interface (a protected part). A one-time step at the release drops both; every site and connection is then on.                                                                                | The clean-up rule: what nothing uses goes. A step that changes production's stored data needs his word.                                                                                                                                                                                                           | yes         |
+
+- Reply "180 ok" for every recommendation, or name the items to change. Smaller: item 1 a.
+  Blocked: renaming a saved connection (1; a new one still takes a name), the tickbox (2; the
+  field stays a typed yes or no until then); items 3 to 6 block nothing in the build.
 
 ## 178. `[core]` May Core keep each failing check's level, and show it on "Needs attention"?
 

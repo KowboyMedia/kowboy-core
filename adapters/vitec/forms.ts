@@ -125,7 +125,7 @@ async function call(
 ): Promise<unknown | null> {
   for (let tried = 0; ; tried += 1) {
     try {
-      return await connect.post(auth, path, body, sending.trace, sending.until);
+      return await connect.post(auth, sending.customerId, path, body, sending.trace, sending.until);
     } catch (error) {
       const wait = RETRY_WAITS_MS[tried];
       const again =

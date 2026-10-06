@@ -85,7 +85,7 @@ const ABOUT: Record<string, About> = {
 /**
  * A check in words. A CRM's check is shown on its CRM's page: its name starts with the CRM's
  * short name ("somecrm.catch_up"). Its checks are all about fetching from it, and until a check can
- * carry its own title (question 180), that is the title of each.
+ * carry its own title (question 184), that is the title of each.
  */
 export function aboutCheck(name: string): About {
   const about = ABOUT[name];

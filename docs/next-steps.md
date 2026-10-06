@@ -774,11 +774,11 @@ client ports (item 16, first client by question 80).
       `vitec.offices`, mark a QA office "(QA)"; the setup steps say all of it.
     - **Renamed on staging 2026-10-06** (Patric, 21:29 UTC, in his rebuild of the tenant page: "is
       supposed to be a toggle/checkbox "Use Vitec's QA environment". If checked, use Vitecs test
-      accounts"): the field reads "Use Vitec’s QA environment" and still takes yes or no. Drawing
-      it as a tickbox waits on a checkbox in the field description every CRM shares, which the new
-      tenant page (item 27) raises with Patric. His same message says the switch "allows form
-      submissions even in staging", against his 19:29 UTC rule that staging only dry-runs forms;
-      nothing is built on that until he settles it.
+      accounts"): the field reads "Use Vitec’s QA environment" and declares the fixed values no
+      and yes, which the new tenant page (item 27) draws as a tickbox, so the field description
+      every CRM shares is unchanged; its help and the setup steps say "tick". His same message
+      says the switch "allows form submissions even in staging", against his 19:29 UTC rule that
+      staging only dry-runs forms; nothing is built on that until he answers question 181.
     - Tests: `adapters/vitec/qa.test.ts` (two stand-in Connects sharing office M1: loads,
       notifications, the daily comparison, a refusal and the office check after it, a switch from
       QA to live, a start-up round QA fails, Retry-After, "Check the login", a form, the page's
@@ -802,7 +802,12 @@ client ports (item 16, first client by question 80).
     - His reason: the session "Forms build review for production" "went complete apeshit, I dont
       trust a character of code from that session", so all of its forms code is re-checked against
       the approved list. What that session built is in its memory file
-      `forms-build-review-2026-10-05` and in `docs/forms.md` under "Built 2026-10-06".
+      `forms-build-review-2026-10-05` and in `docs/forms.md` under "Built 2026-10-06". The
+      re-check also covers what other threads changed in that code since: "Vitec office
+      whitelist" (37d0358) made `call` in `adapters/vitec/forms.ts` pass the office to the send,
+      so a form to an office Vitec refuses fails at once, with no retry, and the visitor sees the
+      error; and (f5e7779) a form whose advertising call gets a 401 or 403 blocks that office at
+      the worker's next tick, while the search profile's CRM calls block nothing.
     - Starts when Patric says so.
 
 ## Later, when Patric supplies them

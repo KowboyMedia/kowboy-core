@@ -258,11 +258,14 @@ export async function checkOffices(
   const at = new Date().toISOString();
   const checked: IdChecked[] = [];
   let answered = true;
-  for (const id of ids) {
-    const one = await checkId(auth, id, at);
-    checked.push(one.value);
-    answered &&= one.answered;
-  }
+  // Through the door as the office check: the one caller that asks about a refused office.
+  await connect.asOfficeCheck(async () => {
+    for (const id of ids) {
+      const one = await checkId(auth, id, at);
+      checked.push(one.value);
+      answered &&= one.answered;
+    }
+  });
   const last = await lastCheck(connectionId);
   carryRefusals(checked, last);
   const fresh = choose(checked);

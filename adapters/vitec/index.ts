@@ -296,6 +296,24 @@ const blockedIn = async (environment: connect.Environment): Promise<Set<string>>
       .map((office) => office.officeId),
   );
 
+/**
+ * Refusals that a person's button or a form met at the door (api.ts) since the last tick: each
+ * office is blocked as after a refusal at a fetch, told once to every connection that syncs it,
+ * and those connections hold their other calls until the office check, which runs this tick
+ * (question 161 a). A refusal no connection syncs the office of guards nothing and is forgotten.
+ */
+async function settleDoorRefusals(current: AdapterApi, targets: Live[]): Promise<void> {
+  for (const refusal of await store.refusalsAtDoor()) {
+    const office: store.Office = { environment: refusal.environment, officeId: refusal.officeId };
+    if (!(await blockedIn(office.environment)).has(office.officeId)) {
+      for (const owner of targets.filter((target) => syncs(target, office))) {
+        await blockOffice(current, owner, office.officeId, refusal.detail);
+      }
+    }
+    await store.forgetRefusal(office);
+  }
+}
+
 /** A block on an office no connection syncs any more guards nothing and is dropped, without a call. */
 async function dropStrayBlocks(targets: Live[]): Promise<void> {
   for (const office of await store.blockedOffices()) {
@@ -527,6 +545,11 @@ async function failed(
   trace: EventContext,
 ): Promise<void> {
   const kind = connect.kindOf(error);
+  // Blocked since it was claimed: nothing was sent, so it waits for its office like the rest.
+  if (kind === 'blocked') {
+    await store.park(entry);
+    return;
+  }
   if (kind === 'forbidden') {
     await store.park(entry);
     await blockOffice(current, live, entry.officeId, String(error));
@@ -602,7 +625,9 @@ async function listAll(
           ids.set(row.id, isoDate(row.changedAt));
         }
       } catch (error) {
-        // A refused office blocks and holds; anything else fails the schedule.
+        // An office blocked since the listing began is left for later; a refused office blocks
+        // and holds; anything else fails the schedule.
+        if (connect.kindOf(error) === 'blocked') return { listed, complete: false };
         if (connect.kindOf(error) !== 'forbidden' || !engine) throw error;
         await blockOffice(engine, live, officeId, String(error));
         return { listed, complete: false };
@@ -998,6 +1023,7 @@ async function tickOnce(): Promise<void> {
   for (const target of await live(current)) targets.push(await settleSwitch(current, target));
   const starting = (toStart ??= new Set(targets.map((target) => target.connection.id)));
   await resumeDue(targets);
+  await settleDoorRefusals(current, targets);
   await dropStrayBlocks(targets);
   for (const given of targets) {
     try {
