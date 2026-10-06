@@ -12,7 +12,9 @@ import { validateSlots, validateSubmission } from '../contract.js';
 import { connectionById, subscriberByBellUrl } from '../storage/connections.js';
 import { readItem } from '../storage/items.js';
 import {
+  claimAgain,
   claimSubmission,
+  contentOf,
   officesOfTenant,
   settleSubmission,
   submissionById,
@@ -38,6 +40,11 @@ export const SUBMISSION_TIMEOUT_MS = 20_000;
 const MINUTE_MS = 60_000;
 /** How often a repeated id still in flight looks for the first request's answer. */
 const WAIT_STEP_MS = 50;
+/**
+ * A form still waiting this long after its send began lost its answer: Core stopped before the
+ * CRM answered. It counts as not answered, and may be sent again (question 160 a).
+ */
+export const UNANSWERED_MS = 2 * SUBMISSION_TIMEOUT_MS;
 
 /** Who came in: the tenant, and the site when it is known. */
 type Door = { tenantId: number; subscriberId: number | null };
@@ -122,7 +129,9 @@ async function submitThrough(request: Request, door: Door): Promise<Response> {
   const { submission } = parsed;
 
   const routed = await route(door.tenantId, submission);
-  if ('response' in routed) return routed.response;
+  if ('error' in routed) {
+    return jsonResponse(routed.status, { id: submission.id, error: routed.error });
+  }
   const { connection, send } = routed;
 
   const where = {
@@ -186,14 +195,13 @@ function parseSubmission(request: Request): Parsed {
 }
 
 type Routed =
-  { connection: Connection; send: NonNullable<Adapter['submit']> } | { response: Response };
+  | { connection: Connection; send: NonNullable<Adapter['submit']> }
+  | { status: number; error: string };
 
 /** The connection the submission goes through, and the adapter that takes this kind. */
 async function route(tenantId: number, submission: Submission): Promise<Routed> {
   const found = await findConnection(tenantId, submission);
-  if ('error' in found) {
-    return { response: jsonResponse(400, { id: submission.id, error: found.error }) };
-  }
+  if ('error' in found) return { status: 400, error: found.error };
   if (found.officeId && !submission.office_id) submission.office_id = found.officeId;
 
   const { connection } = found;
@@ -201,10 +209,8 @@ async function route(tenantId: number, submission: Submission): Promise<Routed> 
   const handlers = submissionsFor(connection.provider);
   if (!manifest?.submissions?.includes(submission.kind) || !handlers?.submit) {
     return {
-      response: jsonResponse(501, {
-        id: submission.id,
-        error: `this tenant's CRM takes no ${submission.kind.replace('_', ' ')}`,
-      }),
+      status: 501,
+      error: `this tenant's CRM takes no ${submission.kind.replace('_', ' ')}`,
     };
   }
   return { connection, send: handlers.submit };
@@ -315,7 +321,12 @@ async function settled(row: SubmissionRow): Promise<SubmissionRow> {
 }
 
 /** An outcome as the table holds it: `detail` is the refusal's reason or the failure's cause. */
-type Answer = { id: string; outcome: string; reference?: string | null; detail?: string | null };
+export type Answer = {
+  id: string;
+  outcome: string;
+  reference?: string | null;
+  detail?: string | null;
+};
 
 const toAnswer = (id: string, result: SubmissionResult): Answer => ({
   id,
@@ -344,6 +355,42 @@ function answerFrom(answer: Answer): Response {
       // Failed, or still unanswered after the timeout: the visitor tries again.
       return jsonResponse(502, { id: answer.id, status: 'failed' });
   }
+}
+
+/** A form's id is a UUID (schemas/submission.v1.json); anything else names no form. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** What a person's "Send again" got: the CRM's answer, or why nothing was sent. */
+export type SentAgain = { answer: Answer } | { status: number; error: string };
+
+/**
+ * "Send again" in the admin area (question 160 a): a form Core keeps goes to its tenant's CRM
+ * once more under its own id, through the same route, guard and CRM call as a site's send, and
+ * the CRM's answer replaces the old one. Only a form the CRM refused or did not answer, and one
+ * send at a time; a form the CRM takes drops its details and leaves the list.
+ */
+export async function sendAgain(id: string): Promise<SentAgain> {
+  const row = UUID.test(id) ? await submissionById(id) : null;
+  const submission = row ? contentOf(row) : null;
+  if (!row || !submission) return { status: 404, error: 'Core keeps no such form.' };
+  const routed = await route(row.tenant_id, submission);
+  if ('error' in routed) return { status: 409, error: `Not sent: ${routed.error}.` };
+  if (!(await claimAgain(id, UNANSWERED_MS))) {
+    return { status: 409, error: 'This form is on its way to the CRM now, or the CRM took it.' };
+  }
+  const { connection, send } = routed;
+  const result = await deliver(send, connection, submission);
+  await settleSubmission(id, result);
+  await logEvent({
+    type: `submission.${result.outcome}`,
+    correlationId: id,
+    tenantId: row.tenant_id,
+    connectionId: connection.id,
+    datatype: row.datatype,
+    remoteId: row.remote_id,
+    fields: { kind: submission.kind, ...said(result) },
+  });
+  return { answer: toAnswer(id, result) };
 }
 
 /**

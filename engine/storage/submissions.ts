@@ -20,6 +20,7 @@ export type SubmissionRow = {
   reference: string | null;
   detail: string | null;
   received_at: Date;
+  /** When the CRM last answered; while a person's "Send again" is on its way, when it began. */
   answered_at: Date | null;
   /** The form as the site sent it, encrypted; null once the CRM took it, or after 30 days. */
   content: string | null;
@@ -105,6 +106,46 @@ export async function settleSubmission(id: string, result: SubmissionResult): Pr
      where id = $1`,
     [id, result.outcome, reference, detail],
   );
+}
+
+/**
+ * The forms Core keeps that the CRM did not take, newest first: refused, not answered, or cut off
+ * before the CRM answered (still waiting `unansweredMs` after the send began). What the admin
+ * area lists as failed forms (question 160 a).
+ */
+export async function keptSubmissions(
+  unansweredMs: number,
+): Promise<(SubmissionRow & { tenant: string })[]> {
+  const { rows } = await db().query<SubmissionRow & { tenant: string }>(
+    `select s.*, t.display_name as tenant
+     from submissions s join tenants t on t.id = s.tenant_id
+     where s.content is not null
+       and (s.outcome in ('refused', 'failed')
+            or (s.outcome = 'received'
+                and coalesce(s.answered_at, s.received_at) < now() - ($1 || ' milliseconds')::interval))
+     order by s.received_at desc`,
+    [unansweredMs],
+  );
+  return rows;
+}
+
+/**
+ * Take a kept form for one more send (question 160 a): only one the CRM refused or did not
+ * answer, and only one send at a time, so two presses of "Send again" send once. Null when the
+ * form is on its way, was taken, or keeps no details.
+ */
+export async function claimAgain(id: string, unansweredMs: number): Promise<SubmissionRow | null> {
+  const { rows } = await db().query<SubmissionRow>(
+    `update submissions
+     set outcome = 'received', reference = null, detail = null, answered_at = now()
+     where id = $1 and content is not null
+       and (outcome in ('refused', 'failed')
+            or (outcome = 'received'
+                and coalesce(answered_at, received_at) < now() - ($2 || ' milliseconds')::interval))
+     returning *`,
+    [id, unansweredMs],
+  );
+  return rows[0] ?? null;
 }
 
 export async function submissionById(id: string): Promise<SubmissionRow | null> {

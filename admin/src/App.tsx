@@ -1,5 +1,5 @@
 // The app: Refine over Core's admin API, React Router for the addresses, one toaster, and the
-// eight pages of the information architecture (docs/admin-panel-design.md §2).
+// pages of the information architecture (docs/admin-panel-design.md §2).
 import { Authenticated, Refine, type NotificationProvider } from '@refinedev/core';
 import routerProvider, { CatchAllNavigate } from '@refinedev/react-router';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router';
@@ -15,6 +15,7 @@ import { Tenants } from '@/pages/tenants';
 import { TenantPage } from '@/pages/tenant';
 import { ManualSync } from '@/pages/manual-sync';
 import { ManualSyncPage } from '@/pages/sync';
+import { FailedForms } from '@/pages/forms';
 import { Events } from '@/pages/events';
 import { Crms } from '@/pages/crms';
 import { CrmPage } from '@/pages/crm';
@@ -44,6 +45,7 @@ export function App() {
           { name: 'records', list: '/records' },
           { name: 'tenants', list: '/tenants', show: '/tenants/:id', create: '/tenants/new' },
           { name: 'jobs', list: '/manual-sync' },
+          { name: 'forms', list: '/forms' },
           { name: 'events', list: '/events' },
           { name: 'crms', list: '/crms', show: '/crms/:provider' },
           { name: 'settings', list: '/settings' },
@@ -76,6 +78,7 @@ export function App() {
             </Route>
             <Route path="manual-sync" element={<ManualSync />} />
             <Route path="sync" element={<ManualSyncPage />} />
+            <Route path="forms" element={<FailedForms />} />
             <Route path="events" element={<Events />} />
             <Route path="crms" element={<Outlet />}>
               <Route index element={<Crms />} />

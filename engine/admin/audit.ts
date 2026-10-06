@@ -10,6 +10,8 @@ export type AuditContext = {
   subscriberId?: number | null;
   datatype?: string | null;
   remoteId?: string | null;
+  /** The chain the action belongs to, such as a form's id. */
+  correlationId?: string | null;
 };
 
 export function audit(

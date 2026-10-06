@@ -1056,10 +1056,24 @@ staging when it is done:
   `engine/storage/submissions.ts`); then housekeeping empties it, and the row goes with the event
   retention as before. The events, the error tracker and the table in plain text still hold
   nothing about the person (criterion 44's tests, one of them on the kept details). On staging
-  every form keeps its details, since the guard refuses them all. Next: the admin page of failed
-  forms with "Send again" (line 4); the retry by the CRM's code (line 2) waits on 165; the alert
-  for a form that failed for good (line 5) comes with the retry, as 172 gives
-  `submissions.failing` its levels.
+  every form keeps its details, since the guard refuses them all. The retry by the CRM's code
+  (line 2) waits on 165; the alert for a form that failed for good (line 5) comes with the retry,
+  as 172 gives `submissions.failing` its levels.
+- **Failed forms in the admin area, with "Send again"** (160 a line 4): the page Failed forms
+  (`admin/src/pages/forms.tsx`) lists every form Core keeps that the CRM did not take, newest
+  first: the kind, the tenant and when it was sent, why it is there (the CRM's reason or the
+  failure's cause, or that Core stopped before the CRM answered), the home with a link to its
+  record, the office, and everything the visitor wrote. "Send again", with its sentence beside
+  it and a question first, sends the form once more under its own id through the same route,
+  guard and CRM call as a site's send (`sendAgain` in `engine/http/submissions.ts`); the CRM's
+  answer replaces the old one, and a form the CRM takes drops its details and leaves the list.
+  `claimAgain` lets one send through at a time, so two presses send once; a form still waiting
+  twice the CRM's time (40 s) after its send began lost its answer and is listed as not
+  answered. The admin API is `GET /v1/admin/forms` and `POST /v1/admin/forms/:id/send-again`;
+  the send logs `submission.<outcome>` and `admin.form_sent_again` (who pressed it, and the
+  outcome) on the form's chain. Proved by `acceptance/submissions.test.ts` over HTTP and by the
+  admin journey "failed forms" in a browser (`admin/e2e/journeys.spec.ts`, where the journey
+  Core's stand-in CRM takes an interest, so a form tried there is kept by the guard).
 - **Known, not built:** a free valuation from the footer names no office, so on a site whose
   brokerage has several offices Core answers 400 "office_id is required" and the window says the
   form could not be sent; the office is set on the site's side when such a site gets forms

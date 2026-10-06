@@ -427,9 +427,12 @@ client ports (item 16, first client by question 80).
     idea of drawing the bot check in a frame from Core's address is set aside by 155's line 6.
     **Built 2026-10-06** (docs/forms.md, "Built 2026-10-06: the first version"): the guard, the
     bot check, the three windows in theme 1.2.0 with plugin 0.6.0's two receivers, and the
-    widget, the browser door and the site keys removed from Core, the plugin and the admin area.
-    Next: each site's address on Cloudflare's list, the seven Vitec forms fields, then failed
-    forms.
+    widget, the browser door and the site keys removed from Core, the plugin and the admin area;
+    the seven Vitec forms fields removed; and, of 160 a, a form's details kept encrypted until the
+    CRM has them (30 days when it refused or did not answer) and the admin page Failed forms
+    with "Send again". Next: each site's address on Cloudflare's list (waits on 171), the retry
+    by the CRM's code (waits on 165), and the alert for a form that failed for good, which comes
+    with the retry under 172's levels.
 
 22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
     inside the wp admin, not fetched from the CRM"; the strategy with both homes in

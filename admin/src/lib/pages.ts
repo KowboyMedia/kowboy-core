@@ -10,6 +10,7 @@ const ICON: Record<string, string> = {
   Tenants: 'building',
   'Manual sync': 'play',
   'Manual sync (old)': 'play',
+  'Failed forms': 'inbox',
   Events: 'list',
   CRMs: 'plug',
   Settings: 'settings',

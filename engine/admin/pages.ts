@@ -28,6 +28,11 @@ export const PAGES: Page[] = [
     path: '/manual-sync',
     what: 'The page being replaced; goes when the new one is approved',
   },
+  {
+    name: 'Failed forms',
+    path: '/forms',
+    what: 'Forms the CRM did not take, to read and send again',
+  },
   { name: 'Events', path: '/events', what: 'Everything that happened' },
   { name: 'CRMs', path: '/crms', what: 'Each adapter’s own page' },
   { name: 'Settings', path: '/settings', what: 'Configuration, versions, maintenance' },

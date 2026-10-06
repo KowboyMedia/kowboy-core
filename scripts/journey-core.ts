@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net';
 import { startEngine } from '../engine/index.js';
 import { adapterApi, startAdapter } from '../engine/adapter-api/index.js';
 import { adapterRoutes } from '../engine/http/server.js';
-import { registerAdmin } from '../engine/registry.js';
+import { registerAdmin, registerSubmissions } from '../engine/registry.js';
 import { db } from '../engine/storage/db.js';
 import { deliverLifecycleEvents } from '../engine/lifecycle.js';
 import { fakeWebhookAdapter } from '../adapters/fake-webhook/index.js';
@@ -51,15 +51,22 @@ await db().query(
 );
 await db().query("select setval('item_seq', 1, false)");
 
-adapterApi(fakeWebhookAdapter.manifest.provider).register(
-  fakeWebhookAdapter.manifest,
-  fakeWebhookAdapter.mappers,
-);
+// The fake CRM here takes an interest, so a form tried in the journeys goes as far as the guard:
+// this Core is not the live service, so the form stops before any CRM call and is kept as
+// refused, which is what "Failed forms" lists and sends again.
+const takesForms = {
+  ...fakeWebhookAdapter,
+  manifest: { ...fakeWebhookAdapter.manifest, submissions: ['interest' as const] },
+};
+adapterApi(takesForms.manifest.provider).register(takesForms.manifest, takesForms.mappers);
+registerSubmissions(takesForms.manifest.provider, {
+  submit: () => Promise.resolve({ outcome: 'delivered' }),
+});
 if (fakeWebhookAdapter.admin) {
   registerAdmin(fakeWebhookAdapter.manifest.provider, fakeWebhookAdapter.admin);
 }
 fillTheCrm();
-await startAdapter(fakeWebhookAdapter);
+await startAdapter(takesForms);
 
 // The worker's two ticks the journeys depend on: a save's lifecycle event reaches the adapter,
 // and the health checks are recorded, so the Overview page has a verdict to show.

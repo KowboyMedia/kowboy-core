@@ -44,6 +44,8 @@ import {
   type ScopeInput,
 } from './runs.js';
 import { scopeFromQuery, scopeOptions } from './scope.js';
+import { auditSentAgain, failedForms } from './forms.js';
+import { sendAgain } from '../http/submissions.js';
 import { listTenants, readTenant, removeTenant, saveTenant, type TenantInput } from './tenants.js';
 import {
   body,
@@ -493,6 +495,27 @@ const routes: AdminRoute[] = [
         limit: number(request, 'limit', 100),
       });
       return page(rows.map(toStreamEvent), rows.length);
+    },
+  },
+
+  // ---- Failed forms ----------------------------------------------------------------------------
+  {
+    method: 'GET',
+    path: '/forms',
+    handler: async () => {
+      const rows = await failedForms();
+      return page(rows, rows.length);
+    },
+  },
+  {
+    method: 'POST',
+    path: '/forms/:id/send-again',
+    handler: async (request) => {
+      const id = request.params['id'] ?? '';
+      const sent = await sendAgain(id);
+      if ('error' in sent) return fail(sent.status, sent.error);
+      await auditSentAgain(request.session, id, sent.answer.outcome);
+      return one(sent.answer);
     },
   },
 

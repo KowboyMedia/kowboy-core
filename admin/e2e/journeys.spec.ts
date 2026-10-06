@@ -1,5 +1,6 @@
 // One test per use case of docs/admin-panel-rebuild.md §1, walked as a person walks it. Each name
 // starts with "journey:" so the acceptance report can name it under AC 42.
+import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 
 const EMAIL = 'tester@kowboy.se';
@@ -193,6 +194,51 @@ test('journey: U8 try things — ring a site and fetch a record again', async ({
   // nothing first (Patric, 2026-09-21: it is not dangerous, it is idempotent).
   await page.getByRole('button', { name: 'Fetch again' }).click();
   await expect(page.getByText('fetched from the CRM again', { exact: false })).toBeVisible();
+});
+
+test('journey: failed forms — read a form the CRM did not take, and send it again', async ({
+  page,
+}) => {
+  // A visitor's interest in a home, sent the way a site's server sends it, with the tenant's
+  // token. This Core is not the live service, so the form stops before the CRM and is kept.
+  await openTenant(page);
+  const token = await page
+    .getByRole('button', { name: 'Copy the tenant token' })
+    .locator('xpath=preceding-sibling::code')
+    .innerText();
+  const sent = await page.request.post('/v1/submissions', {
+    headers: { authorization: `Bearer ${token}` },
+    data: {
+      id: randomUUID(),
+      kind: 'interest',
+      record: { datatype: 'property', connection_id: 'acme-crm', remote_id: 'OBJ-1' },
+      person: {
+        first_name: 'Anna',
+        last_name: 'Svensson',
+        email: 'anna@example.se',
+        phone: '0701234567',
+      },
+      message: 'Hej! Jag vill gärna veta mer om bostaden.',
+      consent: { given: true, at: new Date().toISOString() },
+    },
+  });
+  expect(sent.status(), await sent.text()).toBe(409);
+
+  await go(page, 'Failed forms');
+  const form = page.getByTestId('failed-form');
+  await expect(form).toHaveCount(1);
+  await expect(form.getByText('Anna Svensson')).toBeVisible();
+  await expect(form.getByText('anna@example.se')).toBeVisible();
+  await expect(form.getByText('Hej! Jag vill gärna veta mer om bostaden.')).toBeVisible();
+  await expect(form.getByText('Det här är en testsida', { exact: false })).toBeVisible();
+  await expect(form.getByRole('link', { name: 'OBJ-1' })).toBeVisible();
+
+  // The button says beside it what it does, and asks before it sends.
+  await expect(form.getByText('Sends this form to the CRM again.', { exact: false })).toBeVisible();
+  await form.getByRole('button', { name: 'Send again' }).click();
+  await page.getByRole('button', { name: 'Send it' }).click();
+  await expect(page.getByText('Refused again:', { exact: false })).toBeVisible();
+  await expect(form).toHaveCount(1);
 });
 
 test('journey: U7 configure an adapter — its directions, settings and actions', async ({
