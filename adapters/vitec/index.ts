@@ -209,7 +209,26 @@ async function resumeDue(targets: Live[]): Promise<void> {
   }
 }
 
-/** An office is blocked, told once: nothing is asked for it until the office check reads it. */
+/**
+ * The connections an office's block concerns: the one that met it, and every other that syncs the
+ * office in the same system. Each is told on its own, so its own events say what its office went
+ * through (the super admin's notifications read them per connection).
+ */
+async function concerned(
+  current: AdapterApi,
+  connectionId: string,
+  office: store.Office,
+): Promise<string[]> {
+  const others = (await live(current))
+    .filter((target) => syncs(target, office))
+    .map((target) => target.connection.id);
+  return [...new Set([connectionId, ...others])];
+}
+
+/**
+ * An office is blocked, told once to each connection it concerns: nothing is asked for it until
+ * the office check reads it.
+ */
 async function markBlocked(
   current: AdapterApi,
   connectionId: string,
@@ -217,11 +236,13 @@ async function markBlocked(
   detail: string,
 ): Promise<void> {
   if (!(await store.blockOffice(office, detail))) return;
-  await current.logEvent(
-    'office.blocked',
-    { office_id: office.officeId, connection_id: connectionId, detail },
-    { connectionId },
-  );
+  for (const id of await concerned(current, connectionId, office)) {
+    await current.logEvent(
+      'office.blocked',
+      { office_id: office.officeId, connection_id: id, detail },
+      { connectionId: id },
+    );
+  }
   current.report(new Error('vitec office blocked'), {
     office_id: office.officeId,
     connection_id: connectionId,
@@ -768,9 +789,11 @@ async function settleSwitch(current: AdapterApi, target: Live): Promise<Live> {
   const before = await lastCheck(connection.id);
   if (!before || before.environment === credentials.environment) return target;
   const now = credentials.environment === 'qa' ? 'Vitec’s QA environment' : 'live Vitec';
+  // One switch, one cause: every office it takes off shares one id.
+  const correlationId = randomUUID();
   for (const officeId of before.offices) {
     const reason = `the login was switched to ${now}`;
-    await takeOff(current, connection, officeId, reason, before.names[officeId]);
+    await takeOff(current, connection, officeId, reason, before.names[officeId], correlationId);
   }
   await store.clearState(connection.id);
   return { ...target, offices: [] };
@@ -789,13 +812,19 @@ async function checkAndApply(current: AdapterApi, target: Live): Promise<Live> {
   const check = await checkOffices(connection.id, credentials, connect.crmAuthOf(credentials), ids);
   await noteRefusedLogin(current, connection, before, check);
   const next = { ...target, offices: check.offices };
+  // The blocks first, so an office that reads again is told unblocked before it is taken off.
+  const back = await settleBlocks(current, connection, credentials.environment, check);
+  // Offices taken off for the same reason in this check share one id: one cause, one alert.
+  const causes = new Map<string, string>();
   for (const officeId of target.offices.filter((office) => !check.offices.includes(office))) {
     const name =
       before?.names[officeId] ??
       check.ids.flatMap((one) => one.offices).find((one) => one.customerId === officeId)?.name;
-    await takeOff(current, connection, officeId, takenOffBecause(check, officeId), name);
+    const reason = takenOffBecause(check, officeId);
+    const correlationId = causes.get(reason) ?? randomUUID();
+    causes.set(reason, correlationId);
+    await takeOff(current, connection, officeId, reason, name, correlationId);
   }
-  const back = await settleBlocks(current, connection, credentials.environment, check);
   // A hold that began after this check started waits for the next one, at the next tick.
   const held = await heldSince(connection.id);
   if (held !== null && held <= check.at) await store.setState(connection.id, 'held', '');
@@ -811,8 +840,8 @@ async function checkAndApply(current: AdapterApi, target: Live): Promise<Live> {
 /**
  * The blocks follow the check (question 161 a): an office Vitec refused, on its own or with the
  * whole id, stays or becomes blocked while it is still synced, so no call asks about it until the
- * next check; a blocked office that read is unblocked and returned, to be loaded in full, since
- * nothing of it was fetched while it was blocked.
+ * next check; a blocked office that read is unblocked, told to each connection it concerns, and
+ * returned, to be loaded in full, since nothing of it was fetched while it was blocked.
  */
 async function settleBlocks(
   current: AdapterApi,
@@ -832,15 +861,27 @@ async function settleBlocks(
         : null;
     if (detail) await markBlocked(current, connection.id, { environment, officeId }, detail);
   }
+  return unblockReadable(current, connection.id, environment, readable);
+}
+
+/** The blocked offices of one system that read at the check: unblocked, told, and returned. */
+async function unblockReadable(
+  current: AdapterApi,
+  connectionId: string,
+  environment: connect.Environment,
+  readable: ReadonlySet<string>,
+): Promise<string[]> {
   const back = [];
   for (const office of await store.blockedOffices()) {
     if (office.environment !== environment || !readable.has(office.officeId)) continue;
     await store.unblockOffice(office);
-    await current.logEvent(
-      'office.unblocked',
-      { office_id: office.officeId },
-      { connectionId: connection.id },
-    );
+    for (const id of await concerned(current, connectionId, office)) {
+      await current.logEvent(
+        'office.unblocked',
+        { office_id: office.officeId },
+        { connectionId: id },
+      );
+    }
     back.push(office.officeId);
   }
   return back;
@@ -850,13 +891,15 @@ async function settleBlocks(
  * An office no longer synced (Patric, 2026-10-06: "an office that is removed regardless of method
  * needs to have their data pulled from client sites"): every record of it is tombstoned, so each
  * site deletes it at its next sync, and the tombstone stays for the engine's retention window.
+ * Offices taken off for one cause carry the same correlation id.
  */
 async function takeOff(
   current: AdapterApi,
   connection: Connection,
   officeId: string,
   reason: string,
-  name?: string | null,
+  name: string | null | undefined,
+  correlationId: string,
 ): Promise<void> {
   if (!officeId) return; // an empty office would be every office
   for (const datatype of DATATYPES)
@@ -866,7 +909,7 @@ async function takeOff(
   await current.logEvent(
     'office.taken_off',
     { office_id: officeId, ...(name ? { office_name: name } : {}), reason },
-    { connectionId: connection.id },
+    { connectionId: connection.id, correlationId },
   );
 }
 

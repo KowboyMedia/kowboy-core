@@ -209,7 +209,11 @@ itself, all of it inside the adapter:
   on the first day and one a day after, which also brings it back by itself when Vitec answers
   again. A refused office stays on the sites for a day and is then taken off (question 158 b, under
   "Which offices are synced"). `vitec.offices` is red while an office is blocked, and the panel
-  lists the blocked offices; "Check offices now" on the tenant's page asks at once.
+  lists the blocked offices; "Check offices now" on the tenant's page asks at once. A block and its
+  end are logged (`office.blocked`, `office.unblocked`) once for each connection that syncs the
+  office in that system, and a check settles the blocks before it takes offices off. The offices
+  one check takes off for one reason, or one switch takes off, share one correlation id on their
+  `office.taken_off`, so the super admin's notifications tell one cause once.
 - **Vitec down, busy or unreachable** (timeouts, 5xx, 429, network errors) and **broken answers**
   count per connection: after five in a row the connection pauses, two minutes doubling to thirty,
   and shows red in `vitec.connect`. When the pause runs out the next fetches go through as a probe;
