@@ -561,16 +561,29 @@ describe('the admin area', () => {
       body: tenantBody(),
     });
     const tenantId = made.body.data.id;
-    crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
-    await running.deliver();
-    await until(
-      async () => (await api<{ total: number }>('/records?datatype=office')).body.total === 1,
-      'the office to reach the records',
-    );
+    // A sites check from before the sites were kept on it: one line with the names it gave.
+    await logEvent({
+      type: 'check.failed',
+      fields: {
+        name: 'subscribers',
+        detail: '1 site(s) have not pulled for an hour',
+        names: ['old.se'],
+      },
+    });
+    // The office's record is already removed when the adapter tells: its name comes with the event.
     await logEvent({
       type: 'office.taken_off',
       connectionId: 'acme-crm',
-      fields: { office_id: '100', reason: 'it is no longer in the office group the sites use' },
+      fields: {
+        office_id: '100',
+        office_name: 'Lidingö',
+        reason: 'it is no longer in the office group the sites use',
+      },
+    });
+    await logEvent({
+      type: 'connection.paused',
+      connectionId: 'acme-crm',
+      fields: { failures: 5, detail: 'the CRM did not answer' },
     });
     // Older than a week: not listed.
     await logEvent({
@@ -598,9 +611,18 @@ describe('the admin area', () => {
         type: 'check.failed',
         title: 'a site stopped pulling',
         what: 'site acme.se',
-        link: `/tenants/${String(tenantId)}#site-${String(siteId)}`,
+        link: `/tenants/${String(tenantId)}#site:${String(siteId)}`,
         tenantId,
         tenant: 'Acme Mäklare',
+        connectionId: null,
+      }),
+      // The connection is the thing itself, so it is not named again as where it is.
+      expect.objectContaining({
+        type: 'connection.paused',
+        what: 'connection acme-crm',
+        link: `/tenants/${String(tenantId)}#connection:acme-crm`,
+        tenant: 'Acme Mäklare',
+        connectionId: null,
       }),
       expect.objectContaining({
         type: 'office.taken_off',
@@ -611,6 +633,12 @@ describe('the admin area', () => {
         tenantId,
         tenant: 'Acme Mäklare',
         connectionId: 'acme-crm',
+      }),
+      expect.objectContaining({
+        type: 'check.failed',
+        what: 'site old.se',
+        link: '/tenants',
+        tenant: null,
       }),
     ]);
   });

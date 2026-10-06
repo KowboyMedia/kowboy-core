@@ -42,9 +42,14 @@ export function ScopePicker({
   const tenant = options.tenants.find((one) => String(one.id) === value.tenantId);
   const connections = tenant?.connections ?? [];
   const connection = connections.find((one) => one.id === value.connectionId);
-  // Without a connection chosen, offer every office of the tenant's connections.
+  // Without a connection chosen, offer every office of the tenant's connections. An office the
+  // address names stays offered when no connection lists it any more (one taken off the sites), so
+  // the picker shows the filter the list applies.
   const offices = [
-    ...new Set((connection ? [connection] : connections).flatMap((one) => one.offices)),
+    ...new Set([
+      ...(connection ? [connection] : connections).flatMap((one) => one.offices),
+      ...(value.officeId ? [value.officeId] : []),
+    ]),
   ].sort();
 
   // Narrowing the wider picker drops whatever the narrower ones held, so a scope is never a

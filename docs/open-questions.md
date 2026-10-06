@@ -77,9 +77,9 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   needs attention, state specifically which entity where, and link to it."
 - **The rules proposed.** A, red: homes on the sites are wrong or missing, or a form does not
   reach the brokerage, and Core cannot fix it alone; it is mailed and sent to Slack once when it
-  starts and once when it is over, and listed on the Overview. B, yellow: Core held it or works
-  around it and recovers alone, but a person should look within a day; it is listed on the
-  Overview for seven days and never mailed. C, quiet: a red that is over within five minutes is
+  starts and once when it is over, for each site, office or connection on its own, and listed on
+  the Overview. B, yellow: Core held it or works around it and recovers alone, but a person should
+  look within a day; it is listed on the Overview for seven days and never mailed. C, quiet: a red that is over within five minutes is
   never told, so a restart or a release never alerts; a yellow that repeats is one line per thing
   per day, with a count. These sharpen Patric's own rule with two words: "alone" (Core cannot
   recover by itself) and "a day" (how soon a yellow should be read).

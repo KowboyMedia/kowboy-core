@@ -268,7 +268,7 @@ describe('alerts', () => {
     expect(running.mails[0]?.text).toContain('https://core.example/v1/health');
     // Each site it names, with its tenant and its place on the tenant's page (question 163).
     expect(running.mails[0]?.text).toContain(
-      'site test site, tenant Test tenant: https://core.example/admin/tenants/1#site-1',
+      'site test site, tenant Test tenant: https://core.example/admin/tenants/1#site:1',
     );
 
     // Still red: told once, not every minute.
@@ -279,6 +279,10 @@ describe('alerts', () => {
     const green = await checkAlerts(config);
     expect(green).toEqual([{ name: 'subscribers', ok: true, detail: null, names: [] }]);
     expect(running.mails[1]?.subject).toContain('all checks green again');
+    // A check turning green names no thing: the message is its sentence and the health page.
+    expect(running.mails[1]?.text).toBe(
+      'the check subscribers is green again\n\nhttps://core.example/v1/health',
+    );
 
     // Each change is an event too, so the Overview can list a site that stopped pulling for a week.
     const changes = await queryEvents({ type: 'check.failed' });

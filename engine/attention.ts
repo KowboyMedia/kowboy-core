@@ -22,8 +22,8 @@ export type Kind = {
 
 /**
  * The kinds the super admin is told about. An adapter logs the first three through the adapter
- * API with the connection in the context: `office.taken_off` (`office_id`, `reason` in plain
- * words), `connection.paused` (`failures`, `detail`) and `login.refused` (`detail`). The last one
+ * API with the connection in the context: `office.taken_off` (`office_id`, `office_name` when the
+ * adapter knows it, `reason` in plain words), `connection.paused` (`failures`, `detail`) and `login.refused` (`detail`). The last one
  * the engine logs itself when the check that watches the sites turns red (alerts.ts).
  */
 export const KINDS: readonly Kind[] = [
@@ -51,7 +51,7 @@ export function kindOf(type: string, fields: EventFields): Kind | null {
 }
 
 /** One thing that needs attention: which it is, where it is, and its place in the admin area. */
-export type AttentionRow = {
+export type AttentionRow = Place & {
   /** The event and, when one event names several things, which of them. */
   key: string;
   id: number;
@@ -59,13 +59,6 @@ export type AttentionRow = {
   type: string;
   kind: Kind;
   fields: EventFields;
-  /** The thing itself, in words: "office Lidingö (M30011)", "connection acme-crm", "site acme.se". */
-  what: string;
-  /** Its place in the admin area, a path under /admin. */
-  link: string;
-  tenantId: number | null;
-  tenant: string | null;
-  connectionId: string | null;
 };
 
 type EventRow = {
@@ -78,32 +71,31 @@ type EventRow = {
 };
 
 /**
- * The things that need attention, newest first, from the last seven days, one row per thing; or
- * the one event named, as the alert reads it, so the list and the alert say the same thing about
- * the same event (Patric, question 163: "state specifically which entity where, and link to it").
+ * The things that need attention, newest first, from the last seven days, one row per thing, each
+ * named and placed as the alert names and places it (Patric, question 163: "state specifically
+ * which entity where, and link to it").
  */
-export async function attention(only: { id: number } | null = null): Promise<AttentionRow[]> {
+export async function attention(): Promise<AttentionRow[]> {
   const { rows } = await db().query<EventRow>(
     `select e.id, e.at, e.type, e.fields, e.connection_id, e.tenant_id
      from events e
      where e.at >= now() - ($1 || ' days')::interval and e.type = any($2::text[])
-       and ($3::bigint is null or e.id = $3)
      order by e.id desc
      limit 500`,
-    [ATTENTION_DAYS, [...new Set(KINDS.map((kind) => kind.type))], only?.id ?? null],
+    [ATTENTION_DAYS, [...new Set(KINDS.map((kind) => kind.type))]],
   );
+  const known = await knownNow();
   const listed: AttentionRow[] = [];
   for (const row of rows) {
     const kind = kindOf(row.type, row.fields);
     if (!kind) continue;
-    for (const [index, place] of (await placesOf(row)).entries()) {
+    for (const [index, place] of (await placesOf(row, known)).entries()) {
       listed.push({
         id: Number(row.id),
         at: row.at,
         type: row.type,
         kind,
         fields: row.fields,
-        connectionId: row.connection_id,
         ...place,
         key: `${row.id}-${String(index)}`,
       });
@@ -112,73 +104,116 @@ export async function attention(only: { id: number } | null = null): Promise<Att
   return listed;
 }
 
-export type Place = { what: string; link: string; tenantId: number | null; tenant: string | null };
+/**
+ * One thing that needs attention: the thing in words ("office Lidingö (M30011)", "connection
+ * acme-crm", "site acme.se"), its place in the admin area (a path under /admin), its tenant, and
+ * the connection it belongs to, which is null when the thing is the connection itself or a site.
+ */
+export type Place = {
+  what: string;
+  link: string;
+  tenantId: number | null;
+  tenant: string | null;
+  connectionId: string | null;
+};
 
-/** Which thing an event is about, where it is, and its place: one, or one per site. */
+/** The tenants' names and the connections' tenants, read once per list or alert. */
+type Known = {
+  names: Map<number, string>;
+  tenantOf: (connectionId: string) => Promise<number | null>;
+};
+
+async function knownNow(): Promise<Known> {
+  const { rows } = await db().query<{ id: number; display_name: string }>(
+    'select id, display_name from tenants',
+  );
+  const tenants = new Map<string, number | null>();
+  return {
+    names: new Map(rows.map((row) => [Number(row.id), row.display_name])),
+    tenantOf: async (connectionId) => {
+      if (!tenants.has(connectionId))
+        tenants.set(connectionId, (await connectionById(connectionId))?.tenantId ?? null);
+      return tenants.get(connectionId) ?? null;
+    },
+  };
+}
+
+/**
+ * Which things an event that needs attention is about, where each is, and its place: one, or one
+ * per site. An event of no kind (a check turning green) names nothing.
+ */
 export async function placesOf(
   row: Pick<EventRow, 'type' | 'fields' | 'tenant_id' | 'connection_id'>,
+  known?: Known,
 ): Promise<Place[]> {
-  const names = await tenantNames();
+  if (!kindOf(row.type, row.fields)) return [];
+  const { names, tenantOf } = known ?? (await knownNow());
   // An adapter's event carries its connection and not its tenant: the tenant is the connection's.
-  const connection = row.connection_id ? await connectionById(row.connection_id) : null;
-  const tenantId = row.tenant_id ?? connection?.tenantId ?? null;
-  return (await places({ ...row, tenant_id: tenantId })).map((place) => ({
+  const tenantId = row.tenant_id ?? (row.connection_id ? await tenantOf(row.connection_id) : null);
+  return places({ ...row, tenant_id: tenantId }).map((place) => ({
     ...place,
     tenant: place.tenantId === null ? null : (names.get(place.tenantId) ?? null),
   }));
 }
 
-async function places(
+function places(
   row: Pick<EventRow, 'type' | 'fields' | 'tenant_id' | 'connection_id'>,
-): Promise<Omit<Place, 'tenant'>[]> {
+): Omit<Place, 'tenant'>[] {
   const tenantId = row.tenant_id;
   const connection = row.connection_id ?? '';
-  const office = typeof row.fields['office_id'] === 'string' ? row.fields['office_id'] : '';
+  const text = (key: string): string =>
+    typeof row.fields[key] === 'string' ? (row.fields[key] as string) : '';
   if (row.type === 'office.taken_off') {
-    const name = await officeName(connection, office);
-    // The office's records, the removed ones: what left the sites with it.
+    // The office's name comes with the event: its record in Core is already removed by then.
+    const office = text('office_id');
     const scope = new URLSearchParams({ connection, office, deleted: 'true' });
     if (tenantId !== null) scope.set('tenant', String(tenantId));
     return [
       {
-        what: name ? `office ${name} (${office})` : `office ${office}`,
+        what: text('office_name')
+          ? `office ${text('office_name')} (${office})`
+          : `office ${office}`,
+        // The office's records, the removed ones: what left the sites with it.
         link: `/records?${scope.toString()}`,
         tenantId,
+        connectionId: row.connection_id,
       },
     ];
   }
-  if (row.type === 'check.failed') {
-    const sites = Array.isArray(row.fields['sites']) ? (row.fields['sites'] as StaleSite[]) : [];
-    return sites.map((site) => ({
-      what: `site ${site.label}`,
-      link: `/tenants/${String(site.tenantId)}#site-${String(site.id)}`,
-      tenantId: site.tenantId,
-    }));
-  }
+  if (row.type === 'check.failed') return sitesOf(row.fields);
   return [
     {
       what: `connection ${connection}`,
       link:
-        tenantId === null ? '/tenants' : `/tenants/${String(tenantId)}#connection-${connection}`,
+        tenantId === null ? '/tenants' : `/tenants/${String(tenantId)}#connection:${connection}`,
       tenantId,
+      connectionId: null,
     },
   ];
 }
 
-async function tenantNames(): Promise<Map<number, string>> {
-  const { rows } = await db().query<{ id: number; display_name: string }>(
-    'select id, display_name from tenants',
-  );
-  return new Map(rows.map((row) => [Number(row.id), row.display_name]));
-}
-
-/** The office's own name, from its record in Core, when Core holds one. */
-async function officeName(connectionId: string, officeId: string): Promise<string | null> {
-  const { rows } = await db().query<{ name: string | null }>(
-    `select data->>'name' as name from items
-     where connection_id = $1 and datatype = 'office' and office_id = $2
-     order by deleted, seq desc limit 1`,
-    [connectionId, officeId],
-  );
-  return rows[0]?.name ?? null;
+/**
+ * The sites a red sites check names, each on its tenant's page. A check written without them (one
+ * from before they were kept, or a site that pulled again between the check and this list) is one
+ * line with the names the check gave, on the Tenants page.
+ */
+function sitesOf(fields: EventFields): Omit<Place, 'tenant'>[] {
+  const sites = Array.isArray(fields['sites']) ? (fields['sites'] as StaleSite[]) : [];
+  if (sites.length === 0) {
+    const names = Array.isArray(fields['names']) ? (fields['names'] as string[]) : [];
+    return [
+      {
+        what: names.length > 0 ? `site ${names.join(', ')}` : 'a site',
+        link: '/tenants',
+        tenantId: null,
+        connectionId: null,
+      },
+    ];
+  }
+  return sites.map((site) => ({
+    what: `site ${site.label}`,
+    link: `/tenants/${String(site.tenantId)}#site:${String(site.id)}`,
+    tenantId: site.tenantId,
+    connectionId: null,
+  }));
 }

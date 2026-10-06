@@ -102,7 +102,7 @@ async function tellChanges(
   );
   await send(
     subject,
-    [...lines, ...places.map((place) => `${which(place, null)}: ${opened(place, config)}`)],
+    [...lines, ...places.map((place) => `${which(place)}: ${opened(place, config)}`)],
     config.publicUrl ? `${config.publicUrl}/v1/health` : null,
     config,
     { changes: changes.map((change) => `${change.name}=${change.ok ? 'ok' : 'red'}`) },
@@ -110,11 +110,11 @@ async function tellChanges(
 }
 
 /** The thing, and where it is: "office Lidingö (M30011), tenant Acme Mäklare, connection acme-crm". */
-const which = (place: Place, connectionId: string | null): string =>
+const which = (place: Place): string =>
   [
     place.what,
     place.tenant && `tenant ${place.tenant}`,
-    connectionId && `connection ${connectionId}`,
+    place.connectionId && `connection ${place.connectionId}`,
   ]
     .filter((part) => part)
     .join(', ');
@@ -135,7 +135,7 @@ async function tellEvent(event: EventRow, config: AlertConfig): Promise<void> {
     await send(
       `Core ${config.environment}: ${kind.title}`,
       [
-        `Which: ${which(place, event.connection_id)}`,
+        `Which: ${which(place)}`,
         `What happened: ${summarise(event.type, event.fields)}`,
         `Open it: ${opened(place, config)}`,
       ],

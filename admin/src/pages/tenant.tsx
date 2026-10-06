@@ -1,7 +1,7 @@
 // One tenant, one page, one Save (§3 A, Must; Patric's rule 1). Making a tenant and changing one
 // are the same page: name, licence, its CRM connections with their logins and offices, and its
 // sites. Nothing reloads; every outcome is a toast; every dangerous button is red and asks first.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { useCustomMutation, useList, useOne } from '@refinedev/core';
 import { toast } from 'sonner';
@@ -123,6 +123,15 @@ const offices = (value: string): string[] =>
     .map((office) => office.trim())
     .filter(Boolean);
 
+/** The anchor an address ends in, "connection:acme-crm" or "site:2"; a malformed one as typed. */
+function fragment(hash: string): string {
+  try {
+    return decodeURIComponent(hash.slice(1));
+  } catch {
+    return hash.slice(1);
+  }
+}
+
 /** What the page will not send, said at the field it belongs to (§3 A, Must). */
 function problems(form: Form): Record<string, string> {
   const found: Record<string, string> = {};
@@ -172,13 +181,18 @@ export function TenantPage() {
   }, [tenant]);
 
   // A link to one connection or site of this tenant (from "Needs attention" on the Overview)
-  // ends in its anchor: once that block is drawn, the page scrolls to it.
-  const { hash } = useLocation();
+  // ends in its anchor: once that block is drawn, the page scrolls to it, once per link, so typing
+  // or a refresh never pulls the page back.
+  const anchor = fragment(useLocation().hash);
+  const scrolled = useRef('');
   useEffect(() => {
-    if (hash) document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView();
-  }, [hash, form]);
-  const linked = (anchor: string): string =>
-    hash === `#${anchor}` ? 'rounded-lg border p-3 ring-2 ring-warn' : 'rounded-lg border p-3';
+    const block = anchor && scrolled.current !== anchor ? document.getElementById(anchor) : null;
+    if (!block) return;
+    block.scrollIntoView();
+    scrolled.current = anchor;
+  }, [anchor, form]);
+  const linked = (id: string): string =>
+    anchor === id ? 'rounded-lg border p-3 ring-2 ring-warn' : 'rounded-lg border p-3';
 
   const found = problems(form);
   const problem = (key: string): string | undefined => (touched ? found[key] : undefined);
@@ -409,8 +423,8 @@ export function TenantPage() {
             return (
               <div
                 key={index}
-                id={`connection-${connection.id}`}
-                className={linked(`connection-${connection.id}`)}
+                id={`connection:${connection.id}`}
+                className={linked(`connection:${connection.id}`)}
               >
                 <div className="grid gap-3 md:grid-cols-3">
                   <div className="flex flex-col gap-1">
@@ -615,8 +629,8 @@ export function TenantPage() {
             return (
               <div
                 key={index}
-                id={site.id === undefined ? undefined : `site-${String(site.id)}`}
-                className={linked(`site-${String(site.id)}`)}
+                id={site.id === undefined ? undefined : `site:${String(site.id)}`}
+                className={linked(`site:${String(site.id)}`)}
               >
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="flex flex-col gap-1">
