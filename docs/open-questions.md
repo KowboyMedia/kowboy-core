@@ -22,7 +22,8 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   the scope holds before anything runs. Below, the Flow list of the same scope, the same
   component as the Flow page, replaces the old list of runs. "Send to the sites only" gives the
   scope's live records new places in the order the sites pull by and rings their sites, so
-  every site pulls exactly the scope again.
+  every site pulls exactly the scope again; a site takes the records it lacks or holds in
+  another version and leaves one it already holds unchanged as it is (decision 2026-10-06).
 - **What goes once it is approved** (the handbook's clean-up rule): the old page and its menu
   entry; the preview of a whole scope and its call (a record's own page keeps its own preview,
   and the release preview of acceptance criterion 36 is the engine's, not the page's); the
