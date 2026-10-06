@@ -1025,8 +1025,8 @@ staging when it is done:
   the limit per visitor address with the socket address it read, a site's public key and its
   addresses in the admin area's tenant page and in Core's code, the plugin's "Site key" option
   (deleted when 0.6.0 is installed) and the deploy script's line for it. The two database
-  columns `subscribers.site_key` and `subscribers.origins` are dropped by migration 012 once
-  staging runs the code without them.
+  columns `subscribers.site_key` and `subscribers.origins` are dropped by migration 012
+  (`012_no_site_keys.sql`), sent once staging ran the code without them.
 - **The seven forms fields of a Vitec connection are gone** (155 line 5): "Send forms to Vitec",
   the lead source, the intake source, an interest's status, the e-mail and SMS confirmations and
   the reminder, with their directions, the adapter's reading of them and the switch's test under
