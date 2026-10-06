@@ -408,13 +408,20 @@ export async function reset(): Promise<void> {
 
 export type EntryView = Entry & { nextAt: Date | null; lastError: string | null };
 
-/** The fetch list as it stands: due first, then retrying, then what an operator was left with. */
-export async function entries(limit = 50): Promise<EntryView[]> {
+/**
+ * The fetch list as it stands: due first, then retrying, then what an operator was left with.
+ * Named offices narrow it to theirs.
+ */
+export async function entries(
+  limit = 50,
+  officeIds: readonly string[] | null = null,
+): Promise<EntryView[]> {
   const { rows } = await (
     await db()
   ).query<Row & { next_at: Date | null; last_error: string | null }>(
-    'select * from vitec_fetch_list order by next_at nulls last, queued_at limit $1',
-    [limit],
+    `select * from vitec_fetch_list where ($2::text[] is null or office_id = any($2::text[]))
+     order by next_at nulls last, queued_at limit $1`,
+    [limit, officeIds],
   );
   return rows.map((row) => ({ ...toEntry(row), nextAt: row.next_at, lastError: row.last_error }));
 }

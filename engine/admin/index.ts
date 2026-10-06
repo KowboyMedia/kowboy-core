@@ -43,7 +43,7 @@ import {
   LEVELS,
   type ScopeInput,
 } from './runs.js';
-import { scopeFromQuery, scopeOptions } from './scope.js';
+import { scopeFromBody, scopeFromQuery, scopeOptions } from './scope.js';
 import { auditSentAgain, failedForms } from './forms.js';
 import { sendAgain } from '../http/submissions.js';
 import { listTenants, readTenant, removeTenant, saveTenant, type TenantInput } from './tenants.js';
@@ -434,12 +434,15 @@ const routes: AdminRoute[] = [
     method: 'POST',
     path: '/runs/sync',
     handler: async (request) => {
-      const parsed = body<ScopeInput & { level?: string }>(request);
+      const parsed = body<Record<string, unknown> | null>(request);
       if ('error' in parsed) return parsed.error;
-      const level = LEVELS.find((known) => known === parsed.value.level);
+      const given = parsed.value ?? {};
+      const level = LEVELS.find((known) => known === given['level']);
       if (!level) return fail(400, `Say how far to go: ${LEVELS.join(', ')}.`);
-      const detail = await sync(level, parsed.value, request.session.email);
-      await audit(request.session, 'synced', { level, scope: describe(parsed.value) });
+      const read = scopeFromBody(given);
+      if ('error' in read) return fail(400, read.error);
+      const detail = await sync(level, read.scope, request.session.email);
+      await audit(request.session, 'synced', { level, scope: describe(read.scope) });
       return one({ detail });
     },
   },

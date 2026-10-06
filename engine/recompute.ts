@@ -17,8 +17,8 @@ import { changedFields } from './ingest.js';
 import type { Canonical, Datatype } from './adapter-api/types.js';
 
 /**
- * What to recompute: everything, a CRM, a tenant, a connection, an office, a datatype, one
- * record, a selection, or only the rows an older rules version produced (SRS §3).
+ * What to recompute: everything, tenants, offices, datatypes, a connection, one record, a
+ * selection, or only the rows an older rules version produced (SRS §3).
  */
 export type Scope = Omit<ScopeFilter, 'rulesVersionBefore'> & { staleRulesOnly?: boolean };
 

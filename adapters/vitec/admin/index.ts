@@ -497,7 +497,9 @@ export const vitecAdmin: AdapterAdmin = {
 
   async queue(connections): Promise<AdminQueued[]> {
     const offices = await Promise.all(connections.map((connection) => officesOf(connection)));
-    return (await store.entries(200)).map((entry) => ({
+    // Only these connections' offices: the answer is bounded, and the engine asks for the
+    // connections it shows.
+    return (await store.entries(200, offices.flat())).map((entry) => ({
       connectionId:
         connections.find((_, index) => offices[index]?.includes(entry.officeId))?.id ?? null,
       officeId: entry.officeId,

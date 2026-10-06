@@ -147,16 +147,16 @@ const listed = <T>(many: T[] | undefined, one: T | undefined): T[] =>
   many && many.length > 0 ? many : one === undefined || one === '' ? [] : [one];
 
 /**
- * The where clause of a scope. Live records unless `deleted` says otherwise (`undefined`: live
- * and removed alike, which only the records search asks for).
+ * The where clause of a scope. Live records unless `deleted` says otherwise (`null`: live and
+ * removed alike, which only the records search asks for).
  */
-function scopeWhere(scope: ScopeFilter, deleted: boolean | undefined = false): Where {
+function scopeWhere(scope: ScopeFilter, deleted: boolean | null = false): Where {
   const where: Where = { clauses: ['true'], values: [] };
   const add = (clause: string, value: unknown): void => {
     where.values.push(value);
     where.clauses.push(clause.replace('?', `$${where.values.length}`));
   };
-  if (deleted !== undefined) add('deleted = ?', deleted);
+  if (deleted !== null) add('deleted = ?', deleted);
   const tenantIds = listed(scope.tenantIds, scope.tenantId);
   if (tenantIds.length > 0) add('tenant_id = any(?::int[])', tenantIds);
   if (scope.connectionId) add('connection_id = ?', scope.connectionId);
@@ -321,7 +321,7 @@ export type ItemSearch = ScopeFilter & {
 
 /** Items in a scope, one page, with the count of everything that matches. */
 export async function searchItems(query: ItemSearch): Promise<{ rows: ItemRow[]; total: number }> {
-  const where = scopeWhere(query, query.deleted);
+  const where = scopeWhere(query, query.deleted ?? null);
   const sort = SORTABLE.find((column) => column === query.sort) ?? 'seq';
   const dir = query.dir === 'asc' ? 'asc' : 'desc';
   const size = Math.min(Math.max(query.size ?? 50, 1), 500);

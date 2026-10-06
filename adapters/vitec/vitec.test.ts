@@ -743,6 +743,8 @@ describe('the Vitec adapter', () => {
     await running.deliver();
     const queue = required(vitecAdmin.queue, 'queue');
     expect((await queue(connections)).map((row) => row.remoteId)).toContain('OBJ9');
+    // Only what waits for the connections asked about, so Flow narrowed to one tenant sees its own.
+    expect(await queue([])).toEqual([]);
     await drainFetchList();
     expect(await item('property', 'OBJ9')).toBeDefined();
 

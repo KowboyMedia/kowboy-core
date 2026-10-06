@@ -85,7 +85,11 @@ export function FlowList({ scope, options }: { scope: Scope; options: ScopeOptio
             cell: (row) => <Badge tone={STATES[row.state].tone}>{STATES[row.state].label}</Badge>,
           },
           { key: 'tenant', header: 'Tenant', cell: (row) => row.tenant ?? '—' },
-          { key: 'office', header: 'Office', cell: (row) => officeLabel(options, row.officeId) },
+          {
+            key: 'office',
+            header: 'Office',
+            cell: (row) => officeLabel(options, row.officeId, row.tenantId),
+          },
           { key: 'datatype', header: 'Entity', cell: (row) => row.datatype ?? '—' },
           {
             key: 'remote',

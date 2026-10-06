@@ -137,14 +137,18 @@ export async function fetchAgain(input: ScopeInput): Promise<FetchAgain> {
   if (wanted.length === 0) return { queued: 0, detail: 'No connection matches that scope.' };
   const datatypes = many(input.datatypes, input.datatype);
   let queued = 0;
+  const loading = new Set<string>();
   for (const connection of wanted) {
     for (const datatype of datatypes.length > 0 ? datatypes : [undefined]) {
-      if (await queueLifecycle(connection.id, 'resync', datatype ? { datatype } : {})) queued += 1;
+      if (await queueLifecycle(connection.id, 'resync', datatype ? { datatype } : {})) {
+        queued += 1;
+        loading.add(connection.id);
+      }
     }
   }
   return {
     queued,
-    detail: `${String(queued)} connection(s) will load ${describe(input)} from the CRM again.`,
+    detail: `${String(loading.size)} connection(s) will load ${describe(input)} from the CRM again.`,
   };
 }
 

@@ -64,24 +64,32 @@ const keyOf = (row: {
     remoteId: row.remoteId ?? '',
   });
 
-/** Every adapter's own fetch list, as the adapters report it. */
-async function fromAdapters(): Promise<AdminQueued[]> {
+/** Whether a value is one of those chosen; nothing chosen means every value. */
+const within = <T>(chosen: readonly T[] | undefined, value: T | null): boolean =>
+  !chosen?.length || (value !== null && chosen.includes(value));
+
+/**
+ * What waits on each adapter's own fetch list, as the adapters report it, for the connections of
+ * the tenants in scope only: an adapter's answer is bounded, so a busy tenant must not crowd the
+ * scoped tenant's records out of it.
+ */
+async function fromAdapters(scope: Scope): Promise<AdminQueued[]> {
   const queued: AdminQueued[] = [];
   for (const provider of adminProviders()) {
     const admin = adminFor(provider);
     if (!admin?.queue) continue;
+    const asked = (await connectionsForProvider(provider)).filter((connection) =>
+      within(scope.tenantIds, connection.tenantId),
+    );
+    if (asked.length === 0) continue;
     try {
-      queued.push(...(await admin.queue(await connectionsForProvider(provider))));
+      queued.push(...(await admin.queue(asked)));
     } catch (error) {
       report(error, { where: 'admin.queue', provider });
     }
   }
   return queued;
 }
-
-/** Whether a value is one of those chosen; nothing chosen means every value. */
-const within = <T>(chosen: readonly T[] | undefined, value: T | null): boolean =>
-  !chosen?.length || (value !== null && chosen.includes(value));
 
 /** Whether a record waiting on an adapter is inside the scope. */
 const inScope = (
@@ -148,10 +156,10 @@ const movedRow = (event: MovedRow): FlowRow => ({
 
 /**
  * The newest event per record among the newest events of the write path inside the scope, with
- * the record's office. The scan runs backwards over the time index and stops at the day's start
- * or at the count, whichever comes first.
+ * the record's office, the `limit` records that moved last. The scan runs backwards over the time
+ * index and stops at the day's start or at the count, whichever comes first.
  */
-async function moved(scope: Scope): Promise<MovedRow[]> {
+async function moved(scope: Scope, limit: number): Promise<MovedRow[]> {
   const { rows } = await db().query<MovedRow>(
     `with recent as (
        select e.id, e.at, e.type, e.fields, e.tenant_id, e.connection_id, e.datatype,
@@ -166,12 +174,16 @@ async function moved(scope: Scope): Promise<MovedRow[]> {
          and ($4::text[] is null or e.datatype = any($4::text[]))
          and ($5::text is null or e.remote_id = $5)
        order by e.at desc
-       limit $6)
-     select distinct on (r.connection_id, r.datatype, r.remote_id)
-            r.*, t.display_name as tenant
-     from recent r
-     left join tenants t on t.id = r.tenant_id
-     order by r.connection_id, r.datatype, r.remote_id, r.id desc`,
+       limit $6),
+     newest as (
+       select distinct on (r.connection_id, r.datatype, r.remote_id) r.*
+       from recent r
+       order by r.connection_id, r.datatype, r.remote_id, r.id desc)
+     select n.*, t.display_name as tenant
+     from newest n
+     left join tenants t on t.id = n.tenant_id
+     order by n.at desc
+     limit $8`,
     [
       Object.keys(FROM_EVENT),
       scope.tenantIds?.length ? scope.tenantIds : null,
@@ -180,6 +192,7 @@ async function moved(scope: Scope): Promise<MovedRow[]> {
       scope.remoteId ?? null,
       RECENT.events,
       RECENT.window,
+      limit,
     ],
   );
   return rows;
@@ -191,12 +204,13 @@ async function moved(scope: Scope): Promise<MovedRow[]> {
  * over whatever it did before; otherwise the newest event for it is the state it is in.
  */
 export async function flow(scope: Scope, limit = 100): Promise<FlowRow[]> {
-  const [events, queued, connectionRows, everyTenant] = await Promise.all([
-    moved(scope),
-    fromAdapters(),
-    connections(),
-    tenants(),
-  ]);
+  const top = Math.min(Math.max(Math.trunc(limit), 1), 100);
+  // One read after the other: Flow repeats this every second, so it holds one database connection
+  // at a time and leaves the rest of the pool to the rest of Core.
+  const events = await moved(scope, top);
+  const queued = await fromAdapters(scope);
+  const connectionRows = await connections();
+  const everyTenant = await tenants();
   const rows = new Map<string, FlowRow>();
   for (const event of events) {
     const row = movedRow(event);
@@ -215,7 +229,7 @@ export async function flow(scope: Scope, limit = 100): Promise<FlowRow[]> {
   }
   return [...rows.values()]
     .sort((left, right) => (left.queuedAt < right.queuedAt ? 1 : -1))
-    .slice(0, limit);
+    .slice(0, top);
 }
 
 // ---- The live stream ---------------------------------------------------------------------------

@@ -670,6 +670,14 @@ client ports (item 16, first client by question 80).
       connections in `GET /scope`, the single-field scope inputs and `staleRulesOnly` where
       nothing else sends them, the `jobs` resource of the app if nothing else lists jobs, and the
       new page moves to `/manual-sync`.
+    - **Reviewed 2026-10-06** by a second agent, and fixed on staging: Records' "Both" showed the
+      live records only; Flow narrowed to a tenant could miss records waiting on a busy adapter
+      (an adapter now reports only for the connections it is asked about; the Vitec adapter's
+      `queue` reads its fetch list by their offices) and read the database side by side (now one
+      read after another, at most a hundred rows); the record id box could lose keys typed fast
+      (the router runs without transitions); a run's scope is checked like the address's; an
+      office two tenants hold is named once and by each tenant's own name; the send level says a
+      site leaves a record it already holds unchanged as it is (decision of 2026-10-06).
 
 ## Later, when Patric supplies them
 

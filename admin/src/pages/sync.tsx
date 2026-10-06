@@ -33,7 +33,7 @@ const LEVELS: { level: Level; label: string; does: string }[] = [
   {
     level: 'send',
     label: 'Send to the sites only',
-    does: 'Core sends the records as they are; each site of their tenants pulls them again. Nothing is fetched or computed.',
+    does: 'Core sends the records as they are to every site of their tenants. A site takes the ones it lacks or holds in another version, and leaves the rest as they are. Nothing is fetched or computed.',
   },
 ];
 

@@ -33,7 +33,9 @@ const notificationProvider: NotificationProvider = {
 
 export function App() {
   return (
-    <BrowserRouter basename="/admin">
+    // No transitions: the record id box takes its value from the address, and React cannot
+    // control a text box from inside a transition, so keys typed fast could be lost.
+    <BrowserRouter basename="/admin" useTransitions={false}>
       <Refine
         dataProvider={dataProvider}
         authProvider={authProvider}

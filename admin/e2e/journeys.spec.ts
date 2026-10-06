@@ -178,8 +178,21 @@ test('journey: U4 manual sync — pick a scope and how far to go, then watch it'
   await page.getByRole('button', { name: 'Start it' }).click();
   await expect(page.getByText('3 record(s) go to the sites of 1 tenant(s) again.')).toBeVisible();
 
-  // What it does shows below, in the same list as the Flow page.
-  await expect(page.locator('tr.flow-row').first()).toBeVisible();
+  // The full level for one record, its id typed key by key: the CRM is asked again, and the list
+  // below, the same as the Flow page, shows what that fetch found.
+  await page.getByLabel('One record id').pressSequentially('OBJ-2');
+  await expect(page).toHaveURL(/id=OBJ-2/);
+  await expect(page.getByTestId('covers')).toContainText('1 live record(s)');
+  await page.getByRole('radio', { name: /^Fetch from the CRM/ }).check();
+  await page.getByRole('button', { name: 'Start', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('The CRM is called.');
+  await page.getByRole('button', { name: 'Start it' }).click();
+  await expect(
+    page.getByText('1 record(s) will be fetched from the CRM again.', { exact: false }),
+  ).toBeVisible();
+  await expect(
+    page.locator('tr.flow-row', { hasText: 'identical to what Core held' }),
+  ).toBeVisible();
 });
 
 test('journey: U8 try things — ring a site and fetch a record again', async ({ page }) => {

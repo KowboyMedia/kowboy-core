@@ -43,7 +43,12 @@ function Pick<T extends string | number>({
   chosen: T[];
   onChange: (next: T[]) => void;
 }) {
-  const ticked = items.filter((item) => chosen.includes(item.value));
+  // An office two tenants hold is one value listed under each; the button names it once.
+  const ticked = items.filter(
+    (item, index) =>
+      chosen.includes(item.value) &&
+      items.findIndex((other) => other.value === item.value) === index,
+  );
   const said =
     ticked.length === 0
       ? everything
@@ -131,7 +136,7 @@ export function ScopePicker({
   const officeItems: Item<string>[] = [
     ...offices.map((office) => ({
       value: office.id,
-      label: officeLabel(options, office.id),
+      label: officeLabel(options, office.id, office.tenantId),
       group: tenantName(office.tenantId),
     })),
     ...value.officeIds

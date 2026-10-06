@@ -359,19 +359,53 @@ describe('the admin area', () => {
     expect(second.body.data.map((row) => row.remoteId)).toEqual(['OBJ-3']);
 
     // The same scope as Flow and Manual sync: tenants, offices and entity types, each one or
-    // several, and one record id (Patric, 2026-10-06).
+    // several, and one record id (Patric, 2026-10-06). A second tenant reads the same CRM, so
+    // both hold office 100 and the same three homes.
     const count = async (query: string): Promise<number> =>
       (await api<{ total: number }>(`/records?${query}`)).body.total;
     await until(async () => (await count('datatype=office')) === 1, 'the office to load');
-    const tenant = String(made.body.data.id);
-    expect(await count(`tenant=${tenant}&datatype=property`)).toBe(3);
-    expect(await count(`tenant=${tenant},${String(made.body.data.id + 1)}`)).toBe(4);
-    expect(await count(`tenant=${String(made.body.data.id + 1)}`)).toBe(0);
-    expect(await count('datatype=property,office')).toBe(4);
-    expect(await count('office=100&datatype=property')).toBe(3);
+    const other = await api<{ data: { id: number } }>('/tenants', {
+      method: 'POST',
+      body: tenantBody({
+        displayName: 'Bravo Mäklare',
+        connections: [
+          {
+            id: 'bravo-crm',
+            provider: 'fake-webhook',
+            credentials: { key: 'b-key' },
+            licensedOffices: ['100'],
+            active: true,
+          },
+        ],
+        sites: [],
+      }),
+    });
+    expect(other.status).toBe(200);
+    await running.deliver();
+    await until(async () => (await count('')) === 8, 'the second tenant to load');
+    const [acme, bravo] = [String(made.body.data.id), String(other.body.data.id)];
+    expect(await count(`tenant=${acme}&datatype=property`)).toBe(3);
+    expect(await count(`tenant=${acme},${bravo}`)).toBe(8);
+    expect(await count(`tenant=${bravo}&office=100`)).toBe(4);
+    expect(await count('datatype=property,office')).toBe(8);
+    expect(await count('office=100&datatype=property')).toBe(6);
     expect(await count('office=999')).toBe(0);
-    expect(await count('id=OBJ-2')).toBe(1);
+    expect(await count(`id=OBJ-2&tenant=${acme}`)).toBe(1);
     expect(await count('deleted=true')).toBe(0);
+
+    // A home the CRM no longer has stays in Core as removed: counted by Both, the default, and
+    // told apart by Live and Removed. Fetched again for one tenant only, so the other keeps it.
+    crm.remove('property', 'OBJ-3');
+    await api('/runs/fetch-again', {
+      method: 'POST',
+      body: { tenantIds: [made.body.data.id], remoteId: 'OBJ-3' },
+    });
+    await running.deliver();
+    await until(async () => (await count('deleted=true')) === 1, 'the home to be removed');
+    expect(await count(`tenant=${acme}&datatype=property`)).toBe(3);
+    expect(await count(`tenant=${acme}&datatype=property&deleted=false`)).toBe(2);
+    expect(await count(`tenant=${acme}&deleted=true&id=OBJ-3`)).toBe(1);
+    expect(await count(`tenant=${bravo}&deleted=false&datatype=property`)).toBe(3);
     const slip = await api<{ error: string }>('/records?datatype=house');
     expect(slip.status).toBe(400);
     expect(slip.body.error).toContain('not a datatype');
@@ -925,7 +959,8 @@ describe('the admin area', () => {
     expect(recomputed.body.data.detail).toContain('2 record(s) go to the sites');
     expect(await runNextJob()).toBe(true);
 
-    // The whole way: the CRM is asked for the scope again, then the recompute, then the send.
+    // The whole way: the CRM is asked for the scope again and a recompute is queued, both in the
+    // background, and the send goes now; what the fetch changes goes to the sites as it is written.
     const fetched = await sync('fetch', { remoteId: 'OBJ-2' });
     expect(fetched.body.data.detail).toContain('1 record(s) will be fetched from the CRM again.');
     await running.deliver();
@@ -938,6 +973,11 @@ describe('the admin area', () => {
     const slip = await sync('everything', {});
     expect(slip.status).toBe(400);
     expect(slip.body.error).toBe('Say how far to go: fetch, recompute, send.');
+    // A scope Core cannot read is refused in words too, never a database error.
+    const odd = await sync('send', { tenantIds: ['x'] });
+    expect(odd.status).toBe(400);
+    expect(odd.body.error).toContain('is not a tenant number');
+    expect((await sync('send', { datatypes: [{}] })).status).toBe(400);
   });
 
   it('streams what happens, so the pages need no reload (§3 I, Should)', async () => {

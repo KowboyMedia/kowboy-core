@@ -111,18 +111,24 @@ export function Records() {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="flex flex-col gap-1">
               <Label id="shown-label">Show</Label>
-              <div className="flex gap-1" role="group" aria-labelledby="shown-label">
-                {SHOWN.map((one) => (
-                  <Button
-                    key={one.label}
-                    size="sm"
-                    variant={deleted === one.value ? 'default' : 'outline'}
-                    aria-pressed={deleted === one.value}
-                    onClick={() => set('deleted', one.value)}
-                  >
-                    {one.label}
-                  </Button>
-                ))}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex gap-1" role="group" aria-labelledby="shown-label">
+                  {SHOWN.map((one) => (
+                    <Button
+                      key={one.label}
+                      size="sm"
+                      variant={deleted === one.value ? 'default' : 'outline'}
+                      aria-pressed={deleted === one.value}
+                      onClick={() => set('deleted', one.value)}
+                    >
+                      {one.label}
+                    </Button>
+                  ))}
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Live records are on the sites. Removed records left the CRM’s list and are kept 90
+                  days.
+                </span>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -170,7 +176,7 @@ export function Records() {
             key: 'office',
             header: 'Office',
             sortAs: 'office_id',
-            cell: (row) => officeLabel(options, row.officeId),
+            cell: (row) => officeLabel(options, row.officeId, row.tenantId),
           },
           {
             key: 'deleted',

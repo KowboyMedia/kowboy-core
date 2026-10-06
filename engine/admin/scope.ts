@@ -28,7 +28,7 @@ export function scopeFromQuery(query: URLSearchParams): { scope: Scope } | { err
   const scope: Scope = {};
   const tenantIds = list(query, 'tenant');
   for (const value of tenantIds) {
-    if (!/^\d+$/.test(value)) return { error: `“${value}” is not a tenant number.` };
+    if (!/^\d{1,9}$/.test(value)) return { error: `“${value}” is not a tenant number.` };
   }
   if (tenantIds.length > 0) scope.tenantIds = tenantIds.map(Number);
   const officeIds = list(query, 'office');
@@ -43,6 +43,28 @@ export function scopeFromQuery(query: URLSearchParams): { scope: Scope } | { err
   const remoteId = query.get('id')?.trim();
   if (remoteId) scope.remoteId = remoteId;
   return { scope };
+}
+
+/** The body's names for the parts of a scope, and the address's. */
+const IN_BODY = { tenantIds: 'tenant', officeIds: 'office', datatypes: 'datatype', remoteId: 'id' };
+
+/**
+ * The scope as a run's body carries it (`tenantIds`, `officeIds`, `datatypes`, `remoteId`), read
+ * by the same rules as the address, so a slip is a refusal in words here too.
+ */
+export function scopeFromBody(
+  given: Record<string, unknown>,
+): { scope: Scope } | { error: string } {
+  const query = new URLSearchParams();
+  for (const [field, key] of Object.entries(IN_BODY)) {
+    const value = given[field];
+    if (value === undefined || value === null) continue;
+    const parts: unknown[] = Array.isArray(value) ? value : [value];
+    if (!parts.every((part) => typeof part === 'string' || typeof part === 'number'))
+      return { error: `“${field}” must be a name or a number, or a list of them.` };
+    query.set(key, parts.join(','));
+  }
+  return scopeFromQuery(query);
 }
 
 /** A scope in words, for the audit event and the message after a run. */
