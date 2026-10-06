@@ -17,7 +17,7 @@ core-client/                     the plugin
   includes/templates.php         the sets' registry, the override rule (theme first), the list function,
                                  the shortcode, the reload endpoint, the routing of single pages and archives
   includes/blocks.php            the two list blocks, their settings for a theme's wrappers, the pick endpoint
-  includes/forms.php             the site key setting and the forms widget's script tag (docs/forms.md)
+  includes/forms.php             the form receiver on the WordPress API (the theme's window posts to it, it sends on to Core with the token), and for now the site key setting and the widget's script tag (docs/forms.md)
   includes/place-search.php      the search box: the places query, the box with its pills, its assets
   includes/view-page.php         the theme's header and footer around one view
   includes/packages.php          places the updater, keeps the package list, installs a set from the channel

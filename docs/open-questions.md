@@ -107,10 +107,12 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
      full error text; never the visitor's name, phone, e-mail or message. Keeping a form for a
      retry and fetching the failed ones is 160.
 - Not in it: a page, setting or count in Core's admin area; anything for Lovable or Mspecs; the
-  window served by Core.
-- Proof first (Patric on 147: "you need to do a poc before writing everything"): the interest
-  form end to end on the local test site, theme to plugin to Core to the guard, stopped before
-  Vitec; built now from what exists, nothing else before this list stands.
+  window served by Core. 9. **The acceptance criterion** `[handbook]`: criterion 48 names the widget's three-form
+  journey; reworded to name the theme's journey and the widget's (acceptance is protected).
+- Proof first (Patric on 147: "you need to do a poc before writing everything"): **built
+  2026-10-06** (`docs/forms.md`, "Built 2026-10-06: the proof"), the interest form end to end on
+  the local test site, theme to plugin to Core to the stand-in CRM, with the Vitec switch still
+  off on staging; nothing else before this list stands.
 - a) **yes** (recommended): built as listed. b) **no**: name the lines to strike or change.
 - Smaller: a. Blocked: the rest of the forms after the proof. Answer a or b.
 

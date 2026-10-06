@@ -263,6 +263,12 @@ Two things from the staging site on a phone (Patric, 2026-10-04, 16:45Z), theme 
   Settings → Forms; the theme enqueues nothing. On the staging site a sent form is refused with
   "Formulär skickas inte till det här kontoret än" until the connection's "Send forms to Vitec"
   is on, which waits on a confirmed test office (54 f).
+- **The interest form is the theme's own** (theme 1.1.9, plugin 0.5.8, 2026-10-06; question 150
+  a, docs/forms.md "Built 2026-10-06: the proof"): `parts/form-window.php` draws the window in
+  the page with the approved look, `KOWBOY_FORMS` in functions.php names the forms the theme
+  draws itself and their buttons carry `data-k-form`; the form posts to the plugin's receiver on
+  the site, which sends it to Core with the site's token. The viewing booking and the free
+  valuation still open the widget until the first version (155) stands.
 - **The form designs are approved** (Patric, 2026-10-05, 21:38Z: "All form designs approved."):
   the three buttons above and the wizard's windows as the staging site showed them (pictures in
   the project files under kowboy-2026/round-8 and round-9). The forms are rebuilt from zero in

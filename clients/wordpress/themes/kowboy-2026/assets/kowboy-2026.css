@@ -1991,3 +1991,171 @@ iframe.k-hero__video {
 .core-client-preview .k-hero {
   min-height: 320px;
 }
+
+/* ---- Form window (parts/form-window.php) ------------------------------------------------ */
+/* The window the theme's own form buttons open: the look approved 2026-10-05, in the theme's
+   tokens; the dialog sits in the page's top layer, over everything, with the overlay behind it. */
+.k-form {
+  --k-form-muted: var(--k-secondary);
+  --k-form-good: #1f7a3d;
+  --k-form-bad: #b3261e;
+  width: 100%;
+  max-width: min(100vw - 32px, 520px);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--k-ink);
+  font: 16px/1.5 var(--k-font);
+}
+.k-form::backdrop {
+  background: var(--k-overlay);
+}
+.k-form__modal {
+  display: grid;
+  gap: 16px;
+  max-height: calc(100vh - 32px);
+  padding: 24px;
+  overflow: auto;
+  border: 1px solid var(--k-border);
+  border-radius: var(--k-radius);
+  background: var(--k-white);
+  color: var(--k-ink);
+}
+.k-form__top {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.k-form__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.k-form__top.is-done .k-form__title::before {
+  content: '✓';
+  margin-right: 8px;
+  color: var(--k-form-good);
+}
+.k-form__sub,
+.k-form__hint {
+  margin: 0;
+  color: var(--k-form-muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+.k-form__eyebrow {
+  color: var(--k-form-muted);
+  font-size: var(--k-label-size);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.k-form__step {
+  display: grid;
+  gap: 12px;
+}
+.k-form__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.k-form__label {
+  display: grid;
+  gap: 5px;
+  color: var(--k-form-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.k-form__field {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 13px;
+  border: 1px solid var(--k-border);
+  border-radius: 12px;
+  background: var(--k-white);
+  color: var(--k-ink);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 400;
+}
+textarea.k-form__field {
+  min-height: 72px;
+  resize: vertical;
+}
+.k-form__text-button {
+  padding: 10px 8px;
+  border: 0;
+  background: none;
+  color: var(--k-form-muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.k-form__field:focus-visible,
+.k-form__text-button:focus-visible,
+.k-form .k-button:focus-visible {
+  outline: 2px solid var(--k-ink);
+  outline-offset: 2px;
+}
+.k-form__consent {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  color: var(--k-form-muted);
+  font-size: 14px;
+}
+.k-form__consent input {
+  margin-top: 3px;
+}
+.k-form__consent a {
+  color: inherit;
+}
+.k-form__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.k-form__error {
+  margin: 0;
+  color: var(--k-form-bad);
+  font-size: 14px;
+}
+.k-form__big {
+  font-size: 22px;
+  font-weight: 600;
+}
+.k-form__trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.k-form .k-button[disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+@media (max-width: 480px) {
+  .k-form__grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .k-form[open] .k-form__modal {
+    animation: k-form-in 160ms ease-out;
+  }
+  @keyframes k-form-in {
+    from {
+      transform: translateY(8px);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+}

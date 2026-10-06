@@ -7,7 +7,15 @@
 
 declare(strict_types=1);
 
-const KOWBOY_2026_VERSION = '1.1.8';
+const KOWBOY_2026_VERSION = '1.1.9';
+
+/**
+ * The forms the theme draws itself (parts/form-window.php; docs/forms.md, "Built 2026-10-06: the
+ * proof"): a button for one of these carries data-k-form and opens the theme's window, which posts
+ * the form to the plugin's receiver on this site. Every other form's button still carries
+ * data-core-form and opens Core's wizard, until that form moves here too.
+ */
+const KOWBOY_FORMS = ['interest'];
 
 require __DIR__ . '/inc/media.php';
 require __DIR__ . '/inc/association.php';

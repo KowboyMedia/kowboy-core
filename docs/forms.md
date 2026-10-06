@@ -929,6 +929,39 @@ deploy of plugin 0.5.7 to the staging site are the theme thread's, done the same
 by Patric's sign-in link. Criterion 48 names the local journey; the same walk on the staging site is
 the last proof once the deploy is done.
 
+### Built 2026-10-06: the proof (150 a; the first form of 155)
+
+Patric answered 150 a and said "build it like explained above" (12:36 UTC), with the proof first
+(147: "you need to do a poc before writing everything"). What exists, proved by the browser
+journey `clients/wordpress/e2e/forms-theme.spec.ts` on the test site (the real theme, plugin and
+Core over the fake polling CRM; pictures in the project files under kowboy-2026/round-10):
+
+- **The theme draws the interest form** (theme 1.1.9): `parts/form-window.php` is one dialog in
+  the page with the approved look in the theme's own markup and styles (`assets/kowboy-2026.css`,
+  "Form window"), the person's step and the answer; `KOWBOY_FORMS` in `functions.php` names the
+  forms the theme draws itself, and `parts/form-card.php` marks their buttons `data-k-form`
+  (with the home's street in `data-home`) instead of the widget's `data-core-form`. The script
+  (`setupFormWindow`) opens the window from a button on the page or inside a shadow root, keeps
+  the widget's words, honeypot, three seconds before a send and the person remembered in the
+  visitor's browser with "Glöm mig", and posts the universal submission to the site's own
+  address. No profile step (151, skip recommended; the proof leaves it out).
+- **The plugin passes it on** (plugin 0.5.8): `POST /wp-json/core/v1/forms`
+  (`includes/forms.php`) takes the body as it came, once it is a JSON object, and sends it to
+  Core's `POST /v1/submissions` with the site's sync token and the bell address as `X-Core-Site`;
+  Core's status and answer go back to the page as they came. The token never reaches the page:
+  the journey asserts that no request from the browser carried one, none went to a Core door
+  and no answer contained it. A body that is not an object is refused (400) before Core.
+- **Core sends** as built 2026-10-04 and unchanged: the token names the tenant, a home of
+  another tenant's connection is refused ("the record is not one of this tenant’s", tried by
+  hand), the connection's own login carries the form to the CRM, and the id and outcome are
+  stored and logged.
+- **Still the widget's**: the viewing booking and the free valuation, until 155 stands; the
+  widget's journey now covers those two. Acceptance criterion 48 names the widget's three-form
+  journey, so its row needs rewording with 155 (acceptance is protected).
+
+Not in the proof: the guard (152), the bot check, Turnstile, the removal of the widget, the
+browser door, the site keys and the seven Vitec fields, the Vitec send; each is a line of 155.
+
 ## The decisions (the discover list)
 
 | #   | Question                                                                                                                                                                            | Options                                                                                                                                                                                                                                                | Undo later?                       | Recommended                                                                                                     |

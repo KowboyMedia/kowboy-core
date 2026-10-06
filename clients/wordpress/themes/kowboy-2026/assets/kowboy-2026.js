@@ -1,7 +1,7 @@
 // The theme's script, on the page and inside every shadow root: the menu, the sliders (Swiper,
 // in vendor/), the list reloads against the plugin's endpoint, the collapsibles, the gallery's
-// "Visa fler bilder" and the full-screen slider a photo opens, the viewings that are over, and
-// the map (Leaflet, in vendor/).
+// "Visa fler bilder" and the full-screen slider a photo opens, the viewings that are over, the
+// map (Leaflet, in vendor/), and the form window the theme's own form buttons open.
 (function () {
   'use strict';
 
@@ -388,9 +388,9 @@
 
   /**
    * A link to a place in the same view (the contact button to the agent, a form button to the
-   * agent or the office when the widget is not on the page): the browser's own jump cannot see
+   * agent or the office when no form window is on duty): the browser's own jump cannot see
    * into a shadow root, so the script scrolls there, smoothly where the stylesheet says so
-   * (scroll-behavior). A click the widget has taken (a form button opening the wizard) is left alone.
+   * (scroll-behavior). A click the form window or the widget has taken is left alone.
    */
   function setupAnchor(link) {
     if (!once(link, 'ready')) return;
@@ -401,6 +401,268 @@
       event.preventDefault();
       target.scrollIntoView({ block: 'start' });
     });
+  }
+
+  /**
+   * Every word of the form window the visitor reads, in Swedish, as approved 2026-10-05 (the
+   * step's own words stand in parts/form-window.php).
+   */
+  var FORM_TEXT = {
+    title: { interest: 'Är du intresserad av bostaden?' },
+    sent: {
+      interest: function (home) {
+        return [
+          'Din intresseanmälan är skickad',
+          (home ? home + '. ' : '') + 'Mäklaren hör av sig.',
+        ];
+      },
+    },
+    send: 'Skicka',
+    sending: 'Skickar…',
+    refused: 'Det gick tyvärr inte',
+    failed: 'Det gick inte att skicka just nu',
+    failedText: 'Mäklarsystemet svarade inte. Dina uppgifter finns kvar; försök igen om en stund.',
+    tooMany: 'För många försök just nu. Vänta en stund och försök igen.',
+  };
+  /** The visitor's details after a sent form, in their own browser, so the next form is one tap. */
+  var FORM_REMEMBER = 'core-forms:person';
+  /** No form leaves before this long after the window opened: a bot measure the window keeps. */
+  var FORM_MIN_OPEN_MS = 3000;
+
+  /**
+   * The form window (parts/form-window.php): the theme draws the forms it owns (KOWBOY_FORMS in
+   * functions.php; their buttons carry data-k-form, on the page or inside a shadow root) and
+   * posts each to the plugin's receiver on this site, which sends it on to Core. The page holds
+   * no key. The person is remembered in the visitor's own browser after a sent form, with a line
+   * saying so and "Glöm mig"; a filled honeypot is told it succeeded and sends nothing.
+   */
+  function setupFormWindow(dialog) {
+    if (!once(dialog, 'ready') || typeof dialog.showModal !== 'function') return;
+    var mark = function (name) {
+      return dialog.querySelector('[data-form-' + name + ']');
+    };
+    var field = function (name) {
+      return dialog.querySelector('[name="' + name + '"]');
+    };
+    var kind = 'interest';
+    var record = null;
+    var home = '';
+    var openedAt = 0;
+    var sending = false;
+
+    function show(step) {
+      dialog.querySelectorAll('[data-form-step]').forEach(function (element) {
+        element.hidden = element.dataset.formStep !== step;
+      });
+      var first = dialog
+        .querySelector('[data-form-step="' + step + '"]')
+        .querySelector('input:not([tabindex="-1"]), textarea, button');
+      if (first) first.focus();
+    }
+
+    function remembered() {
+      try {
+        var stored = localStorage.getItem(FORM_REMEMBER);
+        return stored ? JSON.parse(stored) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function remember(person) {
+      try {
+        if (person) localStorage.setItem(FORM_REMEMBER, JSON.stringify(person));
+        else localStorage.removeItem(FORM_REMEMBER);
+      } catch {
+        // a browser that refuses storage still gets the form
+      }
+    }
+
+    function resetPerson() {
+      var kept = remembered();
+      ['first_name', 'last_name', 'phone', 'email'].forEach(function (name) {
+        field(name).value = (kept && kept[name]) || '';
+      });
+      field('message').value = '';
+      field('website').value = '';
+      field('consent').checked = false;
+      mark('remembered').hidden = !kept;
+      mark('error').hidden = true;
+      mark('send').disabled = false;
+      mark('send').textContent = FORM_TEXT.send;
+    }
+
+    /** property:<connection>:<id>, as the button names the home, into the submission's record. */
+    function recordRef(named) {
+      var parts = named.split(':');
+      if (parts.length < 3 || parts[0] !== 'property') return null;
+      return { datatype: 'property', connection_id: parts[1], remote_id: parts.slice(2).join(':') };
+    }
+
+    function open(button) {
+      kind = button.dataset.kForm;
+      record = recordRef(button.dataset.record || '');
+      home = button.dataset.home || '';
+      openedAt = Date.now();
+      mark('top').classList.remove('is-done');
+      mark('title').textContent = FORM_TEXT.title[kind];
+      mark('subtitle').textContent = home;
+      resetPerson();
+      show('person');
+      if (!dialog.open) dialog.showModal();
+    }
+
+    /** The four fields and the consent, or null while one is missing. */
+    function readPerson() {
+      var value = function (name) {
+        return field(name).value.trim();
+      };
+      var person = {
+        first_name: value('first_name'),
+        last_name: value('last_name'),
+        email: value('email'),
+        phone: value('phone'),
+      };
+      var emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(person.email);
+      var complete = person.first_name && person.last_name && person.phone && emailOk;
+      return complete && field('consent').checked ? person : null;
+    }
+
+    /** The page's address without its fragment, and its UTM tags, for the submission's source. */
+    function source() {
+      var url = new URL(window.location.href);
+      var utm = {};
+      url.searchParams.forEach(function (value, key) {
+        if (key.indexOf('utm_') === 0) utm[key] = value;
+      });
+      url.hash = '';
+      return { page: url.toString(), utm: utm };
+    }
+
+    function uuid() {
+      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        return window.crypto.randomUUID();
+      }
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = (Math.random() * 16) | 0;
+        return (c === 'x' ? r : (r & 3) | 8).toString(16);
+      });
+    }
+
+    function fail(title, text) {
+      mark('fail-title').textContent = title;
+      mark('fail-text').textContent = text;
+      show('fail');
+    }
+
+    /** The confirmation becomes the heading (Patric, 2026-10-04). */
+    function sent() {
+      var words = FORM_TEXT.sent[kind](home);
+      mark('title').textContent = words[0];
+      mark('subtitle').textContent = words[1];
+      mark('top').classList.add('is-done');
+      show('end');
+    }
+
+    /** The receiver's answer, which is Core's: 200 sent, 409 the CRM's refusal, 429 too many, else failed. */
+    function answered(status, body) {
+      if (status === 200) return sent();
+      if (status === 409) return fail(FORM_TEXT.refused, (body && body.reason) || '');
+      if (status === 429) return fail(FORM_TEXT.failed, FORM_TEXT.tooMany);
+      fail(FORM_TEXT.failed, FORM_TEXT.failedText);
+    }
+
+    function send() {
+      if (sending) return;
+      var person = readPerson();
+      if (!person) {
+        mark('error').hidden = false;
+        return;
+      }
+      mark('error').hidden = true;
+      // The honeypot filled: a bot, which is told it succeeded and sends nothing.
+      if (field('website').value !== '') return sent();
+      var submission = {
+        id: uuid(),
+        kind: kind,
+        person: person,
+        consent: { given: true, at: new Date().toISOString() },
+        source: source(),
+      };
+      if (record) submission.record = record;
+      var message = field('message').value.trim();
+      if (message) submission.message = message;
+      sending = true;
+      mark('send').disabled = true;
+      mark('send').textContent = FORM_TEXT.sending;
+      new Promise(function (resolve) {
+        setTimeout(resolve, Math.max(0, FORM_MIN_OPEN_MS - (Date.now() - openedAt)));
+      })
+        .then(function () {
+          return fetch(dialog.dataset.endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(submission),
+          });
+        })
+        .then(function (response) {
+          return response
+            .json()
+            .catch(function () {
+              return {};
+            })
+            .then(function (body) {
+              if (response.status === 200) remember(person);
+              answered(response.status, body);
+            });
+        })
+        .catch(function () {
+          fail(FORM_TEXT.failed, FORM_TEXT.failedText);
+        })
+        .finally(function () {
+          sending = false;
+          mark('send').disabled = false;
+          mark('send').textContent = FORM_TEXT.send;
+        });
+    }
+
+    dialog.querySelector('[data-form-step="person"]').addEventListener('submit', function (event) {
+      event.preventDefault();
+      send();
+    });
+    mark('close').addEventListener('click', function () {
+      dialog.close();
+    });
+    mark('finish').addEventListener('click', function () {
+      dialog.close();
+    });
+    mark('retry').addEventListener('click', function () {
+      show('person');
+    });
+    mark('forget').addEventListener('click', function () {
+      remember(null);
+      ['first_name', 'last_name', 'phone', 'email'].forEach(function (name) {
+        field(name).value = '';
+      });
+      mark('remembered').hidden = true;
+    });
+    dialog.addEventListener('click', function (event) {
+      if (event.target === dialog) dialog.close();
+    });
+    // The buttons, on the page and inside every shadow root, through the click's composed path
+    // in the capture phase, before the link's own jump (setupAnchor steps back from a prevented click).
+    document.addEventListener(
+      'click',
+      function (event) {
+        var button = event.composedPath().find(function (node) {
+          return node instanceof Element && node.hasAttribute('data-k-form');
+        });
+        if (!button || !FORM_TEXT.title[button.dataset.kForm]) return;
+        event.preventDefault();
+        open(button);
+      },
+      true,
+    );
   }
 
   function setup() {
@@ -417,6 +679,7 @@
     each('[data-viewings]', setupViewings);
     each('.k-hero[data-lightbox]', setupHeroLightbox);
     each('[data-map]', setupMap);
+    each('dialog.k-form', setupFormWindow);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);

@@ -514,12 +514,14 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body.match(/class="swiper-slide k-photos__slide"/g)).toHaveLength(4);
     expect(body).toContain('sizes="(max-width: 767px) 250vw, 100vw"');
     expect(body).toContain('data-map data-lat="');
-    // The interest form is a dummy that names the listing (question 105 open): it posts nowhere.
-    // The interest card is a button that opens the wizard on this home, no fields on the page (Patric, 2026-10-04).
+    // The interest card is a button, no fields on the page (Patric, 2026-10-04); since 2026-10-06 it
+    // opens the theme's own window (parts/form-window.php), the one form on the page, which posts
+    // to the plugin's receiver on the site, never to a CRM address.
     expect(body).toMatch(
-      /<a class="k-button k-button--light k-lead__button" href="#k-agents" data-core-form="interest" data-record="property:[^":]+:P-3">Anmäl intresse<\/a>/,
+      /<a class="k-button k-button--light k-lead__button" href="#k-agents" data-k-form="interest" data-record="property:[^":]+:P-3" data-home="Kungsgatan 3">Anmäl intresse<\/a>/,
     );
-    expect(body).not.toContain('<form');
+    expect(body).toMatch(/<dialog class="k-form" data-endpoint="[^"]*core\/v1\/forms"/);
+    expect(body.replace(/<dialog class="k-form"[\s\S]*?<\/dialog>/, '')).not.toContain('<form');
     expect(body).not.toContain('kowboy/v1/lead');
     // The header lies over the hero, with the bright logotype.
     expect(body).toContain('k-has-hero');

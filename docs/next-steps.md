@@ -414,8 +414,12 @@ client ports (item 16, first client by question 80).
     template, drawn by the theme, and Core sends them; the plugin only passes them on with the
     site's token. Open: the first version's lines (155, clarified 2026-10-06 and asked again), the
     Vitec search-profile step (151, skip recommended), no CRM send outside the live service (152, a
-    Default) and failed forms kept, retried and listed (160). The proof comes first (Patric on 147):
-    the interest form end to end on the local test site, stopped by the guard. The rebuild's first
+    Default) and failed forms kept, retried and listed (160). **The proof built 2026-10-06**
+    (Patric, 12:36Z: "build it like explained above"; docs/forms.md, "Built 2026-10-06: the
+    proof"): theme 1.1.9 draws the interest window and posts it to plugin 0.5.8's receiver on the
+    site, which sends it to Core with the site's token; proved by the browser journey
+    `clients/wordpress/e2e/forms-theme.spec.ts` against the fake CRM. Nothing else before 155
+    stands. The rebuild's first
     unknown, tested before anything is built on it: whether Cloudflare's bot check, drawn in a small
     frame served from Core's address inside the form window, checks that address rather than the
     site's (Cloudflare's pages do not say). If it does, one address at Cloudflare covers every site,

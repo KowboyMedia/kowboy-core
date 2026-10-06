@@ -27,6 +27,8 @@ $kowboy_email = (string) kowboy_option('kowboy_email');
     </div>
     <p class="k-footer__copyright">© <?php echo esc_html(wp_date('Y') . ' ' . (string) kowboy_option('kowboy_copyright')); ?></p>
 </footer>
+<?php // The window the theme's own form buttons open (parts/form-window.php); it posts to the plugin's receiver on this site. ?>
+<?php if (function_exists('core_client_settings')) : ?><?php echo kowboy_part('form-window', ['endpoint' => rest_url('core/v1/forms'), 'policy' => (string) get_privacy_policy_url()]); ?><?php endif; ?>
 <?php wp_footer(); ?>
 </body>
 </html>
