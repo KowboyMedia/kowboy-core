@@ -4,7 +4,7 @@ import { unknownMigrations } from './storage/migrate.js';
 import { undeliveredLifecycleEvents } from './lifecycle.js';
 import { connectionsWithFailingSubmissions } from './storage/submissions.js';
 import { report } from './errors.js';
-import { counted, crmName, lasting } from './admin/words.js';
+import { capital, crmName, inWords, lasting } from './admin/words.js';
 import type { HealthResult, Level } from './adapter-api/types.js';
 
 /**
@@ -80,26 +80,41 @@ const CANNOT_RUN_MS = 15 * 60_000;
 export const SITES_CHECK = 'subscribers';
 
 /**
- * What a person reads about a check: its title, never its name, the page where it is put right,
- * and what its `names` are when Core can name and link them.
+ * What a person reads about a check: its title, never its name, what it says while it passes, the
+ * page in the admin area where what it finds is put right, when there is one, and what its `names`
+ * are when Core can name and link them. The database and the worker are put right where Core is
+ * hosted, and a site where it runs, so those have no page; the sites are linked one by one.
  */
-export type About = { title: string; page: { to: string; label: string }; named?: 'connections' };
+export type About = {
+  title: string;
+  fine: string;
+  page?: { to: string; label: string };
+  named?: 'connections';
+};
 
 /** The engine's own checks, in words (AGENTS.md, definition of done item 5). */
 const ABOUT: Record<string, About> = {
-  database: { title: 'Core’s database', page: { to: '/settings', label: 'Settings' } },
-  schema: { title: 'The database’s version', page: { to: '/settings', label: 'Settings' } },
-  worker: { title: 'Core’s worker', page: { to: '/settings', label: 'Settings' } },
+  database: { title: 'Core’s database', fine: 'Core reaches its database.' },
+  schema: {
+    title: 'Core’s version and its database',
+    fine: 'The database fits the version of Core that is running.',
+    page: { to: '/settings', label: 'Settings' },
+  },
+  worker: {
+    title: 'Core’s background worker',
+    fine: 'Core’s background worker is running. It fetches from the CRMs, tells the sites about changes, sends the alerts and runs each CRM’s own checks.',
+  },
   [SITES_CHECK]: {
     title: 'Sites fetching their changes',
-    page: { to: '/tenants', label: 'Tenants' },
+    fine: 'Every site Core told about changes has fetched them within the hour.',
   },
   lifecycle: {
-    title: 'Work asked for in the admin area',
-    page: { to: '/flow', label: 'Flow' },
+    title: 'Tasks asked for in the admin area',
+    fine: 'Every task asked for in the admin area more than five minutes ago is done.',
   },
   'submissions.failing': {
     title: 'Sending forms to the CRMs',
+    fine: 'No form is waiting because a CRM did not answer it.',
     page: { to: '/forms', label: 'Failed forms' },
     named: 'connections',
   },
@@ -116,11 +131,23 @@ export function aboutCheck(name: string): About {
   const provider = name.split('.')[0] ?? name;
   return {
     title: `Fetching from ${crmName(provider)}`,
+    fine: 'This check finds nothing wrong.',
     page: { to: `/crms/${provider}`, label: `the ${crmName(provider)} page` },
   };
 }
 
-export type SiteBehind = { id: number; tenantId: number; label: string; lastPullAt: Date | null };
+/**
+ * A site behind: when Core first told it about changes it has not fetched, and how it answered the
+ * last time it was told (`bells.ts`: ok, http and its code, or failed for no answer).
+ */
+export type SiteBehind = {
+  id: number;
+  tenantId: number;
+  label: string;
+  lastPullAt: Date | null;
+  toldAt: Date;
+  lastBellStatus: string | null;
+};
 
 /** The sites a failing sites check found, kept with its result, so the alerts and the Overview read the same ones. */
 const behindOf = new WeakMap<HealthResult, SiteBehind[]>();
@@ -142,8 +169,15 @@ async function sitesBehind(): Promise<SiteBehind[]> {
     tenant_id: number;
     label: string;
     last_pull_at: Date | null;
+    told_at: Date;
+    last_bell_status: string | null;
   }>(
-    `select s.id, s.tenant_id, s.label, s.last_pull_at
+    `select s.id, s.tenant_id, s.label, s.last_pull_at, s.last_bell_status,
+       coalesce((
+         select min(e.at) from events e
+         where e.type = 'bell' and e.subscriber_id = s.id
+           and e.at > coalesce(s.last_pull_at, '-infinity')
+       ), s.last_bell_at) as told_at
      from subscribers s
      join tenants t on t.id = s.tenant_id and t.active
      where s.active
@@ -167,6 +201,8 @@ async function sitesBehind(): Promise<SiteBehind[]> {
     tenantId: row.tenant_id,
     label: row.label,
     lastPullAt: row.last_pull_at,
+    toldAt: row.told_at,
+    lastBellStatus: row.last_bell_status,
   }));
 }
 
@@ -191,7 +227,7 @@ export async function readiness(): Promise<HealthReport> {
         ok: false,
         level: 'P0',
         detail:
-          'Core cannot reach its database, so nothing works: no site gets changes and no form is sent. Check that the database runs where Core is hosted.',
+          'Core cannot reach its database. Until it can, the sites keep what they show and get no changes, and no form a visitor sends gets through. Core carries on by itself once the database answers. If this lasts more than a few minutes, have the database looked at where Core is hosted.',
       };
       failed.set(result, `What failed: ${String(error)}`);
       return result;
@@ -205,7 +241,7 @@ export async function readiness(): Promise<HealthReport> {
       : {
           ok: false,
           level: 'P0',
-          detail: `A newer version of Core changed the database (${unknown.join(', ')}), and this older version must not run on it. Release the newer version again.`,
+          detail: `The running version of Core is older than its database: a newer version changed the database in ${inWords(unknown.length, 'way', 'ways')} this version does not know, so this version must not run on it. Release the newest version again. Settings shows the version running and the changes the database holds.`,
         };
   });
 
@@ -225,18 +261,18 @@ export async function healthReport(): Promise<HealthReport> {
     return {
       ok: false,
       level: 'P0',
-      detail: `${age === null ? 'Core’s worker has never reported' : `Core’s worker has not reported for ${lasting(age)}`}. The worker fetches from the CRMs, tells the sites about changes and sends the alerts, so no site gets new changes until it runs again. It needs a restart.`,
+      detail: `${age === null ? 'Core’s background worker has never reported' : `Core’s background worker has not reported for ${lasting(age)}`}. Until it runs again, no change from a CRM reaches the sites, Core sends no alert, and each CRM’s own checks do not run. The sites keep what they show, and forms still reach the CRMs. Have the worker restarted where Core is hosted.`,
     };
   });
 
   checks[SITES_CHECK] = await run(SITES_CHECK, async () => {
     const behind = await sitesBehind();
     if (behind.length === 0) return { ok: true };
-    const many = behind.length > 1;
+    const one = behind.length === 1;
     const result: HealthResult = {
       ok: false,
       level: 'P1',
-      detail: `Core told ${counted(behind.length, 'site', 'sites')} about changes over an hour ago, and ${many ? 'they have' : 'it has'} not fetched them since, so ${many ? 'they' : 'it'} may show homes that have changed or are gone.`,
+      detail: `${capital(inWords(behind.length, 'site has', 'sites have'))} not fetched the changes Core told ${one ? 'it' : 'them'} about more than an hour ago, so ${one ? 'its' : 'their'} visitors may see homes that have changed or are gone.`,
       names: behind.map((site) => site.label),
     };
     behindOf.set(result, behind);
@@ -247,10 +283,13 @@ export async function healthReport(): Promise<HealthReport> {
     const waiting = await undeliveredLifecycleEvents(LIFECYCLE_WAIT_MS);
     if (waiting === 0) return { ok: true };
     const long = (await undeliveredLifecycleEvents(LIFECYCLE_LONG_MS)) > 0;
+    const tasks = `${capital(inWords(waiting, 'task', 'tasks'))} asked for in the admin area, such as loading a new connection or fetching records again, ${waiting === 1 ? 'is' : 'are'} not done after ${long ? 'an hour' : 'five minutes'}. Until a task is done, the sites do not get what it brings.`;
     return {
       ok: false,
       level: long ? 'P1' : 'P2',
-      detail: `${counted(waiting, 'piece', 'pieces')} of work asked for in the admin area (a new connection’s first fetch, a changed office, a fetch someone asked for) ${waiting === 1 ? 'has' : 'have'} waited over ${long ? 'an hour' : 'five minutes'} for the worker, so ${waiting === 1 ? 'its' : 'their'} records are not fetched yet. If Core’s worker is failing too, restart the worker; if not, the CRM’s code is not taking the work, which is for whoever maintains Core.`,
+      detail: long
+        ? `${tasks} If the check “Core’s background worker” fails too, have the worker restarted where Core is hosted; if not, pass this on to whoever maintains Core.`
+        : `${tasks} Core’s background worker does one task after another, and a large one can take a while, so nothing needs doing unless this lasts an hour.`,
     };
   });
 
@@ -263,12 +302,12 @@ export async function healthReport(): Promise<HealthReport> {
     return {
       ok: false,
       level: 'P2',
-      detail: `The last form a visitor sent through ${many ? 'each of ' : ''}${counted(failing.length, 'CRM connection', 'CRM connections')} could not be sent. Send ${many ? 'those forms' : 'that form'} again on Failed forms once the cause shown there is fixed. The check turns green when the CRM answers a form through ${many ? 'every one of those connections' : 'that connection'}.`,
+      detail: `The last form a visitor sent through ${many ? 'each of ' : ''}${inWords(failing.length, 'CRM connection', 'CRM connections')} could not be sent. Send ${many ? 'those forms' : 'that form'} again on Failed forms once the cause shown there is fixed. The check shows fine again when the CRM answers a form through ${many ? 'each of them' : 'that connection'}.`,
       names: failing,
     };
   });
 
-  Object.assign(checks, await adapterChecks());
+  Object.assign(checks, await adapterChecks(!checks['worker']?.ok));
   return settle(checks);
 }
 
@@ -299,16 +338,16 @@ function settle(checks: HealthReport['checks']): HealthReport {
  * database out of reach there are none: the database check says so, once (rule B), and the
  * report still answers.
  */
-async function adapterChecks(): Promise<HealthReport['checks']> {
+async function adapterChecks(workerDown: boolean): Promise<HealthReport['checks']> {
   try {
-    return await recordedChecks();
+    return await recordedChecks(workerDown);
   } catch (error) {
     report(error, { where: 'health', check: 'adapters' });
     return {};
   }
 }
 
-async function recordedChecks(): Promise<HealthReport['checks']> {
+async function recordedChecks(workerDown: boolean): Promise<HealthReport['checks']> {
   const checks = await recordHealth();
   const { rows } = await db().query<{
     name: string;
@@ -333,7 +372,9 @@ async function recordedChecks(): Promise<HealthReport['checks']> {
     const stale: HealthResult = {
       ok: false,
       level: age > RECORDED_STALE_MS + CANNOT_RUN_MS ? 'P1' : 'P2',
-      detail: `Core’s worker has not run this check for ${lasting(age)}, so nobody knows whether it would pass. If Core’s worker is failing too, restart the worker; if not, this is for whoever maintains Core.`,
+      detail: workerDown
+        ? `Core’s background worker has not run this check for ${lasting(age)}, because the worker is not running. The check “Core’s background worker” says what to do.`
+        : `Core’s background worker has not run this check for ${lasting(age)}, although the worker itself is running, so Core cannot tell whether anything the check watches is wrong. If this lasts a quarter of an hour, have the worker restarted where Core is hosted.`,
     };
     notRun.add(stale);
     checks[row.name] = stale;
@@ -389,11 +430,11 @@ async function run(
       ok: false,
       level: Date.now() - since > CANNOT_RUN_MS ? 'P1' : 'P2',
       detail:
-        'This check could not run, so nobody knows whether it would pass. Core tries it again every minute.',
+        'This check could not run, so Core cannot tell whether anything it watches is wrong. Core tries it again every minute.',
     };
     failed.set(
       result,
-      `If it keeps failing, pass this on to whoever maintains Core: ${String(error)}`,
+      `If it keeps failing, pass this on to whoever maintains Core. What failed: ${String(error)}`,
     );
     notRun.add(result);
     return result;

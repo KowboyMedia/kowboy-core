@@ -138,7 +138,7 @@ describe('restore (AC 41)', () => {
     await db().query("insert into migrations (name) values ('999_from_a_newer_app.sql')");
     expect(await schema()).toMatchObject({
       ok: false,
-      detail: expect.stringContaining('999_from_a_newer_app.sql'),
+      detail: expect.stringContaining('older than its database'),
     });
     expect((await fetch(`${running.baseUrl}/v1/ready`)).status).toBe(500);
 
