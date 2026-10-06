@@ -72,10 +72,13 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   rows are as they were. Each system has its own requests at once, requests per second and
   Retry-After, and drains its own part of the fetch list, so a slow or busy QA never holds up live
   Vitec's fetches; a connection whose start-up round fails runs it again alone, so a QA that is
-  down never makes live Vitec list everything each minute. Each office check records the system
-  it asked; a saved login switched to the other system has every office of the last check taken
-  off the sites (`office.taken_off`, "the login was switched to …"), its state cleared, and its
-  offices checked and loaded in full at the same tick. The Vitec page's fetch list and refused
+  down never makes live Vitec list everything each minute, and its offices are checked once per
+  start, never on a retry, so a refused office still gets one call a day. Each office check
+  records the system it asked; a saved login switched to the other system syncs no office until
+  the worker's next tick, which takes every office of the last check off the sites
+  (`office.taken_off`, "the login was switched to …"), clears its state, and checks and loads its
+  offices in full. An office change from the admin waits for the tick's turn, so nothing is
+  taken off twice. The Vitec page's fetch list and refused
   offices, and the names in `vitec.offices`, mark a QA office "(QA)". Give a QA login a tenant of
   its own: its records reach that tenant's sites like any other. `qa.test.ts` proves it with two
   stand-ins sharing one office id.

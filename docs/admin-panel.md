@@ -131,8 +131,8 @@ field **Vitec's QA environment** set to yes sends every call of that login to QA
 records are kept apart from live Vitec's even where QA uses the same office ids. The Vitec page
 shows QA's notification address beside the live one, and its **Fetch list** and **Refused
 offices** mark a QA office "(QA)", as do the names in `vitec.offices` on Overview. A saved login
-switched to the other system has everything the first system gave taken off the sites at the
-worker's next tick, and is then loaded in full from the second; the field's own help and the
+switched to the other system syncs no office until the worker's next tick, which takes
+everything the first system gave off the sites and loads the second in full; the field's own help and the
 setup steps say so. The forms of a QA login go to QA, and only from the live service.
 Under each connection, one line counts the forms visitors sent through Core to that CRM in the
 last day (docs/forms.md): delivered, refused by the CRM, unanswered by the CRM; red when any went

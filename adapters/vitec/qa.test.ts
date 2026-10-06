@@ -14,12 +14,13 @@ import {
   healthReport,
   pull,
   queryEvents,
+  queueLifecycle,
   until,
   type Harness,
 } from '../../acceptance/harness.js';
 import { drainFetchList, runSchedules, vitecAdapter } from './index.js';
 import { vitecAdmin } from './admin/index.js';
-import { checkSoon, lastCheck } from './offices.js';
+import { checkSoon, lastCheck, officesOf } from './offices.js';
 import * as connect from './api.js';
 import * as store from './store.js';
 import { PASSWORD, USERNAME, startFakeConnect, type FakeConnect } from './test/connect.js';
@@ -358,8 +359,14 @@ describe('Vitec’s QA environment', () => {
     expect(await store.blockedOffices()).toHaveLength(1);
 
     await running.connection({ id: QA, provider: 'vitec', credentials: login({ qa: 'no' }) });
-    await runSchedules();
+    // Until the worker checks the switched login again, it syncs no office: a Manual sync or a
+    // "Fetch again" meanwhile asks live Vitec nothing about the offices QA gave.
+    expect(await officesOf(await connection(QA))).toEqual([]);
+    // An office change for the connection, arriving with the tick, waits for the tick's turn.
+    await queueLifecycle(QA, 'connection_added');
+    await Promise.all([runSchedules(), running.deliver()]);
     await drainFetchList();
+    expect(await officesOf(await connection(QA))).toEqual([OFFICE]);
     expect((await homeOf(QA, 'OBJ2'))?.['deleted']).toBe(true);
     expect((await homeOf(QA, 'OBJ1'))?.['deleted']).toBe(false);
     expect(streetOf(await homeOf(QA, 'OBJ1'))).toBe('Storgatan 1');
@@ -386,10 +393,14 @@ describe('Vitec’s QA environment', () => {
       (await queryEvents({ type: 'schedule.failed', connectionId: QA })).length;
     const failed = await failures();
     expect(failed).toBeGreaterThan(0);
+    // QA's offices were checked once, at the start. A retry leaves the check to its own time,
+    // since the check calls every office of the login, refused ones too.
+    const checked = (await lastCheck(QA))?.at;
 
     await runSchedules();
     expect(listings(live)).toBe(listed);
     expect(await failures()).toBe(failed + 1);
+    expect((await lastCheck(QA))?.at).toBe(checked);
   });
 
   // Last, because the hold outlasts the test, and no later test should wait it out.

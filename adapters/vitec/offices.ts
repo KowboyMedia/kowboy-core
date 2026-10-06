@@ -293,9 +293,18 @@ export async function checkOffices(
   return result;
 }
 
-/** The offices a connection syncs: the ones the last check chose from Vitec, none before it. */
-export async function officesOf(connection: { id: string }): Promise<string[]> {
-  return (await lastCheck(connection.id))?.offices ?? [];
+/**
+ * The offices a connection syncs: the ones the last check chose from Vitec, none before it. A login
+ * switched to Vitec's other system since that check has none until the worker checks it again
+ * (question 169 a), so nothing asks one system about the other's offices in the meantime.
+ */
+export async function officesOf(connection: {
+  id: string;
+  credentials: string | null;
+}): Promise<string[]> {
+  const last = await lastCheck(connection.id);
+  const environment = connect.loginOf(connection.credentials)?.environment ?? 'live';
+  return last?.environment === environment ? last.offices : [];
 }
 
 /** Make the worker's next tick check the offices, as the button "Check offices now" does. */

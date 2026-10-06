@@ -926,18 +926,26 @@ const span = (ms: number): string => {
 let startPending = true;
 /** The connections whose start-up round is still to run; null until the first tick names them. */
 let toStart: Set<string> | null = null;
+/** When this copy of the adapter started: its start-up round checks each login's offices once. */
+let runningSince = '';
 
 /** One connection's schedules that are due: the offices first, then the catch-up and the
  * comparison over the offices the check chose. */
 async function runDue(current: AdapterApi, given: Live, startup: boolean): Promise<void> {
-  const due = async (key: string, every: number): Promise<boolean> =>
-    startup || ageMs(await store.getState(given.connection.id, key)) >= every;
-  const target = (await due('offices_check_at', CHECK_EVERY_MS))
-    ? await checkAndApply(current, given)
-    : given;
+  const { id } = given.connection;
+  const aged = async (key: string, every: number): Promise<boolean> =>
+    ageMs(await store.getState(id, key)) >= every;
+  // The start-up round checks the offices once per start, never again when it is retried: the
+  // check calls every office of the id, refused ones too, and a refused office gets that call
+  // once a day (question 161 a).
+  const checkedSinceStart = ((await lastCheck(id))?.at ?? '') > runningSince;
+  const target =
+    (startup && !checkedSinceStart) || (await aged('offices_check_at', CHECK_EVERY_MS))
+      ? await checkAndApply(current, given)
+      : given;
   if (target.offices.length === 0) return;
-  if (await due('catch_up_at', CATCH_UP_EVERY_MS)) await catchUp(target);
-  if (await due('compare_at', COMPARE_EVERY_MS)) await compare(target);
+  if (startup || (await aged('catch_up_at', CATCH_UP_EVERY_MS))) await catchUp(target);
+  if (startup || (await aged('compare_at', COMPARE_EVERY_MS))) await compare(target);
 }
 
 async function tickOnce(): Promise<void> {
@@ -1053,6 +1061,7 @@ export const vitecAdapter: Adapter = {
 
   start(given: AdapterApi): void {
     engine = given;
+    runningSince = new Date().toISOString();
     // Every call to Vitec goes in the event log, on the record's timeline when it was for one.
     connect.onCall((call) => {
       const api = engine;
@@ -1073,8 +1082,15 @@ export const vitecAdapter: Adapter = {
         event.type === 'offices_removed'
       ) {
         // A new connection, or the engine's own office list changed (for this adapter only ever
-        // to empty): Vitec is asked which offices to sync, and every one of them is loaded.
-        await checkAndApply(given, await settleSwitch(given, target));
+        // to empty): Vitec is asked which offices to sync, and every one of them is loaded. It
+        // waits for the schedules' turn, so a tick never checks, switches or loads the same
+        // connection at the same moment, and nothing is taken off twice.
+        const applied = serial(async () => {
+          await checkAndApply(given, await settleSwitch(given, target));
+        }, scheduling);
+        // The schedules go on whatever happens here; a failure reaches the engine below.
+        scheduling = applied.catch(() => undefined);
+        await applied;
         return;
       }
       target.offices = await officesOf(event.connection);
