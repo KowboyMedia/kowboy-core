@@ -17,7 +17,7 @@ import {
   type OfficeSeen,
   type OfficesCheck,
 } from '../offices.js';
-import { connectionNamed, counted, failureInWords, recordNamed, sentence, when } from '../words.js';
+import { type AdminThing, counted, failureInWords, recordNamed, sentence, when } from '../words.js';
 import type {
   AdapterAdmin,
   AdminAction,
@@ -38,15 +38,59 @@ const LONG_AGO = '1970-01-01T00:00:00.000Z';
 export const hookPath = (environment: connect.Environment): string =>
   environment === 'qa' ? 'qa' : 'webhook';
 
+/** What follows an office of Vitec's QA environment, so it is never taken for live Vitec's. */
+const QA_NOTE = 'in Vitec’s QA environment';
+
 /**
- * An office as the panel names it: its name as Vitec last gave it, when a connection's office
- * check kept it, then Vitec's id for it. A QA office is marked QA, live Vitec's stays bare.
+ * An office as the panel writes it when no connection fetches it: its name as Vitec last gave it,
+ * when a connection's office check kept it, then Vitec's id for it.
  */
 export const officeLabel = (office: store.Office, names?: OfficeNames): string => {
   const name = names?.get(placeOf(office));
-  const id = `Vitec’s office id ${office.officeId}${office.environment === 'qa' ? ' (QA)' : ''}`;
+  const id = `Vitec’s office id ${office.officeId}${office.environment === 'qa' ? `, ${QA_NOTE}` : ''}`;
   return name ? `${name}, ${id}` : id;
 };
+
+/** Which connection fetches each office, by system and office id: the first that does. */
+type Owners = Map<string, string>;
+
+async function ownersOf(connections: Connection[]): Promise<Owners> {
+  const owners: Owners = new Map();
+  for (const connection of connections) {
+    const environment = environmentOf(connection);
+    for (const officeId of await officesOf(connection)) {
+      const place = placeOf({ environment, officeId });
+      if (!owners.has(place)) owners.set(place, connection.id);
+    }
+  }
+  return owners;
+}
+
+/** What the page knows about the offices: who fetches each, and the names Vitec gave them. */
+type Known = { owners: Owners; names: OfficeNames };
+
+/**
+ * An office as a thing Core names and links, under a connection that fetches it, so a QA office
+ * is its QA login's; as text when no connection fetches it.
+ */
+function officeValue(office: store.Office, known: Known): AdminValue {
+  const connection = known.owners.get(placeOf(office));
+  if (!connection) return officeLabel(office, known.names);
+  return {
+    connection,
+    office: office.officeId,
+    ...(office.environment === 'qa' ? { note: QA_NOTE } : {}),
+  };
+}
+
+/** A record on the fetch list as a thing Core names by its address and links to its page. */
+function recordValue(entry: store.Entry, known: Known): AdminValue {
+  const connection = known.owners.get(placeOf(entry));
+  const thing: AdminThing | null = connection
+    ? { connection, record: { datatype: entry.datatype, id: entry.remoteId } }
+    : null;
+  return thing ?? `Vitec’s id ${entry.remoteId}`;
+}
 
 /** The names of the offices the connections' last checks kept, by system and office id. */
 type OfficeNames = Map<string, string>;
@@ -99,7 +143,7 @@ const moment = (value: string | Date | null | undefined): AdminValue =>
 const webhookUrl = (environment: connect.Environment): AdminValue => {
   const token = process.env['VITEC_WEBHOOK_TOKEN'];
   return token
-    ? `Core’s own address, followed by /v1/hook/vitec/${hookPath(environment)}/${token}`
+    ? { address: `/v1/hook/vitec/${hookPath(environment)}/${token}` }
     : {
         text: 'Not set up. The server setting VITEC_WEBHOOK_TOKEN is empty, so Core turns every notification from Vitec away, and changes reach the sites only with the catch-up, up to 12 hours later. Set it in Core’s server settings.',
         state: 'bad',
@@ -188,10 +232,7 @@ function stateOf(connection: Connection, schedule: Schedule, offices: string[]):
 
 // ---- The Vitec page ---------------------------------------------------------------------------
 
-async function connectionsSection(
-  connections: Connection[],
-  names: OfficeNames,
-): Promise<AdminSection> {
+async function connectionsSection(connections: Connection[], known: Known): Promise<AdminSection> {
   const rows = [];
   for (const connection of connections) {
     const schedule = await scheduleOf(connection);
@@ -199,10 +240,14 @@ async function connectionsSection(
     const environment = environmentOf(connection);
     rows.push({
       cells: [
-        connection.id,
+        { connection: connection.id },
         offices.length === 0
           ? 'No office yet'
-          : offices.map((officeId) => officeLabel({ environment, officeId }, names)).join(' and '),
+          : offices.length === 1
+            ? officeValue({ environment, officeId: offices[0] ?? '' }, known)
+            : offices
+                .map((officeId) => officeLabel({ environment, officeId }, known.names))
+                .join(' and '),
         connection.active,
         stateOf(connection, schedule, offices),
         moment(schedule.catchUpAt),
@@ -234,9 +279,9 @@ async function connectionsSection(
   };
 }
 
-async function blockedSection(names: OfficeNames): Promise<AdminSection> {
+async function blockedSection(known: Known): Promise<AdminSection> {
   const rows = (await store.blockedOffices()).map((office) => ({
-    cells: [officeLabel(office, names), moment(office.blockedAt), office.reason],
+    cells: [officeValue(office, known), moment(office.blockedAt), office.reason],
   }));
   return {
     title: 'Refused offices',
@@ -249,7 +294,7 @@ async function blockedSection(names: OfficeNames): Promise<AdminSection> {
   };
 }
 
-async function fetchListSection(names: OfficeNames): Promise<AdminSection> {
+async function fetchListSection(known: Known): Promise<AdminSection> {
   const rows = (await store.entries(50)).map((entry) => {
     const params = {
       office: entry.officeId,
@@ -259,9 +304,9 @@ async function fetchListSection(names: OfficeNames): Promise<AdminSection> {
     };
     return {
       cells: [
-        officeLabel(entry, names),
+        officeValue(entry, known),
         recordNamed(entry.datatype),
-        `Vitec’s id ${entry.remoteId}`,
+        recordValue(entry, known),
         waitsBecause(entry.reason),
         entry.attempts,
         entry.nextAt
@@ -302,32 +347,28 @@ const NO_CONNECTION =
 const NO_RECORD =
   'Nothing was done, because the button did not say which record it is for. Reload the page and press it again.';
 
-/** A record on the fetch list, as a toast names it. */
-const recordIn = (datatype: string, id: string, office: store.Office): string =>
-  `The ${recordNamed(datatype)} with Vitec’s id ${id}, of ${officeLabel(office)},`;
-
 /** What the page's buttons do; a schedule is run by making it overdue for the worker's next tick. */
 const ACTIONS: Record<string, (params: Record<string, string>) => Promise<string>> = {
   catch_up: async ({ connection }) => {
     if (!connection) throw new Error(NO_CONNECTION);
     await store.setState(connection, 'catch_up_at', LONG_AGO);
-    return `${connectionNamed(connection)} asks Vitec for its changes within a minute.`;
+    return 'This connection asks Vitec for its changes within a minute.';
   },
   compare: async ({ connection }) => {
     if (!connection) throw new Error(NO_CONNECTION);
     await store.setState(connection, 'compare_at', LONG_AGO);
-    return `${connectionNamed(connection)} compares Vitec’s list within a minute. Whatever Vitec no longer lists then leaves the sites.`;
+    return 'This connection compares Vitec’s list within a minute. Whatever Vitec no longer lists then leaves the sites.';
   },
   check_offices: async ({ connection }) => {
     if (!connection) throw new Error(NO_CONNECTION);
     await checkSoon(connection);
-    return `Core asks Vitec within a minute which offices reach the sites through the Vitec connection with the short name ${connection}. Reload this page in a minute to see the answer.`;
+    return 'Core asks Vitec within a minute which offices reach the sites through this connection. Reload this page in a minute to see the answer.';
   },
   resume: async ({ connection }) => {
     if (!connection) throw new Error(NO_CONNECTION);
     await store.setState(connection, 'paused_until', '');
     await store.setState(connection, 'failures', '0');
-    return `${connectionNamed(connection)} asks Vitec again now.`;
+    return 'This connection asks Vitec again now.';
   },
   retry: async (params) => {
     const { office, datatype, id } = params;
@@ -337,7 +378,7 @@ const ACTIONS: Record<string, (params: Record<string, string>) => Promise<string
     if (!office || !known || !id) throw new Error(NO_RECORD);
     const where = { environment: environmentIn(params), officeId: office };
     await store.expediteOne(where, known, id);
-    return `${recordIn(known, id, where)} is fetched again now.`;
+    return `This ${recordNamed(known)} is fetched again now.`;
   },
   drop: async (params) => {
     const { office, datatype, id } = params;
@@ -347,7 +388,7 @@ const ACTIONS: Record<string, (params: Record<string, string>) => Promise<string
     if (!office || !known || !id) throw new Error(NO_RECORD);
     const where = { environment: environmentIn(params), officeId: office };
     await store.drop(where, known, id);
-    return `${recordIn(known, id, where)} is off the fetch list. The sites keep it as they show it now.`;
+    return `This ${recordNamed(known)} is off the fetch list. The sites keep it as they show it now.`;
   },
 };
 
@@ -574,6 +615,39 @@ async function officesSection(connection: Connection): Promise<AdminSection> {
 }
 
 export const vitecAdmin: AdapterAdmin = {
+  // Each check's title and its sentence while it passes; the admin area and the alerts show
+  // these, never the check's name (AGENTS.md, definition of done 5).
+  checks: {
+    'vitec.webhook_lag': {
+      title: 'Changes Vitec told Core about',
+      fine: 'Core handled every change Vitec told it about within five minutes.',
+    },
+    'vitec.retries': {
+      title: 'Records fetched from Vitec',
+      fine: 'No record has failed to fetch from Vitec three times in a row.',
+    },
+    'vitec.login': {
+      title: 'Vitec logins Core can read',
+      fine: 'Core can read the saved Vitec login of every connection that fetches.',
+    },
+    'vitec.no_offices': {
+      title: 'Offices to fetch from Vitec',
+      fine: 'Every Vitec connection that has been checked has offices to fetch.',
+    },
+    'vitec.catch_up': {
+      title: 'Catching up with Vitec',
+      fine: 'Every Vitec connection with offices has caught up with Vitec within the last 13 hours.',
+    },
+    'vitec.offices': {
+      title: 'Offices Vitec lets Core read',
+      fine: 'Vitec lets Core read every office Core fetches.',
+    },
+    'vitec.connect': {
+      title: 'Vitec answering Core',
+      fine: 'Vitec answers Core’s calls for every connection.',
+    },
+  },
+
   credentials: [
     {
       key: 'username',
@@ -599,7 +673,7 @@ export const vitecAdmin: AdapterAdmin = {
   directions,
 
   async panel(connections) {
-    const names = await officeNames(connections);
+    const known = { owners: await ownersOf(connections), names: await officeNames(connections) };
     return [
       {
         title: 'Notification addresses and call limits',
@@ -612,9 +686,9 @@ export const vitecAdmin: AdapterAdmin = {
           { label: 'Calls to Vitec per second', value: connect.requestsPerSecond() },
         ],
       },
-      await connectionsSection(connections, names),
-      await blockedSection(names),
-      await fetchListSection(names),
+      await connectionsSection(connections, known),
+      await blockedSection(known),
+      await fetchListSection(known),
     ];
   },
 

@@ -112,9 +112,6 @@ const homeOf = async (
 const streetOf = (item: Record<string, unknown> | undefined): unknown =>
   (item?.['raw'] as { address?: { streetAddress?: string } } | undefined)?.address?.streetAddress;
 
-/** An office cell's id and mark, without the office's name in front. */
-const idOf = (cell: unknown): string => String(cell).replace(/^.*Vitec’s office id /, '');
-
 const paths = (fake: FakeConnect): string[] => fake.requests.map((request) => request.path);
 
 /** How many list pages a stand-in Connect has answered. */
@@ -256,11 +253,17 @@ describe('Vitec’s QA environment', () => {
     // Named with its system among the refused offices.
     const offices = (await healthReport()).checks['vitec.offices'];
     expect(offices?.names).toEqual([
-      expect.stringMatching(/^Kontor 1 \(Vitec’s QA office id M1\), refused/),
+      {
+        connection: QA,
+        office: OFFICE,
+        note: expect.stringMatching(/^in Vitec’s QA environment, refused /),
+      },
     ]);
     const page = await vitecAdmin.panel([await connection(LIVE), await connection(QA)]);
     const refused = page.find((section) => section.title === 'Refused offices');
-    expect(refused?.table?.rows.map((row) => idOf(row.cells[0]))).toEqual(['M1 (QA)']);
+    expect(refused?.table?.rows.map((row) => row.cells[0])).toEqual([
+      { connection: QA, office: OFFICE, note: 'in Vitec’s QA environment' },
+    ]);
   });
 
   it('answers the forms guard that a QA connection is Vitec’s test system, and a live or unreadable one is not (question 181)', async () => {
@@ -335,15 +338,24 @@ describe('Vitec’s QA environment', () => {
       page.find((section) => section.title === 'Notification addresses and call limits')?.items ??
       [];
     const valueOf = (label: string): unknown => items.find((item) => item.label === label)?.value;
-    expect(valueOf('Address for live Vitec')).toContain(`/v1/hook/vitec/webhook/${HOOK_TOKEN}`);
-    expect(valueOf('Address for Vitec’s QA')).toContain(`/v1/hook/vitec/qa/${HOOK_TOKEN}`);
+    expect(valueOf('Address for live Vitec')).toEqual({
+      address: `/v1/hook/vitec/webhook/${HOOK_TOKEN}`,
+    });
+    expect(valueOf('Address for Vitec’s QA')).toEqual({
+      address: `/v1/hook/vitec/qa/${HOOK_TOKEN}`,
+    });
     const schedules = page.find((section) => section.title === 'Connections and schedules');
-    expect(schedules?.table?.rows.map((row) => [row.cells[0], idOf(row.cells[1])])).toEqual([
-      [LIVE, OFFICE],
-      [QA, `${OFFICE} (QA)`],
+    // Each office is named under the connection that fetches it, QA's marked as QA's.
+    const liveOffice = { connection: LIVE, office: OFFICE };
+    const qaOffice = { connection: QA, office: OFFICE, note: 'in Vitec’s QA environment' };
+    expect(schedules?.table?.rows.map((row) => row.cells.slice(0, 2))).toEqual([
+      [{ connection: LIVE }, liveOffice],
+      [{ connection: QA }, qaOffice],
     ]);
     const list = page.find((section) => section.title === 'Fetch list');
-    expect(list?.table?.rows.map((row) => idOf(row.cells[0])).sort()).toEqual(['M1', 'M1 (QA)']);
+    const listed = list?.table?.rows.map((row) => row.cells[0]) ?? [];
+    expect(listed).toHaveLength(2);
+    expect(listed).toEqual(expect.arrayContaining([liveOffice, qaOffice]));
     const queue = vitecAdmin.queue;
     if (!queue) throw new Error('the Vitec adapter has no queue');
     expect((await queue(connections)).map((row) => row.connectionId).sort()).toEqual([LIVE, QA]);
@@ -362,7 +374,9 @@ describe('Vitec’s QA environment', () => {
       ['qa', 0],
     ]);
     const dropped = await vitecAdmin.act('drop', qaRow, connections);
-    expect(dropped.message).toContain('M1 (QA)');
+    expect(dropped.message).toBe(
+      'This home is off the fetch list. The sites keep it as they show it now.',
+    );
     expect((await store.entries()).map((entry) => entry.environment)).toEqual(['live']);
   });
 

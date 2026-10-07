@@ -44,6 +44,18 @@ describe('the Vitec setup directions', () => {
     for (const check of checks) expect(text, check).toContain(`vitec.${check}`);
   });
 
+  it('give every health check a title and its sentence while it passes, so none shows its name', () => {
+    const checks = found(/healthCheck\(`\$\{PROVIDER\}\.([a-z_]+)`/g);
+    for (const check of checks) {
+      const words = vitecAdmin.checks?.[`vitec.${check}`];
+      expect(words?.title, check).toBeTruthy();
+      expect(words?.fine, check).toMatch(/\.$/);
+    }
+    expect(Object.keys(vitecAdmin.checks ?? {}).sort()).toEqual(
+      checks.map((check) => `vitec.${check}`).sort(),
+    );
+  });
+
   it('name every credential field and both webhook paths, live and QA', () => {
     for (const credential of vitecAdmin.credentials) expect(text).toContain(credential.label);
     expect(text).toContain('/v1/hook/vitec/webhook/');
