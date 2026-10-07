@@ -678,10 +678,10 @@ describe('the admin area', () => {
        values ('fake-webhook.offices', false, 'Two offices need a look.', $1, 'P2', now())`,
       [JSON.stringify(things)],
     );
-    const [connection] = await connectionsNamed(['acme-crm']);
+    const connection = (await connectionsNamed(['acme-crm']))[0]?.label ?? '';
     const named = [
       {
-        label: capital(connection?.label ?? ''),
+        label: capital(connection),
         to: `/tenants/${String(tenantId)}#connection:acme-crm`,
       },
       {
@@ -699,7 +699,7 @@ describe('the admin area', () => {
         links: Record<string, unknown[]>;
       };
     }>('/overview');
-    expect(overview.body.data.health.checks['fake-webhook.offices']?.level).toBe('P2');
+    expect(overview.body.data.health.checks['fake-webhook.offices']).toMatchObject({ level: 'P2' });
     expect(overview.body.data.links['fake-webhook.offices']).toEqual(named);
     // The CRM's code gave its check a title and a sentence for while it passes; a check it gave
     // none is about fetching from the CRM.
@@ -707,9 +707,9 @@ describe('the admin area', () => {
       title: 'Changes the fake CRM told Core about',
       fine: 'Core fetched every change the fake CRM told it about within five minutes.',
     });
-    expect(overview.body.data.about['fake-webhook.offices']?.title).toBe(
-      'Fetching from Fake-webhook',
-    );
+    expect(overview.body.data.about['fake-webhook.offices']).toMatchObject({
+      title: 'Fetching from Fake-webhook',
+    });
 
     // A CRM's page draws the same things by their names with their places, and an address on
     // Core as the whole address others reach it at.
@@ -720,17 +720,20 @@ describe('the admin area', () => {
         table: { columns: ['A', 'B', 'C', 'D', 'E'], rows: [{ cells: [...things, 'As written'] }] },
       },
     ]);
-    expect(section?.items?.[0]?.value).toBe('https://core.example/v1/hook/fake-webhook/webhook');
-    expect(section?.table?.rows[0]?.cells).toEqual([
-      ...named.map(({ label, to }) => ({ text: label, to })),
-      'As written',
-    ]);
+    expect(section).toEqual({
+      title: 'Things',
+      items: [{ label: 'Where', value: 'https://core.example/v1/hook/fake-webhook/webhook' }],
+      table: {
+        columns: ['A', 'B', 'C', 'D', 'E'],
+        rows: [{ cells: [...named.map(({ label, to }) => ({ text: label, to })), 'As written'] }],
+      },
+    });
     const page = await api<{ data: { sections: { items?: { value: unknown }[] }[] } }>(
       '/crms/fake-webhook',
     );
-    expect(page.body.data.sections[0]?.items?.[1]?.value).toBe(
-      'https://core.example/v1/hook/fake-webhook/webhook',
-    );
+    expect(page.body.data.sections[0]).toMatchObject({
+      items: [{}, { value: 'https://core.example/v1/hook/fake-webhook/webhook' }],
+    });
   });
 
   it('lists what needs attention from the last seven days, naming each thing, where it is, and its link (U2, questions 159 and 163)', async () => {
