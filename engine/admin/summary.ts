@@ -296,9 +296,10 @@ const SAY: Record<string, (fields: EventFields, named: Named) => string> = {
   },
   'submission.refused': (fields, named) => {
     const reason = text(fields, 'reason');
-    // Core's own answer outside production: the form never left Core.
+    // Core's own answer, a dry run (outside production, or through a connection ticked to dry-run
+    // its forms): the form never left Core.
     if (reason === NOT_LIVE) {
-      return `Core held back ${form(fields)}, since only production sends forms to a live CRM.`;
+      return `Core held back ${form(fields)} as a dry run: only production sends forms to a live CRM, and never through a connection ticked to dry-run its forms.`;
     }
     return reason
       ? `${capital(theCrm(named))} refused ${form(fields)}, with the reason “${reason}”.`
