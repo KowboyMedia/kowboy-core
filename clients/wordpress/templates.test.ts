@@ -684,6 +684,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     const associations = await page('/?post_type=core_association');
     expect(associations.status).toBe(200);
     expect(associations.body).toContain('<h2 class="k-section__title">Föreningar</h2>');
+    expect(associations.body).toContain('<title>Föreningar - ');
     expect(associations.body).toContain(
       '<article class="k-card k-card--area k-card--association" data-card-url="',
     );
@@ -703,6 +704,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(paged.stdout).toMatch(/page-numbers" href="[^"]*\/">1</);
     expect(paged.stdout).not.toContain('Visa fler');
     const areas = await page('/?post_type=core_area');
+    expect(areas.body).toContain('<title>Områden - ');
     expect(areas.body).toContain('<article class="k-card k-card--area" data-card-url="');
     // The card's preheader is the kommun from the LKF code (Patric, 2026-10-04).
     expect(areas.body).toContain('k-card__area">Stockholm</span>');

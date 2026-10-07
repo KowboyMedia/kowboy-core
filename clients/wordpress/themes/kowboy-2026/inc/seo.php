@@ -32,11 +32,12 @@ function kowboy_page_title(): ?string
         $title = $item['address']['street'] ?? $item['name'] ?? null;
         return is_string($title) && $title !== '' ? $title : null;
     }
-    if (is_post_type_archive('core_property')) {
-        return 'Till salu';
-    }
-    if (is_post_type_archive('core_agent')) {
-        return 'Våra mäklare';
+    // A list's title is its heading (core/archive-*.php), never the plugin's English name for it.
+    $lists = ['core_property' => 'Till salu', 'core_agent' => 'Våra mäklare', 'core_area' => 'Områden', 'core_association' => 'Föreningar'];
+    foreach ($lists as $type => $title) {
+        if (is_post_type_archive($type)) {
+            return $title;
+        }
     }
     return null;
 }

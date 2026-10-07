@@ -329,6 +329,10 @@ Two more the same day (Patric, 2026-10-07, 15:09Z), theme 1.2.3:
   2026-09-29; a browser journey (`e2e/home-on-phone.spec.ts`) checks the home page at 390 px and
   320 px.
 
+Theme 1.2.4 (2026-10-07, found while the Ahre demo was built): the area and association lists'
+browser tab titles are their headings, "Områden" and "Föreningar", instead of the plugin's English
+names "Areas" and "Associations" (`kowboy_page_title` in `inc/seo.php`).
+
 ## Order of work
 
 1. The plan and the questions (this page), the plugin's shadow DOM default, the 2026 set shelved.
