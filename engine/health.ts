@@ -179,8 +179,7 @@ async function sitesBehind(): Promise<SiteBehind[]> {
        ), s.last_bell_at) as told_at
      from subscribers s
      join tenants t on t.id = s.tenant_id and t.active
-     where s.active
-       and s.last_bell_at > coalesce(s.last_pull_at, '-infinity')
+     where s.last_bell_at > coalesce(s.last_pull_at, '-infinity')
        and coalesce(s.last_pull_at, '-infinity') < now() - $1::interval
        and case
          when s.last_bell_at < now() - $1::interval then true

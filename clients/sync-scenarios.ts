@@ -345,7 +345,7 @@ export function syncScenarios(name: string, client: ClientSetup): void {
     it(
       'skips an item it cannot use, and keeps going (AC 30)',
       async () => {
-        await db().query('update subscribers set active = false'); // Core rings nobody
+        await db().query('delete from subscribers'); // Core has no site to ring
         await seed('P-1', 'P-2', 'P-3');
         // One served item is broken, and stays broken: the adapter must not repair it meanwhile.
         await fakePollingAdapter.stop?.();
@@ -408,8 +408,8 @@ export function syncScenarios(name: string, client: ClientSetup): void {
         await seed('P-1', 'P-2', 'P-3');
         await sync();
 
-        // Core rings nobody from here on, so the client's cursor stays where it is.
-        await db().query('update subscribers set active = false');
+        // Core has no site to ring from here on, so the client's cursor stays where it is.
+        await db().query('delete from subscribers');
         crm.remove('property', 'P-1');
         await poll();
         // The tombstone ages out and is purged: the cursor is now below the watermark.
@@ -469,7 +469,7 @@ export function syncScenarios(name: string, client: ClientSetup): void {
     it(
       'converges on its own schedule when bells never arrive (AC 22)',
       async () => {
-        await db().query('update subscribers set active = false'); // Core rings nobody
+        await db().query('delete from subscribers'); // Core has no site to ring
         await seed('P-1');
 
         const before = (await site.status()).runs;

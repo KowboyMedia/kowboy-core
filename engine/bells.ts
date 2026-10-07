@@ -39,18 +39,18 @@ async function holdForMaintenance(tenantId: number, kind: BellKind): Promise<voi
   await db().query(
     `update subscribers
      set bell_pending = case when bell_pending = 'forcerefresh' then bell_pending else $2 end
-     where tenant_id = $1 and active = true and ${LICENSED}`,
+     where tenant_id = $1 and ${LICENSED}`,
     [tenantId, kind],
   );
 }
 
-/** Ring every active subscriber of a tenant: at once if outside the window, otherwise queued. */
+/** Ring every subscriber of a tenant: at once if outside the window, otherwise queued. */
 export async function ring(tenantId: number, kind: BellKind = 'delta'): Promise<void> {
   if (await inMaintenance()) return holdForMaintenance(tenantId, kind);
   // The update is the claim: only one process wins the leading edge for a subscriber.
   const { rows: due } = await db().query<Subscriber>(
     `update subscribers set last_bell_at = now()
-     where tenant_id = $1 and active = true and ${LICENSED}
+     where tenant_id = $1 and ${LICENSED}
        and (last_bell_at is null or last_bell_at < now() - $2::interval)
      returning id, tenant_id, bell_url, bell_secret`,
     [tenantId, window()],
@@ -59,7 +59,7 @@ export async function ring(tenantId: number, kind: BellKind = 'delta'): Promise<
   await db().query(
     `update subscribers
      set bell_pending = case when bell_pending = 'forcerefresh' then bell_pending else $2 end
-     where tenant_id = $1 and active = true and ${LICENSED} and last_bell_at >= now() - $3::interval
+     where tenant_id = $1 and ${LICENSED} and last_bell_at >= now() - $3::interval
        and id <> all($4::bigint[])`,
     [tenantId, kind, window(), due.map((row) => row.id)],
   );
@@ -71,7 +71,7 @@ export async function flushPendingBells(): Promise<void> {
   if (await inMaintenance()) return;
   const { rows } = await db().query<Subscriber & { kind: BellKind }>(
     `update subscribers set last_bell_at = now(), bell_pending = null
-     where bell_pending is not null and active = true and ${LICENSED}
+     where bell_pending is not null and ${LICENSED}
        and (last_bell_at is null or last_bell_at < now() - $1::interval)
      returning id, tenant_id, bell_url, bell_secret, bell_pending as kind`,
     [window()],

@@ -56,10 +56,7 @@ async function pollOnce(): Promise<void> {
   // started finishes against the API it started with.
   const current = api;
   if (!current) return;
-  for (const connection of await current.connections()) {
-    if (!connection.active) continue;
-    await sweep(connection, current);
-  }
+  for (const connection of await current.connections()) await sweep(connection, current);
   lastPollAt = Date.now();
 }
 

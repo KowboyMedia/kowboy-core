@@ -30,7 +30,6 @@ export type SiteRow = {
   tenant: string;
   label: string;
   bellUrl: string;
-  active: boolean;
   lastPullAt: string | null;
   lastBellAt: string | null;
   lastBellStatus: string | null;
@@ -157,7 +156,6 @@ export async function overview(): Promise<Overview> {
       tenant: names.get(site.tenant_id) ?? String(site.tenant_id),
       label: site.label,
       bellUrl: site.bell_url,
-      active: site.active,
       lastPullAt: site.last_pull_at?.toISOString() ?? null,
       lastBellAt: site.last_bell_at?.toISOString() ?? null,
       lastBellStatus: site.last_bell_status,

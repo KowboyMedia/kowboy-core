@@ -23,7 +23,6 @@ export type Connection = {
   credentials: string | null;
   /** Empty means every office the credential can see (SRS §3). */
   licensedOffices: string[];
-  active: boolean;
 };
 
 export type Manifest = {
@@ -140,7 +139,7 @@ export type Mappers = Partial<Record<Datatype, Mapper>>;
 export type IngestResult =
   | { outcome: 'written'; seq: number }
   | { outcome: 'unchanged' }
-  | { outcome: 'dropped'; reason: 'unlicensed' | 'malformed' | 'unknown-datatype' | 'inactive' };
+  | { outcome: 'dropped'; reason: 'unlicensed' | 'malformed' | 'unknown-datatype' };
 
 export type LifecycleEvent =
   | { type: 'connection_added'; connection: Connection }

@@ -9,20 +9,6 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 180. `[admin]` The new tenant page: may the release drop the two switches only the old page had?
-
-- 2026-10-06 · Patric listed the new tenant page at 21:29 UTC; six points beyond his list were
-  asked. On 2026-10-07 he answered item 1 (a connection's name is editable, its internal id is
-  never shown), items 4 and 5 were left out by his rule that what he did not name goes, and
-  items 2 and 3 had been withdrawn. Item 6 is left, asked again on a card on 2026-10-07.
-- The old page had a switch to turn a site off and one to pause a connection; the new page has
-  neither, as his list named neither. Once the old page is gone, nothing can flip them, and the
-  CRM code reads the pause switch through its interface (a protected part).
-- a) **drop them** (recommended): a one-time step at the release drops both from the database,
-  so every site and connection is on; the CRM code's interface loses the pause switch.
-- b) **keep them**: they stay in the database with no button, so anything off now stays off.
-- Blocked: the one-time step on production's database. Reply: a or b.
-
 ## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite
 
 - 2026-10-04 · The acceptance list `acceptance/criteria.json` is a protected path, changed on

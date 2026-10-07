@@ -93,7 +93,7 @@ type Context = {
 
 type Prepared =
   | { data: Canonical; officeId: string | null; remoteUpdatedAt: string | null }
-  | { reason: 'unlicensed' | 'malformed' | 'unknown-datatype' | 'inactive' };
+  | { reason: 'unlicensed' | 'malformed' | 'unknown-datatype' };
 
 /** Map, apply rules, filter by licence and check the contract. Every refusal is logged here. */
 async function prepare(
@@ -106,8 +106,6 @@ async function prepare(
     await logEvent({ ...context, type: 'entity.dropped', fields: { reason, ...fields } });
     return { reason };
   };
-
-  if (!connection.active) return drop('inactive');
 
   const mapper = mapperFor(connection.provider, datatype);
   if (!mapper) return drop('unknown-datatype');

@@ -35,7 +35,6 @@ export type ConnectionInput = {
   /** The adapter's login fields as typed. Absent or empty: the stored login stays. */
   credentials?: Record<string, string> | null;
   licensedOffices: string[];
-  active: boolean;
 };
 
 export type SiteInput = {
@@ -43,7 +42,6 @@ export type SiteInput = {
   id?: number;
   label: string;
   bellUrl: string;
-  active: boolean;
 };
 
 export type TenantInput = {
@@ -58,7 +56,6 @@ export type SiteView = {
   label: string;
   bellUrl: string;
   bellSecret: string;
-  active: boolean;
 };
 
 export type ConnectionView = ShownLogin & {
@@ -66,7 +63,6 @@ export type ConnectionView = ShownLogin & {
   name: string;
   provider: string;
   licensedOffices: string[];
-  active: boolean;
   /** What the adapter itself reports about this connection, as data the panel draws. */
   sections: ShownSection[];
 };
@@ -120,7 +116,6 @@ const siteView = (site: Awaited<ReturnType<typeof subscribers>>[number]): SiteVi
   label: site.label,
   bellUrl: site.bell_url,
   bellSecret: site.bell_secret,
-  active: site.active,
 });
 
 async function connectionView(row: ConnectionListRow): Promise<ConnectionView> {
@@ -149,7 +144,6 @@ async function connectionView(row: ConnectionListRow): Promise<ConnectionView> {
     name: row.name,
     provider: row.provider,
     licensedOffices: row.licensed_offices,
-    active: row.active,
     sections,
   };
 }
@@ -311,7 +305,6 @@ async function saveConnections(
       name: connection.name,
       credentials: await credentialsOf(connection, before),
       licensedOffices: connection.licensedOffices,
-      active: connection.active,
     });
     if (!before) {
       await queueLifecycle(connection.id, 'connection_added');
@@ -381,11 +374,7 @@ async function saveSites(tenantId: number, wanted: SiteInput[]): Promise<string[
       changes.push(`The site ${site.label} is added; its bell secret is on the page.`);
       continue;
     }
-    await updateSubscriber(site.id, {
-      label: site.label,
-      bellUrl: site.bellUrl,
-      active: site.active,
-    });
+    await updateSubscriber(site.id, { label: site.label, bellUrl: site.bellUrl });
   }
   return changes;
 }

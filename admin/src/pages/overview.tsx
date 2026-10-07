@@ -44,7 +44,6 @@ type SiteRow = {
   tenantId: number;
   tenant: string;
   label: string;
-  active: boolean;
   lastPullAt: string | null;
   lastBellAt: string | null;
   lastBellStatus: string | null;
@@ -456,13 +455,6 @@ export function Overview() {
                   <Link className="underline" to={`/tenants/${String(row.tenantId)}`}>
                     {row.tenant}
                   </Link>
-                ),
-              },
-              {
-                key: 'active',
-                header: 'Core tells it of changes',
-                cell: (row) => (
-                  <Badge tone={row.active ? 'ok' : 'muted'}>{row.active ? 'Yes' : 'No'}</Badge>
                 ),
               },
               { key: 'pull', header: 'Last fetch', cell: (row) => ago(row.lastPullAt) },

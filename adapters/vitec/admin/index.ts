@@ -165,11 +165,6 @@ const fetchListText = (counts: store.Summary): string => {
 
 /** A connection's state: fetching, or why not. */
 function stateOf(connection: Connection, schedule: Schedule, offices: string[]): AdminValue {
-  if (!connection.active)
-    return {
-      text: 'Paused on the tenant’s page, so Core asks Vitec nothing for it',
-      state: 'muted',
-    };
   if (!connect.loginOf(connection.credentials))
     return {
       text: 'Fetching nothing, because the login has no username or password',
@@ -203,7 +198,6 @@ async function connectionsSection(
         offices.length === 0
           ? 'No office yet'
           : offices.map((officeId) => officeLabel({ environment, officeId }, names)).join(' and '),
-        connection.active,
         stateOf(connection, schedule, offices),
         moment(schedule.catchUpAt),
         moment(schedule.until),
@@ -220,7 +214,6 @@ async function connectionsSection(
       columns: [
         'Connection',
         'Offices',
-        'Fetching',
         'State',
         'Last catch-up',
         'Changes fetched up to',

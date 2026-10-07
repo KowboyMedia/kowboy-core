@@ -98,7 +98,6 @@ export async function removeLoginFields(
       provider: connection.provider,
       credentials: JSON.stringify(kept),
       licensedOffices: connection.licensedOffices,
-      active: connection.active,
     });
     changed += 1;
   }

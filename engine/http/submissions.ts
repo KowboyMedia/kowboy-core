@@ -183,8 +183,7 @@ function parseSubmission(request: Request): Parsed {
 }
 
 /** Why a form cannot go, as a key, so the admin area can say it in its own words. */
-export type Refusal =
-  'foreign' | 'gone' | 'office' | 'which-office' | 'no-office' | 'paused' | 'kind';
+export type Refusal = 'foreign' | 'gone' | 'office' | 'which-office' | 'no-office' | 'kind';
 
 type Routed =
   | { connection: Connection; send: NonNullable<Adapter['submit']> }
@@ -228,8 +227,7 @@ async function findConnection(tenantId: number, submission: Submission): Promise
       remoteId: submission.record.remote_id,
     });
     if (!item || item.deleted) return { error: 'no such record', why: 'gone' };
-    const found = usable(connection);
-    return 'error' in found || !item.office_id ? found : { ...found, officeId: item.office_id };
+    return item.office_id ? { connection, officeId: item.office_id } : { connection };
   }
   return submission.office_id
     ? connectionForOffice(tenantId, submission.office_id)
@@ -242,7 +240,7 @@ async function connectionForOffice(tenantId: number, officeId: string): Promise<
   const match = offices.find((office) => office.officeId === officeId);
   const connection = match ? await connectionById(match.connectionId) : null;
   if (!connection) return { error: 'the office is not one of this tenant’s', why: 'office' };
-  return usable(connection);
+  return { connection };
 }
 
 /** A lead with no office named: fine for a tenant with one office, which is filled in. */
@@ -255,12 +253,8 @@ async function connectionForOnlyOffice(tenantId: number): Promise<Found> {
   const connection = only ? await connectionById(only.connectionId) : null;
   if (!only || !connection)
     return { error: 'this tenant has no office to receive it', why: 'no-office' };
-  const found = usable(connection);
-  return 'error' in found ? found : { ...found, officeId: only.officeId };
+  return { connection, officeId: only.officeId };
 }
-
-const usable = (connection: Connection): Found =>
-  connection.active ? { connection } : { error: 'the connection is paused', why: 'paused' };
 
 /**
  * Ask the adapter, and count no answer in time, or an error, as a failure. Never throws. The send

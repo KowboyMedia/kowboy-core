@@ -147,11 +147,10 @@ const scheduleTick = (): Promise<void> => {
 const credentialsOf = (connection: Connection): connect.Login | null =>
   connect.loginOf(connection.credentials);
 
-/** Active connections with a readable login. One with no offices yet shows up in `vitec.catch_up`. */
+/** Connections with a readable login. One with no offices yet shows up in `vitec.catch_up`. */
 async function live(current: AdapterApi): Promise<Live[]> {
   const result: Live[] = [];
   for (const connection of await current.connections()) {
-    if (!connection.active) continue;
     const credentials = credentialsOf(connection);
     if (credentials) result.push({ connection, credentials, offices: await officesOf(connection) });
   }
@@ -548,7 +547,7 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
         office_id: entry.officeId,
         datatype: entry.datatype,
         remote_id: entry.remoteId,
-        detail: `No connection fetches this record’s office${entry.environment === 'qa' ? ' in Vitec’s QA environment' : ''} any more, for example because the office left the group “Webbplats” or its connection was paused. Core did not fetch the record. Nothing needs doing.`,
+        detail: `No connection fetches this record’s office${entry.environment === 'qa' ? ' in Vitec’s QA environment' : ''} any more, for example because the office left the group “Webbplats” or its connection was removed. Core did not fetch the record. Nothing needs doing.`,
       },
       { correlationId: entry.correlationId, datatype: entry.datatype, remoteId: entry.remoteId },
     );
@@ -1137,10 +1136,10 @@ async function retriesHealth(): Promise<HealthResult> {
   };
 }
 
-/** Active connections whose saved login Core cannot read: P1. */
+/** Connections whose saved login Core cannot read: P1. */
 async function loginHealth(current: AdapterApi): Promise<HealthResult> {
   const unreadable = (await current.connections()).filter(
-    (connection) => connection.active && !credentialsOf(connection),
+    (connection) => !credentialsOf(connection),
   );
   if (unreadable.length === 0) return { ok: true };
   const n = unreadable.length;
@@ -1311,7 +1310,7 @@ export const vitecAdapter: Adapter = {
 
     given.onLifecycle(async (event) => {
       const credentials = credentialsOf(event.connection);
-      if (!credentials || !event.connection.active) return;
+      if (!credentials) return;
       const target = { connection: event.connection, credentials, offices: [] as string[] };
       if (
         event.type === 'connection_added' ||

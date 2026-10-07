@@ -36,7 +36,6 @@ type ConnectionView = {
   name: string;
   provider: string;
   licensedOffices: string[];
-  active: boolean;
   /** The stored value of each login field that is not secret. */
   shown: Record<string, string>;
   /** Every login field that holds a value, secret or not. */
@@ -45,7 +44,7 @@ type ConnectionView = {
   sections: AdminSection[];
 };
 
-type SiteView = { id: number; label: string; bellUrl: string; bellSecret: string; active: boolean };
+type SiteView = { id: number; label: string; bellUrl: string; bellSecret: string };
 
 type TenantView = {
   id: number;
@@ -65,7 +64,6 @@ type ConnectionDraft = {
   typed: Record<string, string>;
   /** Sent back as stored: nothing on this page changes them. */
   licensedOffices: string[];
-  active: boolean;
 };
 
 type SiteDraft = {
@@ -73,8 +71,6 @@ type SiteDraft = {
   id: number | null;
   address: string;
   bellPath: string;
-  /** Sent back as stored: nothing on this page changes it. */
-  active: boolean;
 };
 
 type Draft = {
@@ -95,7 +91,7 @@ const withoutSlash = (text: string): string => text.trim().replace(/\/+$/, '');
  * saved here keeps its address as its name; an older one is read from its bell's address.
  */
 function siteDraft(site: SiteView): SiteDraft {
-  const base = { key: `site:${String(site.id)}`, id: site.id, active: site.active };
+  const base = { key: `site:${String(site.id)}`, id: site.id };
   const named = isAddress(site.label) ? withoutSlash(site.label) : null;
   if (named)
     return {
@@ -130,7 +126,6 @@ const draftOf = (view: TenantView): Draft => ({
     provider: connection.provider,
     typed: { ...connection.shown },
     licensedOffices: connection.licensedOffices,
-    active: connection.active,
   })),
   sites: view.sites.map(siteDraft),
 });
@@ -151,13 +146,11 @@ const bodyOf = (draft: Draft) => ({
     provider: connection.provider,
     credentials: typedOf(connection),
     licensedOffices: connection.licensedOffices,
-    active: connection.active,
   })),
   sites: draft.sites.map((site) => ({
     ...(site.id === null ? {} : { id: site.id }),
     label: withoutSlash(site.address),
     bellUrl: bellAddress(site),
-    active: site.active,
   })),
 });
 
@@ -841,7 +834,6 @@ export function TenantPage() {
                       provider: crms.length === 1 ? (crms[0]?.provider ?? '') : '',
                       typed: {},
                       licensedOffices: [],
-                      active: true,
                     },
                   ],
                 })
@@ -900,7 +892,6 @@ export function TenantPage() {
                       id: null,
                       address: '',
                       bellPath: WORDPRESS_BELL,
-                      active: true,
                     },
                   ],
                 })

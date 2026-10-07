@@ -89,7 +89,6 @@ const ACME_CRM = {
   provider: 'fake-webhook',
   credentials: { key: 'a-key' },
   licensedOffices: ['100'],
-  active: true,
 };
 
 /** Acme's connection once saved, as the page sends it back. */
@@ -104,7 +103,7 @@ const tenantBody = (over: Record<string, unknown> = {}): Record<string, unknown>
   displayName: 'Acme Mäklare',
   active: true,
   connections: [ACME_CRM],
-  sites: [{ label: 'acme.se', bellUrl: `${running.baseUrl}/v1/ready`, active: true }],
+  sites: [{ label: 'acme.se', bellUrl: `${running.baseUrl}/v1/ready` }],
   ...over,
 });
 
@@ -245,7 +244,7 @@ describe('the admin area', () => {
 
     const badBell = await api<{ error: string }>('/tenants', {
       method: 'POST',
-      body: tenantBody({ sites: [{ label: 'acme.se', bellUrl: 'acme.se/bell', active: true }] }),
+      body: tenantBody({ sites: [{ label: 'acme.se', bellUrl: 'acme.se/bell' }] }),
     });
     expect(badBell.status).toBe(400);
     expect(badBell.body.error).toContain('http');
@@ -1034,7 +1033,6 @@ describe('the admin area', () => {
         provider: '',
         credentials: null,
         licensedOffices: ['100'],
-        active: true,
       },
     ];
     let checked = 0;

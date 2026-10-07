@@ -163,7 +163,7 @@
         "the Lovable kit against Core names itself on every pull, so Core knows which of the tenant’s sites pulled (Patric, 2026-09-20)",
         "the WordPress client against Core names itself on every pull, so Core knows which of the tenant’s sites pulled (Patric, 2026-09-20)"
       ],
-      "note": "Causes covered: written, unchanged, dropped (unlicensed, malformed, inactive, unknown datatype), tombstoned, bell, pull. A correlation id links a webhook to the write it caused, and since 2026-09-18 (question 9) an adapter stamps its own events with it: the notification's arrival and every CRM call, with status and duration, sit on the record's timeline. Since the same day (question 37) each site reports what it applied and what it could not, so the timeline runs to the site."
+      "note": "Causes covered: written, unchanged, dropped (unlicensed, malformed, unknown datatype), tombstoned, bell, pull. A correlation id links a webhook to the write it caused, and since 2026-09-18 (question 9) an adapter stamps its own events with it: the notification's arrival and every CRM call, with status and duration, sit on the record's timeline. Since the same day (question 37) each site reports what it applied and what it could not, so the timeline runs to the site."
     },
     {
       "ac": 17,

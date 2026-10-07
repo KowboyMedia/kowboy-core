@@ -824,7 +824,7 @@ against the fake polling CRM, which takes every kind, and the fake webhook CRM, 
 - `POST /v1/submissions` and `GET /v1/submissions/slots` (`engine/http/submissions.ts`): the
   token, the limit (60 a minute per token), the schema, the connection (the record's; for a lead,
   the office's, or the tenant's only office, which Core fills into `office_id`), then the adapter,
-  with 20 s for the CRM's answer before the submission counts as failed. A paused connection is 400. The same `id` again, a double click included, answers the first request's outcome for a
+  with 20 s for the CRM's answer before the submission counts as failed. The same `id` again, a double click included, answers the first request's outcome for a
   day and sends nothing; the stored row is claimed before the CRM is asked, so two requests at
   once make one send.
 - The `submissions` table (migration 010): id, tenant, connection, kind, record, office, outcome,

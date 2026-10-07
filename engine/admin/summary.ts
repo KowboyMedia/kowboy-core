@@ -114,9 +114,6 @@ function dropped(fields: EventFields, named: Named): string {
     const office = text(fields, 'office_id');
     return `Not saved, because it belongs to ${office ? officeNamed(office) : 'an office'}, which ${theConnection(named)} does not fetch.`;
   }
-  if (reason === 'inactive') {
-    return `Not saved, because ${theConnection(named)} is paused on ${tenantsPage(named)}, and Core takes nothing from a paused connection.`;
-  }
   if (reason === 'unknown-datatype') {
     const kind = named.datatype ? entity(named.datatype, true) : 'records of this kind';
     return `Not saved, because Core takes no ${kind} from ${theCrm(named)}.`;

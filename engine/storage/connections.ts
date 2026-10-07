@@ -8,7 +8,6 @@ type ConnectionRow = {
   provider: string;
   credentials: string | null;
   licensed_offices: string[];
-  active: boolean;
 };
 
 let credentialsKey = '';
@@ -24,7 +23,6 @@ const toConnection = (row: ConnectionRow): Connection => ({
   provider: row.provider,
   credentials: row.credentials ? decrypt(row.credentials, credentialsKey) : null,
   licensedOffices: row.licensed_offices,
-  active: row.active,
 });
 
 export async function connectionsForProvider(provider: string): Promise<Connection[]> {
@@ -74,25 +72,22 @@ export async function upsertConnection(input: {
   name?: string;
   credentials?: string | null;
   licensedOffices?: string[];
-  active?: boolean;
 }): Promise<void> {
   await db().query(
-    `insert into connections (id, tenant_id, provider, credentials, licensed_offices, active, name)
-     values ($1,$2,$3,$4,$5,$6, coalesce($7, $1))
+    `insert into connections (id, tenant_id, provider, credentials, licensed_offices, name)
+     values ($1,$2,$3,$4,$5, coalesce($6, $1))
      on conflict (id) do update set
        tenant_id = excluded.tenant_id,
        provider = excluded.provider,
        credentials = coalesce(excluded.credentials, connections.credentials),
        licensed_offices = excluded.licensed_offices,
-       active = excluded.active,
-       name = coalesce($7, connections.name)`,
+       name = coalesce($6, connections.name)`,
     [
       input.id,
       input.tenantId,
       input.provider,
       input.credentials ? encrypt(input.credentials, credentialsKey) : null,
       input.licensedOffices ?? [],
-      input.active ?? true,
       input.name ?? null,
     ],
   );
@@ -119,7 +114,6 @@ export type SubscriberRow = {
   bell_url: string;
   /** Stored as sent to the site, so the tenant's page can show it (Patric, 2026-09-20). */
   bell_secret: string;
-  active: boolean;
   last_bell_at: Date | null;
   last_bell_status: string | null;
   last_pull_at: Date | null;
@@ -127,7 +121,7 @@ export type SubscriberRow = {
 };
 
 const SUBSCRIBER_COLUMNS =
-  'id, tenant_id, label, bell_url, bell_secret, active, last_bell_at, last_bell_status, last_pull_at, last_client';
+  'id, tenant_id, label, bell_url, bell_secret, last_bell_at, last_bell_status, last_pull_at, last_client';
 
 export async function addSubscriber(input: {
   tenantId: number;
@@ -239,7 +233,6 @@ export type ConnectionListRow = {
   /** What a person reads it by; the id is Core's own. */
   name: string;
   licensed_offices: string[];
-  active: boolean;
   last_ingest_at: Date | null;
   last_error: string | null;
 };
@@ -247,20 +240,19 @@ export type ConnectionListRow = {
 /** Every connection, without its credentials. */
 export async function connections(): Promise<ConnectionListRow[]> {
   const { rows } = await db().query<ConnectionListRow>(
-    `select id, tenant_id, provider, name, licensed_offices, active, last_ingest_at, last_error
+    `select id, tenant_id, provider, name, licensed_offices, last_ingest_at, last_error
      from connections order by tenant_id, id`,
   );
   return rows;
 }
 
-/** Change a site's label, bell URL or secret, or switch it off. */
+/** Change a site's label, bell URL or secret. */
 export async function updateSubscriber(
   id: number,
   changes: {
     label?: string;
     bellUrl?: string;
     bellSecret?: string;
-    active?: boolean;
   },
 ): Promise<void> {
   const sets: string[] = [];
@@ -272,7 +264,6 @@ export async function updateSubscriber(
   if (changes.label !== undefined) set('label', changes.label);
   if (changes.bellUrl !== undefined) set('bell_url', changes.bellUrl);
   if (changes.bellSecret !== undefined) set('bell_secret', changes.bellSecret);
-  if (changes.active !== undefined) set('active', changes.active);
   if (sets.length === 0) return;
   await db().query(`update subscribers set ${sets.join(', ')} where id = $1`, values);
 }

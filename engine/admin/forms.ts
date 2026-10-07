@@ -145,8 +145,6 @@ const REFUSALS: Record<Extract<SentAgain, { error: string }>['why'], (named: Nam
     'Not sent: Core no longer keeps this form. Either the CRM has taken the form since, or 30 days have passed since the visitor sent it.',
   'on-its-way': () =>
     'Not sent: this form is being sent right now, perhaps by someone else. Reload the page in a minute to see how that send ended.',
-  paused: ({ connection }) =>
-    `Not sent: ${connection} is paused, so Core sends nothing through it.`,
   foreign: ({ tenant }) =>
     `Not sent: ${tenant} no longer has the CRM connection that this form’s home came through.`,
   gone: () =>
