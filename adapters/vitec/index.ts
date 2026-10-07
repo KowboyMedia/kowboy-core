@@ -1280,6 +1280,10 @@ export const vitecAdapter: Adapter = {
     return forms.submit(connection, credentials, submission);
   },
 
+  // A login with "Use Vitec’s QA environment" ticked is for Vitec's test system, so staging sends
+  // its forms too, to QA's address (question 181, Patric: "staging dry run unless qa").
+  testSystem: (connection) => credentialsOf(connection)?.environment === 'qa',
+
   slots(connection, record) {
     const credentials = credentialsOf(connection);
     if (!credentials) throw new Error('the connection’s login is not readable');

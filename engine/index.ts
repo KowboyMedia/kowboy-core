@@ -95,8 +95,9 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
       ? turnstile(config.turnstileSiteKey, config.turnstileSecret)
       : null,
   );
-  // Only the live service writes to a CRM (question 152); staging and local stop before it, in
-  // the registry, the one place the engine gets an adapter's send.
+  // Only the live service writes to a live CRM (question 152); staging and local stop before it,
+  // in the registry, the one place the engine gets an adapter's send, unless the adapter says the
+  // connection is its own test system (question 181).
   configureLiveService({ live: config.environment === 'production' });
 
   const routes: RouteTable = [

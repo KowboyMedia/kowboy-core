@@ -3,8 +3,9 @@
 // Core (`GET /v1/submissions/bot-check`), its form window renders the challenge with it, and the
 // site's server passes the proof the window earned on with the form; Core verifies it here with
 // the secret only Core holds. With no service configured there is no check: staging and local
-// take forms without one, since they send none on, and the live service refuses every form
-// (engine/http/submissions.ts). Production sets TURNSTILE_SITE_KEY and TURNSTILE_SECRET.
+// take forms without one, since they send none on but to a CRM's own test system (question 181),
+// and the live service refuses every form (engine/http/submissions.ts). Production sets
+// TURNSTILE_SITE_KEY and TURNSTILE_SECRET.
 
 export type HumanCheck = {
   provider: 'turnstile';

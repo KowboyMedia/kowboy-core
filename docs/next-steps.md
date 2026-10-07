@@ -780,14 +780,23 @@ client ports (item 16, first client by question 80).
       same message says the switch "allows form submissions even in staging", against his 19:29
       UTC rule that staging only dry-runs forms; nothing is built on that until he answers
       question 181.
+    - **Built on staging 2026-10-07** (Patric's answer to question 181 the same day: "staging dry
+      run unless qa"): the adapter interface has one optional
+      answer, `testSystem(connection)`, "is this connection's login for the CRM's own test
+      system?"; the Vitec code answers yes for a login with "Use Vitec’s QA environment" ticked;
+      the central forms guard hands such a connection's forms to the adapter from any Core, so
+      staging sends them to Vitec's QA, and holds every other form outside production as before.
+      No answer, no, or an error holds the form.
     - Tests: `adapters/vitec/qa.test.ts` (two stand-in Connects sharing office M1: loads,
       notifications, the daily comparison, a refusal and the office check after it, a switch from
       QA to live, a start-up round QA fails, Retry-After, "Check the login", a form, the page's
-      marks and row actions) and `adapters/vitec/admin/directions.test.ts` (the field and the QA
-      path named).
+      marks and row actions, the forms guard's answer) and `adapters/vitec/admin/directions.test.ts`
+      (the field and the QA path named); `acceptance/submissions.test.ts` (a Core that is not the
+      live service sends a form to a CRM's own test system and holds every other one).
     - Waits on question 177: whether the Vitec page's connections, the tenant's card "Offices Vitec
       lists" and "Check the login" mark a QA office too.
-    - Interface: none; `engine/adapter-api` and the engine are untouched.
+    - Interface: the optional `testSystem(connection)` of question 181; the engine reads it only
+      in the forms guard (`registerSubmissions` in `engine/registry.ts`).
     - Open: the QA address is as Patric remembered it; on 2026-10-06 it cut off a cloud session's
       secure handshake while live Vitec answered. A QA login and "Check the login" show whether it
       answers Core; if it is another address, the constant in `adapters/vitec/api.ts` changes.

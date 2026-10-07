@@ -20,7 +20,7 @@ import {
   type SubmissionRow,
 } from '../engine/storage/submissions.js';
 import type { FailedForm } from '../engine/admin/forms.js';
-import type { Submission } from '../engine/adapter-api/types.js';
+import type { Connection, Submission } from '../engine/adapter-api/types.js';
 import {
   configureLiveService,
   NOT_LIVE,
@@ -561,6 +561,52 @@ describe('submissions', () => {
     // The same call on the live service reaches the CRM, so what stopped it is the guard.
     configureLiveService({ live: true });
     expect(await another?.(connection, form)).toMatchObject({ outcome: 'delivered' });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(crm.formsTaken()).toHaveLength(1);
+  });
+
+  it('a Core that is not the live service sends a form to a CRM’s own test system, and holds every other one (question 181)', async () => {
+    configureLiveService({ live: false });
+    const send = vi.fn(fakePollingAdapter.submit);
+    // What the CRM's code answers when the guard asks whether the connection is its test system.
+    let answer = (): boolean => true;
+    const asked: Connection[] = [];
+    registerSubmissions(fakePollingAdapter.manifest.provider, {
+      ...fakePollingAdapter,
+      submit: send,
+      testSystem: (connection) => {
+        asked.push(connection);
+        return answer();
+      },
+    });
+
+    // The test system's form reaches the CRM, through the very connection the answer was given for.
+    expect((await post(submission('interest', { record }))).body).toMatchObject({
+      status: 'delivered',
+    });
+    expect(asked.map((connection) => connection.id)).toEqual([CONNECTION]);
+    expect(send.mock.calls[0]?.[0]).toBe(asked[0]);
+
+    // A live CRM's connection, or an answer the CRM's code cannot give, holds the form as before.
+    answer = () => false;
+    expect((await post(submission('interest', { record }))).body).toMatchObject({
+      status: 'refused',
+      reason: NOT_LIVE,
+    });
+    answer = () => {
+      throw new Error('the login is not readable');
+    };
+    expect((await post(submission('interest', { record }))).body).toMatchObject({
+      status: 'refused',
+      reason: NOT_LIVE,
+    });
+    // Only exactly true sends: an answer still on its way, which any check for truth would pass,
+    // holds the form too.
+    answer = () => Promise.resolve(true) as unknown as boolean;
+    expect((await post(submission('interest', { record }))).body).toMatchObject({
+      status: 'refused',
+      reason: NOT_LIVE,
+    });
     expect(send).toHaveBeenCalledTimes(1);
     expect(crm.formsTaken()).toHaveLength(1);
   });
