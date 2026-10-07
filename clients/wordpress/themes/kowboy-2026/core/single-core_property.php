@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 $display = is_array($item['display'] ?? null) ? $item['display'] : [];
 $street = (string) ($item['address']['street'] ?? '');
+// The street as the page's title and the form window's heading show it, its number never starting a line.
+$street_title = kowboy_street($street);
 $images = is_array($item['images'] ?? null) ? $item['images'] : [];
 // This site's rule: an image the office filed under "Planritning" is a floor plan, the rest are photos.
 $plans = array_values(array_filter($images, fn (array $image): bool => ($image['category'] ?? null) === 'Planritning'));
@@ -141,7 +143,7 @@ $lng = is_numeric($item['lng'] ?? null) ? (float) $item['lng'] : null;
 $hero_content = '<div class="k-hero__head">'
     . '<div class="k-hero__head-main">'
     . ($location !== '' ? '<p class="k-label k-label--bright">' . esc_html($location) . '</p>' : '')
-    . '<h1 class="k-hero__title k-hero__title--left">' . esc_html($street) . '</h1>'
+    . '<h1 class="k-hero__title k-hero__title--left">' . esc_html($street_title) . '</h1>'
     . '</div>'
     . '<ul class="k-hero__facts">'
     . ($label !== '' ? '<li class="k-pill">' . esc_html($label) . '</li>' : '')
@@ -185,7 +187,7 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
                                 <?php if ($viewing['comment'] !== '') : ?><span class="k-viewing__comment"><?php echo esc_html($viewing['comment']); ?></span><?php endif; ?>
                             </div>
                             <?php // Opens the booking window on this viewing (data-viewing shows its times); without the window, the agent's card. ?>
-                            <?php if ($viewing['bookable']) : ?><a class="k-button" href="#k-agents" data-k-form="viewing" data-record="<?php echo esc_attr($record); ?>"<?php echo $viewing['id'] === '' ? '' : ' data-viewing="' . esc_attr($viewing['id']) . '"'; ?> data-home="<?php echo esc_attr($street); ?>">Boka här</a><?php endif; ?>
+                            <?php if ($viewing['bookable']) : ?><a class="k-button" href="#k-agents" data-k-form="viewing" data-record="<?php echo esc_attr($record); ?>"<?php echo $viewing['id'] === '' ? '' : ' data-viewing="' . esc_attr($viewing['id']) . '"'; ?> data-home="<?php echo esc_attr($street_title); ?>">Boka här</a><?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                     <div class="k-viewing k-viewing--empty" data-viewings-empty <?php echo $upcoming > 0 ? 'hidden' : ''; ?>>
@@ -231,7 +233,7 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
     </div>
 
     <?php if (!$sold) : ?>
-        <div class="k-container k-property__interest"><?php echo kowboy_part('form-card', ['title' => 'Är du intresserad av bostaden?', 'text' => 'Anmäl ditt intresse så kontaktar vi dig.', 'label' => 'Anmäl intresse', 'form' => 'interest', 'record' => $record, 'href' => '#k-agents', 'home' => $street]); ?></div>
+        <div class="k-container k-property__interest"><?php echo kowboy_part('form-card', ['title' => 'Är du intresserad av bostaden?', 'text' => 'Anmäl ditt intresse så kontaktar vi dig.', 'label' => 'Anmäl intresse', 'form' => 'interest', 'record' => $record, 'href' => '#k-agents', 'home' => $street_title]); ?></div>
     <?php endif; ?>
 
     <?php echo kowboy_part('gallery', ['photos' => $gallery, 'alt' => $street]); ?>

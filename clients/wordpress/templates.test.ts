@@ -10,7 +10,7 @@ import { fakePollingAdapter, poll } from '../../adapters/fake-polling/index.js';
 import * as crm from '../../adapters/fake-polling/crm.js';
 import { BELL_SECRET, CONNECTION, type ClientDriver } from '../sync-scenarios.js';
 import { fillTheCrm, listing, NORRMALM, P1 } from './test/records.js';
-import { driver, siteUrl, start, stop, wp, WP_ROOT } from './test/site.js';
+import { driver, run, siteUrl, start, stop, wp, WP_ROOT } from './test/site.js';
 
 const THEME_OVERRIDES = join(WP_ROOT, 'wp-content', 'themes', 'twentytwentyone', 'core');
 
@@ -547,6 +547,29 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('<p class="k-label">Om bostaden</p>');
     expect(body).toContain('Ansvarig mäklare');
     expect(body).not.toContain('Kontakta även');
+  });
+
+  it('keeps a street number with the word before it and all that follows on one line (Patric, 2026-10-07)', async () => {
+    const street = async (value: string): Promise<string> =>
+      (
+        await run('php', [
+          '-r',
+          'require $argv[1]; echo kowboy_street($argv[2]);',
+          '--',
+          join(import.meta.dirname, 'themes', 'kowboy-2026', 'inc', 'property.php'),
+          value,
+        ])
+      ).stdout;
+    expect(await street('Adress 49 f')).toBe('Adress\u00a049\u00a0f');
+    expect(await street('Erik Dahlbergsgatan 21A')).toBe('Erik Dahlbergsgatan\u00a021A');
+    expect(await street('1:a Långgatan 5')).toBe('1:a Långgatan\u00a05');
+    expect(await street('Storgatan')).toBe('Storgatan');
+    // The home's title, the form window's heading and the card carry it, as the page is sent.
+    const home = await (await fetch(`${siteUrl}${await permalink('property', 'P-3')}`)).text();
+    expect(home).toContain('k-hero__title--left">Kungsgatan\u00a03</h1>');
+    expect(home).toContain('data-home="Kungsgatan\u00a03"');
+    const list = await (await fetch(`${siteUrl}/?post_type=core_property`)).text();
+    expect(list).toContain('<span class="k-card__street">Kungsgatan\u00a03</span>');
   });
 
   it('renders an association page with its rows, documents and homes, and answers the list parameters', async () => {

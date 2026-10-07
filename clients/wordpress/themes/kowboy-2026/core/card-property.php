@@ -42,7 +42,7 @@ $sizes = '(min-width: 1024px) 768px, (min-width: 640px) 100vw, 150vw';
     <a class="k-card__link" href="<?php echo esc_url($url); ?>"><span class="k-visually-hidden"><?php echo esc_html($street); ?></span></a>
     <span class="k-card__body">
         <?php if (is_string($item['address']['area_name'] ?? null) && $item['address']['area_name'] !== '') : ?><span class="k-card__area"><?php echo esc_html($item['address']['area_name']); ?></span><?php endif; ?>
-        <span class="k-card__street"><?php echo esc_html($street); ?></span>
+        <span class="k-card__street"><?php echo esc_html(kowboy_street($street)); ?></span>
         <?php if ($facts !== []) : ?>
             <span class="k-card__facts"><?php foreach ($facts as $fact) : ?><span><?php echo esc_html((string) $fact); ?></span><?php endforeach; ?></span>
         <?php endif; ?>
