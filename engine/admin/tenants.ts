@@ -25,9 +25,9 @@ import { queryEvents } from '../events.js';
 import { itemCounts } from '../storage/items.js';
 import { submissionCounts, type SubmissionCounts } from '../storage/submissions.js';
 import { adminFor, manifestFor } from '../registry.js';
-import type { AdminSection } from '../adapter-api/types.js';
 import { connectionNamed, crmName, listed, officeNamed, sentence } from './words.js';
 import { officeNamesOf } from './scope.js';
+import { shownSections, type ShownSection } from './things.js';
 
 export type ConnectionInput = {
   id: string;
@@ -84,7 +84,7 @@ export type ConnectionView = ShownLogin & {
   /** The forms sites sent through Core to this CRM in the last day, by outcome (docs/forms.md). */
   submissions: SubmissionCounts;
   /** What the adapter itself reports about this connection, as data the panel draws. */
-  sections: AdminSection[];
+  sections: ShownSection[];
 };
 
 const DAY_MS = 24 * 60 * 60_000;
@@ -195,14 +195,15 @@ async function connectionView(
   counts: Awaited<ReturnType<typeof itemCounts>>,
 ): Promise<ConnectionView> {
   const admin = adminFor(row.provider);
-  let sections: AdminSection[] = [];
+  let sections: ShownSection[] = [];
   let stored: string | null = null;
   try {
     // The adapter gets the connection as it is stored, login included: what it reports about a
     // connection often depends on whether the login it holds still reads.
     const connection = await connectionById(row.id);
     stored = connection?.credentials ?? null;
-    if (admin?.connection && connection) sections = await admin.connection(connection);
+    if (admin?.connection && connection)
+      sections = await shownSections(await admin.connection(connection));
   } catch (error) {
     const cause = sentence(error instanceof Error ? error.message : String(error));
     sections = [

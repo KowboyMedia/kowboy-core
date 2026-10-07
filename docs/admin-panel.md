@@ -64,7 +64,7 @@ form to Failed forms, a CRM to its page.
 
 | Page             | What it is for                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Overview**     | The verdict first, a badge and a sentence: "Core down" with the first sentence of the check that finds it, "Disrupted" with how many checks find a customer's sites or forms disrupted, or "Fine" and whether a check has something to look at. Each check by its title, never its name, in its level's colour (P0 and P1 red, P2 amber, P3 grey): failing, its level and the level's words on its badge ("P1 Disrupted") and its sentence, with the page it names linked in it, and each thing it names (a site behind, a connection) by its name as a link to its place; passing, "Fine" and what that means. Then "Needs attention": the important things of the last seven days, each naming the exact office, connection, form or site, where it is, and a link that opens it (`engine/attention.ts`). Then the last 24 hours in figures and an hourly chart (records saved, pages fetched by sites, sites told of changes, records the sites took or could not take); what is on the sites per entity type, each a link to Records for that type, with how many tenants are enabled; any recompute running now; and each site, linking to its block on its tenant's page, with its tenant, when it last fetched, when Core last told it of changes and how it answered (answered, refused, an error code or no answer), and whether Core tells it of changes at all; the card says what an error code or no answer means for the site and what to check. "Open Flow" beside the title says what Flow is for.                                                                                                                                                                                                                                                                                                                            |
+| **Overview**     | The verdict first, a badge and a sentence: "Core down" with the first sentence of the check that finds it, "Disrupted" with how many checks find a customer's sites or forms disrupted, or "Fine" and whether a check has something to look at. Each check by its title, never its name, in its level's colour (P0 and P1 red, P2 amber, P3 grey): failing, its level and the level's words on its badge ("P1 Disrupted") and its sentence, with the page it names linked in it, and each thing it names (a site behind, a connection, an office, a record) by its name as a link to its place; passing, "Fine" and what that means. Then "Needs attention": the important things of the last seven days, each with its level beside its time ("P1 Disrupted", "P2 To look at"), naming the exact office, connection, form or site, where it is, and a link that opens it (`engine/attention.ts`). Then the last 24 hours in figures and an hourly chart (records saved, pages fetched by sites, sites told of changes, records the sites took or could not take); what is on the sites per entity type, each a link to Records for that type, with how many tenants are enabled; any recompute running now; and each site, linking to its block on its tenant's page, with its tenant, when it last fetched, when Core last told it of changes and how it answered (answered, refused, an error code or no answer), and whether Core tells it of changes at all; the card says what an error code or no answer means for the site and what to check. "Open Flow" beside the title says what Flow is for.                                                                                                                                                                                                                                     |
 | **Flow**         | One list of the records in flight, "Queued at" first and sorted by it, newest first, the hundred newest, read again every second while the page is open. The whole row is coloured by state: waiting for the CRM, in Core, on a site, error. Tenants and offices narrow it. A record waiting for the CRM says why, when Core tries again and how the last try failed; one Core gave up on says after how many tries, and that "Fetch again" on its page or Manual sync asks the CRM again. Every step names its tenant, connection and site by their names. The same list, the same component, sits on Manual sync for the scope of a run (Patric, 2026-10-06).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | **Records**      | Everything Core holds, narrowed by the same scope as Manual sync, live (on the sites), removed (left the CRM's list, kept 90 days) or both, sorted by any column, pages of 500 (25 to 500), a column chooser. A record's name, or its row, opens the record. Every choice is in the address, so a view is a link. Built from zero on 2026-10-06.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Tenants**      | Tenants only. One tenant is one page and one Save: its name, whether it is enabled and its token; its CRM connections, with the tenant's records on their way under them; its sites. A link ending `#connection:<short name>` or `#site:<id>` scrolls to that block and marks it. Built from zero on 2026-10-06; see below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -328,11 +328,13 @@ drive directly.
   `lifecycle` P2, P1 once work has waited an hour; `submissions.failing` P2. A check that throws
   is P2, P1 once it has thrown at every run for 15 minutes, and so is an adapter's check whose
   last report is over two minutes old, P1 once it is over 17; both count as P3 while a P0 check
-  fails, so one cause is one problem (rule B). An adapter's check shows the title "Fetching from"
-  its CRM until a check can carry its own (question 184). The worker
-  records each adapter check for the web process without its level until question 178 is
-  answered, so the web process shows a failing adapter check as P1, while the worker's alerts use
-  its own level.
+  fails, so one cause is one problem (rule B). An adapter's check shows the title and the passing
+  sentence its adapter declares (`admin.checks`), and "Fetching from" its CRM when it declares none.
+  The worker records each adapter check for the web process with its level and its names
+  (`health_results`), so the Overview shows it at the level its adapter gave it. A name is a text,
+  or a thing the adapter points at (a connection, an office or a record, `AdminThing`), which the
+  Overview and the alerts name as the admin area names it, and the Overview links to its place
+  (`engine/admin/things.ts`).
 - **Alerts** (`engine/alerts.ts`, question 164): the worker's round, once a minute. A problem is
   a failing check, or one site the sites check finds behind; it opens when the round first sees it
   and closes when the round no longer does, each a `check.failed` or `check.recovered` event (the
@@ -370,7 +372,8 @@ drive directly.
   not fetching its changes (the sites check's `check.failed` for it) is P1, but not the sites check
   that could not run, which names no site. The adapter logs the first three through the adapter
   API with the connection in the context, and the engine logs the rest. The Overview lists them
-  for seven days, newest first, one line per thing: its title, and under it a sentence of what
+  for seven days, newest first, one line per thing: its time with its level beside it (question
+  178), its title, and under it a sentence of what
   happened, what it means for the sites and what to do; which thing ("Acme's office Lidingö (the
   CRM's office id M30011)", "Acme's Vitec connection, short name acme-crm", "A viewing booking a
   visitor sent", "Acme's site acme.se") as a link that opens it (the office's removed records on
@@ -403,10 +406,12 @@ drive directly.
 
 ## What the adapter API offers
 
-Approved 2026-09-20 with the rebuild (questions 57 and 61) and unchanged since: `Adapter.admin`
-describes the adapter's pages as data, and one more lifecycle event names records to fetch again.
-The Vitec adapter implements all of it (`adapters/vitec/admin/`), and so does the fake webhook
-adapter, which is how the area is proved without a CRM.
+Approved 2026-09-20 with the rebuild (questions 57 and 61): `Adapter.admin` describes the
+adapter's pages as data, and one more lifecycle event names records to fetch again. Since
+2026-10-07 (question 184) it also declares each health check's words, and a check's names and its
+pages' values may point at things Core names and links. The Vitec adapter implements the 2026-09-20
+part (`adapters/vitec/admin/`), and the fake webhook adapter implements all of it, which is how the
+area is proved without a CRM.
 
 ```ts
 admin?: {
@@ -426,14 +431,33 @@ admin?: {
   inspect?(connection: Connection, record: AdminRecord): Promise<{ raw: unknown; mapped: MappedRecord | null } | null>;
   /** What waits on the adapter's own fetch list for these connections, for the Flow list. */
   queue?(connections: Connection[]): Promise<AdminQueued[]>;
+  /** Each health check it registers, by name: its title, and its sentence while it passes. */
+  checks?: Record<string, { title: string; fine: string }>;
 };
+
+/**
+ * A thing the adapter points at by its ids, in a check's `names` or as a page's value: Core shows
+ * it by its name (its tenant, its name, a record's address) and links it to its place, so the
+ * adapter needs neither a tenant's name nor an address in the admin area. With neither `office`
+ * nor `record` it is the connection.
+ */
+type AdminThing = {
+  connection: string;
+  office?: string;
+  record?: { datatype: Datatype; id: string };
+  /** Said after its name: "last caught up 3 hours ago". */
+  note?: string;
+};
+
+/** A page's value may also be an address on Core, shown whole: `{ address: '/v1/hook/somecrm/…' }`. */
 
 /** Delivered like the other lifecycle events: the adapter puts these records on its list. */
 type Refetch = { type: 'refetch'; connection: Connection; records: AdminRecord[] };
 ```
 
-The engine hands the descriptions on as they are and runs the actions the adapter declared; it
-never inspects what they mean, and no CRM is named in `engine/` or in `admin/src` — the seam check
+The engine hands the descriptions on as they are, with each thing named and linked and each
+address made whole (from `PUBLIC_URL`), and runs the actions the adapter declared; it never
+inspects what they mean, and no CRM is named in `engine/` or in `admin/src` — the seam check
 enforces both.
 
 Three event types an adapter logs through `logEvent` reach the Overview's "Needs attention" and

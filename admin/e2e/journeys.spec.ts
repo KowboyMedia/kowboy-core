@@ -293,6 +293,8 @@ test('journey: U7 configure an adapter — its directions, settings and actions'
   await page.getByRole('link', { name: 'fake-webhook' }).click();
   await expect(page.getByText('Setting it up')).toBeVisible();
   await expect(page.getByText('Fetch list')).toBeVisible();
+  // An address on Core is shown whole, ready to give to the CRM.
+  await expect(page.getByText(/\/v1\/hook\/fake-webhook\/webhook$/)).toBeVisible();
   await page.getByRole('button', { name: 'Fetch everything waiting now' }).first().click();
   await expect(page.getByText('Everything waiting is fetched.')).toBeVisible();
 });

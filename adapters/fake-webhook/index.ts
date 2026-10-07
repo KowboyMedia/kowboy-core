@@ -225,6 +225,12 @@ function referencesOf(payload: Record<string, unknown>): [Datatype, string][] {
 
 /** What this adapter shows in the panel: its login, its fetch list, and one action. */
 const admin: AdapterAdmin = {
+  checks: {
+    [`${PROVIDER}.webhook_lag`]: {
+      title: 'Changes the fake CRM told Core about',
+      fine: 'Core fetched every change the fake CRM told it about within five minutes.',
+    },
+  },
   credentials: [
     {
       key: 'key',
@@ -243,7 +249,10 @@ const admin: AdapterAdmin = {
         title: 'Notifications',
         text: 'POST /v1/hook/fake-webhook/webhook with the connection, datatype and record id; the record is fetched and written. offices_added, resync and refetch are handled as for any CRM.',
       },
-      { title: 'Check', text: 'fake-webhook.webhook_lag is green on the dashboard.' },
+      {
+        title: 'Check',
+        text: 'The check “Changes the fake CRM told Core about” shows Fine on the Overview.',
+      },
     ],
     settings: [],
   }),
@@ -253,11 +262,23 @@ const admin: AdapterAdmin = {
       help: 'Records waiting to be fetched from the fake CRM, and the connections that would fetch them.',
       items: [
         { label: 'Waiting', value: fetchList.size },
-        {
-          label: 'Connections',
-          value: connections.map((connection) => connection.id).join(', ') || null,
-        },
+        { label: 'Where notifications go', value: { address: `/v1/hook/${PROVIDER}/webhook` } },
       ],
+      table: {
+        columns: ['Connection', 'Record waiting'],
+        rows: [...fetchList.values()].map((queued) => ({
+          cells: [
+            { connection: queued.connectionId },
+            {
+              connection: queued.connectionId,
+              record: { datatype: queued.datatype, id: queued.remoteId },
+            },
+          ],
+        })),
+        empty: connections.length
+          ? 'Nothing is waiting to be fetched.'
+          : 'No tenant has a connection to the fake CRM.',
+      },
       actions: [
         {
           id: 'drain',

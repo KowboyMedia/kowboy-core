@@ -7,7 +7,7 @@ import * as crm from '../adapters/fake-webhook/crm.js';
 import { db } from '../engine/storage/db.js';
 import { healthReport, heartbeat } from '../engine/health.js';
 import { checkAlerts } from '../engine/alerts.js';
-import { attention } from '../engine/attention.js';
+import { attention, connectionsNamed } from '../engine/attention.js';
 import { summarise } from '../engine/admin/summary.js';
 import { flushBells, ring } from '../engine/bells.js';
 import { queueLifecycle } from '../engine/lifecycle.js';
@@ -385,6 +385,40 @@ describe('alerts', () => {
     // "Needs attention" lists the site with how its problem ended.
     expect((await attention()).map((line) => line.said)).toEqual([
       `${said} Resolved after 16 minutes.`,
+    ]);
+  });
+
+  it('tells a CRM’s check at the level its code gave it, naming what it points at as the admin area does (questions 178 and 184)', async () => {
+    await heartbeat();
+    crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
+    crm.put('property', 'OBJ-1', property('OBJ-1'));
+    await event('connection_added');
+    await until(async () => {
+      await drainFetchList();
+      return (await pull(running.baseUrl, 'property')).items.length === 1;
+    }, 'the initial load');
+    // The worker ran the check and left it for the web process: the CRM's code gave it its level
+    // and pointed at a connection, an office with a word about it, and a home.
+    await db().query(
+      `insert into health_results (name, ok, detail, names, level, at)
+       values ('fake-webhook.offices', false, 'Two offices need a look.', $1, 'P1', now())`,
+      [
+        JSON.stringify([
+          { connection: CONNECTION },
+          { connection: CONNECTION, office: '100', note: 'refused 2 hours ago' },
+          { connection: CONNECTION, record: { datatype: 'property', id: 'OBJ-1' } },
+        ]),
+      ],
+    );
+    expect((await healthReport()).checks['fake-webhook.offices']?.level).toBe('P1');
+
+    expect((await checkAlerts(config)).opened).toEqual(['fake-webhook.offices']);
+    await aged('fake-webhook.offices', '16 minutes');
+    await checkAlerts(config);
+    const [connection] = await connectionsNamed([CONNECTION]);
+    expect(running.mails[0]?.text.split('\n').slice(0, 2)).toEqual([
+      'P1 Disrupted · Fetching from Fake-webhook',
+      `Two offices need a look. It concerns ${connection?.label ?? ''}; Test tenant’s office Lidingö (the CRM’s office id 100), refused 2 hours ago; and Storgatan 12.`,
     ]);
   });
 

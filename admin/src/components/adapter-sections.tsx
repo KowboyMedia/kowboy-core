@@ -2,6 +2,7 @@
 // shapes — key-values, a table with row actions, buttons — and nothing about any CRM: no CRM is
 // named anywhere in this folder, and the seam check keeps it that way.
 import { useState, type ReactNode } from 'react';
+import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +29,9 @@ export type AdminValue =
   | boolean
   | null
   | { text: string; state: 'ok' | 'bad' | 'warn' | 'muted' }
-  | { moment: string | null };
+  | { moment: string | null }
+  /** A connection, office or record the adapter pointed at, named by Core with its place. */
+  | { text: string; to: string | null };
 
 export type AdminAction = {
   id: string;
@@ -71,6 +74,15 @@ export function Value({ value }: { value: AdminValue }): ReactNode {
   if (typeof value === 'string') return <span className="break-words">{value}</span>;
   if ('moment' in value) {
     return <span className="tabular-nums text-muted-foreground">{moment(value.moment)}</span>;
+  }
+  if ('to' in value) {
+    return value.to ? (
+      <Link className="break-words underline" to={value.to}>
+        {value.text}
+      </Link>
+    ) : (
+      <span className="break-words">{value.text}</span>
+    );
   }
   return <Badge tone={TONE[value.state]}>{value.text}</Badge>;
 }

@@ -14,7 +14,8 @@ import { itemCounts } from '../storage/items.js';
 import { subscribers, tenants } from '../storage/connections.js';
 import { openJobs } from '../jobs.js';
 import { inMaintenance } from '../storage/settings.js';
-import { attention, connectionsNamed, type AttentionRow } from '../attention.js';
+import { attention, type AttentionRow } from '../attention.js';
+import { namedThings, type Linked } from './things.js';
 import { capital, siteNamed } from './words.js';
 
 /** The event types the day's chart counts, in the order the legend shows them. */
@@ -36,8 +37,8 @@ export type SiteRow = {
   lastClient: string | null;
 };
 
-/** One thing that needs attention, as the Overview lists it (attention.ts). */
-export type NeedsAttention = Omit<AttentionRow, 'at' | 'kind' | 'ids' | 'level'> & {
+/** One thing that needs attention, as the Overview lists it (attention.ts), with its level (question 178). */
+export type NeedsAttention = Omit<AttentionRow, 'at' | 'kind' | 'ids'> & {
   at: string;
   title: string;
 };
@@ -47,10 +48,10 @@ export type Overview = {
   /** Each check's title and the page where it is put right: the Overview never shows its name. */
   about: Record<string, About>;
   /**
-   * The things a failing check names, each a link to its place: the sites the sites check finds
-   * behind, and the connections a check names by their short names.
+   * The things a failing check names, each with its place when it has one: the sites the sites
+   * check finds behind, and the connections, offices and records a check points at (things.ts).
    */
-  links: Record<string, { label: string; to: string }[]>;
+  links: Record<string, Linked[]>;
   maintenance: boolean;
   attention: NeedsAttention[];
   tenants: { total: number; active: number };
@@ -92,12 +93,15 @@ async function day(): Promise<Overview['day']> {
   return { hours, totals };
 }
 
-/** The connections each failing check names by their short names, in words and linked. */
-async function connectionLinks(health: Overview['health']): Promise<Overview['links']> {
+/** What each failing check names, in words and with its place. */
+async function namedLinks(health: Overview['health']): Promise<Overview['links']> {
   const links: Overview['links'] = {};
   for (const [name, check] of Object.entries(health.checks)) {
-    if (check.ok || aboutCheck(name).named !== 'connections') continue;
-    links[name] = await connectionsNamed(check.names ?? []);
+    if (check.ok || !check.names?.length) continue;
+    links[name] = (await namedThings(check.names)).map((linked) => ({
+      ...linked,
+      label: capital(linked.label),
+    }));
   }
   return links;
 }
@@ -118,7 +122,7 @@ export async function overview(): Promise<Overview> {
     health: forAdmins(health),
     about: Object.fromEntries(Object.keys(health.checks).map((name) => [name, aboutCheck(name)])),
     links: {
-      ...(await connectionLinks(health)),
+      ...(await namedLinks(health)),
       [SITES_CHECK]: (sitesFound(health.checks[SITES_CHECK]) ?? []).map((site) => ({
         label: capital(siteNamed(site.label, names.get(site.tenantId))),
         to: `/tenants/${String(site.tenantId)}#site:${String(site.id)}`,
@@ -137,6 +141,7 @@ export async function overview(): Promise<Overview> {
       link: row.link,
       tenantId: row.tenantId,
       tenant: row.tenant,
+      level: row.level,
     })),
     tenants: { total: allTenants.length, active: allTenants.filter((t) => t.active).length },
     records: counts.map((count) => ({
