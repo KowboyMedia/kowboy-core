@@ -185,8 +185,10 @@ Vitec's QA environment** ticked sends every call of that login to QA's address, 
 kept apart from live Vitec's even where QA uses the same office ids. The adapter declares the field
 with the fixed values no and yes, which the page draws as a tickbox, ticked storing yes (Patric,
 2026-10-06: "a toggle/checkbox"); the old page keeps a typed field. The Vitec page shows QA's
-notification address beside the live one, and its **Fetch list** and **Refused offices** mark a QA
-office "(QA)", as do the names in `vitec.offices` on Overview. A saved login switched to the other
+notification address beside the live one, and its **Connections and schedules**, **Fetch list** and
+**Refused offices** mark a QA office "(QA)"; the names in `vitec.offices` on Overview call it a "QA
+office id". The tenant's page shows the connection's field ticked instead, above **Check login** and
+the card **Offices Vitec lists**, which carry no mark (question 177). A saved login switched to the other
 system syncs no office until the worker's next tick, which takes everything the first system gave
 off the sites and loads the second in full; the field's own help and the setup steps say so. The
 forms of a QA login go to QA, from staging too (question 181: "staging dry run unless qa"); every
