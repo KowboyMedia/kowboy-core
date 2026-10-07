@@ -96,7 +96,8 @@ const REFUSED_DAYS = 7;
 
 /** The kind an event is, or null when it needs no attention. */
 function kindOf(type: string, fields: EventFields): Kind | null {
-  // A form Core held back, because only production sends forms to a live CRM, is no problem.
+  // A form Core held back as a dry run (outside production, or through a connection ticked to
+  // dry-run its forms) is no problem.
   if (type === 'submission.refused' && fields['reason'] === NOT_LIVE) return null;
   // A sites check that could not run names no site; its problem is the check's, not a site's.
   if (type === 'check.failed' && !named(fields, 'sites') && !named(fields, 'names')) return null;
@@ -151,7 +152,7 @@ type EventRow = {
 
 const COLUMNS = 'id, at, type, fields, correlation_id, tenant_id, connection_id';
 
-/** Leaves out a form Core held back outside production: its reason is Core's own sentence, the parameter. */
+/** Leaves out a form Core held back as a dry run: its reason is Core's own sentence, the parameter. */
 const notHeldBack = (reason: string): string =>
   `not (type = 'submission.refused' and fields->>'reason' is not distinct from ${reason})`;
 
