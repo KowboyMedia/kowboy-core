@@ -12,6 +12,7 @@ import {
   queueLifecycle,
   type Harness,
   type HealthReport,
+  until,
 } from '../../acceptance/harness.js';
 import { drainFetchList, runSchedules, vitecAdapter } from './index.js';
 import { vitecAdmin } from './admin/index.js';
@@ -759,6 +760,52 @@ describe('the Vitec adapter', () => {
     await runSchedules();
     await drainFetchList();
     for (const id of ids) expect(await item('property', id)).toBeDefined();
+  });
+
+  it('reads the connections again for each batch, so a long drain never writes for a connection that changed', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    const ids = Array.from({ length: 15 }, (_, n) => `OBJ${String(n + 10)}`);
+    for (const id of ids) fake.put(OFFICE, 'property', estate(id));
+    fake.delayMs = 100;
+    const before = fake.requests.length;
+    await store.enqueue(
+      ids.map((remoteId) => ({
+        ...LIVE_OFFICE,
+        datatype: 'property' as const,
+        remoteId,
+        reason: 'webhook' as const,
+        correlationId: randomUUID(),
+      })),
+    );
+    const drained = drainFetchList();
+    await until(() => fake.requests.length > before, 'the first fetch');
+    // The connection loses its login while the first batch runs: the later batches see it.
+    await running.connection({ id: CONNECTION, provider: 'vitec', credentials: 'unreadable' });
+    await drained;
+    expect(ids.filter((id) => fetchesOf(id) > 0).length).toBeLessThanOrEqual(5);
+  });
+
+  it('checks the offices within seconds when the customer or group id is changed on the tenant’s page', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
+    fake.put('M2', 'property', estate('OBJ9', 'M2'));
+    const login = { username: USERNAME, password: PASSWORD, customer_id: 'M2' };
+    await running.connection({
+      id: CONNECTION,
+      provider: 'vitec',
+      credentials: JSON.stringify(login),
+    });
+    // Nothing asks for a tick: the adapter notices the saved id by itself.
+    await until(
+      async () => (await item('property', 'OBJ9')) !== undefined,
+      'the home of the new office',
+      15_000,
+    );
+    expect((await lastCheck(CONNECTION))?.offices).toEqual(['M2']);
   });
 
   it('keeps the start of a broken answer and fetches the record at the next try', async () => {

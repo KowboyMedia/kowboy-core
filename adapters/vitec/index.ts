@@ -75,6 +75,8 @@ import type {
 const PROVIDER = 'vitec';
 const DRAIN_MS = 250;
 const SCHEDULE_MS = 60_000;
+/** How often the adapter looks for a login saved with another system or id (watchLogins). */
+const WATCH_MS = 2_000;
 const CATCH_UP_EVERY_MS = 12 * 3_600_000;
 const CATCH_UP_OVERLAP_MS = 3_600_000;
 const CATCH_UP_LIMIT_MS = 13 * 3_600_000;
@@ -108,6 +110,7 @@ const NOTIFIED: Record<string, Datatype> = {
 let engine: AdapterApi | null = null;
 let drainTimer: NodeJS.Timeout | null = null;
 let scheduleTimer: NodeJS.Timeout | null = null;
+let watchTimer: NodeJS.Timeout | null = null;
 /**
  * Each system drains its own part of the fetch list (question 169 a), so a slow or busy QA never
  * holds up live Vitec's fetches. Within a system, drains run one after another; a second one
@@ -119,6 +122,8 @@ const draining: Record<connect.Environment, Promise<void>> = {
 };
 const drainWaiting: Record<connect.Environment, boolean> = { live: false, qa: false };
 let scheduling: Promise<void> = Promise.resolve();
+/** Whether a tick waits its turn: a tick that runs long never leaves a queue of ticks behind it. */
+let tickWaiting = false;
 
 const serial = (run: () => Promise<void>, chain: Promise<void>): Promise<void> =>
   chain.then(run, run);
@@ -139,9 +144,37 @@ const scheduleDrain = async (): Promise<void> => {
 };
 
 const scheduleTick = (): Promise<void> => {
-  scheduling = serial(tickOnce, scheduling);
+  if (!tickWaiting) {
+    tickWaiting = true;
+    scheduling = serial(() => {
+      tickWaiting = false;
+      return tickOnce();
+    }, scheduling);
+  }
   return scheduling;
 };
+
+/** Each connection's system and customer or group id, as the last tick saw them. */
+let seenLogins = new Map<string, string>();
+const loginKey = (credentials: connect.Login): string =>
+  `${credentials.environment} ${credentials.customerId ?? ''}`;
+
+/**
+ * A login saved with another system or id since the last tick starts a tick at once, which checks
+ * its offices (runDue), so an office added on the tenant's page shows within seconds. A new
+ * connection is told to the adapter by the engine; an edited one is not.
+ */
+async function watchLogins(): Promise<void> {
+  const current = engine;
+  if (!current || tickWaiting) return;
+  for (const connection of await current.connections()) {
+    const credentials = credentialsOf(connection);
+    if (credentials && seenLogins.get(connection.id) !== loginKey(credentials)) {
+      void scheduleTick();
+      return;
+    }
+  }
+}
 
 /** The connection's login, or null when it is not readable (reported in `vitec.catch_up`). */
 const credentialsOf = (connection: Connection): connect.Login | null =>
@@ -525,13 +558,18 @@ const routes: Route[] = connect.ENVIRONMENTS.map((environment): Route => ({
 
 // ---- The fetch list ---------------------------------------------------------------------------
 
-/** One system's due records, a batch at a time; with nothing due, one question and no more. */
+/**
+ * One system's due records, a batch at a time; with nothing due, one question and no more. A drain
+ * runs as long as records are due, minutes in a load, so the connections are read again for each
+ * batch: one removed or changed meanwhile is never written to, and one added meanwhile gets its
+ * records instead of their being dropped as no connection's.
+ */
 async function drainOnce(environment: connect.Environment): Promise<void> {
-  const current = engine;
-  if (!current || !(await store.anyDue(environment))) return;
-  const targets = await live(current);
+  if (!engine || !(await store.anyDue(environment))) return;
   for (;;) {
-    if (!engine) return;
+    const current = engine;
+    if (!current) return;
+    const targets = await live(current);
     const skipped = await skippedOffices(targets);
     const claimed = await store.claim(environment, connect.concurrency(), skipped);
     if (claimed.length === 0) return;
@@ -1097,23 +1135,32 @@ let toStart: Set<string> | null = null;
 /** When this copy of the adapter started: its start-up round checks each login's offices once. */
 let runningSince = '';
 
+const aged = async (id: string, key: string, every: number): Promise<boolean> =>
+  ageMs(await store.getState(id, key)) >= every;
+
+/**
+ * Whether the connection's offices are checked now: once per start, never again when the start-up
+ * round is retried (the check calls every office of the id, refused ones too, and a refused office
+ * gets that call once a day, question 161 a); when the customer or group id was changed since the
+ * last check; and once a day.
+ */
+async function checkDue(given: Live, startup: boolean): Promise<boolean> {
+  const { id } = given.connection;
+  const before = await lastCheck(id);
+  if (startup && (before?.at ?? '') <= runningSince) return true;
+  const asked = before?.ids.map((checked) => checked.id).join(' ');
+  if (before !== null && asked !== (given.credentials.customerId ?? '')) return true;
+  return aged(id, 'offices_check_at', CHECK_EVERY_MS);
+}
+
 /** One connection's schedules that are due: the offices first, then the catch-up and the
  * comparison over the offices the check chose. */
 async function runDue(current: AdapterApi, given: Live, startup: boolean): Promise<void> {
   const { id } = given.connection;
-  const aged = async (key: string, every: number): Promise<boolean> =>
-    ageMs(await store.getState(id, key)) >= every;
-  // The start-up round checks the offices once per start, never again when it is retried: the
-  // check calls every office of the id, refused ones too, and a refused office gets that call
-  // once a day (question 161 a).
-  const checkedSinceStart = ((await lastCheck(id))?.at ?? '') > runningSince;
-  const target =
-    (startup && !checkedSinceStart) || (await aged('offices_check_at', CHECK_EVERY_MS))
-      ? await checkAndApply(current, given)
-      : given;
+  const target = (await checkDue(given, startup)) ? await checkAndApply(current, given) : given;
   if (target.offices.length === 0) return;
-  if (startup || (await aged('catch_up_at', CATCH_UP_EVERY_MS))) await catchUp(target);
-  if (startup || (await aged('compare_at', COMPARE_EVERY_MS))) await compare(target);
+  if (startup || (await aged(id, 'catch_up_at', CATCH_UP_EVERY_MS))) await catchUp(target);
+  if (startup || (await aged(id, 'compare_at', COMPARE_EVERY_MS))) await compare(target);
 }
 
 async function tickOnce(): Promise<void> {
@@ -1121,6 +1168,9 @@ async function tickOnce(): Promise<void> {
   if (!current) return;
   const targets: Live[] = [];
   for (const target of await live(current)) targets.push(await settleSwitch(current, target));
+  seenLogins = new Map(
+    targets.map((target) => [target.connection.id, loginKey(target.credentials)]),
+  );
   const starting = (toStart ??= new Set(targets.map((target) => target.connection.id)));
   await resumeDue(targets);
   await settleDoorRefusals(current, targets);
@@ -1393,13 +1443,20 @@ export const vitecAdapter: Adapter = {
     void scheduleTick();
     scheduleTimer = setInterval(() => void scheduleTick(), SCHEDULE_MS);
     scheduleTimer.unref?.();
+    watchTimer = setInterval(() => {
+      watchLogins().catch((error: unknown) => given.report(error, { where: 'vitec login watch' }));
+    }, WATCH_MS);
+    watchTimer.unref?.();
   },
 
   async stop(): Promise<void> {
     if (drainTimer) clearInterval(drainTimer);
     if (scheduleTimer) clearInterval(scheduleTimer);
+    if (watchTimer) clearInterval(watchTimer);
     drainTimer = null;
     scheduleTimer = null;
+    watchTimer = null;
+    seenLogins = new Map();
     connect.onCall(null);
     engine = null;
     startPending = true;

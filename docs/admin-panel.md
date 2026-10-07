@@ -171,8 +171,8 @@ none says so in its health check. Two tenants may name the same office: the reco
 and written for each of them, each with its own copies, its own version numbers and its own sites,
 which is how two sites can show one brokerage's listings.
 Under a Vitec connection, **Offices Vitec lists** says in plain words which offices reach the
-sites and why, for a reader who must explain it to the brokerage: Core asks Vitec once a day, and
-at each worker start, which offices sit behind the login's customer or group id, reads each one,
+sites and why, for a reader who must explain it to the brokerage: Core asks Vitec once a day, at
+each worker start and within seconds after a new customer or group id is saved, which offices sit behind the login's customer or group id, reads each one,
 and uses those in the brokerage's office group "Webbplats" in Vitec, or every office when there is
 no such group or it holds none of them (Patric, closing question 154). The card shows the last
 check, the office groups Vitec answered, and each office with whether it reads and whether it is

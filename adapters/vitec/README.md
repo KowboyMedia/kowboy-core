@@ -34,7 +34,8 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   treated as a delete; after six failures the record waits for the next signal or an operator, and
   a `fetch.failed` event is logged and the error reported through the adapter API. A record is
   fetched once and ingested into every connection that syncs its office in the same system,
-  live Vitec or QA.
+  live Vitec or QA. A drain runs as long as records are due, so it reads the connections again
+  for each batch of five: a connection removed or changed meanwhile is never written to.
 - **Initial load.** `connection_added` lists everything the connection's offices publish, in
   reference order (offices, agents, areas, projects, properties), and puts it on the list;
   `offices_added` does the same for the added offices only. Associations have no list endpoint: they are fetched when a property names one.
@@ -45,7 +46,11 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   against the ids seen. An id the list no longer holds is removed, without a fetch: the list
   defines what exists for the sites. A `Remove` whose webhook was lost is caught here.
 - **Which offices are synced** (`offices.ts`; questions 147 a and 154, 2026-10-06). Once a day per
-  connection, at every worker start, and at the next tick after "Fetch offices": Vitec's office
+  connection, at every worker start, at the next tick after "Fetch offices", and within seconds
+  after the login's customer or group id is changed and saved on the tenant's page (the adapter
+  looks for a changed id every two seconds and starts a tick; the engine tells it only of a new
+  connection). Ticks run one after another, and a tick that runs long leaves at most one
+  waiting behind it. Vitec's office
   list for the login's customer or group id (`customer_id` in the login, `M30011` or `G2`), each
   listed office read on its own under its own customer id (the one its record gives: a group's list
   rows may leave it out), and the brokerage's office groups
