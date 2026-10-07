@@ -32,7 +32,9 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   (webhooks and removals) go before loads and catch-ups. Up to five Connect requests run at once (`VITEC_FETCH_CONCURRENCY`),
   lists included. A failed fetch is retried with exponential backoff (10 s, doubling) and never
   treated as a delete; after six failures the record waits for the next signal or an operator, and
-  a `fetch.failed` event is logged and the error reported through the adapter API. A record is
+  a `fetch.failed` event is logged and the error reported through the adapter API. A record Vitec
+  answered for that Core could not save is retried the same way, and its words say so instead of
+  blaming Vitec. A record is
   fetched once and ingested into every connection that syncs its office in the same system,
   live Vitec or QA. A drain runs as long as records are due, so it reads the connections again
   for each batch of five: a connection removed or changed meanwhile is never written to.

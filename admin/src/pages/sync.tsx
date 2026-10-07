@@ -130,7 +130,7 @@ export function ManualSyncPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <FlowList scope={scope} options={options} />
+          <FlowList scope={scope} />
         </CardContent>
       </Card>
     </>

@@ -9,27 +9,30 @@ export const number = (value: number): string => value.toLocaleString('sv-SE');
 export const counted = (value: number, one: string, many: string): string =>
   `${number(value)} ${value === 1 ? one : many}`;
 
-/** Each entity type as a reader says it, one and many. */
+/**
+ * Each entity type by its own name, one and many: a record is a property, a project, an agent, an
+ * office, an area or an association, and no other word names its type (Patric, 2026-10-07).
+ */
 const ENTITY: Record<string, readonly [string, string]> = {
-  property: ['home', 'homes'],
-  project: ['new-build project', 'new-build projects'],
+  property: ['property', 'properties'],
+  project: ['project', 'projects'],
   agent: ['agent', 'agents'],
   office: ['office', 'offices'],
   area: ['area', 'areas'],
-  association: ['housing cooperative', 'housing cooperatives'],
+  association: ['association', 'associations'],
 };
 
-/** An entity type in words, one ("home") or many ("homes"); a type nobody named stays as it is. */
+/** An entity type in words, one ("property") or many ("properties"); a type nobody named stays as it is. */
 export const entity = (datatype: string, many = false): string =>
   ENTITY[datatype]?.[many ? 1 : 0] ?? datatype;
 
-/** One record of an entity type, with its article: "a home", "an agent". */
+/** One record of an entity type, with its article: "a property", "an agent". */
 export const anEntity = (datatype: string): string => {
   const word = entity(datatype);
   return `${/^[aeiou]/i.test(word) ? 'an' : 'a'} ${word}`;
 };
 
-/** A number of one entity type: "1 home", "12 homes". */
+/** A number of one entity type: "1 property", "12 properties". */
 export const entities = (value: number, datatype: string): string =>
   `${number(value)} ${entity(datatype, value !== 1)}`;
 

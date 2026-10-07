@@ -4,10 +4,34 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 186 (185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 187 (185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 186. `[admin]` The admin area made easy to read: what a tenant's page shows first, and how its settings are changed
+
+- 2026-10-07 · Patric, 14:27 UTC: "Tbh this entire dash panel looks very bad, how can you make it
+  more intuitive? This is the second complete revision." Why it reads badly: each page is a long
+  form of blocks of the same weight, with a sentence under every control and red buttons among the
+  fields, so neither what is wrong nor what to do stands out; a tenant's page is some 2 300 pixels
+  of fields, with what is happening at the very bottom. Vercel's project page opens on what is
+  happening and keeps Settings a tab of its own; GitHub's and Stripe's settings show each thing as
+  a summary with Edit and keep removing and resetting in one quiet block at the bottom. Nothing is
+  built before the answer, and each line is its own approval:
+
+  | #   | What a person would see                                                                                                                                                                                                                                                                                                             |
+  | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | 1   | A tenant opens on **Status**: three figures in a row, from the CRM (waiting, failed), in Core (held) and on the sites (each site, when it last fetched, and whether it has fetched since Core last told it of changes); this tenant's problems from "Needs attention"; then the records on their way. **Settings** is a second tab. |
+  | 2   | In Settings, each connection and each site is one line (its name, its CRM or address, its state) with **Edit**, which opens its fields with a Save of their own; the page-wide Save goes.                                                                                                                                           |
+  | 3   | The token and each bell secret are hidden, with **Show** and **Copy**.                                                                                                                                                                                                                                                              |
+  | 4   | Removing, and making a new token or secret, move to one block at the bottom of the edit view, as plain buttons; red is kept for the question that confirms them, and for problems.                                                                                                                                                  |
+  | 5   | The sentence beside each button stays, in one short, lighter line.                                                                                                                                                                                                                                                                  |
+  | 6   | On a tenant's own page, the record list has no Tenant column.                                                                                                                                                                                                                                                                       |
+
+- a: build 1 to 6 now, beside the old page, which then goes. b: first a clickable picture of the
+  new tenant page to look at and comment on, then build what the picture settles. Recommended: b,
+  since this would be the third version and a picture costs far less than a rebuild.
 
 ## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite
 

@@ -726,15 +726,9 @@ export const vitecAdmin: AdapterAdmin = {
   },
 
   async queue(connections): Promise<AdminQueued[]> {
-    const offices = await Promise.all(connections.map((connection) => officesOf(connection)));
     // Only these connections' offices, each in its system: the answer is bounded, and the engine
     // asks for the connections it shows.
-    const theirs = connections.flatMap((connection, index) =>
-      (offices[index] ?? []).map((officeId) => ({
-        environment: environmentOf(connection),
-        officeId,
-      })),
-    );
+    const { offices, theirs } = await officesIn(connections);
     return (await store.entries(200, theirs)).map((entry) => ({
       connectionId:
         connections.find((connection, index) =>
@@ -750,7 +744,32 @@ export const vitecAdmin: AdapterAdmin = {
       lastError: entry.lastError,
     }));
   },
+
+  async queueCount(connections, scope) {
+    const { theirs } = await officesIn(connections);
+    return store.count(
+      theirs.filter(
+        (office) => !scope.officeIds?.length || scope.officeIds.includes(office.officeId),
+      ),
+      scope.datatypes?.length ? scope.datatypes : null,
+      scope.remoteId ?? null,
+    );
+  },
 };
+
+/** Each connection's offices, and all of them together, each in its connection's system. */
+async function officesIn(
+  connections: Connection[],
+): Promise<{ offices: string[][]; theirs: store.Office[] }> {
+  const offices = await Promise.all(connections.map((connection) => officesOf(connection)));
+  const theirs = connections.flatMap((connection, index) =>
+    (offices[index] ?? []).map((officeId) => ({
+      environment: environmentOf(connection),
+      officeId,
+    })),
+  );
+  return { offices, theirs };
+}
 
 /** The office a "fetch again" goes to: the one the record was seen under, else the connection's first. */
 export const refetchOffice = officeFor;

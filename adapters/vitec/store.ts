@@ -503,6 +503,29 @@ export async function summary(offices: readonly Office[]): Promise<Summary> {
   };
 }
 
+/**
+ * How many records of these offices wait on the list and how many failed, their last try having
+ * failed or the record given up on, of the types named and the one record named when they are.
+ */
+export async function count(
+  offices: readonly Office[],
+  datatypes: readonly string[] | null,
+  remoteId: string | null,
+): Promise<{ waiting: number; failed: number }> {
+  const { rows } = await (
+    await db()
+  ).query<{ waiting: string; failed: string }>(
+    `select count(*) filter (where next_at is not null and last_error is null) as waiting,
+            count(*) filter (where next_at is null or last_error is not null) as failed
+     from vitec_fetch_list
+     where office_id = any($1::text[])
+       and ($2::text[] is null or datatype = any($2::text[]))
+       and ($3::text is null or remote_id = $3)`,
+    [offices.map(keyOf), datatypes, remoteId],
+  );
+  return { waiting: Number(rows[0]?.waiting ?? 0), failed: Number(rows[0]?.failed ?? 0) };
+}
+
 /** An operator's "try again now": due at once, attempts back to zero. */
 export async function expediteOne(
   office: Office,
