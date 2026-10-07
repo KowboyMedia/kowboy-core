@@ -234,8 +234,10 @@ itself, all of it inside the adapter:
   `office.taken_off`, so the super admin's notifications tell one cause once.
 - **Vitec down, busy or unreachable** (timeouts, 5xx, 429, network errors) and **broken answers**
   count per connection: after five in a row the connection pauses, two minutes doubling to thirty,
-  and shows red in `vitec.connect`. When the pause runs out the next fetches go through as a probe;
-  one more failure pauses again, a success ends it. Each record is still retried with growing waits
+  and shows red in `vitec.connect`. A batch of fetches sends no more calls than the failures the
+  connection has left before its pause, so five at once never carry it past five. When the pause
+  runs out, the next tick lets one fetch through as a probe; one more failure pauses again, a
+  success ends it. Each record is still retried with growing waits
   and given up after six attempts, for the panel's Retry or Drop.
 - **A broken answer** keeps the start of what Vitec sent in the `crm.call` event, so the cause can
   be read afterwards; nothing half-parsed is ever written, and the last good version stays.

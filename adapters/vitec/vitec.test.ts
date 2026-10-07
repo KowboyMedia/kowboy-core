@@ -1,6 +1,7 @@
 // The Vitec adapter against the real engine and a stand-in Connect (test/connect.ts): webhooks,
 // the fetch list, both schedules, licensing by office and the health checks. Vitec's behaviour
 // beyond its documentation waits for a test account on staging (strategy §9, Phase 6).
+import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   connectionById,
@@ -710,6 +711,54 @@ describe('the Vitec adapter', () => {
     );
     expect(typeof pausedEvent?.fields['failures']).toBe('number');
     expect(pausedEvent?.fields['detail']).toBeTruthy();
+  });
+
+  it('lets no batch carry a failing connection past its pause, and probes with one call', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    const ids = ['OBJ2', 'OBJ3', 'OBJ4', 'OBJ5', 'OBJ6'];
+    for (const id of ids) fake.put(OFFICE, 'property', estate(id));
+    const fetched = (): number => ids.reduce((sum, id) => sum + fetchesOf(id), 0);
+    const pausedUntil = async (): Promise<number> =>
+      new Date((await store.getState(CONNECTION, 'paused_until')) || 0).getTime();
+    fake.failNext(100);
+
+    // Two failures in a row so far, and five records in one batch: three calls, then the pause.
+    await store.setState(CONNECTION, 'failures', '2');
+    await store.enqueue(
+      ids.map((remoteId) => ({
+        ...LIVE_OFFICE,
+        datatype: 'property' as const,
+        remoteId,
+        reason: 'webhook' as const,
+        correlationId: randomUUID(),
+      })),
+    );
+    await drainFetchList();
+    expect(fetched()).toBe(3);
+    expect(await pausedUntil()).toBeGreaterThan(Date.now());
+
+    // The pause runs out with Vitec still down: nothing goes until the tick, then one probe call.
+    await store.setState(CONNECTION, 'paused_until', new Date(0).toISOString());
+    await store.expedite();
+    await drainFetchList();
+    expect(fetched()).toBe(3);
+    await runSchedules();
+    await drainFetchList();
+    expect(fetched()).toBe(4);
+    expect(await pausedUntil()).toBeGreaterThan(Date.now());
+
+    // Out of calls with no pause at all: the next tick lets a probe through, and the rest follow.
+    fake.failNext(0);
+    await store.setState(CONNECTION, 'paused_until', '');
+    await store.setState(CONNECTION, 'failures', '5');
+    await store.expedite();
+    await drainFetchList();
+    expect(fetched()).toBe(4);
+    await runSchedules();
+    await drainFetchList();
+    for (const id of ids) expect(await item('property', id)).toBeDefined();
   });
 
   it('keeps the start of a broken answer and fetches the record at the next try', async () => {

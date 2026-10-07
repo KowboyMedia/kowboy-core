@@ -188,6 +188,13 @@ async function pauseOf(connectionId: string): Promise<Pause> {
 const paused = (pause: Pause): boolean =>
   pause.pausedUntil !== null && pause.pausedUntil > Date.now();
 
+/**
+ * How many more calls the connection may send before its pause: none once its failures in a row
+ * reached PAUSE_AFTER, even after the pause ran out and until resumeDue lets one probe through.
+ */
+const callsLeft = (pause: Pause): number =>
+  paused(pause) ? 0 : Math.max(0, PAUSE_AFTER - pause.failures);
+
 /** A call failed on Vitec's side: count it, and pause the connection at PAUSE_AFTER in a row. */
 async function noteFailure(current: AdapterApi, live: Live, error: unknown): Promise<void> {
   const id = live.connection.id;
@@ -228,11 +235,14 @@ async function noteSuccess(current: AdapterApi, live: Live): Promise<void> {
   }
 }
 
-/** A pause that has run out lets the next fetches through as a probe: one more failure pauses again. */
+/**
+ * A pause that has run out lets one fetch through as a probe: one more failure pauses again. So
+ * does a connection out of calls whose pause never began, so that it is never stuck.
+ */
 async function resumeDue(targets: Live[]): Promise<void> {
   for (const target of targets) {
     const pause = await pauseOf(target.connection.id);
-    if (pause.pausedUntil === null || pause.pausedUntil > Date.now()) continue;
+    if (paused(pause) || (pause.pausedUntil === null && callsLeft(pause) > 0)) continue;
     await store.setState(target.connection.id, 'paused_until', '');
     await store.setState(target.connection.id, 'failures', String(PAUSE_AFTER - 1));
     await store.setState(target.connection.id, 'probing', '1');
@@ -305,12 +315,15 @@ const heldSince = async (connectionId: string): Promise<string | null> =>
 const isHeld = async (connectionId: string): Promise<boolean> =>
   (await heldSince(connectionId)) !== null;
 
-/** Offices the drain leaves alone: blocked ones, and every office of a paused or held connection. */
+/**
+ * Offices the drain leaves alone: blocked ones, and every office of a connection that is held or
+ * may send no more calls (callsLeft).
+ */
 async function skippedOffices(targets: Live[]): Promise<store.Office[]> {
   const skipped: store.Office[] = await store.blockedOffices();
   for (const target of targets) {
     const id = target.connection.id;
-    if (paused(await pauseOf(id)) || (await isHeld(id))) {
+    if (callsLeft(await pauseOf(id)) === 0 || (await isHeld(id))) {
       const { environment } = target.credentials;
       skipped.push(...target.offices.map((officeId) => ({ environment, officeId })));
     }
@@ -522,8 +535,35 @@ async function drainOnce(environment: connect.Environment): Promise<void> {
     const skipped = await skippedOffices(targets);
     const claimed = await store.claim(environment, connect.concurrency(), skipped);
     if (claimed.length === 0) return;
-    await Promise.all(claimed.map((entry) => fetchOne(entry, targets, current)));
+    const sent = await withinPause(claimed, targets);
+    if (sent.length === 0) return;
+    await Promise.all(sent.map((entry) => fetchOne(entry, targets, current)));
   }
+}
+
+/**
+ * The claimed records that may go to Vitec now. The calls of a batch run side by side, so a batch
+ * of a connection that has failed before could carry it past PAUSE_AFTER failures, and a probe
+ * would be a whole batch: each connection sends at most its callsLeft, and the rest go back on the
+ * list as they were, for the next batch to weigh again. A removal or a record no connection
+ * fetches calls nothing, so it always goes.
+ */
+async function withinPause(claimed: store.Entry[], targets: Live[]): Promise<store.Entry[]> {
+  const left = new Map<string, number>();
+  const sent: store.Entry[] = [];
+  for (const entry of claimed) {
+    const first = targets.find((target) => syncs(target, entry));
+    if (entry.reason === 'remove' || !first) {
+      sent.push(entry);
+      continue;
+    }
+    const id = first.connection.id;
+    const calls = left.get(id) ?? callsLeft(await pauseOf(id));
+    left.set(id, calls - 1);
+    if (calls > 0) sent.push(entry);
+    else await store.park(entry);
+  }
+  return sent;
 }
 
 /**
