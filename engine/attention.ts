@@ -96,7 +96,7 @@ const REFUSED_DAYS = 7;
 
 /** The kind an event is, or null when it needs no attention. */
 function kindOf(type: string, fields: EventFields): Kind | null {
-  // A form Core held back, because only production sends forms to a CRM, is no problem.
+  // A form Core held back, because only production sends forms to a live CRM, is no problem.
   if (type === 'submission.refused' && fields['reason'] === NOT_LIVE) return null;
   // A sites check that could not run names no site; its problem is the check's, not a site's.
   if (type === 'check.failed' && !named(fields, 'sites') && !named(fields, 'names')) return null;

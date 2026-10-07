@@ -263,6 +263,15 @@ describe('Vitec’s QA environment', () => {
     expect(refused?.table?.rows.map((row) => idOf(row.cells[0]))).toEqual(['M1 (QA)']);
   });
 
+  it('answers the forms guard that a QA connection is Vitec’s test system, and a live or unreadable one is not (question 181)', async () => {
+    const testSystem = vitecAdapter.testSystem;
+    if (!testSystem) throw new Error('the Vitec adapter gives the forms guard no answer');
+    expect(testSystem(await connection(QA))).toBe(true);
+    expect(testSystem(await connection(LIVE))).toBe(false);
+    // A login Core cannot read is never taken for a test system.
+    expect(testSystem({ ...(await connection(QA)), credentials: null })).toBe(false);
+  });
+
   it('checks a typed QA login at QA’s address, and sends a QA connection’s forms there', async () => {
     live.requests.length = 0;
     qa.requests.length = 0;

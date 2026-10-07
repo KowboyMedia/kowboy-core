@@ -80,7 +80,7 @@ seven forms fields left the Vitec connection, so nothing about forms is typed th
 fields that showed nothing stored and read "Yes" as no are gone. The CRM password left the
 connection too on 2026-10-06 (Patric: a Vitec connection has one username and one password, used
 for every call). The guard of question 152
-replaces "Send forms to Vitec": only the live service hands a form to the CRM. The entry leaves
+replaces "Send forms to Vitec": only the live service hands a form to a live CRM. The entry leaves
 this file when the fix is on production.
 
 **The stored values of the seven fields and the CRM password** (questions 174 and 179, yes). A

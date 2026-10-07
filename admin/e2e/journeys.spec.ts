@@ -268,7 +268,7 @@ test('journey: failed forms — read a form the CRM did not take, and send it ag
   // Core's own hold outside production says so in words, not in the site's Swedish answer.
   await expect(form.getByText('Held back', { exact: true })).toBeVisible();
   await expect(
-    form.getByText('Held back: only production sends forms to a CRM', { exact: false }),
+    form.getByText('Held back: only production sends forms to a live CRM', { exact: false }),
   ).toBeVisible();
   // The home by its address, then the CRM's id for it.
   await expect(form.getByRole('link', { name: 'Storgatan 12' })).toBeVisible();
@@ -281,7 +281,7 @@ test('journey: failed forms — read a form the CRM did not take, and send it ag
   await form.getByRole('button', { name: 'Send again' }).click();
   await page.getByRole('button', { name: 'Send it' }).click();
   await expect(
-    page.getByText('Held back again: only production sends forms to a CRM.', { exact: false }),
+    page.getByText('Held back again: only production sends forms to a live CRM.', { exact: false }),
   ).toBeVisible();
   await expect(form).toHaveCount(1);
 });

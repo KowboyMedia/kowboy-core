@@ -441,6 +441,10 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('Utgångspris');
     expect(body).toContain('5 000 000 kr');
     expect(body).toContain('k-label--bright">Vasastan</p>');
+    // The list's status label is the first pill: the next viewing ahead (Patric, 2026-10-07).
+    expect(body).toMatch(
+      /<ul class="k-hero__facts"><li class="k-pill">Visning [^<]+<\/li><li class="k-pill">5 000 000 kr<\/li>/,
+    );
     expect(body).toContain('Ljus trea med balkong.');
     expect(body).toContain('<li class="k-chip">4 rum</li>');
     expect(body).toContain('<li class="k-chip">Bostadsrätt</li>');
@@ -535,6 +539,8 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     const { body } = await page(await permalink('property', 'P-4'));
     expect(body).toContain('Slutpris');
     expect(body).toContain('3 325 000 kr');
+    // A sold home's first pill is its status as the CRM names it, never a viewing.
+    expect(body).toContain('<li class="k-pill">Såld</li><li class="k-pill">3 325 000 kr');
     expect(body).not.toContain('Visningar');
     expect(body).not.toContain('Budgivning');
     // No selling heading: the label stands, and the one agent is the responsible one.

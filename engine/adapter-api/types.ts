@@ -392,6 +392,13 @@ export type Adapter = {
    * own timeout and counts the submission as failed. A thrown error is a failure too.
    */
   submit?(connection: Connection, submission: Submission): Promise<SubmissionResult>;
+  /**
+   * Whether the connection's login is for the CRM's own test system, whose forms a Core that is
+   * not the live service, such as staging, sends too (question 181). Answered from the connection
+   * alone, and only exactly true counts. Absent, false or a thrown error means a live CRM, whose
+   * forms only the live service sends.
+   */
+  testSystem?(connection: Connection): boolean;
   /** A home's viewings and their slots as the CRM sees them now, copied onto the universal names. */
   slots?(
     connection: Connection,

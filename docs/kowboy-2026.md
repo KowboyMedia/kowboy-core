@@ -286,6 +286,23 @@ Two things from the staging site on a phone (Patric, 2026-10-04, 16:45Z), theme 
   Core (docs/decisions.md, 2026-10-05); the theme's buttons and their marks stay as they are, and
   the wizard comes back with this look.
 
+## Patric's four from 2026-10-07
+
+Four things from the staging site (Patric, 2026-10-07, 12:26Z), theme 1.2.1:
+
+- **The label sits on the title.** On a home's and an area's page the small label over the
+  title (the area's name, the municipality) stood 8 px above it; the gap is gone
+  (`.k-hero__head-main`).
+- **The home's page carries the list's status pill.** The card's label (the next viewing when
+  one is ahead, else the status as the CRM names it) is now the first pill on the home's hero,
+  before the price, the rooms and the living space. One function draws it for both,
+  `kowboy_property_label` in `inc/property.php`; a sold home shows its status, never a viewing.
+- **The street sits on the area on every card.** The property, area and association cards share
+  one body: the street name stands right under the area's name, and the facts row keeps its 6 px
+  above.
+- **The title sits on the name on an agent card.** The agent's title stands right under the
+  name; the contact keeps its 4 px under the title's line.
+
 ## Order of work
 
 1. The plan and the questions (this page), the plugin's shadow DOM default, the 2026 set shelved.

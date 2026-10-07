@@ -1004,7 +1004,14 @@ staging when it is done:
   asked that the circuit breaker be central and not depend on finding every use.
   `configureLiveService` sets it in `engine/index.ts`; the test harness's Core sends, since its
   CRMs are stand-ins, and the guard's own tests turn that off (`acceptance/submissions.test.ts`,
-  one of them a send by another way than the form route).
+  one of them a send by another way than the form route). One exception, Patric's answer to
+  question 181 on 2026-10-07 ("staging dry run unless qa"): a CRM's own test system takes forms
+  from any Core. The adapter interface's optional `testSystem(connection)` says whether a
+  connection's login is for one; outside production the guard asks it and hands that
+  connection's form to the adapter, the same connection object, so the send goes where the
+  answer was given. No answer, false, or a thrown error holds the form as before. The Vitec code
+  answers yes for a login with "Use Vitec’s QA environment" ticked, so staging sends such a
+  connection's forms to Vitec's QA and holds every other form.
 - **The bot check** (155 lines 3 and 6; known bug 4): `GET /v1/submissions/bot-check` answers the
   site's server, with its token, the check's provider and public key (`{ "human": { "provider":
 "turnstile", "site_key": … } }`, or `null` without a check). `POST /v1/submissions` reads the
@@ -1012,7 +1019,7 @@ staging when it is done:
   did not pass" without it or when Cloudflare refuses it. The live service with no check set up
   (`TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET` unset) answers 503 "the bot check is not set up" to
   every form and reports it to the error tracker, so it never takes a form unchecked; staging and
-  local take forms without a check, since the guard sends none on. The tests give Core a stand-in
+  local take forms without a check, since the guard sends none on to a live CRM. The tests give Core a stand-in
   that takes the dummy token of Cloudflare's test key `1x00000000000000000000AA` (Turnstile's
   testing page, updated 2026-05-05), so no test calls Cloudflare.
 - **The three windows in the theme** (155 line 1; theme 1.2.0): the interest, the viewing booking
@@ -1062,7 +1069,7 @@ staging when it is done:
   `engine/storage/submissions.ts`); then housekeeping empties it, and the row goes with the event
   retention as before. The events, the error tracker and the table in plain text still hold
   nothing about the person (criterion 44's tests, one of them on the kept details). On staging
-  every form keeps its details, since the guard refuses them all. Nothing tries a form later (165
+  every form to a live CRM keeps its details, since the guard holds them all. Nothing tries a form later (165
   was answered no, below); the alert for a failed form (line 5) comes with 172's levels.
 - **Failed forms in the admin area, with "Send again"** (160 a line 4): the page Failed forms
   (`admin/src/pages/forms.tsx`) lists every form Core keeps that the CRM did not take, newest

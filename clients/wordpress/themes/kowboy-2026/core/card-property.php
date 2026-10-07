@@ -1,8 +1,8 @@
 <?php
 // One property card (the design's Property Card): the first three photos in a Swiper slider,
-// the status pill (the next viewing when one is ahead, else the status as the CRM names it),
-// the area's name (Patric, 2026-10-03: not the tenure), the street, and the price row without
-// the fee. Every string is `display`'s or a value as sent.
+// the status pill (`kowboy_property_label`: the next viewing when one is ahead, else the status
+// as the CRM names it), the area's name (Patric, 2026-10-03: not the tenure), the street right
+// under it, and the price row without the fee. Every string is `display`'s or a value as sent.
 // The whole card leads to the property; on a card with a slider the photos can be swiped and a
 // plain click on them follows the link too (the script).
 //
@@ -14,23 +14,12 @@ $display = is_array($item['display'] ?? null) ? $item['display'] : [];
 $url = get_permalink($post_id);
 $street = (string) ($item['address']['street'] ?? '');
 $images = array_slice(array_values(array_filter(is_array($item['images'] ?? null) ? $item['images'] : [], fn (array $image): bool => ($image['category'] ?? null) !== 'Planritning')), 0, 3);
-$sold = isset($display['final_price']);
 $facts = array_filter([
     $display['final_price'] ?? $display['price'] ?? null,
     $display['rooms'] ?? null,
     $display['living_space'] ?? null,
 ]);
-$label = (string) ($item['status']['name'] ?? '');
-$next_viewing = null;
-foreach (is_array($item['viewings'] ?? null) ? $item['viewings'] : [] as $viewing) {
-    $starts = is_string($viewing['starts_at'] ?? null) ? strtotime($viewing['starts_at']) : false;
-    if ($starts !== false && $starts >= time() && ($next_viewing === null || $starts < $next_viewing)) {
-        $next_viewing = $starts;
-    }
-}
-if (!$sold && $next_viewing !== null) {
-    $label = 'Visning ' . wp_date('D j M H:i', $next_viewing);
-}
+$label = kowboy_property_label($item);
 // The card is 3:4 and the photos are wider than tall, so the file the browser picks must be about twice the card's width to fill it.
 $sizes = '(min-width: 1024px) 768px, (min-width: 640px) 100vw, 150vw';
 ?>

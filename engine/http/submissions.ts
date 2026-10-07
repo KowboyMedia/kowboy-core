@@ -83,7 +83,8 @@ export async function submit(request: Request): Promise<Response> {
  * The proof the window earned from the bot check, which the site's server passes on in
  * `X-Core-Human`, before anything else is read. The live service takes no form while the check is
  * not set up (known bug 4); elsewhere no check means none, since the guard keeps every form there
- * from the CRM anyway.
+ * from a live CRM. Only a CRM's own test system gets forms there (question 181), still bounded by
+ * the limit per token.
  */
 async function checkHuman(request: Request): Promise<Response | null> {
   if (!humanCheck()) {
@@ -264,7 +265,8 @@ const usable = (connection: Connection): Found =>
 /**
  * Ask the adapter, and count no answer in time, or an error, as a failure. Never throws. The send
  * is the one the registry keeps, which outside the live service refuses before the adapter is
- * asked (the guard, `registerSubmissions` in engine/registry.ts).
+ * asked, unless the adapter says the connection is its own test system (the guard,
+ * `registerSubmissions` in engine/registry.ts).
  */
 async function deliver(
   send: NonNullable<Adapter['submit']>,

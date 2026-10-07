@@ -1,6 +1,7 @@
 import type {
   Adapter,
   AdapterAdmin,
+  Connection,
   Datatype,
   HealthResult,
   LifecycleHandler,
@@ -20,8 +21,11 @@ const registrations = new Map<string, Registration>();
 const lifecycleHandlers = new Map<string, LifecycleHandler[]>();
 const healthChecks = new Map<string, () => Promise<HealthResult> | HealthResult>();
 const admins = new Map<string, AdapterAdmin>();
-/** An adapter's `submit` and `slots` (docs/forms.md), what the web process calls for a site's form. */
-export type SubmissionHandlers = Pick<Adapter, 'submit' | 'slots'>;
+/**
+ * An adapter's `submit` and `slots` (docs/forms.md), what the web process calls for a site's form,
+ * and its `testSystem`, which only the guard asks.
+ */
+export type SubmissionHandlers = Pick<Adapter, 'submit' | 'slots' | 'testSystem'>;
 const submissionHandlers = new Map<string, SubmissionHandlers>();
 
 export function register(provider: string, manifest: Manifest, mappers: Mappers): void {
@@ -59,9 +63,10 @@ export function adminProviders(): string[] {
 }
 
 /**
- * Whether this Core is the live service, the only one that writes to a CRM (question 152):
- * staging reads a real brokerage's office, so nothing tried there may reach it. Set once at
- * start from the environment's name; a Core never told stays off.
+ * Whether this Core is the live service, the only one that writes to a live CRM (question 152):
+ * staging reads a real brokerage's office, so nothing tried there may reach it. A CRM's own test
+ * system takes forms from any Core (question 181). Set once at start from the environment's name;
+ * a Core never told stays off.
  */
 let live = false;
 export const NOT_LIVE =
@@ -81,16 +86,27 @@ export const isLiveService = (): boolean => live;
  * The guard sits here. The engine never imports adapter code (the seam, checked on every
  * change), so this is the one place it gets an adapter's `submit`, and the registry keeps only
  * the guarded one: outside the live service it answers refused with `NOT_LIVE` and the adapter
- * is never called. A site's form, "Send again" and any way to a CRM added later all pass it
- * without anyone putting it there. Reading a viewing's times is no write and is not guarded.
+ * is never called, unless the adapter says the connection is its own test system (question
+ * 181). The same connection is then handed to `submit`, so the send goes where the answer was
+ * given. A site's form, "Send again" and any way to a CRM added later all pass it without anyone
+ * putting it there. Reading a viewing's times is no write and is not guarded.
  */
 export function registerSubmissions(provider: string, handlers: SubmissionHandlers): void {
-  const { submit, slots } = handlers;
+  const { submit, slots, testSystem } = handlers;
+  // An answer the adapter cannot give counts as a live CRM, so the form is held.
+  const sends = (connection: Connection): boolean => {
+    if (live) return true;
+    try {
+      return testSystem?.(connection) === true;
+    } catch {
+      return false;
+    }
+  };
   submissionHandlers.set(provider, {
     submit:
       submit &&
       ((connection, submission) =>
-        live
+        sends(connection)
           ? submit(connection, submission)
           : Promise.resolve<SubmissionResult>({ outcome: 'refused', reason: NOT_LIVE })),
     slots,

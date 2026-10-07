@@ -79,7 +79,7 @@ const OUTCOMES: Record<Outcome, string> = {
   unanswered: 'No answer',
 };
 
-const HELD = 'Held back: only production sends forms to a CRM, so Core kept this form here.';
+const HELD = 'Held back: only production sends forms to a live CRM, so Core kept this form here.';
 
 /** Why the form is here, as a sentence of its own around what the CRM or Core said. */
 function why(row: FailedForm): string {
@@ -189,7 +189,7 @@ function FormCard({
         );
       } else if (answer.outcome === 'held') {
         toast.error(
-          'Held back again: only production sends forms to a CRM. The form stays on this list.',
+          'Held back again: only production sends forms to a live CRM. The form stays on this list.',
         );
       } else if (answer.outcome === 'refused') {
         toast.error(
@@ -324,7 +324,7 @@ function FormCard({
           />
           <span className="text-sm text-muted-foreground">
             {row.outcome === 'held'
-              ? 'Sends this form to the CRM once more. Only production sends forms to a CRM, so here Core holds the form back again.'
+              ? 'Sends this form to the CRM once more. Only production sends forms to a live CRM, so here Core holds the form back again.'
               : `Sends this form to the CRM once more, through ${connectionName(row)}, as the visitor filled it in, and shows the CRM’s answer. Press it once the cause above is fixed. If the cause cannot be fixed, leave the form, and Core deletes it 30 days after the visitor sent it.`}
           </span>
         </div>
@@ -345,7 +345,7 @@ function Line({ label, children }: { label: string; children: ReactNode }) {
 /** The question before a send, saying how the brokerage could get the form twice. */
 function confirmText(row: FailedForm): string {
   if (row.outcome === 'held')
-    return 'Only production sends forms to a CRM, so here Core holds the form back again.';
+    return 'Only production sends forms to a live CRM, so here Core holds the form back again.';
   const kind = (KINDS[row.kind] ?? 'form').toLowerCase();
   const twice = [
     `Core sends this ${kind} to the CRM once more, through ${connectionName(row)}, as the visitor filled it in.`,
