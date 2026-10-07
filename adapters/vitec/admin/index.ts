@@ -578,7 +578,7 @@ async function officesSection(connection: Connection): Promise<AdminSection> {
   );
   return {
     title: 'Offices Vitec lists',
-    help: 'Vitec decides which offices reach this tenant’s sites, and nothing is chosen here. Once a day, Core asks Vitec which offices sit behind the customer or group id above. When the brokerage keeps an office group called “Webbplats” in Vitec, only the offices in that group reach the sites. When there is no such group, or it holds none of these offices, every office behind the id reaches the sites. An office that leaves the group leaves the sites at the next check, with its homes and new-build projects, and its agents stay. An office Vitec refuses to let this login read stays on the sites for one more day, and leaves them if Vitec still refuses it then.',
+    help: 'Vitec decides which offices reach this tenant’s sites, and nothing is chosen here. Core asks Vitec which offices sit behind the customer or group id above once a day, and within seconds after a new id is saved. When the brokerage keeps an office group called “Webbplats” in Vitec, only the offices in that group reach the sites. When there is no such group, or it holds none of these offices, every office behind the id reaches the sites. An office that leaves the group leaves the sites at the next check, with its homes and new-build projects, and its agents stay. An office Vitec refuses to let this login read stays on the sites for one more day, and leaves them if Vitec still refuses it then.',
     items: [
       { label: 'Last check', value: lastCheckText(check) },
       { label: 'Office groups in Vitec', value: groupsText(check) },
