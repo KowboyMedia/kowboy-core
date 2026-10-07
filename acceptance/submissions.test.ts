@@ -280,7 +280,7 @@ describe('submissions', () => {
     // Red while the latest submission to the connection failed; green on the next delivery.
     const red = (await healthReport()).checks['submissions.failing'];
     expect(red?.ok).toBe(false);
-    expect(red?.names).toEqual([CONNECTION]);
+    expect(red?.names).toEqual([{ connection: CONNECTION }]);
     expect(red?.detail).not.toContain(CONNECTION);
 
     const delivered = await post(submission('lead'));

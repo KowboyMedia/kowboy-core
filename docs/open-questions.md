@@ -9,29 +9,6 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 184. `[core]` May a CRM's code get from Core what it needs to name and link everything it shows, so its checks and its page read like the rest of the admin area?
-
-- 2026-10-06 · Building 172 to AGENTS.md's definition of done item 5. The engine's own checks,
-  alerts and events now have a title and sentences, and name and link each thing. A CRM's code
-  cannot yet, because the adapter API (protected) does not hand it what it needs: every Vitec
-  check reads "Fetching from Vitec", and the Vitec page writes "The Vitec connection with the
-  short name acme-crm", names a home by Vitec's id for it, links nothing, and shows the
-  notification addresses as "Core's own address, followed by /v1/hook/…". Question 185 asked for
-  items 3 to 5 and was merged into this one on 2026-10-06, so one answer covers both.
-
-| Item | What                                                                                                                                                                                                                 | Why                                                                                                                                                 |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | One optional word `title` on a check's result in the adapter API, kept with the result in `health_results` (a column) for the web process.                                                                           | The Overview's tile and the alert read a title such as "Vitec's notifications", never `vitec.webhook_lag`.                                          |
-| 2    | A name the CRM's code writes may carry its place in the admin area: `links` on a failing check's result, kept the same way (a column), and one more kind of value on its page, a text with a place, drawn as a link. | Each connection, office or home a CRM's check or page names opens its place, as the sites check's sites do.                                         |
-| 3    | Each connection Core hands the CRM's code carries its tenant's name and its own name (`tenantName` and `name` on `Connection`).                                                                                      | The checks and the page say "Acme's Vitec connection “Main”", never Core's own id for it, which Patric's answer to question 180 keeps out of sight. |
-| 4    | The CRM's code may ask Core for the address of a home or another record, by the CRM's id for it.                                                                                                                     | A home on the Vitec page reads "Storgatan 12", not Vitec's id for it.                                                                               |
-| 5    | The CRM's code may read Core's public address, the server setting `PUBLIC_URL` Core already has.                                                                                                                     | The Vitec page shows the notification addresses to give Vitec in full, ready to copy.                                                               |
-
-- Recommended: all five (a). Smaller: items 1, 3 and 5 (b); nothing a CRM's code names is then a
-  link, and a home stays named by the CRM's id. None (c) leaves it as today. Blocked: titles,
-  names, links and addresses on a CRM's checks and page, on the Overview and in the alerts.
-  Reply: a, b or c.
-
 ## 180. `[admin]` The new tenant page: may the release drop the two switches only the old page had?
 
 - 2026-10-06 · Patric listed the new tenant page at 21:29 UTC; six points beyond his list were
@@ -45,38 +22,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   so every site and connection is on; the CRM code's interface loses the pause switch.
 - b) **keep them**: they stay in the database with no button, so anything off now stays off.
 - Blocked: the one-time step on production's database. Reply: a or b.
-
-## 178. `[core]` May Core keep each failing check's level, and show it on "Needs attention"?
-
-- 2026-10-06 · Building 172 (the levels): three things the build needs that 172 did not list.
-
-| Item | What                                                                                                                  | Why                                                                                                                         |
-| ---- | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| 1    | A column `level` in `health_results`, the table where the worker leaves the CRM's checks for the web process to read. | The Overview colours a CRM check by the level the CRM's code gave it; without it, a CRM check shows red whatever its level. |
-| 2    | A field `level` on each `check.failed` event, written again when a problem moves up a level (P2 to P1).               | "Needs attention", the 07:00 mail and the event log know each problem's level after it is over.                             |
-| 3    | Each line of "Needs attention" shows its level (P0, P1 or P2) beside its time.                                        | A reader sees at once which lines were alerts and which are only to look at.                                                |
-
-- Smaller: items 2 and 3 alone; the CRM's checks would then show red on the Overview whatever
-  their level until item 1. Blocked: the Overview's colours for the CRM's checks (1), and the
-  list and the 07:00 mail for problems that are over (2). Reply: "178 ok", or the items you do
-  not want.
-
-## 177. `[crm-vitec]` Should the Vitec page's connections, the tenant's card "Offices Vitec lists" and "Check the login" also mark a QA office "(QA)"?
-
-- 2026-10-06 · Asked by the "New CRM vitec-qa" thread after a review of the QA build. Question
-  169 a approved the mark "(QA)" on the Vitec page's fetch list and refused offices only. The
-  build had put it in three more places; they are taken out again until this is answered.
-- **Why it matters.** A login is never shown back on its page, so once it is saved, nothing on
-  the pages tells a QA connection from a live one. With the mark, the Vitec page's list of
-  connections shows "M1 (QA)" in the QA connection's row, the tenant's card "Offices Vitec
-  lists" shows "M1 (QA)" as the id typed, and "Check the login" answers "M1 (QA): Vitec
-  answers …", so the person checking a QA login sees that QA answered. Without it, all three
-  show "M1" for both systems, and the connection's own name and its tenant are the only hints.
-- a) **yes** (recommended): the three places mark a QA office "(QA)" too.
-- b) **no**: only the fetch list, the refused offices and the names in `vitec.offices` mark it,
-  as now.
-- Smaller: b, which builds nothing. Blocked: nothing; the QA switch works either way. Answer a
-  or b.
 
 ## 171. `[core]` Adding a site's address to the bot check at Cloudflare: may Core keep Kowboy's Cloudflare account id as a second environment setting?
 

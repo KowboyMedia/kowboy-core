@@ -24,14 +24,14 @@ import type { HealthResult, Level } from './adapter-api/types.js';
 import { logEvent, type EventFields } from './events.js';
 import { mailConfigured, sendMail } from './mail.js';
 import { report } from './errors.js';
-import { attentionBetween, connectionsNamed, type AttentionRow } from './attention.js';
+import { attentionBetween, type AttentionRow } from './attention.js';
 import { namesNow } from './admin/summary.js';
+import { namedThings } from './admin/things.js';
 import {
   capital,
   clock,
   counted,
   firstSentence,
-  inSentence,
   lasting,
   listed,
   siteNamed,
@@ -321,10 +321,7 @@ async function problemsNow(): Promise<{ problems: Problem[]; sitesUnknown: boole
 async function checkProblem(name: string, check: HealthResult): Promise<Problem> {
   const about = aboutCheck(name);
   const names = check.names ?? [];
-  const named =
-    about.named === 'connections'
-      ? (await connectionsNamed(names)).map((connection) => connection.label)
-      : names.map(inSentence);
+  const named = (await namedThings(names)).map((linked) => linked.label);
   const which = named.length > 0 ? listed(named, named.length) : null;
   const detail = detailOf(check) ?? 'The check fails, and says no more.';
   return {

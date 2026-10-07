@@ -1,5 +1,5 @@
 import { db } from './storage/db.js';
-import { registeredHealthChecks } from './registry.js';
+import { adminFor, registeredHealthChecks } from './registry.js';
 import { unknownMigrations } from './storage/migrate.js';
 import { undeliveredLifecycleEvents } from './lifecycle.js';
 import { connectionsWithFailingSubmissions } from './storage/submissions.js';
@@ -80,16 +80,15 @@ const CANNOT_RUN_MS = 15 * 60_000;
 export const SITES_CHECK = 'subscribers';
 
 /**
- * What a person reads about a check: its title, never its name, what it says while it passes, the
- * page in the admin area where what it finds is put right, when there is one, and what its `names`
- * are when Core can name and link them. The database and the worker are put right where Core is
- * hosted, and a site where it runs, so those have no page; the sites are linked one by one.
+ * What a person reads about a check: its title, never its name, what it says while it passes, and
+ * the page in the admin area where what it finds is put right, when there is one. The database and
+ * the worker are put right where Core is hosted, and a site where it runs, so those have no page;
+ * the things a check names are linked one by one.
  */
 export type About = {
   title: string;
   fine: string;
   page?: { to: string; label: string };
-  named?: 'connections';
 };
 
 /** The engine's own checks, in words (AGENTS.md, definition of done item 5). */
@@ -116,22 +115,22 @@ const ABOUT: Record<string, About> = {
     title: 'Sending forms to the CRMs',
     fine: 'No form is waiting because a CRM did not answer it.',
     page: { to: '/forms', label: 'Failed forms' },
-    named: 'connections',
   },
 };
 
 /**
- * A check in words. A CRM's check is shown on its CRM's page: its name starts with the CRM's
- * short name ("somecrm.catch_up"). Its checks are all about fetching from it, and until a check can
- * carry its own title (question 184), that is the title of each.
+ * A check in words. A CRM's check is put right on its CRM's page, and its name starts with the
+ * CRM's short name ("somecrm.catch_up"); its words are the ones the CRM's code gave it (question
+ * 184), and a check it gave none is about fetching from the CRM.
  */
 export function aboutCheck(name: string): About {
   const about = ABOUT[name];
   if (about) return about;
   const provider = name.split('.')[0] ?? name;
+  const words = adminFor(provider)?.checks?.[name];
   return {
-    title: `Fetching from ${crmName(provider)}`,
-    fine: 'This check finds nothing wrong.',
+    title: words?.title ?? `Fetching from ${crmName(provider)}`,
+    fine: words?.fine ?? 'This check finds nothing wrong.',
     page: { to: `/crms/${provider}`, label: `the ${crmName(provider)} page` },
   };
 }
@@ -294,7 +293,7 @@ export async function healthReport(): Promise<HealthReport> {
   });
 
   // Red while the latest form submission to a connection failed because the CRM did not answer,
-  // green on the next one it takes (docs/forms.md). The connection ids go in `names`.
+  // green on the next one it takes (docs/forms.md). The connections go in `names`.
   checks['submissions.failing'] = await run('submissions.failing', async () => {
     const failing = await connectionsWithFailingSubmissions();
     if (failing.length === 0) return { ok: true };
@@ -303,7 +302,7 @@ export async function healthReport(): Promise<HealthReport> {
       ok: false,
       level: 'P2',
       detail: `The last form a visitor sent through ${many ? 'each of ' : ''}${inWords(failing.length, 'CRM connection', 'CRM connections')} could not be sent. Send ${many ? 'those forms' : 'that form'} again on Failed forms once the cause shown there is fixed. The check shows fine again when the CRM answers a form through ${many ? 'each of them' : 'that connection'}.`,
-      names: failing,
+      names: failing.map((connection) => ({ connection })),
     };
   });
 
@@ -353,10 +352,11 @@ async function recordedChecks(workerDown: boolean): Promise<HealthReport['checks
     name: string;
     ok: boolean;
     detail: string | null;
-    names: string[] | null;
+    names: HealthResult['names'] | null;
+    level: Level | null;
     age_ms: string;
   }>(
-    'select name, ok, detail, names, extract(epoch from (now() - at)) * 1000 as age_ms from health_results',
+    'select name, ok, detail, names, level, extract(epoch from (now() - at)) * 1000 as age_ms from health_results',
   );
   for (const row of rows) {
     if (row.name in checks) continue;
@@ -366,6 +366,7 @@ async function recordedChecks(workerDown: boolean): Promise<HealthReport['checks
         ok: row.ok,
         ...(row.detail ? { detail: row.detail } : {}),
         ...(row.names ? { names: row.names } : {}),
+        ...(row.level ? { level: row.level } : {}),
       };
       continue;
     }
@@ -388,10 +389,18 @@ export async function recordHealth(): Promise<HealthReport['checks']> {
   for (const [name, check] of registeredHealthChecks()) {
     const result = await run(name, check);
     checks[name] = result;
+    // With its level and the things it names, so the other process shows it as this one does.
     await db().query(
-      `insert into health_results (name, ok, detail, names, at) values ($1, $2, $3, $4, now())
-       on conflict (name) do update set ok = excluded.ok, detail = excluded.detail, names = excluded.names, at = now()`,
-      [name, result.ok, result.detail ?? null, result.names ?? null],
+      `insert into health_results (name, ok, detail, names, level, at) values ($1, $2, $3, $4, $5, now())
+       on conflict (name) do update set ok = excluded.ok, detail = excluded.detail, names = excluded.names,
+         level = excluded.level, at = now()`,
+      [
+        name,
+        result.ok,
+        result.detail ?? null,
+        result.names ? JSON.stringify(result.names) : null,
+        result.level ?? null,
+      ],
     );
   }
   return checks;

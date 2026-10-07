@@ -26,7 +26,7 @@ const LEVEL_WORDS: Record<Level, string> = {
   P3: 'For information',
 };
 
-type Check = { ok: boolean; detail?: string; names?: string[]; level?: Level };
+type Check = { ok: boolean; detail?: string; level?: Level };
 
 /** A failing check's colour by its level (question 172): an alert is red, worth a look amber. */
 const TONE: Record<Level, 'bad' | 'warn' | 'muted'> = {
@@ -63,14 +63,16 @@ type NeedsAttention = {
   where: string | null;
   tenantId: number | null;
   tenant: string | null;
+  /** How much it matters (question 178): P1 is sent at once, P2 in the 07:00 mail. */
+  level: Level;
 };
 
 type Overview = {
   health: { ok: boolean; checks: Record<string, Check> };
   /** Each check's title, what it says while it passes, and the page where it is put right. */
   about: Record<string, { title: string; fine: string; page?: { to: string; label: string } }>;
-  /** The things a failing check names, each a link to its place. */
-  links: Record<string, { label: string; to: string }[]>;
+  /** The things a failing check names, each with its place when it has one. */
+  links: Record<string, { label: string; to: string | null }[]>;
   maintenance: boolean;
   attention: NeedsAttention[];
   tenants: { total: number; active: number };
@@ -244,25 +246,20 @@ export function Overview() {
                   ) : (
                     <Said text={check.detail ?? 'It fails, and says no more.'} page={about?.page} />
                   )}
-                  {links.length > 0 ? (
+                  {links.length > 0 && (
                     <ul className="flex flex-col gap-0.5 text-xs">
                       {links.map((link) => (
-                        <li key={link.to}>
-                          <Link className="underline" to={link.to}>
-                            {link.label}
-                          </Link>
+                        <li key={`${link.label} ${link.to ?? ''}`}>
+                          {link.to ? (
+                            <Link className="underline" to={link.to}>
+                              {link.label}
+                            </Link>
+                          ) : (
+                            <span className="text-muted-foreground">{link.label}</span>
+                          )}
                         </li>
                       ))}
                     </ul>
-                  ) : (
-                    check.names &&
-                    check.names.length > 0 && (
-                      <ul className="flex flex-col gap-0.5 text-xs text-muted-foreground">
-                        {check.names.map((named) => (
-                          <li key={named}>{named}</li>
-                        ))}
-                      </ul>
-                    )
                   )}
                 </div>
               );
@@ -282,16 +279,27 @@ export function Overview() {
             <Link className="underline" to="/settings">
               Settings
             </Link>{' '}
-            shows: a refused login, a form that did not reach the brokerage and an office the CRM
-            still refuses within two minutes; a site still not fetching a quarter of an hour after
-            its line appeared, and its end; and the rest in one mail at 07:00. While Core itself is
-            down, the rest waits until it is back.
+            shows: a line marked P1 Disrupted within two minutes, except a site not fetching, which
+            is sent a quarter of an hour after its line appeared, with its end; and a line marked P2
+            To look at in one mail at 07:00. While Core itself is down, the rest waits until it is
+            back.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <DataTable
             columns={[
-              { key: 'at', header: 'When', cell: (row) => moment(row.at) },
+              {
+                key: 'at',
+                header: 'When',
+                cell: (row) => (
+                  <div className="flex flex-col items-start gap-1">
+                    <span className="tabular-nums">{moment(row.at)}</span>
+                    <Badge tone={TONE[row.level]}>
+                      {row.level} {LEVEL_WORDS[row.level]}
+                    </Badge>
+                  </div>
+                ),
+              },
               {
                 key: 'what',
                 header: 'What happened',

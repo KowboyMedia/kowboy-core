@@ -13,7 +13,9 @@ import { inMaintenance } from '../engine/storage/settings.js';
 import { flushBells } from '../engine/bells.js';
 import { getJob, runNextJob } from '../engine/jobs.js';
 import { PAGE_NAMES, pagesNamedIn } from '../engine/admin/pages.js';
-import { clock } from '../engine/admin/words.js';
+import { capital, clock } from '../engine/admin/words.js';
+import { connectionsNamed } from '../engine/attention.js';
+import { shownSections } from '../engine/admin/things.js';
 import { adapters as shipped } from '../main.js';
 import { fakePollingAdapter } from '../adapters/fake-polling/index.js';
 
@@ -681,6 +683,90 @@ describe('the admin area', () => {
     expect(overview.body.data.tenants.total).toBe(2);
   });
 
+  it('names and links what a CRM’s check and page point at, and shows each check at its own level (questions 178 and 184)', async () => {
+    const made = await api<{ data: { id: number } }>('/tenants', {
+      method: 'POST',
+      body: tenantBody(),
+    });
+    const tenantId = made.body.data.id;
+    crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
+    crm.put('property', 'OBJ-1', property('OBJ-1'));
+    await running.deliver();
+    await until(
+      async () => (await api<{ total: number }>('/records?datatype=property')).body.total === 1,
+      'the property to load',
+    );
+    // A check the worker ran and left for the web process: the CRM's code gave it its level and
+    // pointed at a connection, an office with a word about it, and two homes, one Core does not hold.
+    const things = [
+      { connection: 'acme-crm' },
+      { connection: 'acme-crm', office: '100', note: 'refused 2 hours ago' },
+      { connection: 'acme-crm', record: { datatype: 'property' as const, id: 'OBJ-1' } },
+      { connection: 'acme-crm', record: { datatype: 'property' as const, id: 'OBJ-9' } },
+    ];
+    await db().query(
+      `insert into health_results (name, ok, detail, names, level, at)
+       values ('fake-webhook.offices', false, 'Two offices need a look.', $1, 'P2', now())`,
+      [JSON.stringify(things)],
+    );
+    const connection = (await connectionsNamed(['acme-crm']))[0]?.label ?? '';
+    const named = [
+      {
+        label: capital(connection),
+        to: `/tenants/${String(tenantId)}#connection:acme-crm`,
+      },
+      {
+        label: 'Acme Mäklare’s office Lidingö (the CRM’s office id 100), refused 2 hours ago',
+        to: `/records?tenant=${String(tenantId)}&office=100`,
+      },
+      { label: 'Storgatan 12', to: '/records/acme-crm/property/OBJ-1' },
+      { label: 'The home with the CRM’s id OBJ-9', to: null },
+    ];
+
+    const overview = await api<{
+      data: {
+        health: { checks: Record<string, { level?: string }> };
+        about: Record<string, { title: string; fine: string }>;
+        links: Record<string, unknown[]>;
+      };
+    }>('/overview');
+    expect(overview.body.data.health.checks['fake-webhook.offices']).toMatchObject({ level: 'P2' });
+    expect(overview.body.data.links['fake-webhook.offices']).toEqual(named);
+    // The CRM's code gave its check a title and a sentence for while it passes; a check it gave
+    // none is about fetching from the CRM.
+    expect(overview.body.data.about['fake-webhook.webhook_lag']).toMatchObject({
+      title: 'Changes the fake CRM told Core about',
+      fine: 'Core fetched every change the fake CRM told it about within five minutes.',
+    });
+    expect(overview.body.data.about['fake-webhook.offices']).toMatchObject({
+      title: 'Fetching from Fake-webhook',
+    });
+
+    // A CRM's page draws the same things by their names with their places, and an address on
+    // Core as the whole address others reach it at.
+    const [section] = await shownSections([
+      {
+        title: 'Things',
+        items: [{ label: 'Where', value: { address: '/v1/hook/fake-webhook/webhook' } }],
+        table: { columns: ['A', 'B', 'C', 'D', 'E'], rows: [{ cells: [...things, 'As written'] }] },
+      },
+    ]);
+    expect(section).toEqual({
+      title: 'Things',
+      items: [{ label: 'Where', value: 'https://core.example/v1/hook/fake-webhook/webhook' }],
+      table: {
+        columns: ['A', 'B', 'C', 'D', 'E'],
+        rows: [{ cells: [...named.map(({ label, to }) => ({ text: label, to })), 'As written'] }],
+      },
+    });
+    const page = await api<{ data: { sections: { items?: { value: unknown }[] }[] } }>(
+      '/crms/fake-webhook',
+    );
+    expect(page.body.data.sections[0]).toMatchObject({
+      items: [{}, { value: 'https://core.example/v1/hook/fake-webhook/webhook' }],
+    });
+  });
+
   it('lists what needs attention from the last seven days, naming each thing, where it is, and its link (U2, questions 159 and 163)', async () => {
     const made = await api<{ data: { id: number } }>('/tenants', {
       method: 'POST',
@@ -750,6 +836,7 @@ describe('the admin area', () => {
         link: `/tenants/${String(tenantId)}#site:${String(siteId)}`,
         tenantId,
         tenant: 'Acme Mäklare',
+        level: 'P1',
       }),
       // The connection is the thing itself, so it is not named again as where it is.
       expect.objectContaining({
@@ -759,6 +846,7 @@ describe('the admin area', () => {
         where: null,
         link: `/tenants/${String(tenantId)}#connection:acme-crm`,
         tenant: 'Acme Mäklare',
+        level: 'P2',
       }),
       expect.objectContaining({
         type: 'office.taken_off',
@@ -769,6 +857,7 @@ describe('the admin area', () => {
         link: `/records?tenant=${String(tenantId)}&office=100`,
         tenantId,
         tenant: 'Acme Mäklare',
+        level: 'P2',
       }),
       // A line from before Core kept how a problem ends says what it was and where to look now.
       expect.objectContaining({
@@ -778,6 +867,7 @@ describe('the admin area', () => {
         where: 'Tenants lists every tenant’s sites.',
         link: '/tenants',
         tenant: null,
+        level: 'P1',
       }),
     ]);
   });

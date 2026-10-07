@@ -4,8 +4,14 @@
 import { adminFor, adminProviders, manifestFor } from '../registry.js';
 import { connectionById, connectionsForProvider } from '../storage/connections.js';
 import { mergedLogin } from './login.js';
+import {
+  shownDirections,
+  shownSections,
+  type ShownDirections,
+  type ShownSection,
+} from './things.js';
 import { crmName, sentence } from './words.js';
-import type { AdminDirections, AdminField, AdminSection, Datatype } from '../adapter-api/types.js';
+import type { AdminField, Datatype } from '../adapter-api/types.js';
 
 /** What went wrong, as the CRM's code said it, without the "Error: " a thrown error prints with. */
 const wordsOf = (error: unknown): string =>
@@ -45,8 +51,8 @@ export async function crms(): Promise<CrmSummary[]> {
 export type CrmPage = {
   provider: string;
   datatypes: Datatype[];
-  directions: AdminDirections;
-  sections: AdminSection[];
+  directions: ShownDirections;
+  sections: ShownSection[];
   credentials: AdminField[];
 };
 
@@ -57,8 +63,8 @@ export async function crmPage(provider: string): Promise<CrmPage | null> {
   return {
     provider,
     datatypes: manifestFor(provider)?.datatypes ?? [],
-    directions: admin.directions(),
-    sections: await admin.panel(connections),
+    directions: await shownDirections(admin.directions()),
+    sections: await shownSections(await admin.panel(connections)),
     credentials: admin.credentials,
   };
 }

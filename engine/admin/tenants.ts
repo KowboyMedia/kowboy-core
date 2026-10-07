@@ -22,9 +22,9 @@ import { queueLifecycle } from '../lifecycle.js';
 import { mergedLogin, shownLogin, type ShownLogin } from './login.js';
 import { itemCounts } from '../storage/items.js';
 import { adminFor, manifestFor } from '../registry.js';
-import type { AdminSection } from '../adapter-api/types.js';
 import { connectionNamed, listed, officeNamed, sentence } from './words.js';
 import { officeNamesOf } from './scope.js';
+import { shownSections, type ShownSection } from './things.js';
 
 export type ConnectionInput = {
   /** Core's own id for a saved connection; absent for one being added, which Core makes. */
@@ -68,7 +68,7 @@ export type ConnectionView = ShownLogin & {
   licensedOffices: string[];
   active: boolean;
   /** What the adapter itself reports about this connection, as data the panel draws. */
-  sections: AdminSection[];
+  sections: ShownSection[];
 };
 
 export type TenantView = {
@@ -125,14 +125,15 @@ const siteView = (site: Awaited<ReturnType<typeof subscribers>>[number]): SiteVi
 
 async function connectionView(row: ConnectionListRow): Promise<ConnectionView> {
   const admin = adminFor(row.provider);
-  let sections: AdminSection[] = [];
+  let sections: ShownSection[] = [];
   let stored: string | null = null;
   try {
     // The adapter gets the connection as it is stored, login included: what it reports about a
     // connection often depends on whether the login it holds still reads.
     const connection = await connectionById(row.id);
     stored = connection?.credentials ?? null;
-    if (admin?.connection && connection) sections = await admin.connection(connection);
+    if (admin?.connection && connection)
+      sections = await shownSections(await admin.connection(connection));
   } catch (error) {
     const cause = sentence(error instanceof Error ? error.message : String(error));
     sections = [

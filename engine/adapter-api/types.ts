@@ -160,13 +160,36 @@ export type LifecycleHandler = (event: LifecycleEvent) => Promise<void> | void;
 export type Level = 'P0' | 'P1' | 'P2' | 'P3';
 
 /**
+ * A thing the CRM's code names by its ids, in a check's `names` or as a value on its pages:
+ * Core writes its name as the admin area writes it everywhere (its tenant, its name, a record's
+ * address) and links it to its place, so the CRM's code needs neither a tenant's name nor an
+ * address in the admin area, and a name stays current when a tenant or a connection is renamed
+ * (question 184). With neither `office` nor `record` the thing is the connection itself.
+ */
+export type AdminThing = {
+  /** The connection, by Core's id for it (`Connection.id`), which no page shows. */
+  connection: string;
+  /** An office the connection reads, by the CRM's id for it. */
+  office?: string;
+  /** A record of the connection, by its entity type and the CRM's id for it. */
+  record?: { datatype: Datatype; id: string };
+  /** What the CRM's code says about it, after its name: "last caught up 3 hours ago". */
+  note?: string;
+};
+
+/**
  * One health check's answer. `detail` is for anyone: counts and plain words, never a customer's
  * name, a connection or an office id, because `/v1/health` is public (Patric, 2026-09-20,
  * question 62). What the detail counts goes in `names`, which the public answer leaves out and
- * the alerts and the panel carry. `level` says how much a failing check matters; a failing check
- * without one counts as P1 (question 172).
+ * the alerts and the panel carry: a thing, which Core names and links, or a text. `level` says
+ * how much a failing check matters; a failing check without one counts as P1 (question 172).
  */
-export type HealthResult = { ok: boolean; detail?: string; names?: string[]; level?: Level };
+export type HealthResult = {
+  ok: boolean;
+  detail?: string;
+  names?: (string | AdminThing)[];
+  level?: Level;
+};
 
 /** One HTTP route an adapter mounts itself (strategy §5.1). The engine never inspects the body. */
 export type Route = {
@@ -248,14 +271,20 @@ export type AdminField = {
   required?: boolean;
 };
 
-/** A value the panel shows. A state colours it; a moment is an ISO time the panel formats. */
+/**
+ * A value the panel shows. A state colours it; a moment is an ISO time the panel formats; a thing
+ * is shown by its name and opens its place; an address is a path on Core, shown as the whole
+ * address others reach it at ("https://…/v1/hook/somecrm/…").
+ */
 export type AdminValue =
   | string
   | number
   | boolean
   | null
   | { text: string; state: 'ok' | 'bad' | 'warn' | 'muted' }
-  | { moment: string | null };
+  | { moment: string | null }
+  | AdminThing
+  | { address: string };
 
 /** A button on a section or on a row: the panel hands `id` and `params` to the adapter's `act`. */
 export type AdminAction = {
@@ -338,6 +367,11 @@ export type AdapterAdmin = {
   ): Promise<{ raw: unknown; mapped: MappedRecord | null } | null>;
   /** What waits on the adapter's own fetch list, oldest first. */
   queue?(connections: Connection[]): Promise<AdminQueued[]>;
+  /**
+   * Each health check the adapter registers, by its name, in words: its title, and the sentence
+   * it shows while it passes. The admin area and the alerts show these, never the check's name.
+   */
+  checks?: Record<string, { title: string; fine: string }>;
 };
 
 /** What an adapter directory exports. */
