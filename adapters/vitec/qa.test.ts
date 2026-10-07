@@ -284,7 +284,7 @@ describe('Vitec’s QA environment', () => {
     expect(paths(qa)).toEqual([`/Advertising/Office/${OFFICE}`]);
     expect(paths(live)).toEqual([]);
 
-    // A search profile takes both of Connect's calls, with the CRM function group's login.
+    // A search profile takes both of Connect's calls, with the connection's one login like every call.
     const response = await fetch(`${running.baseUrl}/v1/submissions`, {
       method: 'POST',
       headers: {
