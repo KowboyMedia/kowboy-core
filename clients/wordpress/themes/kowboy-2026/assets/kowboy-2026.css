@@ -527,17 +527,20 @@ iframe.k-hero__video {
   justify-content: space-between;
   gap: 12px;
 }
-/* The label sits right on the title, no gap between them (Patric, 2026-10-07). */
+/* The label sits right on the title, no gap between them. The address and the pills share the
+   row only when both fit whole; else the pills go under the address, both on the left, and
+   neither breaks to make room for the other. Pills wider than the screen (a phone) take two rows,
+   close together (Patric, 2026-10-07). */
 .k-hero__head-main {
-  flex: 1 1 400px;
-  max-width: 800px;
+  max-width: 100%;
   display: grid;
   gap: 0;
 }
 .k-hero__facts {
   display: flex;
   flex-wrap: wrap;
-  gap: 32px;
+  gap: 8px 32px;
+  max-width: 100%;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -908,9 +911,11 @@ iframe.k-hero__video {
   gap: 0;
   pointer-events: none;
 }
+/* The area and the street are set tight, so the street sits right under the area with no space
+   between them (Patric, 2026-10-07: the line height left about 9 px between the letters). */
 .k-card__area {
   font-size: var(--k-label-size);
-  line-height: 1.37;
+  line-height: 1.05;
 }
 .k-card__image--placeholder {
   object-fit: cover;
@@ -965,13 +970,14 @@ iframe.k-hero__video {
 .k-card__street {
   font-size: 16px;
   font-weight: 600;
-  line-height: 1.37;
+  line-height: 1.05;
 }
+/* The facts keep their distance under the street: the margin takes back what the street's tighter line gave. */
 .k-card__facts {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 16px;
-  margin-top: 6px;
+  margin-top: 8.5px;
   font-size: var(--k-label-size);
   line-height: 1.37;
 }
@@ -1161,18 +1167,20 @@ iframe.k-hero__video {
   display: grid;
   gap: 0;
 }
+/* The name and the title are set tight, so the title sits right under the name with no space
+   between them (Patric, 2026-10-07); the padding keeps the line where it stood under the title. */
 .k-agent-card__name {
   font-size: 18px;
   font-weight: 500;
-  line-height: 1.37;
+  line-height: 1.05;
 }
 .k-agent-card__name a {
   text-decoration: none;
 }
 .k-agent-card__title {
   font-size: var(--k-label-size);
-  line-height: 1.37;
-  padding-bottom: 8px;
+  line-height: 1.05;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--k-border);
 }
 .k-agent-card__contact {

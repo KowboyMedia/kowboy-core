@@ -303,6 +303,21 @@ Four things from the staging site (Patric, 2026-10-07, 12:26Z), theme 1.2.1:
 - **The title sits on the name on an agent card.** The agent's title stands right under the
   name; the contact keeps its 4 px under the title's line.
 
+Three more the same day (Patric, 2026-10-07, 12:46Z), theme 1.2.2:
+
+- **No space left between the lines on the cards.** With the gap gone, the lines' own height
+  still left about 9 px between the letters of the area and the street, and of an agent's name
+  and title. Both pairs are now set tight (line height 1.05), about 4 px apart; the facts row and
+  the agent card's line keep their places.
+- **The address and the pills stack when they do not fit side by side.** The address block took
+  a fixed share of the row (400 px to 800 px), so a long street broke into lines beside the
+  pills. Each now takes its own width: they share the row when both fit whole, else the pills go
+  under the address, both on the left. On a phone the pills are wider than the screen and take
+  two rows, 8 px apart. A browser journey (`e2e/property-hero.spec.ts`) walks both cases.
+- **A street number never starts a line.** `kowboy_street` (`inc/property.php`) joins the word
+  before the street number, the number and everything after it with non-breaking spaces, so
+  "Adress 49 f" never breaks; the home's title, its card and the form window's heading use it.
+
 ## Order of work
 
 1. The plan and the questions (this page), the plugin's shadow DOM default, the 2026 set shelved.
