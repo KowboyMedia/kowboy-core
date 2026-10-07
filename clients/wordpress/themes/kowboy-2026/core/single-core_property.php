@@ -1,6 +1,7 @@
 <?php
 // A property page (the design's Single Property): the hero (a Vimeo link among the links, else
-// the photos), the description with fact chips and the floor plan, the viewings, the bids and
+// the photos; the list's status label, the price, the rooms and the living space as pills,
+// Patric 2026-10-07), the description with fact chips and the floor plan, the viewings, the bids and
 // the agent at the side, the interest card, the photos (parts/gallery.php), the fact tables
 // (`display.sections`, the association's rows added) closed at first (Patric, 2026-10-03), the
 // area with its texts, the map, and the lead form of the footer. Every string is `display`'s or a value shown as sent; this site's own
@@ -23,7 +24,7 @@ $gallery = array_merge($photos, $plans);
 $sold = isset($display['final_price']);
 $price = $sold ? $display['final_price'] : ($display['price'] ?? null);
 $price_label = $sold ? 'Slutpris' : ($display['price_text'] ?? null);
-$status = (string) ($item['status']['name'] ?? '');
+$label = kowboy_property_label($item);
 $location = (string) ($display['location'] ?? '');
 $text = (string) ($item['long_text'] ?? $item['short_text'] ?? '');
 $heading = (string) ($item['heading'] ?? '');
@@ -143,6 +144,7 @@ $hero_content = '<div class="k-hero__head">'
     . '<h1 class="k-hero__title k-hero__title--left">' . esc_html($street) . '</h1>'
     . '</div>'
     . '<ul class="k-hero__facts">'
+    . ($label !== '' ? '<li class="k-pill">' . esc_html($label) . '</li>' : '')
     . ($price !== null ? '<li class="k-pill">' . esc_html((string) $price) . ($sold ? ' <span class="k-hero__price-label">Slutpris</span>' : '') . '</li>' : '')
     . (isset($display['rooms']) ? '<li class="k-pill">' . esc_html((string) $display['rooms']) . '</li>' : '')
     . (isset($display['living_space']) ? '<li class="k-pill">' . esc_html((string) $display['living_space']) . '</li>' : '')
