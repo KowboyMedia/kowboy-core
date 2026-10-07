@@ -66,7 +66,19 @@ const code = (status: number): string => `Vitec’s answer code was ${String(sta
  * in words, then Vitec's answer code. The event log and the error tracker keep the path and the
  * raw answer for an engineer; a person reads this.
  */
+/**
+ * Vitec answered, and Core could not save what it sent (a home's connection removed while it was
+ * fetched, say): the fetch is tried again, and its words never blame Vitec.
+ */
+export class NotSaved extends Error {
+  constructor(cause: unknown) {
+    super(`Core could not save what Vitec sent: ${String(cause)}`, { cause });
+    this.name = 'NotSaved';
+  }
+}
+
 export function failureInWords(error: unknown): string {
+  if (error instanceof NotSaved) return 'Vitec answered, but Core could not save what it sent';
   if (error instanceof connect.Blocked) {
     return `Vitec refuses to let this login read the office with Vitec’s office id ${error.officeId}${error.environment === 'qa' ? ' in its QA environment' : ''}, so Core did not ask`;
   }

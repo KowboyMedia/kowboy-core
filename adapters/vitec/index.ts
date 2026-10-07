@@ -43,6 +43,7 @@ import {
   agree,
   counted,
   failureInWords,
+  NotSaved,
   lasting,
   officeNamed,
   recordNamed,
@@ -637,14 +638,20 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
     datatype: entry.datatype,
     remoteId: entry.remoteId,
   };
+  let payload: unknown;
   try {
-    const payload = await connect.getOne(
+    payload = await connect.getOne(
       first.credentials,
       entry.datatype,
       entry.officeId,
       entry.remoteId,
       trace,
     );
+  } catch (error) {
+    await failed(entry, first, error, current, trace);
+    return;
+  }
+  try {
     await noteSuccess(current, first);
     if (payload === null) {
       for (const { connection } of owners) {
@@ -661,7 +668,7 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
     await store.remember(entry, entry.datatype, entry.remoteId, changedAtOf(payload));
     await queueReferences(entry, payload);
   } catch (error) {
-    await failed(entry, first, error, current, trace);
+    await failed(entry, first, new NotSaved(error), current, trace);
   }
 }
 
@@ -692,7 +699,7 @@ async function failed(
       datatype: entry.datatype,
       remote_id: entry.remoteId,
       attempts: entry.attempts + 1,
-      detail: `Core gave up fetching this ${recordNamed(entry.datatype)} from Vitec after ${String(entry.attempts + 1)} failed tries. The last try failed because ${failureInWords(error)}. The sites show the ${recordNamed(entry.datatype)} as it was before. Once Vitec answers for it, press “Retry now” beside it in the fetch list on the Vitec page.`,
+      detail: `Core gave up fetching this ${recordNamed(entry.datatype)} from Vitec after ${String(entry.attempts + 1)} failed tries. The last try failed because ${failureInWords(error)}. The sites show the ${recordNamed(entry.datatype)} as it was before. ${error instanceof NotSaved ? 'Press' : 'Once Vitec answers for it, press'} “Retry now” beside it in the fetch list on the Vitec page.`,
     };
     await current.logEvent('fetch.failed', fields, trace);
     current.report(new Error('vitec fetch given up'), { ...fields, error: String(error) });

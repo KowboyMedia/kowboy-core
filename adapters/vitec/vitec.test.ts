@@ -2,6 +2,7 @@
 // the fetch list, both schedules, licensing by office and the health checks. Vitec's behaviour
 // beyond its documentation waits for a test account on staging (strategy §9, Phase 6).
 import { randomUUID } from 'node:crypto';
+import pg from 'pg';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   connectionById,
@@ -806,6 +807,28 @@ describe('the Vitec adapter', () => {
       15_000,
     );
     expect((await lastCheck(CONNECTION))?.offices).toEqual(['M2']);
+  });
+
+  it('says Vitec answered when Core could not save what it sent, as when the connection went during the fetch', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    fake.put(OFFICE, 'property', estate('OBJ2'));
+    fake.delayMs = 300;
+    const before = fake.requests.length;
+    await notify('OBJ2');
+    const drained = drainFetchList();
+    await until(() => fake.requests.length > before, 'the fetch');
+    const database = new pg.Client({ connectionString: process.env['DATABASE_URL'] });
+    await database.connect();
+    try {
+      await database.query('delete from connections where id = $1', [CONNECTION]);
+    } finally {
+      await database.end();
+    }
+    await drained;
+    const [waiting] = await store.entries(10);
+    expect(waiting?.lastError).toBe('Vitec answered, but Core could not save what it sent.');
   });
 
   it('keeps the start of a broken answer and fetches the record at the next try', async () => {
