@@ -527,7 +527,7 @@ describe('the Vitec adapter', () => {
       level: 'P2',
       detail: expect.stringContaining('Vitec refuses to let Core read 1 office.'),
     });
-    expect(offices?.names?.[0]).toContain(OFFICE);
+    expect(offices?.names?.[0]).toMatchObject({ connection: CONNECTION, office: OFFICE });
 
     // Nothing more is asked for the office: a new notification waits, parked.
     await notify('OBJ3');
@@ -692,7 +692,7 @@ describe('the Vitec adapter', () => {
         'Core stopped asking Vitec for 1 connection after 5 failed calls in a row',
       ),
     });
-    expect(paused?.names?.[0]).toContain(CONNECTION);
+    expect(paused?.names?.[0]).toMatchObject({ connection: CONNECTION });
 
     // The pause runs out and Vitec is back: the probe fetches go through, and the rest follow.
     fake.failNext(0);
@@ -794,9 +794,9 @@ describe('the Vitec adapter', () => {
     const page = await vitecAdmin.panel(connections);
     const url = page.find((section) => section.title === 'Notification addresses and call limits')
       ?.items?.[0]?.value;
-    expect(url).toContain(`/v1/hook/vitec/webhook/${TOKEN}`);
+    expect(url).toEqual({ address: `/v1/hook/vitec/webhook/${TOKEN}` });
     const schedules = page.find((section) => section.title === 'Connections and schedules');
-    expect(schedules?.table?.rows[0]?.cells[0]).toBe(CONNECTION);
+    expect(schedules?.table?.rows[0]?.cells[0]).toEqual({ connection: CONNECTION });
 
     // Look: fetched and mapped, nothing written.
     fake.put(OFFICE, 'property', estate('OBJ9'));

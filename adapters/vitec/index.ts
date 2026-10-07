@@ -39,8 +39,8 @@ import * as forms from './forms.js';
 import { changedAtOf, isoDate, mappers, referencedIds } from './mappers.js';
 import { hookPath, refetchOffice, vitecAdmin } from './admin/index.js';
 import {
+  type AdminThing,
   agree,
-  connectionNamed,
   counted,
   failureInWords,
   lasting,
@@ -1147,17 +1147,17 @@ async function loginHealth(current: AdapterApi): Promise<HealthResult> {
     ok: false,
     level: 'P1',
     detail: `Core cannot read the saved Vitec login of ${counted(n, 'connection', 'connections')}, so nothing is fetched for ${agree(n, 'it', 'them')} and ${agree(n, 'its', 'their')} sites get no new changes. Save the login again on the tenant’s page.`,
-    names: unreadable.map((connection) => connectionNamed(connection.id)),
+    names: unreadable.map((connection) => ({ connection: connection.id })),
   };
 }
 
 /** Connections whose office check chose no office: P2. */
 async function officesNoneHealth(current: AdapterApi): Promise<HealthResult> {
-  const empty: string[] = [];
+  const empty: AdminThing[] = [];
   for (const target of await live(current)) {
     // Before its first check a connection has no offices yet; "catching up" covers that time.
     if (target.offices.length === 0 && (await lastCheck(target.connection.id)) !== null) {
-      empty.push(connectionNamed(target.connection.id));
+      empty.push({ connection: target.connection.id });
     }
   }
   if (empty.length === 0) return { ok: true };
@@ -1183,17 +1183,15 @@ async function catchUpHealth(current: AdapterApi): Promise<HealthResult> {
         'Core is catching up with Vitec since the worker started, so the sites may lag behind for a few minutes. Wait for this to pass before you run Manual sync.',
     };
   }
-  const behind: string[] = [];
+  const behind: AdminThing[] = [];
   for (const target of await live(current)) {
     if (target.offices.length === 0) continue;
     const age = ageMs(await store.getState(target.connection.id, 'catch_up_at'));
     if (age <= CATCH_UP_LIMIT_MS) continue;
-    const name = connectionNamed(target.connection.id);
-    behind.push(
-      Number.isFinite(age)
-        ? `${name}, last caught up ${lasting(age)} ago`
-        : `${name}, never caught up`,
-    );
+    behind.push({
+      connection: target.connection.id,
+      note: Number.isFinite(age) ? `last caught up ${lasting(age)} ago` : 'never caught up',
+    });
   }
   if (behind.length === 0) return { ok: true };
   const n = behind.length;
@@ -1210,14 +1208,21 @@ async function refusedHealth(current: AdapterApi): Promise<HealthResult> {
   const blocked = await store.blockedOffices();
   if (blocked.length === 0) return { ok: true };
   const targets = await live(current);
-  const names: string[] = [];
+  const names: (string | AdminThing)[] = [];
   for (const office of blocked) {
-    let name: string | null = null;
-    for (const target of targets.filter((one) => syncs(one, office))) {
-      name ??= (await lastCheck(target.connection.id))?.names[office.officeId] ?? null;
-    }
     const since = lasting(Date.now() - office.blockedAt.getTime());
-    names.push(`${officeNamed(office, name)}, refused ${since} ago`);
+    const qa = office.environment === 'qa' ? 'in Vitec’s QA environment, ' : '';
+    // Core names the office under a connection that fetches it, so a QA office is its QA login's.
+    const by = targets.find((one) => syncs(one, office));
+    names.push(
+      by
+        ? {
+            connection: by.connection.id,
+            office: office.officeId,
+            note: `${qa}refused ${since} ago`,
+          }
+        : `${officeNamed(office)}, refused ${since} ago`,
+    );
   }
   return {
     ok: false,
@@ -1229,7 +1234,7 @@ async function refusedHealth(current: AdapterApi): Promise<HealthResult> {
 
 /** Connections paused after failures on Vitec's side: P2, and P1 once Vitec has failed an hour. */
 async function pausedHealth(current: AdapterApi): Promise<HealthResult> {
-  const names: string[] = [];
+  const names: AdminThing[] = [];
   let urgent = false;
   for (const connection of await current.connections()) {
     const pause = await pauseOf(connection.id);
@@ -1237,9 +1242,10 @@ async function pausedHealth(current: AdapterApi): Promise<HealthResult> {
     const failing = Date.now() - (pause.pausedSince ?? Date.now());
     urgent ||= failing > URGENT_AFTER_MS;
     const again = lasting((pause.pausedUntil ?? 0) - Date.now());
-    names.push(
-      `${connectionNamed(connection.id)}, failing for ${lasting(failing)}, asked again in ${again}`,
-    );
+    names.push({
+      connection: connection.id,
+      note: `failing for ${lasting(failing)}, asked again in ${again}`,
+    });
   }
   if (names.length === 0) return { ok: true };
   const n = names.length;

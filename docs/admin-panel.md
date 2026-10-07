@@ -191,8 +191,8 @@ with the fixed values no and yes, which the page draws as a tickbox, ticked stor
 2026-10-06: "a toggle/checkbox"); a stored yes in any case shows ticked, as the Vitec code reads
 it so. The Vitec page shows QA's
 notification address beside the live one, and its **Connections and schedules**, **Fetch list** and
-**Refused offices** mark a QA office "(QA)"; the names in `vitec.offices` on Overview call it a "QA
-office id". The tenant's page shows the connection's field ticked instead, above **Check login** and
+**Refused offices** name a QA office "in Vitec’s QA environment", as do the names in the check
+"Offices Vitec lets Core read" on Overview. The tenant's page shows the connection's field ticked instead, above **Check login** and
 the card **Offices Vitec lists**, which carry no mark (question 177). A saved login switched to the other
 system syncs no office until the worker's next tick, which takes everything the first system gave
 off the sites and loads the second in full; the field's own help and the setup steps say so. The
