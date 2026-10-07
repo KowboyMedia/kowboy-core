@@ -793,8 +793,9 @@ client ports (item 16, first client by question 80).
       marks and row actions, the forms guard's answer) and `adapters/vitec/admin/directions.test.ts`
       (the field and the QA path named); `acceptance/submissions.test.ts` (a Core that is not the
       live service sends a form to a CRM's own test system and holds every other one).
-    - Waits on question 177: whether the Vitec page's connections, the tenant's card "Offices Vitec
-      lists" and "Check the login" mark a QA office too.
+    - Question 177 closed on 2026-10-07 as a clear winner: the Vitec page's connections, fetch list
+      and refused offices mark a QA office "(QA)", and the tenant's page shows the ticked field
+      instead of a mark.
     - Interface: the optional `testSystem(connection)` of question 181; the engine reads it only
       in the forms guard (`registerSubmissions` in `engine/registry.ts`).
     - Open: the QA address is as Patric remembered it; on 2026-10-06 it cut off a cloud session's

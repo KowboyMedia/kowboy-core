@@ -78,8 +78,9 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   the worker's next tick, which takes every office of the last check off the sites
   (`office.taken_off`, "the login was switched to …"), clears its state, and checks and loads its
   offices in full. An office change from the admin waits for the tick's turn, so nothing is
-  taken off twice. The Vitec page's fetch list and refused
-  offices, and the names in `vitec.offices`, mark a QA office "(QA)". Give a QA login a tenant of
+  taken off twice. The Vitec page's connections, fetch list and
+  refused offices mark a QA office "(QA)", and the names in `vitec.offices` call it a "QA office
+  id"; the tenant's page shows the field ticked instead (question 177). Give a QA login a tenant of
   its own: its records reach that tenant's sites like any other. `qa.test.ts` proves it with two
   stand-ins sharing one office id.
 - **Resync** (`event: resync`, optionally with a datatype) reloads everything listed and removes

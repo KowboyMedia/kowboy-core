@@ -61,23 +61,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   list and the 07:00 mail for problems that are over (2). Reply: "178 ok", or the items you do
   not want.
 
-## 177. `[crm-vitec]` Should the Vitec page's connections, the tenant's card "Offices Vitec lists" and "Check the login" also mark a QA office "(QA)"?
-
-- 2026-10-06 · Asked by the "New CRM vitec-qa" thread after a review of the QA build. Question
-  169 a approved the mark "(QA)" on the Vitec page's fetch list and refused offices only. The
-  build had put it in three more places; they are taken out again until this is answered.
-- **Why it matters.** A login is never shown back on its page, so once it is saved, nothing on
-  the pages tells a QA connection from a live one. With the mark, the Vitec page's list of
-  connections shows "M1 (QA)" in the QA connection's row, the tenant's card "Offices Vitec
-  lists" shows "M1 (QA)" as the id typed, and "Check the login" answers "M1 (QA): Vitec
-  answers …", so the person checking a QA login sees that QA answered. Without it, all three
-  show "M1" for both systems, and the connection's own name and its tenant are the only hints.
-- a) **yes** (recommended): the three places mark a QA office "(QA)" too.
-- b) **no**: only the fetch list, the refused offices and the names in `vitec.offices` mark it,
-  as now.
-- Smaller: b, which builds nothing. Blocked: nothing; the QA switch works either way. Answer a
-  or b.
-
 ## 171. `[core]` Adding a site's address to the bot check at Cloudflare: may Core keep Kowboy's Cloudflare account id as a second environment setting?
 
 - 2026-10-06 · 155's line 6, approved: each site's address goes on Cloudflare's list when the
