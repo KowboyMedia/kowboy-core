@@ -24,8 +24,6 @@ export type FlowRow = {
   name: string | null;
   queuedAt: string;
   what: string;
-  attempt: number | null;
-  site: string | null;
 };
 
 export const STATES: Record<
@@ -138,18 +136,6 @@ export function FlowList({ scope, options }: { scope: Scope; options: ScopeOptio
               ),
           },
           { key: 'what', header: 'What happened', cell: (row) => row.what },
-          {
-            key: 'attempt',
-            header: 'Tries so far',
-            cell: (row) => (row.attempt === null ? '—' : row.attempt),
-            optional: true,
-          },
-          {
-            key: 'site',
-            header: 'Site’s plugin',
-            cell: (row) => (row.site === null ? '—' : row.site.replace('/', ' version ')),
-            optional: true,
-          },
         ]}
         rows={rows}
         rowKey={(row) => row.key}

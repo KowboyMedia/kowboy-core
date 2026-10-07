@@ -109,11 +109,12 @@ In addition to the handbook's definition:
    the product is written for the person who reads it". In Core that means:
    - A health check shows a title and a sentence, never its name (`vitec.catch_up`,
      `subscribers`), and an event shows its sentence, never its type (`office.taken_off`).
-   - A tenant is named by its name; a connection by its tenant and CRM, then its short name
-     ("Acme's Vitec connection, short name acme-crm"); a site by its name and its tenant; an
-     office by its name, then the CRM's id for it; a record by its address or name.
+   - A tenant is named by its name; a connection by its tenant and CRM, then its name
+     ("Acme's Vitec connection “Main”"), never by Core's own id for it (Patric, 2026-10-07); a
+     site by its name and its tenant; an office by its name, then the CRM's id for it; a record
+     by its address or name.
    - Each named thing links to its place: a tenant, connection or site to the tenant's page
-     (`/tenants/<id>`, `#connection:<short name>`, `#site:<id>`), an office or a record to
+     (`/tenants/<id>`, `#connection:<Core's id for it>`, `#site:<id>`), an office or a record to
      Records, a form to Failed forms, a CRM to its page.
    - A problem says what it means for the sites (homes missing or out of date, a form not
      delivered), what to do, and on which page.

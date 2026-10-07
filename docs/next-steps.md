@@ -441,9 +441,9 @@ client ports (item 16, first client by question 80).
       Core then answers a form id it already holds for that tenant with the first answer, before
       the bot check, since the check's proof is spent after one use (`submit` in
       engine/http/submissions.ts). A plugin version, the site deploy and the docs go with it.
-    - Check the forms against the one-password change (`d2627bd`): run
-      `adapters/vitec/forms.test.ts`, then a line in docs/forms.md, whose line 1049 still says the
-      search profile uses the CRM password.
+    - Check the forms against the one-password change (`d2627bd`): docs/forms.md corrected on
+      2026-10-07 (one username and one password for every call); the run of
+      `adapters/vitec/forms.test.ts` goes with item 29's check.
     - Each site's address on Cloudflare's list (waits on 171), and the alert for a failed form
       under 172's levels.
       The Failed forms page's texts and data are now edited by the admin rewrite directly, and QA

@@ -3,6 +3,13 @@
 // these need are copied here and read the same: "1 connection", "3 connections", "12 minutes".
 import * as connect from './api.js';
 import type { Office } from './store.js';
+import type { HealthResult } from '../../engine/adapter-api/index.js';
+
+/**
+ * A connection, an office it fetches or one of its records, by their ids: Core names it as the
+ * admin area does everywhere and links it to its place (question 184).
+ */
+export type AdminThing = Exclude<NonNullable<HealthResult['names']>[number], string>;
 
 /** A number with its noun, agreeing with it: "1 office", "12 offices", never "office(s)". */
 export const counted = (value: number, one: string, many: string): string =>
@@ -20,10 +27,6 @@ export function lasting(ms: number): string {
   if (seconds < 172_800) return counted(Math.floor(seconds / 3_600), 'hour', 'hours');
   return counted(Math.floor(seconds / 86_400), 'day', 'days');
 }
-
-/** A connection as a person knows it, where the adapter does not know its tenant's name. */
-export const connectionNamed = (id: string): string =>
-  `The Vitec connection with the short name ${id}`;
 
 /** An office as a person knows it: its name as Vitec gave it, then Vitec's id for it. */
 export function officeNamed({ environment, officeId }: Office, name?: string | null): string {

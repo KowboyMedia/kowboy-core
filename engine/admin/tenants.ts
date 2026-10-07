@@ -10,7 +10,6 @@ import {
   createTenant,
   deleteConnection,
   deleteSubscriber,
-  deleteTenant,
   subscribers,
   tenantById,
   tenants,
@@ -21,16 +20,17 @@ import {
 } from '../storage/connections.js';
 import { queueLifecycle } from '../lifecycle.js';
 import { mergedLogin, shownLogin, type ShownLogin } from './login.js';
-import { queryEvents } from '../events.js';
 import { itemCounts } from '../storage/items.js';
-import { submissionCounts, type SubmissionCounts } from '../storage/submissions.js';
 import { adminFor, manifestFor } from '../registry.js';
-import { connectionNamed, crmName, listed, officeNamed, sentence } from './words.js';
+import { connectionNamed, listed, officeNamed, sentence } from './words.js';
 import { officeNamesOf } from './scope.js';
 import { shownSections, type ShownSection } from './things.js';
 
 export type ConnectionInput = {
-  id: string;
+  /** Core's own id for a saved connection; absent for one being added, which Core makes. */
+  id?: string;
+  /** What a person reads it by; they can change it at any time (Patric, 2026-10-07). */
+  name: string;
   provider: string;
   /** The adapter's login fields as typed. Absent or empty: the stored login stays. */
   credentials?: Record<string, string> | null;
@@ -59,45 +59,25 @@ export type SiteView = {
   bellUrl: string;
   bellSecret: string;
   active: boolean;
-  lastPullAt: string | null;
-  lastBellAt: string | null;
-  lastBellStatus: string | null;
-  lastClient: string | null;
-  /** What is done and what is left before the site is live (§3 E, Should). */
-  checklist: { step: string; done: boolean; detail: string }[];
-  /** What this site reported it applied and could not, from its own reports. */
-  applied: { applied: number; failed: number };
-  /** The last errors this site reported through POST /v1/errors. */
-  errors: { at: string; message: string; where: string; detail: string | null }[];
 };
 
 export type ConnectionView = ShownLogin & {
   id: string;
+  name: string;
   provider: string;
   licensedOffices: string[];
   active: boolean;
-  hasCredentials: boolean;
-  lastIngestAt: string | null;
-  lastError: string | null;
-  /** Records loaded so far for this connection, per datatype: the first load's progress. */
-  loaded: { datatype: string; live: number }[];
-  /** The forms sites sent through Core to this CRM in the last day, by outcome (docs/forms.md). */
-  submissions: SubmissionCounts;
   /** What the adapter itself reports about this connection, as data the panel draws. */
   sections: ShownSection[];
 };
-
-const DAY_MS = 24 * 60 * 60_000;
 
 export type TenantView = {
   id: number;
   displayName: string;
   active: boolean;
   token: string | null;
-  createdAt: string;
   connections: ConnectionView[];
   sites: SiteView[];
-  records: { datatype: string; live: number; tombstoned: number }[];
 };
 
 export type TenantSummary = {
@@ -135,65 +115,15 @@ export async function listTenants(): Promise<TenantSummary[]> {
   });
 }
 
-async function siteView(site: Awaited<ReturnType<typeof subscribers>>[number]): Promise<SiteView> {
-  const id = Number(site.id);
-  const [applied, failed, errors] = await Promise.all([
-    queryEvents({ subscriberId: id, type: 'site.applied', limit: 1000 }),
-    queryEvents({ subscriberId: id, type: 'site.failed', limit: 1000 }),
-    queryEvents({ subscriberId: id, type: 'site.error', newestFirst: true, limit: 20 }),
-  ]);
-  const bellOk = site.last_bell_status === 'ok';
-  return {
-    id,
-    label: site.label,
-    bellUrl: site.bell_url,
-    bellSecret: site.bell_secret,
-    active: site.active,
-    lastPullAt: site.last_pull_at?.toISOString() ?? null,
-    lastBellAt: site.last_bell_at?.toISOString() ?? null,
-    lastBellStatus: site.last_bell_status,
-    lastClient: site.last_client,
-    checklist: [
-      {
-        step: 'The token is in the site',
-        done: site.last_pull_at !== null,
-        detail:
-          site.last_pull_at === null
-            ? 'Paste the tenant token into the site and let it sync once.'
-            : `It pulled ${site.last_client ? `as ${site.last_client}` : ''}.`.trim(),
-      },
-      {
-        step: 'The bell secret is in the site',
-        done: bellOk,
-        detail: bellOk
-          ? 'The site answered the last bell.'
-          : site.last_bell_at === null
-            ? 'Nothing has been rung yet. Press Ring to try it.'
-            : `The site answered “${site.last_bell_status}”.`,
-      },
-      {
-        step: 'It has taken records',
-        done: applied.length > 0,
-        detail:
-          applied.length > 0
-            ? `${applied.length} record(s) reported applied.`
-            : 'No applied report has arrived yet.',
-      },
-    ],
-    applied: { applied: applied.length, failed: failed.length },
-    errors: errors.map((event) => ({
-      at: event.at.toISOString(),
-      message: String(event.fields['message'] ?? ''),
-      where: String(event.fields['where'] ?? ''),
-      detail: event.fields['detail'] === null ? null : String(event.fields['detail'] ?? ''),
-    })),
-  };
-}
+const siteView = (site: Awaited<ReturnType<typeof subscribers>>[number]): SiteView => ({
+  id: Number(site.id),
+  label: site.label,
+  bellUrl: site.bell_url,
+  bellSecret: site.bell_secret,
+  active: site.active,
+});
 
-async function connectionView(
-  row: ConnectionListRow,
-  counts: Awaited<ReturnType<typeof itemCounts>>,
-): Promise<ConnectionView> {
+async function connectionView(row: ConnectionListRow): Promise<ConnectionView> {
   const admin = adminFor(row.provider);
   let sections: ShownSection[] = [];
   let stored: string | null = null;
@@ -216,16 +146,10 @@ async function connectionView(
   return {
     ...shownLogin(stored, row.provider),
     id: row.id,
+    name: row.name,
     provider: row.provider,
     licensedOffices: row.licensed_offices,
     active: row.active,
-    hasCredentials: row.has_credentials,
-    lastIngestAt: row.last_ingest_at?.toISOString() ?? null,
-    lastError: row.last_error,
-    submissions: await submissionCounts(row.id, DAY_MS),
-    loaded: counts
-      .filter((count) => count.tenant_id === row.tenant_id)
-      .map((count) => ({ datatype: count.datatype, live: Number(count.live) })),
     sections,
   };
 }
@@ -234,28 +158,15 @@ async function connectionView(
 export async function readTenant(id: number): Promise<TenantView | null> {
   const tenant = await tenantById(id);
   if (!tenant) return null;
-  const [everyConnection, everySite, counts] = await Promise.all([
-    allConnections(),
-    subscribers(),
-    itemCounts(),
-  ]);
+  const [everyConnection, everySite] = await Promise.all([allConnections(), subscribers()]);
   const mine = everyConnection.filter((row) => row.tenant_id === id);
-  const sites = everySite.filter((site) => site.tenant_id === id);
   return {
     id: tenant.id,
     displayName: tenant.display_name,
     active: tenant.active,
     token: tenant.token,
-    createdAt: tenant.created_at.toISOString(),
-    connections: await Promise.all(mine.map((row) => connectionView(row, counts))),
-    sites: await Promise.all(sites.map(siteView)),
-    records: counts
-      .filter((count) => count.tenant_id === id)
-      .map((count) => ({
-        datatype: count.datatype,
-        live: Number(count.live),
-        tombstoned: Number(count.tombstoned),
-      })),
+    connections: await Promise.all(mine.map(connectionView)),
+    sites: everySite.filter((site) => site.tenant_id === id).map(siteView),
   };
 }
 
@@ -264,7 +175,7 @@ export async function readTenant(id: number): Promise<TenantView | null> {
  * typed never loses the others. A connection moved to another CRM starts from what is typed.
  */
 async function credentialsOf(
-  input: ConnectionInput,
+  input: Placed,
   before: ConnectionListRow | undefined,
 ): Promise<string | null> {
   const stored =
@@ -277,28 +188,59 @@ async function credentialsOf(
 export type SaveResult = { id: number; changes: string[] };
 
 /**
- * A short name another tenant's connection holds, or one typed twice, refused before anything is
- * saved: Core files a connection by its short name alone, so saving it here would move the other
- * tenant's connection, with its stored login, to this tenant.
+ * An id on the page that is not one of this tenant's own connections, or one sent twice, refused
+ * before anything is saved. The page sends an id only for a connection Core gave it, so anything
+ * else is a page left open while the tenant changed elsewhere, or a hand-made call: saving it
+ * would bring back a removed connection, or move another tenant's, stored login and all.
  */
-export async function refuseShortNames(
+export async function refuseForeignConnections(
   tenantId: number | null,
   wanted: ConnectionInput[],
 ): Promise<string | null> {
-  const seen = new Set<string>();
-  for (const { id } of wanted) {
-    if (seen.has(id))
-      return `Two connections on this page have the short name ${id}, so Core saved nothing. Give each its own short name.`;
-    seen.add(id);
-  }
-  const everyConnection = await allConnections();
-  for (const { id } of wanted) {
-    const owner = everyConnection.find((row) => row.id === id);
-    if (!owner || Number(owner.tenant_id) === tenantId) continue;
-    const tenant = (await tenantById(owner.tenant_id))?.display_name ?? 'another tenant';
-    return `The short name ${id} already belongs to ${tenant}’s ${crmName(owner.provider)} connection, so Core saved nothing. Type another short name for this connection.`;
-  }
+  const ids = wanted.map((connection) => connection.id).filter((id) => id !== undefined);
+  const own = new Set(
+    (await allConnections())
+      .filter((row) => Number(row.tenant_id) === tenantId)
+      .map((row) => row.id),
+  );
+  if (ids.some((id) => !own.has(id)) || new Set(ids).size !== ids.length)
+    return 'Core saved nothing, because this page no longer matches what Core holds. Reload the page and make the change again.';
   return null;
+}
+
+/** A connection with its id: the one it has, or the one Core makes for it from its name. */
+type Placed = ConnectionInput & { id: string };
+
+/**
+ * Core's id for a new connection, made from its name: lower-case letters, digits and dashes,
+ * with a number added when another connection has it. Nobody reads it; it only has to last.
+ */
+function idFrom(name: string, taken: Set<string>): string {
+  const base =
+    name
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'connection';
+  let id = base;
+  for (let number = 2; taken.has(id); number += 1) id = `${base}-${String(number)}`;
+  taken.add(id);
+  return id;
+}
+
+/** Every connection on the page with an id, new ones given theirs. */
+async function placed(wanted: ConnectionInput[]): Promise<Placed[]> {
+  const taken = new Set([
+    ...(await allConnections()).map((row) => row.id),
+    ...wanted.map((connection) => connection.id).filter((id) => id !== undefined),
+  ]);
+  return wanted.map((connection) => ({
+    ...connection,
+    name: connection.name.trim(),
+    id: connection.id ?? idFrom(connection.name, taken),
+  }));
 }
 
 /**
@@ -328,19 +270,19 @@ export async function saveTenant(id: number | null, input: TenantInput): Promise
   }
 
   const named = { tenant: input.displayName, id: tenantId };
-  changes.push(...(await saveConnections(tenantId, input.connections, named)));
+  changes.push(...(await saveConnections(tenantId, await placed(input.connections), named)));
   changes.push(...(await saveSites(tenantId, input.sites)));
   return { id: tenantId, changes };
 }
 
-/** A connection as a person reads it: its tenant and CRM, then its short name. */
-const connectionName = (tenant: string, provider: string, id: string): string =>
-  connectionNamed(id, tenant, provider);
+/** A connection as a person reads it: its tenant and CRM, then its name. */
+const connectionName = (tenant: string, provider: string, name: string): string =>
+  connectionNamed(name, tenant, provider);
 
 /** The tenant's connections as the page left them, and what each difference asks of the adapter. */
 async function saveConnections(
   tenantId: number,
-  wanted: ConnectionInput[],
+  wanted: Placed[],
   named: { tenant: string; id: number },
 ): Promise<string[]> {
   const changes: string[] = [];
@@ -352,7 +294,7 @@ async function saveConnections(
     await queueLifecycle(gone.id, 'connection_removed');
     await deleteConnection(gone.id);
     changes.push(
-      `${connectionName(named.tenant, gone.provider, gone.id)}, is removed, and its records are being taken off the sites.`,
+      `${connectionName(named.tenant, gone.provider, gone.name)} is removed, and its records are being taken off the sites.`,
     );
   }
 
@@ -366,6 +308,7 @@ async function saveConnections(
       id: connection.id,
       tenantId,
       provider: connection.provider,
+      name: connection.name,
       credentials: await credentialsOf(connection, before),
       licensedOffices: connection.licensedOffices,
       active: connection.active,
@@ -373,10 +316,14 @@ async function saveConnections(
     if (!before) {
       await queueLifecycle(connection.id, 'connection_added');
       changes.push(
-        `${connectionName(named.tenant, connection.provider, connection.id)}, is added and loading its records.`,
+        `${connectionName(named.tenant, connection.provider, connection.name)} is added and loading its records.`,
       );
       continue;
     }
+    if (before.name !== connection.name)
+      changes.push(
+        `${connectionName(named.tenant, before.provider, before.name)} is now called “${connection.name}”.`,
+      );
     changes.push(...(await officeChanges(connection, before.licensed_offices, named)));
   }
   return changes;
@@ -384,22 +331,22 @@ async function saveConnections(
 
 /** An office added is loaded; an office removed takes its records with it. */
 async function officeChanges(
-  connection: ConnectionInput,
+  connection: Placed,
   before: string[],
   named: { tenant: string; id: number },
 ): Promise<string[]> {
   const changes: string[] = [];
   const added = connection.licensedOffices.filter((office) => !before.includes(office));
   const removed = before.filter((office) => !connection.licensedOffices.includes(office));
-  const name = connectionName(named.tenant, connection.provider, connection.id);
+  const name = connectionName(named.tenant, connection.provider, connection.name);
   if (added.length > 0) {
     await queueLifecycle(connection.id, 'offices_added', { officeIds: added });
-    changes.push(`${name}, is loading the records of ${await officesNamed(added, named.id)}.`);
+    changes.push(`${name} is loading the records of ${await officesNamed(added, named.id)}.`);
   }
   if (removed.length > 0) {
     await queueLifecycle(connection.id, 'offices_removed', { officeIds: removed });
     changes.push(
-      `${name}, is taking the records of ${await officesNamed(removed, named.id)} off the sites.`,
+      `${name} is taking the records of ${await officesNamed(removed, named.id)} off the sites.`,
     );
   }
   return changes;
@@ -441,12 +388,4 @@ async function saveSites(tenantId: number, wanted: SiteInput[]): Promise<string[
     });
   }
   return changes;
-}
-
-/** "Remove everything": the tenant, its connections, its sites, its records and its history. */
-export async function removeTenant(id: number): Promise<void> {
-  for (const connection of (await allConnections()).filter((row) => row.tenant_id === id)) {
-    await queueLifecycle(connection.id, 'connection_removed');
-  }
-  await deleteTenant(id);
 }

@@ -41,7 +41,7 @@ export function recordsFromBody(
     const { connectionId, remoteId } = record;
     if (typeof connectionId !== 'string' || connectionId === '' || !datatype)
       return {
-        error: 'Each record needs its CRM connection’s short name and a known entity type.',
+        error: 'Each record needs the CRM connection it came through and a known entity type.',
       };
     if (typeof remoteId !== 'string' || remoteId === '')
       return { error: 'Each record needs the CRM’s id for it.' };
@@ -73,7 +73,7 @@ async function keysOf(records: NonNullable<ScopeInput['records']>): Promise<Item
 const NARROWED = ['tenantIds', 'officeIds', 'datatypes', 'remoteId'] as const;
 
 /** The scope in the engine's own terms. */
-export async function toScope(input: ScopeInput): Promise<RecomputeScope> {
+async function toScope(input: ScopeInput): Promise<RecomputeScope> {
   const scope: RecomputeScope = {};
   for (const field of NARROWED) {
     const value = input[field];
@@ -102,7 +102,7 @@ export async function describe(input: ScopeInput): Promise<string> {
 }
 
 /** A recompute as a job the worker takes, so a long run has progress and a history. */
-export const queueRecompute = (scope: RecomputeScope, by: string): Promise<number> =>
+const queueRecompute = (scope: RecomputeScope, by: string): Promise<number> =>
   createJob({ kind: 'recompute', scope, dryRun: false, requestedBy: by });
 
 export type FetchAgain = { queued: number; detail: string };
@@ -140,7 +140,7 @@ async function tenantNames(ids: number[]): Promise<string> {
  * `resync` of every connection in the scope, one per entity type when types are named. The
  * adapter decides how; the engine only says what.
  */
-export async function fetchAgain(input: ScopeInput): Promise<FetchAgain> {
+async function fetchAgain(input: ScopeInput): Promise<FetchAgain> {
   if (input.records && input.records.length > 0) {
     return refetch(await itemsForScope({ keys: await keysOf(input.records) }));
   }

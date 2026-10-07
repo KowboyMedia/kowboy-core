@@ -1054,8 +1054,9 @@ staging when it is done:
   criterion 46. Nothing about forms is typed on a connection: the lead source, the intake source
   and an interest's status are left to Vitec, and a booking asks Vitec for an e-mail confirmation
   (the window tells the visitor so), no SMS and no reminder. The guard replaces the switch. The
-  CRM password stays, since the office check reads Vitec's office groups with it, and the search
-  profile uses it. Known bug 3 goes with the fields.
+  CRM password, kept here at first, was wrong and left on 2026-10-06: the office check and the
+  search profile use the connection's one username and password. Known bug 3 goes with the
+  fields.
 - **A booking's times read right** (found on the staging site, 2026-10-06): Connect's form
   endpoint gives a viewing's and a time's moments as bare Swedish wall-clock time, as the records
   do, and the adapter read them as UTC, so the booking window showed a viewing at 17.50 as 19.50.

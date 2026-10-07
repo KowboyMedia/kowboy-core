@@ -2,8 +2,9 @@
 // and its token; its CRM connections, each with its name, its CRM and that CRM's login, "Check
 // login" and what the CRM code reports about it, such as the offices it lists, with the tenant's
 // records on their way under them; and its sites, each with its address, its bell
-// path and its bell secret. One Save writes the page. A link ending in #connection:<short name>
-// or #site:<number> scrolls to that block and marks it.
+// path and its bell secret. One Save writes the page. A connection is known by a name a person
+// types and can change; Core's own id for it is never shown (Patric, 2026-10-07). A link ending
+// in #connection:<Core's id> or #site:<number> scrolls to that block and marks it.
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useCustom, useCustomMutation } from '@refinedev/core';
@@ -32,6 +33,7 @@ type Crm = { provider: string; credentials: AdminField[] };
 
 type ConnectionView = {
   id: string;
+  name: string;
   provider: string;
   licensedOffices: string[];
   active: boolean;
@@ -56,9 +58,9 @@ type TenantView = {
 
 type ConnectionDraft = {
   key: string;
-  /** The short name it is saved under; null until it is saved. */
+  /** Core's id for it; null until it is saved. Never shown. */
   saved: string | null;
-  id: string;
+  name: string;
   provider: string;
   typed: Record<string, string>;
   /** Sent back as stored: nothing on this page changes them. */
@@ -124,7 +126,7 @@ const draftOf = (view: TenantView): Draft => ({
   connections: view.connections.map((connection) => ({
     key: `connection:${connection.id}`,
     saved: connection.id,
-    id: connection.id,
+    name: connection.name,
     provider: connection.provider,
     typed: { ...connection.shown },
     licensedOffices: connection.licensedOffices,
@@ -144,7 +146,8 @@ const bodyOf = (draft: Draft) => ({
   displayName: draft.displayName.trim(),
   active: draft.active,
   connections: draft.connections.map((connection) => ({
-    id: connection.id.trim(),
+    ...(connection.saved === null ? {} : { id: connection.saved }),
+    name: connection.name.trim(),
     provider: connection.provider,
     credentials: typedOf(connection),
     licensedOffices: connection.licensedOffices,
@@ -192,7 +195,8 @@ function LoginField({
         <label className="flex items-center gap-2 text-sm font-medium">
           <input
             type="checkbox"
-            checked={value === 'yes'}
+            // The CRM's code reads yes in any case, so a stored "Yes" shows ticked too.
+            checked={value.trim().toLowerCase() === 'yes'}
             onChange={(event) => onChange(event.target.checked ? 'yes' : 'no')}
           />
           {field.label}
@@ -364,7 +368,10 @@ function Connection({
   const { mutateAsync } = useCustomMutation();
   const [checked, setChecked] = useState<{ ok: boolean; detail: string } | null>(null);
   const fields = crms.find((crm) => crm.provider === draft.provider)?.credentials ?? [];
-  const name = `${tenantName}’s ${draft.provider ? crmName(draft.provider) : 'CRM'} connection`;
+  const title =
+    draft.saved === null
+      ? 'A new CRM connection'
+      : `${tenantName}’s ${draft.provider ? crmName(draft.provider) : 'CRM'} connection “${draft.name.trim() || view?.name || ''}”`;
 
   const check = async (): Promise<void> => {
     try {
@@ -389,23 +396,20 @@ function Connection({
     <section
       id={draft.saved ? `connection:${draft.saved}` : undefined}
       className="flex flex-col gap-3 rounded-md border p-3"
-      aria-label={draft.saved ? `${name}, short name ${draft.saved}` : 'A new CRM connection'}
+      aria-label={title}
     >
-      <h3 className="font-semibold">
-        {draft.saved ? `${name}, short name ${draft.saved}` : 'A new CRM connection'}
-      </h3>
+      <h3 className="font-semibold">{title}</h3>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${draft.key}-name`}>Short name</Label>
+          <Label htmlFor={`${draft.key}-name`}>Name</Label>
           <Input
             id={`${draft.key}-name`}
-            value={draft.id}
-            disabled={draft.saved !== null}
-            onChange={(event) => onChange({ ...draft, id: event.target.value })}
+            value={draft.name}
+            onChange={(event) => onChange({ ...draft, name: event.target.value })}
           />
           <p className="text-xs text-muted-foreground">
-            Lower-case letters, digits and dashes, such as acme-crm. Core files the connection’s
-            records under it, so it cannot change once saved.
+            What you call this connection, such as the brokerage or the CRM it reads. You can change
+            it at any time.
           </p>
         </div>
         <div className="flex flex-col gap-1">
@@ -833,7 +837,7 @@ export function TenantPage() {
                     {
                       key: newKey('connection'),
                       saved: null,
-                      id: '',
+                      name: '',
                       provider: crms.length === 1 ? (crms[0]?.provider ?? '') : '',
                       typed: {},
                       licensedOffices: [],

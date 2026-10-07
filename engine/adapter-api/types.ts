@@ -167,7 +167,7 @@ export type Level = 'P0' | 'P1' | 'P2' | 'P3';
  * (question 184). With neither `office` nor `record` the thing is the connection itself.
  */
 export type AdminThing = {
-  /** The connection, by its short name. */
+  /** The connection, by Core's id for it (`Connection.id`), which no page shows. */
   connection: string;
   /** An office the connection reads, by the CRM's id for it. */
   office?: string;

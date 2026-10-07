@@ -179,7 +179,6 @@ export function Events() {
                 '—'
               ),
           },
-          { key: 'id', header: 'No.', cell: (event) => event.id, optional: true },
         ]}
         rows={rows}
         rowKey={(event) => String(event.id)}

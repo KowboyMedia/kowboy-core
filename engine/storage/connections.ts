@@ -63,23 +63,29 @@ export async function tenantForToken(
   return rows[0] ? { id: rows[0].id, purgeWatermark: Number(rows[0].purge_watermark) } : null;
 }
 
+/**
+ * Add or change a connection. Its name is what a person reads it by; one added without a name
+ * takes its id as its name, and one changed without a name keeps the one it has.
+ */
 export async function upsertConnection(input: {
   id: string;
   tenantId: number;
   provider: string;
+  name?: string;
   credentials?: string | null;
   licensedOffices?: string[];
   active?: boolean;
 }): Promise<void> {
   await db().query(
-    `insert into connections (id, tenant_id, provider, credentials, licensed_offices, active)
-     values ($1,$2,$3,$4,$5,$6)
+    `insert into connections (id, tenant_id, provider, credentials, licensed_offices, active, name)
+     values ($1,$2,$3,$4,$5,$6, coalesce($7, $1))
      on conflict (id) do update set
        tenant_id = excluded.tenant_id,
        provider = excluded.provider,
        credentials = coalesce(excluded.credentials, connections.credentials),
        licensed_offices = excluded.licensed_offices,
-       active = excluded.active`,
+       active = excluded.active,
+       name = coalesce($7, connections.name)`,
     [
       input.id,
       input.tenantId,
@@ -87,6 +93,7 @@ export async function upsertConnection(input: {
       input.credentials ? encrypt(input.credentials, credentialsKey) : null,
       input.licensedOffices ?? [],
       input.active ?? true,
+      input.name ?? null,
     ],
   );
 }
@@ -229,9 +236,10 @@ export type ConnectionListRow = {
   id: string;
   tenant_id: number;
   provider: string;
+  /** What a person reads it by; the id is Core's own. */
+  name: string;
   licensed_offices: string[];
   active: boolean;
-  has_credentials: boolean;
   last_ingest_at: Date | null;
   last_error: string | null;
 };
@@ -239,15 +247,10 @@ export type ConnectionListRow = {
 /** Every connection, without its credentials. */
 export async function connections(): Promise<ConnectionListRow[]> {
   const { rows } = await db().query<ConnectionListRow>(
-    `select id, tenant_id, provider, licensed_offices, active, credentials is not null as has_credentials,
-            last_ingest_at, last_error
+    `select id, tenant_id, provider, name, licensed_offices, active, last_ingest_at, last_error
      from connections order by tenant_id, id`,
   );
   return rows;
-}
-
-export async function setConnectionActive(id: string, active: boolean): Promise<void> {
-  await db().query('update connections set active = $2 where id = $1', [id, active]);
 }
 
 /** Change a site's label, bell URL or secret, or switch it off. */
@@ -289,20 +292,4 @@ export async function deleteSubscriber(id: number): Promise<void> {
 export async function deleteConnection(id: string): Promise<void> {
   await db().query('delete from lifecycle_events where connection_id = $1', [id]);
   await db().query('delete from connections where id = $1', [id]);
-}
-
-/**
- * "Remove everything" for a tenant: its connections, sites and records go with the row (the
- * foreign keys cascade), and its history in the event log goes too, as a site's does.
- */
-export async function deleteTenant(id: number): Promise<void> {
-  const { rows } = await db().query<{ id: string }>(
-    'select id from connections where tenant_id = $1',
-    [id],
-  );
-  for (const row of rows) {
-    await db().query('delete from lifecycle_events where connection_id = $1', [row.id]);
-  }
-  await db().query('delete from events where tenant_id = $1', [id]);
-  await db().query('delete from tenants where id = $1', [id]);
 }

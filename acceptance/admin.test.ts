@@ -80,19 +80,30 @@ async function signIn(email = EMAIL): Promise<void> {
   expect(cookie).not.toBe('');
 }
 
+/**
+ * Acme's connection as the page sends it before it is saved: a name and no id. Core makes its id,
+ * acme-crm, from the name, and the page sends that id back with every later save.
+ */
+const ACME_CRM = {
+  name: 'Acme CRM',
+  provider: 'fake-webhook',
+  credentials: { key: 'a-key' },
+  licensedOffices: ['100'],
+  active: true,
+};
+
+/** Acme's connection once saved, as the page sends it back. */
+const savedAcme = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
+  ...ACME_CRM,
+  id: 'acme-crm',
+  ...over,
+});
+
 /** The whole tenant page, saved in one call, as the app sends it. */
 const tenantBody = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
   displayName: 'Acme Mäklare',
   active: true,
-  connections: [
-    {
-      id: 'acme-crm',
-      provider: 'fake-webhook',
-      credentials: { key: 'a-key' },
-      licensedOffices: ['100'],
-      active: true,
-    },
-  ],
+  connections: [ACME_CRM],
   sites: [{ label: 'acme.se', bellUrl: `${running.baseUrl}/v1/ready`, active: true }],
   ...over,
 });
@@ -200,7 +211,7 @@ describe('the admin area', () => {
     expect(made.status).toBe(200);
     const tenant = made.body.data;
     expect(tenant.changes).toContain(
-      'Acme Mäklare’s Fake-webhook connection, short name acme-crm, is added and loading its records.',
+      'Acme Mäklare’s Fake-webhook connection “Acme CRM” is added and loading its records.',
     );
     // The token and the bell secret are on the page at once, ready to paste into the site.
     expect(tenant.token).toMatch(/.{20,}/);
@@ -215,10 +226,13 @@ describe('the admin area', () => {
       'the first load to reach the records',
     );
 
-    const page = await api<{ data: { connections: { loaded: { live: number }[] }[] } }>(
+    // The connection reads back by its name; its id is Core's own, made from the name.
+    const page = await api<{ data: { connections: { id: string; name: string }[] } }>(
       `/tenants/${String(tenant.id)}`,
     );
-    expect(page.body.data.connections[0]?.loaded.length).toBeGreaterThan(0);
+    expect(page.body.data.connections).toEqual([
+      expect.objectContaining({ id: 'acme-crm', name: 'Acme CRM' }),
+    ]);
   });
 
   it('refuses a tenant page that is not filled in, at the field (AC 42)', async () => {
@@ -240,60 +254,125 @@ describe('the admin area', () => {
     // it means every office the CRM gives the login.
     const noCrm = await api<{ error: string }>('/tenants', {
       method: 'POST',
-      body: tenantBody({
-        connections: [
-          {
-            id: 'acme-crm',
-            provider: '',
-            credentials: { key: 'a-key' },
-            licensedOffices: [],
-            active: true,
-          },
-        ],
-      }),
+      body: tenantBody({ connections: [{ ...ACME_CRM, provider: '', licensedOffices: [] }] }),
     });
     expect(noCrm.status).toBe(400);
-    expect(noCrm.body.error).toContain('CRM');
+    expect(noCrm.body.error).toBe('Pick the CRM for Acme Mäklare’s connection “Acme CRM”.');
+
+    // A connection has a name a person reads it by, and no two of a tenant's share one.
+    const noConnectionName = await api<{ error: string }>('/tenants', {
+      method: 'POST',
+      body: tenantBody({ connections: [{ ...ACME_CRM, name: ' ' }] }),
+    });
+    expect(noConnectionName.status).toBe(400);
+    expect(noConnectionName.body.error).toBe(
+      'Give each of Acme Mäklare’s CRM connections a name, such as the brokerage or the CRM it reads.',
+    );
+    const sameName = await api<{ error: string }>('/tenants', {
+      method: 'POST',
+      body: tenantBody({ connections: [ACME_CRM, { ...ACME_CRM, name: 'acme crm' }] }),
+    });
+    expect(sameName.status).toBe(400);
+    expect(sameName.body.error).toBe(
+      'Two of Acme Mäklare’s connections are called “acme crm”. Give each its own name.',
+    );
+    expect((await api<{ total: number }>('/tenants')).body.total).toBe(1);
   });
 
-  it('never moves a connection to another tenant by its short name (tenant isolation)', async () => {
+  it('saves only the connections that are the tenant’s own (tenant isolation)', async () => {
     const made = await api<{ data: { id: number } }>('/tenants', {
       method: 'POST',
       body: tenantBody(),
     });
     expect(made.status).toBe(200);
+    const acme = made.body.data.id;
+    const stale =
+      'Core saved nothing, because this page no longer matches what Core holds. Reload the page and make the change again.';
 
-    // A second tenant typed with the first one's short name: Core files a connection by its short
-    // name alone, so saving it would hand Acme's connection, stored login and all, to Bravo.
+    // A page that names another tenant's connection by its id would hand it, stored login and
+    // all, to this tenant: refused, on a new tenant and on a saved one alike.
     const taken = await api<{ error: string }>('/tenants', {
+      method: 'POST',
+      body: tenantBody({ displayName: 'Bravo Mäklare', connections: [savedAcme()], sites: [] }),
+    });
+    expect(taken.status).toBe(409);
+    expect(taken.body.error).toBe(stale);
+    const listed = await api<{ data: { displayName: string }[] }>('/tenants');
+    expect(listed.body.data.map((row) => row.displayName)).not.toContain('Bravo Mäklare');
+
+    // The same name under another tenant is a connection of its own, with an id of its own.
+    const bravo = await api<{ data: { id: number; connections: { id: string }[] } }>('/tenants', {
       method: 'POST',
       body: tenantBody({ displayName: 'Bravo Mäklare', sites: [] }),
     });
-    expect(taken.status).toBe(409);
-    expect(taken.body.error).toBe(
-      'The short name acme-crm already belongs to Acme Mäklare’s Fake-webhook connection, so Core saved nothing. Type another short name for this connection.',
-    );
-    const listed = await api<{ data: { displayName: string }[] }>('/tenants');
-    expect(listed.body.data.map((row) => row.displayName)).not.toContain('Bravo Mäklare');
-    expect((await connectionById('acme-crm'))?.tenantId).toBe(made.body.data.id);
-
-    // The same short name twice on one page is refused too, before anything is saved.
-    const connection = {
-      id: 'acme-two',
-      provider: 'fake-webhook',
-      credentials: { key: 'a-key' },
-      licensedOffices: ['100'],
-      active: true,
-    };
-    const twice = await api<{ error: string }>(`/tenants/${String(made.body.data.id)}`, {
+    expect(bravo.status).toBe(200);
+    expect(bravo.body.data.connections.map((connection) => connection.id)).toEqual(['acme-crm-2']);
+    const moved = await api<{ error: string }>(`/tenants/${String(bravo.body.data.id)}`, {
       method: 'PATCH',
-      body: tenantBody({ connections: [connection, connection] }),
+      body: tenantBody({ displayName: 'Bravo Mäklare', connections: [savedAcme()], sites: [] }),
+    });
+    expect(moved.status).toBe(409);
+    expect((await connectionById('acme-crm'))?.tenantId).toBe(acme);
+
+    // The same connection twice, or an id Core never gave, is a page out of step: refused too.
+    const twice = await api<{ error: string }>(`/tenants/${String(acme)}`, {
+      method: 'PATCH',
+      body: tenantBody({ connections: [savedAcme(), savedAcme({ name: 'Acme CRM again' })] }),
     });
     expect(twice.status).toBe(409);
-    expect(twice.body.error).toBe(
-      'Two connections on this page have the short name acme-two, so Core saved nothing. Give each its own short name.',
-    );
+    const unknown = await api<{ error: string }>(`/tenants/${String(acme)}`, {
+      method: 'PATCH',
+      body: tenantBody({
+        connections: [savedAcme(), savedAcme({ id: 'acme-two', name: 'Acme Two' })],
+      }),
+    });
+    expect(unknown.status).toBe(409);
+    expect(unknown.body.error).toBe(stale);
     expect(await connectionById('acme-two')).toBeNull();
+  });
+
+  it('gives a connection a name a person may change, and keeps Core’s id out of sight (Patric, 2026-10-07)', async () => {
+    const made = await api<{ data: { id: number } }>('/tenants', {
+      method: 'POST',
+      body: tenantBody({ sites: [] }),
+    });
+    crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
+    crm.put('property', 'OBJ-1', property('OBJ-1'));
+    await running.deliver();
+    await until(
+      async () => (await api<{ total: number }>('/records?datatype=property')).body.total === 1,
+      'the property to load',
+    );
+
+    // A new name is a rename, never a new connection: the id, the login and the records stay.
+    const renamed = await api<{ data: { changes: string[]; connections: { id: string }[] } }>(
+      `/tenants/${String(made.body.data.id)}`,
+      {
+        method: 'PATCH',
+        body: tenantBody({
+          connections: [savedAcme({ name: 'Acme Vitec', credentials: {} })],
+          sites: [],
+        }),
+      },
+    );
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.data.changes).toEqual([
+      'Acme Mäklare’s Fake-webhook connection “Acme CRM” is now called “Acme Vitec”.',
+    ]);
+    expect(renamed.body.data.connections.map((connection) => connection.id)).toEqual(['acme-crm']);
+    expect(JSON.parse((await connectionById('acme-crm'))?.credentials ?? '{}')).toEqual({
+      key: 'a-key',
+    });
+    const rows = await api<{ data: { connectionName: string; deleted: boolean }[] }>(
+      '/records?datatype=property',
+    );
+    expect(rows.body.data).toEqual([
+      expect.objectContaining({ connectionName: 'Acme Vitec', deleted: false }),
+    ]);
+    const one = await api<{ data: { row: { connectionName: string } } }>(
+      '/records/acme-crm/property/OBJ-1',
+    );
+    expect(one.body.data.row.connectionName).toBe('Acme Vitec');
   });
 
   it('holds one tenant with two CRM connections (U1, a Must of 2026-09-20)', async () => {
@@ -301,20 +380,8 @@ describe('the admin area', () => {
       method: 'POST',
       body: tenantBody({
         connections: [
-          {
-            id: 'acme-one',
-            provider: 'fake-webhook',
-            credentials: { key: 'one' },
-            licensedOffices: ['100'],
-            active: true,
-          },
-          {
-            id: 'acme-two',
-            provider: 'fake-webhook',
-            credentials: { key: 'two' },
-            licensedOffices: ['200'],
-            active: true,
-          },
+          { ...ACME_CRM, name: 'Acme One', credentials: { key: 'one' } },
+          { ...ACME_CRM, name: 'Acme Two', credentials: { key: 'two' }, licensedOffices: ['200'] },
         ],
       }),
     });
@@ -337,36 +404,20 @@ describe('the admin area', () => {
       method: 'PATCH',
       body: tenantBody({
         displayName: 'Acme Mäklare AB',
-        connections: [
-          {
-            id: 'acme-crm',
-            provider: 'fake-webhook',
-            credentials: {},
-            licensedOffices: ['100'],
-            active: true,
-          },
-        ],
+        connections: [savedAcme({ credentials: {} })],
       }),
     });
     const read = await api<{
-      data: { displayName: string; connections: { hasCredentials: boolean }[] };
+      data: { displayName: string; connections: { filled: string[] }[] };
     }>(`/tenants/${String(id)}`);
     expect(read.body.data.displayName).toBe('Acme Mäklare AB');
-    expect(read.body.data.connections[0]?.hasCredentials).toBe(true);
+    expect(read.body.data.connections[0]?.filled).toEqual(['key']);
 
     // One field typed goes over the stored ones and loses none of them (known bug 3).
     await api(`/tenants/${String(id)}`, {
       method: 'PATCH',
       body: tenantBody({
-        connections: [
-          {
-            id: 'acme-crm',
-            provider: 'fake-webhook',
-            credentials: { region: 'south' },
-            licensedOffices: ['100'],
-            active: true,
-          },
-        ],
+        connections: [savedAcme({ credentials: { region: 'south' } })],
       }),
     });
     expect(JSON.parse((await connectionById('acme-crm'))?.credentials ?? '{}')).toEqual({
@@ -375,7 +426,7 @@ describe('the admin area', () => {
     });
   });
 
-  it('scopes, sorts and pages the records, and shows one whole (U3, AC 42)', async () => {
+  it('scopes and pages the records, the one changed last first, and shows one whole (U3, AC 42)', async () => {
     const made = await api<{ data: { id: number } }>('/tenants', {
       method: 'POST',
       body: tenantBody(),
@@ -388,20 +439,20 @@ describe('the admin area', () => {
       'three properties to load',
     );
 
-    const sorted = await api<{ data: { remoteId: string }[] }>(
-      '/records?datatype=property&sort=remote_id&dir=asc',
-    );
-    expect(sorted.body.data.map((row) => row.remoteId)).toEqual(['OBJ-1', 'OBJ-2', 'OBJ-3']);
-
-    // Scoped to the properties, so the office loading a moment later cannot change the pages.
-    const first = await api<{ data: { remoteId: string }[] }>(
-      '/records?datatype=property&size=2&page=1&sort=remote_id&dir=asc',
-    );
-    expect(first.body.data.map((row) => row.remoteId)).toEqual(['OBJ-1', 'OBJ-2']);
-    const second = await api<{ data: { remoteId: string }[] }>(
-      '/records?datatype=property&size=2&page=2&sort=remote_id&dir=asc',
-    );
-    expect(second.body.data.map((row) => row.remoteId)).toEqual(['OBJ-3']);
+    // One order, the record changed last first, in pages of 500 (Patric, 2026-10-07: only what he
+    // named stays, so no sorting and no page size to pick).
+    type Row = { remoteId: string; updatedAt: string; seq: number; deleted: boolean };
+    const rows = async (query: string): Promise<Row[]> =>
+      (await api<{ data: Row[] }>(`/records?${query}`)).body.data;
+    const first = await rows('datatype=property');
+    expect(first.map((row) => row.remoteId).sort()).toEqual(['OBJ-1', 'OBJ-2', 'OBJ-3']);
+    const order = first.map((row) => [Date.parse(row.updatedAt), row.seq] as const);
+    expect(order).toEqual([...order].sort((one, two) => two[0] - one[0] || two[1] - one[1]));
+    const second = await api<{ data: Row[]; total: number }>('/records?datatype=property&page=2');
+    expect(second.body.data).toEqual([]);
+    expect(second.body.total).toBe(3);
+    const slipped = await api<{ error: string }>('/records?page=two');
+    expect(slipped.status).toBe(400);
 
     // The same scope as Flow and Manual sync: tenants, offices and entity types, each one or
     // several, and one record id (Patric, 2026-10-06). A second tenant reads the same CRM, so
@@ -413,15 +464,7 @@ describe('the admin area', () => {
       method: 'POST',
       body: tenantBody({
         displayName: 'Bravo Mäklare',
-        connections: [
-          {
-            id: 'bravo-crm',
-            provider: 'fake-webhook',
-            credentials: { key: 'b-key' },
-            licensedOffices: ['100'],
-            active: true,
-          },
-        ],
+        connections: [{ ...ACME_CRM, name: 'Bravo CRM', credentials: { key: 'b-key' } }],
         sites: [],
       }),
     });
@@ -436,21 +479,24 @@ describe('the admin area', () => {
     expect(await count('office=100&datatype=property')).toBe(6);
     expect(await count('office=999')).toBe(0);
     expect(await count(`id=OBJ-2&tenant=${acme}`)).toBe(1);
-    expect(await count('deleted=true')).toBe(0);
 
-    // A home the CRM no longer has stays in Core as removed: counted by Both, the default, and
-    // told apart by Live and Removed. Fetched again for one tenant only, so the other keeps it.
+    // A home the CRM no longer has stays in Core as removed, listed with the live ones and told
+    // apart by its state. Fetched again for one tenant only, so the other keeps it.
     crm.remove('property', 'OBJ-3');
-    await api('/runs/fetch-again', {
+    await api('/runs/sync', {
       method: 'POST',
-      body: { tenantIds: [made.body.data.id], remoteId: 'OBJ-3' },
+      body: { level: 'fetch', tenantIds: [made.body.data.id], remoteId: 'OBJ-3' },
     });
     await running.deliver();
-    await until(async () => (await count('deleted=true')) === 1, 'the home to be removed');
+    const removed = async (query: string): Promise<boolean[]> =>
+      (await rows(query)).map((row) => row.deleted);
+    await until(
+      async () => (await removed(`tenant=${acme}&id=OBJ-3`))[0] === true,
+      'the home to be removed',
+    );
     expect(await count(`tenant=${acme}&datatype=property`)).toBe(3);
-    expect(await count(`tenant=${acme}&datatype=property&deleted=false`)).toBe(2);
-    expect(await count(`tenant=${acme}&deleted=true&id=OBJ-3`)).toBe(1);
-    expect(await count(`tenant=${bravo}&deleted=false&datatype=property`)).toBe(3);
+    expect(await removed(`tenant=${bravo}&id=OBJ-3`)).toEqual([false]);
+    expect((await removed(`tenant=${acme}&datatype=property`)).filter(Boolean)).toHaveLength(1);
     const slip = await api<{ error: string }>('/records?datatype=house');
     expect(slip.status).toBe(400);
     expect(slip.body.error).toBe(
@@ -500,13 +546,14 @@ describe('the admin area', () => {
       'the property to load',
     );
 
-    const queued = await api<{ data: { job: number } }>('/runs/recompute', {
+    const queued = await api<{ data: { detail: string } }>('/runs/sync', {
       method: 'POST',
-      body: { datatypes: ['property'] },
+      body: { level: 'recompute', datatypes: ['property'] },
     });
-    expect(queued.body.data.job).toBeGreaterThan(0);
+    expect(queued.body.data.detail).toContain('Core recomputes them in the background.');
+    const { rows } = await db().query<{ id: string }>('select max(id) as id from jobs');
     await runNextJob();
-    const done = await getJob(queued.body.data.job);
+    const done = await getJob(Number(rows[0]?.id));
     expect(done?.state).toBe('done');
     expect(done?.result?.examined).toBe(1);
   });
@@ -522,27 +569,25 @@ describe('the admin area', () => {
       'the property to load',
     );
 
-    const again = await api<{ data: { queued: number; detail: string } }>('/runs/fetch-again', {
-      method: 'POST',
-      body: { records: [{ connectionId: 'acme-crm', datatype: 'property', remoteId: 'OBJ-1' }] },
+    const fetch = (scope: Record<string, unknown>) =>
+      api<{ data: { detail: string } }>('/runs/sync', {
+        method: 'POST',
+        body: { level: 'fetch', ...scope },
+      });
+    const again = await fetch({
+      records: [{ connectionId: 'acme-crm', datatype: 'property', remoteId: 'OBJ-1' }],
     });
-    expect(again.body.data.queued).toBe(1);
+    expect(again.body.data.detail).toContain('Core asks the CRM for 1 record again.');
     await running.deliver();
     const events = await queryEvents({ type: 'lifecycle.refetch', limit: 10 });
     expect(events).toHaveLength(1);
 
     // One record id, or an office, is the records Core holds there, each asked for again: an
     // adapter told only "this office" may check the office and fetch none of its records.
-    const byId = await api<{ data: { queued: number } }>('/runs/fetch-again', {
-      method: 'POST',
-      body: { remoteId: 'OBJ-1' },
-    });
-    expect(byId.body.data.queued).toBe(1);
-    const byOffice = await api<{ data: { queued: number } }>('/runs/fetch-again', {
-      method: 'POST',
-      body: { officeIds: ['100'], datatypes: ['property'] },
-    });
-    expect(byOffice.body.data.queued).toBe(1);
+    const byId = await fetch({ remoteId: 'OBJ-1' });
+    expect(byId.body.data.detail).toContain('Core asks the CRM for 1 record again.');
+    const byOffice = await fetch({ officeIds: ['100'], datatypes: ['property'] });
+    expect(byOffice.body.data.detail).toContain('Core asks the CRM for 1 record again.');
     await running.deliver();
     expect(await queryEvents({ type: 'lifecycle.refetch', limit: 10 })).toHaveLength(3);
   });
@@ -579,23 +624,6 @@ describe('the admin area', () => {
     expect(scope.body.data.datatypes).toEqual(['office', 'property']);
   });
 
-  it('rings a tenant’s sites and one site alone (U8, AC 42)', async () => {
-    const made = await api<{ data: { id: number; sites: { id: number }[] } }>('/tenants', {
-      method: 'POST',
-      body: tenantBody(),
-    });
-    const tenant = made.body.data;
-    expect((await api(`/tenants/${String(tenant.id)}/ring`, { method: 'POST' })).status).toBe(200);
-    await flushBells();
-    expect(
-      (await api(`/sites/${String(tenant.sites[0]?.id ?? 0)}/ring`, { method: 'POST' })).status,
-    ).toBe(200);
-    await until(
-      async () => (await queryEvents({ type: 'bell', limit: 10 })).length > 0,
-      'a bell to be recorded',
-    );
-  });
-
   it('rotates a token and a bell secret, each to a new value (U6, AC 42)', async () => {
     const made = await api<{
       data: { id: number; token: string; sites: { id: number; bellSecret: string }[] };
@@ -613,25 +641,28 @@ describe('the admin area', () => {
     expect(secret.body.data.bellSecret).not.toBe(before.sites[0]?.bellSecret);
   });
 
-  it('removes a site with its history, and a tenant with everything (AC 42)', async () => {
+  it('removes a site with its history (AC 42)', async () => {
     const made = await api<{ data: { id: number; sites: { id: number }[] } }>('/tenants', {
       method: 'POST',
       body: tenantBody(),
     });
     const tenant = made.body.data;
     const siteId = tenant.sites[0]?.id ?? 0;
-    await api(`/tenants/${String(tenant.id)}/ring`, { method: 'POST' });
+    // The first load rings the site, which gives it a history.
+    crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
+    await running.deliver();
     await flushBells();
+    await until(
+      async () => (await queryEvents({ subscriberId: siteId, limit: 10 })).length > 0,
+      'the site to be rung',
+    );
 
-    await api(`/tenants/${String(tenant.id)}`, {
+    const saved = await api<{ data: { changes: string[] } }>(`/tenants/${String(tenant.id)}`, {
       method: 'PATCH',
-      body: tenantBody({ sites: [] }),
+      body: tenantBody({ connections: [savedAcme()], sites: [] }),
     });
+    expect(saved.body.data.changes).toEqual(['The site acme.se is removed, with its history.']);
     expect(await queryEvents({ subscriberId: siteId, limit: 10 })).toHaveLength(0);
-
-    expect((await api(`/tenants/${String(tenant.id)}`, { method: 'DELETE' })).status).toBe(200);
-    expect((await api(`/tenants/${String(tenant.id)}`)).status).toBe(404);
-    expect((await api<{ total: number }>('/records')).body.total).toBe(0);
   });
 
   it('shows the day, the verdict and the sites on one call (U2, U5, AC 42)', async () => {
@@ -786,7 +817,7 @@ describe('the admin area', () => {
     });
     const tenant = await api<{ data: { sites: { id: number }[] } }>(`/tenants/${String(tenantId)}`);
     const siteId = tenant.body.data.sites[0]?.id ?? 0;
-    const connection = 'Acme Mäklare’s Fake-webhook connection, short name acme-crm';
+    const connection = 'Acme Mäklare’s Fake-webhook connection “Acme CRM”';
     const { rows } = await db().query<{ at: Date }>(
       'select last_bell_at as at from subscribers where id = $1',
       [siteId],
@@ -810,7 +841,7 @@ describe('the admin area', () => {
       // The connection is the thing itself, so it is not named again as where it is.
       expect.objectContaining({
         type: 'connection.paused',
-        said: `Core stopped asking Fake-webhook for ${connection}, after 5 calls in a row failed, and asks again by itself later. No change from Fake-webhook reaches the sites through it meanwhile. The last failure: “the CRM did not answer”. Nothing needs doing unless it keeps happening: Core asks the CRM again by itself.`,
+        said: `Core stopped asking Fake-webhook for ${connection} after 5 calls in a row failed, and asks again by itself later. No change from Fake-webhook reaches the sites through it meanwhile. The last failure: “the CRM did not answer”. Nothing needs doing unless it keeps happening: Core asks the CRM again by itself.`,
         what: connection,
         where: null,
         link: `/tenants/${String(tenantId)}#connection:acme-crm`,
@@ -823,7 +854,7 @@ describe('the admin area', () => {
         said: 'Acme Mäklare’s office Lidingö (the CRM’s office id 100) was taken off the sites, with its homes and new-build projects. It is no longer in the office group the sites use. If that was meant, nothing needs doing. If not, undo the change the reason names; each office then comes back on the sites with its homes and new-build projects.',
         what: 'Acme Mäklare’s office Lidingö (the CRM’s office id 100)',
         where: `Through ${connection}.`,
-        link: `/records?tenant=${String(tenantId)}&office=100&deleted=true`,
+        link: `/records?tenant=${String(tenantId)}&office=100`,
         tenantId,
         tenant: 'Acme Mäklare',
         level: 'P2',
@@ -1039,18 +1070,22 @@ describe('the admin area', () => {
   });
 
   it('holds the bells and the jobs while maintenance is on (U6, AC 42)', async () => {
-    const made = await api<{ data: { id: number } }>('/tenants', {
-      method: 'POST',
-      body: tenantBody(),
-    });
+    await api('/tenants', { method: 'POST', body: tenantBody() });
     await api('/settings/maintenance', { method: 'POST', body: { on: true } });
     expect(await inMaintenance()).toBe(true);
 
-    await api(`/tenants/${String(made.body.data.id)}/ring`, { method: 'POST' });
+    // A change while maintenance is on reaches Core, but no site is rung for it, and the job a
+    // recompute queues waits.
+    crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
+    await running.deliver();
+    await until(
+      async () => (await api<{ total: number }>('/records')).body.total === 1,
+      'the office to load',
+    );
     await flushBells();
     expect(await queryEvents({ type: 'bell', limit: 10 })).toHaveLength(0);
 
-    await api('/runs/recompute', { method: 'POST', body: {} });
+    await api('/runs/sync', { method: 'POST', body: { level: 'recompute' } });
     expect(await runNextJob()).toBe(false);
 
     await api('/settings/maintenance', { method: 'POST', body: { on: false } });

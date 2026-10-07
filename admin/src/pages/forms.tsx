@@ -11,7 +11,7 @@ import { Confirm } from '@/components/confirm';
 import { Empty } from '@/components/empty';
 import { PageHeader } from '@/components/layout';
 import { useScopeOptions } from '@/components/scope-picker';
-import { counted, crmName, exact, listed } from '@/lib/format';
+import { connectionNamed, counted, exact, listed } from '@/lib/format';
 import { officeLabel, type ScopeOptions } from '@/lib/scope';
 
 /** Refused by the CRM, held back by Core outside production, not sent, or cut off. */
@@ -46,6 +46,8 @@ type FailedForm = {
   tenantId: number;
   tenant: string;
   connectionId: string;
+  /** The connection by the name a person gave it. */
+  connectionName: string;
   /** The CRM the connection logs in to. */
   provider: string;
   /** The site the visitor sent it from, when Core knows it. */
@@ -100,9 +102,9 @@ function why(row: FailedForm): string {
   }
 }
 
-/** A connection as a person reads it: its tenant and CRM, then its short name. */
+/** A connection as a person reads it: its tenant and CRM, then its name. */
 const connectionName = (row: FailedForm): string =>
-  `${row.tenant}’s ${crmName(row.provider)} connection, short name ${row.connectionId}`;
+  connectionNamed(row.connectionName, row.tenant, row.provider);
 
 export function FailedForms() {
   const options = useScopeOptions();

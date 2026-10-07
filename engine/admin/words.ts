@@ -42,8 +42,8 @@ export const capital = (text: string): string => text.charAt(0).toUpperCase() + 
 
 /**
  * Names in a sentence: "A", "A and B", "A, B and C", or the first three and how many more. Names
- * that hold a comma themselves ("Acme’s Somecrm connection, short name acme-crm") are parted by
- * semicolons, so each stays one name.
+ * that hold a comma themselves ("the office Lidingö, Stockholm") are parted by semicolons, so each
+ * stays one name.
  */
 export function listed(names: string[], limit = 3): string {
   const apart = names.some((name) => name.includes(',')) ? '; ' : ', ';
@@ -73,15 +73,18 @@ export function sentence(phrase: string): string {
 export const inWords = (value: number, one: string, many: string): string =>
   value === 1 ? `one ${one}` : counted(value, one, many);
 
-/** A connection by its tenant and CRM, then its short name: "Acme’s Somecrm connection, short name acme-crm". */
+/**
+ * A connection by its tenant and CRM, then the name a person gave it: "Acme’s Somecrm connection
+ * “Main”". Core's own id for it is never shown (Patric, 2026-10-07, question 180).
+ */
 export const connectionNamed = (
-  id: string,
+  name: string,
   tenant?: string | null,
   provider?: string | null,
 ): string =>
   tenant && provider
-    ? `${tenant}’s ${crmName(provider)} connection, short name ${id}`
-    : `the connection with the short name ${id}`;
+    ? `${tenant}’s ${crmName(provider)} connection “${name}”`
+    : `the connection “${name}”`;
 
 /** An office by its tenant and name, then the CRM's id for it: "Acme’s office Lidingö (the CRM’s office id 100)". */
 export function officeNamed(id: string, name?: string | null, tenant?: string | null): string {
