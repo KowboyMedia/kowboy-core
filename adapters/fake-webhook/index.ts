@@ -336,6 +336,7 @@ const admin: AdapterAdmin = {
     const mapper = mappers[record.datatype];
     return { raw, mapped: mapper ? mapper(raw) : null };
   },
+  // Every record on the list is due at once, until its third failure takes it off the list.
   queue: async () =>
     [...fetchList.values()].map((queued) => ({
       connectionId: queued.connectionId,
@@ -345,9 +346,18 @@ const admin: AdapterAdmin = {
       queuedAt: new Date(queued.queuedAt).toISOString(),
       reason: 'webhook',
       attempts: queued.attempts,
-      nextAt: null,
+      nextAt: new Date(queued.queuedAt).toISOString(),
       lastError: null,
     })),
+  queueCount: async (connections, scope) => ({
+    waiting: [...fetchList.values()].filter(
+      (queued) =>
+        connections.some((connection) => connection.id === queued.connectionId) &&
+        (!scope.datatypes?.length || scope.datatypes.includes(queued.datatype)) &&
+        (scope.remoteId === undefined || scope.remoteId === queued.remoteId),
+    ).length,
+    failed: 0,
+  }),
 };
 
 export const fakeWebhookAdapter: Adapter = {

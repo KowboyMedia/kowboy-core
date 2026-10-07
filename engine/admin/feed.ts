@@ -2,13 +2,15 @@
 // flight, in the state each reached last, the whole row coloured by state (Patric's rule 3, and
 // 2026-10-06: filters on tenant and office, sorted by when each was queued, the top 100, updated
 // every second); its rows are the engine's write path read from the event log, plus what each
-// adapter reports waiting on its own fetch list. The stream is one server-sent connection that
-// every live page listens to, so a browser holds one connection and not six.
+// adapter reports waiting on its own fetch list. Beside the rows go the totals of the whole scope,
+// never of the rows shown (Patric, 2026-10-07): what waits on the CRMs and what Core holds. The
+// stream is one server-sent connection that every live page listens to, so a browser holds one
+// connection and not six.
 import type { ServerResponse } from 'node:http';
 import { db } from '../storage/db.js';
 import { latestEventId, queryEvents, type EventFields, type EventRow } from '../events.js';
 import { connectionsForProvider } from '../storage/connections.js';
-import { itemKey } from '../storage/items.js';
+import { countItems, itemKey } from '../storage/items.js';
 import { adminFor, adminProviders } from '../registry.js';
 import { openJobs } from '../jobs.js';
 import { healthReport } from '../health.js';
@@ -16,7 +18,7 @@ import { report } from '../errors.js';
 import { namedFor, summarise, type Names } from './summary.js';
 import { clock, counted, sentence } from './words.js';
 import type { Scope } from './scope.js';
-import type { AdminQueued } from '../adapter-api/types.js';
+import type { AdminQueueCount, AdminQueued, Connection } from '../adapter-api/types.js';
 import type { Response } from '../http/server.js';
 
 /** The four states of Patric's rule 3, and the only ones a row can be in. */
@@ -36,6 +38,12 @@ export type FlowRow = {
   queuedAt: string;
   what: string;
 };
+
+/**
+ * The whole scope in figures: the records on the CRMs' own fetch lists, waiting or failed, as
+ * their code counts them (null when it could not), and every record Core holds, live and removed.
+ */
+export type FlowTotals = { waiting: number | null; failed: number | null; inCore: number };
 
 /** Which state each engine event puts a record in. What it says comes from summary.ts. */
 const FROM_EVENT: Record<string, FlowState> = {
@@ -79,9 +87,7 @@ async function fromAdapters(scope: Scope): Promise<AdminQueued[]> {
   for (const provider of adminProviders()) {
     const admin = adminFor(provider);
     if (!admin?.queue) continue;
-    const asked = (await connectionsForProvider(provider)).filter((connection) =>
-      within(scope.tenantIds, connection.tenantId),
-    );
+    const asked = await connectionsIn(provider, scope);
     if (asked.length === 0) continue;
     try {
       queued.push(...(await admin.queue(asked)));
@@ -90,6 +96,41 @@ async function fromAdapters(scope: Scope): Promise<AdminQueued[]> {
     }
   }
   return queued;
+}
+
+/** A CRM's connections of the tenants in scope. */
+const connectionsIn = async (provider: string, scope: Scope): Promise<Connection[]> =>
+  (await connectionsForProvider(provider)).filter((connection) =>
+    within(scope.tenantIds, connection.tenantId),
+  );
+
+/**
+ * What waits on every adapter's own fetch list inside the scope, as each adapter counts it; no
+ * figures when an adapter with a fetch list cannot count it or its count failed, so none is made up.
+ */
+async function countedByAdapters(scope: Scope): Promise<Omit<FlowTotals, 'inCore'>> {
+  const unknown = { waiting: null, failed: null };
+  const total: AdminQueueCount = { waiting: 0, failed: 0 };
+  for (const provider of adminProviders()) {
+    const admin = adminFor(provider);
+    if (!admin?.queue) continue;
+    const asked = await connectionsIn(provider, scope);
+    if (asked.length === 0) continue;
+    if (!admin.queueCount) return unknown;
+    try {
+      const counted = await admin.queueCount(asked, {
+        officeIds: scope.officeIds,
+        datatypes: scope.datatypes,
+        remoteId: scope.remoteId,
+      });
+      total.waiting += counted.waiting;
+      total.failed += counted.failed;
+    } catch (error) {
+      report(error, { where: 'admin.queueCount', provider });
+      return unknown;
+    }
+  }
+  return total;
 }
 
 /** Whether a record waiting on an adapter is inside the scope. */
@@ -253,14 +294,20 @@ export async function namesInTurn(): Promise<Names> {
 /**
  * The list: what waits on a CRM, and what has moved since, inside the scope. One row per record,
  * in the state it reached last, the newest queued first. A record waiting on a CRM right now wins
- * over whatever it did before; otherwise the newest event for it is the state it is in.
+ * over whatever it did before; otherwise the newest event for it is the state it is in. With it,
+ * the scope's totals, which count every record and not only the rows.
  */
-export async function flow(scope: Scope, limit = 100): Promise<FlowRow[]> {
+export async function flow(
+  scope: Scope,
+  limit = 100,
+): Promise<{ rows: FlowRow[]; totals: FlowTotals }> {
   const top = Math.min(Math.max(Math.trunc(limit), 1), 100);
   // One read after the other: Flow repeats this every second, so it holds one database connection
   // at a time and leaves the rest of the pool to the rest of Core.
   const events = await moved(scope, top);
   const queued = await fromAdapters(scope);
+  const counted = await countedByAdapters(scope);
+  const inCore = await countItems(scope, null);
   const names = await namesInTurn();
   const rows = new Map<string, FlowRow>();
   for (const event of events) {
@@ -278,9 +325,12 @@ export async function flow(scope: Scope, limit = 100): Promise<FlowRow[]> {
     if (!inScope(scope, waiting)) continue;
     rows.set(waiting.key, waiting);
   }
-  return [...rows.values()]
-    .sort((left, right) => (left.queuedAt < right.queuedAt ? 1 : -1))
-    .slice(0, top);
+  return {
+    rows: [...rows.values()]
+      .sort((left, right) => (left.queuedAt < right.queuedAt ? 1 : -1))
+      .slice(0, top),
+    totals: { ...counted, inCore },
+  };
 }
 
 // ---- The live stream ---------------------------------------------------------------------------

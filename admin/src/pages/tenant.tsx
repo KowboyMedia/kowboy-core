@@ -23,7 +23,6 @@ import { Copy } from '@/components/copy';
 import { Explained } from '@/components/explained';
 import { FlowList } from '@/components/flow';
 import { PageHeader } from '@/components/layout';
-import { useScopeOptions } from '@/components/scope-picker';
 import { crmName } from '@/lib/format';
 import { EMPTY_SCOPE } from '@/lib/scope';
 import { cn } from '@/lib/utils';
@@ -36,6 +35,8 @@ type ConnectionView = {
   name: string;
   provider: string;
   licensedOffices: string[];
+  /** Ticked: no form reaches the CRM through this connection. */
+  formsDryRun: boolean;
   /** The stored value of each login field that is not secret. */
   shown: Record<string, string>;
   /** Every login field that holds a value, secret or not. */
@@ -64,6 +65,7 @@ type ConnectionDraft = {
   typed: Record<string, string>;
   /** Sent back as stored: nothing on this page changes them. */
   licensedOffices: string[];
+  formsDryRun: boolean;
 };
 
 type SiteDraft = {
@@ -126,6 +128,7 @@ const draftOf = (view: TenantView): Draft => ({
     provider: connection.provider,
     typed: { ...connection.shown },
     licensedOffices: connection.licensedOffices,
+    formsDryRun: connection.formsDryRun,
   })),
   sites: view.sites.map(siteDraft),
 });
@@ -146,6 +149,7 @@ const bodyOf = (draft: Draft) => ({
     provider: connection.provider,
     credentials: typedOf(connection),
     licensedOffices: connection.licensedOffices,
+    formsDryRun: connection.formsDryRun,
   })),
   sites: draft.sites.map((site) => ({
     ...(site.id === null ? {} : { id: site.id }),
@@ -435,6 +439,22 @@ function Connection({
             }
           />
         ))}
+        <div className="flex flex-col gap-1 sm:col-span-2">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={draft.formsDryRun}
+              onChange={(event) => onChange({ ...draft, formsDryRun: event.target.checked })}
+            />
+            Forms: dry run only
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Ticked, no form reaches the CRM through this connection, so a test never becomes a lead
+            for the brokerage: Core checks each form as usual, then holds it, and the visitor reads
+            that it was not passed on. Untick it when the site’s forms should reach the brokerage.
+            Records and viewing times are still read from the CRM.
+          </p>
+        </div>
       </div>
       {draft.provider !== '' && (
         <Explained what="Tries the login typed above, or the stored one when nothing new is typed, and shows what the CRM answers. Nothing is saved.">
@@ -584,7 +604,6 @@ export function TenantPage() {
   const navigate = useNavigate();
   const isNew = params['id'] === undefined || params['id'] === 'new';
   const id = isNew ? null : Number(params['id']);
-  const options = useScopeOptions();
   const { mutateAsync } = useCustomMutation();
 
   const { result, query } = useCustom<TenantView>({
@@ -834,6 +853,7 @@ export function TenantPage() {
                       provider: crms.length === 1 ? (crms[0]?.provider ?? '') : '',
                       typed: {},
                       licensedOffices: [],
+                      formsDryRun: false,
                     },
                   ],
                 })
@@ -842,16 +862,6 @@ export function TenantPage() {
               Add a CRM connection
             </Button>
           </Explained>
-          {id !== null && (
-            <div className="flex flex-col gap-2">
-              <h4 className="font-medium">Records on their way</h4>
-              <p className="text-sm text-muted-foreground">
-                This tenant’s records on their way from the CRM to the sites, newest first. A record
-                waits for the CRM, then is in Core, then is on a site.
-              </p>
-              <FlowList scope={{ ...EMPTY_SCOPE, tenantIds: [id] }} options={options} />
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -902,6 +912,21 @@ export function TenantPage() {
           </Explained>
         </CardContent>
       </Card>
+
+      {id !== null && (
+        <Card className="mb-4">
+          <CardHeader>
+            <CardTitle>Records on their way</CardTitle>
+            <CardDescription>
+              This tenant’s records on their way from the CRM to the sites, newest first. A record
+              waits for the CRM, then is in Core, then is on a site.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FlowList scope={{ ...EMPTY_SCOPE, tenantIds: [id] }} />
+          </CardContent>
+        </Card>
+      )}
 
       <div className="sticky bottom-0 z-10 border-t bg-background py-3">
         <Explained what="Saves everything on this page at once. A new connection starts loading its records; a removed connection or site goes, with its records or history.">

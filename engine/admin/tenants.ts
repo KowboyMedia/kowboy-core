@@ -20,7 +20,9 @@ import {
 } from '../storage/connections.js';
 import { queueLifecycle } from '../lifecycle.js';
 import { mergedLogin, shownLogin, type ShownLogin } from './login.js';
-import { itemCounts } from '../storage/items.js';
+import { itemCounts, resyncTenant } from '../storage/items.js';
+import { ring } from '../bells.js';
+import { report } from '../errors.js';
 import { adminFor, manifestFor } from '../registry.js';
 import { connectionNamed, listed, officeNamed, sentence } from './words.js';
 import { officeNamesOf } from './scope.js';
@@ -35,6 +37,8 @@ export type ConnectionInput = {
   /** The adapter's login fields as typed. Absent or empty: the stored login stays. */
   credentials?: Record<string, string> | null;
   licensedOffices: string[];
+  /** Ticked: Core holds every form through this connection before the CRM. Absent: as stored. */
+  formsDryRun?: boolean;
 };
 
 export type SiteInput = {
@@ -63,6 +67,8 @@ export type ConnectionView = ShownLogin & {
   name: string;
   provider: string;
   licensedOffices: string[];
+  /** Ticked: no form reaches the CRM through this connection (Patric, 2026-10-07). */
+  formsDryRun: boolean;
   /** What the adapter itself reports about this connection, as data the panel draws. */
   sections: ShownSection[];
 };
@@ -144,6 +150,7 @@ async function connectionView(row: ConnectionListRow): Promise<ConnectionView> {
     name: row.name,
     provider: row.provider,
     licensedOffices: row.licensed_offices,
+    formsDryRun: row.forms_dry_run,
     sections,
   };
 }
@@ -283,13 +290,23 @@ async function saveConnections(
   const existing = (await allConnections()).filter((row) => row.tenant_id === tenantId);
   const keep = new Set(wanted.map((connection) => connection.id));
 
-  for (const gone of existing.filter((row) => !keep.has(row.id))) {
-    // The event tombstones the connection's records before the row goes.
-    await queueLifecycle(gone.id, 'connection_removed');
+  const removed = existing.filter((row) => !keep.has(row.id));
+  for (const gone of removed) {
+    // The connection's records go with it, tombstones and all, so no site would hear they left:
+    // instead every site of the tenant fetches everything again and drops what it no longer
+    // receives, told to fetch at once. Removing first, then raising the watermark, makes a
+    // fetch that starts in between fetch everything once more. No CRM's code does anything when
+    // a connection goes, so none is told.
     await deleteConnection(gone.id);
     changes.push(
       `${connectionName(named.tenant, gone.provider, gone.name)} is removed, and its records are being taken off the sites.`,
     );
+  }
+  if (removed.length > 0) {
+    await resyncTenant(tenantId);
+    void ring(tenantId).catch((error: unknown) => {
+      report(error, { where: 'admin.connection_removed', tenantId });
+    });
   }
 
   for (const given of wanted) {
@@ -298,6 +315,8 @@ async function saveConnections(
       ? { ...given, licensedOffices: [] }
       : given;
     const before = existing.find((row) => row.id === connection.id);
+    // Anything but a tick or no tick keeps what is stored.
+    const dryRun = typeof connection.formsDryRun === 'boolean' ? connection.formsDryRun : undefined;
     await upsertConnection({
       id: connection.id,
       tenantId,
@@ -305,22 +324,31 @@ async function saveConnections(
       name: connection.name,
       credentials: await credentialsOf(connection, before),
       licensedOffices: connection.licensedOffices,
+      formsDryRun: dryRun,
     });
+    const now = connectionName(named.tenant, connection.provider, connection.name);
     if (!before) {
       await queueLifecycle(connection.id, 'connection_added');
-      changes.push(
-        `${connectionName(named.tenant, connection.provider, connection.name)} is added and loading its records.`,
-      );
+      changes.push(`${now} is added and loading its records.`);
+      if (dryRun) changes.push(dryRunChange(now, true));
       continue;
     }
     if (before.name !== connection.name)
       changes.push(
         `${connectionName(named.tenant, before.provider, before.name)} is now called “${connection.name}”.`,
       );
+    if (dryRun !== undefined && dryRun !== before.forms_dry_run)
+      changes.push(dryRunChange(now, dryRun));
     changes.push(...(await officeChanges(connection, before.licensed_offices, named)));
   }
   return changes;
 }
+
+/** What ticking or unticking a connection's forms dry run does, in a sentence. */
+const dryRunChange = (connection: string, ticked: boolean): string =>
+  ticked
+    ? `${connection} now holds every form as a dry run, so none reaches the CRM.`
+    : `${connection} sends its forms to the CRM again.`;
 
 /** An office added is loaded; an office removed takes its records with it. */
 async function officeChanges(

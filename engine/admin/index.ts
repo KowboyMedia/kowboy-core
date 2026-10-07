@@ -163,8 +163,7 @@ const routes: AdminRoute[] = [
     handler: async (request) => {
       const read = scopeFromQuery(request.query);
       if ('error' in read) return fail(400, read.error);
-      const rows = await flow(read.scope, number(request, 'limit', 100));
-      return page(rows, rows.length);
+      return one(await flow(read.scope, number(request, 'limit', 100)));
     },
   },
   {

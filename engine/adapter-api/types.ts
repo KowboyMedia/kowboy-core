@@ -338,6 +338,12 @@ export type AdminQueued = {
   lastError: string | null;
 };
 
+/** What part of an adapter's fetch list to count: a list left out takes every value. */
+export type AdminQueueScope = { officeIds?: string[]; datatypes?: Datatype[]; remoteId?: string };
+
+/** The records on an adapter's own fetch list: not tried yet or tried without an error, and failed. */
+export type AdminQueueCount = { waiting: number; failed: number };
+
 /** One record named for a fetch that writes nothing, or for a fetch again. */
 export type AdminRecord = { datatype: Datatype; remoteId: string; officeId: string | null };
 
@@ -366,6 +372,12 @@ export type AdapterAdmin = {
   ): Promise<{ raw: unknown; mapped: MappedRecord | null } | null>;
   /** What waits on the adapter's own fetch list, oldest first. */
   queue?(connections: Connection[]): Promise<AdminQueued[]>;
+  /**
+   * How many records wait on the adapter's own fetch list for these connections, in the part the
+   * scope names: those whose last try failed or that were given up are failed, the rest waiting.
+   * The panel shows these totals beside the newest of the records, which is all `queue` answers.
+   */
+  queueCount?(connections: Connection[], scope: AdminQueueScope): Promise<AdminQueueCount>;
   /**
    * Each health check the adapter registers, by its name, in words: its title, and the sentence
    * it shows while it passes. The admin area and the alerts show these, never the check's name.

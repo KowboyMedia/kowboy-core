@@ -914,6 +914,17 @@ describe('the Vitec adapter', () => {
     expect((await queue(connections)).map((row) => row.remoteId)).toContain('OBJ9');
     // Only what waits for the connections asked about, so Flow narrowed to one tenant sees its own.
     expect(await queue([])).toEqual([]);
+    // Counted whole, in the part of the scope asked about: the panel shows these totals beside
+    // the newest rows (Patric, 2026-10-07).
+    const count = required(vitecAdmin.queueCount, 'queueCount');
+    expect(await count(connections, {})).toEqual({ waiting: 1, failed: 0 });
+    expect(await count(connections, { datatypes: ['property'], remoteId: 'OBJ9' })).toEqual({
+      waiting: 1,
+      failed: 0,
+    });
+    expect(await count(connections, { datatypes: ['agent'] })).toEqual({ waiting: 0, failed: 0 });
+    expect(await count(connections, { officeIds: ['M-ELSE'] })).toEqual({ waiting: 0, failed: 0 });
+    expect(await count([], {})).toEqual({ waiting: 0, failed: 0 });
     await drainFetchList();
     expect(await item('property', 'OBJ9')).toBeDefined();
 

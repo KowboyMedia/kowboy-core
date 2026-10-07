@@ -218,8 +218,12 @@ export async function scopeBatch(
   return rows;
 }
 
-export async function countItems(scope: ScopeFilter): Promise<number> {
-  const where = scopeWhere(scope);
+/** How many records Core holds in a scope: live ones, or with `deleted` null live and removed alike. */
+export async function countItems(
+  scope: ScopeFilter,
+  deleted: boolean | null = false,
+): Promise<number> {
+  const where = scopeWhere(scope, deleted);
   const { rows } = await db().query<{ n: string }>(
     `select count(*) as n from items where ${where.clauses.join(' and ')}`,
     where.values,
@@ -292,6 +296,19 @@ export async function purgeTombstones(days: number): Promise<number> {
   return rows.length;
 }
 
+/**
+ * Make every site of a tenant that has fetched anything fetch everything again at its next fetch,
+ * and drop what it no longer receives (strategy §7): the purge watermark goes past every place
+ * given out so far. For records that went without a tombstone, such as a removed connection's.
+ */
+export async function resyncTenant(tenantId: number): Promise<void> {
+  await db().query(
+    `update tenants set purge_watermark = greatest(purge_watermark, nextval('item_seq'))
+     where id = $1`,
+    [tenantId],
+  );
+}
+
 // ---- What the admin panel looks at (docs/admin-panel.md) ----------------------------------------
 
 /** Records come in pages of this many: Core holds thousands, more than one page can show. */
@@ -309,15 +326,14 @@ export type ItemSearch = ScopeFilter & {
 export async function searchItems(query: ItemSearch): Promise<{ rows: ItemRow[]; total: number }> {
   const where = scopeWhere(query, null);
   const offset = (Math.max(query.page ?? 1, 1) - 1) * RECORDS_PAGE;
-  const condition = where.clauses.join(' and ');
-  const [{ rows }, count] = await Promise.all([
+  const [{ rows }, total] = await Promise.all([
     db().query<ItemRow>(
-      `select * from items where ${condition} order by updated_at desc, seq desc limit ${RECORDS_PAGE} offset ${offset}`,
+      `select * from items where ${where.clauses.join(' and ')} order by updated_at desc, seq desc limit ${RECORDS_PAGE} offset ${offset}`,
       where.values,
     ),
-    db().query<{ n: string }>(`select count(*) as n from items where ${condition}`, where.values),
+    countItems(query, null),
   ]);
-  return { rows, total: Number(count.rows[0]?.n ?? 0) };
+  return { rows, total };
 }
 
 export type ItemCount = { tenant_id: number; datatype: string; live: string; tombstoned: string };

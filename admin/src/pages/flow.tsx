@@ -28,7 +28,7 @@ export function Flow() {
           />
         </CardContent>
       </Card>
-      <FlowList scope={scope} options={options} />
+      <FlowList scope={scope} />
     </>
   );
 }

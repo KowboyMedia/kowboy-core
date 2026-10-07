@@ -393,6 +393,76 @@ describe('the admin area', () => {
     ]);
   });
 
+  it('takes a removed connection’s records off the sites: each site fetches everything again and keeps none of them', async () => {
+    const made = await api<{ data: { id: number; token: string } }>('/tenants', {
+      method: 'POST',
+      body: tenantBody(),
+    });
+    crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
+    crm.put('property', 'OBJ-1', property('OBJ-1'));
+    await running.deliver();
+    await until(
+      async () => (await api<{ total: number }>('/records?datatype=property')).body.total === 1,
+      'the property to load',
+    );
+    const fetchChanges = (after: number): Promise<Response> =>
+      fetch(`${running.baseUrl}/v1/changes?datatype=property&after=${String(after)}`, {
+        headers: { authorization: `Bearer ${made.body.data.token}` },
+      });
+    const first = (await (await fetchChanges(0)).json()) as {
+      items: unknown[];
+      next_after: number;
+    };
+    expect(first.items).toHaveLength(1);
+
+    const saved = await api<{ data: { changes: string[] } }>(
+      `/tenants/${String(made.body.data.id)}`,
+      { method: 'PATCH', body: tenantBody({ connections: [] }) },
+    );
+    expect(saved.body.data.changes).toContain(
+      'Acme Mäklare’s Fake-webhook connection “Acme CRM” is removed, and its records are being taken off the sites.',
+    );
+    // A site that holds the record is told to fetch everything again, and everything is none of it.
+    const stale = await fetchChanges(first.next_after);
+    expect(stale.status).toBe(409);
+    expect(((await stale.json()) as { error: string }).error).toBe('resync_required');
+    expect(((await (await fetchChanges(0)).json()) as { items: unknown[] }).items).toEqual([]);
+  });
+
+  it('ticks a connection to hold its forms as a dry run, and says so (Patric, 2026-10-07)', async () => {
+    const made = await api<{ data: { id: number } }>('/tenants', {
+      method: 'POST',
+      body: tenantBody(),
+    });
+    const path = `/tenants/${String(made.body.data.id)}`;
+    const tick = async (formsDryRun?: boolean): Promise<string[]> =>
+      (
+        await api<{ data: { changes: string[] } }>(path, {
+          method: 'PATCH',
+          body: tenantBody({
+            connections: [savedAcme(formsDryRun === undefined ? {} : { formsDryRun })],
+          }),
+        })
+      ).body.data.changes;
+    const ticked = async (): Promise<boolean | undefined> =>
+      (await api<{ data: { connections: { formsDryRun: boolean }[] } }>(path)).body.data
+        .connections[0]?.formsDryRun;
+
+    // Every connection starts unticked.
+    expect(await ticked()).toBe(false);
+    expect(await tick(true)).toContain(
+      'Acme Mäklare’s Fake-webhook connection “Acme CRM” now holds every form as a dry run, so none reaches the CRM.',
+    );
+    expect(await ticked()).toBe(true);
+    // A save that does not name the tick keeps it, and says nothing about it.
+    expect((await tick()).join(' ')).not.toContain('dry run');
+    expect(await ticked()).toBe(true);
+    expect(await tick(false)).toContain(
+      'Acme Mäklare’s Fake-webhook connection “Acme CRM” sends its forms to the CRM again.',
+    );
+    expect(await ticked()).toBe(false);
+  });
+
   it('keeps the stored login when the save carries no new one (AC 42)', async () => {
     const made = await api<{ data: { id: number } }>('/tenants', {
       method: 'POST',
@@ -719,7 +789,7 @@ describe('the admin area', () => {
         to: `/records?tenant=${String(tenantId)}&office=100`,
       },
       { label: 'Storgatan 12', to: '/records/acme-crm/property/OBJ-1' },
-      { label: 'The home with the CRM’s id OBJ-9', to: null },
+      { label: 'The property with the CRM’s id OBJ-9', to: null },
     ];
 
     const overview = await api<{
@@ -887,16 +957,19 @@ describe('the admin area', () => {
 
     const flow = await api<{
       data: {
-        state: string;
-        remoteId: string;
-        queuedAt: string;
-        what: string;
-        officeId: string | null;
-        tenant: string | null;
-      }[];
+        rows: {
+          state: string;
+          remoteId: string;
+          queuedAt: string;
+          what: string;
+          officeId: string | null;
+          tenant: string | null;
+        }[];
+        totals: { waiting: number | null; failed: number | null; inCore: number };
+      };
     }>('/flow');
     expect(flow.status).toBe(200);
-    const row = flow.body.data.find((one) => one.remoteId === 'OBJ-1');
+    const row = flow.body.data.rows.find((one) => one.remoteId === 'OBJ-1');
     expect(row?.state).toBe('fetched');
     expect(row?.what).not.toBe('');
     // Every row says whose record it is and which office it came from. The office is on the
@@ -908,7 +981,7 @@ describe('the admin area', () => {
     // Filtered by tenant and office, the same scope as Records and Manual sync (Patric,
     // 2026-10-06), and never more than the hundred newest.
     const ids = async (query: string): Promise<string[]> =>
-      (await api<{ data: { remoteId: string }[] }>(`/flow?${query}`)).body.data.map(
+      (await api<{ data: { rows: { remoteId: string }[] } }>(`/flow?${query}`)).body.data.rows.map(
         (one) => one.remoteId,
       );
     const tenant = String(made.body.data.id);
@@ -918,6 +991,25 @@ describe('the admin area', () => {
     expect(await ids('office=999')).toEqual([]);
     expect(await ids('limit=1')).toHaveLength(1);
     expect((await api('/flow?tenant=abc')).status).toBe(400);
+
+    // The figures count the whole scope, never only the rows sent (Patric, 2026-10-07: "100 in
+    // Core" was the list's own count): what Core holds is what Records counts for the scope.
+    const totals = async (query: string) =>
+      (
+        await api<{
+          data: { totals: { waiting: number | null; failed: number | null; inCore: number } };
+        }>(`/flow?${query}`)
+      ).body.data.totals;
+    const held = async (query: string): Promise<number> =>
+      (await api<{ total: number }>(`/records?${query}`)).body.total;
+    expect((await totals('limit=1')).inCore).toBe(await held(''));
+    expect(await held('')).toBeGreaterThan(1);
+    expect((await totals(`tenant=${tenant}&datatype=property`)).inCore).toBe(1);
+    expect((await totals('office=999')).inCore).toBe(0);
+    // Nothing waits on the CRM's own list once it is delivered, and nothing failed there.
+    expect(await totals(`tenant=${tenant}`)).toEqual(
+      expect.objectContaining({ waiting: 0, failed: 0 }),
+    );
   });
 
   it('reads the event log in sentences, a page at a time, and one happening’s steps together (U3, U6, AC 42)', async () => {
