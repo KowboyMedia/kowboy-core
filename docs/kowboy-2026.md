@@ -318,6 +318,17 @@ Three more the same day (Patric, 2026-10-07, 12:46Z), theme 1.2.2:
   before the street number, the number and everything after it with non-breaking spaces, so
   "Adress 49 f" never breaks; the home's title, its card and the form window's heading use it.
 
+Two more the same day (Patric, 2026-10-07, 15:09Z), theme 1.2.3:
+
+- **The agent card's gap is back.** An agent's name and title stand on their own line heights
+  again, as in theme 1.2.1; the home card's area and street stay tight.
+- **The home page no longer scrolls sideways on a phone.** The list's three tabs are 120 px each,
+  380 px with their gaps, wider than a phone's 358 px between its margins; the list head grew with
+  them and pushed the lead under "Till salu" past the screen. On a phone the tabs now narrow to
+  share the width, and the head is one column no wider than the screen. The fixed tabs date from
+  2026-09-29; a browser journey (`e2e/home-on-phone.spec.ts`) checks the home page at 390 px and
+  320 px.
+
 ## Order of work
 
 1. The plan and the questions (this page), the plugin's shadow DOM default, the 2026 set shelved.
