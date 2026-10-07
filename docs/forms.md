@@ -46,10 +46,11 @@ key, is gone since 2026-10-06 (155); the tenant token and the CRM login never re
   copy. **A tenant** is one brokerage as Core knows it; **a connection** is one CRM login Core
   holds for a tenant, with the offices it covers. **The tenant token** is the secret a site
   holds to pull from Core; it lives in the site's server settings and never in a browser.
-- **The CRM login** is what Core uses towards a CRM. Both CRMs hand it to Kowboy as a partner,
-  not to a brokerage: Vitec's key pair carries passwords per customer and function group, and
-  Mspecs's one provider account reaches every brokerage that added Kowboy's service, with a
-  `subscriber-id` naming the brokerage on each call. So one login can reach several brokerages.
+- **The CRM login** is what Core uses towards a CRM. A Vitec connection has one username and
+  one password, used for every call, the CRM category and the search profile included; there is
+  no second or CRM password (Patric, 2026-10-06 21:29 UTC and 2026-10-07 12:41 UTC; this line
+  said otherwise until then). Mspecs's one provider account reaches every brokerage that added
+  Kowboy's service, with a `subscriber-id` naming the brokerage on each call.
 - **A form** is a set of fields a visitor fills in on a site page. **A submission** is one
   filled form on its way from the site to the CRM. The design has two forms today, both
   dummies: "Ska du sälja din bostad?" in every page's footer (**the lead form**) and "Är du
@@ -700,12 +701,12 @@ generic capability item 21 in `docs/next-steps.md` asked for.
   website's leads (optional; Vitec uses its preselected one when empty), the intake source id for
   valuations (optional), the status a website interest gets (Vitec's own list; empty leaves it to
   Vitec), whether a booking is confirmed by e-mail, whether it is confirmed by SMS, the
-  reminder minutes, and the CRM function group's password when Vitec issued a separate one (empty:
-  the Connect key pair). These are the CRM's own knobs, copied through; Core decides none of them.
+  reminder minutes, and a CRM password (wrong, and gone since 2026-10-06: a connection's one
+  password serves every call). These are the CRM's own knobs, copied through; Core decides none of them.
 - `slots` calls the form endpoint and renames the fields.
 - `submit` for a `search_profile` (139): the contact id from the booking or valuation answer, else
-  `Contacts/UpdatePerson`, then the residential search profile call, both in the CRM function
-  group with its own password per customer; the subtypes and area ids are mapped in the adapter.
+  `Contacts/UpdatePerson`, then the residential search profile call, both in Vitec's CRM
+  category, with the connection's one login like every other call; the subtypes and area ids are mapped in the adapter.
 - The test stand-in Connect (`adapters/vitec/connect.ts`) gets the three calls and the form
   endpoint, and one real send per kind is verified against a demo or test customer Patric has
   confirmed before the first release; never against the login in the environment, which reads a

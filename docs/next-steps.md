@@ -820,12 +820,12 @@ client ports (item 16, first client by question 80).
       error; and (f5e7779) a form whose advertising call gets a 401 or 403 blocks that office at
       the worker's next tick, while the search profile's CRM calls block nothing. Two lines on
       that list are for Patric to settle: what a visitor reads when Vitec refuses a form without
-      giving words (`wordsOf` in forms.ts), and what happens to a form with no office. The forms
-      questions still open in the register (151, the "Söker du bostad?" step; 171, the Cloudflare
-      account id) go on the list by the handbook's rule of 2026-10-07: where one option is a clear
-      winner by the project or its instructions, the list notes it as chosen, and only a real
-      tie stays a question.
-    - Starts when Patric says so.
+      giving words (`wordsOf` in forms.ts), and what happens to a form with no office.
+    - **The list is verified** (Patric, 2026-10-07, 12:41 UTC, seven changes and "No other
+      comments/changes"): `/mnt/project-files/strategy/forms-list.md`, with the decisions of
+      2026-10-07 on 151, 171, the details kept on the site and the list. Development is ready:
+      on his go, first what the list marks as not built or to remove, then every forms file is
+      checked against the list, line by line, with the tests green, and reported file by file.
 
 ## Later, when Patric supplies them
 
