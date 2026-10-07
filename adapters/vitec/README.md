@@ -79,17 +79,21 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   (`office.taken_off`, "the login was switched to …"), clears its state, and checks and loads its
   offices in full. An office change from the admin waits for the tick's turn, so nothing is
   taken off twice. The Vitec page's connections, fetch list and
-  refused offices mark a QA office "(QA)", and the names in `vitec.offices` call it a "QA office
-  id"; the tenant's page shows the field ticked instead (question 177). Give a QA login a tenant of
+  refused offices name a QA office "in Vitec’s QA environment", and so do the names in
+  `vitec.offices`; the tenant's page shows the field ticked instead (question 177). Give a QA login a tenant of
   its own: its records reach that tenant's sites like any other. `qa.test.ts` proves it with two
   stand-ins sharing one office id.
 - **Resync** (`event: resync`, optionally with a datatype) reloads everything listed and removes
   every id no longer listed.
 - **Health.** `vitec.webhook_lag` (a webhook waiting more than 5 min), `vitec.retries` (a record
-  that failed three fetches in a row), `vitec.catch_up` (red from a worker start until the
-  catch-up, the comparison and their fetches are done; then a connection whose last catch-up is
-  older than 13 h, whose credentials cannot be read, or which has no office to sync). The checks run in
-  the worker and are recorded for the web process every 30 s.
+  that failed three fetches in a row), `vitec.login` (a saved login Core cannot read),
+  `vitec.no_offices` (a checked connection with no office to fetch), `vitec.catch_up` (from a
+  worker start until the catch-up, the comparison and their fetches are done; then a connection
+  whose last catch-up is older than 13 h), `vitec.offices` (an office Vitec refuses) and
+  `vitec.connect` (a connection Core stopped asking after five failed calls). Each has a level,
+  a title and a passing sentence (`vitecAdmin.checks`), and names its connections, offices and
+  records by their ids for Core to name and link. The checks run in the worker and are recorded
+  for the web process every 30 s.
 
 ## Mappers: the universal names, the spine on top, the rest mirrored
 
