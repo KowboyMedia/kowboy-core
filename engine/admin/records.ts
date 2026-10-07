@@ -11,7 +11,6 @@ import { namesInTurn } from './feed.js';
 import { currentConfig } from './auth.js';
 import { crmName } from './words.js';
 import { adminFor } from '../registry.js';
-import { recompute } from '../recompute.js';
 import { RULES_VERSION } from '../rules/run.js';
 import { changedFields } from '../ingest.js';
 import { TOMBSTONE_RETENTION_DAYS } from '../version.js';
@@ -20,6 +19,8 @@ import type { AdminRecord, Canonical, Datatype, MappedRecord } from '../adapter-
 export type RecordRow = {
   tenantId: number;
   connectionId: string;
+  /** The connection by the name a person gave it; its id is for addresses only. */
+  connectionName: string;
   provider: string;
   datatype: Datatype;
   remoteId: string;
@@ -52,10 +53,14 @@ const displayLine = (data: Canonical | null): string | null => {
 export const recordName = (data: Canonical | null): string | null =>
   displayLine(data) ?? read(data, 'name');
 
-export const toRow = (item: ItemRow, provider: string): RecordRow => ({
+/** The connection a record came through, as the admin area names it. */
+type Through = { provider: string; name: string };
+
+export const toRow = (item: ItemRow, through: Through | undefined): RecordRow => ({
   tenantId: item.tenant_id,
   connectionId: item.connection_id,
-  provider,
+  connectionName: through?.name ?? item.connection_id,
+  provider: through?.provider ?? '',
   datatype: item.datatype,
   remoteId: item.remote_id,
   officeId: item.office_id,
@@ -73,8 +78,8 @@ export const toRow = (item: ItemRow, provider: string): RecordRow => ({
 /** One page of the grid, with the total behind it. */
 export async function search(query: ItemSearch): Promise<{ rows: RecordRow[]; total: number }> {
   const [{ rows, total }, everyConnection] = await Promise.all([searchItems(query), connections()]);
-  const providers = new Map(everyConnection.map((row) => [row.id, row.provider]));
-  return { rows: rows.map((row) => toRow(row, providers.get(row.connection_id) ?? '')), total };
+  const through = new Map(everyConnection.map((row) => [row.id, row]));
+  return { rows: rows.map((row) => toRow(row, through.get(row.connection_id))), total };
 }
 
 /**
@@ -210,7 +215,10 @@ export async function readRecord(
   ]);
   const display = item.data?.['display'];
   return {
-    row: toRow(item, connection.provider),
+    row: toRow(item, {
+      provider: connection.provider,
+      name: names.connections.get(connectionId)?.name ?? connectionId,
+    }),
     raw: item.raw,
     data: item.data,
     display: display && typeof display === 'object' ? (display as Record<string, unknown>) : null,
@@ -220,18 +228,6 @@ export async function readRecord(
     keptDays: currentConfig().eventRetentionDays,
     removedKeptDays: TOMBSTONE_RETENTION_DAYS,
   };
-}
-
-/**
- * What a recompute would do to this one record, writing nothing (§3 C, Should). The same code
- * path as a release's impact preview, scoped to a record.
- */
-export async function previewRecord(
-  connectionId: string,
-  datatype: Datatype,
-  remoteId: string,
-): Promise<Awaited<ReturnType<typeof recompute>>> {
-  return recompute({ connectionId, datatype, remoteId }, { dryRun: true });
 }
 
 /** One field of the unified record whose value in the CRM's answer differs from Core's copy. */
@@ -258,7 +254,10 @@ export async function inspect(
 ): Promise<{ inspection: Inspection } | { error: string }> {
   const connection = await connectionById(connectionId);
   if (!connection)
-    return { error: `Core has no CRM connection with the short name ${connectionId}.` };
+    return {
+      error:
+        'Core no longer holds the CRM connection this record came through, so it cannot ask the CRM about it.',
+    };
   const admin = adminFor(connection.provider);
   if (!admin?.inspect) {
     return { error: `Core cannot ask ${crmName(connection.provider)} for one record.` };

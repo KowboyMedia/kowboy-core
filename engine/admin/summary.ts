@@ -39,7 +39,7 @@ export type Named = {
   tenant?: string | null;
   /** The site's name, as its tenant's page names it. */
   site?: string | null;
-  /** The connection in words: "Acme’s Somecrm connection, short name acme-crm". */
+  /** The connection in words: "Acme’s Somecrm connection “Main”". */
   connection?: string | null;
   /** The CRM's name: "Somecrm". */
   crm?: string | null;
@@ -75,11 +75,6 @@ const changedNames = (fields: EventFields): string[] => {
 const theSite = (named: Named): string => (named.site ? `the site ${named.site}` : 'a site');
 const theCrm = (named: Named): string => named.crm ?? 'the CRM';
 const theConnection = (named: Named): string => named.connection ?? 'this connection';
-/**
- * A name in the middle of a sentence: a connection's name ends in an aside, its short name, and a
- * sentence that goes on after it closes that aside with a comma.
- */
-const amid = (name: string): string => (/, short name \S+$/.test(name) ? `${name},` : name);
 const tenantsPage = (named: Named): string =>
   named.tenant ? `${named.tenant}’s page` : 'its tenant’s page';
 
@@ -117,10 +112,10 @@ function dropped(fields: EventFields, named: Named): string {
   }
   if (reason === 'unlicensed') {
     const office = text(fields, 'office_id');
-    return `Not saved, because it belongs to ${office ? officeNamed(office) : 'an office'}, which ${amid(theConnection(named))} does not fetch.`;
+    return `Not saved, because it belongs to ${office ? officeNamed(office) : 'an office'}, which ${theConnection(named)} does not fetch.`;
   }
   if (reason === 'inactive') {
-    return `Not saved, because ${amid(theConnection(named))} is paused on ${tenantsPage(named)}, and Core takes nothing from a paused connection.`;
+    return `Not saved, because ${theConnection(named)} is paused on ${tenantsPage(named)}, and Core takes nothing from a paused connection.`;
   }
   if (reason === 'unknown-datatype') {
     const kind = named.datatype ? entity(named.datatype, true) : 'records of this kind';
@@ -219,8 +214,7 @@ function scopeOwners(scope: ScopeKept, named: Named): string[] {
       : [];
   if (tenants.length === 1 && named.tenant) return [...owners, `of ${named.tenant}`];
   if (tenants.length > 0) return [...owners, `of ${inWords(tenants.length, 'tenant', 'tenants')}`];
-  if (typeof scope['connectionId'] === 'string')
-    return [...owners, `of ${amid(theConnection(named))}`];
+  if (typeof scope['connectionId'] === 'string') return [...owners, `of ${theConnection(named)}`];
   return owners.length > 0 || typeof scope['remoteId'] === 'string' ? owners : ['in Core'];
 }
 
@@ -261,17 +255,17 @@ function lifecycle(task: string, fields: EventFields, named: Named): string {
   const datatype = text(fields, 'datatype');
   switch (task) {
     case 'connection_added':
-      return `Core began loading the records of ${amid(connection)} from ${crm}.`;
+      return `Core began loading the records of ${connection} from ${crm}.`;
     case 'connection_removed':
-      return `${capital(amid(connection))} was removed, and its records with it. Each site takes them off when it next fetches its changes.`;
+      return `${capital(connection)} was removed, and its records with it. Each site takes them off when it next fetches its changes.`;
     case 'offices_added':
       return `${capital(which)} added to ${connection}, and Core began loading their records from ${crm}.`;
     case 'offices_removed':
       return `${capital(which)} taken off ${connection}, and their records with them. Each site takes them off when it next fetches its changes.`;
     case 'resync':
-      return `Core began fetching ${datatype ? `the ${entity(datatype, true)}` : 'every record'} of ${amid(connection)} from ${crm} again.`;
+      return `Core began fetching ${datatype ? `the ${entity(datatype, true)}` : 'every record'} of ${connection} from ${crm} again.`;
     case 'refetch':
-      return `Core began fetching ${records === null ? 'some records' : inWords(records, 'record', 'records')} of ${amid(connection)} from ${crm} again. A record ${crm} no longer has is removed.`;
+      return `Core began fetching ${records === null ? 'some records' : inWords(records, 'record', 'records')} of ${connection} from ${crm} again. A record ${crm} no longer has is removed.`;
     default:
       return `Core handed the task “${task.replace(/_/g, ' ')}” to the part of Core that talks to ${crm}.`;
   }
@@ -345,7 +339,7 @@ const SAY: Record<string, (fields: EventFields, named: Named) => string> = {
     const detail = text(fields, 'detail');
     const connection = theConnection(named);
     const stopped = failures
-      ? `${amid(connection)} after ${inWords(failures, 'call', 'calls')} in a row failed`
+      ? `${connection} after ${inWords(failures, 'call', 'calls')} in a row failed`
       : connection;
     return [
       `Core stopped asking ${theCrm(named)} for ${stopped}, and asks again by itself ${until ? `at ${clock(new Date(until))}` : 'later'}.`,
@@ -432,7 +426,7 @@ const SAY: Record<string, (fields: EventFields, named: Named) => string> = {
     `${capital(theCrm(named))} lets the login read ${officeNamed(text(fields, 'office_id') ?? '?', null, named.tenant)} again, so Core fetches it again.`,
   'schedule.failed': (fields, named) => {
     const detail = text(fields, 'detail');
-    return `The regular work of ${amid(theConnection(named))} with ${theCrm(named)} failed, and Core tries again by itself.${detail ? ` What failed: ${quoted(detail)}.` : ''}`;
+    return `The regular work of ${theConnection(named)} with ${theCrm(named)} failed, and Core tries again by itself.${detail ? ` What failed: ${quoted(detail)}.` : ''}`;
   },
 };
 
@@ -530,15 +524,15 @@ export function summarise(type: string, fields: EventFields, named: Named = {}):
 /** The tenants', connections' and sites' names, read once for a page of events or a round. */
 export type Names = {
   tenants: Map<number, string>;
-  connections: Map<string, { tenantId: number; provider: string }>;
+  connections: Map<string, { tenantId: number; provider: string; name: string }>;
   sites: Map<number, { tenantId: number; label: string }>;
 };
 
 export async function namesNow(): Promise<Names> {
   const [tenants, connections, sites] = await Promise.all([
     db().query<{ id: number; display_name: string }>('select id, display_name from tenants'),
-    db().query<{ id: string; tenant_id: number; provider: string }>(
-      'select id, tenant_id, provider from connections',
+    db().query<{ id: string; tenant_id: number; provider: string; name: string }>(
+      'select id, tenant_id, provider, name from connections',
     ),
     db().query<{ id: string; tenant_id: number; label: string }>(
       'select id, tenant_id, label from subscribers',
@@ -549,7 +543,7 @@ export async function namesNow(): Promise<Names> {
     connections: new Map(
       connections.rows.map((row) => [
         row.id,
-        { tenantId: Number(row.tenant_id), provider: row.provider },
+        { tenantId: Number(row.tenant_id), provider: row.provider, name: row.name },
       ]),
     ),
     sites: new Map(
@@ -580,7 +574,7 @@ export function namedFor(row: Placed, names: Names): Named {
     tenant,
     site: names.sites.get(Number(row.subscriber_id ?? Number.NaN))?.label ?? null,
     connection: row.connection_id
-      ? connectionNamed(row.connection_id, tenant, connection?.provider)
+      ? connectionNamed(connection?.name ?? row.connection_id, tenant, connection?.provider)
       : null,
     crm: connection ? crmName(connection.provider) : null,
     datatype: row.datatype,

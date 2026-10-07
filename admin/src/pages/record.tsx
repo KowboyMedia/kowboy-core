@@ -13,7 +13,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Explained } from '@/components/explained';
 import { PageHeader } from '@/components/layout';
 import { useScopeOptions } from '@/components/scope-picker';
-import { anEntity, capital, counted, crmName, exact, moment, officeNamed } from '@/lib/format';
+import {
+  anEntity,
+  capital,
+  connectionNamed,
+  counted,
+  exact,
+  moment,
+  officeNamed,
+} from '@/lib/format';
 import { officeName, tenantName } from '@/lib/scope';
 import type { RecordRow } from '@/pages/records';
 
@@ -654,7 +662,7 @@ function OneRecord({
             )}
             . It comes from{' '}
             <Link className="underline" to={`${tenantPage}#connection:${row.connectionId}`}>
-              {tenant}’s {crmName(row.provider)} connection, short name {row.connectionId}
+              {connectionNamed(row.connectionName, tenant, row.provider)}
             </Link>
             , where its id is {row.remoteId}.
           </>

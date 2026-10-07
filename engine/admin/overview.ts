@@ -48,7 +48,7 @@ export type Overview = {
   about: Record<string, About>;
   /**
    * The things a failing check names, each a link to its place: the sites the sites check finds
-   * behind, and the connections a check names by their short names.
+   * behind, and the connections a check names by their ids.
    */
   links: Record<string, { label: string; to: string }[]>;
   maintenance: boolean;
@@ -92,7 +92,7 @@ async function day(): Promise<Overview['day']> {
   return { hours, totals };
 }
 
-/** The connections each failing check names by their short names, in words and linked. */
+/** The connections each failing check names by their ids, in words and linked. */
 async function connectionLinks(health: Overview['health']): Promise<Overview['links']> {
   const links: Overview['links'] = {};
   for (const [name, check] of Object.entries(health.checks)) {

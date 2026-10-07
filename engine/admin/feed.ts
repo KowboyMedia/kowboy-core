@@ -35,8 +35,6 @@ export type FlowRow = {
   name: string | null;
   queuedAt: string;
   what: string;
-  attempt: number | null;
-  site: string | null;
 };
 
 /** Which state each engine event puts a record in. What it says comes from summary.ts. */
@@ -117,8 +115,6 @@ const waitingRow = (entry: AdminQueued, tenant: { id: number; name: string } | n
   name: null,
   queuedAt: entry.queuedAt,
   what: waiting(entry),
-  attempt: entry.attempts,
-  site: null,
 });
 
 /**
@@ -170,8 +166,6 @@ const movedRow = (event: MovedRow, names: Names): FlowRow => ({
   name: event.name,
   queuedAt: event.at.toISOString(),
   what: summarise(event.type, event.fields, namedFor(event, names)),
-  attempt: null,
-  site: typeof event.fields['client'] === 'string' ? event.fields['client'] : null,
 });
 
 /**
@@ -230,9 +224,12 @@ export async function namesInTurn(): Promise<Names> {
   const tenants = await db().query<{ id: number; display_name: string }>(
     'select id, display_name from tenants',
   );
-  const connections = await db().query<{ id: string; tenant_id: number; provider: string }>(
-    'select id, tenant_id, provider from connections',
-  );
+  const connections = await db().query<{
+    id: string;
+    tenant_id: number;
+    provider: string;
+    name: string;
+  }>('select id, tenant_id, provider, name from connections');
   const sites = await db().query<{ id: string; tenant_id: number; label: string }>(
     'select id, tenant_id, label from subscribers',
   );
@@ -241,7 +238,7 @@ export async function namesInTurn(): Promise<Names> {
     connections: new Map(
       connections.rows.map((row) => [
         row.id,
-        { tenantId: Number(row.tenant_id), provider: row.provider },
+        { tenantId: Number(row.tenant_id), provider: row.provider, name: row.name },
       ]),
     ),
     sites: new Map(

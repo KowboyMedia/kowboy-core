@@ -6,10 +6,8 @@ import { report } from '../errors.js';
 import { DATATYPES, type Datatype } from '../adapter-api/types.js';
 import { newSecret } from '../storage/crypto.js';
 import { subscribers, tenantById, updateSubscriber, updateTenant } from '../storage/connections.js';
-import { ring } from '../bells.js';
 import { queryEvents } from '../events.js';
 import { healthReport } from '../health.js';
-import { SORTABLE } from '../storage/items.js';
 import { STARTED_AT, VERSION } from '../version.js';
 import {
   configureAdmin,
@@ -29,32 +27,20 @@ import { overview } from './overview.js';
 import { act, crmPage, crms, probe } from './crms.js';
 import { configuration, setMaintenance } from './configuration.js';
 import { flow, namesInTurn, stream, toStreamEvent } from './feed.js';
-import { inspect, previewRecord, readRecord, search } from './records.js';
-import {
-  auditedOn,
-  describe,
-  fetchAgain,
-  queueRecompute,
-  recordsFromBody,
-  sync,
-  toScope,
-  LEVELS,
-  type ScopeInput,
-} from './runs.js';
+import { inspect, readRecord, search } from './records.js';
+import { auditedOn, describe, recordsFromBody, sync, LEVELS, type ScopeInput } from './runs.js';
 import { scopeFromBody, scopeFromQuery, scopeOptions } from './scope.js';
 import { auditSentAgain, failedForms, sendAgainAsked } from './forms.js';
 import {
   listTenants,
   readTenant,
-  refuseShortNames,
-  removeTenant,
+  refuseForeignConnections,
   saveTenant,
   type TenantInput,
 } from './tenants.js';
 import {
   body,
   fail,
-  flag,
   match,
   number,
   one,
@@ -212,8 +198,8 @@ const routes: AdminRoute[] = [
       if ('error' in parsed) return parsed.error;
       const refused = refuseTenant(parsed.value);
       if (refused) return fail(400, refused);
-      const taken = await refuseShortNames(null, parsed.value.connections ?? []);
-      if (taken) return fail(409, taken);
+      const foreign = await refuseForeignConnections(null, parsed.value.connections ?? []);
+      if (foreign) return fail(409, foreign);
       const saved = await saveTenant(null, parsed.value);
       await audit(
         request.session,
@@ -234,28 +220,11 @@ const routes: AdminRoute[] = [
       if (refused) return fail(400, refused);
       const id = Number(request.params['id']);
       if (!(await tenantById(id))) return fail(404, NO_TENANT);
-      const taken = await refuseShortNames(id, parsed.value.connections ?? []);
-      if (taken) return fail(409, taken);
+      const foreign = await refuseForeignConnections(id, parsed.value.connections ?? []);
+      if (foreign) return fail(409, foreign);
       const saved = await saveTenant(id, parsed.value);
       await audit(request.session, 'tenant_saved', { changes: saved.changes }, { tenantId: id });
       return one({ ...(await readTenant(id)), changes: saved.changes });
-    },
-  },
-  {
-    method: 'DELETE',
-    path: '/tenants/:id',
-    handler: async (request) => {
-      const id = Number(request.params['id']);
-      const tenant = await tenantById(id);
-      if (!tenant) return fail(404, NO_TENANT);
-      await audit(
-        request.session,
-        'tenant_removed',
-        { name: tenant.display_name },
-        { tenantId: id },
-      );
-      await removeTenant(id);
-      return one({ removed: id });
     },
   },
   {
@@ -268,18 +237,6 @@ const routes: AdminRoute[] = [
       await updateTenant(id, { token });
       await audit(request.session, 'token_rotated', {}, { tenantId: id });
       return one({ token });
-    },
-  },
-  {
-    method: 'POST',
-    path: '/tenants/:id/ring',
-    handler: async (request) => {
-      const id = Number(request.params['id']);
-      if (!(await tenantById(id))) return fail(404, NO_TENANT);
-      const kind = text(request, 'kind') === 'forcerefresh' ? 'forcerefresh' : 'delta';
-      await ring(id, kind);
-      await audit(request.session, 'rang', { kind }, { tenantId: id });
-      return one({ rang: kind });
     },
   },
 
@@ -305,27 +262,6 @@ const routes: AdminRoute[] = [
       return one({ bellSecret });
     },
   },
-  {
-    method: 'POST',
-    path: '/sites/:id/ring',
-    handler: async (request) => {
-      const id = Number(request.params['id']);
-      const site = (await subscribers()).find((one_) => Number(one_.id) === id);
-      if (!site) return fail(404, NO_SITE);
-      const kind = text(request, 'kind') === 'forcerefresh' ? 'forcerefresh' : 'delta';
-      await ring(site.tenant_id, kind, id);
-      await audit(
-        request.session,
-        'rang',
-        { kind, site: site.label },
-        {
-          tenantId: site.tenant_id,
-          subscriberId: id,
-        },
-      );
-      return one({ rang: kind });
-    },
-  },
 
   // ---- Records ---------------------------------------------------------------------------------
   {
@@ -339,17 +275,9 @@ const routes: AdminRoute[] = [
     handler: async (request) => {
       const read = scopeFromQuery(request.query);
       if ('error' in read) return fail(400, read.error);
-      const refused = refuseBadFilters(request, [], ['page', 'size']);
+      const refused = refuseBadFilters(request, [], ['page']);
       if (refused) return refused;
-      const sort = SORTABLE.find((column) => column === text(request, 'sort'));
-      const found = await search({
-        ...read.scope,
-        deleted: flag(request, 'deleted'),
-        ...(sort ? { sort } : {}),
-        dir: text(request, 'dir') === 'asc' ? 'asc' : 'desc',
-        page: number(request, 'page', 1),
-        size: number(request, 'size', 50),
-      });
+      const found = await search({ ...read.scope, page: number(request, 'page', 1) });
       return page(found.rows, found.total);
     },
   },
@@ -365,17 +293,6 @@ const routes: AdminRoute[] = [
         request.params['id'] ?? '',
       );
       return record ? one(record) : fail(404, 'Core holds no such record.');
-    },
-  },
-  {
-    method: 'POST',
-    path: '/records/:connection/:datatype/:id/preview',
-    handler: async (request) => {
-      const kind = datatype(request.params['datatype']);
-      if (!kind) return fail(400, 'Core knows no such kind of record.');
-      return one(
-        await previewRecord(request.params['connection'] ?? '', kind, request.params['id'] ?? ''),
-      );
     },
   },
   {
@@ -407,33 +324,6 @@ const routes: AdminRoute[] = [
   },
 
   // ---- Runs ------------------------------------------------------------------------------------
-  {
-    method: 'POST',
-    path: '/runs/recompute',
-    handler: async (request) => {
-      const parsed = body<ScopeInput>(request);
-      if ('error' in parsed) return parsed.error;
-      const scope = await toScope(parsed.value);
-      const job = await queueRecompute(scope, request.session.email);
-      const said = await describe(parsed.value);
-      await audit(request.session, 'recompute_queued', { job, scope: said });
-      return one({ job, scope: said });
-    },
-  },
-  {
-    method: 'POST',
-    path: '/runs/fetch-again',
-    handler: async (request) => {
-      const parsed = body<ScopeInput>(request);
-      if ('error' in parsed) return parsed.error;
-      const outcome = await fetchAgain(parsed.value);
-      await audit(request.session, 'fetch_again', {
-        scope: await describe(parsed.value),
-        queued: outcome.queued,
-      });
-      return one(outcome);
-    },
-  },
   {
     method: 'POST',
     path: '/runs/sync',
@@ -599,15 +489,13 @@ const refuseConnection = (
   connection: TenantInput['connections'][number],
   tenant: string,
 ): string | null => {
-  if (!connection.id || !/^[a-z0-9][a-z0-9-]*$/.test(connection.id)) {
-    return 'A CRM connection needs a short name of lower-case letters, digits and dashes, such as acme-crm.';
-  }
+  const name = typeof connection.name === 'string' ? connection.name.trim() : '';
+  if (name === '')
+    return `Give each of ${tenant}’s CRM connections a name, such as the brokerage or the CRM it reads.`;
   // No office named means every office the CRM gives the login, which an adapter may learn from
   // the CRM itself (question 147 a, 2026-10-06, reversing the rule of 2026-09-21 that refused an
   // empty list); a connection that ends up with none says so in its health check.
-  return connection.provider
-    ? null
-    : `Pick the CRM for ${tenant}’s connection, short name ${connection.id}.`;
+  return connection.provider ? null : `Pick the CRM for ${tenant}’s connection “${name}”.`;
 };
 
 const refuseSite = (site: TenantInput['sites'][number]): string | null => {
@@ -630,9 +518,15 @@ function deviceOf(request: Request): string | null {
 /** What a tenant page will not save, said as the field the person must fix. */
 function refuseTenant(input: TenantInput): string | null {
   if (!input.displayName || input.displayName.trim() === '') return 'A tenant needs a name.';
+  const names = new Set<string>();
   for (const connection of input.connections ?? []) {
     const refused = refuseConnection(connection, input.displayName.trim());
     if (refused) return refused;
+    // The name is how a person tells the tenant's connections apart, so no two share one.
+    const name = connection.name.trim();
+    if (names.has(name.toLowerCase()))
+      return `Two of ${input.displayName.trim()}’s connections are called “${name}”. Give each its own name.`;
+    names.add(name.toLowerCase());
   }
   for (const site of input.sites ?? []) {
     const refused = refuseSite(site);
@@ -643,7 +537,7 @@ function refuseTenant(input: TenantInput): string | null {
 
 /** The whole admin subtree, as the engine's server mounts it. */
 export function adminRoutes(): RouteTable {
-  const methods = ['GET', 'POST', 'PATCH', 'DELETE'] as const;
+  const methods = ['GET', 'POST', 'PATCH'] as const;
   return [
     ...methods.map((method) => ({
       method,

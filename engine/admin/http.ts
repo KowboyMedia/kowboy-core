@@ -60,12 +60,6 @@ export const text = (request: Request, key: string): string | undefined => {
   return value === null || value === '' ? undefined : value;
 };
 
-/** A query parameter that is yes or no, or undefined. */
-export const flag = (request: Request, key: string): boolean | undefined => {
-  const value = text(request, key);
-  return value === undefined ? undefined : value === 'true';
-};
-
 /**
  * The filters a person types: a moment must be a date and a number must be a number, or the page
  * says so in words. Without this, a slip in a filter box reached the database as a cast error

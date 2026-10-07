@@ -1,7 +1,6 @@
 // The scope every list and run is narrowed by (Patric, 2026-10-06): tenants, offices, entity
 // types and one record id, the same on Records, Flow and Manual sync. It lives in the address,
 // so a scoped view is a link, and it is sent to Core as the admin API takes it.
-import { entity, listed, officeNamed } from './format';
 
 export type Scope = {
   tenantIds: number[];
@@ -105,20 +104,4 @@ export function officeLabel(
   if (id === null) return '—';
   const name = officeName(options, id, tenantId);
   return name ? `${name} (the CRM’s office id ${id})` : `The CRM’s office id ${id}`;
-}
-
-/** The scope in words, for a confirmation: what a run will touch. */
-export function sayScope(scope: Scope, options: ScopeOptions): string {
-  if (isEverything(scope)) return 'every record in Core';
-  const parts: string[] = [];
-  if (idOf(scope) !== '') parts.push(`the record whose CRM id is ${idOf(scope)}`);
-  if (scope.datatypes.length > 0)
-    parts.push(`the ${listed(scope.datatypes.map((datatype) => entity(datatype, true)))}`);
-  if (scope.officeIds.length > 0)
-    parts.push(listed(scope.officeIds.map((id) => officeNamed(id, officeName(options, id)))));
-  if (scope.tenantIds.length > 0)
-    parts.push(
-      `${scope.tenantIds.length === 1 ? 'the tenant' : 'the tenants'} ${listed(scope.tenantIds.map((id) => tenantName(options, id)))}`,
-    );
-  return parts.join(' of ');
 }

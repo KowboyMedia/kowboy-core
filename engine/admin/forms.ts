@@ -8,7 +8,7 @@ import {
   submissionById,
   type SubmissionRow,
 } from '../storage/submissions.js';
-import { connectionById, subscribers, tenantById } from '../storage/connections.js';
+import { connections, subscribers, tenantById } from '../storage/connections.js';
 import { readItem } from '../storage/items.js';
 import { db } from '../storage/db.js';
 import { NOT_LIVE } from '../registry.js';
@@ -17,7 +17,7 @@ import type { Datatype, Submission } from '../adapter-api/types.js';
 import { audit } from './audit.js';
 import type { Session } from './auth.js';
 import { toRow } from './records.js';
-import { crmName } from './words.js';
+import { connectionNamed, crmName } from './words.js';
 
 /**
  * Refused by the CRM, held back by Core outside production (the CRM never saw it), not sent
@@ -30,10 +30,11 @@ export type FailedForm = {
   tenantId: number;
   tenant: string;
   connectionId: string;
+  /** The connection by the name a person gave it. */
+  connectionName: string;
   /** The CRM the connection logs in to. */
   provider: string;
-  /** The site the visitor sent it from, when Core knows it. */
-  /** The site, by its name; null when the site has since been removed. */
+  /** The site the visitor sent it from, by its name; the name is null for a site since removed. */
   site: { id: number; name: string | null } | null;
   kind: string;
   datatype: string | null;
@@ -92,7 +93,7 @@ async function homeOf(row: {
     remoteId: row.remote_id,
   });
   if (!item) return null;
-  const shown = toRow(item, '');
+  const shown = toRow(item, undefined);
   return shown.addressLine ?? shown.name;
 }
 
@@ -100,6 +101,7 @@ async function homeOf(row: {
 export async function failedForms(): Promise<FailedForm[]> {
   const rows = await keptSubmissions(UNANSWERED_MS);
   const sites = await sitesOf(rows.map((row) => row.id));
+  const names = new Map((await connections()).map((row) => [row.id, row.name]));
   const forms: FailedForm[] = [];
   for (const row of rows) {
     const form = contentOf(row);
@@ -109,6 +111,7 @@ export async function failedForms(): Promise<FailedForm[]> {
       tenantId: row.tenant_id,
       tenant: row.tenant,
       connectionId: row.connection_id,
+      connectionName: names.get(row.connection_id) ?? row.connection_id,
       provider: row.provider ?? '',
       site: sites.get(row.id) ?? null,
       kind: row.kind,
@@ -134,13 +137,7 @@ const KINDS: Record<string, string> = {
 };
 
 /** What a sentence about a form that was not sent names. */
-type Named = {
-  tenant: string;
-  tenantId: number | null;
-  crm: string;
-  connection: string;
-  kind: string;
-};
+type Named = { tenant: string; crm: string; connection: string; kind: string };
 
 /** Why "Send again" did not send, in words naming the tenant, the connection and the CRM. */
 const REFUSALS: Record<Extract<SentAgain, { error: string }>['why'], (named: Named) => string> = {
@@ -148,8 +145,8 @@ const REFUSALS: Record<Extract<SentAgain, { error: string }>['why'], (named: Nam
     'Not sent: Core no longer keeps this form. Either the CRM has taken the form since, or 30 days have passed since the visitor sent it.',
   'on-its-way': () =>
     'Not sent: this form is being sent right now, perhaps by someone else. Reload the page in a minute to see how that send ended.',
-  paused: ({ connection, tenantId }) =>
-    `Not sent: ${connection} is paused, so Core sends nothing through it. Only the tenant’s old page can resume it, at /admin/tenants-old/${String(tenantId ?? '')}; press “Send again” after that.`,
+  paused: ({ connection }) =>
+    `Not sent: ${connection} is paused, so Core sends nothing through it.`,
   foreign: ({ tenant }) =>
     `Not sent: ${tenant} no longer has the CRM connection that this form’s home came through.`,
   gone: () =>
@@ -171,14 +168,14 @@ async function refusal(id: string, why: keyof typeof REFUSALS): Promise<string> 
 /** What a refusal names about a form: its tenant, its CRM and connection, and its kind. */
 async function namesOf(row: SubmissionRow | null): Promise<Named> {
   const tenant = (row && (await tenantById(row.tenant_id))?.display_name) ?? 'the tenant';
-  const connection = row ? await connectionById(row.connection_id) : null;
-  const crm = connection ? crmName(connection.provider) : 'the CRM';
+  const connection = row
+    ? (await connections()).find((one) => one.id === row.connection_id)
+    : undefined;
   return {
     tenant,
-    tenantId: row?.tenant_id ?? null,
-    crm,
+    crm: connection ? crmName(connection.provider) : 'the CRM',
     connection: connection
-      ? `${tenant}’s ${crm} connection, short name ${connection.id},`
+      ? connectionNamed(connection.name, tenant, connection.provider)
       : 'the CRM connection',
     kind: KINDS[row?.kind ?? ''] ?? 'this kind of form',
   };

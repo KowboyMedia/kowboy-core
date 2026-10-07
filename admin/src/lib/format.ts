@@ -7,6 +7,7 @@ import { counted } from '../../../engine/admin/words';
 export {
   anEntity,
   capital,
+  connectionNamed,
   counted,
   crmName,
   entities,

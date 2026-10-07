@@ -55,7 +55,8 @@ test('journey: U1 onboard a customer, watch the first load, take the secrets', a
 
   await page.getByRole('button', { name: 'Add a CRM connection' }).click();
   const connection = page.getByRole('region', { name: 'A new CRM connection' });
-  await connection.getByLabel('Short name', { exact: true }).fill('acme-crm');
+  // A connection has a name a person gives it and may change; Core keeps its own id out of sight.
+  await connection.getByLabel('Name', { exact: true }).fill('Acme CRM');
   await connection.getByLabel('CRM', { exact: true }).selectOption('fake-webhook');
   await connection.getByLabel('Pretend key').fill('a-key');
 
@@ -71,7 +72,9 @@ test('journey: U1 onboard a customer, watch the first load, take the secrets', a
   await site.getByLabel('Bell path').fill('/bell');
 
   await page.getByTestId('save').click();
-  await expect(page.getByText('short name acme-crm, is added', { exact: false })).toBeVisible();
+  await expect(
+    page.getByText('Acme Mäklare’s Fake-webhook connection “Acme CRM” is added', { exact: false }),
+  ).toBeVisible();
   await expect(page).toHaveURL(/\/admin\/tenants\/\d+$/);
 
   // The token and the bell secret are on the page, each with a copy button.
@@ -84,7 +87,7 @@ test('journey: U1 onboard a customer, watch the first load, take the secrets', a
   // A login field that is not secret shows what Core holds, read back from Core.
   await page.reload();
   await expect(
-    page.getByRole('region', { name: /short name acme-crm$/ }).getByLabel('Pretend key'),
+    page.getByRole('region', { name: /connection “Acme CRM”$/ }).getByLabel('Pretend key'),
   ).toHaveValue('a-key');
 });
 
@@ -147,26 +150,22 @@ test('journey: U3 support a customer — find a record, follow it to the sites, 
   await expect(page.getByText('The CRM’s answer matches Core’s copy.')).toBeVisible();
 });
 
-test('journey: U3 scope, sort and choose the columns of the grid', async ({ page }) => {
+test('journey: U3 scope the grid, the one changed last first', async ({ page }) => {
   await go(page, 'Records');
   // The same scope as Manual sync: tenants, offices, entity types and one record id.
   await tick(page, 'Entity types', 'Homes');
   await expect(page).toHaveURL(/datatype=property/);
   await expect(page.getByRole('link', { name: 'Storgatan 12' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('link', { name: 'Lidingö', exact: true })).toHaveCount(0);
-
-  await page.getByRole('button', { name: 'Sort by What it is' }).click();
-  await expect(page).toHaveURL(/sort=remote_id/);
-
-  await page.getByRole('button', { name: 'Columns' }).click();
-  await page.getByRole('checkbox', { name: 'CRM connection' }).check();
-  await expect(page.getByRole('columnheader', { name: 'CRM connection' })).toBeVisible();
-
-  // Live, removed or both; nothing has been removed yet.
-  await page.getByRole('button', { name: 'Removed', exact: true }).click();
-  await expect(page.getByText('No record matches what is picked.', { exact: false })).toBeVisible();
-  await page.getByRole('button', { name: 'Both', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'Storgatan 12' })).toBeVisible();
+  // Only the columns Patric named, with no chooser and no sorting (2026-10-07).
+  await expect(page.getByRole('button', { name: 'Columns' })).toHaveCount(0);
+  await expect(page.getByRole('columnheader')).toHaveText([
+    'What it is',
+    'Tenant',
+    'Office',
+    'State',
+    'Changed in Core',
+  ]);
 });
 
 test('journey: U4 manual sync — pick a scope and how far to go, then watch it', async ({
@@ -178,14 +177,12 @@ test('journey: U4 manual sync — pick a scope and how far to go, then watch it'
   await tick(page, 'Tenants', TENANT);
   await tick(page, 'Offices', 'Lidingö (the CRM’s office id 100)');
   await tick(page, 'Entity types', 'Homes');
-  await expect(page.getByTestId('covers')).toContainText('3 live records now');
 
-  // The full level is the default; a shorter one is a pick, and it says what it does first.
+  // The full level is the default; a shorter one is a pick, and Start starts it at once.
   await expect(page.getByRole('radio', { name: /^Fetch from the CRM/ })).toBeChecked();
   await page.getByRole('radio', { name: /^Send to the sites only/ }).check();
   await page.getByRole('button', { name: 'Start', exact: true }).click();
-  await expect(page.getByRole('dialog')).toContainText('Nothing is fetched or computed.');
-  await page.getByRole('button', { name: 'Start it' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(
     page.getByText(
       'Core sent 3 records to the sites of Acme Mäklare again, and told them to fetch them.',
@@ -197,11 +194,8 @@ test('journey: U4 manual sync — pick a scope and how far to go, then watch it'
   // below, the same as the Flow page, shows what that fetch found.
   await page.getByLabel('One record, by the CRM’s id').pressSequentially('OBJ-2');
   await expect(page).toHaveURL(/id=OBJ-2/);
-  await expect(page.getByTestId('covers')).toContainText('1 live record now');
   await page.getByRole('radio', { name: /^Fetch from the CRM/ }).check();
   await page.getByRole('button', { name: 'Start', exact: true }).click();
-  await expect(page.getByRole('dialog')).toContainText('The CRM is called.');
-  await page.getByRole('button', { name: 'Start it' }).click();
   await expect(
     page.getByText('Core asks the CRM for 1 record again.', { exact: false }),
   ).toBeVisible();

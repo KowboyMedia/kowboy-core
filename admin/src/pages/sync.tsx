@@ -2,18 +2,18 @@
 // data again. One scope, then how far to go: fetch from the CRM, recompute and send to the sites;
 // recompute and send; or send only. Each level does its own step and every step after it, and the
 // full one is the default. What the run does shows below in the Flow list, the same component as
-// the Flow page, scoped to the run.
+// the Flow page, scoped to the run. Only what Patric named stays (2026-10-07): Start starts at
+// once, with no count line and no window first.
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { useCustomMutation, useList } from '@refinedev/core';
+import { useCustomMutation } from '@refinedev/core';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Confirm } from '@/components/confirm';
 import { FlowList } from '@/components/flow';
 import { PageHeader } from '@/components/layout';
 import { ScopePicker, useScopeOptions } from '@/components/scope-picker';
-import { counted } from '@/lib/format';
-import { readScope, sayScope, scopeBody, scopeQuery, writeScope } from '@/lib/scope';
+import { readScope, scopeBody, writeScope } from '@/lib/scope';
 
 type Level = 'fetch' | 'recompute' | 'send';
 
@@ -41,22 +41,7 @@ export function ManualSyncPage() {
   const [level, setLevel] = useState<Level>('fetch');
   const options = useScopeOptions();
   const scope = readScope(params);
-  const { mutateAsync } = useCustomMutation();
-  // How many live records the scope holds: one page of one row, for its total.
-  const { result } = useList({
-    resource: 'records',
-    pagination: { currentPage: 1, pageSize: 1 },
-    filters: Object.entries({ ...scopeQuery(scope), deleted: 'false' }).map(([field, value]) => ({
-      field,
-      operator: 'eq' as const,
-      value,
-    })),
-  });
-  const total = result?.total;
-  const said = sayScope(scope, options);
-  const chosen = LEVELS.find((one) => one.level === level) ?? LEVELS[0];
-  const covers =
-    total === undefined ? said : `${said}: ${counted(total, 'live record', 'live records')} now`;
+  const { mutateAsync, mutation } = useCustomMutation();
 
   const start = async (): Promise<void> => {
     try {
@@ -88,7 +73,7 @@ export function ManualSyncPage() {
             those of the tenants ticked. A record’s CRM id takes that one record only.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3">
+        <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <ScopePicker
               value={scope}
@@ -96,9 +81,6 @@ export function ManualSyncPage() {
               options={options}
             />
           </div>
-          <p className="text-sm" data-testid="covers">
-            This covers {covers}.
-          </p>
         </CardContent>
       </Card>
 
@@ -127,15 +109,12 @@ export function ManualSyncPage() {
             ))}
           </fieldset>
           <div className="flex flex-wrap items-center gap-3">
-            <Confirm
-              label="Start"
-              title={chosen?.label ?? ''}
-              what={`${chosen?.does ?? ''} It covers ${covers}.`}
-              confirmLabel="Start it"
-              onConfirm={start}
-            />
+            <Button disabled={mutation.isPending} onClick={() => void start()}>
+              Start
+            </Button>
             <span className="text-sm text-muted-foreground">
-              Starts the level picked for this scope, after saying what will happen.
+              Starts the level picked above for the records picked above, at once. What Core does
+              shows in the list below.
             </span>
           </div>
         </CardContent>

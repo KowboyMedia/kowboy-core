@@ -11,10 +11,8 @@ import { Overview } from '@/pages/overview';
 import { Flow } from '@/pages/flow';
 import { Records } from '@/pages/records';
 import { RecordPage } from '@/pages/record';
-import { OldRecordPage } from '@/pages/record-old';
 import { Tenants } from '@/pages/tenants';
 import { TenantPage } from '@/pages/tenant';
-import { OldTenantPage } from '@/pages/tenant-old';
 import { ManualSyncPage } from '@/pages/sync';
 import { FailedForms } from '@/pages/forms';
 import { Events } from '@/pages/events';
@@ -73,13 +71,11 @@ export function App() {
             <Route path="flow" element={<Flow />} />
             <Route path="records" element={<Records />} />
             <Route path="records/:connection/:datatype/:id" element={<RecordPage />} />
-            <Route path="records-old/:connection/:datatype/:id" element={<OldRecordPage />} />
             <Route path="tenants" element={<Outlet />}>
               <Route index element={<Tenants />} />
               <Route path="new" element={<TenantPage />} />
               <Route path=":id" element={<TenantPage />} />
             </Route>
-            <Route path="tenants-old/:id" element={<OldTenantPage />} />
             <Route path="manual-sync" element={<ManualSyncPage />} />
             <Route path="forms" element={<FailedForms />} />
             <Route path="events" element={<Events />} />

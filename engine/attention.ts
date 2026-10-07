@@ -112,7 +112,7 @@ const named = (fields: EventFields, key: string): boolean =>
 
 /**
  * One thing that needs attention: the thing in words ("office Lidingö (the CRM's office id
- * M30011)", "Acme's Somecrm connection, short name acme-crm", "site acme.se"), its place in the
+ * M30011)", "Acme's Somecrm connection “Main”", "site acme.se"), its place in the
  * admin area (a path under /admin), where it is in words when the thing does not say it, and its
  * tenant.
  */
@@ -358,14 +358,14 @@ async function stillRefused(takenOff: EventRow[]): Promise<Set<string>> {
 const text = (fields: EventFields, key: string): string =>
   typeof fields[key] === 'string' ? (fields[key] as string) : '';
 
-/** A connection as a person knows it: "Acme's Somecrm connection, short name acme-crm". */
+/** A connection as a person knows it: "Acme's Somecrm connection “Main”". */
 function connectionWords(id: string, known: Names): string {
   const connection = known.connections.get(id);
   const tenant = connection ? known.tenants.get(connection.tenantId) : undefined;
-  return connectionNamed(id, tenant, connection?.provider);
+  return connectionNamed(connection?.name ?? id, tenant, connection?.provider);
 }
 
-/** Connections by their short names, each as a person knows it and with its block on its tenant's page. */
+/** Connections by their ids, each as a person knows it and with its block on its tenant's page. */
 export async function connectionsNamed(ids: string[]): Promise<{ label: string; to: string }[]> {
   if (ids.length === 0) return [];
   const known = await namesNow();
@@ -405,7 +405,6 @@ function officesTogether(rows: EventRow[], known: Names): Place {
   const scope = [
     ...(tenantId === null ? [] : [`tenant=${String(tenantId)}`]),
     `office=${ids.map(encodeURIComponent).join(',')}`,
-    'deleted=true',
   ];
   return {
     // Every office by name: the alert and the line say which, and the link opens them all.
@@ -413,7 +412,7 @@ function officesTogether(rows: EventRow[], known: Names): Place {
       rows.length === 1 && first
         ? officeNamed(text(first.fields, 'office_id'), text(first.fields, 'office_name'), tenant)
         : `${tenant ? `${tenant}’s` : 'the'} offices ${listed(named, named.length)}`,
-    // The offices' records, the removed ones: what left the sites with them.
+    // The offices' records, where each one's state says whether it left the sites with them.
     link: `/records?${scope.join('&')}`,
     where: first?.connection_id ? `Through ${connectionWords(first.connection_id, known)}.` : null,
     tenantId,

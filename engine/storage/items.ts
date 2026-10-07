@@ -294,40 +294,25 @@ export async function purgeTombstones(days: number): Promise<number> {
 
 // ---- What the admin panel looks at (docs/admin-panel.md) ----------------------------------------
 
-/** The columns a search can sort by. */
-export const SORTABLE = [
-  'seq',
-  'updated_at',
-  'remote_updated_at',
-  'tenant_id',
-  'connection_id',
-  'datatype',
-  'remote_id',
-  'office_id',
-  'deleted',
-] as const;
+/** Records come in pages of this many: Core holds thousands, more than one page can show. */
+export const RECORDS_PAGE = 500;
 
 export type ItemSearch = ScopeFilter & {
-  /** Live and removed alike when left out. */
-  deleted?: boolean;
-  sort?: (typeof SORTABLE)[number];
-  dir?: 'asc' | 'desc';
   /** From 1. */
   page?: number;
-  size?: number;
 };
 
-/** Items in a scope, one page, with the count of everything that matches. */
+/**
+ * Items in a scope, live and removed, the one changed last first: one page, with the count of
+ * everything that matches. Records offers no other order (Patric, 2026-10-07).
+ */
 export async function searchItems(query: ItemSearch): Promise<{ rows: ItemRow[]; total: number }> {
-  const where = scopeWhere(query, query.deleted ?? null);
-  const sort = SORTABLE.find((column) => column === query.sort) ?? 'seq';
-  const dir = query.dir === 'asc' ? 'asc' : 'desc';
-  const size = Math.min(Math.max(query.size ?? 50, 1), 500);
-  const offset = (Math.max(query.page ?? 1, 1) - 1) * size;
+  const where = scopeWhere(query, null);
+  const offset = (Math.max(query.page ?? 1, 1) - 1) * RECORDS_PAGE;
   const condition = where.clauses.join(' and ');
   const [{ rows }, count] = await Promise.all([
     db().query<ItemRow>(
-      `select * from items where ${condition} order by ${sort} ${dir} nulls last, seq desc limit ${size} offset ${offset}`,
+      `select * from items where ${condition} order by updated_at desc, seq desc limit ${RECORDS_PAGE} offset ${offset}`,
       where.values,
     ),
     db().query<{ n: string }>(`select count(*) as n from items where ${condition}`, where.values),
