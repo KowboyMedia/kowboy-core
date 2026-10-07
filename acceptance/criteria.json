@@ -460,7 +460,7 @@
         "the admin area shows the day, the verdict and the sites on one call (U2, U5, AC 42)",
         "the admin area lists what needs attention from the last seven days, naming each thing, where it is, and its link (U2, questions 159 and 163)",
         "the admin area lists what is in flight, coloured by state, by tenant and office (U5, Patric’s rule 3)",
-        "the admin area reads the event log by every filter, and follows a chain (U3, U6, AC 42)",
+        "the admin area reads the event log in sentences, a page at a time, and one happening’s steps together (U3, U6, AC 42)",
         "the admin area brings an adapter’s own page, its directions and its actions (U7, question 61)",
         "the admin area shows the configuration without any value, and the migrations (U6, AC 42)",
         "the admin area holds the bells and the jobs while maintenance is on (U6, AC 42)",

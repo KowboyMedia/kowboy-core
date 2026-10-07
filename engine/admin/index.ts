@@ -6,7 +6,6 @@ import { report } from '../errors.js';
 import { DATATYPES, type Datatype } from '../adapter-api/types.js';
 import { newSecret } from '../storage/crypto.js';
 import { subscribers, tenantById, updateSubscriber, updateTenant } from '../storage/connections.js';
-import { queryEvents } from '../events.js';
 import { healthReport } from '../health.js';
 import { STARTED_AT, VERSION } from '../version.js';
 import {
@@ -26,7 +25,8 @@ import { audit } from './audit.js';
 import { overview } from './overview.js';
 import { act, crmPage, crms, probe } from './crms.js';
 import { configuration, setMaintenance } from './configuration.js';
-import { flow, namesInTurn, stream, toStreamEvent } from './feed.js';
+import { flow, stream } from './feed.js';
+import { steps } from './event-log.js';
 import { inspect, readRecord, search } from './records.js';
 import { auditedOn, describe, recordsFromBody, sync, LEVELS, type ScopeInput } from './runs.js';
 import { scopeFromBody, scopeFromQuery, scopeOptions } from './scope.js';
@@ -45,7 +45,7 @@ import {
   number,
   one,
   page,
-  refuseBadFilters,
+  refuseBadNumbers,
   text,
   PREFIX,
   type AdminRequest,
@@ -275,7 +275,7 @@ const routes: AdminRoute[] = [
     handler: async (request) => {
       const read = scopeFromQuery(request.query);
       if ('error' in read) return fail(400, read.error);
-      const refused = refuseBadFilters(request, [], ['page']);
+      const refused = refuseBadNumbers(request, ['page']);
       if (refused) return refused;
       const found = await search({ ...read.scope, page: number(request, 'page', 1) });
       return page(found.rows, found.total);
@@ -364,30 +364,10 @@ const routes: AdminRoute[] = [
     method: 'GET',
     path: '/events',
     handler: async (request) => {
-      const refused = refuseBadFilters(
-        request,
-        ['from', 'to'],
-        ['tenant', 'site', 'before', 'after', 'limit'],
-      );
+      const refused = refuseBadNumbers(request, ['page']);
       if (refused) return refused;
-      const rows = await queryEvents({
-        type: text(request, 'type'),
-        tenantId: text(request, 'tenant') ? Number(text(request, 'tenant')) : undefined,
-        connectionId: text(request, 'connection'),
-        subscriberId: text(request, 'site') ? Number(text(request, 'site')) : undefined,
-        correlationId: text(request, 'correlation'),
-        from: text(request, 'from'),
-        to: text(request, 'to'),
-        beforeId: text(request, 'before') ? Number(text(request, 'before')) : undefined,
-        afterId: text(request, 'after') ? Number(text(request, 'after')) : undefined,
-        newestFirst: text(request, 'oldest') !== 'true',
-        limit: number(request, 'limit', 100),
-      });
-      const names = await namesInTurn();
-      return page(
-        rows.map((row) => toStreamEvent(row, names)),
-        rows.length,
-      );
+      const found = await steps(number(request, 'page', 1), text(request, 'correlation') ?? null);
+      return page(found.steps, found.total);
     },
   },
 

@@ -323,8 +323,9 @@ test('journey: U6 remember this device, and see every device it is signed in on'
 
 test('journey: U6 the event log says who did what', async ({ page }) => {
   await go(page, 'Events');
-  await page.getByRole('button', { name: 'Saves' }).click();
+  // Each step is a sentence naming the person, never an event's type or its payload.
   await expect(page.getByText(EMAIL).first()).toBeVisible();
+  await expect(page.getByText('admin.signed_in')).toHaveCount(0);
 });
 
 test('journey: U6 maintenance pauses Core’s own work, and says so everywhere', async ({ page }) => {

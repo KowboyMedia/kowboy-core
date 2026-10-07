@@ -61,21 +61,10 @@ export const text = (request: Request, key: string): string | undefined => {
 };
 
 /**
- * The filters a person types: a moment must be a date and a number must be a number, or the page
- * says so in words. Without this, a slip in a filter box reached the database as a cast error
- * (seen on staging, 2026-09-20).
+ * The numbers in an address, such as the page, must be numbers, or the page says so in words.
+ * Without this, a slip reached the database as a cast error (seen on staging, 2026-09-20).
  */
-export function refuseBadFilters(
-  request: Request,
-  moments: string[],
-  numbers: string[],
-): Response | null {
-  for (const key of moments) {
-    const value = text(request, key);
-    if (value !== undefined && Number.isNaN(new Date(value).getTime())) {
-      return fail(400, `“${value}” is not a date. Write it as 2026-09-20 or 2026-09-20T14:00:00Z.`);
-    }
-  }
+export function refuseBadNumbers(request: Request, numbers: string[]): Response | null {
   for (const key of numbers) {
     const value = text(request, key);
     if (value !== undefined && !/^\d+$/.test(value)) {

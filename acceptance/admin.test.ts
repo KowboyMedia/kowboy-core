@@ -920,29 +920,82 @@ describe('the admin area', () => {
     expect((await api('/flow?tenant=abc')).status).toBe(400);
   });
 
-  it('reads the event log by every filter, and follows a chain (U3, U6, AC 42)', async () => {
+  it('reads the event log in sentences, a page at a time, and one happening’s steps together (U3, U6, AC 42)', async () => {
     const made = await api<{ data: { id: number } }>('/tenants', {
       method: 'POST',
       body: tenantBody(),
     });
-    const all = await api<{ data: { id: number; type: string; correlationId: string | null }[] }>(
-      '/events',
+    const tenantPage = `/tenants/${String(made.body.data.id)}`;
+    crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
+    crm.put('property', 'OBJ-1', property('OBJ-1'));
+    await running.deliver();
+    await until(
+      async () => (await api<{ total: number }>('/records?datatype=property')).body.total === 1,
+      'the property to load',
     );
-    expect(all.body.data.length).toBeGreaterThan(0);
 
-    // A panel save is an event with the person on it: "who did what" is a filter, not a page.
-    const saves = await api<{ data: { fields: { by: string } }[] }>(
-      '/events?type=admin.tenant_saved',
+    type Step = {
+      id: number;
+      about: { label: string; to: string | null } | null;
+      said: string;
+      places: { text: string; to: string }[];
+    };
+    const log = await api<{ data: Step[]; total: number }>('/events');
+    expect(log.status).toBe(200);
+    // Sites may still be told of the change meanwhile, so the log only grows between two reads.
+    expect(log.body.total).toBeGreaterThanOrEqual(log.body.data.length);
+    // Newest first, and every step a sentence: no type and no payload reach the page.
+    const ids = log.body.data.map((step) => step.id);
+    expect(ids).toEqual([...ids].sort((a, b) => b - a));
+    for (const step of log.body.data) {
+      expect(Object.keys(step).sort()).toEqual(['about', 'at', 'id', 'places', 'said']);
+      expect(step.said).not.toBe('');
+      for (const place of step.places) expect(step.said).toContain(place.text);
+    }
+    expect(JSON.stringify(log.body.data)).not.toContain('admin.tenant_saved');
+
+    // Who did what: the save names the person, and the tenant it names opens the tenant's page.
+    const save = log.body.data.find((step) => step.said.startsWith(EMAIL));
+    expect(save?.places).toContainEqual({ text: 'Acme Mäklare', to: tenantPage });
+    // A connection a step names opens its block on the tenant's page.
+    expect(log.body.data.flatMap((step) => step.places)).toContainEqual({
+      text: 'Acme Mäklare’s Fake-webhook connection “Acme CRM”',
+      to: `${tenantPage}#connection:acme-crm`,
+    });
+    // A step about a record names it by its address and opens its page.
+    const written = log.body.data.find(
+      (step) => step.about?.to === '/records/acme-crm/property/OBJ-1',
     );
-    expect(saves.body.data[0]?.fields.by).toBe(EMAIL);
+    expect(written?.about?.label).toContain('Storgatan 12');
 
-    const byTenant = await api<{ data: unknown[] }>(`/events?tenant=${String(made.body.data.id)}`);
-    expect(byTenant.body.data.length).toBeGreaterThan(0);
-    // A bad date or number is a refusal in words, never a database error (found on staging).
-    const slip = await api<{ error: string }>('/events?from=not-a-date');
+    // One happening's steps together, oldest first, as a record's page links to them.
+    const { rows } = await db().query<{ correlation_id: string }>(
+      `select correlation_id from events
+       where correlation_id is not null and remote_id = 'OBJ-1' limit 1`,
+    );
+    const chain = rows[0]?.correlation_id ?? '';
+    const together = await api<{ data: Step[]; total: number }>(
+      `/events?correlation=${encodeURIComponent(chain)}`,
+    );
+    const inOrder = together.body.data.map((step) => step.id);
+    expect(inOrder.length).toBeGreaterThan(0);
+    expect(inOrder).toEqual([...inOrder].sort((a, b) => a - b));
+    const { rows: all } = await db().query<{ id: string }>(
+      'select id from events where correlation_id = $1',
+      [chain],
+    );
+    const ofChain = new Set(all.map((row) => Number(row.id)));
+    expect(inOrder.every((id) => ofChain.has(id))).toBe(true);
+    expect(together.body.total).toBeGreaterThanOrEqual(inOrder.length);
+
+    // A page past the end is empty; a page that is not a number is refused in words.
+    const past = await api<{ data: Step[]; total: number }>('/events?page=2');
+    expect(past.body.data).toEqual([]);
+    expect(past.body.total).toBeGreaterThanOrEqual(log.body.total);
+    const slip = await api<{ error: string }>('/events?page=two');
     expect(slip.status).toBe(400);
-    expect(slip.body.error).toContain('not a date');
-    expect((await api('/records?tenant=abc')).status).toBe(400);
+    expect(slip.body.error).toBe('“two” is not a number.');
+    expect((await api('/records?page=abc')).status).toBe(400);
   });
 
   it('brings an adapter’s own page, its directions and its actions (U7, question 61)', async () => {

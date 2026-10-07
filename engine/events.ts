@@ -90,13 +90,10 @@ export type EventQuery = {
   subscriberId?: number;
   correlationId?: string;
   type?: string;
-  from?: string;
-  to?: string;
   limit?: number;
-  /** The admin panel reads the latest first. */
+  /** A record's page reads the latest first. */
   newestFirst?: boolean;
-  /** Page older than this event, or tail newer than it. */
-  beforeId?: number;
+  /** The live tail: only events newer than this one. */
   afterId?: number;
 };
 
@@ -111,9 +108,6 @@ export async function queryEvents(query: EventQuery): Promise<EventRow[]> {
     ['subscriber_id = ?', query.subscriberId],
     ['correlation_id = ?', query.correlationId],
     ['type = ?', query.type],
-    ['at >= ?', query.from],
-    ['at <= ?', query.to],
-    ['id < ?', query.beforeId],
     ['id > ?', query.afterId],
   ];
   const where: string[] = [];

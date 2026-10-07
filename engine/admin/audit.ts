@@ -1,6 +1,6 @@
 // Who did what in the admin area (§3 F, Should). Not a page of its own: every save, rotation and
-// action is an `admin.*` event with the person on it, in the one event log, so "who did what" is
-// a filter on Events (docs/admin-panel-design.md §2).
+// action is an `admin.*` event with the person on it, in the one event log, and Events says it in
+// a sentence that opens with the person.
 import { logEvent } from '../events.js';
 import type { Session } from './auth.js';
 

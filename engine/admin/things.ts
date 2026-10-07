@@ -29,8 +29,11 @@ const keyOf = (connection: string, datatype: string, id: string): string =>
 
 type Held = Map<string, Canonical | null>;
 
+/** An office or a record to look up, on its connection. */
+type Lookup = { connection: string; office?: string; record?: { datatype: string; id: string } };
+
 /** The offices' and records' own names, as the records Core holds give them. */
-async function heldNames(things: AdminThing[], known: Names): Promise<Held> {
+async function heldNames(things: Lookup[], known: Names): Promise<Held> {
   const wanted = things.flatMap((thing) => {
     const tenantId = known.connections.get(thing.connection)?.tenantId;
     if (tenantId === undefined) return [];
@@ -67,6 +70,18 @@ function recordLinked(
     label: recordName(held.get(key) ?? null) ?? byId,
     to: `/records/${encodeURIComponent(connection)}/${record.datatype}/${encodeURIComponent(record.id)}`,
   };
+}
+
+/** Records by their addresses or names, each opening its page, with the names already read. */
+export async function recordsLinked(
+  records: { connection: string; datatype: string; id: string }[],
+  known: Names,
+): Promise<Linked[]> {
+  const held = await heldNames(
+    records.map(({ connection, datatype, id }) => ({ connection, record: { datatype, id } })),
+    known,
+  );
+  return records.map((record) => recordLinked(record.connection, record, held));
 }
 
 /** An office by its tenant and name, then the CRM's id for it, opening its records. */

@@ -322,11 +322,7 @@ export function stream(afterId: number): Response {
           const fresh = await queryEvents({ afterId: after, limit: 200 });
           if (fresh.length > 0) {
             after = Number(fresh[fresh.length - 1]?.id ?? after);
-            const names = await namesInTurn();
-            send(
-              'events',
-              fresh.map((event) => toStreamEvent(event, names)),
-            );
+            send('events', fresh.map(toStreamEvent));
           }
           const jobs = await openJobs();
           const asJson = JSON.stringify(jobs);
@@ -370,17 +366,11 @@ export function stream(afterId: number): Response {
   };
 }
 
-export const toStreamEvent = (event: EventRow, names: Names): Record<string, unknown> => ({
+/** What a page needs to know that something happened: which event, and the record it is about. */
+const toStreamEvent = (event: EventRow): Record<string, unknown> => ({
   id: Number(event.id),
-  at: event.at.toISOString(),
   type: event.type,
-  correlationId: event.correlation_id,
-  tenantId: event.tenant_id,
   connectionId: event.connection_id,
   datatype: event.datatype,
   remoteId: event.remote_id,
-  subscriberId: event.subscriber_id === null ? null : Number(event.subscriber_id),
-  // The same sentence the timeline reads, so one event never says two things.
-  said: summarise(event.type, event.fields, namedFor(event, names)),
-  fields: event.fields,
 });
