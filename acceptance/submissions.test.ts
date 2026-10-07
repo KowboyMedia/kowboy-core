@@ -3,7 +3,16 @@
 // fake polling CRM, which takes every kind, and the fake webhook CRM, which takes none.
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { harness, healthReport, pull, until, HUMAN_TOKEN, TOKEN, type Harness } from './harness.js';
+import {
+  harness,
+  healthReport,
+  pull,
+  until,
+  HUMAN_TOKEN,
+  TENANT,
+  TOKEN,
+  type Harness,
+} from './harness.js';
 import { fakePollingAdapter, poll } from '../adapters/fake-polling/index.js';
 import { fakeWebhookAdapter } from '../adapters/fake-webhook/index.js';
 import * as crm from '../adapters/fake-polling/crm.js';
@@ -606,6 +615,62 @@ describe('submissions', () => {
     expect((await post(submission('interest', { record }))).body).toMatchObject({
       status: 'refused',
       reason: NOT_LIVE,
+    });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(crm.formsTaken()).toHaveLength(1);
+  });
+
+  it('a connection ticked to dry-run its forms holds every form before any CRM call, on the live service and for a CRM’s own test system alike, and still reads a viewing’s times', async () => {
+    const send = vi.fn(fakePollingAdapter.submit);
+    registerSubmissions(fakePollingAdapter.manifest.provider, {
+      ...fakePollingAdapter,
+      submit: send,
+      testSystem: () => true,
+    });
+    const save = (formsDryRun?: boolean) =>
+      upsertConnection({
+        id: CONNECTION,
+        tenantId: TENANT,
+        provider: fakePollingAdapter.manifest.provider,
+        licensedOffices: [OFFICE],
+        ...(formsDryRun === undefined ? {} : { formsDryRun }),
+      });
+    await save(true);
+    // A save that does not name the tick, as every other caller makes, leaves it ticked.
+    await save();
+
+    // The live service holds the form, and the visitor reads that it was not sent.
+    const body = submission('interest', { record });
+    expect((await post(body)).body).toEqual({
+      id: body['id'],
+      status: 'refused',
+      reason: NOT_LIVE,
+    });
+    expect((await post(submission('lead'))).body).toMatchObject({ reason: NOT_LIVE });
+    // A send by another way than the form route is held the same, since the stop is central.
+    const connection = await connectionById(CONNECTION);
+    if (!connection) throw new Error('the stand-in connection is missing');
+    const form = submission('interest', { record }) as unknown as Submission;
+    const another = submissionsFor(fakePollingAdapter.manifest.provider)?.submit;
+    expect(await another?.(connection, form)).toEqual({ outcome: 'refused', reason: NOT_LIVE });
+    // Outside the live service, a CRM's own test system is held too: the tick only holds.
+    configureLiveService({ live: false });
+    expect((await post(submission('interest', { record }))).body).toMatchObject({
+      status: 'refused',
+      reason: NOT_LIVE,
+    });
+    expect(send).not.toHaveBeenCalled();
+    expect(crm.formsTaken()).toHaveLength(0);
+
+    // Reading a viewing's times is no write, so it still asks the CRM.
+    crm.setShowings(HOME, []);
+    expect((await slots({ connection_id: CONNECTION, remote_id: HOME })).status).toBe(200);
+
+    // Unticked, the live service sends the next form, so what held it was the tick.
+    configureLiveService({ live: true });
+    await save(false);
+    expect((await post(submission('interest', { record }))).body).toMatchObject({
+      status: 'delivered',
     });
     expect(send).toHaveBeenCalledTimes(1);
     expect(crm.formsTaken()).toHaveLength(1);

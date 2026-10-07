@@ -20,7 +20,7 @@ import { toRow } from './records.js';
 import { connectionNamed, crmName } from './words.js';
 
 /**
- * Refused by the CRM, held back by Core outside production (the CRM never saw it), not sent
+ * Refused by the CRM, held back by Core as a dry run (the CRM never saw it), not sent
  * because of an error, or cut off before the CRM answered.
  */
 export type FailedOutcome = 'refused' | 'held' | 'failed' | 'unanswered';
@@ -51,7 +51,7 @@ export type FailedForm = {
   form: Submission;
 };
 
-/** Core's own hold outside production is not the CRM's refusal. */
+/** Core's own hold, a dry run, is not the CRM's refusal. */
 const outcomeOf = (outcome: string, detail: string | null): FailedOutcome => {
   if (outcome === 'received') return 'unanswered';
   if (outcome === 'refused' && detail === NOT_LIVE) return 'held';
@@ -180,7 +180,7 @@ async function namesOf(row: SubmissionRow | null): Promise<Named> {
 }
 
 /**
- * "Send again" as the admin area says it: Core's own hold outside production is "held", and a
+ * "Send again" as the admin area says it: Core's own hold, a dry run, is "held", and a
  * form that cannot go says why in words.
  */
 export async function sendAgainAsked(

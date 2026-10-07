@@ -1012,7 +1012,14 @@ staging when it is done:
   connection's form to the adapter, the same connection object, so the send goes where the
   answer was given. No answer, false, or a thrown error holds the form as before. The Vitec code
   answers yes for a login with "Use Vitec’s QA environment" ticked, so staging sends such a
-  connection's forms to Vitec's QA and holds every other form.
+  connection's forms to Vitec's QA and holds every other form. One more hold, Patric's on
+  2026-10-07 ("Add a connector checkbox to prevent hot leads, only dry run"): a connection ticked
+  to dry-run its forms (`connections.forms_dry_run`, migration 019) has every form held the same
+  way, with the same answer, on the live service and for a CRM's test system too. The guard reads
+  the tick at each send (`formsDryRun` in `engine/storage/connections.ts`), so it holds from the
+  moment it is saved; a database that does not answer fails the form rather than send it. The
+  tick only holds, never sends a form the rest of the guard would hold. Reading homes and a
+  viewing's times goes on. The tickbox sits on the connection on the tenant's page.
 - **The bot check** (155 lines 3 and 6; known bug 4): `GET /v1/submissions/bot-check` answers the
   site's server, with its token, the check's provider and public key (`{ "human": { "provider":
 "turnstile", "site_key": … } }`, or `null` without a check). `POST /v1/submissions` reads the

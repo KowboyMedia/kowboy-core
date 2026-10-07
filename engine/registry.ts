@@ -10,6 +10,7 @@ import type {
   Mappers,
   SubmissionResult,
 } from './adapter-api/types.js';
+import { formsDryRun } from './storage/connections.js';
 
 /**
  * What the engine remembers about the adapters that registered. The engine looks entries up by
@@ -69,8 +70,13 @@ export function adminProviders(): string[] {
  * a Core never told stays off.
  */
 let live = false;
+/**
+ * The answer to a form the guard holds back, a dry run: outside the live service, or through a
+ * connection ticked to dry-run its forms. The visitor reads it; nothing is wrong, so no alert.
+ */
 export const NOT_LIVE =
   'Det här är en testsida, så formuläret skickades inte vidare till mäklaren.';
+const held = (): SubmissionResult => ({ outcome: 'refused', reason: NOT_LIVE });
 
 export function configureLiveService(settings: { live: boolean }): void {
   live = settings.live;
@@ -85,11 +91,15 @@ export const isLiveService = (): boolean => live;
  *
  * The guard sits here. The engine never imports adapter code (the seam, checked on every
  * change), so this is the one place it gets an adapter's `submit`, and the registry keeps only
- * the guarded one: outside the live service it answers refused with `NOT_LIVE` and the adapter
- * is never called, unless the adapter says the connection is its own test system (question
- * 181). The same connection is then handed to `submit`, so the send goes where the answer was
- * given. A site's form, "Send again" and any way to a CRM added later all pass it without anyone
- * putting it there. Reading a viewing's times is no write and is not guarded.
+ * the guarded one, which answers refused with `NOT_LIVE` and never calls the adapter in two
+ * cases. First, a connection ticked to dry-run its forms holds every form, on the live service
+ * too (Patric, 2026-10-07: "prevent hot leads, only dry run"); the tick is read at each send, so
+ * it holds from the moment it is saved, and a database that does not answer fails the form
+ * rather than send it. Second, outside the live service, unless the adapter says the connection
+ * is its own test system (question 181); the same connection is then handed to `submit`, so the
+ * send goes where the answer was given. A site's form, "Send again" and any way to a CRM added
+ * later all pass it without anyone putting it there. Reading a viewing's times is no write and is
+ * not guarded.
  */
 export function registerSubmissions(provider: string, handlers: SubmissionHandlers): void {
   const { submit, slots, testSystem } = handlers;
@@ -105,10 +115,10 @@ export function registerSubmissions(provider: string, handlers: SubmissionHandle
   submissionHandlers.set(provider, {
     submit:
       submit &&
-      ((connection, submission) =>
-        sends(connection)
-          ? submit(connection, submission)
-          : Promise.resolve<SubmissionResult>({ outcome: 'refused', reason: NOT_LIVE })),
+      (async (connection, submission) =>
+        (await formsDryRun(connection.id)) || !sends(connection)
+          ? held()
+          : submit(connection, submission)),
     slots,
   });
 }

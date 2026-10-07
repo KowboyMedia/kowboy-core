@@ -275,7 +275,7 @@ test('journey: failed forms — read a form the CRM did not take, and send it ag
   await form.getByRole('button', { name: 'Send again' }).click();
   await page.getByRole('button', { name: 'Send it' }).click();
   await expect(
-    page.getByText('Held back again: only production sends forms to a live CRM.', { exact: false }),
+    page.getByText('Held back again: only production sends forms to a live CRM', { exact: false }),
   ).toBeVisible();
   await expect(form).toHaveCount(1);
 });

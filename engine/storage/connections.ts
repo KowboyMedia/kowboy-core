@@ -63,7 +63,8 @@ export async function tenantForToken(
 
 /**
  * Add or change a connection. Its name is what a person reads it by; one added without a name
- * takes its id as its name, and one changed without a name keeps the one it has.
+ * takes its id as its name, and one changed without a name keeps the one it has. The forms tick
+ * works the same way: one added without it is unticked, one changed without it keeps its own.
  */
 export async function upsertConnection(input: {
   id: string;
@@ -72,16 +73,19 @@ export async function upsertConnection(input: {
   name?: string;
   credentials?: string | null;
   licensedOffices?: string[];
+  /** Ticked: Core holds every form through this connection before the CRM (`formsDryRun`). */
+  formsDryRun?: boolean;
 }): Promise<void> {
   await db().query(
-    `insert into connections (id, tenant_id, provider, credentials, licensed_offices, name)
-     values ($1,$2,$3,$4,$5, coalesce($6, $1))
+    `insert into connections (id, tenant_id, provider, credentials, licensed_offices, name, forms_dry_run)
+     values ($1,$2,$3,$4,$5, coalesce($6, $1), coalesce($7::boolean, false))
      on conflict (id) do update set
        tenant_id = excluded.tenant_id,
        provider = excluded.provider,
        credentials = coalesce(excluded.credentials, connections.credentials),
        licensed_offices = excluded.licensed_offices,
-       name = coalesce($6, connections.name)`,
+       name = coalesce($6, connections.name),
+       forms_dry_run = coalesce($7::boolean, connections.forms_dry_run)`,
     [
       input.id,
       input.tenantId,
@@ -89,8 +93,22 @@ export async function upsertConnection(input: {
       input.credentials ? encrypt(input.credentials, credentialsKey) : null,
       input.licensedOffices ?? [],
       input.name ?? null,
+      input.formsDryRun ?? null,
     ],
   );
+}
+
+/**
+ * Whether a connection is ticked to dry-run its forms (Patric, 2026-10-07: "prevent hot leads,
+ * only dry run"). The forms guard asks before every send (`registerSubmissions`). A connection
+ * that is not there is not ticked; a database that does not answer throws, so the form fails.
+ */
+export async function formsDryRun(connectionId: string): Promise<boolean> {
+  const { rows } = await db().query<{ forms_dry_run: boolean }>(
+    'select forms_dry_run from connections where id = $1',
+    [connectionId],
+  );
+  return rows[0]?.forms_dry_run === true;
 }
 
 export async function setLicensedOffices(connectionId: string, officeIds: string[]): Promise<void> {
@@ -233,6 +251,8 @@ export type ConnectionListRow = {
   /** What a person reads it by; the id is Core's own. */
   name: string;
   licensed_offices: string[];
+  /** Ticked: Core sends none of this connection's forms to the CRM (`formsDryRun`). */
+  forms_dry_run: boolean;
   last_ingest_at: Date | null;
   last_error: string | null;
 };
@@ -240,7 +260,7 @@ export type ConnectionListRow = {
 /** Every connection, without its credentials. */
 export async function connections(): Promise<ConnectionListRow[]> {
   const { rows } = await db().query<ConnectionListRow>(
-    `select id, tenant_id, provider, name, licensed_offices, last_ingest_at, last_error
+    `select id, tenant_id, provider, name, licensed_offices, forms_dry_run, last_ingest_at, last_error
      from connections order by tenant_id, id`,
   );
   return rows;
