@@ -527,11 +527,12 @@ iframe.k-hero__video {
   justify-content: space-between;
   gap: 12px;
 }
+/* The label sits right on the title, no gap between them (Patric, 2026-10-07). */
 .k-hero__head-main {
   flex: 1 1 400px;
   max-width: 800px;
   display: grid;
-  gap: 8px;
+  gap: 0;
 }
 .k-hero__facts {
   display: flex;
@@ -896,6 +897,7 @@ iframe.k-hero__video {
   top: auto;
   height: 96px;
 }
+/* The street sits right under the area, no gap between them; the facts keep theirs (Patric, 2026-10-07). */
 .k-card__body {
   position: absolute;
   left: 16px;
@@ -903,7 +905,7 @@ iframe.k-hero__video {
   bottom: 16px;
   z-index: 4;
   display: grid;
-  gap: 6px;
+  gap: 0;
   pointer-events: none;
 }
 .k-card__area {
@@ -969,6 +971,7 @@ iframe.k-hero__video {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 16px;
+  margin-top: 6px;
   font-size: var(--k-label-size);
   line-height: 1.37;
 }
@@ -1149,13 +1152,14 @@ iframe.k-hero__video {
   inset: 0;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.78) 100%);
 }
+/* The title sits right under the name, no gap between them; the contact keeps its own (Patric, 2026-10-07). */
 .k-agent-card__body {
   position: absolute;
   left: 16px;
   right: 16px;
   bottom: 16px;
   display: grid;
-  gap: 4px;
+  gap: 0;
 }
 .k-agent-card__name {
   font-size: 18px;
@@ -1174,6 +1178,7 @@ iframe.k-hero__video {
 .k-agent-card__contact {
   display: grid;
   gap: 2px;
+  margin-top: 4px;
   font-size: var(--k-label-size);
 }
 .k-agent-card__contact a {
