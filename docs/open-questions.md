@@ -4,10 +4,32 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 188 (185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 189 (185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 188. `[core]` One read of one home's change history inside staging Core
+
+- 2026-10-12 · Patric asked for old versions of the home `OBJ5P4RD332KW42S276BD` (Bondegatan 18,
+  3 tr, at the Svenska Mäklarhuset office Vitec calls `M12462`, in group `G12`), to see which
+  images its agent removed today and whether the last list before that held images she says were
+  not for publishing. Core keeps only the latest copy of a record, but its event log keeps every
+  change of the universal fields with the value before and after (`entity.written`, field
+  `changed`) for 30 days, so each image list the home had in that time is there. Nothing in a
+  session can read it: the database cluster accepts connections from the two Core apps only, its
+  login was refused to sessions by the permission check, and staging's admin pages say which
+  fields changed without their values (the timeline carries no payload by Patric's rule of
+  2026-09-21, and staging's rebuilt Events page shows sentences only). The smallest way in is one
+  read-only query run inside staging Core's worker through DigitalOcean's console, printing the
+  home's `entity.written` rows; nothing is written, and the console is closed after. Vitec's
+  website feed carries no publish flag on an image: Vitec lists only the images marked for the
+  website (its migration guide maps the old `AdvertiseOn.ImageIds` onto `Images`), so an image in
+  one of these lists was marked for the website when Core fetched it. The page svenskamaklarhuset.se
+  shows is drawn by the old plugin v3, not by Core; its 30 images at 17:40 UTC are kept in the
+  project files (`support/bondegatan-18-live-images-2026-10-12.md`) for the comparison.
+- a: yes, the one read. b: no; the history stays unread and Core deletes it after 30 days.
+  Recommended: a.
 
 ## 187. `[core]` The sign-in link, so the Ahre demo site joins the Norban tenant
 
