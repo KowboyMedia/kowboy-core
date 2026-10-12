@@ -226,10 +226,7 @@ function referencesOf(payload: Record<string, unknown>): [Datatype, string][] {
 /** What this adapter shows in the panel: its login, its fetch list, and one action. */
 const admin: AdapterAdmin = {
   checks: {
-    [`${PROVIDER}.webhook_lag`]: {
-      title: 'Changes the fake CRM told Core about',
-      fine: 'Core fetched every change the fake CRM told it about within five minutes.',
-    },
+    [`${PROVIDER}.webhook_lag`]: { title: 'Changes the fake CRM told Core about' },
   },
   credentials: [
     {
@@ -251,7 +248,7 @@ const admin: AdapterAdmin = {
       },
       {
         title: 'Check',
-        text: 'The check “Changes the fake CRM told Core about” shows Fine on the Overview.',
+        text: 'The Overview does not show the check “Changes the fake CRM told Core about”: it shows a check only while it finds something that needs a person.',
       },
     ],
     settings: [],

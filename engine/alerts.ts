@@ -524,13 +524,13 @@ function startedBetween(
   return told;
 }
 
-/** The things told, one paragraph each, then the way to everything Core checks. */
+/** The things told, one paragraph each, then the way to what needs attention now. */
 function message(told: Told[], config: AlertConfig, slack: boolean): string {
   const overview = config.publicUrl
     ? slack
-      ? `<${config.publicUrl}/admin/|Everything Core checks, on the Overview>`
-      : `Everything Core checks, on the Overview: ${config.publicUrl}/admin/`
-    : 'Everything Core checks is on the Overview in Core’s admin area.';
+      ? `<${config.publicUrl}/admin/|What needs attention, on the Overview>`
+      : `What needs attention, on the Overview: ${config.publicUrl}/admin/`
+    : 'What needs attention is on the Overview in Core’s admin area.';
   return [...told.map((item) => paragraph(item, config, slack)), overview].join('\n\n');
 }
 

@@ -795,17 +795,16 @@ describe('the admin area', () => {
     const overview = await api<{
       data: {
         health: { checks: Record<string, { level?: string }> };
-        about: Record<string, { title: string; fine: string }>;
+        about: Record<string, { title: string }>;
         links: Record<string, unknown[]>;
       };
     }>('/overview');
     expect(overview.body.data.health.checks['fake-webhook.offices']).toMatchObject({ level: 'P2' });
     expect(overview.body.data.links['fake-webhook.offices']).toEqual(named);
-    // The CRM's code gave its check a title and a sentence for while it passes; a check it gave
-    // none is about fetching from the CRM.
-    expect(overview.body.data.about['fake-webhook.webhook_lag']).toMatchObject({
+    // The CRM's code gave its check a title; a check it gave none is about fetching from the CRM.
+    expect(overview.body.data.about['fake-webhook.webhook_lag']).toEqual({
       title: 'Changes the fake CRM told Core about',
-      fine: 'Core fetched every change the fake CRM told it about within five minutes.',
+      page: { to: '/crms/fake-webhook', label: 'the Fake-webhook page' },
     });
     expect(overview.body.data.about['fake-webhook.offices']).toMatchObject({
       title: 'Fetching from Fake-webhook',

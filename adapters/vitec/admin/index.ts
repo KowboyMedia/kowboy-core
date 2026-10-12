@@ -608,37 +608,16 @@ async function officesSection(connection: Connection): Promise<AdminSection> {
 }
 
 export const vitecAdmin: AdapterAdmin = {
-  // Each check's title and its sentence while it passes; the admin area and the alerts show
-  // these, never the check's name (AGENTS.md, definition of done 5).
+  // Each check's title; the admin area and the alerts show it, never the check's name (AGENTS.md,
+  // definition of done 5).
   checks: {
-    'vitec.webhook_lag': {
-      title: 'Changes Vitec told Core about',
-      fine: 'Core handled every change Vitec told it about within five minutes.',
-    },
-    'vitec.retries': {
-      title: 'Records fetched from Vitec',
-      fine: 'No record has failed to fetch from Vitec three times in a row.',
-    },
-    'vitec.login': {
-      title: 'Vitec logins Core can read',
-      fine: 'Core can read the saved Vitec login of every connection that fetches.',
-    },
-    'vitec.no_offices': {
-      title: 'Offices to fetch from Vitec',
-      fine: 'Every Vitec connection that has been checked has offices to fetch.',
-    },
-    'vitec.catch_up': {
-      title: 'Catching up with Vitec',
-      fine: 'Every Vitec connection with offices has caught up with Vitec within the last 13 hours.',
-    },
-    'vitec.offices': {
-      title: 'Offices Vitec lets Core read',
-      fine: 'Vitec lets Core read every office Core fetches.',
-    },
-    'vitec.connect': {
-      title: 'Vitec answering Core',
-      fine: 'Vitec answers Core’s calls for every connection.',
-    },
+    'vitec.webhook_lag': { title: 'Changes Vitec told Core about' },
+    'vitec.retries': { title: 'Records fetched from Vitec' },
+    'vitec.login': { title: 'Vitec logins Core can read' },
+    'vitec.no_offices': { title: 'Offices to fetch from Vitec' },
+    'vitec.catch_up': { title: 'Catching up with Vitec' },
+    'vitec.offices': { title: 'Offices Vitec lets Core read' },
+    'vitec.connect': { title: 'Vitec answering Core' },
   },
 
   credentials: [

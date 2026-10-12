@@ -345,7 +345,7 @@ describe('alerts', () => {
         said,
         'Test tenant’s site test site: https://core.example/admin/tenants/1#site:1',
         '',
-        'Everything Core checks, on the Overview: https://core.example/admin/',
+        'What needs attention, on the Overview: https://core.example/admin/',
       ].join('\n'),
     );
 
@@ -445,7 +445,7 @@ describe('alerts', () => {
     );
     expect(running.mails[0]?.text).toContain('Have the worker restarted where Core is hosted.');
     expect(running.mails[0]?.text).toContain(
-      'Everything Core checks, on the Overview: https://core.example/admin/',
+      'What needs attention, on the Overview: https://core.example/admin/',
     );
     expect(running.mails[0]?.text).not.toContain('test site');
 
@@ -539,7 +539,7 @@ describe('alerts', () => {
         `Through Test tenant’s Fake-webhook connection “${CONNECTION}”.`,
         'A viewing booking a visitor sent: https://core.example/admin/forms',
         '',
-        'Everything Core checks, on the Overview: https://core.example/admin/',
+        'What needs attention, on the Overview: https://core.example/admin/',
       ].join('\n'),
     );
     const sent = await queryEvents({ type: 'alert.sent' });

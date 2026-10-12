@@ -98,7 +98,7 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   worker start until the catch-up, the comparison and their fetches are done; then a connection
   whose last catch-up is older than 13 h), `vitec.offices` (an office Vitec refuses) and
   `vitec.connect` (a connection Core stopped asking after five failed calls). Each has a level,
-  a title and a passing sentence (`vitecAdmin.checks`), and names its connections, offices and
+  a title (`vitecAdmin.checks`), and names its connections, offices and
   records by their ids for Core to name and link. The checks run in the worker and are recorded
   for the web process every 30 s.
 
