@@ -80,40 +80,29 @@ const CANNOT_RUN_MS = 15 * 60_000;
 export const SITES_CHECK = 'subscribers';
 
 /**
- * What a person reads about a check: its title, never its name, what it says while it passes, and
- * the page in the admin area where what it finds is put right, when there is one. The database and
- * the worker are put right where Core is hosted, and a site where it runs, so those have no page;
- * the things a check names are linked one by one.
+ * What a person reads about a check: its title, never its name, and the page in the admin area
+ * where what it finds is put right, when there is one. The database and the worker are put right
+ * where Core is hosted, and a site where it runs, so those have no page; the things a check names
+ * are linked one by one. A check that passes is not shown (Patric, 2026-10-12), so it has no
+ * sentence for that.
  */
 export type About = {
   title: string;
-  fine: string;
   page?: { to: string; label: string };
 };
 
 /** The engine's own checks, in words (AGENTS.md, definition of done item 5). */
 const ABOUT: Record<string, About> = {
-  database: { title: 'Core’s database', fine: 'Core reaches its database.' },
+  database: { title: 'Core’s database' },
   schema: {
     title: 'Core’s version and its database',
-    fine: 'The database fits the version of Core that is running.',
     page: { to: '/settings', label: 'Settings' },
   },
-  worker: {
-    title: 'Core’s background worker',
-    fine: 'Core’s background worker is running. It fetches from the CRMs, tells the sites about changes, sends the alerts and runs each CRM’s own checks.',
-  },
-  [SITES_CHECK]: {
-    title: 'Sites fetching their changes',
-    fine: 'Every site Core told about changes has fetched them within the hour.',
-  },
-  lifecycle: {
-    title: 'Tasks asked for in the admin area',
-    fine: 'Every task asked for in the admin area more than five minutes ago is done.',
-  },
+  worker: { title: 'Core’s background worker' },
+  [SITES_CHECK]: { title: 'Sites fetching their changes' },
+  lifecycle: { title: 'Tasks asked for in the admin area' },
   'submissions.failing': {
     title: 'Sending forms to the CRMs',
-    fine: 'No form is waiting because a CRM did not answer it.',
     page: { to: '/forms', label: 'Failed forms' },
   },
 };
@@ -130,7 +119,6 @@ export function aboutCheck(name: string): About {
   const words = adminFor(provider)?.checks?.[name];
   return {
     title: words?.title ?? `Fetching from ${crmName(provider)}`,
-    fine: words?.fine ?? 'This check finds nothing wrong.',
     page: { to: `/crms/${provider}`, label: `the ${crmName(provider)} page` },
   };
 }

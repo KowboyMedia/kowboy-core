@@ -113,8 +113,10 @@ test('journey: U2 keep it healthy — the verdict, and where a red check is fixe
   page,
 }) => {
   await expect(page.getByTestId('verdict')).toBeVisible();
-  await expect(page.getByTestId('check-database')).toContainText('Fine');
-  await expect(page.getByTestId('check-database')).toContainText('Core reaches its database.');
+  await expect(page.getByTestId('verdict')).not.toContainText('Looking…');
+  // Only a check that needs a person is shown: the database passes, so it is not (Patric,
+  // 2026-10-12: not "a large set of features that does not need attention").
+  await expect(page.getByTestId('check-database')).toHaveCount(0);
   await expect(page.getByTestId('environment')).toBeVisible();
   await expect(page.getByTestId('attention')).toContainText('Needs attention');
   await expect(page.getByRole('heading', { name: 'The last 24 hours' })).toBeVisible();

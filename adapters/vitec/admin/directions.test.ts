@@ -44,12 +44,10 @@ describe('the Vitec setup directions', () => {
     for (const check of checks) expect(text, check).toContain(`vitec.${check}`);
   });
 
-  it('give every health check a title and its sentence while it passes, so none shows its name', () => {
+  it('give every health check a title, so none shows its name', () => {
     const checks = found(/healthCheck\(`\$\{PROVIDER\}\.([a-z_]+)`/g);
     for (const check of checks) {
-      const words = vitecAdmin.checks?.[`vitec.${check}`];
-      expect(words?.title, check).toBeTruthy();
-      expect(words?.fine, check).toMatch(/\.$/);
+      expect(vitecAdmin.checks?.[`vitec.${check}`]?.title, check).toBeTruthy();
     }
     expect(Object.keys(vitecAdmin.checks ?? {}).sort()).toEqual(
       checks.map((check) => `vitec.${check}`).sort(),

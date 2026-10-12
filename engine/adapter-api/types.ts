@@ -379,10 +379,10 @@ export type AdapterAdmin = {
    */
   queueCount?(connections: Connection[], scope: AdminQueueScope): Promise<AdminQueueCount>;
   /**
-   * Each health check the adapter registers, by its name, in words: its title, and the sentence
-   * it shows while it passes. The admin area and the alerts show these, never the check's name.
+   * Each health check the adapter registers, by its name, in words: its title. The admin area and
+   * the alerts show it, never the check's name; a check that passes is not shown.
    */
-  checks?: Record<string, { title: string; fine: string }>;
+  checks?: Record<string, { title: string }>;
 };
 
 /** What an adapter directory exports. */

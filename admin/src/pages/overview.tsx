@@ -39,6 +39,13 @@ const TONE: Record<Level, 'bad' | 'warn' | 'muted'> = {
 /** A failing check without a level counts as P1. */
 const levelOf = (check: Check): Level => check.level ?? 'P1';
 
+/**
+ * Whether a check needs a person: it fails, and not for information only. A check that passes, or
+ * fails at P3, is not shown (Patric, 2026-10-12: not "a large set of features that does not need
+ * attention").
+ */
+const needsYou = (check: Check): boolean => !check.ok && levelOf(check) !== 'P3';
+
 type SiteRow = {
   id: number;
   tenantId: number;
@@ -68,8 +75,8 @@ type NeedsAttention = {
 
 type Overview = {
   health: { ok: boolean; checks: Record<string, Check> };
-  /** Each check's title, what it says while it passes, and the page where it is put right. */
-  about: Record<string, { title: string; fine: string; page?: { to: string; label: string } }>;
+  /** Each check's title, and the page where what it finds is put right. */
+  about: Record<string, { title: string; page?: { to: string; label: string } }>;
   /** The things a failing check names, each with its place when it has one. */
   links: Record<string, { label: string; to: string | null }[]>;
   maintenance: boolean;
@@ -162,11 +169,7 @@ function verdict(checks: [string, Check][]): { badge: string; tone: 'ok' | 'bad'
     };
   }
   return failing.length > 0
-    ? {
-        badge: 'Fine',
-        tone: 'ok',
-        said: 'Nothing is disrupted. The grey checks below are for information only.',
-      }
+    ? { badge: 'Fine', tone: 'ok', said: 'Nothing is disrupted, and nothing needs you.' }
     : { badge: 'Fine', tone: 'ok', said: 'Everything Core checks is working. Nothing needs you.' };
 }
 
@@ -177,6 +180,7 @@ export function Overview() {
   const data = result?.data;
   const checks = Object.entries(data?.health?.checks ?? {});
   const verdictNow = verdict(checks);
+  const needing = checks.filter(([, check]) => needsYou(check));
 
   const perDatatype = new Map<string, number>();
   for (const row of data?.records ?? []) {
@@ -221,50 +225,49 @@ export function Overview() {
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {checks.map(([name, check]) => {
-              const about = data?.about?.[name];
-              const links = data?.links?.[name] ?? [];
-              return (
-                <div
-                  key={name}
-                  className="flex flex-col gap-1 rounded-md border p-3"
-                  data-testid={`check-${name}`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium">
-                      {about?.title ?? 'A check Core has no title for'}
-                    </span>
-                    <Badge tone={check.ok ? 'ok' : TONE[levelOf(check)]}>
-                      {check.ok ? 'Fine' : `${levelOf(check)} ${LEVEL_WORDS[levelOf(check)]}`}
-                    </Badge>
-                  </div>
-                  {check.ok ? (
-                    about?.fine && <p className="text-sm text-muted-foreground">{about.fine}</p>
-                  ) : (
+        {needing.length > 0 && (
+          <CardContent>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {needing.map(([name, check]) => {
+                const about = data?.about?.[name];
+                const links = data?.links?.[name] ?? [];
+                const level = levelOf(check);
+                return (
+                  <div
+                    key={name}
+                    className="flex flex-col gap-1 rounded-md border p-3"
+                    data-testid={`check-${name}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">
+                        {about?.title ?? 'A check Core has no title for'}
+                      </span>
+                      <Badge tone={TONE[level]}>
+                        {level} {LEVEL_WORDS[level]}
+                      </Badge>
+                    </div>
                     <Said text={check.detail ?? 'It fails, and says no more.'} page={about?.page} />
-                  )}
-                  {links.length > 0 && (
-                    <ul className="flex flex-col gap-0.5 text-xs">
-                      {links.map((link) => (
-                        <li key={`${link.label} ${link.to ?? ''}`}>
-                          {link.to ? (
-                            <Link className="underline" to={link.to}>
-                              {link.label}
-                            </Link>
-                          ) : (
-                            <span className="text-muted-foreground">{link.label}</span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
+                    {links.length > 0 && (
+                      <ul className="flex flex-col gap-0.5 text-xs">
+                        {links.map((link) => (
+                          <li key={`${link.label} ${link.to ?? ''}`}>
+                            {link.to ? (
+                              <Link className="underline" to={link.to}>
+                                {link.label}
+                              </Link>
+                            ) : (
+                              <span className="text-muted-foreground">{link.label}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       <Card className="mb-4" data-testid="attention">
