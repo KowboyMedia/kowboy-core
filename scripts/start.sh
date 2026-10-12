@@ -9,6 +9,4 @@ if [ -n "$DATABASE_CA_CERT" ]; then
   printf '%s\n' "$DATABASE_CA_CERT" > /tmp/database-ca.crt
   export NODE_EXTRA_CA_CERTS=/tmp/database-ca.crt
 fi
-# One-off and read-only (question 189): prints one home's change history to the worker's log.
-if [ "${1:-web}" = worker ]; then node scripts/history-once.mjs || true; fi
 exec node dist/main.js "${1:-web}"

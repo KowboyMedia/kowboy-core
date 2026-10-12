@@ -9,24 +9,6 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 189. `[core]` A one-off read-only step on staging that prints one home's change history to staging's own log
-
-- 2026-10-12 · Patric allowed the read of question 188 ("188 a", then "Run it"), but
-  DigitalOcean's console is a WebSocket connection, which this session's network proxy does not
-  pass (its own notes list WebSocket upgrades and raw database connections as unsupported: "report,
-  do not work around"), and the database admits only the two Core apps. What a session can read
-  over plain HTTPS is staging's own run log. So the read can run inside staging as a one-off step:
-  when the worker starts, `scripts/start.sh` runs a small read-only script that prints the home
-  `OBJ5P4RD332KW42S276BD`'s stored copy and its change history (the `entity.written` rows with the
-  image lists before and after, 30 days) to the log; the session reads the log, then the step is
-  removed. Adding and removing it restarts staging once each; nothing is written, and no page,
-  setting or table is added. The lasting alternative: the admin's record page shows each change's
-  old and new values for the 30 days the log keeps (it reverses the rule of 2026-09-21 that the
-  timeline carries no payload), which Patric reads after signing in.
-- a: the one-off step on staging. b: the record page shows old and new values. c: stop; the
-  history stays unread and Core deletes it after 30 days. Recommended: a, the smallest that
-  answers this case.
-
 ## 187. `[core]` The sign-in link, so the Ahre demo site joins the Norban tenant
 
 - 2026-10-07 · Patric asked for a new site with Norban's records and the look of Ahre's own
