@@ -4,10 +4,32 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 190 (185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 191 (185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 190. `[core]` One more one-off read-only step on staging: the property's change log under every connection, removed ones included
+
+- 2026-10-12 · The step of question 189 found no copy of the property `OBJ5P4RD332KW42S276BD`
+  (Bondegatan 18) in staging Core, current or removed (read at 19:09 UTC; the change log reaches
+  back to 2026-09-17). It searched the change log only under the connections that hold the
+  property, and none does, so in practice the log is still unsearched. Removing a connection or a
+  tenant deletes its records outright (`items` goes with its connection or tenant), while their
+  change log entries stay for their 30 days (`events` has no such link, and `deleteConnection` in
+  `engine/storage/connections.ts` deletes only lifecycle events), so a connection removed since
+  2026-09-17 may still have this property's image lists in the log. The same step can run once
+  more: a read-only script started with staging's worker prints this property's change log entries
+  under every connection, removed ones included, and what staging's Vitec code knows of the
+  property and its office `M12462` today (its fetch list and office list); the session reads the
+  log, then the step is taken out. Adding and removing it restarts staging once each; nothing is
+  written. A list found there shows which images Vitec's website feed held on each date: Vitec
+  lists only the images marked for the website (its migration guide maps the old
+  `AdvertiseOn.ImageIds` onto `Images`; read in the guide, not tested). The live site, drawn by the
+  old plugin v3, cannot show what went either: it still showed the same 30 images at 19:14 UTC as
+  at 17:40.
+- a: yes, the one more read. b: no; stop here, Core has no record of this property.
+  Recommended: a, the last place in Core that could hold the old image lists.
 
 ## 187. `[core]` The sign-in link, so the Ahre demo site joins the Norban tenant
 
