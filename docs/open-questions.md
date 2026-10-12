@@ -69,6 +69,10 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 - a: build 1 to 6 now, beside the old page, which then goes. b: first a clickable picture of the
   new tenant page to look at and comment on, then build what the picture settles. Recommended: b,
   since this would be the third version and a picture costs far less than a rebuild.
+- 2026-10-12 · Patric chose b. The picture, with made-up data, is
+  https://claude.ai/artifact/7mA9Ku17ET9ttBV2nLnPb6: the Status tab, the Settings tab, and the
+  tenant, the connection and a site each opened with Edit, with the question that confirms a
+  removal. Lines 1 to 6 are settled by his comments on it; nothing is built before.
 
 ## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite
 
