@@ -6,8 +6,8 @@ part here once one is derived. It comes from Patric's pick of Tabler on 2026-10-
 good. Use that."), from his complaint of the same day ("a list in one place had different layout
 and values compared to the same type of list, listing the identical data types in another
 place") and from his basis for what the area holds: what an admin sets up for Core to run, and
-what that needs ("MVP Greenfield"). Every page is drawn on the canvas
-https://claude.ai/artifact/NUyMmncJzeKtrsuvyFMM7w and listed row by row in question 192. This file
+what that needs ("MVP Greenfield"). Every page and window is drawn in the images in
+`/mnt/project-files/admin-new/` and listed row by row in question 192. This file
 changes only on Patric's word, through a register question.
 
 ## Tone
@@ -56,17 +56,19 @@ The page's background and the white cards are Tabler's surfaces. No other colour
 - **The top bar**: "Kowboy Core" on the left, linking to the tenants list; on the right, the
   signed-in address and Sign out. There is no menu: the area has two kinds of page, the tenants
   list and a tenant's page.
-- **The page header**: on a tenant's page, "Tenants / its name" above the title; the title; one
-  line saying what the page is for; on the right the page's main button, at most one.
-- **The page body**: Tabler's `container-xl`, its cards one under the other in the order the
-  records travel: the tenant, its CRM connections (where the records come from), its sites (where
-  they go).
-- **The save bar**: one Save for the whole page, in a bar at its foot that appears when
-  something changed, with "Undo changes"; on a new tenant it is always there, with Cancel.
+- **The page header**: on a tenant's page, "Tenants / its name" above the title; the title; under
+  it the tenant's state and one sentence saying whether every change reaches the sites; on the
+  right one button with its sentence ("New tenant" on Tenants, "Rename" on a tenant's page).
+- **The records' way**: a tenant's page is Tabler's `container-xl` with two cards side by side,
+  the CRM connection on the left ("From Vitec “Main”") and the sites on the right ("To 2 sites"),
+  with an arrow between them. A page shows what is set as text and holds no field.
+- **Windows**: every change is made in a window that its button opens: New tenant, Rename,
+  Connect Vitec, Change, Add a site, a site's window. A window saves on its own; nothing saves a
+  whole page.
 - **The banner**: while Core itself has a problem, a red banner above the page header on every
   page; nothing while Core works.
-- **On a phone**: one column, each button's sentence under it, and a list scrolls sideways inside
-  its own card, so the page never does.
+- **On a phone**: one column, each button's sentence above it, the arrow pointing down, and a
+  list scrolls sideways inside its own card, so the page never does.
 
 ## How much text
 
@@ -75,7 +77,7 @@ for texts. This section says how much of it a page holds.
 
 - One line under a page's title.
 - One sentence beside each button saying what pressing it does and when to press it: beside it
-  on a computer, under it on a phone, never only on hover.
+  on a computer, above it on a phone, never only on hover.
 - A line of help under a field only when its label cannot say what to type or where to find it.
 - A problem's sentence where the thing is: under the office, the site or the field.
 - Nothing else: no paragraphs, no cards of notes, nothing said twice on one page.
@@ -85,7 +87,7 @@ own), site, office, record and the entity types property, project, agent, office
 association, never "home". The area is in English.
 
 In a sentence, a tenant is named by its name; a connection by its tenant and CRM, then its name
-("Acme's Vitec connection “Main”"); a site by its address ("the site acme.se"); an office by its
+("Exempel Mäklare's Vitec connection “Main”"); a site by its address ("the site exempel.se"); an office by its
 name, then the CRM's id for it ("the office Lidingö, the CRM's id M30011"). In a list, a thing is
 its cell (below). Nothing shows Core's own id for anything, a type, an event's or a check's name,
 a register number, a person, the date of a decision or a document.
@@ -95,20 +97,22 @@ a register number, a person, the date of a decision or a document.
 A kind of thing is drawn by one part, and every page that shows that kind of thing uses that part.
 No page draws a tenant, a site, an office, a time or a state by itself.
 
-| Part      | What it draws                                                                                  | Where                                                        |
-| --------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `Thing`   | A tenant, connection, site or office by its name or its cell, linked to its place.             | Everywhere a thing is named.                                 |
-| `Time`    | A moment in Swedish form, with the UTC moment in its tooltip.                                  | Beside every state, in the banner.                           |
-| `State`   | A state as one word and its colour, from the table of states below, with a problem's sentence. | Lists, a connection's card, a site's block.                  |
-| `List`    | A card with a table: the columns of its kind in their order; its empty and error states.       | The tenants list, a connection's offices.                    |
-| `Form`    | Labelled fields in a card, a mistake under its field.                                          | A tenant's page, New tenant, sign-in.                        |
-| `SaveBar` | Save and "Undo changes", or Save and Cancel on a new tenant, with their sentence.              | A tenant's page, New tenant.                                 |
-| `Action`  | A button and its sentence. A red one asks first.                                               | Every button.                                                |
-| `Confirm` | A window saying what stops working, with Cancel and a red button named for the act.            | Every red button.                                            |
-| `Toast`   | A message for every outcome: green when it is done, red when it is not, and then what to do.   | Every save and every button.                                 |
-| `Copy`    | A value in monospace with a Copy button that says "Copied".                                    | Core's address, the token, a bell secret, the CRM's address. |
-| `Banner`  | Core's own problem: what it means for the sites and where to look.                             | Every page, while it lasts.                                  |
-| `Empty`   | What is missing and what to do.                                                                | The tenants list without tenants, a connection's offices.    |
+| Part      | What it draws                                                                                  | Where                                                       |
+| --------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `Thing`   | A tenant, connection, site or office by its name or its cell, linked to its place.             | Everywhere a thing is named.                                |
+| `Time`    | A moment in Swedish form, with the UTC moment in its tooltip.                                  | Beside every state, in the banner.                          |
+| `State`   | A state as one word and its colour, from the table of states below, with a problem's sentence. | Lists, a connection's card, a site's block.                 |
+| `List`    | A card with a table: the columns of its kind in their order; its empty and error states.       | The tenants list, a connection's offices, a tenant's sites. |
+| `Way`     | The records' way: the connection's card, an arrow, the sites' card.                            | A tenant's page.                                            |
+| `Facts`   | What is set, as label and value on one line.                                                   | A connection's card.                                        |
+| `Form`    | Labelled fields, a mistake under its field.                                                    | Every window, sign-in.                                      |
+| `Window`  | A title, its fields or values, its buttons with their sentence; it saves on its own.           | Every change: New tenant, Rename, Connect, Change, a site.  |
+| `Action`  | A button and its sentence. A red one asks first.                                               | Every button.                                               |
+| `Confirm` | A window saying what stops working, with Cancel and a red button named for the act.            | Every red button.                                           |
+| `Toast`   | A message for every outcome: green when it is done, red when it is not, and then what to do.   | Every save and every button.                                |
+| `Copy`    | A value in monospace with a Copy button that says "Copied".                                    | A site's window, the CRM's address in Connect and Change.   |
+| `Banner`  | Core's own problem: what it means for the sites and where to look.                             | Every page, while it lasts.                                 |
+| `Empty`   | What is missing and what to do, with its button.                                               | The tenants list without tenants, a tenant not set up.      |
 
 ## Lists: the same thing, the same cell, the same column
 
@@ -122,6 +126,7 @@ No page draws a tenant, a site, an office, a time or a state by itself.
 | ---------------------- | --------------------------------------- | ------------------------------------------ |
 | Tenants                | Tenant · State · CRM connection · Sites | Tenants with a problem first, then A to Z. |
 | A connection's offices | Office · State                          | By the CRM's id.                           |
+| A tenant's sites       | Site · State                            | By address.                                |
 
 ## States: one word and one colour each
 
@@ -138,11 +143,11 @@ A colour never stands alone: its word is always beside it.
 ## Danger
 
 - Red, and asking first, only where something stops working or is lost when pressed: a new token
-  (the one the sites hold stops working), a new bell secret, removing a connection (its records
+  (the one the sites hold stops working), removing a connection (its records
   leave the sites), removing a site.
 - What can be done again without loss (fetching everything again) is a plain button whose
   sentence says nothing is lost.
-- The confirmation's title asks the question ("Make a new token for Acme Mäklare?"), its text says
+- The confirmation's title asks the question ("Make a new token for Exempel Mäklare?"), its text says
   what stops working and what to do next, and its red button repeats the verb ("Make a new
   token").
 
@@ -152,6 +157,7 @@ Nothing moves apart from Tabler's own opening of a window.
 
 ## Never
 
+- A field on a page, or a Save for a whole page: fields live in windows.
 - A stack of cards that each hold a heading and a paragraph.
 - A small capital label above a title (Tabler's page pretitle).
 - A green card saying that something is fine, or a list of what needs no attention.
@@ -169,8 +175,8 @@ Nothing moves apart from Tabler's own opening of a window.
 
 1. Patric's screenshot of Tabler's demo dashboard, `docs/inputs/admin-tabler-reference.png`
    (2026-10-13): the look of the frame and the cards.
-2. The canvas https://claude.ai/artifact/NUyMmncJzeKtrsuvyFMM7w (2026-10-13): every page of the
-   MVP with made-up content, drawn with Tabler's own stylesheet.
+2. The images in `/mnt/project-files/admin-new/` (2026-10-13): every page and window of the MVP
+   with made-up content, drawn with Tabler's own stylesheet.
 3. Tabler's demo, https://preview.tabler.io/ : every part as it ships.
 4. Tabler's documentation, https://docs.tabler.io/ (version 1.6.1, read 2026-10-13): the markup
    each part uses, and its React guide for how the app uses Tabler.

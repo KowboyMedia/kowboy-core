@@ -841,19 +841,21 @@ client ports (item 16, first client by question 80).
       `docs/admin-panel-rebuild.md` or the `[admin]` decisions about pages. Patric's own words
       on a thing still hold (a site has "url, bell path, bell secret", 2026-10-06), and so do
       AGENTS.md's rules for texts and names.
-    - Steps: (1) `DESIGN.md`, done 2026-10-13; (2) the design, eight screens on the canvas
-      https://claude.ai/artifact/NUyMmncJzeKtrsuvyFMM7w, every row a person sees in it listed in
-      question 192 (191 was withdrawn); (3) on his yes, the build, page by page, at `/admin-new`
+    - Steps: (1) `DESIGN.md`, done 2026-10-13; (2) the design, nine images in
+      `/mnt/project-files/admin-new/` (Patric asked for image files rather than the canvas), every
+      row a person sees in it listed in question 192 (191 was withdrawn); the tenant page was
+      redrawn the same day, when Patric found it still built like the old one: it shows the
+      records' way as text, and every change is made in a window; (3) on his yes, the build, page by page, at `/admin-new`
       beside the current admin, each page on staging when it is done; (4) once it holds 192's
       rows it moves to `/admin`, and the current admin is deleted with everything only it used,
       listed for Patric before it goes.
     - Tests: each use case is a browser journey against Core with the fake CRM, named under AC
       42; the current journeys go with the current admin.
     - Interface: the new admin calls the admin API as it is wherever it can; what 192's rows need
-      beyond it (the tenants list's states, the save that checks a changed login first) is built
-      inside those rows.
+      beyond it (the tenants list's states, Connect and Save trying a login with the CRM first) is
+      built inside those rows.
     - Kept working: an alert's link to a tenant's page with `#connection:<id>` or `#site:<id>`
-      opens that block; a link to Records narrowed to an office opens the office's connection
+      opens the connection's card or the site's window; a link to Records narrowed to an office opens the office's connection
       instead, a change to `engine/alerts.ts` agreed with the "Notification system" thread.
     - Ownership: nothing edits the current admin (`admin/`) until it is deleted. Size: many
       sessions.

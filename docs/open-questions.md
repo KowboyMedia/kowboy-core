@@ -16,41 +16,45 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   understand what needs to be configured by the admin, and you can figure out how to do that
   optimally from UX/UI point of view. MVP Greenfield". The design draws only what an admin sets
   up for Core to run (tenants, their CRM connections, their sites) and what that needs (signing
-  in, seeing what is broken, putting it right). It is on the canvas
-  https://claude.ai/artifact/NUyMmncJzeKtrsuvyFMM7w in eight screens with made-up content. The
-  rows below are everything a person sees in it, so an approval covers these rows and nothing
-  more (AGENTS.md, "Stop and ask"). A site has an address, a bell path and a bell secret, as
-  Patric listed on 2026-10-06.
+  in, seeing what is broken, putting it right). The rows below are everything a person sees in
+  it, so an approval covers these rows and nothing more (AGENTS.md, "Stop and ask"). A site has
+  an address, a bell path and a bell secret, as Patric listed on 2026-10-06.
+- 2026-10-13, later · Patric found the tenant page still built like the old one ("still based
+  off of the shit version"): a long form of fields, secrets and red buttons with one Save. It is
+  redrawn from the admin's three jobs (set up a customer, see that it works, fix it when it
+  breaks): the page shows the records' way as text, and every change is made in a window. The
+  drawing is nine images in `/mnt/project-files/admin-new/` (Patric asked for image files, not
+  the canvas), and rows 3 and 7 to 19 are rewritten to match it.
 
-| Row | What a person sees                                                                                                                                                                                                              |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Sign in: an address field and "Mail me a sign-in link"; the link works once, within 15 minutes.                                                                                                                                 |
-| 2   | Every page: a top bar with "Kowboy Core", the signed-in address and Sign out; no menu; a tenant's page has "Tenants / its name" above its title.                                                                                |
-| 3   | Tenants, the first page: one line saying how many tenants have a problem, and "New tenant".                                                                                                                                     |
-| 4   | The tenants list: Tenant · State · CRM connection · Sites; tenants with a problem first, then A to Z.                                                                                                                           |
-| 5   | A tenant's state: Works (green); Problem (red), with the problem's sentence; Not set up (grey), with what is missing.                                                                                                           |
-| 6   | A red banner on every page only while Core itself has a problem, such as its worker stopping: what it means for the sites and where to look.                                                                                    |
-| 7   | A tenant's page, card Tenant: its name.                                                                                                                                                                                         |
-| 8   | One card per CRM connection: its state and when its last change was fetched; its name; the login its CRM declares (Vitec: customer or group id, username, password, "Use Vitec's QA environment"); "Don't send forms to Vitec". |
-| 9   | In that card, the offices Core reads: the CRM's id with the name under it, Reads (green) or Refused (red, with what happens and what to do).                                                                                    |
-| 10  | In that card, the address for Vitec's notifications, with Copy.                                                                                                                                                                 |
-| 11  | In that card, "Fetch everything again": Core reads every record from the CRM again and sends what changed to the sites.                                                                                                         |
-| 12  | In that card, "Remove connection", red, asking first.                                                                                                                                                                           |
-| 13  | "Add a CRM connection" under the connections.                                                                                                                                                                                   |
-| 14  | Card Sites: Core's address and the tenant's token, each with Copy, and "Make a new token", red, asking first.                                                                                                                   |
-| 15  | One block per site: its address, its bell path (the WordPress path filled in), its bell secret with Copy, its state and last fetch, "Make a new bell secret" and "Remove site", both red and asking first.                      |
-| 16  | "Add a site".                                                                                                                                                                                                                   |
-| 17  | One Save per page: a bar appears when something changed, with Save and "Undo changes"; Save first checks a changed CRM login with the CRM, and keeps nothing when the CRM refuses it, saying so under the field.                |
-| 18  | New tenant: the same cards, empty; Core makes the token and the bell secret at the save; Cancel.                                                                                                                                |
-| 19  | A window before every red button: what stops working, Cancel, and a red button named for the act.                                                                                                                               |
-| 20  | Every button's sentence beside it; on a phone one column, the sentence under the button.                                                                                                                                        |
-| 21  | The links in Core's alerts open the connection's or the site's block on the tenant's page.                                                                                                                                      |
-| 22  | Built at `/admin-new` beside `/admin`; once it holds rows 1 to 21 it moves to `/admin`, and the current admin goes with what only it used, listed before it goes.                                                               |
+| Row | What a person sees                                                                                                                                                                                                                                                      |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Sign in: an address field and "Mail me a sign-in link"; the link works once, within 15 minutes.                                                                                                                                                                         |
+| 2   | Every page: a top bar with "Kowboy Core", the signed-in address and Sign out; no menu; a tenant's page has "Tenants / its name" above its title.                                                                                                                        |
+| 3   | Tenants, the first page: one line saying how many tenants have a problem, and "New tenant", a window for the name that opens the new tenant's page.                                                                                                                     |
+| 4   | The tenants list: Tenant · State · CRM connection · Sites; tenants with a problem first, then A to Z.                                                                                                                                                                   |
+| 5   | A tenant's state: Works (green); Problem (red), with the problem's sentence; Not set up (grey), with what is missing.                                                                                                                                                   |
+| 6   | A red banner on every page only while Core itself has a problem, such as its worker stopping: what it means for the sites and where to look.                                                                                                                            |
+| 7   | A tenant's page shows the records' way: the CRM connection on the left ("From Vitec “Main”"), an arrow, the sites on the right ("To 2 sites"); under the title, the tenant's state and one sentence saying whether every change reaches the sites; "Rename" beside it.  |
+| 8   | The connection's card: its state, when its last change was fetched, and what is set, as text: customer or group id, username, Vitec environment (Live or QA), and whether the sites' forms are sent to Vitec.                                                           |
+| 9   | In that card, the offices Core reads: the CRM's id with the name under it, Reads (green) or Refused (red, with what happens and what to do).                                                                                                                            |
+| 10  | In that card, "Change": a window with the login (username, password, customer or group id, "Use Vitec's QA environment", the connection's name), the switch "Send the sites' forms to Vitec", the address for Vitec's notifications with Copy, and "Remove connection". |
+| 11  | In that card, "Fetch everything again": Core reads every record from the CRM again and sends what changed to the sites.                                                                                                                                                 |
+| 12  | The sites' card: each site's address, opening its window, and its state with its last fetch: Works (green), Problem (red, with what it means and what to do), Waiting (grey) before its first fetch.                                                                    |
+| 13  | "Add a site": a window for the site's address and bell path (the WordPress path filled in); Core makes the bell secret and opens the site's window.                                                                                                                     |
+| 14  | A site's window: its address and bell path to change; the three values for the site's Kowboy Core settings, each with Copy (Core URL, Tenant token, Bell secret); "Make a new token" (for every site of the tenant) and "Remove site".                                  |
+| 15  | A tenant not set up: the same two cards, each holding its step, "1. Connect the customer's CRM" with "Connect Vitec" and "2. Add the customer's site" with "Add a site".                                                                                                |
+| 16  | "Connect Vitec", and Save in "Change": Core tries a new login with Vitec first and keeps nothing Vitec refuses, saying so under the password; once Vitec accepts, the window shows the address to give Vitec for its notifications.                                     |
+| 17  | A window before every red button ("Make a new token", "Remove site", "Remove connection"): what stops working, Cancel, and a red button named for the act.                                                                                                              |
+| 18  | Every button's sentence beside it; on a phone one column, the sentence above its button, and the arrow points down.                                                                                                                                                     |
+| 19  | The links in Core's alerts open the connection's card or the site's window on the tenant's page.                                                                                                                                                                        |
+| 20  | Built at `/admin-new` beside `/admin`; once it holds rows 1 to 19 it moves to `/admin`, and the current admin goes with what only it used, listed before it goes.                                                                                                       |
 
 - Not in it, as nothing needs them to set Core up or put it right: the Overview and its figures,
   Records and a record's page, Flow, Events, the CRM pages, Settings with the maintenance switch
-  and the devices, Failed forms, switching a tenant off, removing a tenant, "Check login" (Save
-  checks), a staging marker and dark mode.
+  and the devices, Failed forms, switching a tenant off, removing a tenant, "Check login"
+  (Connect and Save try the login), a second CRM connection for one tenant, a new bell secret for
+  one site (removing the site and adding it again gives one), a Save for a whole page, a staging
+  marker and dark mode.
 - Reply: "192 ok", or the numbers of the rows to change. Recommended: ok. Blocked: the build.
 
 ## 190. `[core]` One more one-off read-only step on staging: the property's change log under every connection, removed ones included
