@@ -4,58 +4,26 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 193 (191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 194 (192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 192. `[admin]` The new admin area as drawn: every row a person sees in it
+## 193. `[admin]` Run the clean-room strategy for the new admin panel
 
-- 2026-10-13 · Patric rejected question 191's table ("You are still seeding from the old admin
-  panel") and set the basis: "You know what the purpose of this service consist of, and you can
-  understand what needs to be configured by the admin, and you can figure out how to do that
-  optimally from UX/UI point of view. MVP Greenfield". The design draws only what an admin sets
-  up for Core to run (tenants, their CRM connections, their sites) and what that needs (signing
-  in, seeing what is broken, putting it right). The rows below are everything a person sees in
-  it, so an approval covers these rows and nothing more (AGENTS.md, "Stop and ask"). A site has
-  an address, a bell path and a bell secret, as Patric listed on 2026-10-06.
-- 2026-10-13, later · Patric found the tenant page still built like the old one ("still based
-  off of the shit version"): a long form of fields, secrets and red buttons with one Save. It is
-  redrawn from the admin's three jobs (set up a customer, see that it works, fix it when it
-  breaks): the page shows the records' way as text, and every change is made in a window. The
-  drawing is nine images in `/mnt/project-files/admin-new/` (Patric asked for image files, not
-  the canvas), and rows 3 and 7 to 19 are rewritten to match it.
-
-| Row | What a person sees                                                                                                                                                                                                                                                      |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Sign in: an address field and "Mail me a sign-in link"; the link works once, within 15 minutes.                                                                                                                                                                         |
-| 2   | Every page: a top bar with "Kowboy Core", the signed-in address and Sign out; no menu; a tenant's page has "Tenants / its name" above its title.                                                                                                                        |
-| 3   | Tenants, the first page: one line saying how many tenants have a problem, and "New tenant", a window for the name that opens the new tenant's page.                                                                                                                     |
-| 4   | The tenants list: Tenant · State · CRM connection · Sites; tenants with a problem first, then A to Z.                                                                                                                                                                   |
-| 5   | A tenant's state: Works (green); Problem (red), with the problem's sentence; Not set up (grey), with what is missing.                                                                                                                                                   |
-| 6   | A red banner on every page only while Core itself has a problem, such as its worker stopping: what it means for the sites and where to look.                                                                                                                            |
-| 7   | A tenant's page shows the records' way: the CRM connection on the left ("From Vitec “Main”"), an arrow, the sites on the right ("To 2 sites"); under the title, the tenant's state and one sentence saying whether every change reaches the sites; "Rename" beside it.  |
-| 8   | The connection's card: its state, when its last change was fetched, and what is set, as text: customer or group id, username, Vitec environment (Live or QA), and whether the sites' forms are sent to Vitec.                                                           |
-| 9   | In that card, the offices Core reads: the CRM's id with the name under it, Reads (green) or Refused (red, with what happens and what to do).                                                                                                                            |
-| 10  | In that card, "Change": a window with the login (username, password, customer or group id, "Use Vitec's QA environment", the connection's name), the switch "Send the sites' forms to Vitec", the address for Vitec's notifications with Copy, and "Remove connection". |
-| 11  | In that card, "Fetch everything again": Core reads every record from the CRM again and sends what changed to the sites.                                                                                                                                                 |
-| 12  | The sites' card: each site's address, opening its window, and its state with its last fetch: Works (green), Problem (red, with what it means and what to do), Waiting (grey) before its first fetch.                                                                    |
-| 13  | "Add a site": a window for the site's address and bell path (the WordPress path filled in); Core makes the bell secret and opens the site's window.                                                                                                                     |
-| 14  | A site's window: its address and bell path to change; the three values for the site's Kowboy Core settings, each with Copy (Core URL, Tenant token, Bell secret); "Make a new token" (for every site of the tenant) and "Remove site".                                  |
-| 15  | A tenant not set up: the same two cards, each holding its step, "1. Connect the customer's CRM" with "Connect Vitec" and "2. Add the customer's site" with "Add a site".                                                                                                |
-| 16  | "Connect Vitec", and Save in "Change": Core tries a new login with Vitec first and keeps nothing Vitec refuses, saying so under the password; once Vitec accepts, the window shows the address to give Vitec for its notifications.                                     |
-| 17  | A window before every red button ("Make a new token", "Remove site", "Remove connection"): what stops working, Cancel, and a red button named for the act.                                                                                                              |
-| 18  | Every button's sentence beside it; on a phone one column, the sentence above its button, and the arrow points down.                                                                                                                                                     |
-| 19  | The links in Core's alerts open the connection's card or the site's window on the tenant's page.                                                                                                                                                                        |
-| 20  | Built at `/admin-new` beside `/admin`; once it holds rows 1 to 19 it moves to `/admin`, and the current admin goes with what only it used, listed before it goes.                                                                                                       |
-
-- Not in it, as nothing needs them to set Core up or put it right: the Overview and its figures,
-  Records and a record's page, Flow, Events, the CRM pages, Settings with the maintenance switch
-  and the devices, Failed forms, switching a tenant off, removing a tenant, "Check login"
-  (Connect and Save try the login), a second CRM connection for one tenant, a new bell secret for
-  one site (removing the site and adding it again gives one), a Save for a whole page, a staging
-  marker and dark mode.
-- Reply: "192 ok", or the numbers of the rows to change. Recommended: ok. Blocked: the build.
+- 2026-10-13 · Patric rejected the fifth design and the way it was being fixed (inherited parts
+  reworded until the inheritance check passed) and asked for a strategy that keeps the old admin
+  out of the new one, run in a session that has never seen it. The strategy is the Claude Doc
+  "Admin panel: clean-room strategy"
+  (https://claude.ai/code/artifact/69cc6e12-15e0-4692-8cca-af8f35fd1da4): a clean room fed only by
+  his own words and Core's facts designs three candidates; the sessions that have seen the old
+  admin never design; a candidate that fails the inheritance check is dropped whole, never
+  repaired. Question 192 (the drawn design) is withdrawn with it.
+- Blocked: the new admin panel (next-steps item 30).
+- a) go, with a stop where Patric reads the one-page brief before the clean room starts
+  (recommended: the brief is the only way into the clean room).
+- b) go without that stop.
+- c) change something in the strategy first.
 
 ## 190. `[core]` One more one-off read-only step on staging: the property's change log under every connection, removed ones included
 

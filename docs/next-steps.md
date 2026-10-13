@@ -829,34 +829,21 @@ client ports (item 16, first client by question 80).
 30. **A new admin area from scratch** (Patric, 2026-10-13: "How can I get you to create a nice
     admin panel, without trying to fix the current one?", then "Tabler looks good. Use that. ...
     MVP features only.", then "MVP Greenfield"; in progress 2026-10-13, the "New admin panel"
-    thread). Component: `[admin]`. What changes for the product: an admin area in Tabler's look
-    that holds only what an admin sets up for Core to run (tenants, their CRM connections, their
-    sites) and what that needs (signing in, seeing what is broken, putting it right), in which each
-    kind of thing has one part and looks the same on every page; it replaces the current one,
-    which the item 27 debloat could not make coherent.
-    - Basis: Patric's "you can understand what needs to be configured by the admin, and you can
-      figure out how to do that optimally from UX/UI point of view. MVP Greenfield" (2026-10-13).
-      Nothing of the current admin is an input: not its pages, `admin/src`, `admin/e2e`, the page
-      sections of `docs/admin-panel.md`, `docs/admin-panel-design.md`,
-      `docs/admin-panel-rebuild.md` or the `[admin]` decisions about pages. Patric's own words
-      on a thing still hold (a site has "url, bell path, bell secret", 2026-10-06), and so do
-      AGENTS.md's rules for texts and names.
-    - Steps: (1) `DESIGN.md`, done 2026-10-13; (2) the design, nine images in
-      `/mnt/project-files/admin-new/` (Patric asked for image files rather than the canvas), every
-      row a person sees in it listed in question 192 (191 was withdrawn); the tenant page was
-      redrawn the same day, when Patric found it still built like the old one: it shows the
-      records' way as text, and every change is made in a window; (3) on his yes, the build, page by page, at `/admin-new`
-      beside the current admin, each page on staging when it is done; (4) once it holds 192's
-      rows it moves to `/admin`, and the current admin is deleted with everything only it used,
-      listed for Patric before it goes.
-    - Tests: each use case is a browser journey against Core with the fake CRM, named under AC
-      42; the current journeys go with the current admin.
-    - Interface: the new admin calls the admin API as it is wherever it can; what 192's rows need
-      beyond it (the tenants list's states, Connect and Save trying a login with the CRM first) is
-      built inside those rows.
-    - Kept working: an alert's link to a tenant's page with `#connection:<id>` or `#site:<id>`
-      opens the connection's card or the site's window; a link to Records narrowed to an office opens the office's connection
-      instead, a change to `engine/alerts.ts` agreed with the "Notification system" thread.
+    thread). Component: `[admin]`. What changes for the product: an admin area in Tabler's look,
+    optimal for what an admin must configure for Core to run, replacing the current one, which
+    the item 27 debloat could not make coherent.
+    - Five designs drawn on 2026-10-13 by sessions that had read the current admin inherited from
+      it, and the last was reworded to pass the inheritance check; Patric rejected that approach.
+      The design now comes from a clean room, per the strategy of question 193 (the Claude Doc
+      "Admin panel: clean-room strategy"): a session with no repository and no memory of the
+      current admin, fed only by a brief of Patric's own words and Core's facts, draws three
+      candidates; sessions that have seen the current admin never design, write panel text or
+      edit a design; a candidate that fails the inheritance check is dropped whole.
+    - Steps: (1) Patric approves the strategy (193); (2) the current admin's descriptions and the
+      rejected drafts leave the shared memory and the shared folder, the brief is written and
+      scanned; (3) Patric reads the brief; (4) the clean room's candidates, the check, his pick;
+      (5) the build beside the current admin from the chosen images only, the check again, his
+      approval on staging, then the current admin is deleted with everything only it used.
     - Ownership: nothing edits the current admin (`admin/`) until it is deleted. Size: many
       sessions.
 
