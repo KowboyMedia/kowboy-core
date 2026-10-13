@@ -828,26 +828,33 @@ client ports (item 16, first client by question 80).
       checked against the list, line by line, with the tests green, and reported file by file.
 30. **A new admin area from scratch** (Patric, 2026-10-13: "How can I get you to create a nice
     admin panel, without trying to fix the current one?", then "Tabler looks good. Use that. ...
-    MVP features only."; in progress 2026-10-13, the "New admin panel" thread). Component:
-    `[admin]`. What changes for the product: an admin area in Tabler's look, built from the
-    specification alone, in which each kind of thing has one part and looks the same on every
-    page; it replaces the current one, which the item 27 debloat could not make coherent.
-    - Inputs, and nothing else: `docs/admin-panel-rebuild.md` §1, §3 and §8, AGENTS.md, the
-      `[admin]` lines of `docs/decisions.md` and the API sections of `docs/admin-panel.md`. Never
-      `admin/src`, `admin/e2e`, `docs/admin-panel-design.md`, the page sections of
-      `docs/admin-panel.md` or the current admin on staging, so nothing of it carries over.
-    - Steps: (1) `DESIGN.md`, done 2026-10-13; (2) the MVP, question 191; (3) a clickable design
-      of every MVP page with made-up content, approved by Patric before any code; (4) the build,
-      page by page, at `/admin-new` beside the current admin, each page on staging when it is
-      done; (5) once it covers the MVP it moves to `/admin`, and the current admin is deleted with
-      everything only it used.
-    - Tests: each use case of the MVP is a browser journey against Core with the fake CRM, named
-      under AC 42; the current journeys go with the current admin.
-    - Interface: none planned. The new admin calls the admin API as it is; anything the design
-      needs beyond it is a question first.
-    - Kept working: every address an alert or a check links to (a tenant's page with
-      `#connection:<id>` or `#site:<id>`, Records narrowed to an office) opens the same place in
-      the new admin.
+    MVP features only.", then "MVP Greenfield"; in progress 2026-10-13, the "New admin panel"
+    thread). Component: `[admin]`. What changes for the product: an admin area in Tabler's look
+    that holds only what an admin sets up for Core to run (tenants, their CRM connections, their
+    sites) and what that needs (signing in, seeing what is broken, putting it right), in which each
+    kind of thing has one part and looks the same on every page; it replaces the current one,
+    which the item 27 debloat could not make coherent.
+    - Basis: Patric's "you can understand what needs to be configured by the admin, and you can
+      figure out how to do that optimally from UX/UI point of view. MVP Greenfield" (2026-10-13).
+      Nothing of the current admin is an input: not its pages, `admin/src`, `admin/e2e`, the page
+      sections of `docs/admin-panel.md`, `docs/admin-panel-design.md`,
+      `docs/admin-panel-rebuild.md` or the `[admin]` decisions about pages. Patric's own words
+      on a thing still hold (a site has "url, bell path, bell secret", 2026-10-06), and so do
+      AGENTS.md's rules for texts and names.
+    - Steps: (1) `DESIGN.md`, done 2026-10-13; (2) the design, eight screens on the canvas
+      https://claude.ai/artifact/NUyMmncJzeKtrsuvyFMM7w, every row a person sees in it listed in
+      question 192 (191 was withdrawn); (3) on his yes, the build, page by page, at `/admin-new`
+      beside the current admin, each page on staging when it is done; (4) once it holds 192's
+      rows it moves to `/admin`, and the current admin is deleted with everything only it used,
+      listed for Patric before it goes.
+    - Tests: each use case is a browser journey against Core with the fake CRM, named under AC
+      42; the current journeys go with the current admin.
+    - Interface: the new admin calls the admin API as it is wherever it can; what 192's rows need
+      beyond it (the tenants list's states, the save that checks a changed login first) is built
+      inside those rows.
+    - Kept working: an alert's link to a tenant's page with `#connection:<id>` or `#site:<id>`
+      opens that block; a link to Records narrowed to an office opens the office's connection
+      instead, a change to `engine/alerts.ts` agreed with the "Notification system" thread.
     - Ownership: nothing edits the current admin (`admin/`) until it is deleted. Size: many
       sessions.
 
