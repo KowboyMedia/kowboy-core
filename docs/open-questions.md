@@ -4,10 +4,50 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 191 (185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 192 (185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 191. `[admin]` The MVP of the new admin area: the 22 functions in, the 11 out
+
+- 2026-10-13 · Patric asked for a new admin area from scratch with "MVP features only"
+  (next-steps item 30). The MVP below is every function `docs/admin-panel-rebuild.md` §3 rates a
+  Must, as his later decisions changed it, and nothing rated Should or Could. It is also the list
+  AGENTS.md asks for before anything new a person sees is built: an approval covers these rows
+  and nothing more. Patric reads the same table at `/mnt/project-files/admin-new/mvp-table.md`.
+  In: (1) sign in by a mailed link, "Remember this device"; (2) the Overview, one verdict line and
+  "Needs attention" with only what needs a person (2026-10-12); (3) three figures, records in
+  Core, waiting for the CRM and not fetched from the CRM, for all of Core on the Overview and for
+  one tenant on its page, each opening its list (he corrected them on 2026-10-07); (4) the list of
+  tenants with "New tenant"; (5) one page per tenant with one Save: name, on or off, token, its
+  connections of any CRM, its sites; (6) a connection's typed name, its CRM from a list that shows
+  a new CRM by itself, the login its CRM declares, and "Forms: dry run only" (2026-10-07); (7) what
+  the CRM's code shows and does under each connection; (8) a site's address, bell path and bell
+  secret (2026-10-06); (9) copy buttons for the token, each bell secret and a CRM's notification
+  address; (10) red buttons that ask first for a new token, a new bell secret, removing a
+  connection and removing a site (2026-09-20); (11) saving without a reload, mistakes at the field
+  while typing; (12) Records by the shared scope, live and removed together, Back and Next; (13) a
+  record's page with its three faces and its timeline down to each site's report; (14) on a
+  record's page, asking the CRM now without writing, and syncing that record at a Manual sync
+  level; (15) Flow, coloured by state, read every second, by the shared scope; (16) Manual sync's
+  three levels, its progress as Flow in the same scope; (17) Events as one readable log; (18) a
+  page per CRM with its directions, settings, notification address and what its code shows; (19)
+  Settings with the configuration to read, the maintenance switch and the devices with "Forget
+  other devices"; (20) no reloads, a message for every outcome, empty states, phone and keyboard;
+  (21) one part per kind of thing (`DESIGN.md`); (22) built at `/admin-new` beside `/admin`, then
+  moved to `/admin` when it covers the rows above, the current admin deleted with what only it
+  used. Out: (23) "Check login", a Should, since a refused login shows on "Needs attention"; (24)
+  staging or live marked on every page, a Should; (25) the Overview's charts of 24 hours, part of
+  a Must, since no decision starts from a chart; (26) each site's last fetch and (27) removing a
+  tenant, which his list for the tenant's page did not name (2026-10-06); (28) sorting, rows a
+  page, columns and ticked rows, and (29) a recompute's preview, the runs list with stop and
+  "Housekeeping now", all removed on 2026-10-06 and 2026-10-07; (30) the tools for trying things
+  by hand, gone from the current admin since 2026-10-07; (31) Failed forms, since a form's details
+  stay on the WordPress site (2026-10-07); (32) undo after a switch, since the switches went
+  (2026-10-07); (33) every other Should and Could, kept in §3 for later.
+- Reply: "191 ok", or the numbers of the rows to flip. Recommended: ok. Blocked: the clickable
+  design, which draws only what this list holds.
 
 ## 190. `[core]` One more one-off read-only step on staging: the property's change log under every connection, removed ones included
 

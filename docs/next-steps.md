@@ -826,6 +826,30 @@ client ports (item 16, first client by question 80).
       2026-10-07 on 151, 171, the details kept on the site and the list. Development is ready:
       on his go, first what the list marks as not built or to remove, then every forms file is
       checked against the list, line by line, with the tests green, and reported file by file.
+30. **A new admin area from scratch** (Patric, 2026-10-13: "How can I get you to create a nice
+    admin panel, without trying to fix the current one?", then "Tabler looks good. Use that. ...
+    MVP features only."; in progress 2026-10-13, the "New admin panel" thread). Component:
+    `[admin]`. What changes for the product: an admin area in Tabler's look, built from the
+    specification alone, in which each kind of thing has one part and looks the same on every
+    page; it replaces the current one, which the item 27 debloat could not make coherent.
+    - Inputs, and nothing else: `docs/admin-panel-rebuild.md` §1, §3 and §8, AGENTS.md, the
+      `[admin]` lines of `docs/decisions.md` and the API sections of `docs/admin-panel.md`. Never
+      `admin/src`, `admin/e2e`, `docs/admin-panel-design.md`, the page sections of
+      `docs/admin-panel.md` or the current admin on staging, so nothing of it carries over.
+    - Steps: (1) `DESIGN.md`, done 2026-10-13; (2) the MVP, question 191; (3) a clickable design
+      of every MVP page with made-up content, approved by Patric before any code; (4) the build,
+      page by page, at `/admin-new` beside the current admin, each page on staging when it is
+      done; (5) once it covers the MVP it moves to `/admin`, and the current admin is deleted with
+      everything only it used.
+    - Tests: each use case of the MVP is a browser journey against Core with the fake CRM, named
+      under AC 42; the current journeys go with the current admin.
+    - Interface: none planned. The new admin calls the admin API as it is; anything the design
+      needs beyond it is a question first.
+    - Kept working: every address an alert or a check links to (a tenant's page with
+      `#connection:<id>` or `#site:<id>`, Records narrowed to an office) opens the same place in
+      the new admin.
+    - Ownership: nothing edits the current admin (`admin/`) until it is deleted. Size: many
+      sessions.
 
 ## Later, when Patric supplies them
 
