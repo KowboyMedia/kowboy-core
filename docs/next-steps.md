@@ -240,7 +240,6 @@ picked up by "resume". After the set: the client ports (item 16, first client by
     is the first to use it.
 
     **Resuming in a new session, once question 79 is answered**, in this order:
-
     1. Check the environment: `CLOUDWAYS_EMAIL` and `CLOUDWAYS_API_KEY` exist (values never
        printed). Get a token from the Cloudways API (`https://api.cloudways.com/api/v2/…`; v1
        retired in March 2026; email and key in, a short-lived bearer token out) and list the
