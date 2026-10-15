@@ -315,6 +315,12 @@ picked up by "resume". After the set: the client ports (item 16, first client by
 - Vitec test credentials and a staging deploy → open question 18.
 - Mspecs documentation → second adapter.
 - Rules ledger, parity inventory, real golden masters → Phase 5. The ledger's first fourteen entries are approved (2026-09-19, question 53); parity and golden masters wait on question 52.
+- `[crm-vitec]` Forms sent to Vitec, when Core or a client starts sending them (Patric, 2026-10-15):
+  a valuation request goes to Vitec's dedicated `POST v2/Advertising/Form/{customerId}/Valuation`,
+  never to a generic lead (`POST Advertising/Lead/{customerId}/Person`); and the listing's brokers
+  (name, e-mail, which one is the primary) and its bookable viewing times are read from
+  `GET v2/Advertising/Form/{customerId}/Estate/{estateId}`. Both are in Vitec's published API
+  description, `https://connect.maklare.vitec.net/swagger/docs/advertising`.
 
 ## Standing rules for every session
 
