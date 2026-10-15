@@ -9,7 +9,7 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 195. `[handbook]` Add a rule that ideas are explored in full when Patric asks to explore
+## 195. `[handbook]` The rules hold back changes until Patric says yes, never ideas
 
 - 2026-10-15 · Patric answered 194 with b ("but don't build we are just hypothesing on high
   level") and wrote: "I noticed you believe you are blocked to make changes due to some project
@@ -24,16 +24,30 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   the first answer of 2026-10-15 treated "needs a rule changed" as a reason to rank an idea lower.
   The exploration he asked for is `strategy/feature-exploration.md` in the project's shared
   folder, written as if the line below were in force.
-- The line, for AGENTS.md under Principles, right after the rule on CRM data: "**Exploring is
-  free.** When Patric asks to explore or hypothesize, every idea is followed to its best form, also
-  where it would need a rule of this file or the handbook changed, and this overrides 'in discussion
-  alike' above for that exploration. The rule an idea touches is named as its cost, never a reason
-  to drop or shorten the idea. An exploration builds nothing, and nothing is built from it without
-  the usual questions." AGENTS.md is a protected file, so the line needs his yes.
-- Blocked: nothing; explorations are written this way meanwhile, as he asked.
-- a) yes: add the line (recommended: one line, and every session reads AGENTS.md, so every thread
-  explores the same way).
-- b) no: the rules stay; he says "explore freely" when he wants it.
+- 2026-10-15, 22:10 · Patric asked which rule blocks questions and hypotheses to begin with: "I feel
+  it might be a rule purposed to block non explicitly changes of core features to prevent bloat and
+  drift, discussions cant do that, only changes. And they are not blocked completely, only blocked
+  until explicitly approved by me. But if we cant explore ideas, there will never be anything to
+  suggest, let alone approve, which makes the entire rule a catch 22 of sorts." The one sentence
+  is in the rule "Core applies no logic to CRM data" in AGENTS.md: "This holds in code and in
+  discussion alike: never propose 'Core delivers a flag' or 'the slug comes from Core', and never
+  assume the SRS where it says otherwise (strategy §12 amends it)." It was made permanent on
+  2026-09-18, after Patric had restated six times that Core derives nothing from values
+  (`docs/decisions.md`, 2026-09-18), so it was aimed at drift, as he says. Every other rule (stop
+  and ask, anything new in Core asked first, the protected files, never invent a rule or a field)
+  holds back changes until he approves them, and the handbook already says "Propose, do not wait".
+- The change, in two parts, one decision. In AGENTS.md the sentence above becomes: "This holds
+  for everything built: Core never delivers a flag, the slug never comes from Core, and the SRS is
+  never assumed where it says otherwise (strategy §12 amends it)." And one line goes under
+  Principles, right after that rule: "**Rules hold back changes, never ideas.** Every rule in this
+  file and in the handbook governs what is built or changed; none limits exploring, discussing or
+  proposing. An idea that a rule would block is proposed with that rule named as its cost, and it
+  is built only on Patric's explicit yes." AGENTS.md is a protected file, so the change needs his
+  yes.
+- Blocked: nothing; ideas are explored and proposed this way meanwhile, as he asked.
+- a) yes: both parts go in (recommended: the rule against drift keeps its force over what is
+  built, and the catch-22 goes).
+- b) no: the rules stay as they are; he says "explore freely" when he wants it.
 
 ## 193. `[admin]` Run the clean-room strategy for the new admin panel
 
