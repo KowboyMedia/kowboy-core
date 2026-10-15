@@ -4,10 +4,39 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 194 (192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 195 (192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 194. `[core]` Which of the features found for search and matching is planned first
+
+- 2026-10-15 · Patric asked what search by a sentence ("i want a minum 3 room on bottom floor in
+  child friendly neighborhood"), similar homes and matching would require, and asked for help
+  finding highly valuable features. The answer is `strategy/smart-search-and-features.md` in the
+  project's shared folder. Matching already happens in Vitec, which compares buyers' search
+  profiles with the homes and sends them suggestions, so the most valuable addition is more and
+  richer profiles: a "Bevaka" button on every search, empty search and coming home. No profile
+  reaches Vitec yet: the CRM function group answers 401 for the test account, so the first real
+  profile waits on a demo or test customer Patric confirms (54 f). Showing the brokerage's sold
+  homes next to the free valuation is the cheapest path to seller leads, and nothing blocks it.
+  Search by a sentence adds an outside AI service and a running cost (about 25 kronor with the
+  smallest model, and at least about 1,000 with the largest, a month per 10,000 searches on one
+  site), and with 11 homes for sale on the demo site it is worth building only on top of
+  "Bevaka". An instant price estimate for sellers is valuable too, but Core has neither the data
+  nor, by the rule that it applies no logic to CRM data, the right to compute one. Nothing is
+  built.
+- Blocked: nothing; each feature is new and outside the current phase.
+- a) Bevaka first: it joins the forms work, which waits on Patric's "go"; it reaches buyers only
+  once a person at Vitec opens the profile calls on a demo or test customer he confirms (54 f);
+  and it widens the search criteria in the interface between Core and the CRM code, a protected
+  path (recommended: the most value for the least work, no AI and no running cost, and the base
+  that search by a sentence and similar homes build on).
+- b) Search by a sentence first, with Bevaka under it: adds the AI service and its running cost,
+  and needs his rules for "bottom floor" and "child-friendly".
+- c) The sold homes next to the free valuation first: no AI, nothing blocks it, and it is one
+  session of work; he writes the rule for what is counted.
+- "none" plans nothing now.
 
 ## 193. `[admin]` Run the clean-room strategy for the new admin panel
 
