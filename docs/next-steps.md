@@ -843,7 +843,9 @@ client ports (item 16, first client by question 80).
       rejected drafts leave the shared memory and the shared folder, the brief is written and
       scanned; (3) Patric reads the brief; (4) the clean room's candidates, the check, his pick;
       steps 1 to 3 done 2026-10-15 (the brief, `/mnt/project-files/clean-room/brief.md`, approved
-      "lgtm"), and the clean room was handed to the coordinator to start the same day;
+      "lgtm"), and the clean room was handed to the coordinator to start the same day; its three
+      candidates, tested over three rounds, and the three inheritance checks
+      (`docs/old-admin/clean-room-check/`) were done the same day; the pick waits on question 196;
       (5) the build beside the current admin from the chosen images only, the check again, his
       approval on staging, then the current admin is deleted with everything only it used.
     - Ownership: nothing edits the current admin (`admin/`) until it is deleted. Size: many

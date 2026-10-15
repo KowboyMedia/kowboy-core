@@ -4,10 +4,27 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 196 (192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 197 (192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 196. `[admin]` A made-up sample name that matches a rejected draft: does it rule out a candidate?
+
+- 2026-10-15 · The clean room finished three candidates for the new admin panel, each tested over
+  three rounds (`panel-candidates/` in the project's shared folder: one PDF per candidate and
+  `results.md`). Three separate inheritance checks found nothing in any candidate's pages, layout,
+  flows, labels or texts that came from the old admin. By the strategy's rule each still fails, on
+  sample content only: all three name a made-up brokerage "Norrsken Mäkleri", close to "Norrsken
+  Mäklare" in a draft rejected on 2026-10-13 (`docs/old-admin/admin-new/source/tenant-screens.js.txt:317`),
+  a name that is nowhere in the brief, the shared folder or memory; B also uses the sample group
+  id G12, Kowboy's real Vitec test group, which is in shared memory but not in the brief. The
+  reports are `docs/old-admin/clean-room-check/a.md`, `b.md` and `c.md`.
+- Blocked: Patric's pick of a candidate (next-steps item 30, step 4).
+- a) no: sample names are placeholder content that real brokerages replace, so Patric picks from
+  all three (recommended: nothing of the old admin's design carried over).
+- b) yes: all three are dropped; the brief's facts are reworded where they carry the old admin's
+  words, and the clean room runs again.
 
 ## 195. `[handbook]` The rules hold back changes until Patric says yes, never ideas
 
@@ -48,22 +65,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 - a) yes: both parts go in (recommended: the rule against drift keeps its force over what is
   built, and the catch-22 goes).
 - b) no: the rules stay as they are; he says "explore freely" when he wants it.
-
-## 193. `[admin]` Run the clean-room strategy for the new admin panel
-
-- 2026-10-13 · Patric rejected the fifth design and the way it was being fixed (inherited parts
-  reworded until the inheritance check passed) and asked for a strategy that keeps the old admin
-  out of the new one, run in a session that has never seen it. The strategy is the Claude Doc
-  "Admin panel: clean-room strategy"
-  (https://claude.ai/code/artifact/69cc6e12-15e0-4692-8cca-af8f35fd1da4): a clean room fed only by
-  his own words and Core's facts designs three candidates; the sessions that have seen the old
-  admin never design; a candidate that fails the inheritance check is dropped whole, never
-  repaired. Question 192 (the drawn design) is withdrawn with it.
-- Blocked: the new admin panel (next-steps item 30).
-- a) go, with a stop where Patric reads the one-page brief before the clean room starts
-  (recommended: the brief is the only way into the clean room).
-- b) go without that stop.
-- c) change something in the strategy first.
 
 ## 190. `[core]` One more one-off read-only step on staging: the property's change log under every connection, removed ones included
 
