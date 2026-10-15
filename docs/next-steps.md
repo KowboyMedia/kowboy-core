@@ -849,6 +849,35 @@ client ports (item 16, first client by question 80).
     - Ownership: nothing edits the current admin (`admin/`) until it is deleted. Size: many
       sessions.
 
+31. **Lists built on the server first, then refreshed in the browser, with page addresses search
+    engines can follow** (Patric, 2026-10-15: "Lists of entities needs to be server side rendered
+    first, then hydrated using ajax, to be compatible with both page cache and not take an seo
+    hit, as seo often reads ssr content"). Component: `[client-wordpress]`, the theme "Kowboy
+    2026" and the plugin's list function. What changes for the product: every list of homes,
+    agents, areas and associations shows current content even when the page is served from a page
+    cache (a stored copy of the whole page, such as Breeze, Varnish or Cloudflare keep), and search
+    engines reach every page of every list through ordinary links.
+    - Refresh on load. Today a property list's first page is built on the server, and the browser
+      fetches new cards only when a visitor switches tab, filters, searches or presses "Visa fler"
+      (`assets/kowboy-2026.js`, `setupList`). `docs/default-templates.md` ("One list function")
+      says the list refreshes itself once when the page loads; that call is missing, so a cached
+      page shows the homes as they were when the copy was made. The agent, area and association
+      lists are built on the server and never refreshed. Every list keeps its server-built first
+      page, which is what search engines read, and replaces it with the current one by one reload
+      call when the page loads.
+    - Page addresses search engines can follow. In another conversation Patric asked whether the
+      sitemap is enough for search engines to find every home, or whether the pages themselves must
+      link to them; the answer was that the pages must link to them, and that a list can carry
+      page addresses of its own (`/page/2/` or similar) even when its cards are loaded by script.
+      So every list longer than one page carries ordinary links to its other pages, each of those
+      addresses answers with that page built on the server, and where the script loads cards in
+      place it keeps the address in step. The areas and associations archives already page this
+      way (`parts/paging.php`, WordPress's own `/page/N/`); the property lists, the archive at
+      `/objekt/` included, page only by "Visa fler", and the agent list shows every card at once.
+    - This item states the whole requirement; the other conversation is not needed, and AGENTS.md
+      keeps other conversations out of reach anyway.
+    - Size: one session.
+
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health
