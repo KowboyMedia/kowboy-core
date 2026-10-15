@@ -859,6 +859,7 @@ client ports (item 16, first client by question 80).
     copy of the whole page, such as Breeze, Varnish or Cloudflare keep), and search engines reach
     every page of every list through ordinary links (Patric, 2026-10-15: "all entity lists need
     ssr + hydration as well as /2/ pagination somewhere linkable").
+
     - Refresh on load. Today a property list's first page is built on the server, and the browser
       fetches new cards only when a visitor switches tab, filters, searches or presses "Visa fler"
       (`assets/kowboy-2026.js`, `setupList`). `docs/default-templates.md` ("One list function")
@@ -885,6 +886,7 @@ client ports (item 16, first client by question 80).
     `[client-wordpress]`, with `[core]` for the bot check. What changes for the product: a visitor
     can send every form from any page, also when the page is a stored copy several days old, and
     every form is protected against bots without anything in the page that expires.
+
     - Why. WordPress's security codes (nonces) are valid for 12 to 24 hours. A form that prints one
       into the page and checks it on send is refused for every visitor once a cached copy of the
       page is older than that, and the leads are lost without anyone noticing.
