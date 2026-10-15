@@ -853,10 +853,12 @@ client ports (item 16, first client by question 80).
     engines can follow** (Patric, 2026-10-15: "Lists of entities needs to be server side rendered
     first, then hydrated using ajax, to be compatible with both page cache and not take an seo
     hit, as seo often reads ssr content"). Component: `[client-wordpress]`, the theme "Kowboy
-    2026" and the plugin's list function. What changes for the product: every list of homes,
-    agents, areas and associations shows current content even when the page is served from a page
-    cache (a stored copy of the whole page, such as Breeze, Varnish or Cloudflare keep), and search
-    engines reach every page of every list through ordinary links.
+    2026" and the plugin's list function. What changes for the product: every list of every
+    entity, homes and projects, agents, offices, areas and associations, today's lists and any
+    added later, shows current content even when the page is served from a page cache (a stored
+    copy of the whole page, such as Breeze, Varnish or Cloudflare keep), and search engines reach
+    every page of every list through ordinary links (Patric, 2026-10-15: "all entity lists need
+    ssr + hydration as well as /2/ pagination somewhere linkable").
     - Refresh on load. Today a property list's first page is built on the server, and the browser
       fetches new cards only when a visitor switches tab, filters, searches or presses "Visa fler"
       (`assets/kowboy-2026.js`, `setupList`). `docs/default-templates.md` ("One list function")
@@ -877,6 +879,25 @@ client ports (item 16, first client by question 80).
     - This item states the whole requirement; the other conversation is not needed, and AGENTS.md
       keeps other conversations out of reach anyway.
     - Size: one session.
+
+32. **Forms keep working on pages served from a page cache, and stay protected against bots**
+    (Patric, 2026-10-15: "security codes / bot protection to forms"). Component:
+    `[client-wordpress]`, with `[core]` for the bot check. What changes for the product: a visitor
+    can send every form from any page, also when the page is a stored copy several days old, and
+    every form is protected against bots without anything in the page that expires.
+    - Why. WordPress's security codes (nonces) are valid for 12 to 24 hours. A form that prints one
+      into the page and checks it on send is refused for every visitor once a cached copy of the
+      page is older than that, and the leads are lost without anyone noticing.
+    - Today, theme 1.2.4: met. The public forms carry no WordPress security code (the receiver in
+      `core-client/includes/forms.php` checks none), and the bot protection is Cloudflare's check,
+      whose proof the form window earns in the visitor's browser for each send
+      (`assets/kowboy-2026.js`); the page holds only the check's public key, which does not expire.
+      What remains of the bot protection itself is known bug 4: the keys are in no environment yet.
+    - The work: automated tests that keep it so. No public page carries a WordPress security code,
+      and a form sent from a page whose HTML was made more than a day earlier is accepted (with
+      the bot check's stand-in). The same rule holds for every form, and every script that sends
+      from a public page, added later; the list reload of item 31 included.
+    - Size: part of a session.
 
 ## Later, when Patric supplies them
 
