@@ -4,10 +4,25 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 197 (192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 198 (192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 197. `[admin]` `[core]` Approve, line by line, what design B shows and needs before it is built
+
+- 2026-10-16 · Patric picked design B ("Pick B."). Before it is built, every new thing a person
+  sees in the admin and every new thing that runs in Core is a line for him to approve (AGENTS.md,
+  "Stop and ask"). The table is `panel-candidates/b-what-gets-built.md` in the project's shared
+  folder: rows 1 to 115 are B's screens, 84 of which Core can already serve and 31 of which need
+  something new in Core; D1 to D6 are the decisions building B needs (a general adapter API
+  capability for a connection's setup and progress, AGENTS.md's admin rules replaced by the
+  approved design, today's pages B has no place for removed with the old admin, the Vitec
+  notification secret kept out of brokerages' hands, B's untrue texts made true, and where the
+  build lives). The full list with file references is `docs/new-admin/b-build-list.md`.
+- Blocked: building the new admin panel (next-steps item 30, step 5).
+- a) ok: every row and the recommendation on every decision (recommended).
+- b) ok, except the rows or decisions named.
 
 ## 190. `[core]` One more one-off read-only step on staging: the property's change log under every connection, removed ones included
 
