@@ -523,6 +523,17 @@ describe('alerts', () => {
     await db().query(
       "update events set at = at - interval '20 seconds' where type <> 'login.refused'",
     );
+    // A fast database can write the refusal and the take-offs within one millisecond, which a
+    // JavaScript date cannot tell apart: the refusal was logged first, so it still counts.
+    await db().query(
+      `update events set at = date_trunc('milliseconds', at) + interval '600 microseconds'
+       where type = 'office.blocked'`,
+    );
+    await db().query(
+      `update events set at = (select max(at) from events where type = 'office.blocked')
+         + interval '100 microseconds'
+       where type = 'office.taken_off'`,
+    );
 
     await checkAlerts(config);
     expect(running.mails).toHaveLength(1);

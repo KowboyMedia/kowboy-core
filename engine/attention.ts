@@ -315,11 +315,12 @@ async function endings(failed: EventRow[]): Promise<Map<string, string>> {
  * The offices taken off while the CRM still refused them (row 20): within a week after an
  * `office.blocked` for the same office and connection, with no `office.unblocked` after it. The CRM's
  * code logs both once per connection that syncs the office, and settles them before it takes an
- * office off, so the last one before the take-off is the office's state then.
+ * office off, so the last one before the take-off is the office's state then. "Before" is the
+ * log's order, its ids: a date here holds whole milliseconds and the log microseconds, so a
+ * refusal logged in the take-off's millisecond would fall after a bound by time.
  */
 async function stillRefused(takenOff: EventRow[]): Promise<Set<string>> {
   if (takenOff.length === 0) return new Set();
-  const times = takenOff.map((row) => row.at.getTime());
   const { rows } = await db().query<{
     id: string;
     at: Date;
@@ -329,12 +330,12 @@ async function stillRefused(takenOff: EventRow[]): Promise<Set<string>> {
   }>(
     `select id, at, type, connection_id, fields->>'office_id' as office_id from events
      where type in ('office.blocked', 'office.unblocked')
-       and at > $1::timestamptz - ($3 || ' days')::interval and at <= $2
+       and at > $1::timestamptz - ($3 || ' days')::interval and id < $2
        and connection_id = any($4::text[])
      order by id`,
     [
-      new Date(Math.min(...times)),
-      new Date(Math.max(...times)),
+      new Date(Math.min(...takenOff.map((row) => row.at.getTime()))),
+      Math.max(...takenOff.map((row) => Number(row.id))),
       REFUSED_DAYS,
       [...new Set(takenOff.map((row) => row.connection_id ?? ''))],
     ],
