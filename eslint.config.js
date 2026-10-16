@@ -32,12 +32,17 @@ export default tseslint.config(
     // Node control flow says how hard it is to follow; in JSX every conditional piece a page
     // renders counts too, so it says how much the page shows instead. The rule stays on for the
     // app's own code (.ts), where it means what it was set for.
-    files: ['admin/src/**/*.tsx'],
+    files: ['admin/src/**/*.tsx', 'panel/src/**/*.tsx'],
     languageOptions: { globals: { ...globals.browser } },
     rules: { complexity: 'off' },
   },
   {
-    files: ['admin/src/**/*.ts', 'admin/e2e/**/*.ts', 'clients/wordpress/e2e/**/*.ts'],
+    files: [
+      'admin/src/**/*.ts',
+      'admin/e2e/**/*.ts',
+      'clients/wordpress/e2e/**/*.ts',
+      'panel/src/**/*.ts',
+    ],
     languageOptions: { globals: { ...globals.browser } },
   },
   {

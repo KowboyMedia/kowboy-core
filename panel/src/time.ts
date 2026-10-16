@@ -1,0 +1,67 @@
+// Times as the panel writes them, on Stockholm's clock as Core's mails are: "06:02" today,
+// "yesterday 21:14", "12 Oct 21:14" before that, and a date as "14 Nov".
+
+const ZONE = 'Europe/Stockholm';
+
+const parts = (at: Date): { day: string; hour: number; clock: string; date: string } => {
+  const read = new Intl.DateTimeFormat('en-GB', {
+    timeZone: ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(at);
+  const get = (type: string): string => read.find((part) => part.type === type)?.value ?? '';
+  return {
+    day: `${get('year')}-${get('month')}-${get('day')}`,
+    hour: Number(get('hour')),
+    clock: `${get('hour')}:${get('minute')}`,
+    date: new Intl.DateTimeFormat('en-GB', { timeZone: ZONE, day: 'numeric', month: 'short' })
+      .format(at)
+      .replace('Sept', 'Sep'),
+  };
+};
+
+const yesterdayOf = (now: Date): string => parts(new Date(now.getTime() - 86_400_000)).day;
+
+/** "14 Nov". */
+export const dateOf = (iso: string): string => parts(new Date(iso)).date;
+
+/** "06:02" today, "yesterday 21:14", "12 Oct 21:14" before. */
+export function when(iso: string, now: Date): string {
+  const at = parts(new Date(iso));
+  if (at.day === parts(now).day) return at.clock;
+  if (at.day === yesterdayOf(now)) return `yesterday ${at.clock}`;
+  return `${at.date} ${at.clock}`;
+}
+
+/** When something was sent, in words: "last night", "today", "yesterday", "on 12 Oct". */
+export function sentWhen(iso: string, now: Date): string {
+  const at = parts(new Date(iso));
+  if (at.day === parts(now).day) return at.hour < 5 ? 'last night' : 'today';
+  if (at.day === yesterdayOf(now)) return at.hour >= 18 ? 'last night' : 'yesterday';
+  return `on ${at.date}`;
+}
+
+/** How long ago, as the Core-down banner says it: "8 min ago", "2 h 5 min ago", "3 days ago". */
+export function ago(iso: string, now: Date): string {
+  const minutes = Math.max(0, Math.floor((now.getTime() - Date.parse(iso)) / 60_000));
+  if (minutes < 1) return 'under a minute ago';
+  if (minutes < 60) return `${String(minutes)} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48)
+    return `${String(hours)} h${minutes % 60 ? ` ${String(minutes % 60)} min` : ''} ago`;
+  return `${String(Math.floor(hours / 24))} days ago`;
+}
+
+/** "a, b and c". */
+export const listed = (items: string[], last = 'and'): string =>
+  items.length <= 1
+    ? (items[0] ?? '')
+    : `${items.slice(0, -1).join(', ')} ${last} ${items[items.length - 1] ?? ''}`;
+
+/** "1 thing", "4 things". */
+export const counted = (n: number, one: string, many: string): string =>
+  `${String(n)} ${n === 1 ? one : many}`;

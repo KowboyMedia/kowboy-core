@@ -30,6 +30,7 @@ import { configureSubmissionContent, deleteExpiredSubmissions } from './storage/
 import { configureCompression, jsonResponse, startServer, type RouteTable } from './http/server.js';
 import { SEQUENCE_JUMP, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
 import { adminRoutes, configureAdmin } from './admin/index.js';
+import { configurePanel, panelRoutes } from './panel/index.js';
 import { deleteExpiredSessions } from './admin/auth.js';
 
 export { SEQUENCE_JUMP, STARTED_AT, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
@@ -84,6 +85,7 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
       : null,
   );
   configureAdmin(config);
+  configurePanel(config);
   const alerts = {
     environment: config.environment,
     publicUrl: config.publicUrl,
@@ -101,6 +103,8 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
   configureLiveService({ live: config.environment === 'production' });
 
   const routes: RouteTable = [
+    // The admin panel (design B): its API under /v1/panel/, its app under /admin.
+    ...panelRoutes(),
     ...adminRoutes(),
     { method: 'GET', path: '/v1/changes', handler: changes },
     { method: 'POST', path: '/v1/applied', handler: applied },
