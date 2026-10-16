@@ -10,13 +10,24 @@ import type { Card, Tenant } from './inbox.js';
 /** Who acted on a problem and when: "Done, I've pasted it". */
 export type Acted = { by: string; at: string };
 
-/** What the Inbox says of a problem once it is solved. */
+/**
+ * What the Inbox says of a problem once it is solved. A login was put right by a new one a person
+ * saved, or the CRM took the old one again; records loaded, counted by their type, and named when
+ * there was one.
+ */
 export type FixedFacts =
   | { kind: 'worker' }
   | { kind: 'forms'; delivered: number; total: number; crms: string[] }
-  | { kind: 'login'; crm: string }
+  | { kind: 'login'; crm: string; saved: boolean }
   | { kind: 'site'; site: string }
-  | { kind: 'check'; title: string };
+  | { kind: 'check'; title: string }
+  | { kind: 'records'; crm: string; counts: Record<string, number>; name: string | null };
+
+/** A record a problem named while it was open. */
+type Seen = { key: string; datatype: string; name: string | null };
+
+/** How many records a problem remembers; a check names at most as many as its code does. */
+const SEEN_MOST = 500;
 
 /** A problem solved lately: whose it was, when it was solved, and what put it right. */
 export type Fixed = {
@@ -35,7 +46,8 @@ type OpenFacts =
   | { kind: 'forms'; ids: string[]; crms: string[] }
   | { kind: 'login'; crm: string }
   | { kind: 'site'; site: string; siteId: number }
-  | { kind: 'check'; title: string; tenants: number[]; about: string | null };
+  | { kind: 'check'; title: string; tenants: number[]; about: string | null }
+  | { kind: 'records'; crm: string; seen: Seen[] };
 
 type Row = {
   id: string;
@@ -59,11 +71,24 @@ const KEPT_DAYS = 30;
 const FIXED_HOURS = 26;
 
 const tenantIdOf = (card: Card): number | null => {
-  if (card.kind === 'forms') return card.tenant.id;
+  if (card.kind === 'forms' || card.kind === 'records') return card.tenant.id;
   if (card.kind === 'login' || card.kind === 'site') return card.tenant?.id ?? null;
   if (card.kind === 'check' && card.tenants.length === 1) return card.tenants[0]?.id ?? null;
   return null;
 };
+
+/** Every record a records card named while its problem was open, the newest names kept. */
+function seenOf(card: Card & { kind: 'records' }, before: Row['facts'] | undefined): Seen[] {
+  const known = before?.kind === 'records' && 'seen' in before ? before.seen : [];
+  const seen = new Map(known.map((one) => [one.key, one]));
+  for (const record of card.records) {
+    const key = `${record.connection} ${record.datatype} ${record.id}`;
+    if (seen.size < SEEN_MOST || seen.has(key)) {
+      seen.set(key, { key, datatype: record.datatype, name: record.name });
+    }
+  }
+  return [...seen.values()];
+}
 
 function factsOf(card: Card, before: Row['facts'] | undefined): OpenFacts {
   switch (card.kind) {
@@ -88,17 +113,27 @@ function factsOf(card: Card, before: Row['facts'] | undefined): OpenFacts {
         tenants: card.tenants.map((tenant) => tenant.id),
         about: card.about,
       };
+    case 'records':
+      return { kind: 'records', crm: card.crm, seen: seenOf(card, before) };
   }
 }
 
 /**
  * When the evidence of a problem is newer than a person's act on it, the act is spent and the card
- * needs a person again: a website that still refuses Core after someone pasted its secret.
+ * needs a person again: a website that still refuses Core after someone pasted its secret, or a
+ * record Core gave up on again after someone had it tried again.
  */
-const spentAt = (card: Card): number | null =>
-  card.kind === 'site' && card.lastAnswer !== 'ok' && card.lastAnswerAt
-    ? Date.parse(card.lastAnswerAt)
-    : null;
+function spentAt(card: Card): number | null {
+  if (card.kind === 'site' && card.lastAnswer !== 'ok' && card.lastAnswerAt) {
+    return Date.parse(card.lastAnswerAt);
+  }
+  if (card.kind === 'records' && card.checkedAt) {
+    return card.records.some((record) => record.state === 'given-up')
+      ? Date.parse(card.checkedAt)
+      : null;
+  }
+  return null;
+}
 
 /**
  * A card a person put right after its evidence stays away until there is newer evidence: a login
@@ -151,12 +186,26 @@ async function timeOf(sql: string, values: unknown[]): Promise<Date | null> {
   return rows[0]?.at ?? null;
 }
 
+/** The part of a problem's key before its last colon: the check of a brokerage's records. */
+const before = (key: string): string => key.slice(0, Math.max(0, key.lastIndexOf(':')));
+
 /**
  * When a problem whose card is gone was put right, as near as Core knows it: the website's fetch,
- * the CRM taking the last form, the alerts seeing the check pass, the worker reporting again.
+ * the CRM taking the last form, the alerts seeing the check pass, the check last looking, the CRM
+ * reading an office of the connection again, the worker reporting again.
  */
 function evidenceOfFix(row: Row): Promise<Date | null> {
   const facts = row.facts;
+  if (facts.kind === 'records') {
+    return timeOf('select at from health_results where name = $1', [before(row.key)]);
+  }
+  if (facts.kind === 'login') {
+    return timeOf(
+      `select min(at) as at from events
+       where type = 'office.unblocked' and connection_id = $1 and at >= $2`,
+      [row.key.slice('login:'.length), row.opened_at],
+    );
+  }
   if (facts.kind === 'site' && 'siteId' in facts) {
     return timeOf('select last_pull_at as at from subscribers where id = $1', [facts.siteId]);
   }
@@ -181,9 +230,20 @@ async function solvedTime(row: Row, now: Date): Promise<Date> {
   return at && at >= row.opened_at && at <= now ? at : now;
 }
 
-/** What stays of a problem once solved: for forms, how many of them the CRM took. */
+/** The records a problem named, counted by their type, and the one's name when there was one. */
+function recordsFacts(crm: string, seen: Seen[]): FixedFacts {
+  const counts: Record<string, number> = {};
+  for (const one of seen) counts[one.datatype] = (counts[one.datatype] ?? 0) + 1;
+  return { kind: 'records', crm, counts, name: seen.length === 1 ? (seen[0]?.name ?? null) : null };
+}
+
+/**
+ * What stays of a problem once solved: for forms, how many of them the CRM took; for records, how
+ * many there were.
+ */
 async function solvedFacts(row: Row): Promise<Row['facts']> {
   const facts = row.facts;
+  if (facts.kind === 'records' && 'seen' in facts) return recordsFacts(facts.crm, facts.seen);
   if (facts.kind !== 'forms' || !('ids' in facts)) return facts;
   const { rows } = await db().query<{ n: string }>(
     `select count(*) as n from submissions
@@ -277,20 +337,23 @@ async function fixedLately(tenants: Map<number, string>): Promise<Fixed[]> {
       }),
       about: facts.kind === 'site' ? facts.site : 'about' in facts ? (facts.about ?? null) : null,
       solvedAt: (row.solved_at ?? new Date()).toISOString(),
-      facts: shownFacts(facts),
+      facts: shownFacts(row),
     });
   }
   return fixed;
 }
 
-function shownFacts(facts: Row['facts']): FixedFacts {
+function shownFacts(row: Row): FixedFacts {
+  const facts = row.facts;
   switch (facts.kind) {
     case 'forms':
       return 'delivered' in facts
         ? { kind: 'forms', delivered: facts.delivered, total: facts.total, crms: facts.crms }
         : { kind: 'forms', delivered: 0, total: 0, crms: facts.crms };
     case 'login':
-      return { kind: 'login', crm: facts.crm };
+      return { kind: 'login', crm: facts.crm, saved: row.solved_by !== null };
+    case 'records':
+      return 'seen' in facts ? recordsFacts(facts.crm, facts.seen) : facts;
     case 'site':
       return { kind: 'site', site: facts.site };
     case 'check':
@@ -300,12 +363,15 @@ function shownFacts(facts: Row['facts']): FixedFacts {
   }
 }
 
-/** A person acted on an open problem ("Done, I've pasted it"): it waits until it is solved. */
-export async function actOn(key: string, by: string): Promise<boolean> {
+/**
+ * A person acted on an open problem ("Done, I've pasted it", "Retry 3 properties"): it waits until
+ * it is solved. With a brokerage, only a problem of that brokerage.
+ */
+export async function actOn(key: string, by: string, tenantId?: number): Promise<boolean> {
   const { rows } = await db().query(
     `update panel_problems set acted_by = $2, acted_at = now()
-     where key = $1 and solved_at is null returning id`,
-    [key, by],
+     where key = $1 and solved_at is null and ($3::int is null or tenant_id = $3) returning id`,
+    [key, by, tenantId ?? null],
   );
   return rows.length === 1;
 }

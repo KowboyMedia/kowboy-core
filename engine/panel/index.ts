@@ -43,6 +43,7 @@ import {
 import { actOn } from './problems.js';
 import { resendForms } from './forms.js';
 import { startReload } from './reload.js';
+import { retryRecords } from './records.js';
 
 type PanelConfig = AuthSettings & Pick<Config, 'environment' | 'port'>;
 
@@ -268,6 +269,16 @@ const BROKERAGE_CHANGES: Record<string, BrokerageChange> = {
   },
   reload: async (id, _given, person) =>
     (await startReload(id, person.email)) ? answer(202, { ok: true }) : missing(),
+  // The records of the brokerage an Inbox card says can't be loaded, fetched again by their CRM.
+  retry: async (id, given, person) => {
+    const key = text(given['key']);
+    const done = await retryRecords(
+      id,
+      given['records'],
+      key === '' ? null : { key, by: person.email },
+    );
+    return done.ok ? answer(200, { ok: true }) : refusal(done.why);
+  },
 };
 
 const brokerageChange = change(async (request, given, person) => {

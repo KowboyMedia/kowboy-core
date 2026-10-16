@@ -1,9 +1,11 @@
 // The Inbox's problems and its windows (design B, images 13 to 16, 20 to 22 and 39 to 43): a
 // problem stays open until it is solved, waits while someone acted on it, and is listed as fixed
 // today; forms are resent through Core's own "Send again"; maintenance is turned on and off; and a
-// brokerage's data is reloaded. A stand-in CRM, "somecrm", records what it is asked and calls
-// nothing: its form handler takes every form, and its full fetch removes one record it no longer
-// "lists". No real CRM is reached, and every website's bell address is the harness's own.
+// brokerage's data is reloaded; records a CRM can't load are fetched again; a refused login says
+// when its offices leave the websites. A stand-in CRM, "somecrm", records what it is asked and
+// calls nothing: its form handler takes every form, its full fetch removes one record it no longer
+// "lists", and its check of failing records says what the test sets. No real CRM is reached, and
+// every website's bell address is the harness's own.
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { harness, TENANT, TOKEN, type Harness } from '../../acceptance/harness.js';
@@ -13,10 +15,10 @@ import { addSubscriber, createTenant, upsertConnection } from '../storage/connec
 import { heartbeat } from '../health.js';
 import { logEvent } from '../events.js';
 import { ring } from '../bells.js';
-import type { Adapter, Canonical } from '../adapter-api/types.js';
+import type { Adapter, Canonical, HealthResult } from '../adapter-api/types.js';
 import { COOKIE } from './auth.js';
 import type { Brokerage } from './brokerages.js';
-import type { FormsCard, Inbox, SiteCard } from './inbox.js';
+import type { FormsCard, Inbox, LoginCard, RecordsCard, SiteCard } from './inbox.js';
 import type { Resent } from './forms.js';
 
 let core: Harness;
@@ -26,9 +28,15 @@ const GOOD = 'right-password';
 /** A port nothing listens on: a website that never answers, and is never anyone's real address. */
 const NOWHERE = 'http://127.0.0.1:9/bell';
 
-const asked: { sent: string[]; resyncs: string[] } = { sent: [], resyncs: [] };
+const asked: {
+  sent: string[];
+  resyncs: string[];
+  acts: { action: string; params: Record<string, string>; connections: string[] }[];
+} = { sent: [], resyncs: [], acts: [] };
 /** The record the stand-in CRM no longer lists at its next full fetch. */
 let unlisted: string | null = null;
+/** What the stand-in's check of the records it can't load says. */
+let retries: HealthResult = { ok: true };
 
 const somecrm: Adapter = {
   manifest: {
@@ -47,6 +55,7 @@ const somecrm: Adapter = {
     },
   },
   start(api) {
+    api.healthCheck('somecrm.retries', () => retries);
     api.onLifecycle(async (event) => {
       if (event.type !== 'resync') return;
       asked.resyncs.push(event.connection.id);
@@ -61,7 +70,10 @@ const somecrm: Adapter = {
     directions: () => ({ steps: [], settings: [] }),
     panel: () => Promise.resolve([]),
     connection: () => Promise.resolve([]),
-    act: () => Promise.resolve({ message: 'queued' }),
+    act: (action, params, connections) => {
+      asked.acts.push({ action, params, connections: connections.map((one) => one.id) });
+      return Promise.resolve({ message: 'queued' });
+    },
     probe: (credentials) => {
       const login = JSON.parse(credentials) as Record<string, string>;
       return Promise.resolve({ ok: login['password'] === GOOD, detail: '' });
@@ -82,7 +94,9 @@ afterAll(async () => {
 beforeEach(async () => {
   asked.sent = [];
   asked.resyncs = [];
+  asked.acts = [];
   unlisted = null;
+  retries = { ok: true };
   core.bells.length = 0;
   await db().query(
     'truncate submissions, events, alert_state, admin_sessions, heartbeats, health_results, lifecycle_events, settings, panel_problems, reloads',
@@ -245,7 +259,9 @@ describe('a problem stays open until it is solved', () => {
     expect(saved.status).toBe(200);
     read = await inbox();
     expect(read.cards).toEqual([]);
-    expect(read.fixed.map((one) => one.facts)).toEqual([{ kind: 'login', crm: 'Somecrm' }]);
+    expect(read.fixed.map((one) => one.facts)).toEqual([
+      { kind: 'login', crm: 'Somecrm', saved: true },
+    ]);
 
     await logEvent({ type: 'login.refused', connectionId: 'somecrm-1', fields: { detail: 'No.' } });
     expect((await inbox()).cards.map((one) => one.key)).toEqual(['login:somecrm-1']);
@@ -260,6 +276,179 @@ describe('a problem stays open until it is solved', () => {
     const read = await inbox();
     expect(read.cards).toEqual([]);
     expect(read.fixed).toHaveLength(1);
+  });
+});
+
+describe('a refused login', () => {
+  it('says how many offices leave the websites and when, and closes once the CRM reads an office again', async () => {
+    const leaves = new Date(Date.now() + 86_400_000).toISOString();
+    await logEvent({
+      type: 'login.refused',
+      connectionId: 'somecrm-1',
+      fields: { offices: 2, leaves_at: leaves, detail: 'No.' },
+    });
+    let read = await inbox();
+    expect(read.cards[0] as LoginCard).toMatchObject({
+      kind: 'login',
+      sites: ['test site'],
+      leaving: { offices: 2, at: leaves },
+    });
+    expect(JSON.stringify(read)).not.toContain('No.');
+
+    // The CRM's next office check reads an office of the connection again: the card closes.
+    await logEvent({
+      type: 'office.unblocked',
+      connectionId: 'somecrm-1',
+      fields: { office_id: 'o-1' },
+    });
+    read = await inbox();
+    expect(read.cards).toEqual([]);
+    expect(read.fixed.map((one) => one.facts)).toEqual([
+      { kind: 'login', crm: 'Somecrm', saved: false },
+    ]);
+
+    // Refused again with no office to lose: the card is back, and says nothing of offices.
+    await logEvent({
+      type: 'login.refused',
+      connectionId: 'somecrm-1',
+      fields: { offices: 0, leaves_at: null, detail: 'No.' },
+    });
+    read = await inbox();
+    expect(read.cards).toHaveLength(1);
+    expect((read.cards[0] as LoginCard).leaving).toBeNull();
+  });
+});
+
+describe('records a CRM can’t load', () => {
+  const failing = (
+    names: { connection: string; datatype: 'property' | 'agent'; id: string; note: string }[],
+  ): HealthResult => ({
+    ok: false,
+    level: 'P2',
+    detail: `${String(names.length)} records failed.`,
+    names: names.map(({ connection, datatype, id, note }) => ({
+      connection,
+      record: { datatype, id },
+      note,
+    })),
+  });
+
+  it('names them per brokerage, has them fetched again, waits, and lists them loaded', async () => {
+    await property('P-1', 'Ringvägen 52', 'Stockholm');
+    await property('P-2', 'Lidingövägen 12', 'Lidingö');
+    await upsertConnection({ id: 'somecrm-2', tenantId: other, provider: 'somecrm', name: 'Two' });
+    // The note goes to the card in full; where the record stands is read from its start alone.
+    const given =
+      'given up after 6 failed tries. The service did not answer, so it is tried again now';
+    retries = failing([
+      { connection: 'somecrm-1', datatype: 'property', id: 'P-1', note: given },
+      { connection: 'somecrm-1', datatype: 'property', id: 'P-2', note: given },
+      {
+        connection: 'somecrm-1',
+        datatype: 'property',
+        id: 'P-3',
+        note: '3 failed tries, tried again by itself',
+      },
+      {
+        connection: 'somecrm-2',
+        datatype: 'agent',
+        id: 'A-9',
+        note: '6 failed tries, fetched again now',
+      },
+    ]);
+    let read = await inbox();
+    expect(read.cards.map((card) => card.kind)).toEqual(['records', 'records']);
+    const card = read.cards.find(
+      (one) => one.key === `somecrm.retries:${String(TENANT)}`,
+    ) as RecordsCard;
+    expect(card).toMatchObject({
+      level: 'P2',
+      tenant: { id: TENANT, name: 'Granstedt Bostad' },
+      crm: 'Somecrm',
+      sites: ['test site'],
+      records: [
+        {
+          connection: 'somecrm-1',
+          datatype: 'property',
+          id: 'P-1',
+          name: 'Ringvägen 52',
+          note: given,
+          state: 'given-up',
+        },
+        { id: 'P-2', name: 'Lidingövägen 12', note: given, state: 'given-up' },
+        { id: 'P-3', name: null, note: '3 failed tries, tried again by itself', state: 'retrying' },
+      ],
+    });
+    expect(read.cards.find((one) => one.key === `somecrm.retries:${String(other)}`)).toMatchObject({
+      tenant: { id: other },
+      records: [{ datatype: 'agent', id: 'A-9', state: 'fetching' }],
+    });
+
+    // Only the brokerage's own records, and only records, go to the CRM's code.
+    const retry = (records: unknown) =>
+      call(`/brokerages/${String(TENANT)}/retry`, { key: card.key, records });
+    expect((await retry([{ connection: 'somecrm-2', datatype: 'agent', id: 'A-9' }])).status).toBe(
+      404,
+    );
+    expect((await retry([{ connection: 'somecrm-1', datatype: 'house', id: 'P-1' }])).status).toBe(
+      400,
+    );
+    expect((await retry([])).status).toBe(400);
+    expect(asked.acts).toEqual([]);
+
+    const mine = card.records.map(({ connection, datatype, id }) => ({ connection, datatype, id }));
+    expect((await retry(mine)).status).toBe(200);
+    expect(asked.acts).toEqual([
+      {
+        action: 'retry_records',
+        params: { records: JSON.stringify(mine) },
+        connections: ['somecrm-1'],
+      },
+    ]);
+
+    // The CRM's code tries them again: the card waits, by the person who pressed.
+    const again = '6 failed tries, tried again by itself';
+    retries = failing([
+      { connection: 'somecrm-1', datatype: 'property', id: 'P-1', note: again },
+      {
+        connection: 'somecrm-1',
+        datatype: 'property',
+        id: 'P-2',
+        note: '6 failed tries, fetched again now',
+      },
+      { connection: 'somecrm-1', datatype: 'property', id: 'P-3', note: again },
+    ]);
+    read = await inbox();
+    expect(read.cards).toEqual([]);
+    expect(read.waiting.map((one) => [one.key, one.acted?.by])).toEqual([
+      [card.key, 'tester@kowboy.se'],
+    ]);
+    // The other brokerage's records no longer fail: its card is fixed, counted by type.
+    expect(read.fixed.map((one) => one.facts)).toEqual([
+      { kind: 'records', crm: 'Somecrm', counts: { agent: 1 }, name: null },
+    ]);
+
+    // Core gives up on one again: the card needs a person again.
+    retries = failing([
+      {
+        connection: 'somecrm-1',
+        datatype: 'property',
+        id: 'P-1',
+        note: 'given up after 7 failed tries',
+      },
+    ]);
+    read = await inbox();
+    expect(read.waiting).toEqual([]);
+    expect(read.cards.map((one) => one.key)).toEqual([card.key]);
+
+    // Every record loads: listed as fixed, all of them it ever named.
+    retries = { ok: true };
+    read = await inbox();
+    expect(read.cards).toEqual([]);
+    expect(read.fixed.find((one) => one.key === card.key)).toMatchObject({
+      tenants: [{ id: TENANT, name: 'Granstedt Bostad' }],
+      facts: { kind: 'records', crm: 'Somecrm', counts: { property: 3 }, name: null },
+    });
   });
 });
 

@@ -2,8 +2,9 @@
 // then what needs you, urgent first and then oldest first; what waits after someone acted; and
 // what was fixed today. The page reads again by itself, so a problem that is put right moves to
 // "Fixed today". Each card's button opens its window: resend the forms, enter a new login, fix a
-// website's bell secret; "Open <brokerage>" opens the brokerage's page.
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+// website's bell secret; "Retry 3 properties" has the CRM fetch them again at once; "Open
+// <brokerage>" opens the brokerage's page.
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import {
   api,
@@ -11,19 +12,32 @@ import {
   type CheckCard,
   type Crm,
   type ConnectionView,
+  type FailingRecord,
   type Fixed,
   type FormsCard,
   type Inbox,
   type KeptForm,
   type Level,
   type LoginCard,
+  type RecordsCard,
   type Resent,
   type SiteCard,
   type Tenant,
   type WorkerCard,
 } from './api';
 import { Shell, useShell } from './Shell';
-import { ago, capital, clock, counted, dateOf, listed, sameDay, sentWhen, when } from './time';
+import {
+  ago,
+  ahead,
+  capital,
+  clock,
+  counted,
+  dateOf,
+  listed,
+  sameDay,
+  sentWhen,
+  when,
+} from './time';
 import {
   AlertTriangleIcon,
   CheckIcon,
@@ -33,6 +47,7 @@ import {
   LoaderIcon,
   PencilIcon,
   PowerIcon,
+  RefreshIcon,
   SendIcon,
   TrafficConeIcon,
 } from './icons';
@@ -58,6 +73,9 @@ type Open =
   | null;
 
 type Opener = (open: Open) => void;
+
+/** A records card whose records someone just had fetched again. */
+type Retried = (card: RecordsCard) => void;
 
 function OpenBrokerage({ tenant }: { tenant: Tenant }) {
   return (
@@ -192,11 +210,27 @@ function Login({ card, now, onOpen }: { card: LoginCard; now: Date; onOpen: Open
       }
     >
       <p className="k-card-body">
-        Changes are held back since then. Usually a changed password or an ended {card.crm}{' '}
-        subscription.
+        Changes are held back since then.{leavingWords(card, now)} Usually a changed password or an
+        ended {card.crm} subscription.
       </p>
     </Frame>
   );
+}
+
+/**
+ * " Tomorrow at 06:02 its 2 offices and their properties leave sjobrismakleri.se, unless fixed.",
+ * or, once that time is past, " Since 06:02 its 2 offices and their properties are off …".
+ */
+function leavingWords(card: LoginCard, now: Date): string {
+  if (!card.leaving) return '';
+  const offices =
+    card.leaving.offices === 1
+      ? 'its office and its properties'
+      : `its ${String(card.leaving.offices)} offices and their properties`;
+  const sites = listed(card.sites) || 'its websites';
+  return Date.parse(card.leaving.at) > now.getTime()
+    ? ` ${capital(ahead(card.leaving.at, now))} ${offices} leave ${sites}, unless fixed.`
+    : ` Since ${when(card.leaving.at, now)} ${offices} are off ${sites}.`;
 }
 
 /** Why a website stopped updating, from how it last answered Core's change notice. */
@@ -245,6 +279,102 @@ function Site({ card, now, onOpen }: { card: SiteCard; now: Date; onOpen: Opener
       <p className="k-card-body">
         {fetched} {siteCause(card, now)} Visitors see properties that have since changed or gone.
       </p>
+    </Frame>
+  );
+}
+
+/** Each type's word, one and many, in the order the cards count them. */
+const RECORD_WORDS: Record<FailingRecord['datatype'], [string, string]> = {
+  property: ['property', 'properties'],
+  project: ['project', 'projects'],
+  agent: ['agent', 'agents'],
+  office: ['office', 'offices'],
+  area: ['area', 'areas'],
+  association: ['association', 'associations'],
+};
+
+/** "3 properties", "2 properties and 1 agent". */
+function recordsCounted(records: { datatype: FailingRecord['datatype'] }[]): string {
+  return listed(
+    (Object.keys(RECORD_WORDS) as FailingRecord['datatype'][]).flatMap((datatype) => {
+      const n = records.filter((record) => record.datatype === datatype).length;
+      const [one, many] = RECORD_WORDS[datatype];
+      return n === 0 ? [] : [counted(n, one, many)];
+    }),
+  );
+}
+
+/** The record's key, as the card names it. */
+const recordKey = (record: FailingRecord): string =>
+  `${record.connection} ${record.datatype} ${record.id}`;
+
+/** A record by its address or name; one Core never loaded by the CRM's id for it. */
+const recordName = (record: FailingRecord, crm: string): string =>
+  record.name ?? `The ${RECORD_WORDS[record.datatype][0]} with ${crm} id ${record.id}`;
+
+/** "Until they load, lindqvistholm.se and nyproduktion.lindqvistholm.se miss these changes." */
+function missedWords(card: RecordsCard): string | null {
+  if (card.sites.length === 0) return null;
+  const one = card.records.length === 1;
+  return `Until ${one ? 'it loads' : 'they load'}, ${listed(card.sites)} ${card.sites.length === 1 ? 'misses' : 'miss'} these changes.`;
+}
+
+function Records({ card, now, onRetried }: { card: RecordsCard; now: Date; onRetried: Retried }) {
+  const { away } = useShell();
+  const note = useNote();
+  const [busy, setBusy] = useState(false);
+  const retry = async () => {
+    setBusy(true);
+    try {
+      await api.retry(
+        card.tenant.id,
+        card.key,
+        card.records.map(({ connection, datatype, id }) => ({ connection, datatype, id })),
+      );
+      onRetried(card);
+    } catch (error) {
+      if (!away(error)) {
+        note({
+          text: `${card.crm} didn’t take the request to fetch them again. Try again in a while.`,
+          icon: 'warn',
+        });
+      }
+    }
+    setBusy(false);
+  };
+  const these = recordsCounted(card.records);
+  const missed = missedWords(card);
+  return (
+    <Frame
+      card={card}
+      who={card.tenant.name}
+      now={now}
+      title={`${these} can’t be loaded from ${card.crm}`}
+      actions={
+        <>
+          <button
+            type="button"
+            className="k-button k-button-primary"
+            disabled={busy}
+            onClick={() => void retry()}
+          >
+            {busy ? <LoaderIcon className="k-spin" /> : <RefreshIcon />}
+            Retry {these}
+          </button>
+          <OpenBrokerage tenant={card.tenant} />
+        </>
+      }
+    >
+      {/* Each record with what the CRM's code says of it, so the card says why it failed. */}
+      <ul className="k-card-records">
+        {card.records.map((record) => (
+          <li key={recordKey(record)}>
+            <span className="k-card-record">{recordName(record, card.crm)}</span>
+            {record.note && <span className="k-card-note">{capital(record.note)}</span>}
+          </li>
+        ))}
+      </ul>
+      {missed && <p className="k-card-body">{missed}</p>}
     </Frame>
   );
 }
@@ -335,11 +465,13 @@ function OneCard({
   inbox,
   now,
   onOpen,
+  onRetried,
 }: {
   card: Card;
   inbox: Inbox;
   now: Date;
   onOpen: Opener;
+  onRetried: Retried;
 }) {
   switch (card.kind) {
     case 'worker':
@@ -352,6 +484,8 @@ function OneCard({
       return <Site card={card} now={now} onOpen={onOpen} />;
     case 'check':
       return <Check card={card} now={now} />;
+    case 'records':
+      return <Records card={card} now={now} onRetried={onRetried} />;
   }
 }
 
@@ -362,7 +496,7 @@ function WaitingCard({ card, now }: { card: Card; now: Date }) {
   const { me } = useShell();
   const by = card.acted?.by === me?.email ? 'You' : (card.acted?.by ?? 'Someone');
   const who =
-    card.kind === 'forms'
+    card.kind === 'forms' || card.kind === 'records'
       ? card.tenant.name
       : card.kind === 'check'
         ? card.tenants.map((tenant) => tenant.name).join(', ') || card.about || 'Core'
@@ -378,11 +512,15 @@ function WaitingCard({ card, now }: { card: Card; now: Date }) {
           ? `${card.crm} refused the login`
           : card.kind === 'forms'
             ? `${counted(card.count, 'visitor form', 'visitor forms')} didn’t reach ${listed(card.crms) || 'the CRM'}`
-            : 'The worker stopped';
+            : card.kind === 'records'
+              ? `${recordsCounted(card.records)} can’t be loaded from ${card.crm}`
+              : 'The worker stopped';
   const words =
     card.kind === 'site'
       ? `${by} pasted the bell secret. Waiting for the website’s next sync — within 15 minutes. This card moves to “Fixed today” by itself, or back to “Needs you” if the website still refuses.`
-      : `${by} marked this as done at ${when(card.acted?.at ?? '', now)}. This card moves to “Fixed today” by itself, or back to “Needs you” if it comes back.`;
+      : card.kind === 'records'
+        ? retriedWords(card, by)
+        : `${by} marked this as done at ${when(card.acted?.at ?? '', now)}. This card moves to “Fixed today” by itself, or back to “Needs you” if it comes back.`;
   return (
     <Frame card={card} who={who} now={now} title={title}>
       <p className="k-card-waiting">
@@ -391,6 +529,27 @@ function WaitingCard({ card, now }: { card: Card; now: Date }) {
       </p>
     </Frame>
   );
+}
+
+/** What a waiting records card says: who had them fetched again, and what happens next. */
+function retriedWords(card: RecordsCard, by: string): string {
+  const one = card.records.length === 1;
+  const them = one ? 'it' : 'them';
+  return `${by} had ${card.crm} fetch ${one ? (card.records[0]?.name ?? `the ${RECORD_WORDS[card.records[0]?.datatype ?? 'property'][0]}`) : `the ${recordsCounted(card.records)}`} again. Waiting for ${them} to load. This card moves to “Fixed today” by itself, or back to “Needs you” if Core gives up on ${one ? 'it' : 'one of them'} again.`;
+}
+
+/** "All 3 properties loaded", "Both properties loaded", "Ringvägen 52 loaded". */
+function loadedWords(counts: Record<string, number>, name: string | null): string {
+  const records = Object.entries(counts).flatMap(([datatype, n]) =>
+    Array.from({ length: n }, () => ({ datatype: datatype as FailingRecord['datatype'] })),
+  );
+  const total = records.length;
+  if (total === 1 && name) return `${name} loaded`;
+  if (total === 1) return `${capital(recordsCounted(records).replace(/^1 /, 'the '))} loaded`;
+  const words = recordsCounted(records);
+  if (total === 2 && Object.keys(counts).length === 1)
+    return `Both ${words.replace(/^2 /, '')} loaded`;
+  return `All ${words} loaded`;
 }
 
 /** "2 forms delivered to Vitec", "New login works", "Website up to date again". */
@@ -404,7 +563,9 @@ function fixedWords(fixed: Fixed): string {
         : `${String(facts.delivered)} of ${counted(facts.total, 'form', 'forms')} delivered to ${crm}`;
     }
     case 'login':
-      return 'New login works';
+      return facts.saved ? 'New login works' : `${facts.crm} accepts the login again`;
+    case 'records':
+      return loadedWords(facts.counts, facts.name);
     case 'site':
       return 'Website up to date again';
     case 'check':
@@ -810,8 +971,59 @@ function Empty({ crms }: { crms: string[] }) {
   );
 }
 
+/** What one press asked for: the records, and when the card's problem began to wait. */
+type Pending = { keys: Set<string>; card: RecordsCard; actedAt: string | null };
+
+/** Whether a record is still named, then where the card is: under Waiting, back, or gone. */
+function pendingNow(entry: Pending, key: string, inbox: Inbox): 'wait' | 'back' | 'loaded' {
+  const waiting = inbox.waiting.find((one) => one.key === key);
+  if (waiting?.kind === 'records') {
+    entry.actedAt ??= waiting.acted?.at ?? null;
+    return waiting.records.some((record) => entry.keys.has(recordKey(record))) ? 'wait' : 'loaded';
+  }
+  if (inbox.cards.some((one) => one.key === key)) {
+    // A read sent before the press still shows the card under "Needs you": only a later one counts.
+    return entry.actedAt && inbox.now > entry.actedAt ? 'back' : 'wait';
+  }
+  return 'loaded';
+}
+
+/**
+ * Says "All 3 properties loaded." once none of the records someone had fetched again is named any
+ * more; a card back under "Needs you" says itself what is left.
+ */
+function useLoaded(inbox: Inbox): Retried {
+  const note = useNote();
+  const pending = useRef(new Map<string, Pending>());
+  useEffect(() => {
+    for (const [key, entry] of pending.current) {
+      const state = pendingNow(entry, key, inbox);
+      if (state === 'wait') continue;
+      pending.current.delete(key);
+      if (state === 'back') continue;
+      const records = entry.card.records;
+      const counts: Record<string, number> = {};
+      for (const record of records) counts[record.datatype] = (counts[record.datatype] ?? 0) + 1;
+      const name = records.length === 1 ? (records[0]?.name ?? null) : null;
+      note({ text: `${loadedWords(counts, name)}.` });
+    }
+  }, [inbox, note]);
+  return useCallback((card: RecordsCard) => {
+    pending.current.set(card.key, {
+      keys: new Set(card.records.map(recordKey)),
+      card,
+      actedAt: null,
+    });
+  }, []);
+}
+
 function InboxView({ inbox, onRead }: { inbox: Inbox; onRead: () => void }) {
   const [open, setOpen] = useState<Open>(null);
+  const loaded = useLoaded(inbox);
+  const retried = (card: RecordsCard) => {
+    loaded(card);
+    onRead();
+  };
   const now = new Date(inbox.now);
   const down = !inbox.worker.ok;
   const maintenance = inbox.maintenance.on && !down;
@@ -842,7 +1054,14 @@ function InboxView({ inbox, onRead }: { inbox: Inbox; onRead: () => void }) {
       {count > 0 && (
         <div style={down ? { marginTop: 32 } : undefined}>
           {inbox.cards.map((card) => (
-            <OneCard key={card.key} card={card} inbox={inbox} now={now} onOpen={setOpen} />
+            <OneCard
+              key={card.key}
+              card={card}
+              inbox={inbox}
+              now={now}
+              onOpen={setOpen}
+              onRetried={retried}
+            />
           ))}
         </div>
       )}

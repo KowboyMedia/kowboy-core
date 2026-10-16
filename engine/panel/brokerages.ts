@@ -121,7 +121,7 @@ export function crms(): Crm[] {
 function tenantsOf(cards: Card[]): Set<number> {
   const ids = new Set<number>();
   for (const card of cards) {
-    if (card.kind === 'forms') ids.add(card.tenant.id);
+    if (card.kind === 'forms' || card.kind === 'records') ids.add(card.tenant.id);
     if ((card.kind === 'login' || card.kind === 'site') && card.tenant) ids.add(card.tenant.id);
     if (card.kind === 'check') for (const tenant of card.tenants) ids.add(tenant.id);
   }

@@ -29,6 +29,14 @@ const yesterdayOf = (now: Date): string => parts(new Date(now.getTime() - 86_400
 /** "14 Nov". */
 export const dateOf = (iso: string): string => parts(new Date(iso)).date;
 
+/** A time ahead, in words: "today at 06:02", "tomorrow at 06:02", "on 18 Oct at 06:02". */
+export function ahead(iso: string, now: Date): string {
+  const at = parts(new Date(iso));
+  if (at.day === parts(now).day) return `today at ${at.clock}`;
+  if (at.day === parts(new Date(now.getTime() + 86_400_000)).day) return `tomorrow at ${at.clock}`;
+  return `on ${at.date} at ${at.clock}`;
+}
+
 /** "06:02" today, "yesterday 21:14", "12 Oct 21:14" before. */
 export function when(iso: string, now: Date): string {
   const at = parts(new Date(iso));

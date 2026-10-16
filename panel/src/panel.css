@@ -602,6 +602,28 @@ body {
   color: var(--k-muted);
   line-height: 20px;
 }
+/* The records a card says can't be loaded, each with what the CRM's code says of it. */
+.k-card-records {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  line-height: 20px;
+}
+.k-card-records li + li {
+  margin-top: 8px;
+}
+.k-card-record {
+  display: block;
+  color: var(--k-text);
+}
+.k-card-note {
+  display: block;
+  color: var(--k-muted);
+  overflow-wrap: anywhere;
+}
+.k-card-records + .k-card-body {
+  margin-top: 8px;
+}
 .k-card-actions {
   display: flex;
   flex-wrap: wrap;

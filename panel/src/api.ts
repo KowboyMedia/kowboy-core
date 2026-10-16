@@ -7,10 +7,12 @@ import type { Inbox, InboxLevel } from '../../engine/panel/inbox.js';
 export type {
   Card,
   CheckCard,
+  FailingRecord,
   FormsCard,
   Inbox,
   KeptForm,
   LoginCard,
+  RecordsCard,
   SiteCard,
   Tenant,
   WorkerCard,
@@ -108,6 +110,12 @@ export const api = {
   resend: (id: number, ids: string[]) =>
     post<{ results: Resent[] }>(`/brokerages/${String(id)}/resend`, { ids }),
   reload: (id: number) => post<{ ok: true }>(`/brokerages/${String(id)}/reload`, {}),
+  /** "Retry 3 properties": the CRM fetches the records again, and the card waits meanwhile. */
+  retry: (
+    id: number,
+    key: string,
+    records: { connection: string; datatype: string; id: string }[],
+  ) => post<{ ok: true }>(`/brokerages/${String(id)}/retry`, { key, records }),
 };
 
 export const signedOut = (error: unknown): boolean =>

@@ -3,9 +3,10 @@
 // today. Built from what Core already knows: the failing health checks (health.ts; a check's start
 // from the alerts' `alert_state`), the forms Core keeps because the CRM did not take them
 // (storage/submissions.ts), and a CRM refusing a login, from the event log (the `login.refused`
-// kind, attention.ts). Each card is a problem Core keeps until it is solved (problems.ts). The
-// engine sends facts; the panel words them. No CRM is named here: a CRM's name is its provider's,
-// as the connection carries it.
+// kind, attention.ts). A check that names records a CRM's code can't load is one card per
+// brokerage, whose records can be tried again (records.ts). Each card is a problem Core keeps until
+// it is solved (problems.ts). The engine sends facts; the panel words them. No CRM is named here:
+// a CRM's name is its provider's, as the connection carries it.
 import { db } from '../storage/db.js';
 import {
   aboutCheck,
@@ -20,7 +21,7 @@ import { NOT_LIVE, providers } from '../registry.js';
 import { KEPT_DAYS, keptSubmissions } from '../storage/submissions.js';
 import { NO_ANSWER, SUBMISSION_TIMEOUT_MS, UNANSWERED_MS } from '../http/submissions.js';
 import { MAINTENANCE, settings } from '../storage/settings.js';
-import type { AdminThing, HealthResult, SubmissionKind } from '../adapter-api/types.js';
+import type { AdminThing, Datatype, HealthResult, SubmissionKind } from '../adapter-api/types.js';
 import { reconcile, type Acted, type Fixed } from './problems.js';
 
 /** The levels the Inbox shows: Down, Urgent and Needs a look. P3 stays in the event log. */
@@ -83,6 +84,13 @@ export type LoginCard = Base & {
   crm: string;
   /** Core's id for the connection, for the window that takes a new login; no page shows it. */
   connectionId: string;
+  /** The brokerage's websites. */
+  sites: string[];
+  /**
+   * How many of its offices leave the websites, and when, if the CRM still refuses then, as the
+   * CRM's code tells it; null when none would leave or the code does not say.
+   */
+  leaving: { offices: number; at: string } | null;
 };
 
 /** A website has not fetched the changes Core told it about, with its last answer to Core. */
@@ -115,7 +123,43 @@ export type CheckCard = Base & {
   names: string[];
 };
 
-export type Card = WorkerCard | FormsCard | LoginCard | SiteCard | CheckCard;
+/** A record a check says can't be loaded, as a person knows it. */
+export type FailingRecord = {
+  connection: string;
+  datatype: Datatype;
+  id: string;
+  /** Its address or name, from what Core holds of it; null for a record Core has never loaded. */
+  name: string | null;
+  /**
+   * What the CRM's code says about it, in full: where it stands and why it failed ("given up after
+   * 6 failed tries. …"). The card shows it under the record's name; null when the code says nothing.
+   */
+  note: string | null;
+  /**
+   * Where it stands, as the start of the note says: Core gave up on it, tries it again by itself,
+   * or fetches it again now; null when the note says none of these.
+   */
+  state: 'given-up' | 'retrying' | 'fetching' | null;
+};
+
+/**
+ * A brokerage's records a check says can't be loaded from a CRM (row 38), which a person can have
+ * tried again (row 39). Each record's note shows under its name, so the card says why it failed
+ * (Patric, 2026-10-16); the check's detail is not shown.
+ */
+export type RecordsCard = Base & {
+  kind: 'records';
+  tenant: Tenant;
+  crm: string;
+  /** As the check names them, at most as many as it does. */
+  records: FailingRecord[];
+  /** The brokerage's websites, which miss the records' changes until they load. */
+  sites: string[];
+  /** When the check last looked, so that a try again is judged by a look after it. */
+  checkedAt: string | null;
+};
+
+export type Card = WorkerCard | FormsCard | LoginCard | SiteCard | CheckCard | RecordsCard;
 
 export type Inbox = {
   now: string;
@@ -186,6 +230,7 @@ export async function inbox(): Promise<Inbox> {
     ...forms,
     ...(await loginCards(names)),
     ...(await siteCards(health, names)),
+    ...(await recordsCards(health, names)),
     ...(await checkCards(health, names, new Set(forms.map((card) => card.tenant.id)))),
   ];
   const split = await reconcile(cards, names.tenants);
@@ -374,10 +419,35 @@ async function answeredAgain(unanswered: KeptRow[]): Promise<string | null> {
   return iso(latest);
 }
 
+/** Each brokerage's websites, by their names, oldest first. */
+async function sitesOf(tenantIds: number[]): Promise<Map<number, string[]>> {
+  if (tenantIds.length === 0) return new Map();
+  const { rows } = await db().query<{ tenant_id: number; label: string }>(
+    'select tenant_id, label from subscribers where tenant_id = any($1::int[]) order by id',
+    [tenantIds],
+  );
+  const sites = new Map<number, string[]>();
+  for (const row of rows) {
+    const id = Number(row.tenant_id);
+    sites.set(id, [...(sites.get(id) ?? []), row.label]);
+  }
+  return sites;
+}
+
+/** The offices that leave the websites and when, as the refusal's event says it; null for none. */
+function leavingOf(fields: Record<string, unknown>): LoginCard['leaving'] {
+  const offices = Number(fields['offices']);
+  const at = fields['leaves_at'];
+  if (!Number.isInteger(offices) || offices <= 0 || typeof at !== 'string') return null;
+  const time = Date.parse(at);
+  return Number.isNaN(time) ? null : { offices, at: new Date(time).toISOString() };
+}
+
 /**
  * A CRM refused a connection's login (the `login.refused` kind an adapter logs, attention.ts): the
- * newest per connection from the days the attention list covers. The event says no more than
- * that it began, so the card stays for those days.
+ * newest per connection from the days the attention list covers. It closes when the CRM's code
+ * reads one of the connection's offices again after it (`office.unblocked`), and when a person
+ * saves a new login the CRM accepts (problems.ts); otherwise it stays for those days.
  */
 async function loginCards(names: Known): Promise<LoginCard[]> {
   const { rows } = await db().query<{
@@ -385,26 +455,35 @@ async function loginCards(names: Known): Promise<LoginCard[]> {
     at: Date;
     connection_id: string;
     tenant_id: number | null;
+    fields: Record<string, unknown>;
   }>(
-    `select distinct on (connection_id) id, at, connection_id, tenant_id from events
-     where type = 'login.refused' and connection_id is not null
-       and at >= now() - ($1 || ' days')::interval
-     order by connection_id, id desc`,
+    `select r.* from (
+       select distinct on (connection_id) id, at, connection_id, tenant_id, fields from events
+       where type = 'login.refused' and connection_id is not null
+         and at >= now() - ($1 || ' days')::interval
+       order by connection_id, id desc) r
+     where not exists (
+       select 1 from events u
+       where u.type = 'office.unblocked' and u.connection_id = r.connection_id and u.id > r.id)`,
     [ATTENTION_DAYS],
   );
+  const sites = await sitesOf([...names.tenants.keys()]);
   const cards: LoginCard[] = [];
   for (const row of rows) {
     const connection = names.connections.get(row.connection_id);
     if (!connection) continue;
+    const tenant = tenantOf(row.tenant_id ?? connection.tenantId, names);
     cards.push({
       kind: 'login',
       key: `login:${row.connection_id}`,
       level: 'P1',
       since: row.at.toISOString(),
       acted: null,
-      tenant: tenantOf(row.tenant_id ?? connection.tenantId, names),
+      tenant,
       crm: crmName(connection.provider),
       connectionId: row.connection_id,
+      sites: tenant ? (sites.get(tenant.id) ?? []) : [],
+      leaving: leavingOf(row.fields),
     });
   }
   return cards;
@@ -449,9 +528,108 @@ const inboxLevel = (check: HealthResult): InboxLevel | null => {
   return level === 'P3' ? null : level;
 };
 
+/** A failing check that names records and nothing else: a card per brokerage of them. */
+const namesRecords = (check: HealthResult): boolean =>
+  (check.names ?? []).length > 0 &&
+  (check.names ?? []).every(
+    (thing) => typeof thing !== 'string' && thing.record !== undefined && !thing.office,
+  );
+
 /**
- * Every other failing check, by its title and what it names. The worker and each site behind have cards of their
- * own, and a CRM not answering forms is the forms card when there is one for its brokerages.
+ * Where a record stands, from the start of the note the CRM's code writes after it, before any
+ * reason: "given up after 6 failed tries", "3 failed tries, tried again by itself", "6 failed
+ * tries, fetched again now".
+ */
+function standing(note: string | undefined): Pick<FailingRecord, 'note' | 'state'> {
+  const start = (note ?? '').split('. ')[0] ?? '';
+  return {
+    note: note?.trim() || null,
+    state: /^given up\b/.test(start)
+      ? 'given-up'
+      : /\bagain by itself\b/.test(start)
+        ? 'retrying'
+        : /\bagain now\b/.test(start)
+          ? 'fetching'
+          : null,
+  };
+}
+
+/** When each check was last run, as its process recorded it. */
+async function checkedAt(checks: string[]): Promise<Map<string, string>> {
+  if (checks.length === 0) return new Map();
+  const { rows } = await db().query<{ name: string; at: Date }>(
+    'select name, at from health_results where name = any($1::text[])',
+    [checks],
+  );
+  return new Map(rows.map((row) => [row.name, row.at.toISOString()]));
+}
+
+/** The records a check names, by the brokerage of their connection, named as Core knows them. */
+function recordsByTenant(
+  check: HealthResult,
+  names: Known,
+  recordNamed: Map<string, string>,
+): Map<number, { crm: string; records: FailingRecord[] }> {
+  const byTenant = new Map<number, { crm: string; records: FailingRecord[] }>();
+  for (const thing of thingsOf(check)) {
+    const connection = names.connections.get(thing.connection);
+    if (!connection || !thing.record) continue;
+    const { datatype, id } = thing.record;
+    const mine = byTenant.get(connection.tenantId) ?? {
+      crm: crmName(connection.provider),
+      records: [],
+    };
+    mine.records.push({
+      connection: thing.connection,
+      datatype,
+      id,
+      name: recordNamed.get(`${thing.connection} ${datatype} ${id}`) ?? null,
+      ...standing(thing.note),
+    });
+    byTenant.set(connection.tenantId, mine);
+  }
+  return byTenant;
+}
+
+/**
+ * Each failing check that names records a CRM's code can't load: one card per brokerage, its
+ * records named by address or name, with where each stands and the websites that miss them.
+ */
+async function recordsCards(health: HealthReport, names: Known): Promise<RecordsCard[]> {
+  const failing = Object.entries(health.checks).filter(
+    ([, check]) => !check.ok && inboxLevel(check) !== null && namesRecords(check),
+  );
+  if (failing.length === 0) return [];
+  const since = await problemSince(failing.map(([name]) => name));
+  const looked = await checkedAt(failing.map(([name]) => name));
+  const recordNamed = await recordNames(failing.flatMap(([, check]) => thingsOf(check)));
+  const sites = await sitesOf([...names.tenants.keys()]);
+  const cards: RecordsCard[] = [];
+  for (const [name, check] of failing) {
+    for (const [tenantId, { crm, records }] of recordsByTenant(check, names, recordNamed)) {
+      const tenant = tenantOf(tenantId, names);
+      if (!tenant) continue;
+      cards.push({
+        kind: 'records',
+        key: `${name}:${String(tenantId)}`,
+        level: inboxLevel(check) ?? 'P2',
+        since: since.get(name) ?? null,
+        acted: null,
+        tenant,
+        crm,
+        records,
+        sites: sites.get(tenantId) ?? [],
+        checkedAt: looked.get(name) ?? null,
+      });
+    }
+  }
+  return cards;
+}
+
+/**
+ * Every other failing check, by its title and what it names. The worker, each site behind and
+ * the records a check can't load have cards of their own, and a CRM not answering forms is the
+ * forms card when there is one for its brokerages.
  */
 async function checkCards(
   health: HealthReport,
@@ -461,6 +639,7 @@ async function checkCards(
   const failing = Object.entries(health.checks).filter(([name, check]) => {
     if (check.ok || inboxLevel(check) === null || name === 'worker') return false;
     if (name === SITES_CHECK && sitesFound(check)) return false;
+    if (namesRecords(check)) return false;
     if (name === 'submissions.failing') {
       const tenants = thingsOf(check).map((thing) => names.connections.get(thing.connection));
       return !tenants.every((connection) => connection && formsTenants.has(connection.tenantId));
