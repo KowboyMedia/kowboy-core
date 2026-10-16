@@ -386,7 +386,9 @@ button {
   align-items: flex-end;
   padding: 72px 0 28px;
 }
-.k-hero--property .k-hero__media {
+/* A click on a home's photo opens every photo full screen (the script), so the photo shows the
+   magnifier (Patric, 2026-10-16: what leads somewhere shows it). */
+.k-hero[data-lightbox] .k-hero__media {
   cursor: zoom-in;
 }
 .k-hero--with-form {
@@ -403,9 +405,11 @@ button {
   overflow: hidden;
   border-radius: inherit;
 }
+/* The shade lets the pointer through to the photo, so a home's photo shows its cursor and moves on a drag. */
 .k-hero__overlay {
   z-index: 1;
   background: var(--k-overlay);
+  pointer-events: none;
 }
 /* Only the lower part darkens (the header's own shade takes the top); the photo stays bright between. */
 .k-hero--property .k-hero__overlay {
@@ -441,19 +445,23 @@ iframe.k-hero__video {
 .k-hero__slide {
   height: 100%;
 }
-/* The Ken Burns motion (Patric, 2026-10-16: more than a zoom). Each photo of a hero slider moves
-   its own way and the next photo the next way: a zoom in, a pan to the right, a zoom out, a pan
-   down, a zoom in toward the upper left, a pan to the left. The script names the motion on the
-   slide (`data-motion`) as the photo starts to fade in and takes it away once the photo has faded
-   out, so a photo never jumps back while it is still in view. Every motion keeps the photo larger
-   than the hero, so its edges never show. A visitor who asked for less motion sees the photos
+/* The Ken Burns motion (Patric, 2026-10-16: more than a zoom). Each photo of a hero slider has a
+   motion of its own and the next photo the next one: a zoom in, a pan to the right, a zoom out, a
+   pan down, a zoom in toward the upper left, a pan to the left (`data-motion`, named by the
+   script). A photo out of view waits at the start of its motion; it moves while it is shown and
+   until it has faded out (`is-moving`), and only then goes back to the start, so it never jumps
+   while it is in view, whether it fades or is dragged. Every motion keeps the photo at least as
+   large as the hero, so its edges never show. A visitor who asked for less motion sees the photos
    still, as with the theme's other motion. */
 .k-hero__slide .k-hero__image {
   transform: scale(1);
 }
 @media (prefers-reduced-motion: no-preference) {
   .k-hero__slide[data-motion] .k-hero__image {
-    animation: 10s linear forwards;
+    animation: 10s linear forwards paused;
+  }
+  .k-hero__slide.is-moving .k-hero__image {
+    animation-play-state: running;
   }
   .k-hero__slide[data-motion='zoom-in'] .k-hero__image {
     animation-name: k-zoom-in;
@@ -934,10 +942,9 @@ iframe.k-hero__video {
   line-height: 1.37;
   pointer-events: none;
 }
-/* The photos of a card with a slider lead to the home on a plain click (the script), so they show
-   the hand like the rest of the card (Patric, 2026-10-16); a click between the dots leads there
-   too, and only a dot itself changes the photo. */
-.k-card__slider {
+/* Once the slider has started, the photos of a card lead to the home on a plain click (the
+   script), so they show the hand like the rest of the card (Patric, 2026-10-16). */
+.k-card__slider.swiper-initialized {
   cursor: pointer;
 }
 .k-card__dots {
@@ -951,12 +958,20 @@ iframe.k-hero__video {
 }
 /* The dots stand out on the photo: the one shown white, the others a little dimmer (Patric, 2026-10-16: brighter). */
 .k-card .swiper-pagination-bullet {
+  position: relative;
   width: 6px;
   height: 6px;
   margin: 0 4px !important;
   background: var(--k-white);
   opacity: 0.8;
   pointer-events: auto;
+}
+/* A dot answers to the space around it too, up to the next dot, so a click or a tap that just
+   misses one changes the photo and never leaves the page. */
+.k-card .swiper-pagination-bullet::before {
+  content: '';
+  position: absolute;
+  inset: -9px -4px;
 }
 .k-card .swiper-pagination-bullet-active {
   opacity: 1;

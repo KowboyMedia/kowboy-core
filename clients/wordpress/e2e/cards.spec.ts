@@ -4,8 +4,8 @@
 // whole face of a home's card, an area's, an association's and an agent's the pointer is the hand,
 // and a click on a home's photo, on its status pill or on an agent's title leads to the record's
 // page as a click on the name does. The dots over a home's photos are bright (Patric, the same
-// day: "make it a bit brighter"). The name starts with "journey:" so the acceptance report can name
-// it under its criterion.
+// day: "make it a bit brighter"), and a click that just misses one changes the photo, never the
+// page. The name starts with "journey:" so the acceptance report can name it under its criterion.
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 /**
@@ -69,6 +69,14 @@ test('journey: every card shows the hand over its whole face and leads to its pa
   );
   expect(Math.max(...opacities), 'the dot of the photo shown').toBe(1);
   expect(Math.min(...opacities), 'the other dot').toBeGreaterThanOrEqual(0.8);
+
+  // A click that just misses the other dot shows that dot's photo and stays on the page.
+  const other = dots.nth(opacities.indexOf(Math.min(...opacities)));
+  const dot = await other.boundingBox();
+  expect(dot).not.toBeNull();
+  await page.mouse.click(dot!.x + dot!.width + 3, dot!.y + dot!.height / 2);
+  await expect(other).toHaveClass(/swiper-pagination-bullet-active/);
+  await expect(page).toHaveURL(/post_type=core_property/);
 
   // A click on the photo leads to the home, and so does a click on the status pill over it.
   await clickOn(page, home.locator('.swiper-slide-active img'));

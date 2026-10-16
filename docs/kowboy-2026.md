@@ -196,7 +196,7 @@ Patric's list after the first round reached the staging site, done straight on `
 - **`?debugpl`.** The viewer's script moved from the head to the end of the page: defined
   before the elements were parsed, it read each one empty and showed nothing.
 - **The property hero swipes** (Patric, 2026-10-03). It carries every photo (the plans left out)
-  with the same slow fade and Ken Burns zoom as every hero, and also moves on a swipe or a drag;
+  with the same slow fade and Ken Burns motion as every hero, and also moves on a swipe or a drag;
   a tap opens the full-screen slider at the photo shown. The hero part takes `swipe`, and the slides carry their index. The plans
   come last in every gallery (the phone slider, the grid and the full-screen slider), after the
   photos, so a hero index is a gallery index.
@@ -335,29 +335,41 @@ names "Areas" and "Associations" (`kowboy_page_title` in `inc/seo.php`).
 
 ## Patric's three from 2026-10-16
 
-Three things about the theme (Patric, 2026-10-16, 09:23Z), theme 1.2.5:
+Three things about the theme (Patric, 2026-10-16, 09:23Z), theme 1.2.5, and what a review of it
+found, theme 1.2.6:
 
 - **Every card shows the hand.** A home's card with several photos showed the plain arrow over
   its photos, though a click there leads to the home (the script follows a plain click; a swipe
   turns the photos); only the text at the bottom, the link, showed the hand. The photos show it
-  now, and so does the row of dots, where only a dot itself turns the photos and a click beside
-  one leads to the home. The status pill lets a click through to the card under it, so it is no
+  now, once the slider has started (without the slider library a click there does nothing, so
+  they keep the arrow). The status pill lets a click through to the card under it, so it is no
   dead spot. On an agent's card the title under the name was a dead spot over the picture's link;
   the lines on the picture now let a click through to it, so the whole card leads to the agent,
   and the name, the phone number and the e-mail address stay links of their own. Area and
   association cards were whole links already. A browser journey (`e2e/cards.spec.ts`) checks the
   hand over a grid of points on each kind of card and clicks a photo, a pill and a title.
 - **The dots over a card's photos are brighter**: the photo shown has a white dot, the others
-  are 80 % opaque where they were 55 %.
+  are 80 % opaque where they were 55 %. Each dot answers to the space around it up to the next
+  dot, so a click or a tap that just misses a dot turns the photos and never leaves the page; the
+  rest of the row leads to the home like the photo. The journey clicks just beside a dot.
 - **The Ken Burns motion has six ways to move** where it had one zoom: a zoom in, a pan to the
-  right, a zoom out, a pan down, a zoom in toward the upper left and a pan to the left, the next
-  photo taking the next way (`MOTIONS` in the script, the motions in the stylesheet), slow and even
-  over ten seconds, the photo always larger than the hero so its edges never show. A photo now
-  keeps moving until it has faded out: before, it lost its zoom the moment the next photo began to
-  fade in, and jumped back while still in view. A visitor who asked for less motion sees the
-  photos still, as with the theme's other motion. A browser journey (`e2e/hero-motion.spec.ts`)
-  checks that four photos in a row move four ways, that a photo fading out still moves, and the
+  right, a zoom out, a pan down, a zoom in toward the upper left and a pan to the left, each photo
+  with its own (`MOTIONS` in the script, by the photo's place in the hero; the motions in the
+  stylesheet), slow and even over ten seconds, the photo always at least as large as the hero so
+  its edges never show. A photo out of view waits at the start of its motion, moves from the
+  moment it is shown until it has faded out, and only then goes back to the start. Before, a
+  photo lost its zoom the moment the next photo began to fade in and jumped back while still in
+  view. A visitor who asked for less motion sees the photos still, as with the theme's other
+  motion. A browser journey (`e2e/hero-motion.spec.ts`) checks that four photos in a row move
+  four ways, that the photos out of view wait, that a photo fading out still moves, and the
   stillness.
+- **A home's big photo shows the magnifier and swipes again.** The shade over every hero caught
+  the pointer, so the photo of a home showed the arrow though a click opens every photo full
+  screen, and a swipe or a drag never reached the slider (asked on 2026-10-03, see "The property
+  hero swipes" above). The shade lets the pointer through now; the magnifier shows only where a
+  click opens the photos (an area's hero has no such click). A dragged-in photo shows the start
+  of its motion and moves on from there once let go. The second journey of
+  `e2e/hero-motion.spec.ts` checks the magnifier, a drag without a jump and the click.
 
 ## Order of work
 
