@@ -157,3 +157,75 @@ export const CheckIcon = icon(
     <path d="M5 12l5 5l10 -10" />
   </>,
 );
+
+export const ArrowRightIcon = icon(
+  <>
+    <path d="M5 12l14 0" />
+    <path d="M13 18l6 -6" />
+    <path d="M13 6l6 6" />
+  </>,
+);
+
+export const ChevronLeftIcon = icon(<path d="M15 6l-6 6l6 6" />);
+
+export const ChevronRightIcon = icon(<path d="M9 6l6 6l-6 6" />);
+
+export const EyeIcon = icon(
+  <>
+    <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+    <path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" />
+  </>,
+);
+
+export const EyeOffIcon = icon(
+  <>
+    <path d="M10.585 10.587a2 2 0 0 0 2.829 2.828" />
+    <path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87" />
+    <path d="M3 3l18 18" />
+  </>,
+);
+
+export const DotsIcon = icon(
+  <>
+    <path d="M5 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+    <path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+    <path d="M19 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+  </>,
+);
+
+export const TrashIcon = icon(
+  <>
+    <path d="M4 7l16 0" />
+    <path d="M10 11l0 6" />
+    <path d="M14 11l0 6" />
+    <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+    <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+  </>,
+);
+
+export const PowerIcon = icon(
+  <>
+    <path d="M7 6a7.75 7.75 0 1 0 10 0" />
+    <path d="M12 4l0 8" />
+  </>,
+);
+
+export const XIcon = icon(
+  <>
+    <path d="M18 6l-12 12" />
+    <path d="M6 6l12 12" />
+  </>,
+);
+
+export const PlugIcon = icon(
+  <>
+    <path d="M7 12l5 5l-1.5 1.5a3.536 3.536 0 1 1 -5 -5l1.5 -1.5z" />
+    <path d="M17 12l-5 -5l1.5 -1.5a3.536 3.536 0 1 1 5 5l-1.5 1.5z" />
+    <path d="M3 21l2.5 -2.5" />
+    <path d="M18.5 5.5l2.5 -2.5" />
+    <path d="M10 11l-2 2" />
+    <path d="M13 14l-2 2" />
+  </>,
+);
+
+export const LoaderIcon = icon(<path d="M12 3a9 9 0 1 0 9 9" />);

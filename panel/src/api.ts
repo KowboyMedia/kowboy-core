@@ -16,6 +16,18 @@ export type {
 } from '../../engine/panel/inbox.js';
 export type Level = InboxLevel;
 
+export type {
+  Brokerage,
+  BrokerageRow,
+  ConnectionView,
+  Crm,
+  CrmField,
+  Office,
+  Status,
+  Website,
+} from '../../engine/panel/brokerages.js';
+import type { Brokerage, BrokerageRow, Crm, Office } from '../../engine/panel/brokerages.js';
+
 export type SignInFacts = {
   instance: string;
   rememberDays: number;
@@ -61,6 +73,30 @@ export const api = {
   me: () => call<Me>('/me'),
   signOut: () => post<{ ok: true }>('/sign-out', {}),
   inbox: () => call<Inbox>('/inbox'),
+  crms: () => call<{ crms: Crm[] }>('/crms'),
+  brokerages: () => call<{ brokerages: BrokerageRow[] }>('/brokerages'),
+  createBrokerage: (name: string) => post<{ id: number }>('/brokerages', { name }),
+  brokerage: (id: number) => call<Brokerage>(`/brokerages/${String(id)}`),
+  switchBrokerage: (id: number, on: boolean) =>
+    post<{ ok: true }>(`/brokerages/${String(id)}/switch`, { on }),
+  replaceToken: (id: number) => post<{ token: string }>(`/brokerages/${String(id)}/token`, {}),
+  addWebsite: (id: number, website: { label: string; bellUrl: string }) =>
+    post<{ id: number }>(`/brokerages/${String(id)}/websites`, website),
+  removeWebsite: (id: number) => post<{ ok: true }>(`/websites/${String(id)}/remove`, {}),
+  addConnection: (
+    id: number,
+    connection: { provider: string; name: string; login: Record<string, string> },
+  ) => post<{ id: string }>(`/brokerages/${String(id)}/connections`, connection),
+  changeLogin: (connection: string, login: Record<string, string>) =>
+    post<{ ok: true }>(`/connections/${encodeURIComponent(connection)}/login`, { login }),
+  formsTestMode: (connection: string, on: boolean) =>
+    post<{ ok: true }>(`/connections/${encodeURIComponent(connection)}/forms-test-mode`, { on }),
+  act: (connection: string, action: string) =>
+    post<{ ok: true }>(`/connections/${encodeURIComponent(connection)}/act`, { action }),
+  removeConnection: (connection: string) =>
+    post<{ removedAt: string }>(`/connections/${encodeURIComponent(connection)}/remove`, {}),
+  offices: (connection: string) =>
+    call<{ offices: Office[] }>(`/connections/${encodeURIComponent(connection)}/offices`),
 };
 
 export const signedOut = (error: unknown): boolean =>

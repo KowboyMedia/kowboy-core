@@ -1,23 +1,22 @@
 // The Inbox (design B, images 05, 19, 44 and 45): Core's state, then what needs you, urgent first
 // and then oldest first. The page reads again by itself, so a problem that is put right leaves it.
 // The buttons that open the windows of later parts (Resend, Enter new login, Fix bell secret, Turn
-// on…, Open <brokerage>) are shown but do nothing yet.
+// on…) are shown but do nothing yet; "Open <brokerage>" opens the brokerage's page.
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import {
   api,
-  signedOut,
   type Card,
   type CheckCard,
   type FormsCard,
   type Inbox,
   type Level,
   type LoginCard,
-  type Me,
   type SiteCard,
+  type Tenant,
   type WorkerCard,
 } from './api';
-import { TopBar } from './TopBar';
+import { Shell, useShell } from './Shell';
 import { ago, counted, listed, sentWhen, when, dateOf } from './time';
 import {
   AlertTriangleIcon,
@@ -48,11 +47,11 @@ function Later({ icon, children }: { icon?: ReactNode; children: ReactNode }) {
   );
 }
 
-function OpenBrokerage({ name }: { name: string }) {
+function OpenBrokerage({ tenant }: { tenant: Tenant }) {
   return (
-    <button type="button" className="k-button k-button-link" aria-disabled="true">
-      Open {name}
-    </button>
+    <Link className="k-button k-button-link" to={`/brokerages/${String(tenant.id)}`}>
+      Open {tenant.name}
+    </Link>
   );
 }
 
@@ -117,7 +116,7 @@ function Forms({ card, now }: { card: FormsCard; now: Date }) {
       actions={
         <>
           <Later icon={<SendIcon />}>Resend {forms}</Later>
-          <OpenBrokerage name={card.tenant.name} />
+          <OpenBrokerage tenant={card.tenant} />
         </>
       }
     >
@@ -139,7 +138,7 @@ function Login({ card, now }: { card: LoginCard; now: Date }) {
       actions={
         <>
           <Later icon={<PencilIcon />}>Enter new login</Later>
-          {card.tenant && <OpenBrokerage name={card.tenant.name} />}
+          {card.tenant && <OpenBrokerage tenant={card.tenant} />}
         </>
       }
     >
@@ -182,7 +181,7 @@ function Site({ card, now }: { card: SiteCard; now: Date }) {
       actions={
         <>
           {secret && <Later icon={<KeyIcon />}>Fix bell secret</Later>}
-          {card.tenant && <OpenBrokerage name={card.tenant.name} />}
+          {card.tenant && <OpenBrokerage tenant={card.tenant} />}
         </>
       }
     >
@@ -257,7 +256,7 @@ function Check({ card, now }: { card: CheckCard; now: Date }) {
         card.tenants.length > 0 ? (
           <>
             {card.tenants.map((tenant) => (
-              <OpenBrokerage key={tenant.id} name={tenant.name} />
+              <OpenBrokerage key={tenant.id} tenant={tenant} />
             ))}
           </>
         ) : undefined
@@ -375,28 +374,32 @@ function InboxView({ inbox }: { inbox: Inbox }) {
 
 /** `/admin/`: the Inbox, for a signed-in device; anyone else goes to the sign-in page. */
 export function InboxPage() {
-  const navigate = useNavigate();
-  const [me, setMe] = useState<Me | null>(null);
+  return (
+    <Shell tab="inbox" ownCount>
+      <InboxReader />
+    </Shell>
+  );
+}
+
+function InboxReader() {
+  const { setCount, away } = useShell();
   const [inbox, setInbox] = useState<Inbox | null>(null);
   const [failed, setFailed] = useState(false);
 
-  const away = useCallback(
-    (error: unknown) => {
-      if (signedOut(error)) navigate('/sign-in', { replace: true });
-      else setFailed(true);
-    },
-    [navigate],
-  );
-
   const read = useCallback(() => {
-    api.inbox().then((next) => {
-      setInbox(next);
-      setFailed(false);
-    }, away);
-  }, [away]);
+    api.inbox().then(
+      (next) => {
+        setInbox(next);
+        setCount(next.cards.length);
+        setFailed(false);
+      },
+      (error: unknown) => {
+        if (!away(error)) setFailed(true);
+      },
+    );
+  }, [away, setCount]);
 
   useEffect(() => {
-    api.me().then(setMe, away);
     read();
     const timer = setInterval(read, EVERY_MS);
     const back = () => {
@@ -407,20 +410,16 @@ export function InboxPage() {
       clearInterval(timer);
       document.removeEventListener('visibilitychange', back);
     };
-  }, [away, read]);
+  }, [read]);
 
-  if (!me) return null;
   return (
-    <>
-      <TopBar me={me} count={inbox?.cards.length ?? 0} />
-      <main className="k-page">
-        {inbox && <InboxView inbox={inbox} />}
-        {failed && (
-          <p className="k-quiet" role="status">
-            Core didn’t answer. The Inbox tries again by itself.
-          </p>
-        )}
-      </main>
-    </>
+    <main className="k-page">
+      {inbox && <InboxView inbox={inbox} />}
+      {failed && (
+        <p className="k-quiet" role="status">
+          Core didn’t answer. The Inbox tries again by itself.
+        </p>
+      )}
+    </main>
   );
 }

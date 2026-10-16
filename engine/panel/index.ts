@@ -20,6 +20,25 @@ import {
 import { instanceName, signInMail } from './mail.js';
 import { inbox } from './inbox.js';
 import { panelApp } from './app.js';
+import {
+  addWebsite,
+  brokerage,
+  brokerageList,
+  createBrokerage,
+  crms,
+  officesOf,
+  removeWebsite,
+  replaceToken,
+  switchBrokerage,
+} from './brokerages.js';
+import {
+  addConnection,
+  changeLogin,
+  removeConnection,
+  runAction,
+  setFormsTestMode,
+  type Refusal,
+} from './connections.js';
 
 type PanelConfig = AuthSettings & Pick<Config, 'environment' | 'port'>;
 
@@ -145,6 +164,131 @@ async function signOut(request: Request): Promise<Response> {
 /** `GET /v1/panel/inbox`: what needs a person now. */
 const inboxRoute = signedIn(async () => answer(200, await inbox()));
 
+// ---- Brokerages, their websites and their CRM connections ----------------------------------------
+
+const REFUSED: Record<Refusal, number> = { missing: 404, fields: 400, login: 422, crm: 502 };
+const refusal = (why: Refusal): Response => answer(REFUSED[why], { error: why });
+const missing = (): Response => refusal('missing');
+
+const text = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
+
+/** A website's bell address: an http or https address. */
+function bellAddress(value: unknown): string | null {
+  try {
+    const url = new URL(text(value));
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The part of a path after a prefix, split at its slashes: `/v1/panel/brokerages/3/token` → 3, token. */
+const partsAfter = (prefix: string, path: string): string[] =>
+  path
+    .slice(prefix.length)
+    .split('/')
+    .filter((part) => part !== '')
+    .map((part) => decodeURIComponent(part));
+
+const numberOf = (part: string | undefined): number | null =>
+  part && /^\d+$/.test(part) ? Number(part) : null;
+
+/** A change: JSON from a signed-in person, handed the parsed body. */
+const change = (
+  handler: (request: Request, given: Record<string, unknown>) => Promise<Response> | Response,
+) =>
+  signedIn((request) => {
+    const given = body(request);
+    if (!given) return answer(415, { error: 'send JSON' });
+    return handler(request, given);
+  });
+
+const listRoute = signedIn(async () => answer(200, { brokerages: await brokerageList() }));
+
+const crmsRoute = signedIn(() => answer(200, { crms: crms() }));
+
+const createRoute = change(async (_request, given) => {
+  const name = text(given['name']);
+  if (name === '') return refusal('fields');
+  return answer(201, { id: await createBrokerage(name) });
+});
+
+const pageRoute = signedIn(async (request) => {
+  const [part, ...rest] = partsAfter('/v1/panel/brokerages/', request.path);
+  const id = numberOf(part);
+  if (id === null || rest.length > 0) return missing();
+  const page = await brokerage(id, { coreUrl: base(), credentialsKey: settings().credentialsKey });
+  return page ? answer(200, page) : missing();
+});
+
+const brokerageChange = change(async (request, given) => {
+  const [part, what] = partsAfter('/v1/panel/brokerages/', request.path);
+  const id = numberOf(part);
+  if (id === null) return missing();
+  if (what === 'switch') {
+    return (await switchBrokerage(id, given['on'] === true))
+      ? answer(200, { ok: true })
+      : missing();
+  }
+  if (what === 'token') {
+    const token = await replaceToken(id);
+    return token ? answer(200, { token }) : missing();
+  }
+  if (what === 'websites') {
+    const label = text(given['label']);
+    const bellUrl = bellAddress(given['bellUrl']);
+    if (label === '' || !bellUrl) return refusal('fields');
+    const website = await addWebsite(id, { label, bellUrl });
+    return website === null ? missing() : answer(201, { id: website });
+  }
+  if (what === 'connections') {
+    const done = await addConnection(
+      id,
+      { provider: text(given['provider']), name: text(given['name']), login: given['login'] },
+      settings().credentialsKey,
+    );
+    return done.ok ? answer(201, { id: done.value }) : refusal(done.why);
+  }
+  return missing();
+});
+
+const connectionRead = signedIn(async (request) => {
+  const [id, what] = partsAfter('/v1/panel/connections/', request.path);
+  if (!id || what !== 'offices') return missing();
+  const offices = await officesOf(id);
+  return offices ? answer(200, { offices }) : missing();
+});
+
+const connectionChange = change(async (request, given) => {
+  const [id, what] = partsAfter('/v1/panel/connections/', request.path);
+  if (!id) return missing();
+  if (what === 'login') {
+    const done = await changeLogin(id, given['login'], settings().credentialsKey);
+    return done.ok ? answer(200, { ok: true }) : refusal(done.why);
+  }
+  if (what === 'forms-test-mode') {
+    return (await setFormsTestMode(id, given['on'] === true))
+      ? answer(200, { ok: true })
+      : missing();
+  }
+  if (what === 'act') {
+    const done = await runAction(id, text(given['action']));
+    return done.ok ? answer(200, { ok: true }) : refusal(done.why);
+  }
+  if (what === 'remove') {
+    const removed = await removeConnection(id);
+    return removed ? answer(200, { removedAt: removed.removedAt }) : missing();
+  }
+  return missing();
+});
+
+const websiteChange = change(async (request) => {
+  const [part, what] = partsAfter('/v1/panel/websites/', request.path);
+  const id = numberOf(part);
+  if (id === null || what !== 'remove') return missing();
+  return (await removeWebsite(id)) ? answer(200, { ok: true }) : missing();
+});
+
 export function panelRoutes(): RouteTable {
   return [
     { method: 'GET', path: '/v1/panel/sign-in', handler: () => signInFacts() },
@@ -153,6 +297,14 @@ export function panelRoutes(): RouteTable {
     { method: 'GET', path: '/v1/panel/me', handler: me },
     { method: 'POST', path: '/v1/panel/sign-out', handler: signOut },
     { method: 'GET', path: '/v1/panel/inbox', handler: inboxRoute },
+    { method: 'GET', path: '/v1/panel/crms', handler: crmsRoute },
+    { method: 'GET', path: '/v1/panel/brokerages', handler: listRoute },
+    { method: 'POST', path: '/v1/panel/brokerages', handler: createRoute },
+    { method: 'GET', path: '/v1/panel/brokerages/*', handler: pageRoute },
+    { method: 'POST', path: '/v1/panel/brokerages/*', handler: brokerageChange },
+    { method: 'GET', path: '/v1/panel/connections/*', handler: connectionRead },
+    { method: 'POST', path: '/v1/panel/connections/*', handler: connectionChange },
+    { method: 'POST', path: '/v1/panel/websites/*', handler: websiteChange },
     { method: 'GET', path: '/admin', handler: panelApp },
     { method: 'GET', path: '/admin/*', handler: panelApp },
   ];

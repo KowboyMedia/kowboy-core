@@ -1,8 +1,7 @@
-// The top bar (design B, images 05, 19, 44 and 45): the mark, the Inbox with its count, Brokerages
-// and "New brokerage" on a desktop, the Inbox icon on a phone, and the account menu. Brokerages and
-// "New brokerage" lead to screens of a later part and do nothing yet.
+// The top bar (design B, images 05, 06, 19, 23, 44 and 45): the mark, the Inbox with its count,
+// Brokerages and "New brokerage" on a desktop, the Inbox icon on a phone, and the account menu.
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { api, type Me } from './api';
 import { Brand } from './brand';
 import { dateOf } from './time';
@@ -80,31 +79,42 @@ function AccountMenu({ me }: { me: Me }) {
   );
 }
 
-export function TopBar({ me, count }: { me: Me; count: number }) {
+/** Which tab the page belongs to; the new-brokerage steps belong to neither. */
+export type Tab = 'inbox' | 'brokerages' | null;
+
+export function TopBar({ me, count, tab }: { me: Me; count: number; tab: Tab }) {
   return (
     <header className="k-top">
       <div className="k-top-inner">
         <Brand instance={me.instance} />
         <nav className="k-tabs" aria-label="Pages">
-          <a className="k-tab k-tab-active" href="/admin/" aria-current="page">
+          <Link
+            className={`k-tab${tab === 'inbox' ? ' k-tab-active' : ''}`}
+            to="/"
+            aria-current={tab === 'inbox' ? 'page' : undefined}
+          >
             <InboxIcon />
             Inbox
             {count > 0 && <span className="k-count">{count}</span>}
-          </a>
-          <span className="k-tab" aria-disabled="true">
+          </Link>
+          <Link
+            className={`k-tab${tab === 'brokerages' ? ' k-tab-active' : ''}`}
+            to="/brokerages"
+            aria-current={tab === 'brokerages' ? 'page' : undefined}
+          >
             <BuildingIcon />
             Brokerages
-          </span>
+          </Link>
         </nav>
         <div className="k-top-end">
-          <a className="k-phone-inbox" href="/admin/" aria-label={`Inbox, ${String(count)}`}>
+          <Link className="k-phone-inbox" to="/" aria-label={`Inbox, ${String(count)}`}>
             <InboxIcon size={24} strokeWidth={1.75} />
             {count > 0 && <span className="k-bubble">{count}</span>}
-          </a>
-          <button type="button" className="k-button k-button-primary k-new" aria-disabled="true">
+          </Link>
+          <Link className="k-button k-button-primary k-new" to="/new">
             <PlusIcon />
             New brokerage
-          </button>
+          </Link>
           <AccountMenu me={me} />
         </div>
       </div>

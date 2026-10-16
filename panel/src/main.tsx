@@ -5,6 +5,9 @@ import '@tabler/core/dist/css/tabler.min.css';
 import './panel.css';
 import { LinkPage, SignInPage } from './SignIn';
 import { InboxPage } from './Inbox';
+import { BrokeragesPage } from './Brokerages';
+import { BrokeragePage } from './Brokerage';
+import { NewBrokeragePage, NewBrokerageStep } from './NewBrokerage';
 
 function App() {
   return (
@@ -12,6 +15,13 @@ function App() {
       <Route path="/sign-in" element={<SignInPage />} />
       <Route path="/link" element={<LinkPage />} />
       <Route path="/" element={<InboxPage />} />
+      <Route path="/brokerages" element={<BrokeragesPage />} />
+      <Route path="/brokerages/:id" element={<BrokeragePage />} />
+      <Route path="/new" element={<NewBrokeragePage />} />
+      <Route path="/new/:id" element={<NewBrokeragePage />} />
+      <Route path="/new/:id/crm" element={<NewBrokerageStep step="crm" />} />
+      <Route path="/new/:id/website" element={<NewBrokerageStep step="website" />} />
+      <Route path="/new/:id/check" element={<NewBrokerageStep step="check" />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
