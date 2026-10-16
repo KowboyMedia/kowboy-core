@@ -206,7 +206,7 @@ describe('the Inbox lists what needs a person now', () => {
     );
   });
 
-  it('shows a CRM refusing a login in the CRM’s own words, for the days Core lists such events', async () => {
+  it('shows a CRM refusing a login, without the CRM code’s words, for the days Core lists such events', async () => {
     await logEvent({
       type: 'login.refused',
       connectionId: 'somecrm-1',
@@ -227,8 +227,8 @@ describe('the Inbox lists what needs a person now', () => {
       level: 'P1',
       crm: 'Somecrm',
       tenant: { id: TENANT, name: 'Test tenant' },
-      detail: 'Somecrm no longer lets this login in.',
     });
+    expect(JSON.stringify(cards)).not.toContain('no longer lets');
   });
 
   it('shows a website that stopped updating, with how it last answered Core', async () => {
@@ -257,7 +257,7 @@ describe('the Inbox lists what needs a person now', () => {
     expect(Date.parse(card.lastFetchAt ?? '')).toBeLessThan(Date.parse(card.since ?? ''));
   });
 
-  it('shows any other failing check in its own words, with its brokerages and the things it names', async () => {
+  it('shows any other failing check by its title, its brokerages and the things it names, never its own words', async () => {
     retries = {
       ok: false,
       level: 'P2',
@@ -265,6 +265,7 @@ describe('the Inbox lists what needs a person now', () => {
       names: [
         { connection: 'somecrm-2' },
         { connection: 'somecrm-2', office: 'O1', note: 'refused' },
+        'See the fetch list.',
       ],
     };
     await db().query(
@@ -278,12 +279,14 @@ describe('the Inbox lists what needs a person now', () => {
       level: 'P2',
       about: 'Somecrm',
       tenants: [{ id: other, name: 'Granstedt Bostad' }],
-      detail: 'Two records failed to fetch.',
       names: [
         'Granstedt Bostad’s Somecrm connection “Main”',
-        'Office with Somecrm id O1, of Granstedt Bostad’s Somecrm connection “Main”: refused',
+        'Office with Somecrm id O1, of Granstedt Bostad’s Somecrm connection “Main”',
       ],
     });
+    for (const words of ['Two records failed', 'refused', 'fetch list']) {
+      expect(JSON.stringify(card)).not.toContain(words);
+    }
     expect(card.since).not.toBeNull();
 
     retries = { ok: false, level: 'P3', detail: 'Only recorded.' };

@@ -5,7 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { harness, until, type Harness } from '../../acceptance/harness.js';
 import { db } from '../storage/db.js';
 import { tokenHmac } from '../storage/crypto.js';
-import { COOKIE, LINKS_PER_WINDOW } from './auth.js';
+import { COOKIE } from './auth.js';
 
 let core: Harness;
 
@@ -129,15 +129,6 @@ describe('the admin panel signs a person in by a link in an email', () => {
     await db().query("update admin_logins set expires_at = now() - interval '1 minute'");
     expect((await open(newer)).status).toBe(410);
     expect((await open('')).status).toBe(410);
-  });
-
-  it(`mails no more than ${String(LINKS_PER_WINDOW)} links to one address within a link’s minutes`, async () => {
-    for (let i = 0; i <= LINKS_PER_WINDOW; i++) {
-      expect((await post('/v1/panel/sign-in', { email: 'tester@kowboy.se' })).status).toBe(202);
-    }
-    await until(() => core.mails.length === LINKS_PER_WINDOW, 'the mails');
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(core.mails).toHaveLength(LINKS_PER_WINDOW);
   });
 
   it('signs one device out, and its session stops working', async () => {

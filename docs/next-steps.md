@@ -851,7 +851,9 @@ client ports (item 16, first client by question 80).
       browser and viewer, which the clean room adds to B in a second round
       (`clean-room/brief-2.md`, out in `clean-room/out/b2/`), each new line approved before it is
       built; (5) the build from the chosen images only: B at `/admin` on staging and the current
-      admin moved to `/admin-old` there, for comparison only; the check again, his approval on
+      admin moved to `/admin-old` there, for comparison only; its first part (signing in, the account menu and the Inbox) went up
+      on 2026-10-16, built by a session that had not seen the current admin, with eleven lines
+      beyond B's images asked in question 200; the check again, his approval on
       staging, then the current admin is deleted with everything only it used.
     - Ownership: nothing edits the current admin (`admin/`) until it is deleted. Size: many
       sessions.

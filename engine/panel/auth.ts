@@ -10,12 +10,6 @@ import type { Config } from '../config.js';
 export const COOKIE = 'core_panel_session';
 const COOKIE_PATH = '/v1/panel';
 
-/**
- * At most this many links per address within one link's lifetime. Past it no mail goes, and the
- * page answers as it always does, so nobody can fill a colleague's inbox with links.
- */
-export const LINKS_PER_WINDOW = 5;
-
 export type AuthSettings = Pick<
   Config,
   | 'adminEmails'
@@ -47,9 +41,9 @@ export function maySignIn(email: string, settings: AuthSettings): boolean {
 export type Link = { token: string; email: string; expiresAt: Date };
 
 /**
- * A new sign-in link for an address that may sign in, or null when it may not or has asked for
- * too many lately. A new link ends the address's older unused ones: the newest email is the one
- * that works. The remember choice travels with the link, since the session is made when it opens.
+ * A new sign-in link for an address that may sign in, or null when it may not. A new link ends the
+ * address's older unused ones: the newest email is the one that works. The remember choice travels
+ * with the link, since the session is made when it opens.
  */
 export async function newLink(
   email: string,
@@ -60,15 +54,9 @@ export async function newLink(
   if (!maySignIn(address, settings)) return null;
   const window = `${String(settings.adminLinkMinutes)} minutes`;
   const token = newSecret();
-  // One address at a time, so two requests at once cannot both pass the count.
+  // One address at a time, so two requests at once cannot leave two links that both work.
   const expiresAt = await transaction(async (client) => {
     await client.query('select pg_advisory_xact_lock(hashtext($1))', [`panel-link:${address}`]);
-    const { rows } = await client.query<{ count: string }>(
-      `select count(*) as count from admin_logins
-       where email = $1 and created_at > now() - $2::interval`,
-      [address, window],
-    );
-    if (Number(rows[0]?.count ?? 0) >= LINKS_PER_WINDOW) return null;
     await client.query(
       `update admin_logins set expires_at = least(expires_at, now())
        where email = $1 and used_at is null and expires_at > now()`,

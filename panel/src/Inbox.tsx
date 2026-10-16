@@ -143,7 +143,10 @@ function Login({ card, now }: { card: LoginCard; now: Date }) {
         </>
       }
     >
-      {card.detail && <p className="k-card-body">{card.detail}</p>}
+      <p className="k-card-body">
+        Changes are held back since then. Usually a changed password or an ended {card.crm}{' '}
+        subscription.
+      </p>
     </Frame>
   );
 }
@@ -260,7 +263,6 @@ function Check({ card, now }: { card: CheckCard; now: Date }) {
         ) : undefined
       }
     >
-      {card.detail && <p className="k-card-body">{card.detail}</p>}
       {card.names.length > 0 && (
         <ul className="k-card-names">
           {card.names.map((name) => (

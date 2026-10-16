@@ -7,7 +7,6 @@
 import { db } from '../storage/db.js';
 import {
   aboutCheck,
-  detailOf,
   healthReport,
   levelOf,
   sitesFound,
@@ -51,12 +50,11 @@ export type FormsCard = Base & {
   keptUntil: string;
 };
 
-/** A CRM refused a connection's login, in the CRM's own words. */
+/** A CRM refused a connection's login. The CRM's code's own sentence about it is not shown. */
 export type LoginCard = Base & {
   kind: 'login';
   tenant: Tenant | null;
   crm: string;
-  detail: string;
 };
 
 /** A website has not fetched the changes Core told it about, with its last answer to Core. */
@@ -70,14 +68,17 @@ export type SiteCard = Base & {
   lastAnswerAt: string | null;
 };
 
-/** Any other failing check, in its own words, with the things it names. */
+/**
+ * Any other failing check: its title and the things it names, as Core names them. The check's own
+ * sentences (its detail, its texts and its notes on things) are not shown: a CRM's code writes them,
+ * and they can name places the panel does not have.
+ */
 export type CheckCard = Base & {
   kind: 'check';
   tenants: Tenant[];
   /** What the card is about when no brokerage is: a CRM's name, or null for Core itself. */
   about: string | null;
   title: string;
-  detail: string;
   names: string[];
 };
 
@@ -288,9 +289,8 @@ async function loginCards(names: Known): Promise<LoginCard[]> {
     at: Date;
     connection_id: string;
     tenant_id: number | null;
-    fields: Record<string, unknown>;
   }>(
-    `select distinct on (connection_id) id, at, connection_id, tenant_id, fields from events
+    `select distinct on (connection_id) id, at, connection_id, tenant_id from events
      where type = 'login.refused' and connection_id is not null
        and at >= now() - ($1 || ' days')::interval
      order by connection_id, id desc`,
@@ -307,7 +307,6 @@ async function loginCards(names: Known): Promise<LoginCard[]> {
       since: row.at.toISOString(),
       tenant: tenantOf(row.tenant_id ?? connection.tenantId, names),
       crm: crmName(connection.provider),
-      detail: typeof row.fields['detail'] === 'string' ? row.fields['detail'] : '',
     });
   }
   return cards;
@@ -342,7 +341,7 @@ const inboxLevel = (check: HealthResult): InboxLevel | null => {
 };
 
 /**
- * Every other failing check, in its own words. The worker and each site behind have cards of their
+ * Every other failing check, by its title and what it names. The worker and each site behind have cards of their
  * own, and a CRM not answering forms is the forms card when there is one for its brokerages.
  */
 async function checkCards(
@@ -377,10 +376,7 @@ async function checkCards(
       tenants: [...tenants.values()],
       about: registered.has(provider) ? crmName(provider) : null,
       title: aboutCheck(name).title,
-      detail: detailOf(check) ?? '',
-      names: (check.names ?? []).map((thing) =>
-        typeof thing === 'string' ? thing : thingWords(thing, names, records),
-      ),
+      names: thingsOf(check).map((thing) => thingWords(thing, names, records)),
     };
   });
 }
@@ -415,8 +411,7 @@ async function recordNames(things: AdminThing[]): Promise<Map<string, string>> {
 
 /**
  * A thing a check names, as a person knows it: a connection by its brokerage, CRM and name; an
- * office by its name, then the CRM's id for it; a record by its address or name. Then what the
- * check says about it.
+ * office by its name, then the CRM's id for it; a record by its address or name.
  */
 function thingWords(thing: AdminThing, names: Known, records: Map<string, string>): string {
   const connection = names.connections.get(thing.connection);
@@ -425,14 +420,14 @@ function thingWords(thing: AdminThing, names: Known, records: Map<string, string
   const through = `${tenant ? `${tenant}’s` : 'a'} ${crm} connection “${connection?.name ?? thing.connection}”`;
   const named = (datatype: string, id: string): string | undefined =>
     records.get(`${thing.connection} ${datatype} ${id}`);
-  let base = through.charAt(0).toUpperCase() + through.slice(1);
   if (thing.office) {
     const name = named('office', thing.office);
-    base = `Office ${name ? `${name} (${crm} id ${thing.office})` : `with ${crm} id ${thing.office}`}, of ${through}`;
-  } else if (thing.record) {
+    return `Office ${name ? `${name} (${crm} id ${thing.office})` : `with ${crm} id ${thing.office}`}, of ${through}`;
+  }
+  if (thing.record) {
     const name = named(thing.record.datatype, thing.record.id);
     const kind = thing.record.datatype.charAt(0).toUpperCase() + thing.record.datatype.slice(1);
-    base = `${kind} ${name ?? `with ${crm} id ${thing.record.id}`}, of ${through}`;
+    return `${kind} ${name ?? `with ${crm} id ${thing.record.id}`}, of ${through}`;
   }
-  return thing.note ? `${base}: ${thing.note}` : base;
+  return through.charAt(0).toUpperCase() + through.slice(1);
 }
