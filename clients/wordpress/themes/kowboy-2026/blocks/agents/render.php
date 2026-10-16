@@ -9,7 +9,7 @@ declare(strict_types=1);
 if (!function_exists('core_client_list_block')) {
     return;
 }
-$cards = core_client_list_block($attributes, 'agent', ['part' => 'cards', 'shadow' => false]);
+$cards = core_client_list_block($attributes, 'agent', ['part' => 'cards', 'styleisolation' => false]);
 $has_card = ($attributes['cardTitle'] ?? '') !== '';
 echo kowboy_section_open('k-agents');
 echo '<div class="k-container">';

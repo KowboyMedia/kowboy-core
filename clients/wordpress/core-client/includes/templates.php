@@ -4,8 +4,9 @@
 // view is looked up in the theme first (<theme>/core/<file>), then in the chosen set, so a copy
 // in the theme is never touched by an update. The post types' single pages and archives route to
 // those view files, one list function serves the shortcode, the archive page, the reload endpoint
-// and PHP alike, and shadow DOM is one setting of the site. Nothing here formats a value: the
-// views show `display` and `data` as the local copy holds them.
+// and PHP alike, and style isolation (each view in its own shadow root) is one setting of the
+// site. Nothing here formats a value: the views show `display` and `data` as the local copy holds
+// them.
 
 declare(strict_types=1);
 
@@ -125,21 +126,24 @@ function core_client_set_asset(string $extension, bool $vendor = false): ?string
     return add_query_arg('ver', $set['version'], $url);
 }
 
-/** The site's shadow DOM setting: on until the site turns it off (Patric, 2026-09-28). */
-function core_client_shadow_dom(): bool
+/**
+ * The site's style isolation: each view in its own shadow root, so the theme's styles and the
+ * set's never mix. Off until the site turns it on (Patric, 2026-10-16, who renamed "shadow DOM",
+ * on by default until then, and turned it off by default).
+ */
+function core_client_styleisolation(): bool
 {
-    $option = get_option('core_client_shadow_dom', 'unset');
-    return $option === 'unset' || (bool) $option;
+    return filter_var(get_option('core_client_styleisolation', false), FILTER_VALIDATE_BOOLEAN);
 }
 
 /**
  * Wrap a rendered view: in a declarative shadow root with the set's stylesheet linked inside it
- * when the site asked for shadow DOM (or `$shadow` says so), in a plain division otherwise. A
- * list inside a single page passes `false` and never opens a second root.
+ * when the site turned style isolation on (or `$isolate` says so), in a plain division otherwise.
+ * A list inside a single page passes `false` and never opens a second root.
  */
-function core_client_wrap(string $html, ?bool $shadow = null): string
+function core_client_wrap(string $html, ?bool $isolate = null): string
 {
-    if (!($shadow ?? core_client_shadow_dom())) {
+    if (!($isolate ?? core_client_styleisolation())) {
         return '<div class="core-view">' . $html . '</div>';
     }
     // The search box's stylesheets first (includes/place-search.php), so the set's rules win over them.
@@ -156,19 +160,23 @@ function core_client_wrap(string $html, ?bool $shadow = null): string
 /**
  * The one list function: the shortcode, the archive page, the reload endpoint and any PHP call it
  * with one parameter set, passed through untouched to the query (includes/query.php) and to the
- * view. `part` = `cards` renders the cards alone, for a reload; otherwise the wrapper
- * `list-<entity>.php` with its first page rendered on the server.
+ * views. `part` = `cards` renders the cards alone, for a reload; otherwise the wrapper with its
+ * first page rendered on the server. `wrapper` and `card` choose the two views by name
+ * (core_client_list_view); `styleisolation` (`1` or `0`) stands over the site's setting for this
+ * list alone.
  *
  * @param array<string, mixed> $params
  * @return array{html: string, total: int, has_more: bool, page: int}
  */
 function core_client_list(array $params): array
 {
-    $params['entity'] = (string) ($params['entity'] ?? 'property');
+    // A view file's name is built from the entity too, so it keeps only what a name may hold.
+    $params['entity'] = sanitize_key((string) ($params['entity'] ?? 'property'));
     $result = core_client_query($params);
+    $card = core_client_list_view('card', $params['card'] ?? null, $params['entity']);
     $cards = '';
     foreach ($result['items'] as $row) {
-        $cards .= core_client_render('card-' . $params['entity'] . '.php', [
+        $cards .= core_client_render($card, [
             'post_id' => $row['post_id'],
             'item' => $row['item'],
             'params' => $params,
@@ -177,17 +185,32 @@ function core_client_list(array $params): array
     if (($params['part'] ?? '') === 'cards') {
         $html = $cards;
     } else {
-        $view = core_client_render('list-' . $params['entity'] . '.php', [
+        $view = core_client_render(core_client_list_view('list', $params['wrapper'] ?? null, $params['entity']), [
             'params' => $params,
             'result' => $result,
             'cards' => $cards,
         ]);
-        $html = core_client_wrap($view, isset($params['shadow']) ? (bool) $params['shadow'] : null);
+        $isolate = isset($params['styleisolation']) ? filter_var($params['styleisolation'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+        $html = core_client_wrap($view, $isolate);
     }
     return ['html' => $html, 'total' => $result['total'], 'has_more' => $result['has_more'], 'page' => $result['page']];
 }
 
-/** `[core_list entity="property" status="ForSale,Coming" per_page="10"]`: the attributes are the parameter set. */
+/**
+ * The view a list renders for its wrapper (`list`) or for each card (`card`): `<kind>-<name>.php`
+ * for the name the list gives (Patric, 2026-10-16: `wrapper="homepage" card="homepage"` for
+ * `list-homepage.php` and `card-homepage.php`), found by the override rule; the entity's own,
+ * `<kind>-<entity>.php`, without a name or when no such file exists, as WordPress's template
+ * parts fall back. A name keeps only lower-case letters, digits, `-` and `_` (sanitize_key), so
+ * whoever sends it, through the reload endpoint too, it can only name a view of that kind.
+ */
+function core_client_list_view(string $kind, mixed $name, string $entity): string
+{
+    $name = is_scalar($name) ? sanitize_key((string) $name) : '';
+    return $name !== '' && core_client_template("$kind-$name.php") !== null ? "$kind-$name.php" : "$kind-$entity.php";
+}
+
+/** `[core_list entity="property" status="for_sale,coming" per_page="10" card="homepage"]`: the attributes are the parameter set. */
 add_shortcode('core_list', function ($attributes): string {
     return core_client_list(is_array($attributes) ? $attributes : [])['html'];
 });
@@ -228,13 +251,16 @@ add_filter('template_include', function (string $template): string {
     return __DIR__ . '/view-page.php';
 });
 
-/** The chosen set's stylesheet and script on every public page; the script also serves shadow roots. */
+/**
+ * The chosen set's script on every public page, where it also serves the shadow roots, and its
+ * stylesheet there too unless style isolation is on (a root links it inside).
+ */
 add_action('wp_enqueue_scripts', function (): void {
     $set = core_client_template_set();
     if ($set === null) {
         return;
     }
-    if (!core_client_shadow_dom()) {
+    if (!core_client_styleisolation()) {
         foreach (['vendor' => core_client_set_asset('css', true), 'set' => core_client_set_asset('css')] as $name => $css) {
             if ($css !== null) {
                 wp_enqueue_style("core-client-$name", $css, [], null);

@@ -33,7 +33,7 @@ for (const [option, value] of [
   ['core_client_status_for_sale', '"active"'],
   ['core_client_status_coming', '"pre"'],
   ['core_client_status_sold', '"done"'],
-  ['core_client_shadow_dom', 'null'],
+  ['core_client_styleisolation', 'null'],
   ['core_client_template_set', 'null'],
 ]) {
   await driver('option', `${option} ${value}`);

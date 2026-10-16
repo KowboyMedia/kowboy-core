@@ -1,7 +1,8 @@
 // The theme "Kowboy 2026" (the default set) and the plugin's template machinery against the real
 // WordPress (test/site.ts) with records from the fake polling CRM through the real Core: the lists
 // with their filters and reloads, the single pages, the section blocks and the demo pages, the
-// form entries, the override rule with a set plugin, the selector and shadow DOM.
+// form entries, the override rule with a set plugin, the list's views by name, the selector and
+// style isolation.
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -13,6 +14,8 @@ import { fillTheCrm, listing, NORRMALM, P1 } from './test/records.js';
 import { driver, run, siteUrl, start, stop, wp, WP_ROOT } from './test/site.js';
 
 const THEME_OVERRIDES = join(WP_ROOT, 'wp-content', 'themes', 'twentytwentyone', 'core');
+/** A file beside that theme's views, which no list may reach. */
+const OUTSIDE = join(WP_ROOT, 'wp-content', 'themes', 'twentytwentyone', 'outside.php');
 
 let core: Harness;
 let site: ClientDriver;
@@ -55,8 +58,8 @@ beforeAll(async () => {
   await driver('option', 'core_client_status_for_sale "active"');
   await driver('option', 'core_client_status_coming "pre"');
   await driver('option', 'core_client_status_sold "done"');
-  // The site's own shadow DOM and set choices: none, so the defaults are what is tested.
-  await driver('option', 'core_client_shadow_dom null');
+  // The site's own style isolation and set choices: none, so the defaults are what is tested.
+  await driver('option', 'core_client_styleisolation null');
   await driver('option', 'core_client_template_set null');
 
   fillTheCrm();
@@ -118,6 +121,20 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     });
     expect(second.has_more).toBe(false);
     expect(second.html).toContain('Kungsgatan 1');
+  });
+
+  it('hands the reload the card a home list names, and not its wrapper', async () => {
+    const { stdout } = await wp(
+      'eval',
+      `echo do_shortcode('[core_list entity="property" status="for_sale,coming" wrapper="homepage" card="homepage"]');`,
+    );
+    const params = JSON.parse(
+      (/data-params="([^"]*)"/.exec(stdout)?.[1] ?? '{}').replace(/&quot;/g, '"'),
+    ) as Record<string, string>;
+    expect(params).toMatchObject({ entity: 'property', card: 'homepage' });
+    expect(params).not.toHaveProperty('wrapper');
+    // The theme has neither view, so the list and its cards are the kind's own.
+    expect(stdout).toMatch(/<article class="k-card[ "]/);
   });
 
   it('filters by status, price, size, rooms, free text, agent and office, and sorts sold ones by date', async () => {
@@ -297,9 +314,9 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
 
     // The archive page: the box in the list's filters as a multi-select of the places in three
     // groups, the chosen ones selected (the pills), the words and the chosen places in the hidden
-    // fields a plain submit sends, the library (lib/tom-select), the script and the stylesheets,
-    // the stylesheets inside the shadow root too; the chosen places are "any of", the words
-    // narrow them (Default 134).
+    // fields a plain submit sends, the library (lib/tom-select), the script and the stylesheets
+    // (inside a shadow root too: the style isolation case below); the chosen places are "any
+    // of", the words narrow them (Default 134).
     const { body } = await page('/?post_type=core_property&areas=D-2&lkf=0163&q=Kungs');
     expect(body).toContain('data-place-search');
     expect(body).toContain(
@@ -319,9 +336,8 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('<input type="hidden" name="lkf" value="0163">');
     expect(body).toContain('lib/tom-select/tom-select.complete.min.js');
     expect(body).toContain('place-search.js');
-    expect(body).toMatch(
-      /<template shadowrootmode="open"><link rel="stylesheet" href="[^"]*lib\/tom-select\/tom-select\.min\.css[^"]*"><link rel="stylesheet" href="[^"]*assets\/place-search\.css[^"]*">/,
-    );
+    expect(body).toContain("id='core-client-tom-select-css'");
+    expect(body).toContain("id='core-client-place-search-css'");
     expect(body).toContain('Kungsgatan 2');
     expect(body).toContain('Kungsgatan 3');
     expect(body).not.toContain('Kungsgatan 1');
@@ -695,7 +711,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     // Page numbers, not "Visa fler": one card a page makes two pages, the second as WordPress's own /page/2/.
     const paged = await wp(
       'eval',
-      'echo core_client_list(["entity" => "association", "per_page" => 1, "page" => 2, "shadow" => false])["html"];',
+      'echo core_client_list(["entity" => "association", "per_page" => 1, "page" => 2, "styleisolation" => false])["html"];',
     );
     expect(paged.stdout).toContain('<nav class="k-paging" aria-label="Sidor">');
     expect(paged.stdout).toContain(
@@ -1019,6 +1035,63 @@ describe('the plugin’s set machinery, with a set plugin', () => {
     }
   });
 
+  it('renders a list with the wrapper and the card it names, keeps the card through a reload, and gives a name with no view the kind’s own', async () => {
+    await driver('theme', 'twentytwentyone');
+    await driver('option', 'core_client_template_set "fixture"');
+    mkdirSync(THEME_OVERRIDES, { recursive: true });
+    const list = (attributes: string): Promise<{ stdout: string }> =>
+      wp(
+        'eval',
+        `echo do_shortcode('[core_list entity="property" status="for_sale,coming" ${attributes}]');`,
+      );
+    try {
+      writeFileSync(
+        join(THEME_OVERRIDES, 'list-homepage.php'),
+        '<?php ?><section class="homepage-list"><?php echo $cards; ?></section>',
+      );
+      writeFileSync(
+        join(THEME_OVERRIDES, 'card-homepage.php'),
+        '<?php ?><p class="homepage-card"><?php echo esc_html((string) $item["address"]["street"]); ?></p>',
+      );
+      // Patric, 2026-10-16: the shortcode names its wrapper and its card; a name is read in lower case.
+      const named = await list('wrapper="homepage" card="HomePage"');
+      expect(named.stdout).toContain('<section class="homepage-list"><p class="homepage-card">');
+      expect(named.stdout).toContain('<p class="homepage-card">Kungsgatan 3</p>');
+      expect(named.stdout).not.toContain('fixture-');
+      // The reload sends the card's name, so "Visa fler" brings the same cards.
+      const more = await reload({
+        entity: 'property',
+        status: 'for_sale,coming',
+        card: 'homepage',
+      });
+      expect(more.html).toContain('<p class="homepage-card">Kungsgatan 3</p>');
+      // No such view: the kind's own views.
+      const unknown = await list('wrapper="nosuch" card="nosuch"');
+      expect(unknown.stdout).toContain('<div class="fixture-list"><article class="fixture-card">');
+      // A name, or a kind, that climbs out of the views' folder through a folder named like a
+      // view reaches no file there, from the shortcode or from the reload endpoint any visitor
+      // may call: a file beside the folder would answer if the path were taken as it is sent.
+      mkdirSync(join(THEME_OVERRIDES, 'card-x'));
+      mkdirSync(join(THEME_OVERRIDES, 'list-x'));
+      writeFileSync(OUTSIDE, "<?php echo 'OUTSIDE';");
+      const climbed = await list('wrapper="x/../../outside" card="x/../../outside"');
+      expect(climbed.stdout).toContain('<div class="fixture-list"><article class="fixture-card">');
+      expect(climbed.stdout).not.toContain('OUTSIDE');
+      const climbs: Record<string, string>[] = [
+        { entity: 'property', status: 'for_sale,coming', card: 'x/../../outside' },
+        { entity: 'x/../../outside', part: 'list' },
+      ];
+      for (const params of climbs) {
+        expect((await reload(params)).html).not.toContain('OUTSIDE');
+      }
+    } finally {
+      rmSync(OUTSIDE, { force: true });
+      rmSync(THEME_OVERRIDES, { recursive: true, force: true });
+      await driver('option', 'core_client_template_set ""');
+      await driver('theme', 'kowboy-2026');
+    }
+  });
+
   it('registers the two list blocks in the plugin, renders them through the set’s views restricted to the picks, serves the picks to an editor only, and leaves the theme’s wrappers their background and text card', async () => {
     const registered = JSON.parse(
       (
@@ -1155,23 +1228,45 @@ describe('the plugin’s set machinery, with a set plugin', () => {
     expect((await fetch(`${siteUrl}/?rest_route=/core/v1/picks&entity=agent`)).status).toBe(401);
   });
 
-  it('renders inside a shadow root by default, with the stylesheets linked inside, and on the page when the site turns it off', async () => {
-    const { body } = await page(await permalink('property', 'P-1'));
-    expect(body).toContain(
-      '<core-view><template shadowrootmode="open"><link rel="stylesheet" href="',
+  it('renders on the page by default, and inside a shadow root with the stylesheets linked inside when the site turns style isolation on or one list asks for it', async () => {
+    // Off by default (Patric, 2026-10-16): plain HTML, the set's stylesheet on the page.
+    const plain = await page(await permalink('property', 'P-1'));
+    expect(plain.body).not.toContain('<template shadowrootmode="open">');
+    expect(plain.body).toContain('<div class="core-view">');
+    expect(plain.body).toContain("id='core-client-set-css'");
+    // One list asks for a root of its own.
+    const own = await wp(
+      'eval',
+      'echo core_client_list(["entity" => "agent", "styleisolation" => "1"])["html"];',
     );
-    expect(body).toContain('kowboy-2026-vendor.css');
-    expect(body).toContain('kowboy-2026.css');
-    // The list inside an agent page opens no second root.
-    const agent = await page(await permalink('agent', 'S-1'));
-    expect(agent.body.match(/<template shadowrootmode="open">/g)).toHaveLength(1);
-    await driver('option', 'core_client_shadow_dom "0"');
+    expect(own.stdout).toContain(
+      '<core-view><template shadowrootmode="open"><link rel="stylesheet"',
+    );
+    await driver('option', 'core_client_styleisolation true');
     try {
-      const plain = await page(await permalink('property', 'P-1'));
-      expect(plain.body).not.toContain('<template shadowrootmode="open">');
-      expect(plain.body).toContain("id='core-client-set-css'");
+      const { body } = await page(await permalink('property', 'P-1'));
+      expect(body).toContain(
+        '<core-view><template shadowrootmode="open"><link rel="stylesheet" href="',
+      );
+      expect(body).toContain('kowboy-2026-vendor.css');
+      expect(body).toContain('kowboy-2026.css');
+      // The list inside an agent page opens no second root.
+      const agent = await page(await permalink('agent', 'S-1'));
+      expect(agent.body.match(/<template shadowrootmode="open">/g)).toHaveLength(1);
+      // The search box's stylesheets are linked inside the root, before the set's.
+      const archive = await page('/?post_type=core_property');
+      expect(archive.body).toMatch(
+        /<template shadowrootmode="open"><link rel="stylesheet" href="[^"]*lib\/tom-select\/tom-select\.min\.css[^"]*"><link rel="stylesheet" href="[^"]*assets\/place-search\.css[^"]*">/,
+      );
+      // One list asks to stay on the page.
+      const onPage = await wp(
+        'eval',
+        'echo core_client_list(["entity" => "agent", "styleisolation" => "0"])["html"];',
+      );
+      expect(onPage.stdout).toContain('<div class="core-view">');
+      expect(onPage.stdout).not.toContain('shadowrootmode');
     } finally {
-      await driver('option', 'core_client_shadow_dom null');
+      await driver('option', 'core_client_styleisolation null');
     }
   });
 

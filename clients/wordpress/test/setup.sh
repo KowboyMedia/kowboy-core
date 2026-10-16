@@ -68,5 +68,14 @@ add_filter('action_scheduler_allow_async_request_runner', '__return_false');
 add_filter('action_scheduler_disable_default_runner', '__return_true');
 RUNNER
 
+# A browser journey asks for style isolation by a header on each request (the project "isolated"
+# in playwright.config.ts), so the journeys walk both ways a site renders its views without the
+# site changing between them.
+cat > "$WP_ROOT/wp-content/mu-plugins/core-client-test-isolation.php" <<'ISOLATION'
+<?php
+// Written by clients/wordpress/test/setup.sh. Not for any real site.
+add_filter('pre_option_core_client_styleisolation', fn (mixed $value): mixed => ($_SERVER['HTTP_X_CORE_STYLEISOLATION'] ?? '') === '1' ? '1' : $value);
+ISOLATION
+
 WP_ROOT="$WP_ROOT" php "$repo/clients/wordpress/test/install.php"
 echo "WordPress ready at $WP_ROOT"

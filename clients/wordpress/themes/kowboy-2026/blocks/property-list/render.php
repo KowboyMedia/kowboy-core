@@ -8,5 +8,5 @@ if (!function_exists('core_client_list_block')) {
     return;
 }
 echo kowboy_section_open('k-list-section' . (($attributes['background'] ?? 'white') === 'subtle' ? ' k-list-section--subtle' : ''));
-echo core_client_list_block($attributes, 'property', ['shadow' => false]); // the theme's stylesheet is on the page
+echo core_client_list_block($attributes, 'property', ['styleisolation' => false]); // the theme's stylesheet is on the page
 echo '</section>';

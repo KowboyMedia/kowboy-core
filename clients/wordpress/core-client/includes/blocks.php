@@ -43,9 +43,9 @@ function core_client_list_attributes(string $entity): array
  * The parameter set a list block hands the list function: the block's settings as the query's
  * parameters, the picks as "show only from these" lists, and, for a property list, the visitor's
  * own choices from the address (the filters, the place search), which never widen a restriction.
- * The shadow root is the site's setting, as for the shortcode, except in the editor's preview,
- * which cannot open one (a theme's wrapper passes `shadow` false itself, its stylesheet being on
- * the page).
+ * Style isolation is the site's setting, as for the shortcode, except in the editor's preview,
+ * which cannot open a shadow root (a theme's wrapper passes `styleisolation` false itself, its
+ * stylesheet being on the page).
  *
  * @param array<string, mixed> $attributes
  * @return array<string, mixed>
@@ -59,7 +59,7 @@ function core_client_list_block_params(array $attributes, string $entity): array
         'lead' => (string) ($attributes['lead'] ?? ''),
     ];
     if (defined('REST_REQUEST') && REST_REQUEST) {
-        $params['shadow'] = false;
+        $params['styleisolation'] = false;
     }
     foreach (['agents' => 'agent', 'offices' => 'office', 'areas' => 'area_id', 'tags' => 'tags'] as $attribute => $param) {
         $list = $ids($attributes[$attribute] ?? null);

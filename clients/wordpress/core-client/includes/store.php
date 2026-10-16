@@ -319,6 +319,9 @@ function core_client_install(): void
     ) $charset;");
     // The forms widget's site key (0.5.7 and 0.5.8) went with the widget; the theme draws the forms now.
     delete_option('core_client_site_key');
+    // The shadow DOM setting (until 0.6.0) is style isolation now, off unless a site turns it on
+    // (Patric, 2026-10-16), so no site keeps the old default by its old key.
+    delete_option('core_client_shadow_dom');
     update_option('core_client_db_version', CORE_CLIENT_VERSION);
 }
 

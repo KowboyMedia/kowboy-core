@@ -1,6 +1,6 @@
 <?php
 // The settings (SRS Appendix A): Core URL, tenant token, bell secret; and the templates: which
-// installed set the site uses, and whether views render inside a shadow root
+// installed set the site uses, and style isolation, whether views render inside a shadow root
 // (docs/default-templates.md). The page also shows the last successful sync, which an operator
 // must be able to see (SRS §8), and the sets the update channel offers, each with one Install button.
 
@@ -21,7 +21,7 @@ add_action('admin_init', function (): void {
     register_setting('core_client', 'core_client_token', ['type' => 'string', 'sanitize_callback' => 'sanitize_text_field']);
     register_setting('core_client', 'core_client_bell_secret', ['type' => 'string', 'sanitize_callback' => 'sanitize_text_field']);
     register_setting('core_client', 'core_client_template_set', ['type' => 'string', 'sanitize_callback' => 'sanitize_key']);
-    register_setting('core_client', 'core_client_shadow_dom', ['type' => 'boolean', 'sanitize_callback' => 'rest_sanitize_boolean']);
+    register_setting('core_client', 'core_client_styleisolation', ['type' => 'boolean', 'sanitize_callback' => 'rest_sanitize_boolean']);
     foreach (['for_sale', 'coming', 'sold'] as $list) {
         register_setting('core_client', "core_client_status_$list", ['type' => 'string', 'sanitize_callback' => 'sanitize_text_field']);
     }
@@ -148,9 +148,10 @@ function core_client_settings_page(): void
 
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row">Shadow DOM</th>
-                    <td><label><input type="checkbox" name="core_client_shadow_dom" value="1" <?php checked(core_client_shadow_dom()); ?>>
-                        Render each view inside its own shadow root, so the theme's styles and the set's never mix.</label></td>
+                    <th scope="row">Style isolation</th>
+                    <td><label><input type="checkbox" name="core_client_styleisolation" value="1" <?php checked(core_client_styleisolation()); ?>>
+                        Draw each view in its own sealed part of the page (a shadow root), so the theme's styles and the template set's never mix.</label>
+                        <p class="description">Off, the views are plain HTML on the page, which the site's own CSS and scripts can reach. One list can still choose for itself with <code>styleisolation="1"</code> or <code>"0"</code> on its shortcode.</p></td>
                 </tr>
             </table>
             <?php submit_button(); ?>

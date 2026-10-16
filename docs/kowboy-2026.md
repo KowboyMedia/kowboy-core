@@ -46,7 +46,9 @@ holds everything the design needs and that a site installs as its theme (decisio
   first: the property list wrapper and card, the single property (hero, facts, floor plan,
   viewings, agent, interest form, image grid, fact tables, area, map), the agent card and page,
   and the 2026 views restyled for the kinds the design does not draw (office, area, project,
-  association). Rendered in shadow roots, the plugin's default from now on (Patric).
+  association). Rendered in shadow roots, the plugin's default from 2026-09-28 (Patric), until
+  he renamed the setting style isolation and turned it off by default on 2026-10-16: the views
+  are plain HTML on the page since theme 1.2.7 and plugin 0.7.0.
 - **One image component** (`core/parts/image.php`) for every CRM image: `srcset` at the CDN's
   widths, `sizes` per slot, `loading="lazy"` and `decoding="async"`, the first hero image
   eager. The two image grids of the single page are the same component.
@@ -370,6 +372,26 @@ found, theme 1.2.6:
   click opens the photos (an area's hero has no such click). A dragged-in photo shows the start
   of its motion and moves on from there once let go. The second journey of
   `e2e/hero-motion.spec.ts` checks the magnifier, a drag without a jump and the click.
+
+## Lists by name, and style isolation, 2026-10-16
+
+Patric's next message the same day (13:18Z), theme 1.2.7 and plugin 0.7.0:
+
+- **A list names its wrapper and its card.** `[core_list wrapper="homepage" card="homepage"]`
+  renders `list-homepage.php` around `card-homepage.php` cards, each found by the override rule
+  (the theme's `core/` folder, then the set); a list without names, or with a name no file
+  answers, gets the kind's own (`list-property.php`, `card-property.php`). The home list's
+  reload carries `card`, so the tabs, the filters and "Visa fler" bring the same cards. Before,
+  the kind of record alone chose a list's views. The details are in
+  `clients/wordpress/README.md`, "The one list function".
+- **"Shadow" is "styleisolation", off by default.** The site's setting ("Style isolation" on the
+  plugin's settings page) and the list's parameter `styleisolation` replace "Shadow DOM" and
+  `shadow`. Off, every view is plain HTML on the page, which the site's own CSS and scripts
+  reach. The theme's views still pass `styleisolation` false for a list inside a page, so a site
+  that turns isolation on gets one root per page, never a second inside it. The plugin deletes
+  the old setting when it updates, so every site starts with isolation off, the staging site
+  too. The browser journeys walk each journey twice, with the views on the page and with
+  isolation on, so both ways stay proved.
 
 ## Order of work
 

@@ -10,8 +10,8 @@ $name = (string) ($item['name'] ?? '');
 $office_id = (string) ($item['id'] ?? '');
 $email = is_string($item['email'] ?? null) ? $item['email'] : null;
 $phone = is_array($item['phone'] ?? null) ? $item['phone'] : null;
-$agents = core_client_list(['entity' => 'agent', 'office' => $office_id, 'per_page' => 100, 'title' => 'Våra mäklare', 'shadow' => false]);
-$properties = core_client_list(['entity' => 'property', 'office' => $office_id, 'status' => 'for_sale,coming', 'per_page' => 9, 'title' => 'Till salu', 'shadow' => false]);
+$agents = core_client_list(['entity' => 'agent', 'office' => $office_id, 'per_page' => 100, 'title' => 'Våra mäklare', 'styleisolation' => false]);
+$properties = core_client_list(['entity' => 'property', 'office' => $office_id, 'status' => 'for_sale,coming', 'per_page' => 9, 'title' => 'Till salu', 'styleisolation' => false]);
 ?>
 <div class="k-page-top"></div>
 <div class="k-container k-office">

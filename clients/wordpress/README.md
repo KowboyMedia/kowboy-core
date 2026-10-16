@@ -8,8 +8,8 @@ function. No data logic, no CRM knowledge. How a page looks is a template set's 
 ```
 core-client/                     the plugin
   core-client.php                header and requires
-  includes/settings.php          Core URL, tenant token, bell secret; the template set, shadow DOM and the
-                                 status ids of the site's lists; the sets on offer with an Install button
+  includes/settings.php          Core URL, tenant token, bell secret; the template set, style isolation and
+                                 the status ids of the site's lists; the sets on offer with an Install button
   includes/store.php             post types, the index table with its search columns, upsert and delete
   includes/municipalities.php    Sweden's 21 län and 290 kommuner by LKF code, and a name's codes
   includes/areas.php             the outline test, and the table of which areas a home is in
@@ -167,11 +167,21 @@ what it likes.
 
 **The one list function.** `core_client_list(array $params)` runs the query and renders
 `card-<entity>.php` per item and, unless `part` is `cards`, the wrapper `list-<entity>.php`
-around them, wrapped in a shadow root when the site's setting or `shadow` says so. The shortcode
-`[core_list entity="property" status="for_sale,coming" per_page="10"]`, the archive pages, the
-reload endpoint `GET /wp-json/core/v1/list?<the same parameters>` (which answers `html`,
-`total`, `has_more`, `page`) and any PHP call it with the same parameter set, passed through
-untouched: a parameter added to the query is at once available everywhere.
+around them, wrapped in a shadow root when the site's style isolation or the list's
+`styleisolation` (`1` or `0`, standing over the site's setting) says so. A list names its own
+wrapper and card by a logical name (Patric, 2026-10-16): `wrapper="homepage"` renders
+`list-homepage.php` and `card="homepage"` renders `card-homepage.php`, found by the override rule
+like every view; without a name, or when neither the theme nor the set has the file, the
+entity's own. A name keeps only lower-case letters, digits, `-` and `_`, so one sent to the
+reload endpoint can only name a view. The theme Kowboy 2026's home list keeps `card` in the
+parameters its script reloads with, so the tabs and "Visa fler" bring the same cards; a wrapper of
+a set's own that reloads keeps `card` the same way. `styleisolation="0"` on a site that isolates
+leaves the list on the page, where the set's stylesheet is only if the theme puts it there, as
+Kowboy 2026 does. The shortcode
+`[core_list entity="property" status="for_sale,coming" per_page="10" card="homepage"]`, the
+archive pages, the reload endpoint `GET /wp-json/core/v1/list?<the same parameters>` (which
+answers `html`, `total`, `has_more`, `page`) and any PHP call it with the same parameter set,
+passed through untouched: a parameter added to the query is at once available everywhere.
 
 **The search box** (`includes/place-search.php`, `docs/search.md`): one function,
 `core_client_place_search($params)`, draws the box for any set that calls it (the theme Kowboy
@@ -181,7 +191,7 @@ list's condition, so the box offers only places that give a result), the places 
 names selected, and three hidden fields, `q` (the free text), `areas` and `lkf`. The library Tom
 Select (`lib/tom-select`, question 140 a) turns the select into a combo box with the chosen
 places as pills; the plugin's script and stylesheet (`assets/place-search.js`, `.css`) set it up
-and shape it, and all four files load only in a request that drew a box, inside the shadow root
+and shape it, and all four files load only in a request that drew a box, inside a shadow root
 too. A choice, a removed pill and the form's submit send the form's fields to the list on the
 page as one event, `core-list:params` on the `[data-list]` element (the set's list script merges
 the detail into its parameters and reloads from the first page), and write them to the address;
@@ -196,7 +206,7 @@ only from these" agents, areas and offices, picked by name and stored as ids, an
 with these" tags (the CRM's words by type, picked as "Försäljningssätt · Underhand" and stored as
 the query's tokens). They render through
 the one list function and the chosen set's views, so the look is the set's, in a shadow root
-when the site's setting says so (as the shortcode); the picks become the query's `agent`,
+when the site's style isolation is on (as the shortcode); the picks become the query's `agent`,
 `area_id`, `office` and `tags` lists, which the reload script carries too, and a property list reads the
 visitor's filters and place from the address, which never widen them (the status tabs work
 through the reload script). A theme's or a set's own list block names
@@ -217,9 +227,10 @@ office with its town, the id when two still match).
 or a plugin: one file that registers the set in one line (`core_client_register_template_set`,
 from a theme's `functions.php` or a plugin's main file), one file per view
 (`single-core_<datatype>.php`, `archive-core_<datatype>.php`, `list-<entity>.php`,
-`card-<entity>.php`; a theme keeps them under `core/`), and `assets/<slug>.css` and
-`assets/<slug>.js`, enqueued on every public page and linked inside each shadow root (shadow DOM
-is on unless the site turns it off). The site picks one set on the settings page; with none
+`card-<entity>.php`, and any `list-<name>.php` and `card-<name>.php` a list names; a theme keeps
+them under `core/`), and `assets/<slug>.css` and `assets/<slug>.js`, both on every public page,
+the stylesheet linked inside each shadow root instead when the site turns style isolation on
+(it is off unless the site turns it on; Patric, 2026-10-16). The site picks one set on the settings page; with none
 chosen, the active theme's set, else the one installed set. A client's own set is a copy of the
 theme under its own name.
 
@@ -264,10 +275,12 @@ to the GitHub Release as the record (`.github/workflows/release.yml`).
 `npm run test:wordpress` runs the shared scenario suite and the template suite against a real
 WordPress install (a classic theme, the plugin and the default set active) plus the updater and
 WP-CLI tests; see [../README.md](../README.md) for the one-time setup. `npm run
-test:journeys:wordpress` walks the search box in a real browser (Playwright) on that WordPress
-with the template suite's records, served by `test/journey-site.ts` out of `dist`, so `npm run
-build` comes first (CI's wordpress job runs both; a machine with its own Chromium names it in
-`PLAYWRIGHT_CHROMIUM_EXECUTABLE`). PHPStan runs in CI's warnings job: `composer install` and
+test:journeys:wordpress` walks a visitor's journeys in a real browser (Playwright) on that
+WordPress with the template suite's records, served by `test/journey-site.ts` out of `dist`, each
+journey twice: with the views on the page, the default, and with style isolation on, which the
+test install turns on for a request carrying the header `x-core-styleisolation: 1`
+(`test/setup.sh`). `npm run build` comes first (CI's wordpress job runs both; a machine with its
+own Chromium names it in `PLAYWRIGHT_CHROMIUM_EXECUTABLE`). PHPStan runs in CI's warnings job: `composer install` and
 `vendor/bin/phpstan analyse`, both in this directory.
 
 On the site itself, an administrator sees one notice on every admin page while the plugin cannot

@@ -1,14 +1,15 @@
 <?php
 // The property list wrapper: an optional title and lead (from the block), the status tabs, the
 // optional filter form, the cards of the first page rendered on the server, and "Visa fler". The
-// script reloads the cards from the plugin's endpoint with the same parameter set.
+// script reloads the cards from the plugin's endpoint with the same parameter set, so a card the
+// list names (`card`) comes back the same.
 //
 // In scope: $params (the parameter set), $result (items, total, has_more, page), $cards (HTML).
 
 declare(strict_types=1);
 
 $uid = 'k-list-' . substr(md5((string) wp_json_encode($params)), 0, 10);
-$reload = array_diff_key($params, array_flip(['title', 'lead', 'shadow', 'part']));
+$reload = array_diff_key($params, array_flip(['title', 'lead', 'styleisolation', 'wrapper', 'part']));
 $tabs = !empty($params['status_filter']) ? array_filter(['' => 'Alla', 'for_sale' => 'Till salu', 'coming' => 'Kommande'], fn (string $list): bool => $list === '' || core_client_statuses()[$list] !== [], ARRAY_FILTER_USE_KEY) : [];
 $current = (string) ($params['status'] ?? '');
 $default_status = (string) ($params['status'] ?? '');

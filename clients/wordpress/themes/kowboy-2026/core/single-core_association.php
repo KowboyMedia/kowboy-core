@@ -13,7 +13,7 @@ $home_page = is_string($item['home_page'] ?? null) && $item['home_page'] !== '' 
 $rows = kowboy_association_rows($item);
 unset($rows['Namn']);
 $documents = array_values(array_filter(is_array($item['documents'] ?? null) ? $item['documents'] : [], fn (mixed $document): bool => is_array($document) && is_string($document['url'] ?? null) && $document['url'] !== ''));
-$properties = core_client_list(['entity' => 'property', 'association' => $association_id, 'status' => 'for_sale,coming,sold', 'status_filter' => '1', 'per_page' => 9, 'title' => 'Bostäder i ' . $name, 'shadow' => false]);
+$properties = core_client_list(['entity' => 'property', 'association' => $association_id, 'status' => 'for_sale,coming,sold', 'status_filter' => '1', 'per_page' => 9, 'title' => 'Bostäder i ' . $name, 'styleisolation' => false]);
 $document_icon = '<svg class="k-docs__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>';
 ?>
 <div class="k-page-top"></div>

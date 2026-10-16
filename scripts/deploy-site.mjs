@@ -6,9 +6,9 @@
 //   SITE_URL=https://… WP_USER=… WP_PASSWORD=… node scripts/deploy-site.mjs [--settings <json>]
 //
 // The settings JSON, when given, holds any of core_client_url, core_client_token,
-// core_client_bell_secret, core_client_template_set, core_client_shadow_dom,
-// core_client_status_for_sale, core_client_status_coming, core_client_status_sold; the rest of
-// the form keeps its values. Secrets come from the environment or the JSON, never from a file in
+// core_client_bell_secret, core_client_template_set, core_client_styleisolation,
+// core_client_status_for_sale, core_client_status_coming, core_client_status_sold and
+// core_client_publish_<kind>; the rest of the form keeps its values. Secrets come from the environment or the JSON, never from a file in
 // the repository.
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
@@ -255,7 +255,13 @@ function formValues(html) {
   values.core_client_template_set =
     /name="core_client_template_set"[\s\S]*?<option value="([^"]*)"[^>]*selected/.exec(html)?.[1] ??
     '';
-  values.core_client_shadow_dom = /name="core_client_shadow_dom"[^>]*checked/.test(html);
+  values.core_client_styleisolation = /name="core_client_styleisolation"[^>]*checked/.test(html);
+  // What the site publishes of each kind of record: a setting the form leaves out is written as
+  // "Published", so every one is carried back.
+  for (const [, name, value] of html.matchAll(
+    /name="(core_client_publish_[a-z_]+)"[\s\S]*?<option value="([^"]*)"[^>]*selected/g,
+  ))
+    values[name] = value;
   return values;
 }
 
@@ -269,8 +275,10 @@ async function writeSettings(values) {
     _wp_http_referer: '/wp-admin/options-general.php?page=core-client',
   });
   for (const name of [...TEXT_SETTINGS, 'core_client_template_set']) body.set(name, merged[name]);
-  if ([true, 'true', '1'].includes(merged.core_client_shadow_dom))
-    body.set('core_client_shadow_dom', '1');
+  for (const name of Object.keys(merged).filter((key) => key.startsWith('core_client_publish_')))
+    body.set(name, merged[name]);
+  if ([true, 'true', '1'].includes(merged.core_client_styleisolation))
+    body.set('core_client_styleisolation', '1');
   const response = await call('/wp-admin/options.php', {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },

@@ -28,6 +28,14 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
     ...(BROWSER ? { launchOptions: { executablePath: BROWSER } } : {}),
   },
+  // Every journey twice: with the views on the page, as a site renders them by default, and with
+  // the site's style isolation on, each view in its own shadow root (Patric, 2026-10-16: off by
+  // default). The test install turns isolation on for a request that carries the header
+  // (test/setup.sh), so the site is never changed between the two.
+  projects: [
+    { name: 'on the page' },
+    { name: 'isolated', use: { extraHTTPHeaders: { 'x-core-styleisolation': '1' } } },
+  ],
   webServer: {
     // The journey site, out of `dist`, so the journeys walk what `npm run build` makes. The Till
     // salu page is made last, once the records are on the site, so it is what is waited for.

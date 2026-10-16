@@ -32,7 +32,7 @@ function core_client_places(array $params): array
     if ($level !== 'areas' && $level !== 'places') {
         return $places;
     }
-    $own = array_diff_key($params, array_flip(['q', 'area', 'areas', 'lkf', 'max_price', 'min_price', 'min_living_space', 'max_living_space', 'min_rooms', 'page', 'per_page', 'part', 'title', 'lead', 'shadow']));
+    $own = array_diff_key($params, array_flip(['q', 'area', 'areas', 'lkf', 'max_price', 'min_price', 'min_living_space', 'max_living_space', 'min_rooms', 'page', 'per_page', 'part', 'title', 'lead', 'styleisolation', 'wrapper', 'card']));
     [$condition, $args] = core_client_query_condition($own);
     $index = core_client_index_table();
     $from = "$index i JOIN {$wpdb->posts} p ON p.ID = i.post_id";

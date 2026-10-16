@@ -106,21 +106,26 @@ scaffolding" means here, and every set follows it:
 - **One file per view.** `single-core_property.php` and its siblings for the single pages, named
   the WordPress way so the theme hierarchy finds them; `list-<entity>.php` for each list wrapper
   (the filter form, the cards' container, "show more"); `card-<entity>.php` for each card; archive
-  pages of a few lines that call the list function. Every file is a PHP block on top that prepares
+  pages of a few lines that call the list function. A list may name a wrapper and a card of its
+  own instead, `wrapper="homepage"` and `card="homepage"` for `list-homepage.php` and
+  `card-homepage.php` (Patric, 2026-10-16). Every file is a PHP block on top that prepares
   the values and plain markup below: a WordPress developer changes a value at the top and the
   layout underneath, and nothing is hidden in helpers, parts or classes.
 - **One loader.** About a hundred lines: it finds a template (theme first, then the set),
-  registers the shortcode and the reload endpoint, and wraps a view in a shadow root when asked.
+  registers the shortcode and the reload endpoint, and wraps a view in a shadow root when style
+  isolation asks for it.
   Nothing else lives outside the view files.
 - **One list function.** The shortcode, the archive page, the reload endpoint and any PHP call the
   same function with one parameter set, passed through untouched, so a parameter added to the
   function is at once available everywhere. The first page of a list is rendered on the server
   (crawlable, no script needed); on load the script hydrates the list with one reload call, and
   it reloads on filter changes and on "show more".
-- **Shadow DOM as a setting.** One boolean of the site, and a parameter of the list function:
-  declarative, rendered on the server, wrapping the view. The stylesheets stay `.css` files
-  linked in both modes, never CSS inside PHP strings; the scripts query from the shadow root
-  when there is one; a list inside a single page never opens a second root.
+- **Style isolation as a setting.** One boolean of the site, off unless the site turns it on,
+  and a parameter of the list function, `styleisolation` (Patric, 2026-10-16, who renamed
+  "shadow DOM", on by default until then): a declarative shadow root, rendered on the server,
+  wrapping the view. The stylesheets stay `.css` files linked in both modes, never CSS inside
+  PHP strings; the scripts query from the shadow root when there is one; a list inside a single
+  page never opens a second root.
 - **From the package, on Patric's word (2026-09-23, question 86).** The package's PHP is not
   reused; its markup is flattened to plain HTML and sliced per view file, its CSS and JavaScript
   go into the set's assets.

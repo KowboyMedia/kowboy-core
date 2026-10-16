@@ -20,7 +20,7 @@ $texts = array_filter([
     'Parkering' => $item['surroundings']['parking'] ?? null,
     'Övrigt' => $item['surroundings']['other'] ?? null,
 ], fn (mixed $value): bool => is_string($value) && $value !== '');
-$properties = core_client_list(['entity' => 'property', 'area_id' => $area_id, 'status' => 'for_sale,coming,sold', 'status_filter' => '1', 'per_page' => 9, 'title' => 'Bostäder i ' . $name, 'shadow' => false]);
+$properties = core_client_list(['entity' => 'property', 'area_id' => $area_id, 'status' => 'for_sale,coming,sold', 'status_filter' => '1', 'per_page' => 9, 'title' => 'Bostäder i ' . $name, 'styleisolation' => false]);
 // The kommun over the title, from the area's LKF code (Patric, 2026-10-04); nothing when the code names none.
 $municipality = core_client_municipality_name(is_string($item['county_municipality_code'] ?? null) ? $item['county_municipality_code'] : null);
 $hero_content = '<div class="k-hero__head"><div class="k-hero__head-main">'

@@ -1,8 +1,8 @@
 <?php
 // The page around one view: the theme's header and footer with the view between them, wrapped in
-// a shadow root when the site asked for one. Which view: set by the routing in templates.php. A
-// single page gets its post id and the item as the local copy holds it; an archive gets nothing
-// and calls the list function itself.
+// a shadow root when the site turned style isolation on. Which view: set by the routing in
+// templates.php. A single page gets its post id and the item as the local copy holds it; an
+// archive gets nothing and calls the list function itself.
 
 declare(strict_types=1);
 

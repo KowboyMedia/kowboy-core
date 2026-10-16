@@ -31,9 +31,10 @@ test.describe('on a phone', () => {
     await page.getByRole('button', { name: 'Meny' }).tap();
     await expect(headerItems.first()).toHaveCSS('opacity', '0');
 
-    // The button lands on the agent's contact (the view is in a shadow root, which the browser's
-    // own jump cannot see into): its block starts at the top of the screen, under its own small
-    // margin, with the responsible agent's heading in view.
+    // The button lands on the agent's contact (the theme's script scrolls there, since with style
+    // isolation on the view is in a shadow root, which the browser's own jump cannot see into):
+    // its block starts at the top of the screen, under its own small margin, with the responsible
+    // agent's heading in view.
     const contact = page.locator('#k-agents');
     await page.getByRole('link', { name: 'Kontakta oss' }).tap();
     await expect

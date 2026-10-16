@@ -280,7 +280,7 @@ function core_driver_typed(array $spec): array
 }
 
 /**
- * Read or write one option, so a test can pick the template set or switch shadow DOM on.
+ * Read or write one option, so a test can pick the template set or turn style isolation on.
  *
  * @return array<string, mixed>
  */
