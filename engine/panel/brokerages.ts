@@ -17,6 +17,7 @@ import { healthReport, sitesFound, SITES_CHECK } from '../health.js';
 import { adminFor, adminProviders } from '../registry.js';
 import { DATATYPES, type Connection, type Datatype } from '../adapter-api/types.js';
 import { crmName, inbox, type Card } from './inbox.js';
+import { reloadOf, type ReloadView } from './reload.js';
 
 /** A brokerage as the list and its page badge it: OK, Needs a look, or Off. */
 export type Status = 'ok' | 'look' | 'off';
@@ -91,6 +92,8 @@ export type Brokerage = {
   websites: Website[];
   crms: Crm[];
   connections: ConnectionView[];
+  /** Its latest "Reload all data" of the last day, followed until every website has reloaded. */
+  reload: ReloadView | null;
 };
 
 /** An office of one connection, with its properties. */
@@ -139,8 +142,8 @@ const statusOf = (id: number, active: boolean, look: Set<number>): Status =>
   !active ? 'off' : look.has(id) ? 'look' : 'ok';
 
 async function needingALook(): Promise<Set<number>> {
-  const [{ cards }, waiting] = await Promise.all([inbox(), waitingForToken()]);
-  return new Set([...tenantsOf(cards), ...waiting]);
+  const [{ cards, waiting }, token] = await Promise.all([inbox(), waitingForToken()]);
+  return new Set([...tenantsOf([...cards, ...waiting]), ...token]);
 }
 
 /** `GET /v1/panel/brokerages`: every brokerage, by name. */
@@ -324,6 +327,7 @@ export async function brokerage(
     })),
     crms: crms(),
     connections: views,
+    reload: await reloadOf(id),
   };
 }
 

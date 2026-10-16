@@ -18,6 +18,8 @@ export type CrmWords = {
   fields: Record<string, { label: string; help?: string }>;
   /** The field shown after the system on a connection's line ("Live Vitec · G31"). */
   shownField?: string;
+  /** That field in a sentence, from its value: "customer id M14582". */
+  shownAs?: (value: string) => string;
   /** Two fields shown side by side after the others, with one line under both. */
   pair?: { keys: [string, string]; help?: string };
   /** The action of the CRM's code that checks the connection's offices now. */
@@ -44,6 +46,7 @@ const WORDS: Record<string, CrmWords> = {
       password: { label: 'Password' },
     },
     shownField: 'customer_id',
+    shownAs: (value) => `${/^g/i.test(value) ? 'group id' : 'customer id'} ${value}`,
     pair: { keys: ['username', 'password'], help: 'From the Vitec Connect key pair' },
     officeCheck: 'check_offices',
   },
@@ -84,4 +87,12 @@ export function loginLine(crm: string, provider: string, login: Record<string, s
   const shown = wordsFor(provider).shownField;
   const value = shown ? login[shown] : undefined;
   return [systemLabel(crm, provider, login), value].filter(Boolean).join(' · ');
+}
+
+/** The login a CRM refused, in a sentence: "customer id M14582", or null when it shows none. */
+export function loginNamed(provider: string, login: Record<string, string>): string | null {
+  const words = wordsFor(provider);
+  const value = words.shownField ? login[words.shownField] : undefined;
+  if (!value) return null;
+  return words.shownAs ? words.shownAs(value) : value;
 }

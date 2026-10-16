@@ -73,8 +73,11 @@ export function Modal({
   wide = false,
 }: {
   title: ReactNode;
-  /** A red edge for a window that removes or stops something, orange for one that asks for work. */
-  tone?: 'danger' | 'warn';
+  /**
+   * A red edge for a window that removes, stops or repairs something, orange for one that asks for
+   * work, blue for one that changes how all of Core runs.
+   */
+  tone?: 'danger' | 'warn' | 'info';
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;

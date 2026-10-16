@@ -1,9 +1,11 @@
-// The Inbox (design B, images 05, 19 and 44): what needs a person now, one card per problem,
-// urgent first, then oldest first. Built from what Core already knows: the failing health checks
-// (health.ts; a check's start from the alerts' `alert_state`), the forms Core keeps because the CRM
-// did not take them (storage/submissions.ts), and a CRM refusing a login, from the event log
-// (the `login.refused` kind, attention.ts). The engine sends facts; the panel words them. No CRM
-// is named here: a CRM's name is its provider's, as the connection carries it.
+// The Inbox (design B, images 05, 13 to 16, 19 to 22 and 44): what needs a person now, one card per
+// problem, urgent first, then oldest first; what waits after someone acted; and what was fixed
+// today. Built from what Core already knows: the failing health checks (health.ts; a check's start
+// from the alerts' `alert_state`), the forms Core keeps because the CRM did not take them
+// (storage/submissions.ts), and a CRM refusing a login, from the event log (the `login.refused`
+// kind, attention.ts). Each card is a problem Core keeps until it is solved (problems.ts). The
+// engine sends facts; the panel words them. No CRM is named here: a CRM's name is its provider's,
+// as the connection carries it.
 import { db } from '../storage/db.js';
 import {
   aboutCheck,
@@ -16,25 +18,49 @@ import {
 import { ATTENTION_DAYS } from '../attention.js';
 import { NOT_LIVE, providers } from '../registry.js';
 import { KEPT_DAYS, keptSubmissions } from '../storage/submissions.js';
-import { UNANSWERED_MS } from '../http/submissions.js';
+import { NO_ANSWER, SUBMISSION_TIMEOUT_MS, UNANSWERED_MS } from '../http/submissions.js';
 import { MAINTENANCE, settings } from '../storage/settings.js';
-import type { AdminThing, HealthResult } from '../adapter-api/types.js';
+import type { AdminThing, HealthResult, SubmissionKind } from '../adapter-api/types.js';
+import { reconcile, type Acted, type Fixed } from './problems.js';
 
 /** The levels the Inbox shows: Down, Urgent and Needs a look. P3 stays in the event log. */
 export type InboxLevel = 'P0' | 'P1' | 'P2';
 
 export type Tenant = { id: number; name: string };
 
-type Base = { key: string; level: InboxLevel; since: string | null };
+type Base = {
+  key: string;
+  level: InboxLevel;
+  since: string | null;
+  /** Someone acted on it since its evidence, so it waits; null while it needs a person. */
+  acted: Acted | null;
+};
 
 /** Core's background worker stopped: Core is down for every customer. */
 export type WorkerCard = Base & { kind: 'worker'; lastSeenAt: string | null };
+
+/** One form Core keeps, as the resend window lists it; nothing the visitor typed. */
+export type KeptForm = {
+  id: string;
+  kind: SubmissionKind;
+  /** The record it was about, by its address or name; null when it named none. */
+  record: string | null;
+  sentAt: string;
+  /** The website it came from, where Core knows it. */
+  site: string | null;
+  /** The CRM refused it, did not answer in time, or answered with an error. */
+  answer: 'refused' | 'none' | 'error';
+};
 
 /** The forms one brokerage's websites sent that the CRM did not take, which Core keeps. */
 export type FormsCard = Base & {
   kind: 'forms';
   tenant: Tenant;
   count: number;
+  /** Each form, oldest first. */
+  forms: KeptForm[];
+  /** How long Core waits for the CRM's answer to a form. */
+  waitSeconds: number;
   /** The CRMs the forms were for, by name. */
   crms: string[];
   /** The websites they came from, where Core knows it. */
@@ -55,6 +81,8 @@ export type LoginCard = Base & {
   kind: 'login';
   tenant: Tenant | null;
   crm: string;
+  /** Core's id for the connection, for the window that takes a new login; no page shows it. */
+  connectionId: string;
 };
 
 /** A website has not fetched the changes Core told it about, with its last answer to Core. */
@@ -62,6 +90,11 @@ export type SiteCard = Base & {
   kind: 'site';
   tenant: Tenant | null;
   site: string;
+  siteId: number;
+  /** The platform the website named on its last fetch ("wordpress"), or null before its first. */
+  platform: string | null;
+  /** Its bell secret, while it refuses Core's bell (401 or 403), for the window that fixes it. */
+  bellSecret: string | null;
   lastFetchAt: string | null;
   /** How the site answered Core's last call: `http 401`, `failed` (no answer), `ok`. */
   lastAnswer: string | null;
@@ -91,7 +124,12 @@ export type Inbox = {
   worker: { ok: boolean; lastSeenAt: string | null };
   database: { ok: boolean };
   maintenance: { on: boolean; since: string | null; by: string | null };
+  /** What needs a person: urgent first, then oldest first. */
   cards: Card[];
+  /** What someone acted on, until it is solved or needs a person again. */
+  waiting: Card[];
+  /** Solved in the last day and a little more, newest first; the panel keeps today's. */
+  fixed: Fixed[];
 };
 
 /** A CRM's name, from its provider's: what the panel writes for it. */
@@ -150,6 +188,7 @@ export async function inbox(): Promise<Inbox> {
     ...(await siteCards(health, names)),
     ...(await checkCards(health, names, new Set(forms.map((card) => card.tenant.id)))),
   ];
+  const split = await reconcile(cards, names.tenants);
   const lastSeen = await workerLastSeen();
   const maintenance = (await settings()).find((row) => row.key === MAINTENANCE);
   const on = maintenance?.value === 'on';
@@ -163,7 +202,9 @@ export async function inbox(): Promise<Inbox> {
       since: on ? iso(maintenance?.updated_at) : null,
       by: on ? (maintenance?.updated_by ?? null) : null,
     },
-    cards: sorted(cards),
+    cards: sorted(split.needs),
+    waiting: sorted(split.waiting),
+    fixed: split.fixed,
   };
 }
 
@@ -185,6 +226,7 @@ async function workerCards(health: HealthReport): Promise<WorkerCard[]> {
       key: 'worker',
       level: 'P0',
       since: iso(lastSeen) ?? (await problemSince(['worker'])).get('worker') ?? null,
+      acted: null,
       lastSeenAt: iso(lastSeen),
     },
   ];
@@ -204,6 +246,14 @@ type KeptRow = Awaited<ReturnType<typeof keptSubmissions>>[number];
 
 const unansweredForm = (row: KeptRow): boolean => row.outcome !== 'refused';
 
+/** How the CRM answered a form Core keeps: it refused it, did not answer in time, or failed. */
+const answerOf = (row: KeptRow): KeptForm['answer'] =>
+  row.outcome === 'refused'
+    ? 'refused'
+    : row.outcome === 'failed' && !(row.detail ?? '').startsWith(NO_ANSWER)
+      ? 'error'
+      : 'none';
+
 /**
  * One card per brokerage for the forms Core keeps because the CRM did not take them. A form the
  * guard held back as a test (forms test mode, or a Core that is not the live service) is no problem.
@@ -212,6 +262,7 @@ async function formsCards(names: Known): Promise<FormsCard[]> {
   const kept = (await keptSubmissions(UNANSWERED_MS)).filter((row) => row.detail !== NOT_LIVE);
   if (kept.length === 0) return [];
   const sites = await sitesOfForms(kept.map((row) => row.id));
+  const records = await formRecords(kept);
   const byTenant = new Map<number, KeptRow[]>();
   for (const row of kept) {
     const tenantId = Number(row.tenant_id);
@@ -226,8 +277,20 @@ async function formsCards(names: Known): Promise<FormsCard[]> {
       key: `forms:${String(tenantId)}`,
       level: 'P1',
       since: oldest.received_at.toISOString(),
+      acted: null,
       tenant: tenantOf(tenantId, names) ?? { id: tenantId, name: oldest.tenant },
       count: rows.length,
+      forms: [...rows]
+        .sort((a, b) => a.received_at.getTime() - b.received_at.getTime())
+        .map((row) => ({
+          id: row.id,
+          kind: row.kind,
+          record: records.get(row.id) ?? null,
+          sentAt: row.received_at.toISOString(),
+          site: sites.get(row.id) ?? null,
+          answer: answerOf(row),
+        })),
+      waitSeconds: SUBMISSION_TIMEOUT_MS / 1000,
       crms: [...new Set(rows.map((row) => crmName(row.provider ?? '')).filter(Boolean))],
       sites: [...new Set(rows.flatMap((row) => sites.get(row.id) ?? []))],
       sentAt: rows.map((row) => row.received_at.toISOString()).sort(),
@@ -250,6 +313,39 @@ async function sitesOfForms(ids: string[]): Promise<Map<string, string>> {
     [ids],
   );
   return new Map(rows.map((row) => [row.id, row.label]));
+}
+
+/** The record each form was about, by its address ("Lindängsvägen 12, Malmö") or its name. */
+async function formRecords(kept: KeptRow[]): Promise<Map<string, string>> {
+  const about = kept.filter((row) => row.datatype && row.remote_id);
+  if (about.length === 0) return new Map();
+  const { rows } = await db().query<{
+    key: string;
+    street: string | null;
+    city: string | null;
+    name: string | null;
+  }>(
+    `select connection_id || ' ' || datatype || ' ' || remote_id as key,
+       data->'address'->>'street' as street, data->'address'->>'city' as city,
+       data->>'name' as name
+     from items
+     where (connection_id, datatype, remote_id) in (
+       select * from unnest($1::text[], $2::text[], $3::text[]))`,
+    [
+      about.map((row) => row.connection_id),
+      about.map((row) => row.datatype ?? ''),
+      about.map((row) => row.remote_id ?? ''),
+    ],
+  );
+  const named = new Map(
+    rows.map((row) => [row.key, [row.street, row.city].filter(Boolean).join(', ') || row.name]),
+  );
+  const found = new Map<string, string>();
+  for (const row of about) {
+    const name = named.get(`${row.connection_id} ${row.datatype ?? ''} ${row.remote_id ?? ''}`);
+    if (name) found.set(row.id, name);
+  }
+  return found;
 }
 
 /**
@@ -305,8 +401,10 @@ async function loginCards(names: Known): Promise<LoginCard[]> {
       key: `login:${row.connection_id}`,
       level: 'P1',
       since: row.at.toISOString(),
+      acted: null,
       tenant: tenantOf(row.tenant_id ?? connection.tenantId, names),
       crm: crmName(connection.provider),
+      connectionId: row.connection_id,
     });
   }
   return cards;
@@ -317,21 +415,32 @@ async function siteCards(health: HealthReport, names: Known): Promise<SiteCard[]
   const check = health.checks[SITES_CHECK];
   const sites = check && !check.ok ? sitesFound(check) : null;
   if (!check || !sites || sites.length === 0) return [];
-  const { rows } = await db().query<{ id: string; last_bell_at: Date | null }>(
-    'select id, last_bell_at from subscribers where id = any($1::bigint[])',
+  const { rows } = await db().query<{
+    id: string;
+    last_bell_at: Date | null;
+    last_client: string | null;
+    bell_secret: string;
+  }>(
+    'select id, last_bell_at, last_client, bell_secret from subscribers where id = any($1::bigint[])',
     [sites.map((site) => site.id)],
   );
-  const answeredAt = new Map(rows.map((row) => [Number(row.id), row.last_bell_at]));
+  const byId = new Map(rows.map((row) => [Number(row.id), row]));
   return sites.map((site) => ({
     kind: 'site',
     key: `${SITES_CHECK}:${String(site.id)}`,
     level: inboxLevel(check) ?? 'P1',
     since: site.toldAt.toISOString(),
+    acted: null,
     tenant: tenantOf(site.tenantId, names),
     site: site.label,
+    siteId: site.id,
+    platform: byId.get(site.id)?.last_client?.split('/')[0]?.toLowerCase() || null,
+    bellSecret: /^http (401|403)$/.test(site.lastBellStatus ?? '')
+      ? (byId.get(site.id)?.bell_secret ?? null)
+      : null,
     lastFetchAt: iso(site.lastPullAt),
     lastAnswer: site.lastBellStatus,
-    lastAnswerAt: iso(answeredAt.get(site.id)),
+    lastAnswerAt: iso(byId.get(site.id)?.last_bell_at),
   }));
 }
 
@@ -373,6 +482,7 @@ async function checkCards(
       key: name,
       level: inboxLevel(check) ?? 'P2',
       since: since.get(name) ?? null,
+      acted: null,
       tenants: [...tenants.values()],
       about: registered.has(provider) ? crmName(provider) : null,
       title: aboutCheck(name).title,

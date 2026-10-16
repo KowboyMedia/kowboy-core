@@ -4,6 +4,7 @@
 import type { Config } from '../config.js';
 import { report } from '../errors.js';
 import { sendMail } from '../mail.js';
+import { MAINTENANCE, writeSetting } from '../storage/settings.js';
 import type { Request, Response, RouteTable } from '../http/server.js';
 import {
   clearedCookie,
@@ -39,6 +40,9 @@ import {
   setFormsTestMode,
   type Refusal,
 } from './connections.js';
+import { actOn } from './problems.js';
+import { resendForms } from './forms.js';
+import { startReload } from './reload.js';
 
 type PanelConfig = AuthSettings & Pick<Config, 'environment' | 'port'>;
 
@@ -193,14 +197,18 @@ const partsAfter = (prefix: string, path: string): string[] =>
 const numberOf = (part: string | undefined): number | null =>
   part && /^\d+$/.test(part) ? Number(part) : null;
 
-/** A change: JSON from a signed-in person, handed the parsed body. */
+/** A change: JSON from a signed-in person, handed the parsed body and the person. */
 const change = (
-  handler: (request: Request, given: Record<string, unknown>) => Promise<Response> | Response,
+  handler: (
+    request: Request,
+    given: Record<string, unknown>,
+    person: Signed,
+  ) => Promise<Response> | Response,
 ) =>
-  signedIn((request) => {
+  signedIn((request, person) => {
     const given = body(request);
     if (!given) return answer(415, { error: 'send JSON' });
-    return handler(request, given);
+    return handler(request, given, person);
   });
 
 const listRoute = signedIn(async () => answer(200, { brokerages: await brokerageList() }));
@@ -221,35 +229,54 @@ const pageRoute = signedIn(async (request) => {
   return page ? answer(200, page) : missing();
 });
 
-const brokerageChange = change(async (request, given) => {
-  const [part, what] = partsAfter('/v1/panel/brokerages/', request.path);
-  const id = numberOf(part);
-  if (id === null) return missing();
-  if (what === 'switch') {
-    return (await switchBrokerage(id, given['on'] === true))
-      ? answer(200, { ok: true })
-      : missing();
-  }
-  if (what === 'token') {
+type BrokerageChange = (
+  id: number,
+  given: Record<string, unknown>,
+  person: Signed,
+) => Promise<Response>;
+
+/** What a person changes on a brokerage, by the last part of its address. */
+const BROKERAGE_CHANGES: Record<string, BrokerageChange> = {
+  switch: async (id, given) =>
+    (await switchBrokerage(id, given['on'] === true)) ? answer(200, { ok: true }) : missing(),
+  token: async (id) => {
     const token = await replaceToken(id);
     return token ? answer(200, { token }) : missing();
-  }
-  if (what === 'websites') {
+  },
+  websites: async (id, given) => {
     const label = text(given['label']);
     const bellUrl = bellAddress(given['bellUrl']);
     if (label === '' || !bellUrl) return refusal('fields');
     const website = await addWebsite(id, { label, bellUrl });
     return website === null ? missing() : answer(201, { id: website });
-  }
-  if (what === 'connections') {
+  },
+  connections: async (id, given) => {
     const done = await addConnection(
       id,
       { provider: text(given['provider']), name: text(given['name']), login: given['login'] },
       settings().credentialsKey,
     );
     return done.ok ? answer(201, { id: done.value }) : refusal(done.why);
-  }
-  return missing();
+  },
+  // The forms of the brokerage the Inbox listed, sent to the CRM again one at a time.
+  resend: async (id, given) => {
+    const ids = Array.isArray(given['ids'])
+      ? given['ids'].filter((one): one is string => typeof one === 'string')
+      : [];
+    const results = await resendForms(id, ids);
+    return results ? answer(200, { results }) : missing();
+  },
+  reload: async (id, _given, person) =>
+    (await startReload(id, person.email)) ? answer(202, { ok: true }) : missing(),
+};
+
+const brokerageChange = change(async (request, given, person) => {
+  const [part, what] = partsAfter('/v1/panel/brokerages/', request.path);
+  const id = numberOf(part);
+  const handler =
+    what && Object.hasOwn(BROKERAGE_CHANGES, what) ? BROKERAGE_CHANGES[what] : undefined;
+  if (id === null || !handler) return missing();
+  return handler(id, given, person);
 });
 
 const connectionRead = signedIn(async (request) => {
@@ -259,11 +286,11 @@ const connectionRead = signedIn(async (request) => {
   return offices ? answer(200, { offices }) : missing();
 });
 
-const connectionChange = change(async (request, given) => {
+const connectionChange = change(async (request, given, person) => {
   const [id, what] = partsAfter('/v1/panel/connections/', request.path);
   if (!id) return missing();
   if (what === 'login') {
-    const done = await changeLogin(id, given['login'], settings().credentialsKey);
+    const done = await changeLogin(id, given['login'], settings().credentialsKey, person.email);
     return done.ok ? answer(200, { ok: true }) : refusal(done.why);
   }
   if (what === 'forms-test-mode') {
@@ -289,6 +316,21 @@ const websiteChange = change(async (request) => {
   return (await removeWebsite(id)) ? answer(200, { ok: true }) : missing();
 });
 
+/** `POST /v1/panel/problems/act`: a person did what an Inbox card asks ("Done, I've pasted it"). */
+const actRoute = change(async (_request, given, person) =>
+  (await actOn(text(given['key']), person.email)) ? answer(200, { ok: true }) : missing(),
+);
+
+/**
+ * `POST /v1/panel/maintenance`: turn maintenance on or off. Off, the worker sends the held change
+ * notices within a second and takes the queued jobs again.
+ */
+const maintenanceRoute = change(async (_request, given, person) => {
+  if (typeof given['on'] !== 'boolean') return refusal('fields');
+  await writeSetting(MAINTENANCE, given['on'] ? 'on' : 'off', person.email);
+  return answer(200, { ok: true });
+});
+
 export function panelRoutes(): RouteTable {
   return [
     { method: 'GET', path: '/v1/panel/sign-in', handler: () => signInFacts() },
@@ -297,6 +339,8 @@ export function panelRoutes(): RouteTable {
     { method: 'GET', path: '/v1/panel/me', handler: me },
     { method: 'POST', path: '/v1/panel/sign-out', handler: signOut },
     { method: 'GET', path: '/v1/panel/inbox', handler: inboxRoute },
+    { method: 'POST', path: '/v1/panel/problems/act', handler: actRoute },
+    { method: 'POST', path: '/v1/panel/maintenance', handler: maintenanceRoute },
     { method: 'GET', path: '/v1/panel/crms', handler: crmsRoute },
     { method: 'GET', path: '/v1/panel/brokerages', handler: listRoute },
     { method: 'POST', path: '/v1/panel/brokerages', handler: createRoute },

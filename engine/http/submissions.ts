@@ -280,12 +280,12 @@ async function deliver(
   }
 }
 
+/** How the cause Core keeps begins when the CRM did not answer in time. */
+export const NO_ANSWER = 'the CRM did not answer within';
+
 function withinTime<T>(work: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error(`the CRM did not answer within ${String(ms / 1000)} s`)),
-      ms,
-    );
+    const timer = setTimeout(() => reject(new Error(`${NO_ANSWER} ${String(ms / 1000)} s`)), ms);
     timer.unref?.();
     work.then(resolve, reject).finally(() => clearTimeout(timer));
   });

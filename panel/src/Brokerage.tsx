@@ -11,6 +11,7 @@ import {
   type ConnectionView,
   type Crm,
   type Office,
+  type ReloadView,
   type Website,
 } from './api';
 import { Shell, useShell } from './Shell';
@@ -19,6 +20,7 @@ import { Badge, DotsMenu, Modal, Switch, UNANSWERED, useNote, ValueField, type T
 import {
   AlertTriangleIcon,
   ChevronLeftIcon,
+  CircleCheckIcon,
   KeyIcon,
   LoaderIcon,
   PencilIcon,
@@ -29,8 +31,7 @@ import {
   TrashIcon,
 } from './icons';
 import { isTestSystem, loginLine, systemShort, wordsFor } from './crm-words';
-import { LoginFields, complete } from './LoginForm';
-import { listed, when } from './time';
+import { clock, listed, when } from './time';
 import { loadedList, records } from './records';
 import {
   clientLine,
@@ -46,10 +47,9 @@ import {
   ConnectFields,
   connect,
   connectReady,
-  keptLogin,
+  LoginWindow,
   loginRefusal,
   owning,
-  secretWords,
   shortName,
   useConnectForm,
 } from './connect';
@@ -532,79 +532,6 @@ function ConnectWindow({
   );
 }
 
-/** A new login for a connection (image 15), tested before it is saved, then its offices checked. */
-function LoginWindow({
-  crm,
-  connection,
-  onClose,
-  onDone,
-}: {
-  crm: Crm;
-  connection: ConnectionView;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const { away } = useShell();
-  const note = useNote();
-  const form = useConnectForm(crm, connection.name, keptLogin(crm, connection));
-  const secret = secretWords(crm);
-  const save = async () => {
-    form.setBusy(true);
-    form.setError(null);
-    try {
-      await api.changeLogin(connection.id, form.login);
-    } catch (error) {
-      if (away(error)) return;
-      form.setError(loginRefusal(error, crm.name));
-      form.setBusy(false);
-      return;
-    }
-    const check = wordsFor(crm.provider).officeCheck;
-    let checking = false;
-    if (check && connection.actions.includes(check)) {
-      checking = await api.act(connection.id, check).then(
-        () => true,
-        () => false,
-      );
-    }
-    note({
-      text: `${crm.name} accepted the new login for “${connection.name}”. It’s saved${checking ? ', and Core is checking its offices' : ''}.`,
-    });
-    onDone();
-  };
-  return (
-    <Modal
-      title={`Enter new login · ${connection.name}`}
-      onClose={onClose}
-      wide
-      footer={
-        <>
-          <button type="button" className="k-button k-button-link" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="k-button k-button-primary"
-            disabled={form.busy || !complete(crm, form.login)}
-            onClick={() => void save()}
-          >
-            {form.busy ? <LoaderIcon className="k-spin" size={18} /> : <PlugIcon size={18} />}
-            Test and save
-          </button>
-        </>
-      }
-    >
-      <p className="k-modal-text">
-        {secret.words &&
-          `Core never shows a saved ${secret.words}, so enter ${secret.many ? 'them' : 'it'} again. `}
-        Core tests the login with {crm.name} and saves it only if {crm.name} accepts it.
-      </p>
-      <LoginFields crm={crm} login={form.login} onChange={form.setLogin} />
-      {form.error && <p className="k-error">{form.error}</p>}
-    </Modal>
-  );
-}
-
 /** A connection's offices on the websites (images 25, 26), and checking them now. */
 function OfficesWindow({
   crm,
@@ -940,9 +867,168 @@ function TokenReplacedWindow({
   );
 }
 
+// ---- Reload all data ------------------------------------------------------------------------------
+
+/** The CRMs a brokerage's connections are with, in a sentence that names them all: "Vitec". */
+function fetchedFrom(page: Brokerage): string {
+  return listed([...new Set(page.connections.map((connection) => connection.crm))]);
+}
+
+/** "Reload all data for Mäklarbyrån Ljungström?" (image 39). */
+function ReloadWindow({
+  page,
+  onClose,
+  onDone,
+}: {
+  page: Brokerage;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { away } = useShell();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const crms = fetchedFrom(page);
+  const sites = page.websites.map((website) => website.label);
+  const fetch =
+    page.connections.length > 0
+      ? `Core fetches everything from ${crms} again and removes what ${crms} no longer lists. `
+      : '';
+  const then = fetch ? 'Then ' : '';
+  const reload =
+    sites.length === 0
+      ? ''
+      : sites.length === 1
+        ? `${then}${sites[0] ?? ''} reloads everything. The website keeps showing its copy meanwhile. `
+        : `${then}${listed(sites)} reload everything. The websites keep showing their copy meanwhile. `;
+  const off =
+    !page.active && sites.length > 0 ? 'They reload once the brokerage is switched on. ' : '';
+  const go = async () => {
+    setBusy(true);
+    setFailed(false);
+    try {
+      await api.reload(page.id);
+      onDone();
+    } catch (error) {
+      if (!away(error)) setFailed(true);
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal
+      title={`Reload all data for ${page.name}?`}
+      tone="info"
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="k-button k-button-link" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="k-button k-button-primary"
+            disabled={busy}
+            onClick={() => void go()}
+          >
+            {busy ? <LoaderIcon className="k-spin" size={18} /> : <RefreshIcon size={18} />}
+            Reload all data
+          </button>
+        </>
+      }
+    >
+      <p className="k-modal-text">
+        {fetch}
+        {reload}
+        {off}Takes a few minutes.
+      </p>
+      {failed && <p className="k-error">{UNANSWERED}</p>}
+    </Modal>
+  );
+}
+
+/** "Vitec no longer lists 1 property: Kopparbergsvägen 8, Västerås — removed." */
+function removedWords(reload: ReloadView, crms: string): string {
+  if (reload.removedCount === 0)
+    return `${crms} lists everything Core had, so nothing was removed.`;
+  const from = listed([...new Set(reload.removed.map((one) => one.crm))]) || crms;
+  const names = reload.removed.map(
+    (one) =>
+      one.name ?? `${records(1, one.datatype).replace(/^1 /, '')} with ${one.crm} id ${one.id}`,
+  );
+  const more = reload.removedCount - reload.removed.length;
+  if (more > 0) {
+    return `${from} no longer lists ${String(reload.removedCount)} records, among them ${names.join(', ')} — removed.`;
+  }
+  const types = [...new Set(reload.removed.map((one) => one.datatype))].map((datatype) =>
+    records(reload.removed.filter((one) => one.datatype === datatype).length, datatype),
+  );
+  return `${from} no longer lists ${listed(types)}: ${listed(names)} — removed.`;
+}
+
+/** How long the page says a reload is done. */
+const DONE_SHOWN_MS = 60 * 60_000;
+
+/** A reload under way, or done (image 40), at the top of the page. */
+function ReloadBanner({ page }: { page: Brokerage }) {
+  const reload = page.reload;
+  if (!reload) return null;
+  const crms = fetchedFrom(page) || 'the CRM';
+  if (reload.state !== 'done') {
+    const waiting = reload.sites
+      .filter((site) => site.reloadedAt === null)
+      .map((site) => site.label);
+    return (
+      <section className="k-banner k-banner-info" aria-label="Reload all data">
+        <LoaderIcon className="k-spin" size={20} />
+        <div>
+          <p className="k-banner-title">Reloading all data…</p>
+          <p className="k-banner-text">
+            {reload.state === 'fetching'
+              ? `Core is fetching everything from ${crms} again. The websites keep showing their copy meanwhile.`
+              : `Core has fetched everything from ${crms} again. Waiting for ${listed(waiting) || 'the websites'} to reload everything.`}
+          </p>
+        </div>
+      </section>
+    );
+  }
+  if (!reload.doneAt || Date.parse(page.now) - Date.parse(reload.doneAt) > DONE_SHOWN_MS)
+    return null;
+  const reloaded = reload.sites
+    .filter((site) => site.reloadedAt !== null)
+    .map((site) => site.label);
+  const sites =
+    page.active && reloaded.length > 0 ? ` ${listed(reloaded)} reloaded everything.` : '';
+  return (
+    <section
+      className={`k-banner ${reload.failed ? 'k-banner-warn' : 'k-banner-done'}`}
+      aria-label="Reload all data"
+    >
+      {reload.failed ? <AlertTriangleIcon size={20} /> : <CircleCheckIcon size={20} />}
+      <div>
+        <p className="k-banner-title">
+          {reload.failed ? 'Reload done in part' : 'Reload done'} ({clock(reload.doneAt)})
+        </p>
+        <p className="k-banner-text">
+          {reload.failed &&
+            `Core couldn’t fetch everything from ${crms} again, so some records may still be missing or out of date; try again in a while. `}
+          {removedWords(reload, crms)}
+          {sites}
+        </p>
+      </div>
+    </section>
+  );
+}
+
 // ---- The brokerage's switch -------------------------------------------------------------------------
 
-function BrokerageCard({ page, onSwitch }: { page: Brokerage; onSwitch: (on: boolean) => void }) {
+function BrokerageCard({
+  page,
+  onSwitch,
+  onReload,
+}: {
+  page: Brokerage;
+  onSwitch: (on: boolean) => void;
+  onReload: () => void;
+}) {
   return (
     <section className="k-box">
       <header className="k-box-head">
@@ -954,7 +1040,7 @@ function BrokerageCard({ page, onSwitch }: { page: Brokerage; onSwitch: (on: boo
           <button
             type="button"
             className="k-button k-button-quiet k-button-small"
-            aria-disabled="true"
+            onClick={onReload}
           >
             <RefreshIcon size={16} />
             Reload all data…
@@ -1050,6 +1136,7 @@ type Open =
   | { kind: 'replace-token' }
   | { kind: 'token-replaced'; token: string }
   | { kind: 'switch-off' }
+  | { kind: 'reload' }
   | null;
 
 /** A connection just removed, until every website it was on has fetched since. */
@@ -1070,7 +1157,10 @@ function Page({ id }: { id: number }) {
   const [removal, setRemoval] = useState<Removal | null>(null);
   /** A token replaced from this page: armed, then waiting until every website uses it. */
   const [watching, setWatching] = useState<'armed' | 'waiting' | null>(null);
-  const fast = open?.kind === 'token-replaced' || removal !== null || watching !== null;
+  /** A reload under way, followed until every website has reloaded. */
+  const [reloading, setReloading] = useState(false);
+  const fast =
+    open?.kind === 'token-replaced' || removal !== null || watching !== null || reloading;
   const { page, state, load } = usePage(id, fast);
   const before = useRef<Brokerage | null>(null);
 
@@ -1082,6 +1172,12 @@ function Page({ id }: { id: number }) {
 
   // What changed since the last read: websites that took the new token, a removal that reached
   // every website.
+  useEffect(() => {
+    setReloading(
+      page?.reload !== null && page?.reload !== undefined && page.reload.state !== 'done',
+    );
+  }, [page]);
+
   useEffect(() => {
     if (!page) return;
     const was = before.current;
@@ -1216,6 +1312,7 @@ function Page({ id }: { id: number }) {
         <h1 className="k-page-title k-page-title-large">{page.name}</h1>
         <StatusBadge status={page.status} />
       </div>
+      <ReloadBanner page={page} />
 
       <WebsitesCard
         page={page}
@@ -1239,6 +1336,7 @@ function Page({ id }: { id: number }) {
       <BrokerageCard
         page={page}
         onSwitch={(on) => (on ? void switchOn() : setOpen({ kind: 'switch-off' }))}
+        onReload={() => setOpen({ kind: 'reload' })}
       />
 
       {open?.kind === 'add-website' && <AddWebsiteWindow page={page} onClose={closeAndLoad} />}
@@ -1289,6 +1387,16 @@ function Page({ id }: { id: number }) {
       )}
       {open?.kind === 'switch-off' && (
         <SwitchOffWindow page={page} onClose={close} onDone={closeAndLoad} />
+      )}
+      {open?.kind === 'reload' && (
+        <ReloadWindow
+          page={page}
+          onClose={close}
+          onDone={() => {
+            setReloading(true);
+            closeAndLoad();
+          }}
+        />
       )}
     </main>
   );

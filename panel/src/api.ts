@@ -9,11 +9,16 @@ export type {
   CheckCard,
   FormsCard,
   Inbox,
+  KeptForm,
   LoginCard,
   SiteCard,
   Tenant,
   WorkerCard,
 } from '../../engine/panel/inbox.js';
+export type { Fixed, FixedFacts } from '../../engine/panel/problems.js';
+export type { Removed, ReloadView } from '../../engine/panel/reload.js';
+import type { Resent } from '../../engine/panel/forms.js';
+export type { Resent };
 export type Level = InboxLevel;
 
 export type {
@@ -97,6 +102,12 @@ export const api = {
     post<{ removedAt: string }>(`/connections/${encodeURIComponent(connection)}/remove`, {}),
   offices: (connection: string) =>
     call<{ offices: Office[] }>(`/connections/${encodeURIComponent(connection)}/offices`),
+  /** "Done, I've pasted it": the Inbox card waits until the problem is solved. */
+  acted: (key: string) => post<{ ok: true }>('/problems/act', { key }),
+  maintenance: (on: boolean) => post<{ ok: true }>('/maintenance', { on }),
+  resend: (id: number, ids: string[]) =>
+    post<{ results: Resent[] }>(`/brokerages/${String(id)}/resend`, { ids }),
+  reload: (id: number) => post<{ ok: true }>(`/brokerages/${String(id)}/reload`, {}),
 };
 
 export const signedOut = (error: unknown): boolean =>

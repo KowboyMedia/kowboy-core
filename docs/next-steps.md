@@ -854,7 +854,8 @@ client ports (item 16, first client by question 80).
       admin moved to `/admin-old` there, for comparison only; its first part (signing in, the account menu and the Inbox) went up
       on 2026-10-16, built by a session that had not seen the current admin, with eleven lines
       beyond B's images asked in question 200; part 2 (the brokerages list, a brokerage's page and adding a
-      brokerage) the same day, with thirteen lines asked in question 201; the check again, his approval on
+      brokerage) the same day, with thirteen lines asked in question 201; part 3 (the Inbox's windows,
+      maintenance and "Reload all data") the same day, with ten lines asked in question 202; the check again, his approval on
       staging, then the current admin is deleted with everything only it used.
     - Ownership: nothing edits the current admin (`admin/`) until it is deleted. Size: many
       sessions.

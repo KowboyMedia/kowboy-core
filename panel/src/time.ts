@@ -65,3 +65,13 @@ export const listed = (items: string[], last = 'and'): string =>
 /** "1 thing", "4 things". */
 export const counted = (n: number, one: string, many: string): string =>
   `${String(n)} ${n === 1 ? one : many}`;
+
+/** Whether a time falls on the same day as now, on Stockholm's clock: "Fixed today". */
+export const sameDay = (iso: string, now: Date): boolean =>
+  parts(new Date(iso)).day === parts(now).day;
+
+/** The clock time alone: "09:53". */
+export const clock = (iso: string): string => parts(new Date(iso)).clock;
+
+/** A sentence's first letter in capitals: "Yesterday 21:14". */
+export const capital = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);

@@ -5,6 +5,7 @@ import { report } from './errors.js';
 import { connectionById } from './storage/connections.js';
 import { itemsForScope } from './storage/items.js';
 import { notFound } from './ingest.js';
+import { rebuildAfterFetch } from './reload.js';
 import type { AdminRecord, Datatype, LifecycleEvent } from './adapter-api/types.js';
 
 type Options = { officeIds?: string[]; datatype?: Datatype; records?: AdminRecord[] };
@@ -74,6 +75,12 @@ export async function deliverLifecycleEvents(): Promise<number> {
       row.id,
       error,
     ]);
+    // The last fetch of a "Reload all data" tells the tenant's sites to rebuild (reload.ts).
+    try {
+      await rebuildAfterFetch(Number(row.id));
+    } catch (caught) {
+      report(caught, { where: 'reload', connectionId: row.connection_id });
+    }
     delivered += 1;
   }
 }

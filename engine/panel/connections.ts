@@ -12,6 +12,8 @@ import { ring } from '../bells.js';
 import { report } from '../errors.js';
 import { adminFor } from '../registry.js';
 import type { AdminField, Connection } from '../adapter-api/types.js';
+import { crmName } from './inbox.js';
+import { solveLogin } from './problems.js';
 
 /** Why a change was not made: no such thing, a login missing a field, or the CRM refused it. */
 export type Refusal = 'missing' | 'fields' | 'login' | 'crm';
@@ -101,11 +103,15 @@ export async function addConnection(
   }
 }
 
-/** A new login for a connection, saved only if the CRM accepts it. */
+/**
+ * A new login for a connection, saved only if the CRM accepts it. A login the CRM refused is then
+ * put right, by the person who saved the new one: the Inbox lists it as fixed.
+ */
 export async function changeLogin(
   connectionId: string,
   given: unknown,
   key: string,
+  by: string,
 ): Promise<Done<null>> {
   const connection = await connectionById(connectionId);
   const admin = connection ? adminFor(connection.provider) : null;
@@ -119,6 +125,7 @@ export async function changeLogin(
     connectionId,
     encrypt(login, key),
   ]);
+  await solveLogin(connectionId, crmName(connection.provider), by);
   return { ok: true, value: null };
 }
 

@@ -1,33 +1,45 @@
-// The Inbox (design B, images 05, 19, 44 and 45): Core's state, then what needs you, urgent first
-// and then oldest first. The page reads again by itself, so a problem that is put right leaves it.
-// The buttons that open the windows of later parts (Resend, Enter new login, Fix bell secret, Turn
-// on…) are shown but do nothing yet; "Open <brokerage>" opens the brokerage's page.
+// The Inbox (design B, images 05, 13 to 16, 19 to 22 and 41 to 45): Core's state and maintenance,
+// then what needs you, urgent first and then oldest first; what waits after someone acted; and
+// what was fixed today. The page reads again by itself, so a problem that is put right moves to
+// "Fixed today". Each card's button opens its window: resend the forms, enter a new login, fix a
+// website's bell secret; "Open <brokerage>" opens the brokerage's page.
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import {
   api,
   type Card,
   type CheckCard,
+  type Crm,
+  type ConnectionView,
+  type Fixed,
   type FormsCard,
   type Inbox,
+  type KeptForm,
   type Level,
   type LoginCard,
+  type Resent,
   type SiteCard,
   type Tenant,
   type WorkerCard,
 } from './api';
 import { Shell, useShell } from './Shell';
-import { ago, counted, listed, sentWhen, when, dateOf } from './time';
+import { ago, capital, clock, counted, dateOf, listed, sameDay, sentWhen, when } from './time';
 import {
   AlertTriangleIcon,
   CheckIcon,
   CircleCheckIcon,
   CopyIcon,
   KeyIcon,
+  LoaderIcon,
   PencilIcon,
+  PowerIcon,
   SendIcon,
   TrafficConeIcon,
 } from './icons';
+import { Modal, UNANSWERED, useNote, ValueField } from './ui';
+import { LoginWindow } from './connect';
+import { loginNamed } from './crm-words';
+import { isPlatform, platformWords } from './websites';
 
 const EVERY_MS = 30_000;
 
@@ -37,15 +49,15 @@ const LEVELS: Record<Level, { words: string; colour: string }> = {
   P2: { words: 'Needs a look', colour: 'orange' },
 };
 
-/** A button whose window belongs to a later part: shown as B draws it, and does nothing yet. */
-function Later({ icon, children }: { icon?: ReactNode; children: ReactNode }) {
-  return (
-    <button type="button" className="k-button k-button-primary" aria-disabled="true">
-      {icon}
-      {children}
-    </button>
-  );
-}
+/** What a card's buttons open. */
+type Open =
+  | { kind: 'resend'; card: FormsCard }
+  | { kind: 'login'; card: LoginCard; crm: Crm; connection: ConnectionView }
+  | { kind: 'bell'; card: SiteCard }
+  | { kind: 'maintenance' }
+  | null;
+
+type Opener = (open: Open) => void;
 
 function OpenBrokerage({ tenant }: { tenant: Tenant }) {
   return (
@@ -70,9 +82,10 @@ function Frame({
   children?: ReactNode;
   actions?: ReactNode;
 }) {
-  const level = LEVELS[card.level];
+  const waiting = card.acted !== null;
+  const level = waiting ? { words: 'Waiting', colour: 'blue' } : LEVELS[card.level];
   return (
-    <article className={`k-card k-card-${card.level}`}>
+    <article className={`k-card k-card-${waiting ? 'wait' : card.level}`}>
       <div className="k-card-head">
         <span className={`k-pill k-pill-${level.colour}`}>{level.words}</span>
         <span className="k-card-who">
@@ -102,7 +115,7 @@ function sentSentence(card: FormsCard, now: Date): string {
   return `Sent${from} ${listed(times)}${cause}.`;
 }
 
-function Forms({ card, now }: { card: FormsCard; now: Date }) {
+function Forms({ card, now, onOpen }: { card: FormsCard; now: Date; onOpen: Opener }) {
   const forms = counted(card.count, 'form', 'forms');
   const again = card.answeredAgainAt
     ? ` ${card.crms.length > 1 ? 'They have' : 'It has'} answered again since ${when(card.answeredAgainAt, now)}.`
@@ -115,7 +128,14 @@ function Forms({ card, now }: { card: FormsCard; now: Date }) {
       title={`${counted(card.count, 'visitor form', 'visitor forms')} didn’t reach ${listed(card.crms) || 'the CRM'}`}
       actions={
         <>
-          <Later icon={<SendIcon />}>Resend {forms}</Later>
+          <button
+            type="button"
+            className="k-button k-button-primary"
+            onClick={() => onOpen({ kind: 'resend', card })}
+          >
+            <SendIcon />
+            Resend {forms}
+          </button>
           <OpenBrokerage tenant={card.tenant} />
         </>
       }
@@ -128,17 +148,46 @@ function Forms({ card, now }: { card: FormsCard; now: Date }) {
   );
 }
 
-function Login({ card, now }: { card: LoginCard; now: Date }) {
+function Login({ card, now, onOpen }: { card: LoginCard; now: Date; onOpen: Opener }) {
+  const { away } = useShell();
+  const note = useNote();
+  const [busy, setBusy] = useState(false);
+  const tenant = card.tenant;
+  // The window needs the connection's saved login and the CRM's fields, from the brokerage's page.
+  const enter = async () => {
+    if (!tenant) return;
+    setBusy(true);
+    try {
+      const page = await api.brokerage(tenant.id);
+      const connection = page.connections.find((one) => one.id === card.connectionId);
+      const crm = page.crms.find((one) => one.provider === connection?.provider);
+      if (connection && crm) onOpen({ kind: 'login', card, crm, connection });
+      else note({ text: UNANSWERED, icon: 'warn' });
+    } catch (error) {
+      if (!away(error)) note({ text: UNANSWERED, icon: 'warn' });
+    }
+    setBusy(false);
+  };
   return (
     <Frame
       card={card}
-      who={card.tenant?.name ?? card.crm}
+      who={tenant?.name ?? card.crm}
       now={now}
       title={`${card.crm} refused the login`}
       actions={
         <>
-          <Later icon={<PencilIcon />}>Enter new login</Later>
-          {card.tenant && <OpenBrokerage tenant={card.tenant} />}
+          {tenant && (
+            <button
+              type="button"
+              className="k-button k-button-primary"
+              disabled={busy}
+              onClick={() => void enter()}
+            >
+              {busy ? <LoaderIcon className="k-spin" /> : <PencilIcon />}
+              Enter new login
+            </button>
+          )}
+          {tenant && <OpenBrokerage tenant={tenant} />}
         </>
       }
     >
@@ -167,8 +216,7 @@ function siteCause(card: SiteCard, now: Date): string {
   return 'Core can’t tell why from the website’s answers.';
 }
 
-function Site({ card, now }: { card: SiteCard; now: Date }) {
-  const secret = /^http (401|403)$/.test(card.lastAnswer ?? '');
+function Site({ card, now, onOpen }: { card: SiteCard; now: Date; onOpen: Opener }) {
   const fetched = card.lastFetchAt
     ? `No update since ${when(card.lastFetchAt, now)}.`
     : 'It has never fetched an update.';
@@ -180,7 +228,16 @@ function Site({ card, now }: { card: SiteCard; now: Date }) {
       title={`${card.site} stopped updating`}
       actions={
         <>
-          {secret && <Later icon={<KeyIcon />}>Fix bell secret</Later>}
+          {card.bellSecret && (
+            <button
+              type="button"
+              className="k-button k-button-primary"
+              onClick={() => onOpen({ kind: 'bell', card })}
+            >
+              <KeyIcon />
+              Fix bell secret
+            </button>
+          )}
           {card.tenant && <OpenBrokerage tenant={card.tenant} />}
         </>
       }
@@ -273,22 +330,119 @@ function Check({ card, now }: { card: CheckCard; now: Date }) {
   );
 }
 
-function OneCard({ card, inbox, now }: { card: Card; inbox: Inbox; now: Date }) {
+function OneCard({
+  card,
+  inbox,
+  now,
+  onOpen,
+}: {
+  card: Card;
+  inbox: Inbox;
+  now: Date;
+  onOpen: Opener;
+}) {
   switch (card.kind) {
     case 'worker':
       return <Worker card={card} crms={inbox.crms} now={now} />;
     case 'forms':
-      return <Forms card={card} now={now} />;
+      return <Forms card={card} now={now} onOpen={onOpen} />;
     case 'login':
-      return <Login card={card} now={now} />;
+      return <Login card={card} now={now} onOpen={onOpen} />;
     case 'site':
-      return <Site card={card} now={now} />;
+      return <Site card={card} now={now} onOpen={onOpen} />;
     case 'check':
       return <Check card={card} now={now} />;
   }
 }
 
-function Strip({ inbox }: { inbox: Inbox }) {
+// ---- Waiting and Fixed today ----------------------------------------------------------------------
+
+/** A card someone acted on (image 14): what they did, and what happens next by itself. */
+function WaitingCard({ card, now }: { card: Card; now: Date }) {
+  const { me } = useShell();
+  const by = card.acted?.by === me?.email ? 'You' : (card.acted?.by ?? 'Someone');
+  const who =
+    card.kind === 'forms'
+      ? card.tenant.name
+      : card.kind === 'check'
+        ? card.tenants.map((tenant) => tenant.name).join(', ') || card.about || 'Core'
+        : card.kind === 'worker'
+          ? 'Core'
+          : (card.tenant?.name ?? (card.kind === 'site' ? card.site : card.crm));
+  const title =
+    card.kind === 'site'
+      ? `${card.site} stopped updating`
+      : card.kind === 'check'
+        ? card.title
+        : card.kind === 'login'
+          ? `${card.crm} refused the login`
+          : card.kind === 'forms'
+            ? `${counted(card.count, 'visitor form', 'visitor forms')} didn’t reach ${listed(card.crms) || 'the CRM'}`
+            : 'The worker stopped';
+  const words =
+    card.kind === 'site'
+      ? `${by} pasted the bell secret. Waiting for the website’s next sync — within 15 minutes. This card moves to “Fixed today” by itself, or back to “Needs you” if the website still refuses.`
+      : `${by} marked this as done at ${when(card.acted?.at ?? '', now)}. This card moves to “Fixed today” by itself, or back to “Needs you” if it comes back.`;
+  return (
+    <Frame card={card} who={who} now={now} title={title}>
+      <p className="k-card-waiting">
+        <LoaderIcon className="k-spin" size={18} />
+        <span>{words}</span>
+      </p>
+    </Frame>
+  );
+}
+
+/** "2 forms delivered to Vitec", "New login works", "Website up to date again". */
+function fixedWords(fixed: Fixed): string {
+  const facts = fixed.facts;
+  switch (facts.kind) {
+    case 'forms': {
+      const crm = listed(facts.crms) || 'the CRM';
+      return facts.delivered === facts.total
+        ? `${counted(facts.delivered, 'form', 'forms')} delivered to ${crm}`
+        : `${String(facts.delivered)} of ${counted(facts.total, 'form', 'forms')} delivered to ${crm}`;
+    }
+    case 'login':
+      return 'New login works';
+    case 'site':
+      return 'Website up to date again';
+    case 'check':
+      return `Solved: ${facts.title}`;
+    case 'worker':
+      return 'The worker runs again';
+  }
+}
+
+function FixedToday({ fixed, now }: { fixed: Fixed[]; now: Date }) {
+  const today = fixed.filter((one) => sameDay(one.solvedAt, now));
+  if (today.length === 0) return null;
+  return (
+    <>
+      <div className="k-section k-section-quiet">
+        <h2>Fixed today</h2>
+      </div>
+      <ul className="k-fixed">
+        {today.map((one) => (
+          <li key={`${one.key} ${one.solvedAt}`}>
+            <CircleCheckIcon size={20} />
+            <span className="k-fixed-text">
+              <strong>
+                {one.tenants.map((tenant) => tenant.name).join(', ') || one.about || 'Core'}
+              </strong>{' '}
+              · {fixedWords(one)}
+            </span>
+            <span className="k-fixed-time">{clock(one.solvedAt)}</span>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+// ---- Core's state and maintenance ---------------------------------------------------------------
+
+function Strip({ onOpen }: { onOpen: Opener }) {
   return (
     <section className="k-strip" aria-label="Core">
       <div className="k-strip-state">
@@ -296,21 +450,337 @@ function Strip({ inbox }: { inbox: Inbox }) {
         Worker and database OK
       </div>
       <div className="k-strip-end">
-        Maintenance: {inbox.maintenance.on ? 'on' : 'off'}
-        {!inbox.maintenance.on && (
-          <button
-            type="button"
-            className="k-button k-button-quiet k-button-small"
-            aria-disabled="true"
-          >
-            <TrafficConeIcon size={14} />
-            Turn on…
-          </button>
-        )}
+        Maintenance: off
+        <button
+          type="button"
+          className="k-button k-button-quiet k-button-small"
+          onClick={() => onOpen({ kind: 'maintenance' })}
+        >
+          <TrafficConeIcon size={14} />
+          Turn on…
+        </button>
       </div>
     </section>
   );
 }
+
+/** "Vitec", "Vitec and Mspecs": the CRMs Core reads. */
+const reads = (inbox: Inbox): string => listed(inbox.crms) || 'the CRMs';
+
+/** Maintenance is on (image 42): since when, by whom, what it means, and turning it off. */
+function MaintenanceBanner({
+  inbox,
+  now,
+  onDone,
+}: {
+  inbox: Inbox;
+  now: Date;
+  onDone: () => void;
+}) {
+  const { away } = useShell();
+  const note = useNote();
+  const [busy, setBusy] = useState(false);
+  const { since, by } = inbox.maintenance;
+  const off = async () => {
+    setBusy(true);
+    try {
+      await api.maintenance(false);
+      note({ text: 'Maintenance is off. Held changes are going out to the websites.' });
+      onDone();
+    } catch (error) {
+      if (!away(error)) note({ text: UNANSWERED, icon: 'warn' });
+    }
+    setBusy(false);
+  };
+  const started = since ? `Since ${when(since, now)}${by ? `, by ${by}` : ''}. ` : '';
+  return (
+    <section className="k-banner k-banner-info k-banner-top" aria-label="Maintenance">
+      <TrafficConeIcon size={20} />
+      <div>
+        <p className="k-banner-title">Maintenance is on</p>
+        <p className="k-banner-text">
+          {started}Websites aren’t told about changes and queued jobs wait. Core keeps reading{' '}
+          {reads(inbox)}, and visitors’ forms still reach {reads(inbox)}.
+          {inbox.worker.ok && inbox.database.ok ? ' Worker and database OK.' : ''}
+        </p>
+        <button
+          type="button"
+          className="k-button k-button-primary k-banner-button"
+          disabled={busy}
+          onClick={() => void off()}
+        >
+          {busy ? <LoaderIcon className="k-spin" size={18} /> : <PowerIcon size={18} />}
+          Turn off maintenance
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/** "Turn on maintenance?" (image 41). */
+function MaintenanceWindow({
+  inbox,
+  onClose,
+  onDone,
+}: {
+  inbox: Inbox;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { away } = useShell();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const on = async () => {
+    setBusy(true);
+    setFailed(false);
+    try {
+      await api.maintenance(true);
+      onDone();
+    } catch (error) {
+      if (!away(error)) setFailed(true);
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal
+      title="Turn on maintenance?"
+      tone="info"
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="k-button k-button-link" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="k-button k-button-primary"
+            disabled={busy}
+            onClick={() => void on()}
+          >
+            {busy ? <LoaderIcon className="k-spin" size={18} /> : <TrafficConeIcon size={18} />}
+            Turn on maintenance
+          </button>
+        </>
+      }
+    >
+      <p className="k-modal-text">
+        Websites aren’t told about changes — the notices go out together when you turn it off. No
+        queued job starts. Core keeps reading {reads(inbox)}, and visitors’ forms still reach{' '}
+        {reads(inbox)}.
+      </p>
+      {failed && <p className="k-error">{UNANSWERED}</p>}
+    </Modal>
+  );
+}
+
+// ---- The cards' windows ---------------------------------------------------------------------------
+
+/** "Fix bell secret · ekdahlfastighet.se" (image 13). */
+function BellSecretWindow({
+  card,
+  now,
+  onClose,
+  onDone,
+}: {
+  card: SiteCard;
+  now: Date;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { away } = useShell();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const platform = isPlatform(card.platform) ? platformWords(card.platform) : null;
+  const code = /^http (\d+)$/.exec(card.lastAnswer ?? '')?.[1] ?? '';
+  const done = async () => {
+    setBusy(true);
+    setFailed(false);
+    try {
+      await api.acted(card.key);
+      onDone();
+    } catch (error) {
+      if (!away(error)) setFailed(true);
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal
+      title={`Fix bell secret · ${card.site}`}
+      tone="danger"
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="k-button k-button-link" onClick={onClose}>
+            Close
+          </button>
+          <button
+            type="button"
+            className="k-button k-button-primary"
+            disabled={busy}
+            onClick={() => void done()}
+          >
+            {busy ? <LoaderIcon className="k-spin" size={18} /> : <CheckIcon size={18} />}
+            Done, I’ve pasted it
+          </button>
+        </>
+      }
+    >
+      <p className="k-modal-text">
+        {card.lastFetchAt
+          ? `No update since ${when(card.lastFetchAt, now)}. `
+          : 'It has never fetched an update. '}
+        {card.lastAnswerAt ? `At ${when(card.lastAnswerAt, now)} ` : ''}
+        {card.site} refused Core’s bell (it answered <strong>{code}</strong>): the bell secret saved
+        in {platform ? platform.editIn : 'the website'} isn’t the one Core uses.
+      </p>
+      <p className="k-bell-step">
+        {platform
+          ? `Copy Core’s bell secret into ${platform.bell}, and save.`
+          : 'Copy Core’s bell secret into the website’s settings as its bell secret, and save.'}
+      </p>
+      <div className="k-paste">
+        <span className="k-label">Bell secret</span>
+        <ValueField value={card.bellSecret ?? ''} secret />
+      </div>
+      <p className="k-help">
+        The website then syncs within 15 minutes, and this card moves to “Fixed today” by itself.
+      </p>
+      {failed && <p className="k-error">{UNANSWERED}</p>}
+    </Modal>
+  );
+}
+
+const KINDS: Record<KeptForm['kind'], string> = {
+  viewing: 'Viewing booking',
+  interest: 'Interest in a property',
+  lead: 'Message to the brokerage',
+  search_profile: 'Search profile',
+};
+
+/** Why the CRM did not take a form: "Vitec didn’t answer (20 s)". */
+function formCause(form: KeptForm, crm: string, seconds: number): string {
+  if (form.answer === 'refused') return `${crm} refused it`;
+  if (form.answer === 'error') return `${crm} answered with an error`;
+  return `${crm} didn’t answer (${String(seconds)} s)`;
+}
+
+/** What became of a resend, in the corner: "Both forms delivered to Vitec." */
+function resentNote(results: Resent[], crm: string): { text: string; icon?: 'warn' } {
+  const n = results.length;
+  const delivered = results.filter((one) => one.outcome === 'delivered').length;
+  const held = results.filter((one) => one.outcome === 'held').length;
+  if (n === 0)
+    return { text: 'Core no longer keeps these forms, so nothing was sent.', icon: 'warn' };
+  if (delivered === n) {
+    return {
+      text:
+        n === 1
+          ? `The form was delivered to ${crm}.`
+          : n === 2
+            ? `Both forms delivered to ${crm}.`
+            : `All ${String(n)} forms delivered to ${crm}.`,
+    };
+  }
+  if (held === n) {
+    return {
+      text: `Core held ${n === 1 ? 'it' : 'them'} back: forms test mode is on, or this Core doesn’t send forms to ${crm}.`,
+      icon: 'warn',
+    };
+  }
+  if (delivered === 0) {
+    return {
+      text: `${crm} didn’t take ${n === 1 ? 'the form' : 'the forms'}. ${n === 1 ? 'It stays' : 'They stay'} in the Inbox.`,
+      icon: 'warn',
+    };
+  }
+  const left = n - delivered;
+  return {
+    text: `${String(delivered)} of ${counted(n, 'form', 'forms')} delivered to ${crm}. ${left === 1 ? 'The other stays' : 'The others stay'} in the Inbox.`,
+    icon: 'warn',
+  };
+}
+
+/** "Resend 2 forms · Granstedt Bostad" (image 20): the forms, then one send after another. */
+function ResendWindow({
+  card,
+  now,
+  onClose,
+  onDone,
+}: {
+  card: FormsCard;
+  now: Date;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { away } = useShell();
+  const note = useNote();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const forms = counted(card.count, 'form', 'forms');
+  const crm = listed(card.crms, 'or') || 'the CRM';
+  const one = card.count === 1;
+  const sends = one ? 'Core sends it again' : 'Core sends them one at a time';
+  const intro = card.answeredAgainAt
+    ? `${crm} has answered again since ${when(card.answeredAgainAt, now)}. ${sends}.`
+    : card.unanswered === 0
+      ? `${crm} refused ${one ? 'it' : 'them'}. ${sends}; ${one ? 'if it is refused again, it stays' : 'any it refuses again stay'} in the Inbox.`
+      : `${crm} hasn’t answered a form since. ${sends}; ${one ? 'if it isn’t taken, it stays' : 'any it doesn’t take stay'} in the Inbox.`;
+  const send = async () => {
+    setBusy(true);
+    setFailed(false);
+    try {
+      const { results } = await api.resend(
+        card.tenant.id,
+        card.forms.map((form) => form.id),
+      );
+      note(resentNote(results, listed(card.crms) || 'the CRM'));
+      onDone();
+    } catch (error) {
+      if (!away(error)) setFailed(true);
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal
+      title={`Resend ${forms} · ${card.tenant.name}`}
+      tone="danger"
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="k-button k-button-link" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="k-button k-button-primary"
+            disabled={busy}
+            onClick={() => void send()}
+          >
+            {busy ? <LoaderIcon className="k-spin" size={18} /> : <SendIcon size={18} />}
+            Resend {forms}
+          </button>
+        </>
+      }
+    >
+      <p className="k-modal-text">{intro}</p>
+      <ul className="k-forms">
+        {card.forms.map((form) => (
+          <li key={form.id}>
+            <span className="k-forms-kind">{KINDS[form.kind]}</span>
+            {form.record && <span className="k-forms-record">{form.record}</span>}
+            <span className="k-forms-when">
+              {[capital(when(form.sentAt, now)), form.site].filter(Boolean).join(' · ')}
+            </span>
+            <span className="k-forms-cause">{formCause(form, crm, card.waitSeconds)}</span>
+          </li>
+        ))}
+      </ul>
+      {failed && <p className="k-error">{UNANSWERED}</p>}
+    </Modal>
+  );
+}
+
+// ---- The page -------------------------------------------------------------------------------------
 
 function DownBanner({ inbox, now }: { inbox: Inbox; now: Date }) {
   const seen = inbox.worker.lastSeenAt;
@@ -340,20 +810,28 @@ function Empty({ crms }: { crms: string[] }) {
   );
 }
 
-function InboxView({ inbox }: { inbox: Inbox }) {
+function InboxView({ inbox, onRead }: { inbox: Inbox; onRead: () => void }) {
+  const [open, setOpen] = useState<Open>(null);
   const now = new Date(inbox.now);
   const down = !inbox.worker.ok;
+  const maintenance = inbox.maintenance.on && !down;
   const count = inbox.cards.length;
+  const close = () => setOpen(null);
+  const closeAndRead = () => {
+    setOpen(null);
+    onRead();
+  };
   return (
     <>
       {down && <DownBanner inbox={inbox} now={now} />}
+      {maintenance && <MaintenanceBanner inbox={inbox} now={now} onDone={onRead} />}
       <h1 className="k-page-title">Inbox</h1>
       <p className="k-page-sub">
         {count === 0
           ? 'Nothing needs you right now'
           : counted(count, 'thing needs you', 'things need you')}
       </p>
-      {!down && <Strip inbox={inbox} />}
+      {!down && !maintenance && <Strip onOpen={setOpen} />}
       {count === 0 && !down && <Empty crms={inbox.crms} />}
       {count > 0 && !down && (
         <div className="k-section">
@@ -364,9 +842,39 @@ function InboxView({ inbox }: { inbox: Inbox }) {
       {count > 0 && (
         <div style={down ? { marginTop: 32 } : undefined}>
           {inbox.cards.map((card) => (
-            <OneCard key={card.key} card={card} inbox={inbox} now={now} />
+            <OneCard key={card.key} card={card} inbox={inbox} now={now} onOpen={setOpen} />
           ))}
         </div>
+      )}
+      {!down && inbox.waiting.length > 0 && (
+        <>
+          <div className="k-section k-section-quiet">
+            <h2>Waiting</h2>
+          </div>
+          {inbox.waiting.map((card) => (
+            <WaitingCard key={card.key} card={card} now={now} />
+          ))}
+        </>
+      )}
+      {!down && <FixedToday fixed={inbox.fixed} now={now} />}
+
+      {open?.kind === 'resend' && (
+        <ResendWindow card={open.card} now={now} onClose={close} onDone={closeAndRead} />
+      )}
+      {open?.kind === 'login' && (
+        <LoginWindow
+          crm={open.crm}
+          connection={open.connection}
+          why={`${open.card.crm} refused ${loginNamed(open.crm.provider, open.connection.login) ?? 'the login'}${open.card.since ? ` at ${when(open.card.since, now)}` : ''}.`}
+          onClose={close}
+          onDone={closeAndRead}
+        />
+      )}
+      {open?.kind === 'bell' && (
+        <BellSecretWindow card={open.card} now={now} onClose={close} onDone={closeAndRead} />
+      )}
+      {open?.kind === 'maintenance' && (
+        <MaintenanceWindow inbox={inbox} onClose={close} onDone={closeAndRead} />
       )}
     </>
   );
@@ -414,7 +922,7 @@ function InboxReader() {
 
   return (
     <main className="k-page">
-      {inbox && <InboxView inbox={inbox} />}
+      {inbox && <InboxView inbox={inbox} onRead={read} />}
       {failed && (
         <p className="k-quiet" role="status">
           Core didn’t answer. The Inbox tries again by itself.

@@ -13,9 +13,15 @@ type ShellParts = {
   setCount: (count: number) => void;
   /** Send this device to the sign-in page when Core says it is signed out; true if it did. */
   away: (error: unknown) => boolean;
+  /** Who is signed in on this device. */
+  me: Me | null;
 };
 
-const Parts = createContext<ShellParts>({ setCount: () => undefined, away: () => false });
+const Parts = createContext<ShellParts>({
+  setCount: () => undefined,
+  away: () => false,
+  me: null,
+});
 
 export const useShell = (): ShellParts => useContext(Parts);
 
@@ -58,7 +64,7 @@ export function Shell({
 
   if (!me) return null;
   return (
-    <Parts.Provider value={{ setCount, away }}>
+    <Parts.Provider value={{ setCount, away, me }}>
       <NoteProvider>
         <TopBar me={me} count={count} tab={tab} />
         {children}

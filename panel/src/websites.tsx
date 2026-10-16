@@ -20,6 +20,8 @@ const WORDS: Record<
     settings: string;
     /** Where the tenant token goes. */
     token: string;
+    /** Where the bell secret goes. */
+    bell: string;
   }
 > = {
   wordpress: {
@@ -28,6 +30,7 @@ const WORDS: Record<
     editIn: 'WordPress',
     settings: 'WordPress → Kowboy Estates → Settings',
     token: 'WordPress → Kowboy Estates → Settings → Tenant token',
+    bell: 'WordPress → Kowboy Estates → Settings → Bell secret',
   },
   lovable: {
     label: 'Lovable',
@@ -35,6 +38,7 @@ const WORDS: Record<
     editIn: 'Supabase',
     settings: 'Supabase → Edge Functions → Secrets',
     token: 'Supabase → Edge Functions → Secrets → CORE_TENANT_TOKEN',
+    bell: 'Supabase → Edge Functions → Secrets → CORE_BELL_SECRET',
   },
 };
 

@@ -43,7 +43,7 @@ afterAll(async () => {
 beforeEach(async () => {
   retries = { ok: true };
   await db().query(
-    'truncate submissions, events, alert_state, admin_sessions, heartbeats, settings, health_results',
+    'truncate submissions, events, alert_state, admin_sessions, heartbeats, settings, health_results, panel_problems',
   );
   await db().query('delete from subscribers');
   await db().query('delete from connections where id <> $1', ['somecrm-1']);

@@ -4,9 +4,11 @@
 import { useState, type ReactNode } from 'react';
 import { api, Refused, type ConnectionView, type Crm } from './api';
 import { complete, LoginFields, startingLogin, type Login } from './LoginForm';
-import { fieldWords } from './crm-words';
+import { fieldWords, wordsFor } from './crm-words';
 import { listed } from './time';
-import { UNANSWERED } from './ui';
+import { Modal, UNANSWERED, useNote } from './ui';
+import { useShell } from './Shell';
+import { LoaderIcon, PlugIcon } from './icons';
 
 /** A brokerage's short name, as B says it: the first word of "Fyrbåk Fastigheter". */
 export const shortName = (name: string): string => name.trim().split(/\s+/)[0] ?? name;
@@ -108,3 +110,85 @@ export function ConnectFields({
 /** The name and every field the CRM requires are there. */
 export const connectReady = (crm: Crm, form: ReturnType<typeof useConnectForm>): boolean =>
   form.connectionName.trim() !== '' && complete(crm, form.login);
+
+/**
+ * A new login for a connection (image 15), tested before it is saved, then its offices checked.
+ * Opened from the brokerage's page ("Change login") and from the Inbox ("Enter new login"), which
+ * first says why.
+ */
+export function LoginWindow({
+  crm,
+  connection,
+  why,
+  onClose,
+  onDone,
+}: {
+  crm: Crm;
+  connection: ConnectionView;
+  /** The sentence before the others: "Vitec refused customer id M14582 at 06:02." */
+  why?: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { away } = useShell();
+  const note = useNote();
+  const form = useConnectForm(crm, connection.name, keptLogin(crm, connection));
+  const secret = secretWords(crm);
+  const save = async () => {
+    form.setBusy(true);
+    form.setError(null);
+    try {
+      await api.changeLogin(connection.id, form.login);
+    } catch (error) {
+      if (away(error)) return;
+      form.setError(loginRefusal(error, crm.name));
+      form.setBusy(false);
+      return;
+    }
+    const check = wordsFor(crm.provider).officeCheck;
+    let checking = false;
+    if (check && connection.actions.includes(check)) {
+      checking = await api.act(connection.id, check).then(
+        () => true,
+        () => false,
+      );
+    }
+    note({
+      text: `${crm.name} accepted the new login for “${connection.name}”. It’s saved${checking ? ', and Core is checking its offices' : ''}.`,
+    });
+    onDone();
+  };
+  return (
+    <Modal
+      title={`Enter new login · ${connection.name}`}
+      onClose={onClose}
+      tone={why ? 'danger' : undefined}
+      wide
+      footer={
+        <>
+          <button type="button" className="k-button k-button-link" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="k-button k-button-primary"
+            disabled={form.busy || !complete(crm, form.login)}
+            onClick={() => void save()}
+          >
+            {form.busy ? <LoaderIcon className="k-spin" size={18} /> : <PlugIcon size={18} />}
+            Test and save
+          </button>
+        </>
+      }
+    >
+      <p className="k-modal-text">
+        {why && `${why} `}
+        {secret.words &&
+          `Core never shows a saved ${secret.words}, so enter ${secret.many ? 'them' : 'it'} again. `}
+        Core tests the login with {crm.name} and saves it only if {crm.name} accepts it.
+      </p>
+      <LoginFields crm={crm} login={form.login} onChange={form.setLogin} />
+      {form.error && <p className="k-error">{form.error}</p>}
+    </Modal>
+  );
+}

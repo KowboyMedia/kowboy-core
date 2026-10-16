@@ -1506,6 +1506,165 @@ body {
   color: var(--k-muted);
 }
 
+/* ---- Waiting, Fixed today, banners (part 3) -------------------------------------------------- */
+
+.k-card-wait::before {
+  background: var(--k-blue);
+}
+.k-card-waiting {
+  display: flex;
+  gap: 10px;
+  margin: 6px 0 0;
+  color: var(--k-text);
+  line-height: 20px;
+}
+.k-card-waiting svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--k-blue);
+}
+.k-section-quiet {
+  margin-top: 28px;
+}
+.k-section-quiet h2 {
+  font-weight: 500;
+  color: var(--k-muted);
+}
+.k-fixed {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  background: var(--k-surface);
+  border: 1px solid var(--k-line);
+  border-radius: 6px;
+}
+.k-fixed li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 19px 20px;
+}
+.k-fixed li + li {
+  border-top: 1px solid var(--k-line);
+}
+.k-fixed svg {
+  flex: none;
+  color: var(--k-green);
+}
+.k-fixed-text {
+  flex: 1;
+  color: var(--k-text);
+  line-height: 20px;
+}
+.k-fixed-text strong {
+  font-weight: 600;
+}
+.k-fixed-time {
+  flex: none;
+  color: var(--k-muted);
+  font-size: 13px;
+}
+.k-banner {
+  display: flex;
+  gap: 16px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: 1px solid;
+}
+.k-banner > svg {
+  flex: none;
+  margin-top: 1px;
+}
+.k-banner-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+.k-banner-text {
+  margin: 4px 0 0;
+  color: var(--k-muted);
+  line-height: 20px;
+}
+.k-banner-button {
+  margin-top: 16px;
+}
+/* Under a page's title, where its first box would be, and a little closer to the box below
+   (image 40). */
+.k-title-line + .k-banner {
+  margin: 24px 0 -8px;
+}
+/* Above the page's own heading, as the Inbox's maintenance banner is (image 42). */
+.k-banner-top {
+  margin: -8px 0 24px;
+}
+.k-banner-info {
+  background: #f0f6fd;
+  border-color: #cfe1f6;
+}
+.k-banner-info > svg,
+.k-banner-info .k-banner-title {
+  color: var(--k-blue);
+}
+.k-banner-done {
+  background: var(--k-green-lt);
+  border-color: #c9ebcf;
+}
+.k-banner-done > svg,
+.k-banner-done .k-banner-title {
+  color: var(--k-green);
+}
+.k-banner-warn {
+  background: var(--k-orange-lt);
+  border-color: #fcd9c0;
+}
+.k-banner-warn > svg,
+.k-banner-warn .k-banner-title {
+  color: var(--k-orange);
+}
+.k-modal-info {
+  border-top: 2px solid var(--k-blue);
+}
+.k-bell-step {
+  margin: 16px 0 0;
+  color: var(--k-text);
+  font-weight: 500;
+  line-height: 20px;
+}
+.k-forms {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--k-line);
+  border-radius: 6px;
+}
+.k-forms li {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  line-height: 20px;
+}
+.k-forms li + li {
+  border-top: 1px solid var(--k-line);
+}
+.k-forms-kind {
+  color: var(--k-strong);
+  font-weight: 500;
+}
+.k-forms-record {
+  color: var(--k-text);
+}
+.k-forms-when {
+  color: var(--k-muted);
+  font-size: 13px;
+}
+.k-forms-cause {
+  margin-top: 4px;
+  color: var(--k-red);
+  font-size: 13px;
+}
+
 /* ---- The phone -------------------------------------------------------------------------------- */
 
 @media (max-width: 640px) {
