@@ -11,6 +11,7 @@ How to read this list:
 - "Core today" names the place in the code (file:line, paths from the repository root).
 - Words: B says "brokerage" for what Core calls a **tenant**, and "website" for a **site**. Record types use their formal names, with B's word after them.
 - B has no Records, Flow, Events, Manual sync, Failed forms, CRMs or Settings page, no list of signed-in devices, and no recompute or record check. The things those pages do today are not in this list.
+- Approved by Patric on 2026-10-16 (question 197), every row except 33, 41, 56, 64, 71, 75, 91 and 111, which wait on question 199. He also asked for the manual sync and a record browser and viewer: the clean room adds them to B in a second round, and they come here as new lines to approve before they are built.
 
 ## Signing in and the account
 

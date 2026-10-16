@@ -21,7 +21,7 @@ Kowboy Core ("Core") is one central service. It reads real estate CRMs, normaliz
 
 Components and their tags: `[core]` the engine, `[crm]` any adapter, `[crm-vitec]`, `[crm-mspecs]`, `[client-wordpress]`, `[client-lovable]`, `[admin]` the admin area, `[handbook]` the agent setup itself (this file, the hooks, the registers; `[agents]` in older entries).
 
-Design: `DESIGN.md` for the admin area and the WordPress templates once one is derived (the design skill); until then, the reference is norbanmakleri.se for the templates and the framework's defaults for the admin area.
+Design: the admin area follows the approved design B (Definition of done, item 3). `DESIGN.md` for the WordPress templates once one is derived (the design skill); until then, the reference is norbanmakleri.se.
 
 ## Enforced: CI blocks merge or deploy
 
@@ -96,28 +96,6 @@ In addition to the handbook's definition:
 
 1. The acceptance report is updated if an acceptance criterion's status changed.
 2. Strategy §9 is updated if the phase moved.
-3. **The admin panel tells the truth** (Patric, 2026-09-20: keep it fresh). A change to a page, an
-   action, a setting, a lifecycle event or a health check carries its words in the same change: the
-   panel's own text, the adapter's setup directions and `docs/admin-panel.md`. The tests that read
-   them stay green: `adapters/*/admin/directions.test.ts` (every setting, event, health check and
-   credential field is named) and the acceptance test that every page a direction names exists.
-4. **Every button in the admin area explains itself beside it** (Patric, 2026-10-06: "next to its
-   button explain to a cold reader what it does, as always in admin UI"): a sentence or two that a
-   reader new to Core understands, saying what pressing it does and when to press it, shown next
-   to the button, never only on hover.
-5. **Every text is written for a cold reader** (Patric, 2026-10-06, of the Overview's health checks
-   and "Needs attention": "these issues tell me nothing"), by the handbook's rule "Every text in
-   the product is written for the person who reads it". In Core that means:
-   - A health check shows a title and a sentence, never its name (`vitec.catch_up`,
-     `subscribers`), and an event shows its sentence, never its type (`office.taken_off`).
-   - A tenant is named by its name; a connection by its tenant and CRM, then its name
-     ("Acme's Vitec connection “Main”"), never by Core's own id for it (Patric, 2026-10-07); a
-     site by its name and its tenant; an office by its name, then the CRM's id for it; a record
-     by its address or name.
-   - Each named thing links to its place: a tenant, connection or site to the tenant's page
-     (`/tenants/<id>`, `#connection:<Core's id for it>`, `#site:<id>`), an office or a record to
-     Records, a form to Failed forms, a CRM to its page.
-   - A problem says what it means for the sites (homes missing or out of date, a form not
-     delivered), what to do, and on which page.
-   - The mails and Slack messages Core sends, and Core's answers to sites, are held to the same
-     rule as the admin area.
+3. **The admin panel follows the approved design** (Patric, 2026-10-16): design B as approved
+   row by row in `docs/new-admin/b-build-list.md`. A change to what it shows or does is approved
+   before it is built (see "Stop and ask").

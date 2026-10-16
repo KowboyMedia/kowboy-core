@@ -4,10 +4,29 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 199 (192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 200 (192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 199. `[admin]` `[core]` Let a CRM's code tell Core how a new connection is coming along, so the new admin can show it
+
+- 2026-10-16 · Patric asked what decision D1 of question 197 means ("D1 - clarify"). Design B
+  shows how a new connection is coming along: "Waiting for Vitec's first notice", "Loading data,
+  38 of 61 properties", "Office check done: Täby added". Only the Vitec code knows these things,
+  and the engine must never know Vitec, so today the admin cannot learn them. The yes adds one
+  general way, open to any CRM's code, to report a connection's progress to the engine: waiting
+  for the CRM's first notice, how far the first load has come and when it is done, and when an
+  office check finished and what it changed. The admin then shows those lines without the engine
+  naming Vitec. The way goes into the protected part CRM code talks through
+  (`engine/adapter-api/`), so it needs his yes. Like a parcel tracker: the courier posts "picked
+  up", "38 of 61 delivered", "done", and the shop shows each step without knowing which courier
+  carries it.
+- Blocked: rows 33, 41, 56, 64, 71, 75, 91 and 111 of design B (`docs/new-admin/b-build-list.md`);
+  the rest of B is built without waiting.
+- a) yes: add the general way, and B shows those eight rows (recommended: a new connection's
+  setup is when an admin most needs to see progress).
+- b) no: B is built without those eight rows.
 
 ## 198. `[client-wordpress]` How complete the list shortcode is in a theme other than Kowboy 2026
 
@@ -37,21 +56,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   the look file by file. It adds a second look, for every kind of list (four today: homes, agents,
   areas and associations), that a site with its own design replaces anyway.
 - c) as today: the browser part stays in the theme, and item 31 is built there.
-
-## 197. `[admin]` `[core]` Approve, line by line, what design B shows and needs before it is built
-
-- 2026-10-16 · Patric picked design B ("Pick B."). Before it is built, every new thing a person
-  sees in the admin and every new thing that runs in Core is a line for him to approve (AGENTS.md,
-  "Stop and ask"). The table is `panel-candidates/b-what-gets-built.md` in the project's shared
-  folder: rows 1 to 115 are B's screens, 84 of which Core can already serve and 31 of which need
-  something new in Core; D1 to D6 are the decisions building B needs (a general adapter API
-  capability for a connection's setup and progress, AGENTS.md's admin rules replaced by the
-  approved design, today's pages B has no place for removed with the old admin, the Vitec
-  notification secret kept out of brokerages' hands, B's untrue texts made true, and where the
-  build lives). The full list with file references is `docs/new-admin/b-build-list.md`.
-- Blocked: building the new admin panel (next-steps item 30, step 5).
-- a) ok: every row and the recommendation on every decision (recommended).
-- b) ok, except the rows or decisions named.
 
 ## 190. `[core]` One more one-off read-only step on staging: the property's change log under every connection, removed ones included
 
