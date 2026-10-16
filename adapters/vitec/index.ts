@@ -1297,11 +1297,13 @@ async function retriesHealth(current: AdapterApi): Promise<HealthResult> {
   };
 }
 
-/** Where a failing record stands, after its name. */
+/** Where a failing record stands, after its name, then why its last try failed. */
 function triesNote(entry: store.Entry | store.EntryView): string {
   const tries = counted(entry.attempts, 'failed try', 'failed tries');
   if (!('nextAt' in entry)) return `${tries}, fetched again now`;
-  return entry.nextAt === null ? `given up after ${tries}` : `${tries}, tried again by itself`;
+  const stands =
+    entry.nextAt === null ? `given up after ${tries}` : `${tries}, tried again by itself`;
+  return entry.lastError ? `${stands}. ${entry.lastError}` : stands;
 }
 
 /** Connections whose saved login Core cannot read: P1. */

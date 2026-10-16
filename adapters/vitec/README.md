@@ -99,7 +99,8 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   every id no longer listed.
 - **Health.** `vitec.webhook_lag` (a webhook waiting more than 5 min), `vitec.retries` (a record
   of a synced office that failed three fetches in a row; it names each one as a record of a
-  connection that fetches it, those given up on first, at most 50, and keeps naming a record
+  connection that fetches it, those given up on first, at most 50, each with where it stands and
+  why its last try failed, and keeps naming a record
   while its next fetch runs, so it clears only once the record has loaded), `vitec.login` (a saved login Core cannot read),
   `vitec.no_offices` (a checked connection with no office to fetch), `vitec.catch_up` (from a
   worker start until the catch-up, the comparison and their fetches are done; then a connection

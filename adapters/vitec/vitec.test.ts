@@ -336,6 +336,8 @@ describe('the Vitec adapter', () => {
     await drainFetchList();
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
     const retries = async () => (await health())['vitec.retries'];
+    // Why the last try failed, as the fetch list keeps it, after where the record stands.
+    const DOWN = 'Vitec’s service did not work, and Vitec’s answer code was 500.';
     const thing = (id: string, note: string) => ({
       connection: CONNECTION,
       record: { datatype: 'property', id },
@@ -369,8 +371,8 @@ describe('the Vitec adapter', () => {
         level: 'P2',
         detail: expect.stringMatching(/^2 records failed to fetch from Vitec 3 times in a row/),
         names: [
-          thing('OBJ1', 'given up after 6 failed tries'),
-          thing('OBJ2', 'given up after 6 failed tries'),
+          thing('OBJ1', `given up after 6 failed tries. ${DOWN}`),
+          thing('OBJ2', `given up after 6 failed tries. ${DOWN}`),
         ],
       });
 
@@ -379,7 +381,9 @@ describe('the Vitec adapter', () => {
       expect(await retry(['OBJ1', 'OBJ2'])).toBe('2 records are fetched again now.');
       await drainFetchList();
       const left = (await retries())?.names ?? [];
-      expect(left).toEqual([expect.objectContaining({ note: 'given up after 7 failed tries' })]);
+      expect(left).toEqual([
+        expect.objectContaining({ note: `given up after 7 failed tries. ${DOWN}` }),
+      ]);
       const [again] = left as { record: { id: string } }[];
       expect(await store.depth()).toBe(1);
 
