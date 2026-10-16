@@ -340,8 +340,35 @@ const NO_CONNECTION =
 const NO_RECORD =
   'Nothing was done, because the button did not say which record it is for. Reload the page and press it again.';
 
+/**
+ * Records named as `vitec.retries` names them, as one parameter `records`: a JSON list of
+ * `{ connection, datatype, id }`. Null when the list cannot be read.
+ */
+function recordsIn(
+  given: string | undefined,
+): { connection: string; datatype: store.Entry['datatype']; id: string }[] | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(given ?? '');
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) return null;
+  const records = [];
+  for (const one of parsed as Record<string, unknown>[]) {
+    const { connection, datatype, id } = one ?? {};
+    if (typeof connection !== 'string' || typeof id !== 'string' || !id) return null;
+    if (typeof datatype !== 'string' || !mappers[datatype as keyof typeof mappers]) return null;
+    records.push({ connection, datatype: datatype as store.Entry['datatype'], id });
+  }
+  return records;
+}
+
 /** What the page's buttons do; a schedule is run by making it overdue for the worker's next tick. */
-const ACTIONS: Record<string, (params: Record<string, string>) => Promise<string>> = {
+const ACTIONS: Record<
+  string,
+  (params: Record<string, string>, connections: Connection[]) => Promise<string>
+> = {
   catch_up: async ({ connection }) => {
     if (!connection) throw new Error(NO_CONNECTION);
     await store.setState(connection, 'catch_up_at', LONG_AGO);
@@ -372,6 +399,24 @@ const ACTIONS: Record<string, (params: Record<string, string>) => Promise<string
     const where = { environment: environmentIn(params), officeId: office };
     await store.expediteOne(where, known, id);
     return `This ${recordNamed(known)} is fetched again now.`;
+  },
+  // The records `vitec.retries` names, each tried once more now through the fetch list, its
+  // count of failed tries kept, so the check names it until it has loaded.
+  retry_records: async ({ records }, connections) => {
+    const wanted = recordsIn(records);
+    if (!wanted) throw new Error(NO_RECORD);
+    let found = 0;
+    for (const { connection, datatype, id } of wanted) {
+      const owner = connections.find((one) => one.id === connection);
+      if (!owner) continue;
+      const environment = environmentOf(owner);
+      const offices = (await officesOf(owner)).map((officeId) => ({ environment, officeId }));
+      found += await store.tryOnceMore(offices, datatype, id);
+    }
+    if (found === 0) {
+      return 'Nothing was fetched again, because none of these records waits on the fetch list any more. They may have loaded meanwhile.';
+    }
+    return `${counted(found, 'record is', 'records are')} fetched again now.`;
   },
   drop: async (params) => {
     const { office, datatype, id } = params;
@@ -668,13 +713,13 @@ export const vitecAdmin: AdapterAdmin = {
     return [await officesSection(connection)];
   },
 
-  async act(action, params) {
+  async act(action, params, connections) {
     const run = ACTIONS[action];
     if (!run)
       throw new Error(
         'Nothing was done, because Vitec’s page has no such button any more. Reload the page.',
       );
-    return { message: await run(params) };
+    return { message: await run(params, connections) };
   },
 
   probe,

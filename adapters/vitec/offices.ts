@@ -216,10 +216,33 @@ function graced(ids: IdChecked[], last: OfficesCheck | null, at: string): string
     const seen = listed.get(office);
     if (seen) return young(seen.refusedSince);
     // Not listed now: refused with its whole id, when the id that listed it before is refused.
-    const under = last.ids.find((one) => one.offices.some((o) => o.customerId === office));
+    // An id refused at the last check too listed nothing then, and the office was kept for it.
+    const under =
+      last.ids.find((one) => one.offices.some((o) => o.customerId === office)) ??
+      last.ids.find((one) => one.refusedSince !== null);
     const now = ids.find((one) => one.id === under?.id);
     return young(now?.refusedSince ?? null);
   });
+}
+
+/**
+ * The synced offices Vitec refuses now, on their own or with their whole id, kept for their day
+ * of grace, and when the first of them leaves the sites if Vitec still refuses it then: a day after
+ * its first refusal, at the office check the worker runs at that time (index.ts). Null while no
+ * synced office is refused.
+ */
+export function leaving(check: OfficesCheck): { at: string; offices: string[] } | null {
+  const seen = check.ids.flatMap((one) => one.offices);
+  const readable = new Set(seen.filter((one) => one.readable).map((one) => one.customerId));
+  const offices = check.offices.filter((office) => !readable.has(office));
+  const since = [
+    ...check.ids.map((one) => one.refusedSince),
+    ...seen.filter((one) => offices.includes(one.customerId)).map((one) => one.refusedSince),
+  ]
+    .filter((at): at is string => at !== null)
+    .sort()[0];
+  if (offices.length === 0 || !since) return null;
+  return { at: new Date(new Date(since).getTime() + CHECK_EVERY_MS).toISOString(), offices };
 }
 
 /** The synced offices' names: as read now, else as the last check kept them. */

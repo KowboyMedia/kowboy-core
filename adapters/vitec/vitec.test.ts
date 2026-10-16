@@ -329,6 +329,104 @@ describe('the Vitec adapter', () => {
     }
   });
 
+  it('names each record that keeps failing, and retries a list of them once more each, clearing only once all have loaded', async () => {
+    seed(fake);
+    fake.put(OFFICE, 'property', estate('OBJ2'));
+    await start();
+    await drainFetchList();
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const retries = async () => (await health())['vitec.retries'];
+    const thing = (id: string, note: string) => ({
+      connection: CONNECTION,
+      record: { datatype: 'property', id },
+      note,
+    });
+    const retry = async (ids: string[]): Promise<string> =>
+      (
+        await vitecAdmin.act(
+          'retry_records',
+          {
+            records: JSON.stringify(
+              ids.map((id) => ({ connection: CONNECTION, datatype: 'property', id })),
+            ),
+          },
+          [await connection()],
+        )
+      ).message;
+    try {
+      // Both fail six times in a row and are given up on.
+      fake.failNext(12);
+      await notify('OBJ1');
+      await notify('OBJ2');
+      for (let attempt = 1; attempt <= 6; attempt += 1) {
+        await drainFetchList();
+        await store.expedite();
+        await store.setState(CONNECTION, 'failures', '0');
+      }
+      await drainFetchList();
+      expect(await retries()).toMatchObject({
+        ok: false,
+        level: 'P2',
+        detail: expect.stringMatching(/^2 records failed to fetch from Vitec 3 times in a row/),
+        names: [
+          thing('OBJ1', 'given up after 6 failed tries'),
+          thing('OBJ2', 'given up after 6 failed tries'),
+        ],
+      });
+
+      // One more try each: the one that fails again is given up on again at once.
+      fake.failNext(1);
+      expect(await retry(['OBJ1', 'OBJ2'])).toBe('2 records are fetched again now.');
+      await drainFetchList();
+      const left = (await retries())?.names ?? [];
+      expect(left).toEqual([expect.objectContaining({ note: 'given up after 7 failed tries' })]);
+      const [again] = left as { record: { id: string } }[];
+      expect(await store.depth()).toBe(1);
+
+      // While its fetch runs, the check still names it; once it has loaded, the check clears.
+      fake.delayMs = 300;
+      const before = fake.requests.length;
+      expect(await retry([again?.record.id ?? ''])).toBe('1 record is fetched again now.');
+      const drained = drainFetchList();
+      await until(() => fake.requests.length > before, 'the fetch to reach Vitec');
+      expect((await retries())?.names).toEqual([
+        thing(again?.record.id ?? '', '7 failed tries, fetched again now'),
+      ]);
+      await drained;
+      expect(await retries()).toEqual({ ok: true });
+      expect(await store.depth()).toBe(0);
+
+      // A list with nothing on the fetch list does nothing; a list that cannot be read is refused.
+      expect(await retry(['OBJ1'])).toMatch(/^Nothing was fetched again/);
+      await expect(
+        vitecAdmin.act('retry_records', { records: '[{"id":"OBJ1"}]' }, [await connection()]),
+      ).rejects.toThrow(/did not say which record/);
+    } finally {
+      errors.mockRestore();
+    }
+  });
+
+  it('counts no failing record of an office no connection fetches any more', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    await store.requeue(
+      {
+        environment: 'live',
+        officeId: 'M9',
+        datatype: 'property',
+        remoteId: 'OBJ9',
+        reason: 'webhook',
+        correlationId: randomUUID(),
+        queuedAt: new Date(),
+        attempts: 5,
+      },
+      'Vitec did not answer.',
+    );
+    expect(await store.depth()).toBe(1);
+    expect((await health())['vitec.retries']).toEqual({ ok: true });
+  });
+
   it('turns vitec.webhook_lag red when a webhook has waited five minutes (AC 38)', async () => {
     seed(fake);
     await start();
@@ -1324,6 +1422,88 @@ describe('the Vitec adapter', () => {
     expect(refused[0]?.fields['detail']).toMatch(
       /^Vitec no longer lets this username and password read G1, the customer or group id on the connection\./,
     );
+  });
+
+  it('says how many offices a refused login takes off the sites and when, and keeps that time through the checks run meanwhile', async () => {
+    seed(fake);
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
+    fake.put('M2', 'property', estate('OBJ2', 'M2'));
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
+    await drainFetchList();
+    const check = async (): Promise<void> => {
+      await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+      await runSchedules();
+      await drainFetchList();
+    };
+
+    // The whole id is refused: both offices stay for a day, and the event says so as data.
+    fake.forbid('G1');
+    await check();
+    const first = await lastCheck(CONNECTION);
+    const since = first?.ids[0]?.refusedSince ?? '';
+    expect(since).not.toBe('');
+    const refused = (await queryEvents({ connectionId: CONNECTION })).filter(
+      (row) => row.type === 'login.refused',
+    );
+    expect(refused.map((row) => row.fields)).toEqual([
+      {
+        offices: 2,
+        leaves_at: new Date(new Date(since).getTime() + 24 * 3_600_000).toISOString(),
+        detail: expect.any(String),
+      },
+    ]);
+
+    // A check run meanwhile, as after a restart or “Fetch offices”, keeps both, and the day.
+    await check();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE, 'M2'] });
+    expect((await lastCheck(CONNECTION))?.ids[0]?.refusedSince).toBe(since);
+    expect((await item('property', 'OBJ2'))?.['deleted']).toBe(false);
+
+    // The day is over: the worker checks at that time by itself, although its last check was
+    // only just now, and both offices leave.
+    const stored = JSON.parse((await store.getState(CONNECTION, 'offices_check')) ?? '{}');
+    stored.ids[0].refusedSince = new Date(Date.now() - 24 * 3_600_000).toISOString();
+    await store.setState(CONNECTION, 'offices_check', JSON.stringify(stored));
+    const calls = fake.requests.length;
+    await runSchedules();
+    await drainFetchList();
+    expect(fake.requests.length).toBeGreaterThan(calls);
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [] });
+    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
+    expect((await item('property', 'OBJ2'))?.['deleted']).toBe(true);
+
+    // With nothing left to take off, the next tick asks Vitec nothing.
+    const after = fake.requests.length;
+    await runSchedules();
+    expect(fake.requests.length).toBe(after);
+    expect(fake.forms).toHaveLength(0);
+  });
+
+  it('checks once when a refused office’s day is over, and not again when that check keeps it', async () => {
+    seed(fake);
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
+    await drainFetchList();
+    // Vitec lists the one office but refuses to read it: with no office that reads, the check
+    // keeps the last offices, so the office stays after its day too.
+    fake.forbid(OFFICE);
+    await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+    await runSchedules();
+    const stored = JSON.parse((await store.getState(CONNECTION, 'offices_check')) ?? '{}');
+    stored.ids[0].offices[0].refusedSince = new Date(Date.now() - 24 * 3_600_000).toISOString();
+    stored.at = new Date(Date.now() - 3_600_000).toISOString();
+    await store.setState(CONNECTION, 'offices_check', JSON.stringify(stored));
+    await runSchedules();
+    const checked = await lastCheck(CONNECTION);
+    expect(checked?.at).not.toBe(stored.at);
+    expect(checked).toMatchObject({ offices: [OFFICE], source: 'kept' });
+    const calls = fake.requests.length;
+    await runSchedules();
+    await runSchedules();
+    expect((await lastCheck(CONNECTION))?.at).toBe(checked?.at);
+    expect(fake.requests.length).toBe(calls);
   });
 
   it('tells every connection that syncs a refused office of its block and of its end, the end before the office is taken off', async () => {

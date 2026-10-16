@@ -55,6 +55,7 @@ import {
   checkOffices,
   checkSoon,
   lastCheck,
+  leaving,
   NO_SUCH_OFFICE,
   OFFICE_REFUSED,
   officesOf,
@@ -574,11 +575,30 @@ async function drainOnce(environment: connect.Environment): Promise<void> {
     const skipped = await skippedOffices(targets);
     const claimed = await store.claim(environment, connect.concurrency(), skipped);
     if (claimed.length === 0) return;
-    const sent = await withinPause(claimed, targets);
-    if (sent.length === 0) return;
-    await Promise.all(sent.map((entry) => fetchOne(entry, targets, current)));
+    const failing = claimed.filter((entry) => entry.attempts >= RETRIES_RED);
+    for (const entry of failing) failingInFlight.add(entry);
+    try {
+      const sent = await withinPause(claimed, targets);
+      // What went back on the list is counted there again.
+      for (const entry of failing) if (!sent.includes(entry)) failingInFlight.delete(entry);
+      if (sent.length === 0) return;
+      await Promise.all(
+        sent.map((entry) =>
+          fetchOne(entry, targets, current).finally(() => failingInFlight.delete(entry)),
+        ),
+      );
+    } finally {
+      for (const entry of failing) failingInFlight.delete(entry);
+    }
   }
 }
+
+/**
+ * The claimed records that had failed RETRIES_RED fetches or more, while their fetch runs: taking
+ * a record is deleting it from the list, so `vitec.retries` counts these too, and clears only once
+ * a record has loaded, never while its fetch is under way. The checks run in this process.
+ */
+const failingInFlight = new Set<store.Entry>();
 
 /**
  * The claimed records that may go to Vitec now. The calls of a batch run side by side, so a batch
@@ -1112,12 +1132,17 @@ async function noteRefusedLogin(
   before: OfficesCheck | null,
   check: OfficesCheck,
 ): Promise<void> {
+  const offices = leaving(check)?.offices.length ?? 0;
   for (const checked of check.ids) {
     if (!checked.refusedSince) continue;
     if (before?.ids.find((one) => one.id === checked.id)?.refusedSince) continue;
+    // For the panel: how many offices leave the sites, and by when, if Vitec still refuses then.
+    const leavesAt = new Date(new Date(checked.refusedSince).getTime() + CHECK_EVERY_MS);
     await current.logEvent(
       'login.refused',
       {
+        offices,
+        leaves_at: offices > 0 ? leavesAt.toISOString() : null,
         detail: `Vitec no longer lets this username and password read ${checked.id}, the customer or group id on the connection. The offices behind it stay on the sites for one more day without updates, and leave the sites if Vitec still refuses at the next daily check. This happens, for example, when the brokerage’s Vitec subscription ended or the password changed. Ask the brokerage. If the password changed, type the new one in the field “Password” on the tenant’s page, press “Check login” and save.`,
       },
       { connectionId: connection.id },
@@ -1157,7 +1182,17 @@ async function checkDue(given: Live, startup: boolean): Promise<boolean> {
   if (startup && (before?.at ?? '') <= runningSince) return true;
   const asked = before?.ids.map((checked) => checked.id).join(' ');
   if (before !== null && asked !== (given.credentials.customerId ?? '')) return true;
+  if (before !== null && dayOver(before)) return true;
   return aged(id, 'offices_check_at', CHECK_EVERY_MS);
+}
+
+/**
+ * A refused office leaves when its day is over, not a day after a check someone ran meanwhile:
+ * one check at that time, and none more for it when that check kept the office all the same.
+ */
+function dayOver(before: OfficesCheck): boolean {
+  const leaves = leaving(before);
+  return leaves !== null && before.at < leaves.at && new Date(leaves.at).getTime() <= Date.now();
 }
 
 /** One connection's schedules that are due: the offices first, then the catch-up and the
@@ -1221,16 +1256,52 @@ async function webhookHealth(): Promise<HealthResult> {
   };
 }
 
-/** Records that failed their last fetches: P2. */
-async function retriesHealth(): Promise<HealthResult> {
-  const count = await store.retrying(RETRIES_RED);
+/** How many of the records `vitec.retries` counts it names, the ones given up on first. */
+export const RETRIES_NAMED = 50;
+
+/**
+ * Records of the synced offices that failed their last fetches: P2. Each is named on a connection
+ * that fetches it, the ones given up on first, at most RETRIES_NAMED; a record of an office no
+ * connection fetches any more is on no site, so it is not counted.
+ */
+async function retriesHealth(current: AdapterApi): Promise<HealthResult> {
+  const targets = await live(current);
+  const offices = targets.flatMap(({ credentials, offices: ids }) =>
+    ids.map((officeId) => ({ environment: credentials.environment, officeId })),
+  );
+  const fetching = [...failingInFlight].filter((entry) =>
+    targets.some((target) => syncs(target, entry)),
+  );
+  const count = (await store.retrying(RETRIES_RED, offices)) + fetching.length;
   if (count === 0) return { ok: true };
+  const listed = await store.failing(RETRIES_RED, offices, RETRIES_NAMED);
+  const names: AdminThing[] = [];
+  const seen = new Set<string>();
+  for (const entry of [...listed, ...fetching]) {
+    const by = targets.find((target) => syncs(target, entry));
+    const key = JSON.stringify([entry.environment, entry.officeId, entry.datatype, entry.remoteId]);
+    if (!by || seen.has(key) || names.length === RETRIES_NAMED) continue;
+    seen.add(key);
+    names.push({
+      connection: by.connection.id,
+      record: { datatype: entry.datatype, id: entry.remoteId },
+      note: triesNote(entry),
+    });
+  }
   const them = agree(count, 'it', 'them');
   return {
     ok: false,
     level: 'P2',
     detail: `${counted(count, 'record', 'records')} failed to fetch from Vitec ${String(RETRIES_RED)} times in a row, so the sites show ${them} as before. Core tries each one again, up to ${String(store.MAX_ATTEMPTS)} times. The fetch list on the Vitec page shows ${them}, with “Retry now” and “Drop”.`,
+    names,
   };
+}
+
+/** Where a failing record stands, after its name. */
+function triesNote(entry: store.Entry | store.EntryView): string {
+  const tries = counted(entry.attempts, 'failed try', 'failed tries');
+  if (!('nextAt' in entry)) return `${tries}, fetched again now`;
+  return entry.nextAt === null ? `given up after ${tries}` : `${tries}, tried again by itself`;
 }
 
 /** Connections whose saved login Core cannot read: P1. */
@@ -1438,7 +1509,7 @@ export const vitecAdapter: Adapter = {
     });
 
     given.healthCheck(`${PROVIDER}.webhook_lag`, webhookHealth);
-    given.healthCheck(`${PROVIDER}.retries`, retriesHealth);
+    given.healthCheck(`${PROVIDER}.retries`, () => retriesHealth(given));
     given.healthCheck(`${PROVIDER}.login`, () => loginHealth(given));
     given.healthCheck(`${PROVIDER}.no_offices`, () => officesNoneHealth(given));
     given.healthCheck(`${PROVIDER}.catch_up`, () => catchUpHealth(given));

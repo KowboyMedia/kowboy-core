@@ -478,7 +478,9 @@ enforces both.
 Three event types an adapter logs through `logEvent` reach the Overview's "Needs attention" and
 an alert (`engine/attention.ts`, questions 159 and 164): `office.taken_off` with `office_id`,
 `office_name` when the adapter knows it (the office's record is removed by then) and `reason` in
-plain words, `connection.paused` with `failures` and `detail`, and `login.refused` with `detail`,
+plain words, `connection.paused` with `failures` and `detail`, and `login.refused` with `detail`
+(and, from the Vitec adapter, `offices` and `leaves_at`: how many offices leave the sites, and
+when, if the CRM still refuses the login then),
 each with the connection in the context so the engine finds the tenant. The offices one cause
 takes off share one correlation id, so they are one line and one alert. An office taken off is P1
 when the adapter logged `office.blocked` for it on that connection, with no `office.unblocked`

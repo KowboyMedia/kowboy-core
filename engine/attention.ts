@@ -41,9 +41,11 @@ export type Kind = {
  * The kinds the super admin is told about. An adapter logs the first three through the adapter
  * API with the connection in the context: `office.taken_off` (`office_id`, `office_name` when the
  * adapter knows it, `reason` in plain words; the offices one cause takes off share a correlation
- * id), `connection.paused` (`failures`, `detail`) and `login.refused` (`detail`). The engine logs a
- * form the CRM did not take or refused (rows 22 and 23; the form's id is the correlation id), and
- * the start of each site the sites check finds behind (alerts.ts), which is told as a problem.
+ * id), `connection.paused` (`failures`, `detail`) and `login.refused` (`detail`, and when the
+ * adapter knows them `offices` and `leaves_at`, how many offices leave the sites and when). The
+ * engine logs a form the CRM did not take or refused (rows 22 and 23; the form's id is the
+ * correlation id), and the start of each site the sites check finds behind (alerts.ts), which is
+ * told as a problem.
  */
 export const KINDS: readonly Kind[] = [
   {

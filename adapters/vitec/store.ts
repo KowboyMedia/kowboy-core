@@ -364,14 +364,34 @@ export async function oldestWebhookWaitMs(): Promise<number | null> {
   return wait === undefined || wait === null ? null : Number(wait);
 }
 
-/** Records that have failed at least `threshold` fetches in a row. */
-export async function retrying(threshold: number): Promise<number> {
+/** How many records of these offices have failed at least `threshold` fetches in a row. */
+export async function retrying(threshold: number, offices: readonly Office[]): Promise<number> {
   const { rows } = await (
     await db()
-  ).query<{ n: string }>('select count(*) as n from vitec_fetch_list where attempts >= $1', [
-    threshold,
-  ]);
+  ).query<{ n: string }>(
+    'select count(*) as n from vitec_fetch_list where attempts >= $1 and office_id = any($2::text[])',
+    [threshold, offices.map(keyOf)],
+  );
   return Number(rows[0]?.n ?? 0);
+}
+
+/**
+ * The first `limit` of those records: the ones given up on first, then the most failed tries,
+ * then the longest waiting.
+ */
+export async function failing(
+  threshold: number,
+  offices: readonly Office[],
+  limit: number,
+): Promise<EntryView[]> {
+  const { rows } = await (
+    await db()
+  ).query<Row & { next_at: Date | null; last_error: string | null }>(
+    `select * from vitec_fetch_list where attempts >= $1 and office_id = any($2::text[])
+     order by next_at is null desc, attempts desc, queued_at limit $3`,
+    [threshold, offices.map(keyOf), limit],
+  );
+  return rows.map((row) => ({ ...toEntry(row), nextAt: row.next_at, lastError: row.last_error }));
 }
 
 export async function getState(connectionId: string, name: string): Promise<string | null> {
@@ -538,6 +558,25 @@ export async function expediteOne(
     'update vitec_fetch_list set next_at = now(), attempts = 0 where office_id = $1 and datatype = $2 and remote_id = $3',
     [keyOf(office), datatype, remoteId],
   );
+}
+
+/**
+ * One more try now for a record on the list under any of these offices, its count of failed tries
+ * kept: a record given up on that fails again is given up on again at once. How many it found.
+ */
+export async function tryOnceMore(
+  offices: readonly Office[],
+  datatype: Datatype,
+  remoteId: string,
+): Promise<number> {
+  const { rowCount } = await (
+    await db()
+  ).query(
+    `update vitec_fetch_list set next_at = now()
+     where office_id = any($1::text[]) and datatype = $2 and remote_id = $3`,
+    [offices.map(keyOf), datatype, remoteId],
+  );
+  return rowCount ?? 0;
 }
 
 /** An operator's "drop it": off the list, nothing else changes. */

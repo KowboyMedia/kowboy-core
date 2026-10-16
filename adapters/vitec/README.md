@@ -63,9 +63,14 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   office), so each site deletes it at its next sync. A check Vitec did not answer (down, busy,
   broken) keeps the last offices and is tried again within the hour. An office Vitec refuses (401
   or 403, on its own or with its whole id; question 158 b) stays synced for a day of grace
-  (`REFUSAL_GRACE_MS`, the first refusal's time carried from check to check) and is taken off when
-  the refusal still stands at the next daily check; a refusal at any fetch makes the next tick
-  check the offices (`checkSoon`, as the button does). A group id (`G12`) is never synced as an
+  (`REFUSAL_GRACE_MS`, the first refusal's time carried from check to check, an office behind an
+  id refused at two checks in a row included) and is taken off when the refusal still stands a day
+  after it began: the worker checks the offices at that time by itself (`leaving`), so a check run
+  meanwhile, after a restart or "Fetch offices", never moves the day. A refusal at any fetch makes
+  the next tick check the offices (`checkSoon`, as the button does). When the connection's own id
+  is refused, `login.refused` carries, besides its `detail`, `offices` (how many synced offices
+  leave the sites if Vitec still refuses then) and `leaves_at` (when, an ISO time; null when none
+  would leave), for the admin panel. A group id (`G12`) is never synced as an
   office, not even from an answer saved before question 156 a: listing homes, agents or areas
   under a group is not asking for one office, and Vitec answers its areas with an error. The
   answer is kept in `vitec_state` and shown on the tenant's page.
@@ -93,7 +98,9 @@ vitec.test.ts   the adapter against the real engine and the stand-in
 - **Resync** (`event: resync`, optionally with a datatype) reloads everything listed and removes
   every id no longer listed.
 - **Health.** `vitec.webhook_lag` (a webhook waiting more than 5 min), `vitec.retries` (a record
-  that failed three fetches in a row), `vitec.login` (a saved login Core cannot read),
+  of a synced office that failed three fetches in a row; it names each one as a record of a
+  connection that fetches it, those given up on first, at most 50, and keeps naming a record
+  while its next fetch runs, so it clears only once the record has loaded), `vitec.login` (a saved login Core cannot read),
   `vitec.no_offices` (a checked connection with no office to fetch), `vitec.catch_up` (from a
   worker start until the catch-up, the comparison and their fetches are done; then a connection
   whose last catch-up is older than 13 h), `vitec.offices` (an office Vitec refuses) and
@@ -245,7 +252,11 @@ itself, all of it inside the adapter:
   connection has left before its pause, so five at once never carry it past five. When the pause
   runs out, the next tick lets one fetch through as a probe; one more failure pauses again, a
   success ends it. Each record is still retried with growing waits
-  and given up after six attempts, for the panel's Retry or Drop.
+  and given up after six attempts, for the panel's Retry or Drop. The action `retry_records`
+  takes the records `vitec.retries` names, as one parameter `records`, a JSON list of
+  `{ connection, datatype, id }`, and gives each one more try now through the fetch list and the
+  same door as every fetch, its count of failed tries kept: one that fails again is given up on
+  again at once.
 - **A broken answer** keeps the start of what Vitec sent in the `crm.call` event, so the cause can
   be read afterwards; nothing half-parsed is ever written, and the last good version stays.
 - **A speed limit** of ten requests a second (`VITEC_REQUESTS_PER_SECOND`), five at once
