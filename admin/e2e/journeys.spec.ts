@@ -7,7 +7,7 @@ const EMAIL = 'tester@kowboy.se';
 
 /** Sign in as a person does: ask for a link, open the one that comes back, land in the area. */
 async function signIn(page: Page, remember = false): Promise<void> {
-  await page.goto('/admin/sign-in');
+  await page.goto('/admin-old/sign-in');
   await page.getByLabel('Your address').fill(EMAIL);
   if (remember) await page.getByLabel('Remember this device').check();
   await page.getByRole('button', { name: 'Send me a link' }).click();
@@ -75,7 +75,7 @@ test('journey: U1 onboard a customer, watch the first load, take the secrets', a
   await expect(
     page.getByText('Acme Mäklare’s Fake-webhook connection “Acme CRM” is added', { exact: false }),
   ).toBeVisible();
-  await expect(page).toHaveURL(/\/admin\/tenants\/\d+$/);
+  await expect(page).toHaveURL(/\/admin-old\/tenants\/\d+$/);
 
   // The token and the bell secret are on the page, each with a copy button.
   await expect(page.getByRole('button', { name: 'Copy the tenant token' })).toBeVisible();
@@ -106,7 +106,7 @@ test('journey: U1 the page refuses what it cannot save, and says why', async ({ 
   await page.getByRole('link', { name: 'New tenant' }).click();
   await page.getByTestId('save').click();
   await expect(page.getByText('A tenant needs a name.')).toBeVisible();
-  await expect(page).toHaveURL(/\/admin\/tenants\/new/);
+  await expect(page).toHaveURL(/\/admin-old\/tenants\/new/);
 });
 
 test('journey: U2 keep it healthy — the verdict, and where a red check is fixed', async ({

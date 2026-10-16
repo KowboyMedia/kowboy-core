@@ -34,7 +34,7 @@ export function App() {
   return (
     // No transitions: the record id box takes its value from the address, and React cannot
     // control a text box from inside a transition, so keys typed fast could be lost.
-    <BrowserRouter basename="/admin" useTransitions={false}>
+    <BrowserRouter basename="/admin-old" useTransitions={false}>
       <Refine
         dataProvider={dataProvider}
         authProvider={authProvider}

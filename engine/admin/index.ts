@@ -87,11 +87,11 @@ const routes: AdminRoute[] = [
       // The browser that opens the link is the device being remembered, so it names itself here.
       const signedIn = await signIn(request.params['token'] ?? '', deviceOf(request));
       // A link that is unknown, spent or too old sends the person back to ask for a new one.
-      if (!signedIn) return { status: 303, headers: { location: '/admin/sign-in?again=1' } };
+      if (!signedIn) return { status: 303, headers: { location: '/admin-old/sign-in?again=1' } };
       return {
         status: 303,
         headers: {
-          location: '/admin',
+          location: '/admin-old',
           'set-cookie': cookieHeader(signedIn.cookie, signedIn.seconds),
         },
       };
@@ -524,8 +524,8 @@ export function adminRoutes(): RouteTable {
       handler: (request: Request) => dispatch(method, request),
     })),
     // The app itself, and every address it routes on its own.
-    { method: 'GET', path: '/admin', handler: (request: Request) => file(request) },
-    { method: 'GET', path: '/admin/*', handler: (request: Request) => file(request) },
+    { method: 'GET', path: '/admin-old', handler: (request: Request) => file(request) },
+    { method: 'GET', path: '/admin-old/*', handler: (request: Request) => file(request) },
   ];
 }
 
