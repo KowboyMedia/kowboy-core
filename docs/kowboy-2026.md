@@ -333,6 +333,32 @@ Theme 1.2.4 (2026-10-07, found while the Ahre demo was built): the area and asso
 browser tab titles are their headings, "Områden" and "Föreningar", instead of the plugin's English
 names "Areas" and "Associations" (`kowboy_page_title` in `inc/seo.php`).
 
+## Patric's three from 2026-10-16
+
+Three things about the theme (Patric, 2026-10-16, 09:23Z), theme 1.2.5:
+
+- **Every card shows the hand.** A home's card with several photos showed the plain arrow over
+  its photos, though a click there leads to the home (the script follows a plain click; a swipe
+  turns the photos); only the text at the bottom, the link, showed the hand. The photos show it
+  now, and so does the row of dots, where only a dot itself turns the photos and a click beside
+  one leads to the home. The status pill lets a click through to the card under it, so it is no
+  dead spot. On an agent's card the title under the name was a dead spot over the picture's link;
+  the lines on the picture now let a click through to it, so the whole card leads to the agent,
+  and the name, the phone number and the e-mail address stay links of their own. Area and
+  association cards were whole links already. A browser journey (`e2e/cards.spec.ts`) checks the
+  hand over a grid of points on each kind of card and clicks a photo, a pill and a title.
+- **The dots over a card's photos are brighter**: the photo shown has a white dot, the others
+  are 80 % opaque where they were 55 %.
+- **The Ken Burns motion has six ways to move** where it had one zoom: a zoom in, a pan to the
+  right, a zoom out, a pan down, a zoom in toward the upper left and a pan to the left, the next
+  photo taking the next way (`MOTIONS` in the script, the motions in the stylesheet), slow and even
+  over ten seconds, the photo always larger than the hero so its edges never show. A photo now
+  keeps moving until it has faded out: before, it lost its zoom the moment the next photo began to
+  fade in, and jumped back while still in view. A visitor who asked for less motion sees the
+  photos still, as with the theme's other motion. A browser journey (`e2e/hero-motion.spec.ts`)
+  checks that four photos in a row move four ways, that a photo fading out still moves, and the
+  stillness.
+
 ## Order of work
 
 1. The plan and the questions (this page), the plugin's shadow DOM default, the 2026 set shelved.

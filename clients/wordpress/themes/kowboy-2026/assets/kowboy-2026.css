@@ -441,18 +441,78 @@ iframe.k-hero__video {
 .k-hero__slide {
   height: 100%;
 }
+/* The Ken Burns motion (Patric, 2026-10-16: more than a zoom). Each photo of a hero slider moves
+   its own way and the next photo the next way: a zoom in, a pan to the right, a zoom out, a pan
+   down, a zoom in toward the upper left, a pan to the left. The script names the motion on the
+   slide (`data-motion`) as the photo starts to fade in and takes it away once the photo has faded
+   out, so a photo never jumps back while it is still in view. Every motion keeps the photo larger
+   than the hero, so its edges never show. A visitor who asked for less motion sees the photos
+   still, as with the theme's other motion. */
 .k-hero__slide .k-hero__image {
   transform: scale(1);
 }
-.k-hero__slide.swiper-slide-active .k-hero__image {
-  animation: k-ken-burns 8s ease-out forwards;
-}
-@keyframes k-ken-burns {
-  from {
-    transform: scale(1);
+@media (prefers-reduced-motion: no-preference) {
+  .k-hero__slide[data-motion] .k-hero__image {
+    animation: 10s linear forwards;
   }
-  to {
-    transform: scale(1.08);
+  .k-hero__slide[data-motion='zoom-in'] .k-hero__image {
+    animation-name: k-zoom-in;
+  }
+  .k-hero__slide[data-motion='pan-right'] .k-hero__image {
+    animation-name: k-pan-right;
+  }
+  .k-hero__slide[data-motion='zoom-out'] .k-hero__image {
+    animation-name: k-zoom-out;
+  }
+  .k-hero__slide[data-motion='pan-down'] .k-hero__image {
+    animation-name: k-pan-down;
+  }
+  .k-hero__slide[data-motion='zoom-in-corner'] .k-hero__image {
+    transform-origin: 20% 20%;
+    animation-name: k-zoom-in;
+  }
+  .k-hero__slide[data-motion='pan-left'] .k-hero__image {
+    animation-name: k-pan-left;
+  }
+  @keyframes k-zoom-in {
+    from {
+      transform: scale(1);
+    }
+    to {
+      transform: scale(1.12);
+    }
+  }
+  @keyframes k-zoom-out {
+    from {
+      transform: scale(1.12);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+  @keyframes k-pan-right {
+    from {
+      transform: scale(1.12) translateX(2.5%);
+    }
+    to {
+      transform: scale(1.12) translateX(-2.5%);
+    }
+  }
+  @keyframes k-pan-left {
+    from {
+      transform: scale(1.12) translateX(-2.5%);
+    }
+    to {
+      transform: scale(1.12) translateX(2.5%);
+    }
+  }
+  @keyframes k-pan-down {
+    from {
+      transform: scale(1.12) translateY(2.5%);
+    }
+    to {
+      transform: scale(1.12) translateY(-2.5%);
+    }
   }
 }
 .k-hero__content {
@@ -860,6 +920,7 @@ iframe.k-hero__video {
   background: linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.78) 100%);
   pointer-events: none;
 }
+/* The pill lets a click through to the card under it. */
 .k-card__status {
   position: absolute;
   z-index: 4;
@@ -871,6 +932,13 @@ iframe.k-hero__video {
   backdrop-filter: blur(16px);
   font-size: var(--k-label-size);
   line-height: 1.37;
+  pointer-events: none;
+}
+/* The photos of a card with a slider lead to the home on a plain click (the script), so they show
+   the hand like the rest of the card (Patric, 2026-10-16); a click between the dots leads there
+   too, and only a dot itself changes the photo. */
+.k-card__slider {
+  cursor: pointer;
 }
 .k-card__dots {
   position: absolute;
@@ -879,13 +947,16 @@ iframe.k-hero__video {
   left: 0;
   right: 0;
   text-align: center;
+  pointer-events: none;
 }
+/* The dots stand out on the photo: the one shown white, the others a little dimmer (Patric, 2026-10-16: brighter). */
 .k-card .swiper-pagination-bullet {
   width: 6px;
   height: 6px;
   margin: 0 4px !important;
   background: var(--k-white);
-  opacity: 0.55;
+  opacity: 0.8;
+  pointer-events: auto;
 }
 .k-card .swiper-pagination-bullet-active {
   opacity: 1;
@@ -1170,7 +1241,9 @@ iframe.k-hero__video {
   background: linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.78) 100%);
 }
 /* Between the name and the title only their own line spacing, the gap Patric asked back after
-   seeing them set tight (2026-10-07); the contact keeps its own 4 px. */
+   seeing them set tight (2026-10-07); the contact keeps its own 4 px. The lines let a click through
+   to the picture's link, so the whole card leads to the agent and shows the hand (Patric,
+   2026-10-16); the name, the phone number and the e-mail address stay links of their own. */
 .k-agent-card__body {
   position: absolute;
   left: 16px;
@@ -1178,6 +1251,10 @@ iframe.k-hero__video {
   bottom: 16px;
   display: grid;
   gap: 0;
+  pointer-events: none;
+}
+.k-agent-card__body a {
+  pointer-events: auto;
 }
 .k-agent-card__name {
   font-size: 18px;

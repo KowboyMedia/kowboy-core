@@ -136,6 +136,13 @@ updater offering a release (AC 21), which reads the same site. The engine's own 
 area's journeys and the acceptance tests all passed in the same session, so the acceptance report
 was not regenerated there: it would have recorded the site's state as Core's.
 
+On 2026-10-16, in a cloud session that had run `clients/wordpress/test/setup.sh`, the WordPress
+suites ran: `npm run test:wordpress` passed 42 of 42, and the browser journeys passed 9 of 9 when
+run on their own. Inside `npm run report`, which runs the journeys right after that suite, the
+journeys' site had no homes ("Inga bostäder matchar just nu.") and 8 of 9 journeys failed waiting
+for a home's card; GitHub's checks also run the journeys after that suite, and pass. The report
+was not regenerated there either.
+
 **Why.** Not established. The PHP side of the prepared site is at fault, not Core: Core answered
 every pull. Likely the prepared WordPress install or its PHP does not match what the theme
 "Kowboy 2026" and the plugin now need.
@@ -143,3 +150,25 @@ every pull. Likely the prepared WordPress install or its PHP does not match what
 **What fixing it takes.** Run `clients/wordpress/test/setup.sh` by hand in a cloud session and read
 the PHP error log, then fix the start hook or the setup script so the site renders; regenerate
 `acceptance/report.md` where the WordPress suites run.
+
+## 7. `[core]` The alert test sometimes misses the offices taken off the sites, because the search for their refusal ends on a whole millisecond
+
+**What happens.** `acceptance/operations.test.ts`, "alerts › tells an event that needs attention
+by its level: P1 at the next round, one line per cause, P2 in the 07:00 mail (questions 163 and
+164)", fails now and then. It expects a mail with two P1 lines and gets one: the visitor's form is
+there, the two offices taken off the sites are not. On 2026-10-16 in a cloud session it failed in
+the full suite, in one of three runs of its file and in one of ten runs on its own; GitHub's
+checks passed it on the same code.
+
+**Why.** Likely, read in the code and supported by a trial, not proved. `stillRefused` in
+`engine/attention.ts` looks for the office's `office.blocked` event up to the time of the last
+`office.taken_off`, passed as a JavaScript date, which holds whole milliseconds, while the database
+keeps microseconds. The test logs the refusal and the take-off one right after the other; when
+both land in the same millisecond, the refusal falls after the cut-off, the offices count as no
+longer refused, and their line is not P1. With the cut-off one millisecond later the test passed
+ten runs of ten. In real use the Vitec code logs the refusal at least a day before the take-off
+(`markBlocked` and `takeOff` in `adapters/vitec/index.ts`), so real alerts are not affected.
+
+**What fixing it takes.** Bound the search by the events' order (`id`), which the function
+already compares, instead of by the time, or move the time bound one millisecond later; then run
+the test many times to see it pass every run.

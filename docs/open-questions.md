@@ -4,10 +4,39 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 198 (192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 199 (192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 198. `[client-wordpress]` How complete the list shortcode is in a theme other than Kowboy 2026
+
+- 2026-10-16 · Patric asked how lists are built today, compared with the shortcode of his earlier
+  plugins, which did both the query and the output, built on the server and then refreshed in the
+  browser, "for free" wherever a list was placed. Today the query is already one shortcode: the
+  plugin's one list function (`[core_list]`, `core_client_list` in `includes/templates.php`) runs
+  the query with filters, search, sorting and pages, and builds the first page on the server for
+  the shortcode, the plugin's blocks, the theme's pages and the reload address alike. The rest
+  comes from the theme "Kowboy 2026": the look (the list's and the cards' view files and the
+  stylesheet) and the browser part, which switches tabs, applies filters, searches places, shows
+  more and fetches new cards from the reload address (`setupList` in `assets/kowboy-2026.js`; only
+  home lists have it). So under another theme `[core_list]` shows nothing until that theme brings
+  view files of its own, and then a list that does not react to tabs, filters or "Visa fler" (read
+  in the code, not tried). Next-steps item 31 (a refresh when the page loads, page addresses search
+  engines can follow) is built where this answer puts the browser part. Options a and b change the
+  scaffolding Patric approved on 2026-09-21, where a set (today the theme) holds the views and the
+  scripts, so they wait on his yes. The whole answer is
+  `strategy/lists-today-and-the-old-shortcode.md` in the project's shared folder.
+- Blocked: nothing today; the answer decides where item 31 is built.
+- a) the browser part moves into the plugin: in any theme that brings the list's look, the
+  shortcode and the blocks refresh, filter, show more and page by themselves, and item 31 is built
+  there once, for every list (recommended: every theme needs that behaviour, while the look is
+  each site's own).
+- b) as a, and the plugin also carries a plain look for every list, so the shortcode shows a
+  working list in any theme with nothing added, as the old shortcode did; a theme still replaces
+  the look file by file. It adds a second look, for every kind of list (four today: homes, agents,
+  areas and associations), that a site with its own design replaces anyway.
+- c) as today: the browser part stays in the theme, and item 31 is built there.
 
 ## 197. `[admin]` `[core]` Approve, line by line, what design B shows and needs before it is built
 

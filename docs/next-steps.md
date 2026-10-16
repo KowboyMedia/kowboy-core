@@ -879,6 +879,8 @@ client ports (item 16, first client by question 80).
       place it keeps the address in step. The areas and associations archives already page this
       way (`parts/paging.php`, WordPress's own `/page/N/`); the property lists, the archive at
       `/objekt/` included, page only by "Visa fler", and the agent list shows every card at once.
+    - Where it is built waits on question 198: in the plugin beside the list function, so the
+      list shortcode and blocks refresh, filter and page in any theme, or in the theme as today.
     - This item states the whole requirement; the other conversation is not needed, and AGENTS.md
       keeps other conversations out of reach anyway.
     - Size: one session.

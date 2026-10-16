@@ -75,12 +75,23 @@
     });
   }
 
+  /** The Ken Burns motions in the order the photos take them; the stylesheet draws each one. */
+  var MOTIONS = ['zoom-in', 'pan-right', 'zoom-out', 'pan-down', 'zoom-in-corner', 'pan-left'];
+
   /**
-   * The hero's images: a slow crossfade with a slight zoom on the active slide (CSS). A hero
-   * marked `data-hero-swipe` (a property's) also moves on a swipe or a drag, with the same fade.
+   * The hero's images: a slow crossfade, and each photo with the next Ken Burns motion. A photo
+   * starts moving as it fades in and keeps moving until it has faded out, so nothing jumps while
+   * two photos blend. A hero marked `data-hero-swipe` (a property's) also moves on a swipe or a
+   * drag, with the same fade.
    */
   function setupHeroSlider(container) {
-    swiper(container, {
+    var count = 0;
+    function move(slide) {
+      slide.removeAttribute('data-motion');
+      void slide.offsetWidth; // a photo back before its motion ended starts it again
+      slide.setAttribute('data-motion', MOTIONS[count++ % MOTIONS.length]);
+    }
+    var instance = swiper(container, {
       loop: container.querySelectorAll('.swiper-slide').length > 1,
       effect: 'fade',
       fadeEffect: { crossFade: true },
@@ -88,7 +99,19 @@
       autoplay: { delay: 6000, disableOnInteraction: false },
       allowTouchMove: container.hasAttribute('data-hero-swipe'),
       grabCursor: container.hasAttribute('data-hero-swipe'),
+      on: {
+        slideChangeTransitionStart: function (slider) {
+          move(slider.slides[slider.activeIndex]);
+        },
+        slideChangeTransitionEnd: function (slider) {
+          slider.slides.forEach(function (slide, index) {
+            if (index !== slider.activeIndex) slide.removeAttribute('data-motion');
+          });
+        },
+      },
     });
+    var first = instance && instance.slides[instance.activeIndex];
+    if (first && !first.hasAttribute('data-motion')) move(first);
   }
 
   function setupTestimonials(container) {
