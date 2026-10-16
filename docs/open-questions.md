@@ -9,23 +9,6 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 196. `[admin]` A made-up sample name that matches a rejected draft: does it rule out a candidate?
-
-- 2026-10-15 · The clean room finished three candidates for the new admin panel, each tested over
-  three rounds (`panel-candidates/` in the project's shared folder: one PDF per candidate and
-  `results.md`). Three separate inheritance checks found nothing in any candidate's pages, layout,
-  flows, labels or texts that came from the old admin. By the strategy's rule each still fails, on
-  sample content only: all three name a made-up brokerage "Norrsken Mäkleri", close to "Norrsken
-  Mäklare" in a draft rejected on 2026-10-13 (`docs/old-admin/admin-new/source/tenant-screens.js.txt:317`),
-  a name that is nowhere in the brief, the shared folder or memory; B also uses the sample group
-  id G12, Kowboy's real Vitec test group, which is in shared memory but not in the brief. The
-  reports are `docs/old-admin/clean-room-check/a.md`, `b.md` and `c.md`.
-- Blocked: Patric's pick of a candidate (next-steps item 30, step 4).
-- a) no: sample names are placeholder content that real brokerages replace, so Patric picks from
-  all three (recommended: nothing of the old admin's design carried over).
-- b) yes: all three are dropped; the brief's facts are reworded where they carry the old admin's
-  words, and the clean room runs again.
-
 ## 190. `[core]` One more one-off read-only step on staging: the property's change log under every connection, removed ones included
 
 - 2026-10-12 · The step of question 189 found no copy of the property `OBJ5P4RD332KW42S276BD`
