@@ -4,12 +4,55 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 203 (192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 206 (192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 202. `[admin]` Approve what part 3 of design B shows beyond B's images
+## 205. `[admin]` Approve the design of the records list, the record page and the manual sync
+
+- 2026-10-16 · The clean room drew the manual sync (four filters, three levels, no list of earlier
+  runs), the record browser and the record viewer into design B, as asked on 2026-10-16: 37 new
+  images and B's screens redrawn with a "Records" link, in `clean-room/out/b2/` in the project's
+  shared folder. Fresh testers finished all six jobs with no wrong press in the third round. B's
+  "Reload all data" becomes "Sync records…", which opens the manual sync; a tenant's Retry stays
+  separate. "Brokerage" reads "Tenant" throughout (question 203). Lines a build needs beyond the
+  images are listed after the build, as for B's parts.
+- Blocked: building the records list, the record page and the manual sync.
+- a) ok: build it as drawn (recommended).
+- b) ok, except the images named.
+
+## 204. `[admin]` `[crm]` Let a CRM's code write the line under a connection's name
+
+- 2026-10-16 · Patric asked that CRMs be "encapsulated completely". The new panel's own code still
+  holds Vitec's words (its login labels, "Live Vitec · G12" under a connection's name, the office
+  check's button), in `panel/src/crm-words.ts`. Labels, help lines, choices and the office check
+  move into Vitec's code with what the adapter API already offers. The line under a connection's
+  name has no place there: a CRM's code would describe each of its connections in one line, an
+  optional addition to the protected adapter API that any CRM can use.
+- Blocked: emptying `panel/src/crm-words.ts`.
+- a) yes: add it, and the panel shows the CRM's line (recommended).
+- b) no: the panel shows the connection's own fields in the order the CRM declares them
+  ("Live Vitec · G12 · kowboy_partner").
+
+## 203. `[admin]` Approve the mockups of the tenant pages, deleting, maintenance and the Flow
+
+- 2026-10-16 · Patric's changes of 13:30 to 13:36 are painted as 27 images in
+  `panel-candidates/tenant-mockups/` in the project's shared folder, with `index.md` listing each
+  image and every line not already in B's images or the part lists. "Brokerage" becomes "Tenant";
+  "New tenant" sits with the list; "Entities" on the list counts the tenant's records; Add and
+  Edit are one screen for websites and CRMs; Add CRM asks which CRM first; every website and CRM
+  connection has an Edit and a Delete icon; a Vitec card shows its offices collapsed and the forms
+  test mode label; deleting a website, a CRM connection or a tenant asks first (a tenant by typing
+  its name); maintenance leaves the Inbox for a "Flow" page above the Flow log. Editing a CRM
+  connection with the password left empty keeps the saved login. The Flow is built from what Core
+  keeps today (each CRM's list of records waiting and the event log's writes), so a record already
+  written shows when it was written rather than when it was queued.
+- Blocked: building these pages.
+- a) ok: build as drawn, with all listed lines (recommended).
+- b) ok, except the images or lines named.
+
+## 202. `[admin]` Approve what parts 3 and 4 of design B show beyond B's images
 
 - 2026-10-16 · Part 3 of design B (the Inbox's windows, Waiting and Fixed today, resending forms,
   fixing a bell secret, maintenance and "Reload all data") is on staging at `/admin`. It keeps
@@ -18,8 +61,12 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   show: texts for other platforms, other outcomes and other counts, and four choices about what
   Fixed today and "Reload done" count. The list is `panel-candidates/b-part3-new-lines.md` in the
   project's shared folder.
+- 2026-10-16 · Part 4 (the Inbox's card for records that can't be loaded, with each record's
+  reason and Retry, and the refused login's leaving offices) is on staging too, with the web
+  address `POST /v1/panel/brokerages/{id}/retry`. Its eight lines are
+  `panel-candidates/b-part4-new-lines.md`.
 - Blocked: nothing; the lines stay on staging meanwhile.
-- a) ok: all ten lines (recommended).
+- a) ok: all eighteen lines (recommended).
 - b) ok, except the lines named.
 
 ## 201. `[admin]` Approve what part 2 of design B shows beyond B's images
