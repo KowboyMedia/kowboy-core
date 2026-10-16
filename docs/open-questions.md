@@ -4,10 +4,22 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 201 (192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 202 (192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 201. `[admin]` Approve what part 2 of design B shows beyond B's images
+
+- 2026-10-16 · Part 2 of design B (the brokerages list, a brokerage's page and adding a
+  brokerage) is on staging at `/admin`. It needed thirteen lines that B's images do not show:
+  empty and error states, the notes after an action, B's sentences for other counts of websites
+  and connections, the Lovable website's help, the page's own Connect and Add website windows, the
+  change-login sentence made true by decision D5 of question 197 (the saved username is shown), and
+  a "Finish" button that ends the wizard on the brokerage's page while row 75 waits on question 199. The list is `panel-candidates/b-part2-new-lines.md` in the project's shared folder.
+- Blocked: nothing; the lines stay on staging meanwhile.
+- a) ok: all thirteen lines (recommended).
+- b) ok, except the lines named.
 
 ## 200. `[admin]` Approve what the first part of design B shows beyond B's images
 
