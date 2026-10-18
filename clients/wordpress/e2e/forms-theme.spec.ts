@@ -194,3 +194,34 @@ test('journey: the interest, viewing and valuation buttons open the theme’s wi
   expect(authorized).toEqual([]);
   expect(leaked).toEqual([]);
 });
+
+test('journey: with Kowboy’s chat on the page, a form button opens the chat at that request, and the theme’s window opens where the chat cannot take it', async ({
+  page,
+}) => {
+  // The chat as far as the theme uses it: window.kowbot.open answers whether it took the request.
+  // Here it takes interests and nothing else, as a chat would on a page where it cannot book.
+  await page.addInitScript(() => {
+    const asked: string[] = [];
+    Object.assign(window, {
+      chatAsked: asked,
+      kowbot: { open: (action: string) => (asked.push(action), action === 'interest') },
+    });
+  });
+  await page.goto('/?pagename=till-salu');
+  await page.getByRole('link', { name: 'Kungsgatan 3', exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Kungsgatan 3' })).toBeVisible();
+  // The chat reads the home's CRM id from the page, so the site needs no setting for it.
+  expect(
+    await page.locator('[data-kowbot-listing-id]').getAttribute('data-kowbot-listing-id'),
+  ).toMatch(/\S/);
+  const dialog = page.locator('dialog.k-form');
+  const asked = () => page.evaluate(() => (window as unknown as { chatAsked: string[] }).chatAsked);
+
+  await page.getByRole('link', { name: 'Anmäl intresse' }).click();
+  expect(await asked()).toEqual(['interest']);
+  await expect(dialog).toBeHidden();
+
+  await page.getByRole('link', { name: 'Boka fri värdering' }).click();
+  expect(await asked()).toEqual(['interest', 'valuation']);
+  await expect(dialog).toBeVisible();
+});
