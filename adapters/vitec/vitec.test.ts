@@ -336,8 +336,10 @@ describe('the Vitec adapter', () => {
     await drainFetchList();
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
     const retries = async () => (await health())['vitec.retries'];
-    // Why the last try failed, as the fetch list keeps it, after where the record stands.
-    const DOWN = 'Vitec’s service did not work, and Vitec’s answer code was 500.';
+    // Why the last try failed, as the fetch list keeps it, after where the record stands: Vitec's
+    // own words, then whose fault it is and what to do.
+    const DOWN =
+      'Vitec’s service did not work, with Vitec’s answer code 500 and the words “broken”. This is a fault at Vitec, not in Core or the login. If it still fails after a retry, report it to Vitec’s support with the record’s Vitec id and what Vitec answered.';
     const thing = (id: string, note: string) => ({
       connection: CONNECTION,
       record: { datatype: 'property', id },
@@ -911,7 +913,22 @@ describe('the Vitec adapter', () => {
     expect((await lastCheck(CONNECTION))?.offices).toEqual(['M2']);
   });
 
-  it('says Vitec answered when Core could not save what it sent, as when the connection went during the fetch', async () => {
+  it('loads a home whose text holds a character Postgres cannot store, without that character', async () => {
+    seed(fake);
+    fake.put(
+      OFFICE,
+      'property',
+      estate('OBJ2', OFFICE, { description: 'Ljus trea\u0000 med balkong' }),
+    );
+    await start();
+    await drainFetchList();
+    expect(await store.entries(10)).toEqual([]);
+    const loaded = JSON.stringify(await item('property', 'OBJ2'));
+    expect(loaded).toContain('Ljus trea med balkong');
+    expect(loaded).not.toContain('\\u0000');
+  });
+
+  it('says Vitec answered when Core could not save what it sent, with Core’s own error and whose fault it is, as when the connection went during the fetch', async () => {
     seed(fake);
     await start();
     await drainFetchList();
@@ -930,7 +947,9 @@ describe('the Vitec adapter', () => {
     }
     await drained;
     const [waiting] = await store.entries(10);
-    expect(waiting?.lastError).toBe('Vitec answered, but Core could not save what it sent.');
+    expect(waiting?.lastError).toMatch(
+      /^Vitec answered, but Core could not save what it sent, and Core’s error said “insert or update on table "items" violates foreign key constraint [^”]+”\. This is a fault in Core, not at Vitec or in the login, so pass it on to Core’s developers\.$/,
+    );
   });
 
   it('keeps the start of a broken answer and fetches the record at the next try', async () => {

@@ -1,4 +1,4 @@
-import { canonicalJson, contentHash } from './json.js';
+import { canonicalJson, contentHash, storable } from './json.js';
 import { validateData, SCHEMA_VERSION } from './contract.js';
 import { applyRules, RULES_VERSION } from './rules/run.js';
 import { manifestFor, mapperFor } from './registry.js';
@@ -11,14 +11,16 @@ import type { Canonical, Connection, Datatype, IngestResult } from './adapter-ap
 /**
  * The write path, identical for every adapter (strategy §5.2):
  * map → rules and display → licensed-office filter → hash → unchanged? stop → write, log, bell.
+ * The payload is kept as the CRM sent it, less what Postgres cannot store (`storable`).
  */
 export async function ingest(
   connection: Connection,
   datatype: Datatype,
   remoteId: string,
-  raw: unknown,
+  payload: unknown,
   options: { correlationId?: string } = {},
 ): Promise<IngestResult> {
+  const raw = storable(payload);
   const context = {
     correlationId: options.correlationId ?? null,
     tenantId: connection.tenantId,

@@ -48,6 +48,7 @@ import {
   officeNamed,
   recordNamed,
   sentence,
+  whatToDo,
   when,
 } from './words.js';
 import {
@@ -712,14 +713,16 @@ async function failed(
     return;
   }
   if (kind !== 'other') await noteFailure(current, live, error);
-  const outcome = await store.requeue(entry, sentence(failureInWords(error)));
+  // Why it failed, then whose fault that is and what to do: the panel shows it under the record.
+  const why = `${sentence(failureInWords(error))} ${whatToDo(error)}`.trim();
+  const outcome = await store.requeue(entry, why);
   if (outcome === 'given_up') {
     const fields = {
       office_id: entry.officeId,
       datatype: entry.datatype,
       remote_id: entry.remoteId,
       attempts: entry.attempts + 1,
-      detail: `Core gave up fetching this ${recordNamed(entry.datatype)} from Vitec after ${String(entry.attempts + 1)} failed tries. The last try failed because ${failureInWords(error)}. The sites show the ${recordNamed(entry.datatype)} as it was before. ${error instanceof NotSaved ? 'Press' : 'Once Vitec answers for it, press'} “Retry now” beside it in the fetch list on the Vitec page.`,
+      detail: `Core gave up fetching this ${recordNamed(entry.datatype)} from Vitec after ${String(entry.attempts + 1)} failed tries. The last try failed because ${failureInWords(error)}. ${whatToDo(error)} The sites show the ${recordNamed(entry.datatype)} as it was before. ${error instanceof NotSaved ? 'Press' : 'Once Vitec answers for it, press'} “Retry now” beside it in the fetch list on the Vitec page.`,
     };
     await current.logEvent('fetch.failed', fields, trace);
     current.report(new Error('vitec fetch given up'), { ...fields, error: String(error) });
