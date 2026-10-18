@@ -4,20 +4,16 @@ The standing to-do for any session. When Patric says **"Resume next steps"**, re
 the first item that is not done, and keep the file current. Decisions and open questions live in
 `docs/decisions.md` and `docs/open-questions.md`; this file is only the order of work.
 
-## Where to pick up (convergence point, 2026-09-23)
+## Where to pick up (2026-10-18)
 
-Everything up to 2026-09-23 is combined into staging. On 2026-09-24 one session built **the
-default template set "Kowboy 2026"**, item 17 steps 1 to 3 and item 18, on the local WordPress
-(`docs/default-templates.md`, "Built on 2026-09-24"), and it waits for Patric's answers 90 to 96 (89 closed on 2026-09-28: the set was rebuilt on the attached package)
-and the tokens 87 and 88. "Resume next steps" means: act on whatever of 87 to 96 Patric has
-answered (each answer names its work), then item 17 step 4 on `v4.dev.kowboy.se` once the
-Cloudways token reads (88) and the sign-in mail arrives (98; the state of 2026-09-28 is under
-item 17), then step 5's live run. Read `docs/default-templates.md` first (what the
-set is, the scaffolding, the master, what stands, the comparison), `docs/field-tables.md` (the
-universal names and `display`), `rules-ledger/` (R-001 to R-014 approved, R-015 to R-019
-drafted), and `clients/wordpress/README.md` (the plugin the set plugs into). Items 6, 11, 13, 14
-and 16 wait on the things named in them and are not picked up by "resume". After the set: the
-client ports (item 16, first client by question 80).
+The project is closing. Item 33 is the final release; its plan for Patric is
+`/mnt/project-files/release/final-release-plan.md`, with questions 207 to 209. Every open item is
+finished before that release, part of it, or moved to "Later" by the plan's table (Default 208).
+Threads at work on the way: the new admin (item 30, waits on 199 to 205), the clear error
+messages and the five records Core cannot store (staging's health is red until they load), Core's
+mail (question 100), the database's connection shares (asked in chat as 88, kept as 206), the
+lists (item 31, waits on 198) and the forms (item 29, waits on 209). "Resume next steps" means:
+the first open step of item 33 that waits on nobody.
 
 ## Agent setup (from the 2026-09-27 review of how agents and Patric work together)
 
@@ -913,6 +909,57 @@ client ports (item 16, first client by question 80).
       the bot check's stand-in). The same rule holds for every form, and every script that sends
       from a public page, added later; the list reload of item 31 included.
     - Size: part of a session.
+
+33. **The final release, and closing the project** (Patric, 2026-10-18: "work towards closing
+    this project and getting it production ready"; in progress 2026-10-18, the "Get Core
+    production ready" thread). Components: `[core]`, `[client-wordpress]`. What changes for the
+    product: live runs the finished Core with its settings and alerts, and every open item is
+    finished, released or moved to "Later". The plan for Patric, with the table of the work left:
+    `/mnt/project-files/release/final-release-plan.md`; questions 207 to 209.
+    - **The conditions** (handbook "Release and operate" with its first go-live list, strategy §9
+      phase 7), each a step:
+      1. Enforced checks green on staging, `/v1/health` green (red on 2026-10-18:
+         `vitec.retries`, the "Proper error messages in admin" thread), and
+         `acceptance/report.md` made again from a real run; known bug 6 keeps the WordPress
+         suites from running in a cloud session, so it is fixed first.
+      2. The four criteria still pending: AC 18 (a test that reads both apps from the platform:
+         the branch each deploys, the health-gated deploy, the old version kept on a failed
+         check), AC 24 (the restore drill: the cluster's backup restored onto a temporary
+         cluster, staging pointed at it until its subscribers converge, then back, and the copy
+         deleted), AC 27 and AC 32 (load and latency at 10× launch on a temporary database and app
+         of their own, so the shared cluster, 1 vCPU, 1 GB and 15 GB of disk, is never loaded;
+         deleted the same day, well under $1).
+      3. Seven days on staging with no unresolved Sentry issue (strategy §9, phase 7): 57 open on
+         2026-10-18. The connection-slot and timeout issues, the missing `active` column and the
+         deleted admin's events page, none seen since 2026-10-07, are each checked against the
+         code and resolved when fixed; "Cannot use a pool after calling end on the pool" (`flushPendingBells`,
+         `checkAlerts`, `connectionsForProvider`: timers still run after shutdown ends the pool)
+         is fixed here; the Vitec ones go to their owners.
+      4. Alerts in place on both apps and one seen arriving: `ALERT_EMAIL` (the address in
+         `ADMIN_EMAILS`), and `MAIL_FROM` with `POSTMARK_SERVER_TOKEN` in each worker, where
+         `checkAlerts` runs; mail first arrives with question 100.
+      5. Live's settings at the release, in the live app's own spec: the pool `live` (12 by 167 c,
+         unless 206 changes it), `SENTRY_DSN`, `ADMIN_SECRET` removed, the worker's mail settings,
+         and `TURNSTILE_SITE_KEY` with `TURNSTILE_SECRET` (known bug 4: live refuses every form
+         without them, by design).
+      6. The release impact preview (enforced check 5, AC 36): nothing has run
+         `recompute(…, { dryRun: true })` over live's data since the old manual sync went (176).
+         It becomes a step of the release that runs the new version's preview on live's records
+         before that version takes over, and stops the release when a record fails the schema or
+         the invariants. Planned here before it is built.
+      7. The update channel for the plugin and the theme, the approved Space (2026-09-16): no
+         `v*` tag and no Spaces key exist yet; needed before the first brokerage's site reads
+         from live.
+      8. Personal data and credentials only where the design says, checked once and named in the
+         release note; the release note says who is told and in which words; the undo is live's
+         previous deployment.
+    - **The order:** step 1 and the Sentry triage first; on 207 a, a release as soon as staging
+      is green; then AC 24, AC 27 with AC 32, and AC 18; the threads' work in the plan's table;
+      the alerts seen arriving; the final release on Patric's "release". After it: the one-time
+      clean-up of known bug 3 leaves `main.ts` once live's log shows it ran, the old admin leaves
+      with item 30, strategy §9 and this file say the project is closed, and a `decisions.md` line
+      "Release <date>" is written.
+    - Size: several sessions, most of them waiting on the threads in the table.
 
 ## Later, when Patric supplies them
 

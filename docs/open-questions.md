@@ -4,10 +4,53 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 206 (192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 210 (206 is kept for the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28, so that thread records its answer under 206; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 209. `[core]` `[crm-vitec]` `[client-wordpress]` Start the forms work now, on the list verified on 7 October
+
+- 2026-10-18 · Item 29: Patric verified the forms list
+  (`/mnt/project-files/strategy/forms-list.md`) on 2026-10-07 ("No other comments/changes"), and
+  the development starts on his go: first what the list marks as not built or to remove, then
+  every forms file checked against the list line by line, with the tests green, reported file by
+  file. The first brokerage's site needs its forms, so the plan for the final release
+  (`/mnt/project-files/release/final-release-plan.md`) puts them before that site goes live.
+- Blocked: the forms work (item 29), with item 21's leftovers and item 32.
+- a) yes: go (recommended).
+- b) later: the forms wait until after the final release.
+
+## 208. `[core]` Default: the project closes on the plan's table, and what it marks Later waits for a new project
+
+- 2026-10-18 · Patric: "work towards closing this project and getting it production ready". The
+  plan (`/mnt/project-files/release/final-release-plan.md`, "The work left, and who does it")
+  lists every open piece of work with its thread, what it waits on, and whether it comes before
+  the final release, before the first brokerage's site goes live, or Later. Later: searching by a
+  sentence and the other AI ideas (explored only), Mspecs (waits on an agreement with Mspecs),
+  other clients' sites and the porting factory (items 16 and 19, question 80), and the written
+  guidance for implementers (item 13). The debloat of the old admin (item 27) is closed, replaced
+  by the new admin (item 30). Once this stands, `next-steps.md` follows the table.
+- Blocked: nothing; silence agrees.
+- Reply only if you disagree: no, and which row.
+
+## 207. `[core]` Release staging to live as soon as staging's checks are green, before the rest is finished
+
+- 2026-10-18 · Live runs the state of 2026-09-23 with the pool fix of 2026-10-06 (`main` at
+  d420ba1); staging is 342 changes ahead, with twelve migrations (010 to 021) live has never run,
+  the one-time clean-up of the stored logins (known bug 3), the forms guard and the new admin as
+  far as it is built. On 2026-10-03 Patric said "keep on staging for now". No connection on live
+  is recorded anywhere, so no customer uses it (read from the records; confirmed in live's admin
+  before the release). Releasing now runs the migrations and the new settings on live while
+  nothing depends on it, and leaves the final release only what is built after. The release
+  waits for: the enforced checks green on staging (green on 2026-10-18), staging's health green
+  (red: `vitec.retries`, which the thread "Proper error messages in admin" is fixing), the
+  acceptance report made again (known bug 6, item 33), and live's settings in its own spec: the
+  pool `live` (12 by 167 c unless 206 changes it), `SENTRY_DSN`, and `ADMIN_SECRET` removed.
+  Undo: live's previous deployment, in one step.
+- Blocked: the early release.
+- a) yes: release as soon as staging is green (recommended).
+- b) no: live stays as it is until the final release.
 
 ## 205. `[admin]` Approve the design of the records list, the record page and the manual sync
 
