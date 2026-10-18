@@ -7,11 +7,12 @@ the first item that is not done, and keep the file current. Decisions and open q
 ## Where to pick up (2026-10-18)
 
 The project is closing. Item 33 is the final release; its plan for Patric is
-`/mnt/project-files/release/final-release-plan.md`, with questions 207 to 209. Every open item is
-finished before that release, part of it, or moved to "Later" by the plan's table (Default 208).
+`/mnt/project-files/release/final-release-plan.md`, with questions 206 to 210. The project is done
+when the first brokerage runs on live; every other open item is moved to "Later" by the plan's
+table (Default 208).
 Threads at work on the way: the new admin (item 30, waits on 199 to 205), the clear error
 messages and the five records Core cannot store (staging's health is red until they load), Core's
-mail (question 100), the database's connection shares (asked in chat as 88, kept as 206), the
+mail (question 100), the database's connection shares (206, asked in chat as 88), the
 lists (item 31, waits on 198) and the forms (item 29, waits on 209). "Resume next steps" means:
 the first open step of item 33 that waits on nobody.
 
@@ -913,52 +914,69 @@ the first open step of item 33 that waits on nobody.
 33. **The final release, and closing the project** (Patric, 2026-10-18: "work towards closing
     this project and getting it production ready"; in progress 2026-10-18, the "Get Core
     production ready" thread). Components: `[core]`, `[client-wordpress]`. What changes for the
-    product: live runs the finished Core with its settings and alerts, and every open item is
-    finished, released or moved to "Later". The plan for Patric, with the table of the work left:
-    `/mnt/project-files/release/final-release-plan.md`; questions 207 to 209.
+    product: live runs the finished Core with its settings and alerts, a first brokerage runs on
+    it (strategy §9, Gate 4), and every other open item is moved to "Later". The plan for Patric,
+    with the table of the work left: `/mnt/project-files/release/final-release-plan.md`;
+    questions 206 to 210.
+    - **Three steps:** the early release (207), the final release, the first brokerage on live
+      (its forms, lists, Vitec's notifications and the plugin's update channel); then this file and
+      strategy §9 say the project is done (Default 208).
+    - **The undo.** Migrations 016 and 018 drop `connections.active`, `subscribers.active` and
+      `jobs.cancel_requested`, and make `connections.name` required; live's version at d420ba1 uses
+      all four. After the early release the old version therefore comes back only with live's
+      database restored from its backup (a fork of the shared cluster at the time before the
+      release, live pointed at it); with no customer on live a fault is fixed forward. Every later
+      release keeps a one-step undo: what the old version reads is dropped one release after the
+      code stops reading it (strategy §6).
     - **The conditions** (handbook "Release and operate" with its first go-live list, strategy §9
       phase 7), each a step:
       1. Enforced checks green on staging, `/v1/health` green (red on 2026-10-18:
          `vitec.retries`, the "Proper error messages in admin" thread), and
-         `acceptance/report.md` made again from a real run; known bug 6 keeps the WordPress
-         suites from running in a cloud session, so it is fixed first.
-      2. The four criteria still pending: AC 18 (a test that reads both apps from the platform:
-         the branch each deploys, the health-gated deploy, the old version kept on a failed
-         check), AC 24 (the restore drill: the cluster's backup restored onto a temporary
-         cluster, staging pointed at it until its subscribers converge, then back, and the copy
-         deleted), AC 27 and AC 32 (load and latency at 10× launch on a temporary database and app
-         of their own, so the shared cluster, 1 vCPU, 1 GB and 15 GB of disk, is never loaded;
-         deleted the same day, well under $1).
-      3. Seven days on staging with no unresolved Sentry issue (strategy §9, phase 7): 57 open on
-         2026-10-18. The connection-slot and timeout issues, the missing `active` column and the
-         deleted admin's events page, none seen since 2026-10-07, are each checked against the
-         code and resolved when fixed; "Cannot use a pool after calling end on the pool" (`flushPendingBells`,
-         `checkAlerts`, `connectionsForProvider`: timers still run after shutdown ends the pool)
-         is fixed here; the Vitec ones go to their owners.
-      4. Alerts in place on both apps and one seen arriving: `ALERT_EMAIL` (the address in
-         `ADMIN_EMAILS`), and `MAIL_FROM` with `POSTMARK_SERVER_TOKEN` in each worker, where
-         `checkAlerts` runs; mail first arrives with question 100.
-      5. Live's settings at the release, in the live app's own spec: the pool `live` (12 by 167 c,
-         unless 206 changes it), `SENTRY_DSN`, `ADMIN_SECRET` removed, the worker's mail settings,
-         and `TURNSTILE_SITE_KEY` with `TURNSTILE_SECRET` (known bug 4: live refuses every form
-         without them, by design).
-      6. The release impact preview (enforced check 5, AC 36): nothing has run
+         `acceptance/report.md` made again from a real run. On 2026-10-18 a fresh `npm run build`
+         before `npm run report` let the WordPress journeys pass (22 of 22) in a cloud session,
+         while six template tests of the WordPress suite failed inside the report's run and one
+         of them passed alone (known bug 6).
+      2. The release impact preview (enforced check 5, AC 36): nothing has run
          `recompute(…, { dryRun: true })` over live's data since the old manual sync went (176).
          It becomes a step of the release that runs the new version's preview on live's records
          before that version takes over, and stops the release when a record fails the schema or
-         the invariants. Planned here before it is built.
-      7. The update channel for the plugin and the theme, the approved Space (2026-09-16): no
-         `v*` tag and no Spaces key exist yet; needed before the first brokerage's site reads
-         from live.
-      8. Personal data and credentials only where the design says, checked once and named in the
-         release note; the release note says who is told and in which words; the undo is live's
-         previous deployment.
-    - **The order:** step 1 and the Sentry triage first; on 207 a, a release as soon as staging
-      is green; then AC 24, AC 27 with AC 32, and AC 18; the threads' work in the plan's table;
-      the alerts seen arriving; the final release on Patric's "release". After it: the one-time
-      clean-up of known bug 3 leaves `main.ts` once live's log shows it ran, the old admin leaves
-      with item 30, strategy §9 and this file say the project is closed, and a `decisions.md` line
-      "Release <date>" is written.
+         the invariants. Built before the early release, and its result is in every release note.
+      3. The four criteria still pending, after 210 for AC 18 and AC 27: AC 18 (a smoke suite run
+         automatically after every staging deploy, and a test that reads both apps from the
+         platform: the line of work each deploys, the health-gated deploy, the old version kept on
+         a failed check), AC 24 (the restore drill: the cluster's backup restored onto a temporary
+         cluster, staging pointed at it until its subscribers converge, then back, and the copy
+         deleted), AC 27 and AC 32 (load and latency at 10× launch on a temporary database server
+         and app of their own, so the shared cluster, 1 vCPU, 1 GB and 15 GB of disk, is never
+         loaded; deleted the same day, well under $1).
+      4. Seven days on staging with no unresolved Sentry issue (strategy §9, phase 7): 57 open on
+         2026-10-18. The connection-slot and timeout issues, the missing `active` column and the
+         deleted admin's events page, none seen since 2026-10-07, are each checked against the
+         code and resolved when fixed; "Cannot use a pool after calling end on the pool"
+         (`flushPendingBells`, `checkAlerts`, `connectionsForProvider`: the worker's ticks still
+         run after shutdown ends the pool, and their rejections reach Sentry past the daily gate)
+         is fixed here; the Vitec ones go to their owners.
+      5. Alerts in place on both apps and one seen arriving: `ALERT_EMAIL` (the address in
+         `ADMIN_EMAILS`), and `MAIL_FROM` with `POSTMARK_SERVER_TOKEN` in each worker, where
+         `checkAlerts` runs; mail first arrives with question 100. Patric's own uptime monitor on
+         live's `/v1/health` (173), asked of him once the final release is out.
+      6. Live's settings at the release, in the live app's own spec: the pool `live` (12 by 167 c,
+         unless 206 changes it), `SENTRY_DSN`, `ADMIN_SECRET` removed, and the worker's mail
+         settings.
+      7. The first go-live list: the domain and its certificate answer; personal data and
+         credentials only where the design says, checked once and named in the release note; who
+         is told and in which words, written before the switch.
+    - **Before the first brokerage:** `TURNSTILE_SITE_KEY` with `TURNSTILE_SECRET` on live (known
+      bug 4: live refuses every form without them, by design; Patric creates them in Cloudflare);
+      the update channel for the plugin and the theme, the approved Space (2026-09-16), of which
+      no `v*` tag and no Spaces key exist yet; Vitec's notification address for live, which Patric
+      gives Vitec.
+    - **The order:** conditions 1, 2 and the Sentry triage first; on 207 a, the early release once
+      staging is green and the preview has run; then condition 3; the threads' work in the plan's
+      table; the alerts seen arriving; the final release on Patric's "release". After it: the
+      one-time clean-up of known bug 3 leaves `main.ts` once live's log shows it ran, the old admin
+      leaves with item 30, and a `decisions.md` line "Release <date>" is written. Then the first
+      brokerage, and the project is done.
     - Size: several sessions, most of them waiting on the threads in the table.
 
 ## Later, when Patric supplies them

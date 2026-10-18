@@ -4,10 +4,27 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 210 (206 is kept for the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28, so that thread records its answer under 206; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 211 (206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 210. `[core]` Reword two acceptance criteria for how Core runs today: the release path (AC 18) and the load test (AC 27)
+
+- 2026-10-18 · AC 18 reads "Merging to main deploys staging and runs the smoke suite automatically.
+  Production deploys only after approval. A failed production health check leaves the previous
+  version live." Since 2026-09-17 staging deploys from its own line of work and live from `main`
+  (strategy §4, README "Deploying"), and no smoke suite exists yet. AC 27 reads "Load test on
+  staging at 10x launch": staging shares its database server (1 vCPU, 1 GB, 15 GB of disk) with
+  live, and one tenant with 300,000 properties would fill that disk and load live. Proposed: AC 18
+  "A change saved to staging deploys staging and runs the smoke suite against it automatically.
+  Production deploys only after approval. A failed production health check leaves the previous
+  version live."; AC 27 "Load test on a temporary copy of staging, its own database server and
+  app, deleted after, at 10x launch:" and the rest unchanged. `acceptance/` is protected.
+- Blocked: the tests for AC 18 and AC 27 (item 33).
+- a) yes: reword both as proposed (recommended).
+- b) no: AC 27 runs on staging itself, on the database server live shares, and AC 18 stays as
+  written.
 
 ## 209. `[core]` `[crm-vitec]` `[client-wordpress]` Start the forms work now, on the list verified on 7 October
 
@@ -21,36 +38,58 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 - a) yes: go (recommended).
 - b) later: the forms wait until after the final release.
 
-## 208. `[core]` Default: the project closes on the plan's table, and what it marks Later waits for a new project
+## 208. `[core]` Default: the project is done when the first brokerage runs on live, and what the plan marks Later waits for a new project
 
 - 2026-10-18 · Patric: "work towards closing this project and getting it production ready". The
-  plan (`/mnt/project-files/release/final-release-plan.md`, "The work left, and who does it")
-  lists every open piece of work with its thread, what it waits on, and whether it comes before
-  the final release, before the first brokerage's site goes live, or Later. Later: searching by a
-  sentence and the other AI ideas (explored only), Mspecs (waits on an agreement with Mspecs),
-  other clients' sites and the porting factory (items 16 and 19, question 80), and the written
-  guidance for implementers (item 13). The debloat of the old admin (item 27) is closed, replaced
-  by the new admin (item 30). Once this stands, `next-steps.md` follows the table.
+  plan (`/mnt/project-files/release/final-release-plan.md`) takes the strategy's last gate (§9,
+  Gate 4: the first production tenant) as the end: the early release (207), the final release,
+  then the first brokerage on live with its forms, lists, Vitec's notifications and the update
+  channel. Its table lists every open piece of work with its thread, what it waits on, and when it
+  comes. Later: searching by a sentence and the other AI ideas (explored only), Mspecs (waits on an
+  agreement with Mspecs), other clients' sites and a tool that moves them (items 16 and 19,
+  question 80), and the written guidance for people who build sites on Core (item 13). Making the
+  old admin smaller (item 27) is closed, replaced by the new admin (item 30). Which brokerage goes
+  first is asked when the final release is near. Once this stands, `next-steps.md` follows the
+  table.
 - Blocked: nothing; silence agrees.
 - Reply only if you disagree: no, and which row.
 
-## 207. `[core]` Release staging to live as soon as staging's checks are green, before the rest is finished
+## 207. `[core]` Release staging to live once staging is green and the preview has run, before the rest is finished
 
-- 2026-10-18 · Live runs the state of 2026-09-23 with the pool fix of 2026-10-06 (`main` at
-  d420ba1); staging is 342 changes ahead, with twelve migrations (010 to 021) live has never run,
-  the one-time clean-up of the stored logins (known bug 3), the forms guard and the new admin as
-  far as it is built. On 2026-10-03 Patric said "keep on staging for now". No connection on live
+- 2026-10-18 · Live runs the version of 23 September with the fix of 6 October; staging is 342
+  changes ahead. On 2026-10-03 Patric said "keep on staging for now". No CRM connection on live
   is recorded anywhere, so no customer uses it (read from the records; confirmed in live's admin
-  before the release). Releasing now runs the migrations and the new settings on live while
-  nothing depends on it, and leaves the final release only what is built after. The release
-  waits for: the enforced checks green on staging (green on 2026-10-18), staging's health green
-  (red: `vitec.retries`, which the thread "Proper error messages in admin" is fixing), the
-  acceptance report made again (known bug 6, item 33), and live's settings in its own spec: the
-  pool `live` (12 by 167 c unless 206 changes it), `SENTRY_DSN`, and `ADMIN_SECRET` removed.
-  Undo: live's previous deployment, in one step.
+  before the release). Releasing now tries every new database change, setting and one-time step
+  on live while nothing depends on it, and leaves the final release only what is built after.
+  What it waits for: the automatic checks green on staging (green on 2026-10-18), staging's health
+  check green (red on 2026-10-18: five records that could not load, which the thread "Proper error
+  messages in admin" is clearing), the acceptance report made again, the preview built and run on
+  live's records, the release note, and live's settings (its 12 database connections by 167 c
+  unless 206 changes that, the error reports, and the old admin password it no longer uses
+  removed). Undo: this release changes how live's database is laid out, and the old version cannot read the
+  new layout (item 33, "The undo"), so going back needs live's database set back from its backup
+  as well as the old version; with no customer on live a fault is fixed forward through staging.
+  Releases after it keep a one-step undo (strategy §6).
 - Blocked: the early release.
-- a) yes: release as soon as staging is green (recommended).
+- a) yes: release once staging is green and the preview has run (recommended).
 - b) no: live stays as it is until the final release.
+
+## 206. `[core]` Should Core's database make room for other apps? (asked in chat as 88)
+
+- 2026-10-18 · Asked in the thread "Database connection slots" as 88, a number closed on
+  2026-09-28, and written here by the thread "Get Core production ready" so the register holds it.
+  The database server has 22 usable connections. Staging and live each reach their database
+  through a pool of their own (a pool lends its database's connections to whichever process has a
+  query; DigitalOcean shares the 22 between the pools by their size). Staging's pool is 6; 167 c
+  gives live a pool of 12 at the release. Patric asked whether idle apps reserve connections: they
+  do not; a pool's size is the most real connections its database can have at the same moment,
+  and the database refuses a connection beyond the 22 rather than queueing it.
+- Blocked: the size of live's pool at the release (12 until answered), and closing that thread.
+- a) nothing changes: staging keeps 6, live gets 12.
+- b) make room: staging's pool shrinks from 6 to 3 now and live gets 6 at the release instead of
+  12; 6 + 3 = 9 leaves 13 for another app (recommended).
+- c) a write-up of what giving staging its own database involves, at $15.15 a month more;
+  nothing is bought until Patric says yes.
 
 ## 205. `[admin]` Approve the design of the records list, the record page and the manual sync
 
