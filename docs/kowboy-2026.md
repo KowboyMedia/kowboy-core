@@ -402,11 +402,11 @@ Kowboy's chat when a site adds it, without any code edit by the customer. The ch
 own WordPress plugin or script line; the theme only cooperates, in two places:
 
 - **The form buttons ask the chat first.** A click on a button marked `data-k-form` calls
-  `window.kowbot.open()` with the chat's name for the form (interest → `interest`, viewing →
+  `window.kowboyChat.open()` with the chat's name for the form (interest → `interest`, viewing →
   `booking`, lead → `valuation`). When the chat answers that it took the request, the theme's
   window stays closed; when it cannot (no chat on the site, another page, the offer off), the window
   opens as always. A site with the chat needs no button settings on the chat's side.
-- **The property page names its home** for the chat: `data-kowbot-listing-id` on the page's
+- **The property page names its home** for the chat: `data-kowboy-chat-listing-id` on the page's
   wrapper carries the record's `id` (the CRM's id, `docs/field-tables.md`).
 
 ## Order of work
