@@ -90,10 +90,8 @@ export const api = {
   addWebsite: (id: number, website: { label: string; bellUrl: string }) =>
     post<{ id: number }>(`/brokerages/${String(id)}/websites`, website),
   removeWebsite: (id: number) => post<{ ok: true }>(`/websites/${String(id)}/remove`, {}),
-  addConnection: (
-    id: number,
-    connection: { provider: string; name: string; login: Record<string, string> },
-  ) => post<{ id: string }>(`/brokerages/${String(id)}/connections`, connection),
+  addConnection: (id: number, connection: { provider: string; login: Record<string, string> }) =>
+    post<{ id: string; name: string }>(`/brokerages/${String(id)}/connections`, connection),
   changeLogin: (connection: string, login: Record<string, string>) =>
     post<{ ok: true }>(`/connections/${encodeURIComponent(connection)}/login`, { login }),
   formsTestMode: (connection: string, on: boolean) =>

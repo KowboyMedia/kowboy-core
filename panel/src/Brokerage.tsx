@@ -485,14 +485,14 @@ function ConnectWindow({
   const { away } = useShell();
   const note = useNote();
   const short = shortName(page.name);
-  const form = useConnectForm(crm, `${short} ${crm.name}`);
+  const form = useConnectForm(crm);
   const save = async () => {
     form.setBusy(true);
     form.setError(null);
     try {
-      await connect(page.id, crm, form.connectionName, form.login);
+      const { name } = await connect(page.id, crm, form.login);
       note({
-        text: `${crm.name} accepted the login. “${form.connectionName.trim()}” is saved, and Core is loading its data.`,
+        text: `${crm.name} accepted the login. “${name}” is saved, and Core is loading its data.`,
       });
       onDone();
     } catch (error) {

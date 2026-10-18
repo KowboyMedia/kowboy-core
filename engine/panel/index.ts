@@ -254,10 +254,10 @@ const BROKERAGE_CHANGES: Record<string, BrokerageChange> = {
   connections: async (id, given) => {
     const done = await addConnection(
       id,
-      { provider: text(given['provider']), name: text(given['name']), login: given['login'] },
+      { provider: text(given['provider']), login: given['login'] },
       settings().credentialsKey,
     );
-    return done.ok ? answer(201, { id: done.value }) : refusal(done.why);
+    return done.ok ? answer(201, done.value) : refusal(done.why);
   },
   // The forms of the brokerage the Inbox listed, sent to the CRM again one at a time.
   resend: async (id, given) => {
