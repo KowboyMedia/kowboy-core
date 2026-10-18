@@ -183,7 +183,7 @@ function Login({ card, now, onOpen }: { card: LoginCard; now: Date; onOpen: Open
       if (connection && crm) onOpen({ kind: 'login', card, crm, connection });
       else note({ text: GONE, icon: 'warn' });
     } catch (error) {
-      if (!away(error)) note({ text: failureWords(error), icon: 'warn', stays: true });
+      if (!away(error)) note({ text: failureWords(error), icon: 'warn' });
     }
     setBusy(false);
   };
@@ -241,12 +241,17 @@ function siteCause(card: SiteCard, now: Date): string {
   if (code === '401' || code === '403') {
     return `The website refuses Core’s change notices (it answered ${code}${at}): its bell secret doesn’t match Core’s.`;
   }
-  if (code)
-    return `The website answers Core’s change notices with an error (it answered ${code}${at}).`;
-  if (card.lastAnswer === 'failed')
-    return `The website doesn’t answer Core’s change notices (no answer${at}).`;
+  if (code === '404') {
+    return `The website has nothing at the bell address Core sends change notices to (it answered 404${at}): the part of the website that takes them may be switched off, or the website may have been added with a wrong bell address.`;
+  }
+  if (code) {
+    return `The website answers Core’s change notices with an error (it answered ${code}${at}). The fault is at the website, not in Core or a CRM: whoever runs the website finds the reason in its error log.`;
+  }
+  if (card.lastAnswer === 'failed') {
+    return `The website doesn’t answer Core’s change notices (no answer${at}): it is down or slow, or the bell address it was added with is wrong. Check that the website opens in a browser.`;
+  }
   if (card.lastAnswer === 'ok') {
-    return `The website takes Core’s change notices (the last${at}) but doesn’t fetch the changes: the tenant token it uses may not be Core’s.`;
+    return `The website takes Core’s change notices (the last${at}) but doesn’t fetch the changes: the tenant token it uses may not be Core’s. Compare it with the tenant token on the brokerage’s page.`;
   }
   return 'Core can’t tell why from the website’s answers.';
 }
@@ -334,7 +339,7 @@ function Records({ card, now, onRetried }: { card: RecordsCard; now: Date; onRet
       );
       onRetried(card);
     } catch (error) {
-      if (!away(error)) note({ text: failureWords(error), icon: 'warn', stays: true });
+      if (!away(error)) note({ text: failureWords(error), icon: 'warn' });
     }
     setBusy(false);
   };
@@ -645,7 +650,7 @@ function MaintenanceBanner({
       note({ text: 'Maintenance is off. Held changes are going out to the websites.' });
       onDone();
     } catch (error) {
-      if (!away(error)) note({ text: failureWords(error), icon: 'warn', stays: true });
+      if (!away(error)) note({ text: failureWords(error), icon: 'warn' });
     }
     setBusy(false);
   };
@@ -816,7 +821,9 @@ const KINDS: Record<KeptForm['kind'], string> = {
 
 /** Why the CRM did not take a form: "Vitec didn’t answer (20 s)". */
 function formCause(form: KeptForm, crm: string, seconds: number): string {
-  if (form.answer === 'refused') return `${crm} refused it`;
+  if (form.answer === 'refused') {
+    return form.said ? `${crm} refused it, saying “${form.said}”` : `${crm} refused it`;
+  }
   if (form.answer === 'error') return `${crm} answered with an error`;
   return `${crm} didn’t answer (${String(seconds)} s)`;
 }
@@ -826,6 +833,8 @@ function resentNote(results: Resent[], crm: string): { text: string; icon?: 'war
   const n = results.length;
   const delivered = results.filter((one) => one.outcome === 'delivered').length;
   const held = results.filter((one) => one.outcome === 'held').length;
+  const unsent = results.filter((one) => one.outcome === 'not-sent').length;
+  const them = n === 1 ? 'it' : 'them';
   if (n === 0)
     return { text: 'Core no longer keeps these forms, so nothing was sent.', icon: 'warn' };
   if (delivered === n) {
@@ -840,7 +849,14 @@ function resentNote(results: Resent[], crm: string): { text: string; icon?: 'war
   }
   if (held === n) {
     return {
-      text: `Core held ${n === 1 ? 'it' : 'them'} back: forms test mode is on, or this Core doesn’t send forms to ${crm}.`,
+      text: `Core held ${them} back: forms test mode is on, or this Core doesn’t send forms to ${crm}.`,
+      icon: 'warn',
+    };
+  }
+  if (unsent === n) {
+    // Core itself sent nothing: another send had it, the CRM took it meanwhile, or Core can't send it.
+    return {
+      text: `Core didn’t send ${them} again: ${n === 1 ? 'it was on its' : 'they were on their'} way to ${crm} already or ${crm} had taken ${them}, or Core can no longer send ${them}. Reload the page to see what is left.`,
       icon: 'warn',
     };
   }

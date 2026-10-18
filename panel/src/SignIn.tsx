@@ -148,7 +148,11 @@ export function SignInPage() {
   }, [navigate]);
 
   if (!facts) {
-    return <Gate instance={null}>{failed && <p className="k-under k-error">{failed}</p>}</Gate>;
+    return (
+      <Gate instance={null}>
+        {failed && <p className="k-under k-error">{failed} Reload the page to try again.</p>}
+      </Gate>
+    );
   }
   if (sent) {
     return (
@@ -225,7 +229,9 @@ export function LinkPage() {
     return (
       <Gate instance={facts?.instance ?? null}>
         <p className="k-under k-error">
-          {state === 'unreachable' ? `${failure} Then open the link in the mail again.` : failed}
+          {state === 'unreachable'
+            ? `${failure} To try again, open the link in the mail again.`
+            : `${failed ?? ''} Reload the page to try again.`}
         </p>
       </Gate>
     );

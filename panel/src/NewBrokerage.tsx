@@ -123,7 +123,7 @@ function NameStep({ id }: { id: number | null }) {
   const navigate = useNavigate();
   const { away } = useShell();
   const crm = useCrmName();
-  const { page } = useBrokerage(id);
+  const { page, failed } = useBrokerage(id);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -191,6 +191,7 @@ function NameStep({ id }: { id: number | null }) {
           <p className="k-help">Core creates the brokerage and its tenant token.</p>
         </div>
       </form>
+      {made && failed && !page && <p className="k-error">{failed} Reload the page to try again.</p>}
       {error && <p className="k-error">{error}</p>}
     </Wizard>
   );
@@ -284,7 +285,7 @@ function WebsiteStep({ id }: { id: number }) {
   const { away } = useShell();
   const [params] = useSearchParams();
   const crm = useCrmName();
-  const { page } = useBrokerage(id);
+  const { page, failed } = useBrokerage(id);
   const [draft, setDraft] = useState(newWebsite);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -338,7 +339,8 @@ function WebsiteStep({ id }: { id: number }) {
         </>
       }
     >
-      <h2 className="k-step-title">Add {owning(shortName(page?.name ?? ''))} website</h2>
+      {page && <h2 className="k-step-title">Add {owning(shortName(page.name))} website</h2>}
+      {failed && !page && <p className="k-error">{failed} Reload the page to try again.</p>}
       <WebsiteFields draft={draft} onChange={setDraft} />
       {error && <p className="k-error">{error}</p>}
     </Wizard>
@@ -389,7 +391,7 @@ function CheckStep({ id }: { id: number }) {
       }
     >
       <h2 className="k-step-title">Almost there</h2>
-      {failed && !page && <p className="k-error">{failed}</p>}
+      {failed && !page && <p className="k-error">{failed} Reload the page to try again.</p>}
       {page && (
         <ul className="k-checks">
           <Done title="Brokerage created">Tenant token ready.</Done>

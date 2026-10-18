@@ -4,10 +4,24 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 211 (206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 213 (206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 212. `[core]` `[admin]` Keep a website's own answer to Core's change notice, so the card "stopped updating" can quote it
+
+- 2026-10-18 · When a website answers Core's change notice with an error, Core keeps only the answer
+  code, such as 500, and when it does not answer, only that it did not. The card "{website}
+  stopped updating" now says whose fault it is and what to check, but cannot quote the website's
+  own words: its error message, or why it did not answer (no such address, connection refused,
+  no answer within 10 seconds). Proposed: one new column on the website's row in Core's
+  database, holding the first 300 characters of the website's answer or the reason it did not
+  answer, replaced at each notice; the card quotes it after the answer code.
+- Blocked: nothing; until then the card names the answer code only.
+- a) yes: keep the answer and quote it on the card (recommended: it is the error's own message
+  you asked for).
+- b) no: the card keeps the answer code only.
 
 ## 210. `[core]` Reword two acceptance criteria for how Core runs today: the release path (AC 18) and the load test (AC 27)
 

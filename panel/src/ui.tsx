@@ -26,9 +26,14 @@ import {
 export type Note = {
   text: ReactNode;
   icon?: 'done' | 'warn' | 'off';
-  /** A failure stays until it is closed, so its words can be read and passed on. */
+  /**
+   * The note stays until it is closed, so its words can be read and passed on: every warning does,
+   * unless it says otherwise.
+   */
   stays?: boolean;
 };
+
+const staying = (note: Note): boolean => note.stays ?? note.icon === 'warn';
 
 const Notes = createContext<(note: Note) => void>(() => undefined);
 
@@ -36,6 +41,8 @@ const Notes = createContext<(note: Note) => void>(() => undefined);
 export const useNote = (): ((note: Note) => void) => useContext(Notes);
 
 const NOTE_MS = 8_000;
+/** The most notes the corner shows; past that, the oldest one that goes by itself goes first. */
+const MOST_NOTES = 3;
 
 export function NoteProvider({ children }: { children: ReactNode }) {
   const [notes, setNotes] = useState<(Note & { id: number })[]>([]);
@@ -48,8 +55,15 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     (note: Note) => {
       next.current += 1;
       const id = next.current;
-      setNotes((shown) => [...shown.slice(-2), { ...note, id }]);
-      if (!note.stays) setTimeout(() => close(id), NOTE_MS);
+      setNotes((shown) => {
+        const kept = [...shown];
+        while (kept.length >= MOST_NOTES) {
+          const passing = kept.findIndex((one) => !staying(one));
+          kept.splice(Math.max(passing, 0), 1);
+        }
+        return [...kept, { ...note, id }];
+      });
+      if (!staying(note)) setTimeout(() => close(id), NOTE_MS);
     },
     [close],
   );
@@ -67,7 +81,7 @@ export function NoteProvider({ children }: { children: ReactNode }) {
               <CircleCheckIcon />
             )}
             <span>{note.text}</span>
-            {note.stays && (
+            {staying(note) && (
               <button
                 type="button"
                 className="k-modal-close k-note-close"

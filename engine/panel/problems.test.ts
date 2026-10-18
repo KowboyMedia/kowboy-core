@@ -564,7 +564,7 @@ describe('reloading all of a brokerage’s data', () => {
     let reload = (await page()).reload;
     expect(reload).toMatchObject({
       state: 'rebuilding',
-      failed: false,
+      failure: null,
       removedCount: 1,
       removed: [
         { datatype: 'property', crm: 'Somecrm', name: 'Kopparbergsvägen 8, Västerås', id: 'P-2' },
@@ -591,6 +591,12 @@ describe('reloading all of a brokerage’s data', () => {
     expect(reload?.state).toBe('done');
     expect(reload?.doneAt).not.toBeNull();
     expect(reload?.sites[0]?.reloadedAt).not.toBeNull();
+
+    // A fetch that failed is told in the words of the CRM's code, without the error's type.
+    await db().query(
+      `update reloads set error = 'Error: Somecrm answered HTTP 500; TypeError: x is not a function'`,
+    );
+    expect((await page()).reload?.failure).toBe('Somecrm answered HTTP 500; x is not a function');
   });
 
   it('tells the websites to reload at once when the brokerage has no connection', async () => {

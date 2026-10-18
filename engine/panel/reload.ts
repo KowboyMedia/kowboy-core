@@ -28,8 +28,11 @@ export type ReloadView = {
   state: 'fetching' | 'rebuilding' | 'done';
   /** When the last website began its reload, or the fetch ended when there was none. */
   doneAt: string | null;
-  /** A CRM's code could not finish its fetch; the websites reloaded what Core holds. */
-  failed: boolean;
+  /**
+   * Why a CRM's code could not finish its fetch, in its own words; the websites reloaded what Core
+   * holds. Null when every fetch finished.
+   */
+  failure: string | null;
   /** What was removed, the first of them; `removedCount` counts them all. */
   removed: Removed[];
   removedCount: number;
@@ -80,6 +83,15 @@ export async function startReload(tenantId: number, by: string): Promise<boolean
   return true;
 }
 
+/** The fetches' errors as a person reads them: without the error's type, one line, short. */
+const failureOf = (error: string): string =>
+  error
+    .replace(/(^|; )\w*Error: /g, '$1')
+    .replace(/\s+/g, ' ')
+    .slice(0, 300)
+    .replace(/[\s.;]+$/, '')
+    .trim();
+
 type ReloadRow = {
   id: string;
   started_at: Date;
@@ -112,7 +124,7 @@ export async function reloadOf(tenantId: number): Promise<ReloadView | null> {
     startedAt: reload.started_at.toISOString(),
     state: reload.rebuilt_at === null ? 'fetching' : done ? 'done' : 'rebuilding',
     doneAt: done ? last || (reload.rebuilt_at?.toISOString() ?? null) : null,
-    failed: reload.error !== null,
+    failure: reload.error === null ? null : failureOf(reload.error),
     removed: removed.named,
     removedCount: removed.count,
     sites,

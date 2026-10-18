@@ -3,10 +3,13 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { api, signedOut, type Me } from './api';
+import { failureWords } from './failure';
 import { TopBar, type Tab } from './TopBar';
 import { NoteProvider } from './ui';
 
 const EVERY_MS = 30_000;
+/** How soon the shell asks again who is signed in, when Core did not say. */
+const AGAIN_MS = 10_000;
 
 type ShellParts = {
   /** The Inbox page knows its own count and says it here, so the bar never waits for it. */
@@ -37,6 +40,8 @@ export function Shell({
 }) {
   const navigate = useNavigate();
   const [me, setMe] = useState<Me | null>(null);
+  /** What went wrong when Core did not say who is signed in; asked again until it does. */
+  const [failed, setFailed] = useState<string | null>(null);
   const [count, setCount] = useState(0);
 
   const away = useCallback(
@@ -49,7 +54,27 @@ export function Shell({
   );
 
   useEffect(() => {
-    api.me().then(setMe, away);
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const ask = () => {
+      api.me().then(
+        (who) => {
+          if (stopped) return;
+          setMe(who);
+          setFailed(null);
+        },
+        (error: unknown) => {
+          if (stopped || away(error)) return;
+          setFailed(failureWords(error));
+          timer = setTimeout(ask, AGAIN_MS);
+        },
+      );
+    };
+    ask();
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
   }, [away]);
 
   useEffect(() => {
@@ -62,7 +87,15 @@ export function Shell({
     return () => clearInterval(timer);
   }, [away, ownCount]);
 
-  if (!me) return null;
+  if (!me) {
+    return failed ? (
+      <main className="k-page">
+        <p className="k-quiet" role="status">
+          {failed} The page tries again by itself.
+        </p>
+      </main>
+    ) : null;
+  }
   return (
     <Parts.Provider value={{ setCount, away, me }}>
       <NoteProvider>

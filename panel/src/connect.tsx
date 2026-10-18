@@ -17,9 +17,16 @@ export const shortName = (name: string): string => name.trim().split(/\s+/)[0] ?
 /** "Fyrbåk’s", "Sjöbris’". */
 export const owning = (name: string): string => (name.endsWith('s') ? `${name}’` : `${name}’s`);
 
-/** Why Core did not save a login, for the person who typed it. */
+/**
+ * Why Core did not save a login, for the person who typed it: in the words of the CRM's code when
+ * Core gave them, which say whether the CRM refused the login, didn't answer or holds nothing
+ * behind it.
+ */
 export function loginRefusal(error: unknown, crm: string): string {
   if (error instanceof Refused) {
+    if (error.said && (error.status === 422 || error.status === 502)) {
+      return `Nothing is saved. ${error.said}`;
+    }
     if (error.status === 422) {
       return `${crm} refused this login, so nothing is saved. Check the fields and try again.`;
     }

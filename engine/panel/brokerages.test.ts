@@ -59,7 +59,8 @@ const somecrm: Adapter = {
     probe: (credentials) => {
       asked.probes.push(credentials);
       const login = JSON.parse(credentials) as Record<string, string>;
-      return Promise.resolve({ ok: login['password'] === GOOD, detail: '' });
+      const ok = login['password'] === GOOD;
+      return Promise.resolve({ ok, detail: ok ? '' : 'Somecrm does not know this password.' });
     },
   },
   submit: (connection) => {
@@ -259,7 +260,8 @@ describe('a new brokerage and its CRM login', () => {
       login: { account: 'G12', password: 'wrong', system: 'live' },
     });
     expect(status).toBe(422);
-    expect(json['error']).toBe('login');
+    // The words of the CRM's code say why, for the login window to show.
+    expect(json).toEqual({ error: 'login', message: 'Somecrm does not know this password.' });
     expect(asked.probes).toHaveLength(1);
     const { rows } = await db().query('select 1 from connections');
     expect(rows).toHaveLength(0);
@@ -502,13 +504,53 @@ describe('what a person is told when Core fails at what they asked', () => {
         'The part of Core that talks to Somecrm failed, and its error said “relation "somecrm_state" does not exist”. This is a fault in Core, not at Somecrm or in the login, so pass these words on to Core’s developers.',
     });
 
-    // Core's database refusing it is no fault in Core's code, and passes by itself.
+    // Core's database refusing it is no fault in Core's code, and the press can be tried again.
     actFails = Object.assign(new Error('sorry, too many clients already'), { code: '53300' });
     expect((await call('/connections/main/act', { action: 'check_offices' })).json).toEqual({
       error: 'crm',
       message:
-        'Core couldn’t use its database, and the database’s error said “sorry, too many clients already”. This is Core’s database, not Somecrm or a login: Core carries on by itself once the database answers, so if this lasts more than a few minutes, pass these words on to Core’s developers.',
+        'Core couldn’t use its database, and the database’s error said “sorry, too many clients already”. This is Core’s own database, not Somecrm or its login. Try again in a few minutes; if it still fails, pass these words on to Core’s developers.',
     });
+  });
+
+  it('says Core’s database failed before Core knew who asks, without the database’s own words', async () => {
+    // The session lookup is the first thing every signed-in request asks the database.
+    await db().query(
+      `create function panel_test_full() returns trigger language plpgsql as $$
+       begin raise exception 'sorry, too many clients already' using errcode = '53300'; end $$`,
+    );
+    await db().query(
+      `create trigger panel_test_full before update on admin_sessions
+       for each row execute function panel_test_full()`,
+    );
+    try {
+      const whose =
+        'Core couldn’t use its database just now. This is Core’s own database, not a CRM or a CRM login.';
+      expect(await call('/inbox')).toEqual({
+        status: 503,
+        json: {
+          error: 'database',
+          message: `${whose} If this lasts more than a few minutes, pass these words on to Core’s developers.`,
+        },
+      });
+      expect(await call('/problems/act', { key: 'site:1' })).toEqual({
+        status: 503,
+        json: {
+          error: 'database',
+          message: `${whose} Try again in a few minutes; if it still fails, pass these words on to Core’s developers.`,
+        },
+      });
+    } finally {
+      await db().query('drop trigger panel_test_full on admin_sessions');
+      await db().query('drop function panel_test_full()');
+    }
+    // Any other failure there is answered without words: Core doesn't know who is asking.
+    await db().query('alter table admin_sessions rename to admin_sessions_away');
+    try {
+      expect(await call('/inbox')).toEqual({ status: 500, json: { error: 'internal error' } });
+    } finally {
+      await db().query('alter table admin_sessions_away rename to admin_sessions');
+    }
   });
 
   it('answers an error nobody expected with Core’s own words, to a person signed in only', async () => {

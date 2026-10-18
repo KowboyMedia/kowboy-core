@@ -44,7 +44,7 @@ import { actOn } from './problems.js';
 import { resendForms } from './forms.js';
 import { startReload } from './reload.js';
 import { retryRecords } from './records.js';
-import { failureWords } from './failure.js';
+import { databaseFailed, databaseWords, failureWords } from './failure.js';
 
 type PanelConfig = AuthSettings & Pick<Config, 'environment' | 'port'>;
 
@@ -78,6 +78,31 @@ function body(request: Request): Record<string, unknown> | null {
     return null;
   }
 }
+
+/**
+ * An error before Core knows who asks: reported, and answered with the database's fixed words when
+ * the database failed, since the error's own words are only for a signed-in person (failure.ts).
+ */
+function unusable(error: unknown, request: Request): Response {
+  report(error, { where: 'panel', path: request.path });
+  return databaseFailed(error)
+    ? answer(503, {
+        error: 'database',
+        message: databaseWords({ reading: request.method === 'GET' }),
+      })
+    : answer(500, { error: 'internal error' });
+}
+
+/** A handler for anyone, signed in or not, that uses the database. */
+const anyone =
+  (handler: (request: Request) => Promise<Response>) =>
+  async (request: Request): Promise<Response> => {
+    try {
+      return await handler(request);
+    } catch (error) {
+      return unusable(error, request);
+    }
+  };
 
 /** Core's own address, where the link in the mail points: PUBLIC_URL, never a request's Host. */
 const base = (): string => settings().publicUrl ?? `http://localhost:${String(settings().port)}`;
@@ -126,7 +151,7 @@ function requestLink(request: Request): Response {
 }
 
 /** `POST /v1/panel/sign-in/link`: open the link from the mail, which signs in this device. */
-async function useLink(request: Request): Promise<Response> {
+const useLink = anyone(async (request) => {
   const given = body(request);
   if (!given) return answer(415, { error: 'send JSON' });
   const token = typeof given['token'] === 'string' ? given['token'] : '';
@@ -138,7 +163,7 @@ async function useLink(request: Request): Promise<Response> {
     { email: session.email, until: session.expiresAt.toISOString() },
     { 'set-cookie': sessionCookie(session, settings()) },
   );
-}
+});
 
 type Signed = { email: string; expiresAt: Date };
 
@@ -149,13 +174,21 @@ type Signed = { email: string; expiresAt: Date };
 const signedIn =
   (handler: (request: Request, person: Signed) => Promise<Response> | Response) =>
   async (request: Request): Promise<Response> => {
-    const person = await sessionFor(tokenFrom(request.headers['cookie']), settings());
+    let person: Signed | null;
+    try {
+      person = await sessionFor(tokenFrom(request.headers['cookie']), settings());
+    } catch (error) {
+      return unusable(error, request);
+    }
     if (!person) return answer(401, { error: 'signed out' });
     try {
       return await handler(request, person);
     } catch (error) {
       report(error, { where: 'panel', path: request.path });
-      return answer(500, { error: 'internal error', message: failureWords(error) });
+      const message = failureWords(error, { reading: request.method === 'GET' });
+      return databaseFailed(error)
+        ? answer(503, { error: 'database', message })
+        : answer(500, { error: 'internal error', message });
     }
   };
 
@@ -169,11 +202,11 @@ const me = signedIn((_request, person) =>
 );
 
 /** `POST /v1/panel/sign-out`: this device only. */
-async function signOut(request: Request): Promise<Response> {
+const signOut = anyone(async (request) => {
   if (!isJson(request)) return answer(415, { error: 'send JSON' });
   await endSession(tokenFrom(request.headers['cookie']), settings());
   return answer(200, { ok: true }, { 'set-cookie': clearedCookie(settings()) });
-}
+});
 
 /** `GET /v1/panel/inbox`: what needs a person now. */
 const inboxRoute = signedIn(async () => answer(200, await inbox()));
@@ -268,7 +301,7 @@ const BROKERAGE_CHANGES: Record<string, BrokerageChange> = {
       { provider: text(given['provider']), login: given['login'] },
       settings().credentialsKey,
     );
-    return done.ok ? answer(201, done.value) : refusal(done.why);
+    return done.ok ? answer(201, done.value) : refusal(done.why, done.said);
   },
   // The forms of the brokerage the Inbox listed, sent to the CRM again one at a time.
   resend: async (id, given) => {
@@ -313,7 +346,7 @@ const connectionChange = change(async (request, given, person) => {
   if (!id) return missing();
   if (what === 'login') {
     const done = await changeLogin(id, given['login'], settings().credentialsKey, person.email);
-    return done.ok ? answer(200, { ok: true }) : refusal(done.why);
+    return done.ok ? answer(200, { ok: true }) : refusal(done.why, done.said);
   }
   if (what === 'forms-test-mode') {
     return (await setFormsTestMode(id, given['on'] === true))

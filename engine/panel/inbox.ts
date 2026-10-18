@@ -51,6 +51,8 @@ export type KeptForm = {
   site: string | null;
   /** The CRM refused it, did not answer in time, or answered with an error. */
   answer: 'refused' | 'none' | 'error';
+  /** The CRM's own words for why it refused the form, when it gave them; null otherwise. */
+  said: string | null;
 };
 
 /** The forms one brokerage's websites sent that the CRM did not take, which Core keeps. */
@@ -334,6 +336,7 @@ async function formsCards(names: Known): Promise<FormsCard[]> {
           sentAt: row.received_at.toISOString(),
           site: sites.get(row.id) ?? null,
           answer: answerOf(row),
+          said: row.outcome === 'refused' ? row.detail?.trim() || null : null,
         })),
       waitSeconds: SUBMISSION_TIMEOUT_MS / 1000,
       crms: [...new Set(rows.map((row) => crmName(row.provider ?? '')).filter(Boolean))],

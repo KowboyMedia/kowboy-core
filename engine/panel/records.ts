@@ -85,7 +85,7 @@ async function askEach(
       await admin.act(RETRY_RECORDS, { records: JSON.stringify(records) }, theirs);
     } catch (error) {
       report(error, { where: 'panel retry records', provider, records: records.length });
-      return { ok: false, why: 'crm', said: failureWords(error, crmName(provider)) };
+      return { ok: false, why: 'crm', said: failureWords(error, { crm: crmName(provider) }) };
     }
   }
   return null;

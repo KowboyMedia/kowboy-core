@@ -67,18 +67,31 @@ function usePage(id: number, fast: boolean) {
   const [page, setPage] = useState<Brokerage | null>(null);
   const [state, setState] = useState<Load>('loading');
   const [failure, setFailure] = useState('');
-  const load = useCallback(async () => {
+  /** The reads asked for, and the latest whose page is shown: an older answer comes too late. */
+  const asked = useRef(0);
+  const shown = useRef(0);
+  /** Read the page again: null once it shows this read or a later one, else what went wrong. */
+  const load = useCallback(async (): Promise<string | null> => {
+    asked.current += 1;
+    const read = asked.current;
     try {
-      setPage(await api.brokerage(id));
+      const next = await api.brokerage(id);
+      if (read < shown.current) return null;
+      shown.current = read;
+      setPage(next);
       setState('ok');
+      return null;
     } catch (error) {
-      if (away(error)) return;
+      if (read < shown.current) return null;
+      if (away(error)) return null;
       if (error instanceof Refused && error.status === 404) {
         setState('missing');
-        return;
+        return GONE;
       }
-      setFailure(failureWords(error));
+      const words = failureWords(error);
+      setFailure(words);
       setState((was) => (was === 'ok' ? 'ok' : 'failed'));
+      return words;
     }
   }, [id, away]);
   useEffect(() => {
@@ -211,8 +224,8 @@ function AddWebsiteWindow({
   onClose,
 }: {
   page: Brokerage;
-  /** Read the page again, so the window shows the website Core saved. */
-  onAdded: () => void;
+  /** Read the page again, so the window shows the website Core saved: what went wrong, if it did. */
+  onAdded: () => Promise<string | null>;
   onClose: () => void;
 }) {
   const { away } = useShell();
@@ -220,10 +233,16 @@ function AddWebsiteWindow({
   const [draft, setDraft] = useState(newWebsite);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** The website saved, with the page as read before it was: until the page is read again. */
-  const [added, setAdded] = useState<{ id: number; platform: Platform; before: Brokerage } | null>(
-    null,
-  );
+  /**
+   * The website saved: while the page is read again (`reading`), and why that read failed, if it
+   * did. Only a read after the save can tell the website is gone.
+   */
+  const [added, setAdded] = useState<{
+    id: number;
+    platform: Platform;
+    reading: boolean;
+    failed: string | null;
+  } | null>(null);
   const website = added ? page.websites.find((one) => one.id === added.id) : undefined;
 
   const save = async () => {
@@ -234,9 +253,10 @@ function AddWebsiteWindow({
         label: draft.label.trim(),
         bellUrl: draft.bellUrl.trim(),
       });
-      setAdded({ id, platform: draft.platform, before: page });
-      onAdded();
+      setAdded({ id, platform: draft.platform, reading: true, failed: null });
       note({ text: `${draft.label.trim()} added.` });
+      const failed = await onAdded();
+      setAdded((was) => was && { ...was, reading: false, failed });
     } catch (failure) {
       if (away(failure)) return;
       setError(
@@ -279,9 +299,11 @@ function AddWebsiteWindow({
               platform={added.platform}
             />
           </>
-        ) : added.before === page ? (
+        ) : added.reading ? (
           // Saved: the page is being read again, so the window can show the new website.
           <LoaderIcon className="k-spin" size={18} />
+        ) : added.failed ? (
+          <p className="k-error">{added.failed} The page tries again by itself.</p>
         ) : (
           <p className="k-quiet">{GONE}</p>
         )}
@@ -618,7 +640,7 @@ function OfficesWindow({
         </>
       }
     >
-      {failed && <p className="k-error">{failed}</p>}
+      {failed && <p className="k-error">{failed} Reload the page to try again.</p>}
       {offices && offices.length === 0 && (
         <p className="k-quiet k-quiet-tight">Core holds no offices for this connection yet.</p>
       )}
@@ -1021,17 +1043,17 @@ function ReloadBanner({ page }: { page: Brokerage }) {
     page.active && reloaded.length > 0 ? ` ${listed(reloaded)} reloaded everything.` : '';
   return (
     <section
-      className={`k-banner ${reload.failed ? 'k-banner-warn' : 'k-banner-done'}`}
+      className={`k-banner ${reload.failure !== null ? 'k-banner-warn' : 'k-banner-done'}`}
       aria-label="Reload all data"
     >
-      {reload.failed ? <AlertTriangleIcon size={20} /> : <CircleCheckIcon size={20} />}
+      {reload.failure !== null ? <AlertTriangleIcon size={20} /> : <CircleCheckIcon size={20} />}
       <div>
         <p className="k-banner-title">
-          {reload.failed ? 'Reload done in part' : 'Reload done'} ({clock(reload.doneAt)})
+          {reload.failure !== null ? 'Reload done in part' : 'Reload done'} ({clock(reload.doneAt)})
         </p>
         <p className="k-banner-text">
-          {reload.failed &&
-            `Core couldn’t fetch everything from ${crms} again, so some records may still be missing or out of date; try again in a while. `}
+          {reload.failure !== null &&
+            `Core couldn’t fetch everything from ${crms} again, and the error said “${reload.failure}”. Some records may still be missing or out of date: try again in a while, and if it fails again, pass these words on to Core’s developers. `}
           {removedWords(reload, crms)}
           {sites}
         </p>
@@ -1274,7 +1296,7 @@ function Page({ id }: { id: number }) {
     try {
       await api.formsTestMode(connection.id, on);
     } catch (error) {
-      if (!away(error)) note({ text: failureWords(error), icon: 'warn', stays: true });
+      if (!away(error)) note({ text: failureWords(error), icon: 'warn' });
       return;
     }
     const sites = listed(page.websites.map((website) => website.label));
@@ -1284,6 +1306,7 @@ function Page({ id }: { id: number }) {
         ? {
             text: `Forms test mode is on for ${connection.name}. Forms from ${sites || 'its websites'} stop in Core.`,
             icon: 'warn',
+            stays: false,
           }
         : {
             text: `Forms test mode is off for ${connection.name}. Forms go to ${systemShort(crm.name, crm.provider, connection.login)} again.`,
@@ -1298,7 +1321,7 @@ function Page({ id }: { id: number }) {
       note({ text: `${page.name} is switched on. Its websites fetch what changed meanwhile.` });
       void load();
     } catch (error) {
-      if (!away(error)) note({ text: failureWords(error), icon: 'warn', stays: true });
+      if (!away(error)) note({ text: failureWords(error), icon: 'warn' });
     }
   };
 
@@ -1362,7 +1385,7 @@ function Page({ id }: { id: number }) {
       />
 
       {open?.kind === 'add-website' && (
-        <AddWebsiteWindow page={page} onAdded={() => void load()} onClose={closeAndLoad} />
+        <AddWebsiteWindow page={page} onAdded={load} onClose={closeAndLoad} />
       )}
       {open?.kind === 'remove-website' && (
         <RemoveWebsiteWindow website={open.website} onClose={close} onRemoved={closeAndLoad} />

@@ -46,7 +46,7 @@ function List() {
             : counted(rows.length, 'brokerage', 'brokerages')}
         </p>
       )}
-      {failed && <p className="k-quiet">{failed}</p>}
+      {failed && <p className="k-quiet">{failed} Reload the page to try again.</p>}
       {rows && rows.length === 0 && (
         <p className="k-quiet">Add the first one with “New brokerage”.</p>
       )}

@@ -44,15 +44,20 @@ function loginDocument(fields: AdminField[], given: unknown): string | null {
   return JSON.stringify(document);
 }
 
-/** Ask the CRM whether it takes a login, before anything is saved. A CRM without a test takes it. */
-async function crmTakes(provider: string, login: string): Promise<boolean | null> {
+/**
+ * Ask the CRM whether it takes a login, before anything is saved: yes, or no with the words of the
+ * CRM's code for why (the CRM refused it, did not answer, or holds nothing behind it). A CRM
+ * without a test takes it.
+ */
+async function crmTakes(provider: string, login: string): Promise<Done<null>> {
   const admin = adminFor(provider);
-  if (!admin?.probe) return true;
+  if (!admin?.probe) return { ok: true, value: null };
   try {
-    return (await admin.probe(login, [])).ok;
+    const { ok, detail } = await admin.probe(login, []);
+    return ok ? { ok: true, value: null } : refused('login', detail.trim() || undefined);
   } catch (error) {
     report(error, { where: 'panel login test', provider });
-    return null;
+    return refused('crm', failureWords(error, { crm: crmName(provider) }));
   }
 }
 
@@ -106,9 +111,8 @@ export async function addConnection(
   if (!admin || !tenant) return refused('missing');
   const login = loginDocument(admin.credentials, input.login);
   if (!login) return refused('fields');
-  const takes = await crmTakes(input.provider, login);
-  if (takes === null) return refused('crm');
-  if (!takes) return refused('login');
+  const tested = await crmTakes(input.provider, login);
+  if (!tested.ok) return tested;
   for (;;) {
     const name = await newConnectionName(tenant.display_name, input.provider);
     const id = await newConnectionId(name);
@@ -138,9 +142,8 @@ export async function changeLogin(
   if (!connection || !admin) return refused('missing');
   const login = loginDocument(admin.credentials, given);
   if (!login) return refused('fields');
-  const takes = await crmTakes(connection.provider, login);
-  if (takes === null) return refused('crm');
-  if (!takes) return refused('login');
+  const tested = await crmTakes(connection.provider, login);
+  if (!tested.ok) return tested;
   await db().query('update connections set credentials = $2 where id = $1', [
     connectionId,
     encrypt(login, key),
@@ -184,7 +187,7 @@ export async function runAction(connectionId: string, action: string): Promise<D
     return { ok: true, value: null };
   } catch (error) {
     report(error, { where: 'panel action', provider: connection.provider, action });
-    return refused('crm', failureWords(error, crmName(connection.provider)));
+    return refused('crm', failureWords(error, { crm: crmName(connection.provider) }));
   }
 }
 
