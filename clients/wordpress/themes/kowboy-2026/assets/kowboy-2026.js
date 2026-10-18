@@ -536,6 +536,9 @@
     return formDay.format(start) + ' · ' + formClock.format(start).replace(':', '.') + until;
   }
 
+  /** The chat's names for the three forms (window.kowbot.open), when the site has the chat. */
+  var CHAT_ACTIONS = { interest: 'interest', viewing: 'booking', lead: 'valuation' };
+
   /**
    * The form window (parts/form-window.php): every form button (data-k-form, on the page or
    * inside a shadow root) opens it, for an interest, a viewing booking or a free valuation. A
@@ -989,6 +992,16 @@
         });
         if (!button || !FORM_TEXT.title[button.dataset.kForm]) return;
         event.preventDefault();
+        // Kowboy's chat, when the site has added it, takes the request first; where it cannot
+        // (another page, its own offer off), the window opens as always.
+        var chat = CHAT_ACTIONS[button.dataset.kForm];
+        if (
+          chat &&
+          window.kowbot &&
+          typeof window.kowbot.open === 'function' &&
+          window.kowbot.open(chat)
+        )
+          return;
         open(button);
       },
       true,

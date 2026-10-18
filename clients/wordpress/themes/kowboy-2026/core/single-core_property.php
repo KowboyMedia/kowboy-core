@@ -154,7 +154,7 @@ $hero_content = '<div class="k-hero__head">'
 // The hero slides every photo and swipes; a click on it opens the full-screen slider at that photo (the script finds the gallery's images).
 echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $street, 'swipe' => true, 'wrapper' => 'class="k-hero k-hero--property"' . ($photos === [] ? '' : ' data-lightbox="0"')]);
 ?>
-<div class="k-property">
+<div class="k-property" data-kowbot-listing-id="<?php echo esc_attr((string) ($item['id'] ?? '')); ?>">
     <div class="k-container k-property__grid">
         <div class="k-property__main">
             <?php if ($heading !== '') : ?><h2 class="k-heading"><?php echo esc_html($heading); ?></h2><?php else : ?><p class="k-label">Om bostaden</p><?php endif; ?>
