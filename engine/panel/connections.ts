@@ -75,31 +75,49 @@ async function newConnectionId(name: string): Promise<string> {
 }
 
 /**
+ * A new connection's name: the brokerage's name, a dash and the CRM's id, with "-2", "-3" and on
+ * when a connection already has it (Patric, 2026-10-18). Nobody types it.
+ */
+async function newConnectionName(tenantName: string, provider: string): Promise<string> {
+  const base = `${tenantName.trim()}-${provider}`;
+  const { rows } = await db().query<{ name: string }>(
+    'select name from connections where starts_with(name, $1)',
+    [base],
+  );
+  const taken = new Set(rows.map((row) => row.name));
+  let name = base;
+  for (let n = 2; taken.has(name); n += 1) name = `${base}-${String(n)}`;
+  return name;
+}
+
+/**
  * Connect a brokerage to a CRM: Core tests the login with the CRM and saves it only if the CRM
  * accepts it. The CRM's code is then told of the new connection and starts loading its data.
  */
 export async function addConnection(
   tenantId: number,
-  input: { provider: string; name: string; login: unknown },
+  input: { provider: string; login: unknown },
   key: string,
-): Promise<Done<string>> {
+): Promise<Done<{ id: string; name: string }>> {
   const admin = adminFor(input.provider);
-  if (!admin || !(await tenantById(tenantId))) return refused('missing');
+  const tenant = await tenantById(tenantId);
+  if (!admin || !tenant) return refused('missing');
   const login = loginDocument(admin.credentials, input.login);
-  if (!login || input.name.trim() === '') return refused('fields');
+  if (!login) return refused('fields');
   const takes = await crmTakes(input.provider, login);
   if (takes === null) return refused('crm');
   if (!takes) return refused('login');
   for (;;) {
-    const id = await newConnectionId(input.name);
+    const name = await newConnectionName(tenant.display_name, input.provider);
+    const id = await newConnectionId(name);
     const { rows } = await db().query(
       `insert into connections (id, tenant_id, provider, credentials, licensed_offices, name)
        values ($1, $2, $3, $4, '{}', $5) on conflict (id) do nothing returning id`,
-      [id, tenantId, input.provider, encrypt(login, key), input.name.trim()],
+      [id, tenantId, input.provider, encrypt(login, key), name],
     );
     if (rows.length === 0) continue;
     await queueLifecycle(id, 'connection_added');
-    return { ok: true, value: id };
+    return { ok: true, value: { id, name } };
   }
 }
 

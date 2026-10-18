@@ -252,7 +252,6 @@ describe('a new brokerage and its CRM login', () => {
   it('saves nothing when the CRM refuses the login', async () => {
     const { status, json } = await call(`/brokerages/${String(TENANT)}/connections`, {
       provider: 'somecrm',
-      name: 'Lindqvist & Holm Somecrm',
       login: { account: 'G12', password: 'wrong', system: 'live' },
     });
     expect(status).toBe(422);
@@ -269,7 +268,6 @@ describe('a new brokerage and its CRM login', () => {
     ]) {
       const { status } = await call(`/brokerages/${String(TENANT)}/connections`, {
         provider: 'somecrm',
-        name: 'Main',
         login,
       });
       expect(status).toBe(400);
@@ -279,7 +277,6 @@ describe('a new brokerage and its CRM login', () => {
       (
         await call(`/brokerages/${String(TENANT)}/connections`, {
           provider: 'nocrm',
-          name: 'Main',
           login: {},
         })
       ).status,
@@ -289,12 +286,13 @@ describe('a new brokerage and its CRM login', () => {
   it('saves a login the CRM accepts, encrypted, and tells the CRM’s code about it', async () => {
     const { status, json } = await call(`/brokerages/${String(TENANT)}/connections`, {
       provider: 'somecrm',
-      name: 'Lindqvist & Holm Somecrm',
+      name: 'Typed names are ignored',
       login: { account: ' G12 ', password: GOOD, system: 'live' },
     });
     expect(status).toBe(201);
     const id = json['id'] as string;
-    expect(id).toBe('lindqvist-holm-somecrm');
+    expect(id).toBe('lindqvist-holm-makleri-somecrm');
+    expect(json['name']).toBe('Lindqvist & Holm Mäkleri-somecrm');
     const { rows } = await db().query<{ credentials: string; name: string }>(
       'select credentials, name from connections where id = $1',
       [id],
@@ -303,7 +301,7 @@ describe('a new brokerage and its CRM login', () => {
     expect(
       JSON.parse(decrypt(rows[0]?.credentials ?? '', core.engine.config.credentialsKey)),
     ).toEqual({ account: 'G12', password: GOOD, system: 'live' });
-    expect(rows[0]?.name).toBe('Lindqvist & Holm Somecrm');
+    expect(rows[0]?.name).toBe('Lindqvist & Holm Mäkleri-somecrm');
     const { rows: told } = await db().query<{ event: string }>(
       'select event from lifecycle_events where connection_id = $1',
       [id],
@@ -312,10 +310,12 @@ describe('a new brokerage and its CRM login', () => {
 
     const again = await call(`/brokerages/${String(TENANT)}/connections`, {
       provider: 'somecrm',
-      name: 'Lindqvist & Holm Somecrm',
       login: { account: 'G13', password: GOOD },
     });
-    expect(again.json['id']).toBe('lindqvist-holm-somecrm-2');
+    expect(again.json).toEqual({
+      id: 'lindqvist-holm-makleri-somecrm-2',
+      name: 'Lindqvist & Holm Mäkleri-somecrm-2',
+    });
   });
 
   it('saves a new login only when the CRM accepts it', async () => {

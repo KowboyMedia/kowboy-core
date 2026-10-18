@@ -54,29 +54,24 @@ export const secretWords = (crm: Crm): { words: string; many: boolean } => {
   };
 };
 
-/** The state of a login form: the name, the login, whether it is being tested, and why not. */
-export function useConnectForm(crm: Crm | null, name: string, kept: Login = {}) {
-  const [connectionName, setName] = useState(name);
+/** The state of a login form: the login, whether it is being tested, and why not. */
+export function useConnectForm(crm: Crm | null, kept: Login = {}) {
   const [login, setLogin] = useState<Login>(() => (crm ? startingLogin(crm, kept) : {}));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  return { connectionName, setName, login, setLogin, busy, setBusy, error, setError };
+  return { login, setLogin, busy, setBusy, error, setError };
 }
 
-/** Test a new connection's login with the CRM and save it on a yes; answers its id. */
-export async function connect(
+/**
+ * Test a new connection's login with the CRM and save it on a yes; answers its id and the name
+ * Core gave it (the brokerage's name and the CRM's).
+ */
+export const connect = (
   tenantId: number,
   crm: Crm,
-  name: string,
   login: Login,
-): Promise<string> {
-  const { id } = await api.addConnection(tenantId, {
-    provider: crm.provider,
-    name: name.trim(),
-    login,
-  });
-  return id;
-}
+): Promise<{ id: string; name: string }> =>
+  api.addConnection(tenantId, { provider: crm.provider, login });
 
 export function ConnectFields({
   crm,
@@ -90,26 +85,14 @@ export function ConnectFields({
   return (
     <>
       {title && <h2 className="k-step-title">{title}</h2>}
-      <div className="k-field">
-        <label className="k-label" htmlFor="connection-name">
-          Name
-        </label>
-        <input
-          id="connection-name"
-          className="k-input"
-          value={form.connectionName}
-          onChange={(event) => form.setName(event.target.value)}
-        />
-        <p className="k-help">Shown in Core’s lists. You can change it later.</p>
-      </div>
       <LoginFields crm={crm} login={form.login} onChange={form.setLogin} />
     </>
   );
 }
 
-/** The name and every field the CRM requires are there. */
+/** Every field the CRM requires is there. */
 export const connectReady = (crm: Crm, form: ReturnType<typeof useConnectForm>): boolean =>
-  form.connectionName.trim() !== '' && complete(crm, form.login);
+  complete(crm, form.login);
 
 /**
  * A new login for a connection (image 15), tested before it is saved, then its offices checked.
@@ -132,7 +115,7 @@ export function LoginWindow({
 }) {
   const { away } = useShell();
   const note = useNote();
-  const form = useConnectForm(crm, connection.name, keptLogin(crm, connection));
+  const form = useConnectForm(crm, keptLogin(crm, connection));
   const secret = secretWords(crm);
   const save = async () => {
     form.setBusy(true);

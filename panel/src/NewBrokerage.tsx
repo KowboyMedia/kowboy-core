@@ -230,13 +230,13 @@ function CrmForm({ id, page, crm }: { id: number; page: Brokerage; crm: Crm }) {
   const navigate = useNavigate();
   const { away } = useShell();
   const short = shortName(page.name);
-  const form = useConnectForm(crm, `${short} ${crm.name}`);
+  const form = useConnectForm(crm);
   const save = async () => {
     form.setBusy(true);
     form.setError(null);
     try {
-      const connection = await connect(id, crm, form.connectionName, form.login);
-      navigate(`/new/${String(id)}/website?connection=${encodeURIComponent(connection)}`);
+      const connection = await connect(id, crm, form.login);
+      navigate(`/new/${String(id)}/website?connection=${encodeURIComponent(connection.id)}`);
     } catch (error) {
       if (away(error)) return;
       form.setError(loginRefusal(error, crm.name));
