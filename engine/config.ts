@@ -45,6 +45,9 @@ const required = (name: string): string => {
   return value;
 };
 
+/** The database alone, for the release preview, which needs no other setting. */
+export const databaseUrl = (): string => required('DATABASE_URL');
+
 /** A setting that may be absent: null when unset or empty. */
 const optional = (name: string): string | null => process.env[name] || null;
 

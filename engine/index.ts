@@ -1,6 +1,6 @@
 import type { Server } from 'node:http';
 import { loadConfig, type Config } from './config.js';
-import { initErrorReporting } from './errors.js';
+import { initErrorReporting, report } from './errors.js';
 import { closeDb, db } from './storage/db.js';
 import { migrate } from './storage/migrate.js';
 import { configureCredentials } from './storage/connections.js';
@@ -44,6 +44,8 @@ const JOBS_MS = 2_000;
 const HEALTH_RECORD_MS = 30_000;
 /** How often the worker compares the health checks with their last state and tells a change. */
 const ALERTS_MS = 60_000;
+/** How long a stop waits for the worker's running tasks, so a stuck one never holds up a deploy. */
+const STOP_WAIT_MS = 10_000;
 
 export type Engine = {
   config: Config;
@@ -134,6 +136,9 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
 
   let server: Server | null = null;
   const timers: NodeJS.Timeout[] = [];
+  /** The worker's tasks running now: a stop lets them finish before it closes the database. */
+  const running = new Set<Promise<void>>();
+  let stopping = false;
 
   return {
     config,
@@ -143,34 +148,56 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
       return server;
     },
     startWorker(): void {
-      const tick = (fn: () => Promise<unknown>, everyMs: number) => {
-        void fn();
-        const timer = setInterval(() => void fn(), everyMs);
+      // A task's failure is reported where it happened, so it never ends the process and goes
+      // through the error tracker's daily gate like every other report.
+      const tick = (where: string, fn: () => Promise<unknown>, everyMs: number) => {
+        const run = () => {
+          const task: Promise<void> = fn()
+            .then(() => undefined)
+            .catch((error: unknown) => report(error, { where }))
+            .finally(() => running.delete(task));
+          running.add(task);
+        };
+        run();
+        const timer = setInterval(run, everyMs);
         timer.unref?.();
         timers.push(timer);
       };
-      tick(() => heartbeat(), HEARTBEAT_MS);
-      tick(() => flushPendingBells(), BELL_FLUSH_MS);
-      tick(() => deliverLifecycleEvents(), LIFECYCLE_MS);
-      tick(async () => {
-        while (await runNextJob()) {
-          // one job after another, until the queue is empty
-        }
-      }, JOBS_MS);
-      tick(() => checkAlerts(alerts), ALERTS_MS);
-      tick(async () => {
-        await recordHealth();
-        await pruneHealth();
-      }, HEALTH_RECORD_MS);
-      tick(async () => {
-        await deleteExpiredEvents(config.eventRetentionDays);
-        await deleteExpiredSubmissions(config.eventRetentionDays);
-        await purgeTombstones(TOMBSTONE_RETENTION_DAYS);
-        await deleteExpiredSessions();
-      }, HOUSEKEEPING_MS);
-      tick(() => failStaleJobs(), ALERTS_MS);
+      tick('heartbeat', () => heartbeat(), HEARTBEAT_MS);
+      tick('bells', () => flushPendingBells(), BELL_FLUSH_MS);
+      tick('lifecycle events', () => deliverLifecycleEvents(), LIFECYCLE_MS);
+      tick(
+        'jobs',
+        async () => {
+          while (!stopping && (await runNextJob())) {
+            // one job after another, until the queue is empty or Core stops
+          }
+        },
+        JOBS_MS,
+      );
+      tick('alerts', () => checkAlerts(alerts), ALERTS_MS);
+      tick(
+        'health record',
+        async () => {
+          await recordHealth();
+          await pruneHealth();
+        },
+        HEALTH_RECORD_MS,
+      );
+      tick(
+        'housekeeping',
+        async () => {
+          await deleteExpiredEvents(config.eventRetentionDays);
+          await deleteExpiredSubmissions(config.eventRetentionDays);
+          await purgeTombstones(TOMBSTONE_RETENTION_DAYS);
+          await deleteExpiredSessions();
+        },
+        HOUSEKEEPING_MS,
+      );
+      tick('stale jobs', () => failStaleJobs(), ALERTS_MS);
     },
     async stop(): Promise<void> {
+      stopping = true;
       for (const timer of timers) clearInterval(timer);
       await new Promise<void>((resolve) => {
         if (!server) return resolve();
@@ -178,6 +205,12 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
         // A page's live feed never ends on its own; a stop must not wait for it.
         server.closeAllConnections();
       });
+      // A task already running finishes first, so none meets a closed database (seen on staging
+      // at every deploy, 2026-10-06 to 2026-10-18), and one that hangs is left after a while.
+      await Promise.race([
+        Promise.all(running),
+        new Promise((resolve) => setTimeout(resolve, STOP_WAIT_MS).unref()),
+      ]);
       await closeDb();
     },
   };

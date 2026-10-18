@@ -14,6 +14,10 @@ const { criteria } = JSON.parse(readFileSync('acceptance/criteria.json', 'utf8')
 const CONFIGS = ['vitest.config.ts', 'vitest.wordpress.config.ts'];
 const JOURNEY_CONFIGS = ['admin/playwright.config.ts', 'clients/wordpress/playwright.config.ts'];
 
+// The journeys serve the admin area and the WordPress site from dist, so the report builds first,
+// as GitHub's checks do: on a dist left by an older version the journeys failed (known bug 6).
+execFileSync('npm', ['run', 'build'], { stdio: 'inherit' });
+
 const results = new Map();
 const outDir = mkdtempSync(join(tmpdir(), 'core-report-'));
 

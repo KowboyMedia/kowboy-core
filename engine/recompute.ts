@@ -12,7 +12,7 @@ import {
   type ItemRow,
   type ScopeFilter,
 } from './storage/items.js';
-import { connectionById } from './storage/connections.js';
+import { providerOf } from './storage/connections.js';
 import { changedFields } from './ingest.js';
 import type { Canonical, Datatype } from './adapter-api/types.js';
 
@@ -149,10 +149,13 @@ type MapperOf =
   | ((raw: unknown) => { data: Canonical; officeId: string | null; remoteUpdatedAt: string | null })
   | null;
 
-/** The mapper for a connection's datatypes, found once per connection. */
+/**
+ * The mapper for a connection's datatypes, found once per connection. Only the provider is read:
+ * mapping stored raw needs no login, so the release preview runs without the key that opens one.
+ */
 async function mapperOf(connectionId: string): Promise<(datatype: Datatype) => MapperOf> {
-  const connection = await connectionById(connectionId);
-  return (datatype) => (connection ? mapperFor(connection.provider, datatype) : null);
+  const provider = await providerOf(connectionId);
+  return (datatype) => (provider ? mapperFor(provider, datatype) : null);
 }
 
 /** One stored row, put back through the current mappers and rules. */

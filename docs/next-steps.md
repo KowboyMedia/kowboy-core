@@ -7,14 +7,16 @@ the first item that is not done, and keep the file current. Decisions and open q
 ## Where to pick up (2026-10-18)
 
 The project is closing. Item 33 is the final release; its plan for Patric is
-`/mnt/project-files/release/final-release-plan.md`, with questions 206 to 210. The project is done
+`/mnt/project-files/release/final-release-plan.md`, with questions 206 to 211. The project is done
 when the first brokerage runs on live; every other open item is moved to "Later" by the plan's
 table (Default 208).
 Threads at work on the way: the new admin (item 30, waits on 199 to 205), the clear error
 messages and the five records Core cannot store (staging's health is red until they load), Core's
 mail (question 100), the database's connection shares (206, asked in chat as 88), the
 lists (item 31, waits on 198) and the forms (item 29, waits on 209). "Resume next steps" means:
-the first open step of item 33 that waits on nobody.
+the first open step of item 33 that waits on nobody. On 2026-10-18 condition 1 was done and Core's
+part of condition 4, and the preview of condition 2 was built; the rest waits on 207, 210 and
+211, on the threads, or on the seven days.
 
 ## Agent setup (from the 2026-09-27 review of how agents and Patric work together)
 
@@ -917,7 +919,7 @@ the first open step of item 33 that waits on nobody.
     product: live runs the finished Core with its settings and alerts, a first brokerage runs on
     it (strategy §9, Gate 4), and every other open item is moved to "Later". The plan for Patric,
     with the table of the work left: `/mnt/project-files/release/final-release-plan.md`;
-    questions 206 to 210.
+    questions 206 to 211.
     - **Three steps:** the early release (207), the final release, the first brokerage on live
       (its forms, lists, Vitec's notifications and the plugin's update channel); then this file and
       strategy §9 say the project is done (Default 208).
@@ -932,15 +934,18 @@ the first open step of item 33 that waits on nobody.
       phase 7), each a step:
       1. Enforced checks green on staging, `/v1/health` green (red on 2026-10-18:
          `vitec.retries`, the "Proper error messages in admin" thread), and
-         `acceptance/report.md` made again from a real run. On 2026-10-18 a fresh `npm run build`
-         before `npm run report` let the WordPress journeys pass (22 of 22) in a cloud session,
-         while six template tests of the WordPress suite failed inside the report's run and one
-         of them passed alone (known bug 6).
+         `acceptance/report.md` made again from a real run: done 2026-10-18 in a cloud session,
+         45 of 49 green, the four left are condition 3 (`npm run report` builds first; the
+         journeys there need `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium`). Made
+         again before each release.
       2. The release impact preview (enforced check 5, AC 36): nothing has run
          `recompute(…, { dryRun: true })` over live's data since the old manual sync went (176).
          It becomes a step of the release that runs the new version's preview on live's records
          before that version takes over, and stops the release when a record fails the schema or
          the invariants. Built before the early release, and its result is in every release note.
+         Built and tested 2026-10-18 (`node dist/main.js preview`, the job "preview" in
+         `.do/app.staging.yaml`); putting the job in staging's own settings, and making it fail
+         once on purpose to see a deploy stop, waits on 211.
       3. The four criteria still pending, after 210 for AC 18 and AC 27: AC 18 (a smoke suite run
          automatically after every staging deploy, and a test that reads both apps from the
          platform: the line of work each deploys, the health-gated deploy, the old version kept on
@@ -950,19 +955,21 @@ the first open step of item 33 that waits on nobody.
          and app of their own, so the shared cluster, 1 vCPU, 1 GB and 15 GB of disk, is never
          loaded; deleted the same day, well under $1).
       4. Seven days on staging with no unresolved Sentry issue (strategy §9, phase 7): 57 open on
-         2026-10-18. The connection-slot and timeout issues, the missing `active` column and the
-         deleted admin's events page, none seen since 2026-10-07, are each checked against the
-         code and resolved when fixed; "Cannot use a pool after calling end on the pool"
-         (`flushPendingBells`, `checkAlerts`, `connectionsForProvider`: the worker's ticks still
-         run after shutdown ends the pool, and their rejections reach Sentry past the daily gate)
-         is fixed here; the Vitec ones go to their owners.
+         2026-10-18, 52 of them resolved that day, each checked against the code: the connection
+         slots (fixed 2026-10-06), the dropped `active` column, the deleted events page, a database
+         connection that dropped once, "Cannot use a pool after calling end on the pool" (the
+         worker's tasks outlived a stop; fixed in 375079c) and a bell to a site that does not exist
+         (no longer reported, a16b3d8). The five left are Vitec's, with "Vitec office whitelist"
+         (1R, 1S, 1F, 1G) and "Proper error messages in admin" (1N; strategy §6 reports a fetch
+         given up, so it closes when those records load). The seven days start once they are
+         resolved; the cluster's pending maintenance (Tuesdays 08:49 UTC) may add a few.
       5. Alerts in place on both apps and one seen arriving: `ALERT_EMAIL` (the address in
          `ADMIN_EMAILS`), and `MAIL_FROM` with `POSTMARK_SERVER_TOKEN` in each worker, where
          `checkAlerts` runs; mail first arrives with question 100. Patric's own uptime monitor on
          live's `/v1/health` (173), asked of him once the final release is out.
       6. Live's settings at the release, in the live app's own spec: the pool `live` (12 by 167 c,
-         unless 206 changes it), `SENTRY_DSN`, `ADMIN_SECRET` removed, and the worker's mail
-         settings.
+         unless 206 changes it), `SENTRY_DSN`, `ADMIN_SECRET` removed, the worker's mail settings,
+         and the job "preview" as `.do/app.staging.yaml` has it, with live's database.
       7. The first go-live list: the domain and its certificate answer; personal data and
          credentials only where the design says, checked once and named in the release note; who
          is told and in which words, written before the switch.

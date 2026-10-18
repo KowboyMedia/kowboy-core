@@ -110,6 +110,11 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   a title (`vitecAdmin.checks`), and names its connections, offices and
   records by their ids for Core to name and link. The checks run in the worker and are recorded
   for the web process every 30 s.
+- **Error reports** (`report`, which reaches Sentry) are for Core's own faults. A paused
+  connection, a refused office and a schedule that Vitec failed, refused, did not answer in time
+  or the door kept back (`outside` in `api.ts`) are a `warn` line in the worker's log instead,
+  since the checks and events above already show them; a schedule that failed in Core's own code
+  is reported.
 
 ## Mappers: the universal names, the spine on top, the rest mirrored
 

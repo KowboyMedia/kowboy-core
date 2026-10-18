@@ -38,6 +38,15 @@ export async function connectionById(id: string): Promise<Connection | null> {
   return rows[0] ? toConnection(rows[0]) : null;
 }
 
+/** A connection's provider alone, so what only maps stored records never opens a login. */
+export async function providerOf(id: string): Promise<string | null> {
+  const { rows } = await db().query<{ provider: string }>(
+    'select provider from connections where id = $1',
+    [id],
+  );
+  return rows[0]?.provider ?? null;
+}
+
 /** A new tenant: Core assigns the number, the name is the only thing a person types. */
 export async function createTenant(input: { displayName: string; token: string }): Promise<number> {
   const { rows } = await db().query<{ id: number }>(

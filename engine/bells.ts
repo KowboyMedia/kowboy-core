@@ -1,6 +1,5 @@
 import { db } from './storage/db.js';
 import { logEvent } from './events.js';
-import { report } from './errors.js';
 import { inMaintenance } from './storage/settings.js';
 
 /**
@@ -91,7 +90,17 @@ async function send(subscriber: Subscriber, kind: BellKind): Promise<void> {
     });
     status = response.ok ? 'ok' : `http ${response.status}`;
   } catch (error) {
-    report(error, { where: 'bell', subscriber: subscriber.id });
+    // A site Core cannot reach is that site's state, shown on its row and in the alerts, not a
+    // fault in Core: it is logged with the reason, and never goes to the error tracker.
+    const reason = error instanceof Error && error.cause ? error.cause : error;
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        where: 'bell',
+        subscriber: subscriber.id,
+        message: String(reason),
+      }),
+    );
     status = 'failed';
   }
   await db().query('update subscribers set last_bell_status = $2 where id = $1', [

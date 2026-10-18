@@ -250,11 +250,16 @@ async function noteFailure(current: AdapterApi, live: Live, error: unknown): Pro
     { connection_id: id, failures, until: until.toISOString(), detail },
     { connectionId: id },
   );
-  current.report(new Error('vitec connection paused'), {
-    connection_id: id,
-    failures,
-    detail: String(error),
-  });
+  // Vitec's side, which `vitec.connect` and the event show: logged, never reported as Core's fault.
+  logged('vitec connection paused', { connection_id: id, failures, detail: String(error) });
+}
+
+/**
+ * A failure on Vitec's side that the admin already shows: a line in the worker's log, never an
+ * error report, which is for Core's own faults.
+ */
+function logged(message: string, context: Record<string, unknown>): void {
+  console.log(JSON.stringify({ level: 'warn', message, provider: PROVIDER, ...context }));
 }
 
 /** Vitec answered: the run of failures ends, and a probing connection is back for good. */
@@ -319,7 +324,8 @@ async function markBlocked(
       { connectionId: id },
     );
   }
-  current.report(new Error('vitec office blocked'), {
+  // Vitec's refusal, which `vitec.offices` and the event show.
+  logged('vitec office blocked', {
     office_id: office.officeId,
     connection_id: connectionId,
     detail,
@@ -1233,7 +1239,10 @@ async function tickOnce(): Promise<void> {
         },
         { connectionId: given.connection.id },
       );
-      current.report(error, { where: 'vitec schedule', connection_id: given.connection.id });
+      // Vitec down, slow or refusing is shown by the event and the checks; Core's own fault is reported.
+      const context = { where: 'vitec schedule', connection_id: given.connection.id };
+      if (connect.outside(error)) logged(String(error), context);
+      else current.report(error, context);
     }
   }
   if (startPending && !targets.some((target) => starting.has(target.connection.id))) {

@@ -3,6 +3,8 @@
 //
 //   node dist/main.js web      subscriber API, health, and the adapters' own endpoints
 //   node dist/main.js worker   the adapters' background work, bells, housekeeping
+//   node dist/main.js preview  the release impact preview, the release's first step: every
+//                              stored record through this version, nothing written
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { pathToFileURL } from 'node:url';
@@ -12,6 +14,8 @@ import { registerAdmin, registerSubmissions } from './engine/registry.js';
 import { adapterRoutes } from './engine/http/server.js';
 import { removeLoginFields } from './engine/admin/login.js';
 import { closeErrorReporting, report } from './engine/errors.js';
+import { databaseUrl } from './engine/config.js';
+import { previewInWords, previewRelease } from './engine/preview.js';
 import type { Adapter } from './engine/adapter-api/types.js';
 import { vitecAdapter } from './adapters/vitec/index.js';
 
@@ -22,16 +26,13 @@ import { vitecAdapter } from './adapters/vitec/index.js';
 export const adapters: Adapter[] = [vitecAdapter];
 
 /**
- * One role of Core, as `node dist/main.js <role>` runs it. A function so the acceptance tests can
- * start the web role exactly as deployed, with no adapter started.
+ * Every role needs every adapter's mappers in the registry: the worker to ingest, the web process
+ * to recompute a record from stored raw, and the preview to map every record, with no CRM traffic
+ * and no adapter started. Starting an adapter (its timers, loops and endpoints) is the worker's
+ * alone. Without this the web process answered every recompute with "no adapter registered for
+ * this connection" (found on staging, 2026-09-20).
  */
-export async function main(role: string): Promise<{ engine: Engine; server: Server | null }> {
-  const engine = await startEngine();
-
-  // Both roles need every adapter's mappers in the registry: the worker to ingest, and the web
-  // process to recompute a record from stored raw, with no CRM traffic and no adapter started. Starting an adapter (its timers, loops and endpoints) is the
-  // worker's alone. Without this the web process answered every recompute with "no adapter
-  // registered for this connection" (found on staging, 2026-09-20).
+function registerAdapters(): void {
   for (const adapter of adapters) {
     adapterApi(adapter.manifest.provider).register(adapter.manifest, adapter.mappers);
     // The admin area runs in the web process while the adapter runs in the worker, so both roles
@@ -41,6 +42,27 @@ export async function main(role: string): Promise<{ engine: Engine; server: Serv
     // waits inside the request (docs/forms.md, the departure approved with question 130).
     registerSubmissions(adapter.manifest.provider, adapter);
   }
+}
+
+/**
+ * The release impact preview, as the release's first step runs it: this version's mappers and
+ * rules over every record in the database being released, with no migration run and nothing
+ * written. Prints the release note's lines and answers the exit code: 1 stops the release.
+ */
+export async function preview(): Promise<number> {
+  registerAdapters();
+  const result = await previewRelease(databaseUrl());
+  for (const line of previewInWords(result)) console.log(line);
+  return result.failed === 0 ? 0 : 1;
+}
+
+/**
+ * One role of Core, as `node dist/main.js <role>` runs it. A function so the acceptance tests can
+ * start the web role exactly as deployed, with no adapter started.
+ */
+export async function main(role: string): Promise<{ engine: Engine; server: Server | null }> {
+  const engine = await startEngine();
+  registerAdapters();
 
   if (role === 'web') {
     const routes = adapters.flatMap((adapter) =>
@@ -76,11 +98,19 @@ export async function main(role: string): Promise<{ engine: Engine; server: Serv
     return { engine, server: null };
   }
   await engine.stop();
-  throw new Error(`unknown role "${role}"; expected web or worker`);
+  throw new Error(`unknown role "${role}"; expected web, worker or preview`);
 }
 
 // Run when started as the program, not when a test imports it.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (process.argv[2] === 'preview') {
+    process.exit(
+      await preview().catch((error: unknown) => {
+        console.error(`The release preview could not run: ${String(error)}`);
+        return 1;
+      }),
+    );
+  }
   const { engine } = await main(process.argv[2] ?? 'web').catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
