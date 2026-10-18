@@ -536,7 +536,7 @@
     return formDay.format(start) + ' · ' + formClock.format(start).replace(':', '.') + until;
   }
 
-  /** The chat's names for the three forms (window.kowbot.open), when the site has the chat. */
+  /** The chat's names for the three forms (window.kowboyChat.open), when the site has the chat. */
   var CHAT_ACTIONS = { interest: 'interest', viewing: 'booking', lead: 'valuation' };
 
   /**
@@ -997,9 +997,9 @@
         var chat = CHAT_ACTIONS[button.dataset.kForm];
         if (
           chat &&
-          window.kowbot &&
-          typeof window.kowbot.open === 'function' &&
-          window.kowbot.open(chat)
+          window.kowboyChat &&
+          typeof window.kowboyChat.open === 'function' &&
+          window.kowboyChat.open(chat)
         )
           return;
         open(button);
