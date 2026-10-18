@@ -8,6 +8,8 @@ import { report } from '../errors.js';
 import { adminFor } from '../registry.js';
 import type { Connection, Datatype } from '../adapter-api/types.js';
 import type { Refusal } from './connections.js';
+import { failureWords } from './failure.js';
+import { crmName } from './inbox.js';
 import { actOn } from './problems.js';
 
 /**
@@ -60,11 +62,16 @@ async function connectionsOf(
   return connections;
 }
 
-/** Ask each CRM's code to fetch its records again: null when each took the request. */
+type Failed = { ok: false; why: Refusal; said?: string };
+
+/**
+ * Ask each CRM's code to fetch its records again: null when each took the request, else why not,
+ * with the words of what failed (failure.ts).
+ */
 async function askEach(
   wanted: Wanted[],
   connections: Map<string, Connection>,
-): Promise<Refusal | null> {
+): Promise<Failed | null> {
   const byProvider = new Map<string, Wanted[]>();
   for (const one of wanted) {
     const provider = connections.get(one.connection)?.provider ?? '';
@@ -72,13 +79,13 @@ async function askEach(
   }
   for (const [provider, records] of byProvider) {
     const admin = adminFor(provider);
-    if (!admin) return 'missing';
+    if (!admin) return { ok: false, why: 'missing' };
     const theirs = [...connections.values()].filter((one) => one.provider === provider);
     try {
       await admin.act(RETRY_RECORDS, { records: JSON.stringify(records) }, theirs);
     } catch (error) {
       report(error, { where: 'panel retry records', provider, records: records.length });
-      return 'crm';
+      return { ok: false, why: 'crm', said: failureWords(error, crmName(provider)) };
     }
   }
   return null;
@@ -93,13 +100,13 @@ export async function retryRecords(
   tenantId: number,
   given: unknown,
   card: { key: string; by: string } | null,
-): Promise<{ ok: true } | { ok: false; why: Refusal }> {
+): Promise<{ ok: true } | Failed> {
   const wanted = wantedOf(given);
   if (!wanted) return { ok: false, why: 'fields' };
   const connections = await connectionsOf(tenantId, wanted);
   if (!connections) return { ok: false, why: 'missing' };
   const asked = await askEach(wanted, connections);
-  if (asked !== null) return { ok: false, why: asked };
+  if (asked !== null) return asked;
   if (card) await actOn(card.key, card.by, tenantId);
   return { ok: true };
 }

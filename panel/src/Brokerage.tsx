@@ -16,7 +16,8 @@ import {
 } from './api';
 import { Shell, useShell } from './Shell';
 import { StatusBadge } from './Brokerages';
-import { Badge, DotsMenu, Modal, Switch, UNANSWERED, useNote, ValueField, type Tone } from './ui';
+import { failureWords, GONE } from './failure';
+import { Badge, DotsMenu, Modal, Switch, useNote, ValueField, type Tone } from './ui';
 import {
   AlertTriangleIcon,
   ChevronLeftIcon,
@@ -65,14 +66,19 @@ function usePage(id: number, fast: boolean) {
   const { away } = useShell();
   const [page, setPage] = useState<Brokerage | null>(null);
   const [state, setState] = useState<Load>('loading');
+  const [failure, setFailure] = useState('');
   const load = useCallback(async () => {
     try {
       setPage(await api.brokerage(id));
       setState('ok');
     } catch (error) {
       if (away(error)) return;
-      if (error instanceof Refused && error.status === 404) setState('missing');
-      else setState((was) => (was === 'ok' ? 'ok' : 'failed'));
+      if (error instanceof Refused && error.status === 404) {
+        setState('missing');
+        return;
+      }
+      setFailure(failureWords(error));
+      setState((was) => (was === 'ok' ? 'ok' : 'failed'));
     }
   }, [id, away]);
   useEffect(() => {
@@ -80,7 +86,7 @@ function usePage(id: number, fast: boolean) {
     const timer = setInterval(() => void load(), fast ? FAST_MS : SLOW_MS);
     return () => clearInterval(timer);
   }, [load, fast]);
-  return { page, state, load };
+  return { page, state, failure, load };
 }
 
 /** "a, b and c" for pieces of a sentence that are not plain text. */
@@ -199,13 +205,25 @@ function WebsitesCard({
 }
 
 /** Add a website: its fields, then the settings to copy into it until it fetches (images 08, 09). */
-function AddWebsiteWindow({ page, onClose }: { page: Brokerage; onClose: () => void }) {
+function AddWebsiteWindow({
+  page,
+  onAdded,
+  onClose,
+}: {
+  page: Brokerage;
+  /** Read the page again, so the window shows the website Core saved. */
+  onAdded: () => void;
+  onClose: () => void;
+}) {
   const { away } = useShell();
   const note = useNote();
   const [draft, setDraft] = useState(newWebsite);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [added, setAdded] = useState<{ id: number; platform: Platform } | null>(null);
+  /** The website saved, with the page as read before it was: until the page is read again. */
+  const [added, setAdded] = useState<{ id: number; platform: Platform; before: Brokerage } | null>(
+    null,
+  );
   const website = added ? page.websites.find((one) => one.id === added.id) : undefined;
 
   const save = async () => {
@@ -216,14 +234,15 @@ function AddWebsiteWindow({ page, onClose }: { page: Brokerage; onClose: () => v
         label: draft.label.trim(),
         bellUrl: draft.bellUrl.trim(),
       });
-      setAdded({ id, platform: draft.platform });
+      setAdded({ id, platform: draft.platform, before: page });
+      onAdded();
       note({ text: `${draft.label.trim()} added.` });
     } catch (failure) {
       if (away(failure)) return;
       setError(
         failure instanceof Refused && failure.status === 400
           ? 'Check the bell address: it starts with https://.'
-          : UNANSWERED,
+          : failureWords(failure),
       );
     } finally {
       setBusy(false);
@@ -260,8 +279,11 @@ function AddWebsiteWindow({ page, onClose }: { page: Brokerage; onClose: () => v
               platform={added.platform}
             />
           </>
+        ) : added.before === page ? (
+          // Saved: the page is being read again, so the window can show the new website.
+          <LoaderIcon className="k-spin" size={18} />
         ) : (
-          <p className="k-quiet">{UNANSWERED}</p>
+          <p className="k-quiet">{GONE}</p>
         )}
       </Modal>
     );
@@ -305,16 +327,16 @@ function RemoveWebsiteWindow({
   const { away } = useShell();
   const note = useNote();
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const remove = async () => {
     setBusy(true);
-    setFailed(false);
+    setFailed(null);
     try {
       await api.removeWebsite(website.id);
       note({ text: `${website.label} removed.` });
       onRemoved();
     } catch (error) {
-      if (!away(error)) setFailed(true);
+      if (!away(error)) setFailed(failureWords(error));
       setBusy(false);
     }
   };
@@ -346,7 +368,7 @@ function RemoveWebsiteWindow({
         the tenant token. To stop serving a brokerage that has left, switch the brokerage off
         instead.
       </p>
-      {failed && <p className="k-error">{UNANSWERED}</p>}
+      {failed && <p className="k-error">{failed}</p>}
     </Modal>
   );
 }
@@ -544,9 +566,9 @@ function OfficesWindow({
 }) {
   const { away } = useShell();
   const [offices, setOffices] = useState<Office[] | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const [queued, setQueued] = useState(false);
-  const [checkFailed, setCheckFailed] = useState(false);
+  const [checkFailed, setCheckFailed] = useState<string | null>(null);
   const check = wordsFor(crm.provider).officeCheck;
   const canCheck = check !== undefined && connection.actions.includes(check);
 
@@ -554,21 +576,21 @@ function OfficesWindow({
     api.offices(connection.id).then(
       (answer) => setOffices(answer.offices),
       (error: unknown) => {
-        if (!away(error)) setFailed(true);
+        if (!away(error)) setFailed(failureWords(error));
       },
     );
   }, [connection.id, away]);
 
   const checkNow = async () => {
     if (!check) return;
-    setCheckFailed(false);
+    setCheckFailed(null);
     setQueued(true);
     try {
       await api.act(connection.id, check);
     } catch (error) {
       if (away(error)) return;
       setQueued(false);
-      setCheckFailed(true);
+      setCheckFailed(failureWords(error));
     }
   };
 
@@ -596,7 +618,7 @@ function OfficesWindow({
         </>
       }
     >
-      {failed && <p className="k-error">{UNANSWERED}</p>}
+      {failed && <p className="k-error">{failed}</p>}
       {offices && offices.length === 0 && (
         <p className="k-quiet k-quiet-tight">Core holds no offices for this connection yet.</p>
       )}
@@ -628,7 +650,7 @@ function OfficesWindow({
           Office check queued — it runs within a minute.
         </p>
       )}
-      {checkFailed && <p className="k-error">{UNANSWERED}</p>}
+      {checkFailed && <p className="k-error">{checkFailed}</p>}
     </Modal>
   );
 }
@@ -649,7 +671,7 @@ function RemoveConnectionWindow({
 }) {
   const { away } = useShell();
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const sites = page.websites.map((website) => website.label);
   const what = loadedList(connection.counts);
   const offices = connection.offices;
@@ -666,12 +688,12 @@ function RemoveConnectionWindow({
 
   const remove = async () => {
     setBusy(true);
-    setFailed(false);
+    setFailed(null);
     try {
       const { removedAt } = await api.removeConnection(connection.id);
       onRemoved(removedAt);
     } catch (error) {
-      if (!away(error)) setFailed(true);
+      if (!away(error)) setFailed(failureWords(error));
       setBusy(false);
     }
   };
@@ -700,7 +722,7 @@ function RemoveConnectionWindow({
       <p className="k-modal-text">
         {leaving} Its form history (forms sent to {short}) is deleted. This can’t be undone.
       </p>
-      {failed && <p className="k-error">{UNANSWERED}</p>}
+      {failed && <p className="k-error">{failed}</p>}
     </Modal>
   );
 }
@@ -748,7 +770,7 @@ function ReplaceTokenWindow({
 }) {
   const { away } = useShell();
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const sites = page.websites;
   const named = sites.map((website) => {
     const platform = platformOf(website);
@@ -768,12 +790,12 @@ function ReplaceTokenWindow({
 
   const replace = async () => {
     setBusy(true);
-    setFailed(false);
+    setFailed(null);
     try {
       const { token } = await api.replaceToken(page.id);
       onReplaced(token);
     } catch (error) {
-      if (!away(error)) setFailed(true);
+      if (!away(error)) setFailed(failureWords(error));
       setBusy(false);
     }
   };
@@ -810,7 +832,7 @@ function ReplaceTokenWindow({
           </>
         )}
       </p>
-      {failed && <p className="k-error">{UNANSWERED}</p>}
+      {failed && <p className="k-error">{failed}</p>}
     </Modal>
   );
 }
@@ -886,7 +908,7 @@ function ReloadWindow({
 }) {
   const { away } = useShell();
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const crms = fetchedFrom(page);
   const sites = page.websites.map((website) => website.label);
   const fetch =
@@ -904,12 +926,12 @@ function ReloadWindow({
     !page.active && sites.length > 0 ? 'They reload once the brokerage is switched on. ' : '';
   const go = async () => {
     setBusy(true);
-    setFailed(false);
+    setFailed(null);
     try {
       await api.reload(page.id);
       onDone();
     } catch (error) {
-      if (!away(error)) setFailed(true);
+      if (!away(error)) setFailed(failureWords(error));
       setBusy(false);
     }
   };
@@ -940,7 +962,7 @@ function ReloadWindow({
         {reload}
         {off}Takes a few minutes.
       </p>
-      {failed && <p className="k-error">{UNANSWERED}</p>}
+      {failed && <p className="k-error">{failed}</p>}
     </Modal>
   );
 }
@@ -1067,7 +1089,7 @@ function SwitchOffWindow({
   const { away } = useShell();
   const note = useNote();
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const sites = page.websites.map((website) => website.label);
   const connections = page.connections.length;
   const first =
@@ -1084,13 +1106,13 @@ function SwitchOffWindow({
         : `Their ${crmWords(page)} connections stay as they are (Core keeps reading them), so they can be switched on again.`;
   const off = async () => {
     setBusy(true);
-    setFailed(false);
+    setFailed(null);
     try {
       await api.switchBrokerage(page.id, false);
       note({ text: `${page.name} is switched off.`, icon: 'off' });
       onDone();
     } catch (error) {
-      if (!away(error)) setFailed(true);
+      if (!away(error)) setFailed(failureWords(error));
       setBusy(false);
     }
   };
@@ -1119,7 +1141,7 @@ function SwitchOffWindow({
       <p className="k-modal-text">
         {first} {second}
       </p>
-      {failed && <p className="k-error">{UNANSWERED}</p>}
+      {failed && <p className="k-error">{failed}</p>}
     </Modal>
   );
 }
@@ -1161,7 +1183,7 @@ function Page({ id }: { id: number }) {
   const [reloading, setReloading] = useState(false);
   const fast =
     open?.kind === 'token-replaced' || removal !== null || watching !== null || reloading;
-  const { page, state, load } = usePage(id, fast);
+  const { page, state, failure, load } = usePage(id, fast);
   const before = useRef<Brokerage | null>(null);
 
   const close = useCallback(() => setOpen(null), []);
@@ -1242,7 +1264,7 @@ function Page({ id }: { id: number }) {
   if (state === 'failed') {
     return (
       <main className="k-page">
-        <p className="k-quiet">Core didn’t answer. Reload the page in a moment.</p>
+        <p className="k-quiet">{failure} The page tries again by itself.</p>
       </main>
     );
   }
@@ -1252,7 +1274,7 @@ function Page({ id }: { id: number }) {
     try {
       await api.formsTestMode(connection.id, on);
     } catch (error) {
-      if (!away(error)) note({ text: UNANSWERED, icon: 'warn' });
+      if (!away(error)) note({ text: failureWords(error), icon: 'warn', stays: true });
       return;
     }
     const sites = listed(page.websites.map((website) => website.label));
@@ -1276,7 +1298,7 @@ function Page({ id }: { id: number }) {
       note({ text: `${page.name} is switched on. Its websites fetch what changed meanwhile.` });
       void load();
     } catch (error) {
-      if (!away(error)) note({ text: UNANSWERED, icon: 'warn' });
+      if (!away(error)) note({ text: failureWords(error), icon: 'warn', stays: true });
     }
   };
 
@@ -1339,7 +1361,9 @@ function Page({ id }: { id: number }) {
         onReload={() => setOpen({ kind: 'reload' })}
       />
 
-      {open?.kind === 'add-website' && <AddWebsiteWindow page={page} onClose={closeAndLoad} />}
+      {open?.kind === 'add-website' && (
+        <AddWebsiteWindow page={page} onAdded={() => void load()} onClose={closeAndLoad} />
+      )}
       {open?.kind === 'remove-website' && (
         <RemoveWebsiteWindow website={open.website} onClose={close} onRemoved={closeAndLoad} />
       )}

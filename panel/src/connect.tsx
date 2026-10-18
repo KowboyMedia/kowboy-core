@@ -6,7 +6,8 @@ import { api, Refused, type ConnectionView, type Crm } from './api';
 import { complete, LoginFields, startingLogin, type Login } from './LoginForm';
 import { fieldWords, wordsFor } from './crm-words';
 import { listed } from './time';
-import { Modal, UNANSWERED, useNote } from './ui';
+import { failureWords } from './failure';
+import { Modal, useNote } from './ui';
 import { useShell } from './Shell';
 import { LoaderIcon, PlugIcon } from './icons';
 
@@ -27,7 +28,7 @@ export function loginRefusal(error: unknown, crm: string): string {
     }
     if (error.status === 400) return 'Fill in every field.';
   }
-  return UNANSWERED;
+  return failureWords(error);
 }
 
 /**

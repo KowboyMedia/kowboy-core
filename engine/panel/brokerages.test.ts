@@ -1,7 +1,7 @@
 // Brokerages (design B, images 06 to 12 and 23 to 38): the list, one brokerage's page, and the
 // changes a person makes there. A stand-in CRM, "somecrm", declares a login, a login test, one
 // action and a form handler; each records what it was asked and calls nothing, and its form
-// handler must never be reached while forms test mode is on.
+// handler must never be reached while forms test mode is on. Its action fails when a test says.
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { harness, TENANT, type Harness } from '../../acceptance/harness.js';
@@ -27,6 +27,9 @@ const asked: {
 /** The password the stand-in CRM takes. */
 const GOOD = 'right-password';
 
+/** What the stand-in CRM's action fails with, when a test makes it fail. */
+let actFails: Error | null = null;
+
 const somecrm: Adapter = {
   manifest: { provider: 'somecrm', datatypes: ['property', 'agent', 'office'] },
   mappers: {},
@@ -51,7 +54,7 @@ const somecrm: Adapter = {
       ]),
     act: (action, params, connections) => {
       asked.acts.push({ action, params, connections: connections.map((one) => one.id) });
-      return Promise.resolve({ message: 'queued' });
+      return actFails ? Promise.reject(actFails) : Promise.resolve({ message: 'queued' });
     },
     probe: (credentials) => {
       asked.probes.push(credentials);
@@ -75,6 +78,7 @@ beforeEach(async () => {
   asked.probes = [];
   asked.acts = [];
   asked.sent = [];
+  actFails = null;
   await db().query(
     'truncate submissions, events, alert_state, admin_sessions, heartbeats, health_results, lifecycle_events',
   );
@@ -483,5 +487,46 @@ describe('what a person does on a brokerage’s page', () => {
     expect((await page()).active).toBe(true);
     expect(core.bells.length).toBeGreaterThan(bells);
     expect((await call('/brokerages/999/switch', { on: true })).status).toBe(404);
+  });
+});
+
+describe('what a person is told when Core fails at what they asked', () => {
+  it('says what failed in the words of the part of Core that failed, whose fault it is and what to do', async () => {
+    await connection();
+    actFails = new Error('relation "somecrm_state" does not exist');
+    const failed = await call('/connections/main/act', { action: 'check_offices' });
+    expect(failed.status).toBe(502);
+    expect(failed.json).toEqual({
+      error: 'crm',
+      message:
+        'The part of Core that talks to Somecrm failed, and its error said “relation "somecrm_state" does not exist”. This is a fault in Core, not at Somecrm or in the login, so pass these words on to Core’s developers.',
+    });
+
+    // Core's database refusing it is no fault in Core's code, and passes by itself.
+    actFails = Object.assign(new Error('sorry, too many clients already'), { code: '53300' });
+    expect((await call('/connections/main/act', { action: 'check_offices' })).json).toEqual({
+      error: 'crm',
+      message:
+        'Core couldn’t use its database, and the database’s error said “sorry, too many clients already”. This is Core’s database, not Somecrm or a login: Core carries on by itself once the database answers, so if this lasts more than a few minutes, pass these words on to Core’s developers.',
+    });
+  });
+
+  it('answers an error nobody expected with Core’s own words, to a person signed in only', async () => {
+    await db().query('alter table panel_problems rename to panel_problems_away');
+    try {
+      const failed = await call('/problems/act', { key: 'site:1' });
+      expect(failed.status).toBe(500);
+      expect(failed.json).toEqual({
+        error: 'internal error',
+        message:
+          'Core failed with an error in its own code, which said “relation "panel_problems" does not exist”. This is a fault in Core, not in a CRM or a login, so pass these words on to Core’s developers.',
+      });
+      expect(await call('/problems/act', { key: 'site:1' }, false)).toEqual({
+        status: 401,
+        json: { error: 'signed out' },
+      });
+    } finally {
+      await db().query('alter table panel_problems_away rename to panel_problems');
+    }
   });
 });

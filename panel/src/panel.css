@@ -1527,6 +1527,13 @@ body {
 .k-note-off svg {
   color: var(--k-muted);
 }
+.k-note-close {
+  align-self: flex-start;
+  margin-left: auto;
+}
+.k-note .k-note-close svg {
+  color: inherit;
+}
 
 /* ---- Waiting, Fixed today, banners (part 3) -------------------------------------------------- */
 

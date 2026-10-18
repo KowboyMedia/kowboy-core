@@ -44,6 +44,7 @@ import { actOn } from './problems.js';
 import { resendForms } from './forms.js';
 import { startReload } from './reload.js';
 import { retryRecords } from './records.js';
+import { failureWords } from './failure.js';
 
 type PanelConfig = AuthSettings & Pick<Config, 'environment' | 'port'>;
 
@@ -141,13 +142,21 @@ async function useLink(request: Request): Promise<Response> {
 
 type Signed = { email: string; expiresAt: Date };
 
-/** A handler for a signed-in person only; anyone else is told 401. */
+/**
+ * A handler for a signed-in person only; anyone else is told 401. An error nobody expected is
+ * answered with what failed, whose fault it is and what to do, for the person to pass on.
+ */
 const signedIn =
   (handler: (request: Request, person: Signed) => Promise<Response> | Response) =>
   async (request: Request): Promise<Response> => {
     const person = await sessionFor(tokenFrom(request.headers['cookie']), settings());
     if (!person) return answer(401, { error: 'signed out' });
-    return handler(request, person);
+    try {
+      return await handler(request, person);
+    } catch (error) {
+      report(error, { where: 'panel', path: request.path });
+      return answer(500, { error: 'internal error', message: failureWords(error) });
+    }
   };
 
 /** `GET /v1/panel/me`: who is signed in on this device, and until when. */
@@ -172,7 +181,9 @@ const inboxRoute = signedIn(async () => answer(200, await inbox()));
 // ---- Brokerages, their websites and their CRM connections ----------------------------------------
 
 const REFUSED: Record<Refusal, number> = { missing: 404, fields: 400, login: 422, crm: 502 };
-const refusal = (why: Refusal): Response => answer(REFUSED[why], { error: why });
+/** A refusal, with the words of what failed when Core has them (failure.ts). */
+const refusal = (why: Refusal, said?: string): Response =>
+  answer(REFUSED[why], said ? { error: why, message: said } : { error: why });
 const missing = (): Response => refusal('missing');
 
 const text = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
@@ -277,7 +288,7 @@ const BROKERAGE_CHANGES: Record<string, BrokerageChange> = {
       given['records'],
       key === '' ? null : { key, by: person.email },
     );
-    return done.ok ? answer(200, { ok: true }) : refusal(done.why);
+    return done.ok ? answer(200, { ok: true }) : refusal(done.why, done.said);
   },
 };
 
@@ -311,7 +322,7 @@ const connectionChange = change(async (request, given, person) => {
   }
   if (what === 'act') {
     const done = await runAction(id, text(given['action']));
-    return done.ok ? answer(200, { ok: true }) : refusal(done.why);
+    return done.ok ? answer(200, { ok: true }) : refusal(done.why, done.said);
   }
   if (what === 'remove') {
     const removed = await removeConnection(id);

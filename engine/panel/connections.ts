@@ -14,13 +14,15 @@ import { adminFor } from '../registry.js';
 import type { AdminField, Connection } from '../adapter-api/types.js';
 import { crmName } from './inbox.js';
 import { solveLogin } from './problems.js';
+import { failureWords } from './failure.js';
 
 /** Why a change was not made: no such thing, a login missing a field, or the CRM refused it. */
 export type Refusal = 'missing' | 'fields' | 'login' | 'crm';
 
-type Done<T> = { ok: true; value: T } | { ok: false; why: Refusal };
+/** A change made, or why not, with the words of what failed when Core has them (failure.ts). */
+type Done<T> = { ok: true; value: T } | { ok: false; why: Refusal; said?: string };
 
-const refused = <T>(why: Refusal): Done<T> => ({ ok: false, why });
+const refused = <T>(why: Refusal, said?: string): Done<T> => ({ ok: false, why, said });
 
 /**
  * The login as the CRM's code takes it: one JSON document of its declared fields. A field the
@@ -173,16 +175,16 @@ export async function runAction(connectionId: string, action: string): Promise<D
   const connection = await connectionById(connectionId);
   const admin = connection ? adminFor(connection.provider) : null;
   if (!connection || !admin?.connection) return refused('missing');
-  const declared = (await admin.connection(connection))
-    .flatMap((section) => section.actions ?? [])
-    .find((one) => one.id === action && !one.fields?.length);
-  if (!declared) return refused('missing');
   try {
+    const declared = (await admin.connection(connection))
+      .flatMap((section) => section.actions ?? [])
+      .find((one) => one.id === action && !one.fields?.length);
+    if (!declared) return refused('missing');
     await admin.act(declared.id, declared.params ?? {}, [connection]);
     return { ok: true, value: null };
   } catch (error) {
     report(error, { where: 'panel action', provider: connection.provider, action });
-    return refused('crm');
+    return refused('crm', failureWords(error, crmName(connection.provider)));
   }
 }
 

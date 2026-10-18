@@ -6,18 +6,17 @@ import { useLocation, useNavigate } from 'react-router';
 import { api, lastRequest, Refused, rememberRequest, type SignInFacts } from './api';
 import { Brand } from './brand';
 import { CircleCheckIcon, ClockIcon, MailIcon } from './icons';
+import { failureWords } from './failure';
 
-/** The settings the page words itself from: the instance, the days and the minutes. */
-function useFacts(): { facts: SignInFacts | null; failed: boolean } {
+/** The settings the page words itself from, or what went wrong when Core didn't give them. */
+function useFacts(): { facts: SignInFacts | null; failed: string | null } {
   const [facts, setFacts] = useState<SignInFacts | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   useEffect(() => {
-    api.signInFacts().then(setFacts, () => setFailed(true));
+    api.signInFacts().then(setFacts, (error: unknown) => setFailed(failureWords(error)));
   }, []);
   return { facts, failed };
 }
-
-const UNREACHABLE = 'Core didn’t answer. Reload the page in a moment.';
 
 function Gate({ instance, children }: { instance: string | null; children?: ReactNode }) {
   return (
@@ -57,7 +56,7 @@ function SignInForm({ facts, again = false, initial = null, onSent }: FormProps)
       setError(
         failure instanceof Refused && failure.status === 400
           ? 'That doesn’t look like an email address.'
-          : 'Core didn’t answer. Try again in a moment.',
+          : failureWords(failure),
       );
     } finally {
       setSending(false);
@@ -149,9 +148,7 @@ export function SignInPage() {
   }, [navigate]);
 
   if (!facts) {
-    return (
-      <Gate instance={null}>{failed && <p className="k-under k-error">{UNREACHABLE}</p>}</Gate>
-    );
+    return <Gate instance={null}>{failed && <p className="k-under k-error">{failed}</p>}</Gate>;
   }
   if (sent) {
     return (
@@ -186,6 +183,8 @@ export function LinkPage() {
   const { facts, failed } = useFacts();
   const navigate = useNavigate();
   const [state, setState] = useState<'opening' | 'dead' | 'unreachable'>('opening');
+  /** What went wrong when Core didn't open the link. */
+  const [failure, setFailure] = useState('');
   const [sent, setSent] = useState<string | null>(null);
   const opened = useRef(false);
 
@@ -203,8 +202,14 @@ export function LinkPage() {
       setState('opening');
       api.openLink(token).then(
         () => navigate('/', { replace: true }),
-        (failure: unknown) =>
-          setState(failure instanceof Refused && failure.status === 410 ? 'dead' : 'unreachable'),
+        (error: unknown) => {
+          if (error instanceof Refused && error.status === 410) {
+            setState('dead');
+            return;
+          }
+          setFailure(failureWords(error));
+          setState('unreachable');
+        },
       );
     };
     const again = () => take(false);
@@ -219,7 +224,9 @@ export function LinkPage() {
   if (state === 'unreachable' || (failed && state === 'dead')) {
     return (
       <Gate instance={facts?.instance ?? null}>
-        <p className="k-under k-error">Core didn’t answer. Open the link again in a moment.</p>
+        <p className="k-under k-error">
+          {state === 'unreachable' ? `${failure} Then open the link in the mail again.` : failed}
+        </p>
       </Gate>
     );
   }

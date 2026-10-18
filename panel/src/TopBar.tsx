@@ -6,10 +6,11 @@ import { api, type Me } from './api';
 import { Brand } from './brand';
 import { dateOf } from './time';
 import { BuildingIcon, ChevronDownIcon, InboxIcon, LogoutIcon, PlusIcon } from './icons';
+import { failureWords } from './failure';
 
 function AccountMenu({ me }: { me: Me }) {
   const [open, setOpen] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const holder = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -30,12 +31,12 @@ function AccountMenu({ me }: { me: Me }) {
   }, [open]);
 
   const signOut = async () => {
-    setFailed(false);
+    setFailed(null);
     try {
       await api.signOut();
       navigate('/sign-in', { state: { signedOut: true } });
-    } catch {
-      setFailed(true);
+    } catch (error) {
+      setFailed(failureWords(error));
     }
   };
 
@@ -70,7 +71,7 @@ function AccountMenu({ me }: { me: Me }) {
           </button>
           {failed && (
             <p className="k-error" style={{ margin: '0 12px 12px' }}>
-              Core didn’t answer. Try again in a moment.
+              {failed}
             </p>
           )}
         </div>

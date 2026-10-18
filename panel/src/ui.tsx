@@ -23,7 +23,12 @@ import {
 
 // ---- Messages in the corner -------------------------------------------------------------------------
 
-export type Note = { text: ReactNode; icon?: 'done' | 'warn' | 'off' };
+export type Note = {
+  text: ReactNode;
+  icon?: 'done' | 'warn' | 'off';
+  /** A failure stays until it is closed, so its words can be read and passed on. */
+  stays?: boolean;
+};
 
 const Notes = createContext<(note: Note) => void>(() => undefined);
 
@@ -35,12 +40,19 @@ const NOTE_MS = 8_000;
 export function NoteProvider({ children }: { children: ReactNode }) {
   const [notes, setNotes] = useState<(Note & { id: number })[]>([]);
   const next = useRef(0);
-  const show = useCallback((note: Note) => {
-    next.current += 1;
-    const id = next.current;
-    setNotes((shown) => [...shown.slice(-2), { ...note, id }]);
-    setTimeout(() => setNotes((shown) => shown.filter((one) => one.id !== id)), NOTE_MS);
-  }, []);
+  const close = useCallback(
+    (id: number) => setNotes((shown) => shown.filter((one) => one.id !== id)),
+    [],
+  );
+  const show = useCallback(
+    (note: Note) => {
+      next.current += 1;
+      const id = next.current;
+      setNotes((shown) => [...shown.slice(-2), { ...note, id }]);
+      if (!note.stays) setTimeout(() => close(id), NOTE_MS);
+    },
+    [close],
+  );
   return (
     <Notes.Provider value={show}>
       {children}
@@ -55,6 +67,16 @@ export function NoteProvider({ children }: { children: ReactNode }) {
               <CircleCheckIcon />
             )}
             <span>{note.text}</span>
+            {note.stays && (
+              <button
+                type="button"
+                className="k-modal-close k-note-close"
+                aria-label="Close"
+                onClick={() => close(note.id)}
+              >
+                <XIcon size={18} strokeWidth={1.5} />
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -293,6 +315,3 @@ export function DotsMenu({ label, items }: { label: string; items: MenuItem[] })
     </div>
   );
 }
-
-/** The words of an error from Core, for a person: what went wrong and what to do. */
-export const UNANSWERED = 'Core didn’t answer. Try again in a moment.';

@@ -6,6 +6,7 @@ import { api, type BrokerageRow, type Status } from './api';
 import { Shell, useShell } from './Shell';
 import { counted } from './time';
 import { ChevronRightIcon } from './icons';
+import { failureWords } from './failure';
 import { Badge, type Tone } from './ui';
 
 export const STATUS: Record<Status, { words: string; tone: Tone }> = {
@@ -22,13 +23,13 @@ function List() {
   const navigate = useNavigate();
   const { away } = useShell();
   const [rows, setRows] = useState<BrokerageRow[] | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
 
   useEffect(() => {
     api.brokerages().then(
       (answer) => setRows(answer.brokerages),
       (error: unknown) => {
-        if (!away(error)) setFailed(true);
+        if (!away(error)) setFailed(failureWords(error));
       },
     );
   }, [away]);
@@ -45,7 +46,7 @@ function List() {
             : counted(rows.length, 'brokerage', 'brokerages')}
         </p>
       )}
-      {failed && <p className="k-quiet">Core didn’t answer. Reload the page in a moment.</p>}
+      {failed && <p className="k-quiet">{failed}</p>}
       {rows && rows.length === 0 && (
         <p className="k-quiet">Add the first one with “New brokerage”.</p>
       )}

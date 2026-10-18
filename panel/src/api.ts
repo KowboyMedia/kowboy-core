@@ -49,6 +49,8 @@ export class Refused extends Error {
   constructor(
     readonly status: number,
     readonly reason: string,
+    /** Core's own words for what failed, whose fault it is and what to do, when it gave them. */
+    readonly said = '',
   ) {
     super(`Core answered ${String(status)}: ${reason}`);
   }
@@ -60,8 +62,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { accept: 'application/json', ...(init?.headers ?? {}) },
   });
-  const body = (await response.json().catch(() => ({}))) as { error?: string };
-  if (!response.ok) throw new Refused(response.status, body.error ?? '');
+  const body = (await response.json().catch(() => ({}))) as { error?: string; message?: string };
+  if (!response.ok) throw new Refused(response.status, body.error ?? '', body.message ?? '');
   return body as T;
 }
 

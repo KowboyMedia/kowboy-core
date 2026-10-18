@@ -51,7 +51,8 @@ import {
   SendIcon,
   TrafficConeIcon,
 } from './icons';
-import { Modal, UNANSWERED, useNote, ValueField } from './ui';
+import { failureWords, GONE } from './failure';
+import { Modal, useNote, ValueField } from './ui';
 import { LoginWindow } from './connect';
 import { loginNamed } from './crm-words';
 import { isPlatform, platformWords } from './websites';
@@ -180,9 +181,9 @@ function Login({ card, now, onOpen }: { card: LoginCard; now: Date; onOpen: Open
       const connection = page.connections.find((one) => one.id === card.connectionId);
       const crm = page.crms.find((one) => one.provider === connection?.provider);
       if (connection && crm) onOpen({ kind: 'login', card, crm, connection });
-      else note({ text: UNANSWERED, icon: 'warn' });
+      else note({ text: GONE, icon: 'warn' });
     } catch (error) {
-      if (!away(error)) note({ text: UNANSWERED, icon: 'warn' });
+      if (!away(error)) note({ text: failureWords(error), icon: 'warn', stays: true });
     }
     setBusy(false);
   };
@@ -333,12 +334,7 @@ function Records({ card, now, onRetried }: { card: RecordsCard; now: Date; onRet
       );
       onRetried(card);
     } catch (error) {
-      if (!away(error)) {
-        note({
-          text: `${card.crm} didn’t take the request to fetch them again. Try again in a while.`,
-          icon: 'warn',
-        });
-      }
+      if (!away(error)) note({ text: failureWords(error), icon: 'warn', stays: true });
     }
     setBusy(false);
   };
@@ -649,7 +645,7 @@ function MaintenanceBanner({
       note({ text: 'Maintenance is off. Held changes are going out to the websites.' });
       onDone();
     } catch (error) {
-      if (!away(error)) note({ text: UNANSWERED, icon: 'warn' });
+      if (!away(error)) note({ text: failureWords(error), icon: 'warn', stays: true });
     }
     setBusy(false);
   };
@@ -690,15 +686,15 @@ function MaintenanceWindow({
 }) {
   const { away } = useShell();
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const on = async () => {
     setBusy(true);
-    setFailed(false);
+    setFailed(null);
     try {
       await api.maintenance(true);
       onDone();
     } catch (error) {
-      if (!away(error)) setFailed(true);
+      if (!away(error)) setFailed(failureWords(error));
       setBusy(false);
     }
   };
@@ -729,7 +725,7 @@ function MaintenanceWindow({
         queued job starts. Core keeps reading {reads(inbox)}, and visitors’ forms still reach{' '}
         {reads(inbox)}.
       </p>
-      {failed && <p className="k-error">{UNANSWERED}</p>}
+      {failed && <p className="k-error">{failed}</p>}
     </Modal>
   );
 }
@@ -750,17 +746,17 @@ function BellSecretWindow({
 }) {
   const { away } = useShell();
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const platform = isPlatform(card.platform) ? platformWords(card.platform) : null;
   const code = /^http (\d+)$/.exec(card.lastAnswer ?? '')?.[1] ?? '';
   const done = async () => {
     setBusy(true);
-    setFailed(false);
+    setFailed(null);
     try {
       await api.acted(card.key);
       onDone();
     } catch (error) {
-      if (!away(error)) setFailed(true);
+      if (!away(error)) setFailed(failureWords(error));
       setBusy(false);
     }
   };
@@ -806,7 +802,7 @@ function BellSecretWindow({
       <p className="k-help">
         The website then syncs within 15 minutes, and this card moves to “Fixed today” by itself.
       </p>
-      {failed && <p className="k-error">{UNANSWERED}</p>}
+      {failed && <p className="k-error">{failed}</p>}
     </Modal>
   );
 }
@@ -876,7 +872,7 @@ function ResendWindow({
   const { away } = useShell();
   const note = useNote();
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const forms = counted(card.count, 'form', 'forms');
   const crm = listed(card.crms, 'or') || 'the CRM';
   const one = card.count === 1;
@@ -888,7 +884,7 @@ function ResendWindow({
       : `${crm} hasn’t answered a form since. ${sends}; ${one ? 'if it isn’t taken, it stays' : 'any it doesn’t take stay'} in the Inbox.`;
   const send = async () => {
     setBusy(true);
-    setFailed(false);
+    setFailed(null);
     try {
       const { results } = await api.resend(
         card.tenant.id,
@@ -897,7 +893,7 @@ function ResendWindow({
       note(resentNote(results, listed(card.crms) || 'the CRM'));
       onDone();
     } catch (error) {
-      if (!away(error)) setFailed(true);
+      if (!away(error)) setFailed(failureWords(error));
       setBusy(false);
     }
   };
@@ -936,7 +932,7 @@ function ResendWindow({
           </li>
         ))}
       </ul>
-      {failed && <p className="k-error">{UNANSWERED}</p>}
+      {failed && <p className="k-error">{failed}</p>}
     </Modal>
   );
 }
@@ -1111,17 +1107,17 @@ export function InboxPage() {
 function InboxReader() {
   const { setCount, away } = useShell();
   const [inbox, setInbox] = useState<Inbox | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
 
   const read = useCallback(() => {
     api.inbox().then(
       (next) => {
         setInbox(next);
         setCount(next.cards.length);
-        setFailed(false);
+        setFailed(null);
       },
       (error: unknown) => {
-        if (!away(error)) setFailed(true);
+        if (!away(error)) setFailed(failureWords(error));
       },
     );
   }, [away, setCount]);
@@ -1144,7 +1140,7 @@ function InboxReader() {
       {inbox && <InboxView inbox={inbox} onRead={read} />}
       {failed && (
         <p className="k-quiet" role="status">
-          Core didn’t answer. The Inbox tries again by itself.
+          {failed} The Inbox tries again by itself.
         </p>
       )}
     </main>

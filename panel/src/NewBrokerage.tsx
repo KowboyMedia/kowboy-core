@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { api, Refused, type Brokerage, type Crm } from './api';
 import { Shell, useShell } from './Shell';
-import { UNANSWERED } from './ui';
+import { failureWords } from './failure';
 import { ArrowRightIcon, CheckIcon, CircleCheckIcon, LoaderIcon } from './icons';
 import { loginLine } from './crm-words';
 import { when } from './time';
@@ -78,14 +78,14 @@ function Wizard({
 function useBrokerage(id: number | null, every: number | null = null) {
   const { away } = useShell();
   const [page, setPage] = useState<Brokerage | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const load = useCallback(async () => {
     if (id === null) return;
     try {
       setPage(await api.brokerage(id));
-      setFailed(false);
+      setFailed(null);
     } catch (error) {
-      if (!away(error)) setFailed(true);
+      if (!away(error)) setFailed(failureWords(error));
     }
   }, [id, away]);
   useEffect(() => {
@@ -140,7 +140,7 @@ function NameStep({ id }: { id: number | null }) {
       const created = await api.createBrokerage(name.trim());
       navigate(`/new/${String(created.id)}/crm`);
     } catch (failure) {
-      if (!away(failure)) setError(UNANSWERED);
+      if (!away(failure)) setError(failureWords(failure));
       setBusy(false);
     }
   };
@@ -220,7 +220,7 @@ function CrmStep({ id }: { id: number }) {
         </button>
       }
     >
-      {failed && <p className="k-error">{UNANSWERED}</p>}
+      {failed && <p className="k-error">{failed}</p>}
       {page && <p className="k-quiet k-quiet-tight">Core has no CRM to connect to.</p>}
     </Wizard>
   );
@@ -312,7 +312,7 @@ function WebsiteStep({ id }: { id: number }) {
       setError(
         failure instanceof Refused && failure.status === 400
           ? 'Check the bell address: it starts with https://.'
-          : UNANSWERED,
+          : failureWords(failure),
       );
       setBusy(false);
     }
@@ -389,7 +389,7 @@ function CheckStep({ id }: { id: number }) {
       }
     >
       <h2 className="k-step-title">Almost there</h2>
-      {failed && !page && <p className="k-error">{UNANSWERED}</p>}
+      {failed && !page && <p className="k-error">{failed}</p>}
       {page && (
         <ul className="k-checks">
           <Done title="Brokerage created">Tenant token ready.</Done>

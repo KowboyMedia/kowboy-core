@@ -37,6 +37,8 @@ const asked: {
 let unlisted: string | null = null;
 /** What the stand-in's check of the records it can't load says. */
 let retries: HealthResult = { ok: true };
+/** What the stand-in's action fails with, when a test makes it fail. */
+let actFails: Error | null = null;
 
 const somecrm: Adapter = {
   manifest: {
@@ -72,7 +74,7 @@ const somecrm: Adapter = {
     connection: () => Promise.resolve([]),
     act: (action, params, connections) => {
       asked.acts.push({ action, params, connections: connections.map((one) => one.id) });
-      return Promise.resolve({ message: 'queued' });
+      return actFails ? Promise.reject(actFails) : Promise.resolve({ message: 'queued' });
     },
     probe: (credentials) => {
       const login = JSON.parse(credentials) as Record<string, string>;
@@ -97,6 +99,7 @@ beforeEach(async () => {
   asked.acts = [];
   unlisted = null;
   retries = { ok: true };
+  actFails = null;
   core.bells.length = 0;
   await db().query(
     'truncate submissions, events, alert_state, admin_sessions, heartbeats, health_results, lifecycle_events, settings, panel_problems, reloads',
@@ -448,6 +451,21 @@ describe('records a CRM can’t load', () => {
     expect(read.fixed.find((one) => one.key === card.key)).toMatchObject({
       tenants: [{ id: TENANT, name: 'Granstedt Bostad' }],
       facts: { kind: 'records', crm: 'Somecrm', counts: { property: 3 }, name: null },
+    });
+  });
+
+  it('says what failed, whose fault it is and what to do when the CRM’s code can’t fetch them again', async () => {
+    actFails = new Error('relation "somecrm_list" does not exist');
+    const failed = await call(`/brokerages/${String(TENANT)}/retry`, {
+      records: [{ connection: 'somecrm-1', datatype: 'property', id: 'P-1' }],
+    });
+    expect(failed).toEqual({
+      status: 502,
+      json: {
+        error: 'crm',
+        message:
+          'The part of Core that talks to Somecrm failed, and its error said “relation "somecrm_list" does not exist”. This is a fault in Core, not at Somecrm or in the login, so pass these words on to Core’s developers.',
+      },
     });
   });
 });
