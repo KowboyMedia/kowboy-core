@@ -78,4 +78,3 @@ only 2 or 3. Both are true, and this entry says why and what could change.
   tested on staging first.
 - c) **move Core's staging to its own database**: halves what production holds; $15.15 a month more.
 - Reply: a, b or c.
-
