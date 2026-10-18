@@ -124,29 +124,3 @@ per visitor address and the header it read. What remains: the two keys are in no
 them, which needs a question before it is built. The trap field and the minimum time stay in the
 window only; a program that skips them still needs the bot check's proof. The entry leaves this
 file when the fix is on production.
-
-## 6. `[client-wordpress]` The WordPress test site in a cloud session answers a critical error, so the WordPress suites cannot run there
-
-**What happens.** On 2026-10-06, in a cloud session whose start hook reported "WordPress prepared",
-`npm run test:wordpress` failed 17 of 21 template tests and the WordPress browser journeys: every
-page the tests fetch came back empty or as WordPress's "There has been a critical error on this
-website", and a `wp eval` call died with a PHP fatal (`array_keys(): Argument #1 must be of type
-array, null given`). The sync suite against Core passed 20 of 21; the one failure is the must-use
-updater offering a release (AC 21), which reads the same site. The engine's own suites, the admin
-area's journeys and the acceptance tests all passed in the same session, so the acceptance report
-was not regenerated there: it would have recorded the site's state as Core's.
-
-On 2026-10-16, in a cloud session that had run `clients/wordpress/test/setup.sh`, the WordPress
-suites ran: `npm run test:wordpress` passed 42 of 42, and the browser journeys passed 9 of 9 when
-run on their own. Inside `npm run report`, which runs the journeys right after that suite, the
-journeys' site had no homes ("Inga bostäder matchar just nu.") and 8 of 9 journeys failed waiting
-for a home's card; GitHub's checks also run the journeys after that suite, and pass. The report
-was not regenerated there either.
-
-**Why.** Not established. The PHP side of the prepared site is at fault, not Core: Core answered
-every pull. Likely the prepared WordPress install or its PHP does not match what the theme
-"Kowboy 2026" and the plugin now need.
-
-**What fixing it takes.** Run `clients/wordpress/test/setup.sh` by hand in a cloud session and read
-the PHP error log, then fix the start hook or the setup script so the site renders; regenerate
-`acceptance/report.md` where the WordPress suites run.

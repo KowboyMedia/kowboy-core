@@ -14,7 +14,9 @@ Threads at work on the way: the new admin (item 30, waits on 199 to 205), the cl
 messages and the five records Core cannot store (staging's health is red until they load), Core's
 mail (question 100), the database's connection shares (206, asked in chat as 88), the
 lists (item 31, waits on 198) and the forms (item 29, waits on 209). "Resume next steps" means:
-the first open step of item 33 that waits on nobody.
+the first open step of item 33 that waits on nobody. On 2026-10-18 condition 1 was done and Core's
+part of condition 4, and the preview of condition 2 was built; the rest waits on 207 and 210, on
+the threads, or on the seven days.
 
 ## Agent setup (from the 2026-09-27 review of how agents and Patric work together)
 
@@ -932,10 +934,10 @@ the first open step of item 33 that waits on nobody.
       phase 7), each a step:
       1. Enforced checks green on staging, `/v1/health` green (red on 2026-10-18:
          `vitec.retries`, the "Proper error messages in admin" thread), and
-         `acceptance/report.md` made again from a real run. On 2026-10-18 a fresh `npm run build`
-         before `npm run report` let the WordPress journeys pass (22 of 22) in a cloud session,
-         while six template tests of the WordPress suite failed inside the report's run and one
-         of them passed alone (known bug 6).
+         `acceptance/report.md` made again from a real run: done 2026-10-18 in a cloud session,
+         45 of 49 green, the four left are condition 3 (`npm run report` builds first; the
+         journeys there need `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium`). Made
+         again before each release.
       2. The release impact preview (enforced check 5, AC 36): nothing has run
          `recompute(…, { dryRun: true })` over live's data since the old manual sync went (176).
          It becomes a step of the release that runs the new version's preview on live's records
