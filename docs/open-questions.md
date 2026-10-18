@@ -4,7 +4,7 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 88 (75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 89 (75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
@@ -53,3 +53,29 @@ the next settings change on either app (the Postmark token for live's sign-in li
 Space keys, Sentry) and for reading deployment state. Make a new personal access token in the
 DigitalOcean account with read and write on apps, save it in the session environment's settings
 under the same name, then say "saved"; the next session picks it up.
+
+## 88. `[core]` Discussion: should Core's database make room for other apps, and how? (Decide)
+
+Raised by Patric on 2026-10-18 in the Kowboy Chat project: Core's database is said to have about 19
+connections and all of them used, which looked like it contradicted an agent's claim that an app needs
+only 2 or 3. Both are true, and this entry says why and what could change.
+
+- **What Core really does** (`engine/storage/db.ts`): the smallest managed plan lets apps open 22
+  connections. Staging and production share the one cluster, and each runs a web and a worker process,
+  which during a deploy briefly run twice. That is six processes, each allowed 3 connections (2 in the
+  engine's pool, 1 in an adapter's), 18 in all. Each process uses few; the 18 are what Core keeps the
+  right to open, so the cluster has no room left for another app.
+- **So the agent was right about one process and wrong about Core**: a pooled process needs 2 or 3, as
+  with WordPress and MySQL, but Core is six processes, and any app with staging, live, a worker and
+  deploys counts the same way. Kowboy Chat has since been given its own two databases, so nothing is
+  blocked today.
+- Blocks: nothing now; a future app that should share Core's database. The smaller option: a.
+
+- a) **leave it** (recommended): Core keeps its cluster to itself; other apps get their own. No cost, no
+  change.
+- b) **turn on DigitalOcean's connection pooler for Core**: Core's six processes share a handful of real
+  connections, which frees most of the 22 for other apps. No cost; a small change to how Core connects,
+  tested on staging first.
+- c) **move Core's staging to its own database**: halves what production holds; $15.15 a month more.
+- Reply: a, b or c.
+
