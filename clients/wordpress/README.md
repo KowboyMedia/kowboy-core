@@ -180,8 +180,23 @@ leaves the list on the page, where the set's stylesheet is only if the theme put
 Kowboy 2026 does. The shortcode
 `[core_list entity="property" status="for_sale,coming" per_page="10" card="homepage"]`, the
 archive pages, the reload endpoint `GET /wp-json/core/v1/list?<the same parameters>` (which
-answers `html`, `total`, `has_more`, `page`) and any PHP call it with the same parameter set,
-passed through untouched: a parameter added to the query is at once available everywhere.
+answers `html`, `total`, `has_more`, `page` and the cards' fingerprint `hash`) and any PHP call
+it with the same parameter set, passed through untouched: a parameter added to the query is at
+once available everywhere.
+
+**A list's pages** (next-steps item 31). A list a page renders without naming its `page` has an
+address parameter of its own: `sida` for the page's first list, then `sida-2`, `sida-3` and on, in
+the order the page renders them. Its page N, `?sida=N`, shows its first N pages together, as
+"Visa fler" builds them, so a search engine follows links from page to page to every card, and a
+visitor's reload or back button finds the list as it was left. The page's canonical address keeps
+the parameter (WordPress's own drops the query), so each page is read as its own. A caller that
+names `page`, as an archive paging by WordPress's own `/page/N/` does, gets that page alone and
+no parameter. A wrapper builds its links with `core_client_list_page_url($result, $n)` and
+carries `core_client_list_data($params, $result)`, the attributes a script needs: the reload
+address and parameters, the pages shown, the parameter and the cards' fingerprint. Kowboy 2026's
+script refreshes every list once on load with them, so a page served from a page cache shows the
+cards as they are now, and replaces them only when the fingerprint changed; its "Visa fler" is a
+link to the next page, which the script loads in place, keeping the address in step.
 
 **The search box** (`includes/place-search.php`, `docs/search.md`): one function,
 `core_client_place_search($params)`, draws the box for any set that calls it (the theme Kowboy

@@ -70,13 +70,13 @@
       });
       window.history.replaceState(window.history.state, '', url.toString());
     }
-    /** The list the box drives: the one around it, else the first on the page. */
+    /** The list the box drives: the one around it, else the first list of homes on the page. */
     function target() {
       var around = box.closest('[data-list]');
       if (around) return around;
       var found = null;
       roots().forEach(function (root) {
-        if (!found) found = root.querySelector('[data-list]');
+        if (!found) found = root.querySelector('[data-list="property"]');
       });
       return found;
     }

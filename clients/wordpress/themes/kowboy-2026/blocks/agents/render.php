@@ -2,14 +2,16 @@
 // The agents block: the agents as the theme's agent cards (core/card-agent.php), every one or
 // the chosen offices' (the plugin's list settings, includes/blocks.php there), in the order Core
 // delivers them; the home page lists them all (Patric, 2026-10-03), so no count is asked. The
-// theme lays the cards out itself, with its text card and button beside them.
+// theme lays the cards out itself, with its text card and button beside them, and the script
+// refreshes them once on load like every list's.
 
 declare(strict_types=1);
 
 if (!function_exists('core_client_list_block')) {
     return;
 }
-$cards = core_client_list_block($attributes, 'agent', ['part' => 'cards', 'styleisolation' => false]);
+$params = array_merge(core_client_list_block_params($attributes, 'agent'), ['part' => 'cards', 'styleisolation' => false]);
+$list = core_client_list($params);
 $has_card = ($attributes['cardTitle'] ?? '') !== '';
 echo kowboy_section_open('k-agents');
 echo '<div class="k-container">';
@@ -19,7 +21,9 @@ if (($attributes['title'] ?? '') !== '') {
 if (($attributes['lead'] ?? '') !== '') {
     echo '<p class="k-section__lead">' . esc_html((string) $attributes['lead']) . '</p>';
 }
-echo '<div class="k-agents__grid' . ($has_card ? ' k-agents__grid--with-card' : '') . '">' . $cards;
+// The cards in a box of their own, which the grid does not see, so the script's refresh on load replaces them alone.
+echo '<div class="k-agents__grid' . ($has_card ? ' k-agents__grid--with-card' : '') . '" ' . core_client_list_data($params, $list) . '>';
+echo '<div class="k-agents__cards" data-cards>' . $list['html'] . '</div>';
 if ($has_card) {
     echo '<div class="k-info-card">';
     if (($attributes['cardLabel'] ?? '') !== '') {

@@ -26,7 +26,7 @@ const site = await configure({ url: core.baseUrl, token: TOKEN, bellSecret: BELL
 // A journey starts from nothing: the demo pages of an earlier run go, and come back at the end.
 await wp(
   'eval',
-  "foreach (['hem', 'till-salu', 'salda-bostader', 'om-oss'] as $slug) { $page = get_page_by_path($slug); if ($page instanceof WP_Post) { wp_delete_post($page->ID, true); } }",
+  "foreach (['hem', 'till-salu', 'salda-bostader', 'om-oss', 'listor'] as $slug) { $page = get_page_by_path($slug); if ($page instanceof WP_Post) { wp_delete_post($page->ID, true); } }",
 );
 // Which of this CRM's status ids the site lists as for sale, coming and sold, and the defaults otherwise.
 for (const [option, value] of [
@@ -73,6 +73,16 @@ await until(
   60_000,
 );
 await driver('demo-pages');
+// Two short lists of homes on one page, one and two cards a page, so the journeys can page them.
+await wp(
+  'post',
+  'create',
+  '--post_type=page',
+  '--post_status=publish',
+  '--post_name=listor',
+  '--post_title=Listor',
+  '--post_content=[core_list entity="property" status="for_sale,coming" per_page="1"][core_list entity="property" status="for_sale,coming" per_page="2"]',
+);
 await serve();
 console.log(`the journey site is on http://127.0.0.1:${String(port)}`);
 

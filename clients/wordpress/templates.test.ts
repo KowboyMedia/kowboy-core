@@ -137,6 +137,88 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(stdout).toMatch(/<article class="k-card[ "]/);
   });
 
+  it('gives every list page addresses of its own: the first list’s ?sida=2 shows its first two pages, a link leads to the next, the canonical address keeps the page, and a refresh finds the same cards', async () => {
+    const { stdout: id } = await wp(
+      'post',
+      'create',
+      '--post_type=page',
+      '--post_status=publish',
+      '--post_title=Två listor',
+      '--post_content=[core_list entity="property" status="for_sale,coming" per_page="1"][core_list entity="property" status="for_sale,coming" per_page="2"]',
+      '--porcelain',
+    );
+    try {
+      const lists = async (path: string): Promise<{ body: string; lists: string[] }> => {
+        const { status, body } = await page(path);
+        expect(status).toBe(200);
+        return { body, lists: body.split('<div class="k-list" ').slice(1) };
+      };
+      const streets = (html: string): string[] =>
+        [...html.matchAll(/<span class="k-card__street">(Kungsgatan \d+)<\/span>/g)].map(
+          (match) => match[1]!,
+        );
+      const attribute = (html: string, name: string): string =>
+        (new RegExp(`${name}="([^"]*)"`).exec(html)?.[1] ?? '')
+          .replace(/&quot;/g, '"')
+          .replace(/&amp;/g, '&');
+
+      // The first page: one card in the first list, two in the second, each with a link to its own second page.
+      const plain = await lists(`/?page_id=${id.trim()}`);
+      expect(plain.lists).toHaveLength(2);
+      expect(streets(plain.lists[0]!)).toEqual(['Kungsgatan 3']);
+      expect(attribute(plain.lists[0]!, 'data-key')).toBe('sida');
+      expect(attribute(plain.lists[1]!, 'data-key')).toBe('sida-2');
+      expect(plain.lists[0]).toMatch(
+        /<a class="k-button" href="[^"]*[?;]sida=2" data-more >Visa fler<\/a>/,
+      );
+      expect(plain.lists[1]).toMatch(
+        /<a class="k-button" href="[^"]*[?;]sida-2=2" data-more >Visa fler<\/a>/,
+      );
+      expect(plain.body).toMatch(
+        new RegExp(`<link rel="canonical" href="[^"]*page_id=${id.trim()}" />`),
+      );
+
+      // Each list's own page in the address: the first list's two pages, the second list's three cards, all it has.
+      const both = await lists(`/?page_id=${id.trim()}&sida=2&sida-2=2`);
+      expect(streets(both.lists[0]!)).toEqual(['Kungsgatan 3', 'Kungsgatan 2']);
+      expect(attribute(both.lists[0]!, 'data-page')).toBe('2');
+      expect(attribute(both.lists[0]!, 'data-first')).toBe('1');
+      expect(both.lists[0]).toMatch(/href="[^"]*[?;]sida=3[^"]*" data-more >Visa fler/);
+      expect(streets(both.lists[1]!)).toEqual(['Kungsgatan 3', 'Kungsgatan 2', 'Kungsgatan 1']);
+      expect(both.lists[1]).toMatch(/data-more hidden>Visa fler/);
+      // The canonical address keeps both pages, so a search engine reads each page as its own.
+      expect(both.body).toMatch(/<link rel="canonical" href="[^"]*sida=2&#038;sida-2=2" \/>/);
+
+      // The refresh on load asks for the pages the server built, and finds the same cards by their fingerprint.
+      const params = JSON.parse(attribute(both.lists[0]!, 'data-params')) as Record<string, string>;
+      expect(params).not.toHaveProperty('page');
+      const refreshed = (await (
+        await fetch(
+          `${siteUrl}/?${new URLSearchParams({ rest_route: '/core/v1/list', ...params, page: '1', per_page: '2' }).toString()}`,
+        )
+      ).json()) as { hash: string; has_more: boolean };
+      expect(refreshed.hash).toBe(attribute(both.lists[0]!, 'data-hash'));
+      expect(refreshed.has_more).toBe(true);
+
+      // A page number that is not one, or far past the last, shows the first page, or every card.
+      expect(streets((await lists(`/?page_id=${id.trim()}&sida=x`)).lists[0]!)).toEqual([
+        'Kungsgatan 3',
+      ]);
+      expect(
+        streets((await lists(`/?page_id=${id.trim()}&sida=99999999999`)).lists[0]!),
+      ).toHaveLength(3);
+    } finally {
+      await wp('post', 'delete', id.trim(), '--force');
+    }
+
+    // An archive that pages by WordPress's own /page/N/ names its page, so it has no address parameter of its own.
+    const areas = await page('/?post_type=core_area');
+    expect(areas.body).toContain('data-list="area"');
+    expect(areas.body).toContain('data-key=""');
+    // The agents archive and the home page's agents carry the same data, so their cards refresh too.
+    expect((await page('/?post_type=core_agent')).body).toContain('data-list="agent"');
+  });
+
   it('filters by status, price, size, rooms, free text, agent and office, and sorts sold ones by date', async () => {
     const sold = await reload({ entity: 'property', status: 'sold', sort: 'sold' });
     expect(

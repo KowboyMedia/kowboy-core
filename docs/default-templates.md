@@ -119,7 +119,9 @@ scaffolding" means here, and every set follows it:
   same function with one parameter set, passed through untouched, so a parameter added to the
   function is at once available everywhere. The first page of a list is rendered on the server
   (crawlable, no script needed); on load the script hydrates the list with one reload call, and
-  it reloads on filter changes and on "show more".
+  it reloads on filter changes and on "show more". Every list has page addresses of its own
+  (`?sida=2` for a page's first list, `/page/2/` on an archive with page numbers), each built on
+  the server, and "show more" is a link to the next one (next-steps item 31).
 - **Style isolation as a setting.** One boolean of the site, off unless the site turns it on,
   and a parameter of the list function, `styleisolation` (Patric, 2026-10-16, who renamed
   "shadow DOM", on by default until then): a declarative shadow root, rendered on the server,

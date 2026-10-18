@@ -409,6 +409,26 @@ own WordPress plugin or script line; the theme only cooperates, in two places:
 - **The property page names its home** for the chat: `data-kowboy-chat-listing-id` on the page's
   wrapper carries the record's `id` (the CRM's id, `docs/field-tables.md`).
 
+## Lists on cached pages, with page links, 2026-10-18
+
+Theme 1.3.0 and plugin 0.8.0, next-steps item 31 (Patric, 2026-10-15: lists "server side
+rendered first, then hydrated using ajax", with "/2/ pagination somewhere linkable"):
+
+- **Every list refreshes once when the page loads.** The homes, the agents (the archive, an
+  office's and the home page's block), the areas and the associations: each list's cards come
+  again from the plugin's reload address, so a page a page cache kept for days shows them as
+  they are now. The cards are replaced only when they changed (the plugin's fingerprint of
+  them), so a fresh page does not flicker.
+- **Every page of a list has an address, built on the server.** A list on a page reads its own
+  page from the address (`?sida=2`, `?sida-2=2` for the page's second list, and on). Its "Visa
+  fler" is an ordinary link to the next page, which search engines follow; a visitor's click
+  loads the next cards in place and writes the page into the address, so a reload or the back
+  button shows the same cards. The page's canonical address keeps it. The areas and associations
+  archives keep their page numbers on WordPress's `/page/N/`. An agent list shows "Visa fler"
+  only past 100 agents; before, an agent beyond the hundredth was in no list.
+- **Where the browser part lives** is question 198: it stays in the theme until the answer
+  says otherwise.
+
 ## Order of work
 
 1. The plan and the questions (this page), the plugin's shadow DOM default, the 2026 set shelved.

@@ -892,6 +892,12 @@ part of condition 4, and the preview of condition 2 was built; the rest waits on
     - This item states the whole requirement; the other conversation is not needed, and AGENTS.md
       keeps other conversations out of reach anyway.
     - Size: one session.
+    - **Built 2026-10-18** (plugin 0.8.0, theme 1.3.0, `docs/kowboy-2026.md`, "Lists on cached
+      pages, with page links"): every list refreshes once on load and replaces its cards only when
+      they changed; every list on a page has its own address parameter (`?sida=2`, `?sida-2=2`),
+      its page N built on the server with its first N pages, "Visa fler" a link to it, the address
+      kept in step and the canonical address keeping it; the areas and associations archives keep
+      `/page/N/`. The browser part is in the theme, as today, until question 198 says otherwise.
 
 32. **Forms keep working on pages served from a page cache, and stay protected against bots**
     (Patric, 2026-10-15: "security codes / bot protection to forms"). Component:

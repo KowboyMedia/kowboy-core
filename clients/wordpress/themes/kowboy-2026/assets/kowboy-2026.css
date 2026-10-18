@@ -1221,6 +1221,10 @@ iframe.k-hero__video {
   gap: 24px;
   margin-top: 24px;
 }
+/* The cards' own box, which the grid lays out as if the cards stood in it directly. */
+.k-agents__cards {
+  display: contents;
+}
 /* With the text card: every agent a column like the rest, the card two columns wide after them (any number of agents). */
 .k-agents__grid--with-card .k-info-card {
   grid-column: span 2;

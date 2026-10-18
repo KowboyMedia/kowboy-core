@@ -240,11 +240,12 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   home lists have it). So under another theme `[core_list]` shows nothing until that theme brings
   view files of its own, and then a list that does not react to tabs, filters or "Visa fler" (read
   in the code, not tried). Next-steps item 31 (a refresh when the page loads, page addresses search
-  engines can follow) is built where this answer puts the browser part. Options a and b change the
+  engines can follow) was built on 2026-10-18 with its browser part in the theme, as today, so a
+  or b moves that part into the plugin. Options a and b change the
   scaffolding Patric approved on 2026-09-21, where a set (today the theme) holds the views and the
   scripts, so they wait on his yes. The whole answer is
   `strategy/lists-today-and-the-old-shortcode.md` in the project's shared folder.
-- Blocked: nothing today; the answer decides where item 31 is built.
+- Blocked: nothing; the answer decides whether item 31's browser part moves into the plugin.
 - a) the browser part moves into the plugin: in any theme that brings the list's look, the
   shortcode and the blocks refresh, filter, show more and page by themselves, and item 31 is built
   there once, for every list (recommended: every theme needs that behaviour, while the look is
@@ -253,7 +254,7 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   working list in any theme with nothing added, as the old shortcode did; a theme still replaces
   the look file by file. It adds a second look, for every kind of list (four today: homes, agents,
   areas and associations), that a site with its own design replaces anyway.
-- c) as today: the browser part stays in the theme, and item 31 is built there.
+- c) as today: the browser part stays in the theme, where item 31 is built.
 
 ## 190. `[core]` One more one-off read-only step on staging: the property's change log under every connection, removed ones included
 

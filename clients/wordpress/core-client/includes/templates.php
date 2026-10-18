@@ -165,14 +165,28 @@ function core_client_wrap(string $html, ?bool $isolate = null): string
  * (core_client_list_view); `styleisolation` (`1` or `0`) stands over the site's setting for this
  * list alone.
  *
+ * A list a page renders without naming its `page` reads it from its own address parameter
+ * (core_client_list_key), and its page N shows its first N pages together, as "show more"
+ * builds them, so every page has an address that search engines follow and that a visitor's
+ * reload or back button finds as it was left. A caller that names `page` (an archive paging by
+ * WordPress's own /page/N/, the reload endpoint) gets that page alone.
+ *
  * @param array<string, mixed> $params
- * @return array{html: string, total: int, has_more: bool, page: int}
+ * @return array{html: string, total: int, has_more: bool, page: int, first: int, per_page: int, key: string, hash: string}
  */
 function core_client_list(array $params): array
 {
     // A view file's name is built from the entity too, so it keeps only what a name may hold.
     $params['entity'] = sanitize_key((string) ($params['entity'] ?? 'property'));
-    $result = core_client_query($params);
+    $key = !isset($params['page']) && ($params['part'] ?? '') !== 'cards' ? core_client_list_key() : '';
+    // At most a thousand pages at once, so no address can ask for more rows than a number holds.
+    $shown = $key !== '' && isset($_GET[$key]) && is_numeric($_GET[$key]) ? min(1000, max(1, (int) $_GET[$key])) : 1;
+    $per_page = max(1, (int) ($params['per_page'] ?? CORE_CLIENT_PER_PAGE));
+    $result = core_client_query($shown > 1 ? ['page' => 1, 'per_page' => $shown * $per_page] + $params : $params);
+    $result['page'] = $shown > 1 ? $shown : $result['page'];
+    $result['per_page'] = $per_page;
+    $result['first'] = $key !== '' ? 1 : $result['page'];
+    $result['key'] = $key;
     $card = core_client_list_view('card', $params['card'] ?? null, $params['entity']);
     $cards = '';
     foreach ($result['items'] as $row) {
@@ -182,6 +196,8 @@ function core_client_list(array $params): array
             'params' => $params,
         ]);
     }
+    // The cards' fingerprint, so a page's refresh replaces them only when they changed.
+    $result['hash'] = md5($cards);
     if (($params['part'] ?? '') === 'cards') {
         $html = $cards;
     } else {
@@ -193,7 +209,68 @@ function core_client_list(array $params): array
         $isolate = isset($params['styleisolation']) ? filter_var($params['styleisolation'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
         $html = core_client_wrap($view, $isolate);
     }
-    return ['html' => $html, 'total' => $result['total'], 'has_more' => $result['has_more'], 'page' => $result['page']];
+    return [
+        'html' => $html,
+        'total' => $result['total'],
+        'has_more' => $result['has_more'],
+        'page' => $result['page'],
+        'first' => $result['first'],
+        'per_page' => $result['per_page'],
+        'key' => $result['key'],
+        'hash' => $result['hash'],
+    ];
+}
+
+/**
+ * The address parameter of the next list this request renders: `sida` for the first, then
+ * `sida-2`, `sida-3` and on, in the order the page renders them (next-steps item 31: page
+ * addresses search engines can follow), so `?sida=2` is the first list's second page.
+ */
+function core_client_list_key(): string
+{
+    static $lists = 0;
+    $lists++;
+    return $lists === 1 ? 'sida' : "sida-$lists";
+}
+
+/**
+ * The address of a list's page on the page that shows it: its own parameter set to `$page`,
+ * none for the first page, the rest of the address kept. Empty for a list whose caller names
+ * its page.
+ *
+ * @param array{key: string} $result
+ */
+function core_client_list_page_url(array $result, int $page): string
+{
+    if ($result['key'] === '') {
+        return '';
+    }
+    return $page > 1 ? add_query_arg($result['key'], $page) : remove_query_arg($result['key']);
+}
+
+/**
+ * The attributes a list's wrapper carries for the script that reloads it: the reload address,
+ * the parameter set a reload sends (without what only shapes the wrapper), the pages it shows
+ * and its own address parameter, and its cards' fingerprint. A page served from a page cache
+ * then refreshes its cards once on load, and only when they changed.
+ *
+ * @param array<string, mixed> $params
+ * @param array{page: int, first: int, per_page: int, key: string, hash: string} $result
+ */
+function core_client_list_data(array $params, array $result): string
+{
+    $reload = array_diff_key($params, array_flip(['title', 'lead', 'styleisolation', 'wrapper', 'part', 'page']));
+    return sprintf(
+        'data-list="%s" data-reload="%s" data-params="%s" data-page="%d" data-first="%d" data-per-page="%d" data-key="%s" data-hash="%s"',
+        esc_attr((string) ($params['entity'] ?? 'property')),
+        esc_url(rest_url('core/v1/list')),
+        esc_attr((string) wp_json_encode($reload)),
+        $result['page'],
+        $result['first'],
+        $result['per_page'],
+        esc_attr($result['key']),
+        esc_attr($result['hash']),
+    );
 }
 
 /**
@@ -231,6 +308,19 @@ add_action('rest_api_init', function (): void {
             return $response;
         },
     ]);
+});
+
+/**
+ * A list's later page keeps its own address as the page's canonical one (WordPress's drops the
+ * query), so search engines read each page instead of folding it into the first.
+ */
+add_filter('get_canonical_url', function (string $url): string {
+    foreach ($_GET as $name => $value) {
+        if (is_string($name) && preg_match('/^sida(-[0-9]+)?$/', $name) === 1 && is_numeric($value) && (int) $value > 1) {
+            $url = add_query_arg($name, (int) $value, $url);
+        }
+    }
+    return $url;
 });
 
 /** The single pages and archives of the post types render through the view files, when a view exists. */
