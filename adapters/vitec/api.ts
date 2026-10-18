@@ -223,6 +223,19 @@ export function kindOf(error: unknown): FailureKind {
 }
 
 /**
+ * Whether a failure is Vitec's side, or the door keeping a call back, and not Core's own fault:
+ * Vitec refused, broke, was busy or down, or did not answer in time. A TypeError counts only as
+ * fetch's own "fetch failed", the network, never a TypeError in Core's code.
+ */
+export function outside(error: unknown): boolean {
+  if (error instanceof Blocked) return true;
+  if (error instanceof VitecError) return kindOf(error) !== 'other';
+  const name = error instanceof Error ? error.name : '';
+  if (name === 'TimeoutError' || name === 'AbortError') return true;
+  return name === 'TypeError' && (error as Error).message === 'fetch failed';
+}
+
+/**
  * One page of a list endpoint, as Connect returns it: `index` counts pages from 0, `count` is the
  * number of pages and `totalRowCount` the number of rows (verified against Connect, 2026-09-17).
  */

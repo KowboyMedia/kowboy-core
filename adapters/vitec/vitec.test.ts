@@ -788,8 +788,16 @@ describe('the Vitec adapter', () => {
     for (const id of ids) fake.put(OFFICE, 'property', estate(id));
     fake.failNext(100);
     const before = fake.requests.length;
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const logs = vi.spyOn(console, 'log').mockImplementation(() => {});
     for (const id of ids) await notify(id);
     await drainFetchList();
+    // Vitec's side, which the check shows: a line in the log, never an error report.
+    const said = (spy: typeof logs): string[] => spy.mock.calls.map((call) => String(call[0]));
+    expect(said(logs).some((line) => line.includes('vitec connection paused'))).toBe(true);
+    expect(said(errors).some((line) => line.includes('vitec connection paused'))).toBe(false);
+    errors.mockRestore();
+    logs.mockRestore();
     expect(fake.requests.length - before).toBeLessThanOrEqual(5);
     const paused = (await health())['vitec.connect'];
     expect(paused).toMatchObject({
@@ -817,6 +825,51 @@ describe('the Vitec adapter', () => {
     );
     expect(typeof pausedEvent?.fields['failures']).toBe('number');
     expect(pausedEvent?.fields['detail']).toBeTruthy();
+  });
+
+  it('logs a schedule that Vitec failed or kept back, and reports only Core’s own faults', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const logs = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      // Vitec fails the catch-up's list: the event says so, the log keeps it, nothing is reported.
+      fake.failNext(1);
+      await store.setState(CONNECTION, 'catch_up_at', '1970-01-01T00:00:00.000Z');
+      await runSchedules();
+      const failed = (await queryEvents({ connectionId: CONNECTION })).filter(
+        (row) => row.type === 'schedule.failed',
+      );
+      expect(failed).toHaveLength(1);
+      const lines = (spy: typeof logs): string[] => spy.mock.calls.map((call) => String(call[0]));
+      expect(lines(logs).some((line) => line.includes('"where":"vitec schedule"'))).toBe(true);
+      expect(lines(errors).some((line) => line.includes('vitec schedule'))).toBe(false);
+    } finally {
+      errors.mockRestore();
+      logs.mockRestore();
+    }
+
+    // What counts as Vitec's side: its refusals, failures, silence and the network, and the door.
+    const outside = [
+      new connect.VitecError(500, 'busy'),
+      new connect.VitecError(429, 'slow down'),
+      new connect.VitecError(403, 'no'),
+      new connect.VitecError(200, 'not JSON', true),
+      new connect.Blocked('live', OFFICE),
+      Object.assign(new Error('The operation was aborted due to timeout'), {
+        name: 'TimeoutError',
+      }),
+      new TypeError('fetch failed'),
+    ];
+    expect(outside.map((error) => connect.outside(error))).toEqual(outside.map(() => true));
+    // Core's own faults: a request Vitec calls wrong, a bug in Core's code.
+    const own = [
+      new connect.VitecError(400, 'bad request'),
+      new TypeError("Cannot read properties of undefined (reading 'id')"),
+      new Error('something else'),
+    ];
+    expect(own.map((error) => connect.outside(error))).toEqual(own.map(() => false));
   });
 
   it('lets no batch carry a failing connection past its pause, and probes with one call', async () => {
