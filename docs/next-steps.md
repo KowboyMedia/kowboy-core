@@ -12,8 +12,8 @@ when the first brokerage runs on live; every other open item is moved to "Later"
 table (Default 208).
 Threads at work on the way: the new admin (item 30, waits on 199 to 205), the clear error
 messages and the five records Core cannot store (staging's health is red until they load), Core's
-mail (question 100), the database's connection shares (206, asked in chat as 88), the
-lists (item 31, waits on 198) and the forms (item 29, waits on 209). "Resume next steps" means:
+mail (question 100), the lists (item 31, waits on 198) and the forms (item 29, waits on 209).
+"Resume next steps" means:
 the first open step of item 33 that waits on nobody. On 2026-10-18 condition 1 was done and Core's
 part of condition 4, and the preview of condition 2 was built; the rest waits on 207, 210 and
 211, on the threads, or on the seven days.
@@ -974,7 +974,7 @@ part of condition 4, and the preview of condition 2 was built; the rest waits on
          `checkAlerts` runs; mail first arrives with question 100. Patric's own uptime monitor on
          live's `/v1/health` (173), asked of him once the final release is out.
       6. Live's settings at the release, in the live app's own spec: the pool `live` (12 by 167 c,
-         unless 206 changes it), `SENTRY_DSN`, `ADMIN_SECRET` removed, the worker's mail settings,
+         kept by 206 a), `SENTRY_DSN`, `ADMIN_SECRET` removed, the worker's mail settings,
          and the job "preview" as `.do/app.staging.yaml` has it, with live's database.
       7. The first go-live list: the domain and its certificate answer; personal data and
          credentials only where the design says, checked once and named in the release note; who

@@ -110,8 +110,8 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   What it waits for: the automatic checks green on staging (green on 2026-10-18), staging's health
   check green (red on 2026-10-18: five records that could not load, which the thread "Proper error
   messages in admin" is clearing), the acceptance report made again, the preview built and run on
-  live's records, the release note, and live's settings (its 12 database connections by 167 c
-  unless 206 changes that, the error reports, and the old admin password it no longer uses
+  live's records, the release note, and live's settings (its 12 database connections by 167 c,
+  kept by 206 a, the error reports, and the old admin password it no longer uses
   removed). Undo: this release changes how live's database is laid out, and the old version cannot read the
   new layout (item 33, "The undo"), so going back needs live's database set back from its backup
   as well as the old version; with no customer on live a fault is fixed forward through staging.
@@ -119,23 +119,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 - Blocked: the early release.
 - a) yes: release once staging is green and the preview has run (recommended).
 - b) no: live stays as it is until the final release.
-
-## 206. `[core]` Should Core's database make room for other apps? (asked in chat as 88)
-
-- 2026-10-18 · Asked in the thread "Database connection slots" as 88, a number closed on
-  2026-09-28, and written here by the thread "Get Core production ready" so the register holds it.
-  The database server has 22 usable connections. Staging and live each reach their database
-  through a pool of their own (a pool lends its database's connections to whichever process has a
-  query; DigitalOcean shares the 22 between the pools by their size). Staging's pool is 6; 167 c
-  gives live a pool of 12 at the release. Patric asked whether idle apps reserve connections: they
-  do not; a pool's size is the most real connections its database can have at the same moment,
-  and the database refuses a connection beyond the 22 rather than queueing it.
-- Blocked: the size of live's pool at the release (12 until answered), and closing that thread.
-- a) nothing changes: staging keeps 6, live gets 12.
-- b) make room: staging's pool shrinks from 6 to 3 now and live gets 6 at the release instead of
-  12; 6 + 3 = 9 leaves 13 for another app (recommended).
-- c) a write-up of what giving staging its own database involves, at $15.15 a month more;
-  nothing is bought until Patric says yes.
 
 ## 202. `[admin]` Approve what parts 3 and 4 of design B show beyond B's images
 
