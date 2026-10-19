@@ -1005,6 +1005,54 @@ describe('the Vitec adapter', () => {
     );
   });
 
+  it('forgets what it kept for a connection deleted in Core, while running and across a restart, and keeps the rest', async () => {
+    seed(fake);
+    const loginFor = (customerId: string): string =>
+      JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: customerId });
+    for (const id of ['M2', 'M3']) {
+      fake.put(id, 'office', { id, customerId: id, name: `Kontor ${id}`, changedAt: CHANGED });
+      fake.put(id, 'property', estate(`OBJ${id}`, id, { projectId: null }));
+    }
+    running = await harness({
+      adapters: [vitecAdapter],
+      connections: [
+        { id: CONNECTION, provider: 'vitec', credentials: credentials, licensedOffices: [] },
+        { id: 'vitec-two', provider: 'vitec', credentials: loginFor('M2'), licensedOffices: [] },
+        { id: 'vitec-three', provider: 'vitec', credentials: loginFor('M3'), licensedOffices: [] },
+      ],
+    });
+    await runSchedules();
+    await drainFetchList();
+    const office = (officeId: string): store.Office => ({ environment: 'live', officeId });
+    expect(await lastCheck('vitec-two')).toMatchObject({ offices: ['M2'] });
+    expect(await store.isKnown(office('M2'), 'property', 'OBJM2')).toBe(true);
+
+    const deleteConnection = async (id: string): Promise<void> => {
+      const database = new pg.Client({ connectionString: process.env['DATABASE_URL'] });
+      await database.connect();
+      try {
+        await database.query('delete from connections where id = $1', [id]);
+      } finally {
+        await database.end();
+      }
+    };
+    // Deleted while the worker runs: the next tick finds it gone.
+    await deleteConnection('vitec-two');
+    await runSchedules();
+    expect(await lastCheck('vitec-two')).toBeNull();
+    expect(await store.isKnown(office('M2'), 'property', 'OBJM2')).toBe(false);
+    expect(await store.isKnown(office('M3'), 'property', 'OBJM3')).toBe(true);
+
+    // Deleted while the worker was down: the first tick after the start finds it.
+    await running.restart(() => deleteConnection('vitec-three'));
+    await runSchedules();
+    expect(await lastCheck('vitec-three')).toBeNull();
+    expect(await store.isKnown(office('M3'), 'property', 'OBJM3')).toBe(false);
+    // The connection that stays keeps everything.
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE] });
+    expect(await store.isKnown(LIVE_OFFICE, 'property', 'OBJ1')).toBe(true);
+  });
+
   it('keeps the start of a broken answer and fetches the record at the next try', async () => {
     seed(fake);
     await start();

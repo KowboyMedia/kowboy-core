@@ -399,6 +399,30 @@ async function settleDoorRefusals(current: AdapterApi, targets: Live[]): Promise
   }
 }
 
+/** The connections the last tick saw, so that one deleted since is found once, by its id. */
+let present: Set<string> | null = null;
+
+/**
+ * A connection deleted in the admin area leaves nothing here (the handbook: a deletion is a
+ * complete clean-up). The engine tells no CRM's code of a deletion, so the tick finds it: its
+ * state goes, and so do the fetch list's records and seen ids of every office no other connection
+ * syncs. At the first tick, every connection with state here and no row in Core counts as deleted.
+ */
+async function forgetRemoved(current: AdapterApi): Promise<void> {
+  const connections = await current.connections();
+  const seen = present ?? new Set(await store.connectionsWithState());
+  present = new Set(connections.map((connection) => connection.id));
+  const gone = [...seen].filter((id) => !present?.has(id));
+  if (gone.length === 0) return;
+  for (const id of gone) await store.clearState(id);
+  const kept: store.Office[] = [];
+  for (const connection of connections) {
+    const environment = credentialsOf(connection)?.environment ?? 'live';
+    for (const officeId of await officesOf(connection)) kept.push({ environment, officeId });
+  }
+  await store.forgetOfficesBut(kept);
+}
+
 /** A block on an office no connection syncs any more guards nothing and is dropped, without a call. */
 async function dropStrayBlocks(targets: Live[]): Promise<void> {
   for (const office of await store.blockedOffices()) {
@@ -1254,6 +1278,7 @@ async function tickOnce(): Promise<void> {
   if (!current) return;
   const targets: Live[] = [];
   for (const target of await live(current)) targets.push(await settleSwitch(current, target));
+  await forgetRemoved(current);
   seenLogins = new Map(
     targets.map((target) => [target.connection.id, loginKey(target.credentials)]),
   );
@@ -1584,6 +1609,7 @@ export const vitecAdapter: Adapter = {
     scheduleTimer = null;
     watchTimer = null;
     seenLogins = new Map();
+    present = null;
     connect.onCall(null);
     engine = null;
     startPending = true;

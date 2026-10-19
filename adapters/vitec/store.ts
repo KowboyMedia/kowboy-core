@@ -694,6 +694,25 @@ export async function forgetRefusal(office: Office): Promise<void> {
   blocks = null;
 }
 
+/** The connections that keep state here, the door's refusals aside. */
+export async function connectionsWithState(): Promise<string[]> {
+  const { rows } = await (
+    await db()
+  ).query<{ connection_id: string }>(
+    'select distinct connection_id from vitec_state where connection_id <> $1',
+    [DOOR],
+  );
+  return rows.map((row) => row.connection_id);
+}
+
+/** Every office but these is forgotten: its records waiting on the fetch list, and its seen ids. */
+export async function forgetOfficesBut(kept: readonly Office[]): Promise<void> {
+  const keys = kept.map(keyOf);
+  const pool = await db();
+  await pool.query('delete from vitec_fetch_list where office_id <> all($1::text[])', [keys]);
+  await pool.query('delete from vitec_known where office_id <> all($1::text[])', [keys]);
+}
+
 /**
  * Whether Vitec refuses the office, asked before every request (api.ts): blocked, or refused at
  * the door and not yet settled. Read from the tables at most once in five seconds per process, so
