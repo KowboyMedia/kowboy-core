@@ -27,8 +27,8 @@ $kowboy_email = (string) kowboy_option('kowboy_email');
     </div>
     <p class="k-footer__copyright">© <?php echo esc_html(wp_date('Y') . ' ' . (string) kowboy_option('kowboy_copyright')); ?></p>
 </footer>
-<?php // The window every form button opens (parts/form-window.php); it talks to the plugin's receivers on this site. ?>
-<?php if (function_exists('core_client_human_check')) : ?><?php echo kowboy_part('form-window', ['endpoint' => rest_url('core/v1/forms'), 'slots' => rest_url('core/v1/forms/slots'), 'policy' => (string) get_privacy_policy_url(), 'human' => core_client_human_check()]); ?><?php endif; ?>
+<?php // The window every form button opens (parts/form-window.php), while the site's forms are on (the plugin's page "Formulär"); it talks to the plugin's receivers on this site. Without it, the buttons lead to a contact. ?>
+<?php if (function_exists('core_client_forms_on') && core_client_forms_on()) : ?><?php echo kowboy_part('form-window', ['endpoint' => rest_url('core/v1/forms'), 'slots' => rest_url('core/v1/forms/slots'), 'policy' => (string) get_privacy_policy_url(), 'human' => core_client_human_check()]); ?><?php endif; ?>
 <?php wp_footer(); ?>
 </body>
 </html>

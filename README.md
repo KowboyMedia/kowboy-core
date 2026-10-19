@@ -36,7 +36,11 @@ the sites, a connection paused, a login refused; `engine/attention.ts`). `TURNST
 bot check (Cloudflare Turnstile, docs/forms.md): a site's window renders the challenge with the
 public key, which the site's server reads from `GET /v1/submissions/bot-check`, and Core checks
 every form's proof with the secret. Unset, the live service (`SENTRY_ENVIRONMENT=production`)
-takes no form at all; staging and local take forms without the check, and send none to a live CRM.
+takes no form at all and says so in an alert; staging and local use Cloudflare's published test
+keys, whose check always passes, and send no form to a live CRM. `CLOUDFLARE_ACCOUNT_ID` and
+`CLOUDFLARE_TURNSTILE_TOKEN` (a Cloudflare key that may change Turnstile) let Core put a
+website's address on the bot check's list when its admin saves the website (`listOnBotCheck` in
+`engine/human.ts`).
 
 The Vitec adapter's connection format, webhook URL and settings (`VITEC_WEBHOOK_TOKEN`,
 `VITEC_FETCH_CONCURRENCY`) are in [adapters/vitec/README.md](adapters/vitec/README.md).

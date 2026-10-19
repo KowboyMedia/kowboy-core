@@ -532,6 +532,8 @@
     failedText: 'Mäklarsystemet svarade inte. Dina uppgifter finns kvar; försök igen om en stund.',
     tooMany: 'För många försök just nu. Vänta en stund och försök igen.',
     notHuman: 'Robotkontrollen gick inte igenom. Försök igen.',
+    checkBroken:
+      'Robotkontrollen fungerar inte just nu, så formuläret kunde inte skickas. Vi har fått veta det. Försök igen senare eller kontakta mäklaren direkt.',
     cannotLoad: 'Det gick inte att hämta formuläret. Ladda om sidan och försök igen.',
   };
   /** Each form's steps before the answer: a booking picks its time first. */
@@ -615,6 +617,9 @@
     var sending = false;
     var humanWidget = null;
     var humanToken = null;
+    // Why the bot check cannot give a proof (Cloudflare's error code, "script" or "no-key"), sent
+    // in its place so Core can tell the visitor and Kowboy; null while it works.
+    var humanProblem = null;
 
     function show(step) {
       dialog.querySelectorAll('[data-form-step]').forEach(function (element) {
@@ -681,13 +686,17 @@
     /** The bot check's challenge, rendered while the visitor types; its token travels with the send. */
     function renderHuman() {
       var key = dialog.dataset.humanKey;
-      if (!key) return;
+      if (!key) {
+        humanProblem = 'no-key';
+        return;
+      }
       loadTurnstile()
         .then(function () {
           if (!window.turnstile) return;
           if (humanWidget !== null) {
             window.turnstile.reset(humanWidget);
             humanToken = null;
+            humanProblem = null;
             return;
           }
           humanWidget = window.turnstile.render(mark('human'), {
@@ -696,27 +705,32 @@
             size: 'flexible',
             callback: function (token) {
               humanToken = token;
+              humanProblem = null;
             },
             'expired-callback': function () {
               humanToken = null;
             },
-            'error-callback': function () {
+            'error-callback': function (code) {
               humanToken = null;
+              humanProblem = String(code || 'unknown');
             },
           });
         })
         .catch(function () {
-          // no challenge: the send asks the visitor to wait, and Core refuses a form without proof
+          humanProblem = 'script';
         });
     }
 
-    /** The token, waiting a little for the challenge; null when the site has no bot check, false while it has none yet. */
+    /**
+     * The token, waiting a little for the challenge; or, when the check cannot give one, why, which
+     * goes with the form so the visitor hears it and Kowboy is told; false while there is none yet.
+     */
     function humanProof() {
-      if (!dialog.dataset.humanKey) return Promise.resolve(null);
       var until = Date.now() + FORM_HUMAN_WAIT_MS;
       return new Promise(function (resolve) {
         (function poll() {
           if (humanToken) return resolve(humanToken);
+          if (humanProblem) return resolve('unavailable:' + humanProblem);
           if (Date.now() >= until) return resolve(false);
           setTimeout(poll, 200);
         })();
@@ -892,9 +906,15 @@
       show('end');
     }
 
-    /** The receiver's answer, which is Core's: 200 sent, 409 refused, 403 the bot check, 429 too many, else failed. */
+    /**
+     * The receiver's answer, which is Core's: 200 sent, 409 refused, 403 the bot check, 429 too
+     * many, 503 with the bot check broken, else failed.
+     */
     function answered(status, body) {
       if (status === 200) return sent();
+      if (status === 503 && body && body.bot_check === 'broken') {
+        return fail(FORM_TEXT.failed, FORM_TEXT.checkBroken, false);
+      }
       if (status === 409) {
         var reason = (body && body.reason) || (kind === 'viewing' ? FORM_TEXT.refusedSlot : '');
         return fail(FORM_TEXT.refused, reason, kind === 'viewing');
@@ -975,6 +995,7 @@
           if (spent && humanWidget !== null && window.turnstile) {
             window.turnstile.reset(humanWidget);
             humanToken = null;
+            humanProblem = null;
           }
         });
     }

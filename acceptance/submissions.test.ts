@@ -36,7 +36,7 @@ import {
   registerSubmissions,
   submissionsFor,
 } from '../engine/registry.js';
-import { configureHumanCheck } from '../engine/human.js';
+import { configureHumanCheck, turnstile } from '../engine/human.js';
 
 const CONNECTION = 'polling-acme';
 const OTHER = 'webhook-acme';
@@ -92,10 +92,15 @@ const submission = (
 let running: Harness;
 let posted = 0;
 
-/** A form as the site's server passes it on: the token, and the proof the window earned. */
+/**
+ * A form as the site's server passes it on: the token, the proof the window earned, the site's
+ * bell address when a site is named, and the site's own "Send again" when it is one.
+ */
 const post = async (
   body: unknown,
   human: string | null = HUMAN_TOKEN,
+  site: string | null = null,
+  resend = false,
 ): Promise<{ status: number; body: Record<string, unknown> }> => {
   posted += 1;
   const response = await fetch(`${running.baseUrl}/v1/submissions`, {
@@ -105,10 +110,20 @@ const post = async (
       'content-type': 'application/json',
       'x-core-client': 'test-site/1.0',
       ...(human === null ? {} : { 'x-core-human': human }),
+      ...(site === null ? {} : { 'x-core-site': site }),
+      ...(resend ? { 'x-core-resend': 'yes' } : {}),
     },
     body: JSON.stringify(body),
   });
   return { status: response.status, body: (await response.json()) as Record<string, unknown> };
+};
+
+/** The harness's site: its number in Core and the bell address it names itself by. */
+const theSite = async (): Promise<{ id: number; bell: string }> => {
+  const { rows } = await db().query<{ id: string; bell_url: string }>(
+    'select id, bell_url from subscribers order by id limit 1',
+  );
+  return { id: Number(rows[0]?.id), bell: rows[0]?.bell_url ?? '' };
 };
 
 const slots = async (
@@ -523,7 +538,13 @@ describe('submissions', () => {
     const body = submission('interest', { record });
     const answer = await post(body);
     expect(answer.status).toBe(409);
-    expect(answer.body).toEqual({ id: body['id'], status: 'refused', reason: NOT_LIVE });
+    // The site's page "Formulär" reads the hold from the answer, so it shows it as held.
+    expect(answer.body).toEqual({
+      id: body['id'],
+      status: 'refused',
+      reason: NOT_LIVE,
+      held: true,
+    });
     // The same id again gets the same answer, and a lead to the office the same.
     expect((await post(body)).body).toEqual(answer.body);
     expect((await post(submission('lead'))).body).toMatchObject({ reason: NOT_LIVE });
@@ -645,6 +666,7 @@ describe('submissions', () => {
       id: body['id'],
       status: 'refused',
       reason: NOT_LIVE,
+      held: true,
     });
     expect((await post(submission('lead'))).body).toMatchObject({ reason: NOT_LIVE });
     // A send by another way than the form route is held the same, since the stop is central.
@@ -698,18 +720,72 @@ describe('submissions', () => {
     expect(missing.status).toBe(403);
     expect(missing.body).toEqual({ error: 'the bot check did not pass' });
     expect((await post(body, 'a-bot')).status).toBe(403);
-    // Nothing was kept of either: the same id with the proof goes through.
+    // The visitor's own challenge failing in the browser is theirs too: they try again.
+    expect((await post(body, 'unavailable:300010')).status).toBe(403);
+    // Nothing was kept of any: the same id with the proof goes through.
     expect((await post(body)).status).toBe(200);
     expect(send).toHaveBeenCalledTimes(1);
+    expect(await queryEvents({ type: 'submission.failed' })).toEqual([]);
+  });
 
-    // The live service with no check set up takes no form at all, and says so to the tracker.
+  it('a bot check that cannot run, in Core or in the visitor’s browser, stops the form with a clear answer and logs it as not delivered with the cause and the site, never a pass and never a silent refusal', async () => {
+    const send = vi.fn(fakePollingAdapter.submit);
+    registerSubmissions(fakePollingAdapter.manifest.provider, {
+      ...fakePollingAdapter,
+      submit: send,
+    });
     const printed = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const site = await theSite();
+    const stopped = async (human: string | null, cause: string): Promise<void> => {
+      const body = submission('interest', { record });
+      const answer = await post(body, human, site.bell);
+      expect(answer.status).toBe(503);
+      expect(answer.body).toMatchObject({ id: body['id'], status: 'failed', bot_check: 'broken' });
+      const chain = await queryEvents({ correlationId: body['id'] as string });
+      expect(chain.map((event) => event.type)).toEqual([
+        'submission.received',
+        'submission.failed',
+      ]);
+      expect(chain[1]).toMatchObject({
+        connection_id: CONNECTION,
+        subscriber_id: String(site.id),
+        fields: {
+          kind: 'interest',
+          detail: `the bot check could not run: ${cause}`,
+          bot_check: cause,
+        },
+      });
+    };
+
+    // In the visitor's browser: the script did not load, the address is not on Cloudflare's list,
+    // the site had no key to show; each is the check's problem, not the visitor's.
+    await stopped(
+      'unavailable:script',
+      'Cloudflare’s bot check did not load in the visitor’s browser',
+    );
+    await stopped(
+      'unavailable:110200',
+      'the website’s address is not on the bot check’s list at Cloudflare',
+    );
+    await stopped('unavailable:no-key', 'the website had no public key for the bot check to show');
+
+    // In Core: Cloudflare refusing Core's secret, or not answering, and no keys at all. Cloudflare
+    // is a stand-in that answers Core's question as given; every other call goes out as it is.
+    configureHumanCheck(turnstile('1x00000000000000000000AA', 'wrong-secret'));
+    const real = globalThis.fetch;
+    const cloudflare = (answer: unknown, status = 200): void => {
+      vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) =>
+        String(input).startsWith('https://challenges.cloudflare.com/')
+          ? Promise.resolve(new Response(JSON.stringify(answer), { status }))
+          : real(input, init),
+      );
+    };
+    cloudflare({ success: false, 'error-codes': ['invalid-input-secret'] });
+    await stopped(HUMAN_TOKEN, 'Cloudflare refused Core’s secret key for the bot check');
+    cloudflare({}, 500);
+    await stopped(HUMAN_TOKEN, 'Cloudflare’s bot check answered Core with 500');
     configureHumanCheck(null);
-    const unguarded = await post(submission('interest', { record }));
-    expect(unguarded.status).toBe(503);
-    expect(unguarded.body).toEqual({ error: 'the bot check is not set up' });
-    expect(printed.mock.calls.map(String).join('\n')).toContain('the bot check is not set up');
-    expect(send).toHaveBeenCalledTimes(1);
+    await stopped(HUMAN_TOKEN, 'Core has no keys for the bot check');
     expect(
       await (
         await fetch(`${running.baseUrl}/v1/submissions/bot-check`, {
@@ -717,6 +793,61 @@ describe('submissions', () => {
         })
       ).json(),
     ).toEqual({ human: null });
+
+    // Core's own causes go to the error tracker as well; the browser's do not, since anyone can send them.
+    const tracker = printed.mock.calls.map(String).join('\n');
+    expect(tracker).toContain('a form was stopped: Core has no keys for the bot check');
+    expect(tracker).not.toContain('a form was stopped: Cloudflare’s bot check did not load');
+    expect(send).not.toHaveBeenCalled();
+    expect(crm.formsTaken()).toHaveLength(0);
+  });
+
+  it('a form Core already holds gets its first answer before the bot check, so the site’s retry with the spent proof hears it, and nothing goes twice (166)', async () => {
+    const body = submission('interest', { record });
+    expect((await post(body)).status).toBe(200);
+    // The retry carries the same proof, which Cloudflare would refuse the second time.
+    const again = await post(body, 'spent-proof');
+    expect(again.status).toBe(200);
+    expect(again.body).toMatchObject({ id: body['id'], status: 'delivered' });
+    expect(crm.formsTaken()).toHaveLength(1);
+  });
+
+  it('the site’s own “Send again” needs no proof: a form the CRM did not take goes once more, a taken one answers as before, and one Core never received goes as new; without it no proof is refused', async () => {
+    const site = await theSite();
+    const failed = submission('interest', { record });
+    crm.answerNext({ fail: 'connection refused' });
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    expect((await post(failed, HUMAN_TOKEN, site.bell)).status).toBe(502);
+
+    const resent = await post(failed, null, site.bell, true);
+    expect(resent.status).toBe(200);
+    expect(resent.body).toMatchObject({ id: failed['id'], status: 'delivered' });
+    expect(crm.formsTaken()).toHaveLength(1);
+    const chain = await queryEvents({ correlationId: failed['id'] as string });
+    expect(chain.map((event) => event.type)).toEqual([
+      'submission.received',
+      'submission.failed',
+      'submission.delivered',
+    ]);
+    expect(chain[2]).toMatchObject({
+      subscriber_id: String(site.id),
+      fields: { kind: 'interest', sent_again: 'by the website' },
+    });
+
+    // Taken already: the same answer, nothing sent twice.
+    expect((await post(failed, null, site.bell, true)).body).toMatchObject({
+      status: 'delivered',
+    });
+    expect(crm.formsTaken()).toHaveLength(1);
+
+    // Never received (Core could not be reached): sent as new.
+    const lost = submission('lead');
+    expect((await post(lost, null, site.bell, true)).status).toBe(200);
+    expect(crm.formsTaken()).toHaveLength(2);
+
+    // A form from the window with no proof is still refused.
+    expect((await post(submission('lead'), null, site.bell)).status).toBe(403);
+    expect(crm.formsTaken()).toHaveLength(2);
   });
 
   it('the slots call answers the stand-in’s viewings and slots under the universal names', async () => {

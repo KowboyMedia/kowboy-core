@@ -1134,6 +1134,56 @@ Patric's go (209 a, 2026-10-19) for the forms list he verified on 2026-10-07
   picker is gone, and the footer and the consent link the page WordPress names. A page picked in
   the old picker moves to WordPress's setting once, when that names none. Proved by the template
   test "links the privacy page WordPress names".
+- **The site keeps every form it sends** (plugin 0.9.0; the decision of 2026-10-07 on the kept
+  details): the table `{prefix}core_forms` holds each form as the window sent it, with the
+  visitor's details, its outcome and how often it was sent, for 30 days, then deletes it. Not
+  kept: what Core refused before it judged a form (no or a failed bot proof, the limit per
+  minute, a body that is no form), which is a program's, not a visitor's. The plugin's page
+  **"Formulär"** under Kowboy Estates (administrators only, in Swedish) lists them newest first,
+  with the home, what the visitor wrote and what became of it, and **"Skicka igen"**, with its
+  sentence beside it, beside each form that did not reach the brokerage. Proved by
+  `clients/wordpress/forms.test.ts`.
+- **The site's own "Send again" needs no bot proof**, since no visitor is behind it: the plugin
+  marks it `X-Core-Resend: yes`, which its public receiver never passes on. Core sends a form the
+  CRM did not take once more under its id (the event names it "by the website"), answers one the
+  CRM took as before, and sends one it never received as new, so a form lost while Core could
+  not be reached is not lost. Anyone with the site's token can send forms this way, as the site's
+  server can; the token never leaves the site's server. Proved by `acceptance/submissions.test.ts`.
+- **The switch "Formulären är på"** on the same page (146, item 2): on until someone turns it
+  off. Off, the theme draws no window and the buttons lead to a contact, as without the plugin,
+  and a page cached while it was on gets "this site's forms are off", kept as such.
+- **A form Core already holds is answered first** (166): before the bot check, so a retry with a
+  spent proof hears the first answer, and nothing goes twice. The plugin tries a form twice more,
+  after 1 s and 3 s, when Core gave no answer of its own (no connection, or a gateway's 5xx while
+  Core restarts), and none starts later than 10 s after the first. Proved by both tests above, the
+  plugin's against a gateway that fails once.
+- **The bot check never fails silently** (`engine/human.ts`): a proof is passed, refused (the
+  visitor's own: missing, invalid, spent, or Cloudflare's challenge codes 300xxx, 600xxx, 110500,
+  110510, 110600, 110620), or broken, with its cause: no keys, Cloudflare refusing Core's secret,
+  not answering, answering an error, and in the visitor's browser the script not loading, no
+  public key on the page, or any other of Cloudflare's codes, which the window sends in place of
+  the proof as `unavailable:<code>`. A broken check answers 503 with `bot_check: "broken"`; the
+  window says "Robotkontrollen fungerar inte just nu, så formuläret kunde inte skickas. Vi har
+  fått veta det. Försök igen senare eller kontakta mäklaren direkt."; Core logs the form as
+  `submission.received` and `submission.failed` with `bot_check` naming the cause and the site,
+  which alerts and shows under "Needs attention", and reports a cause on its own side to the
+  error tracker. The site keeps the form, so "Skicka igen" delivers it once the check works or
+  at once. Outside production Core uses Cloudflare's published test keys when its own are
+  missing. Proved by `acceptance/submissions.test.ts` and the journey "when the bot check cannot
+  run".
+- **A website's address goes on the bot check's list at Cloudflare** (171 a; 146, item 7):
+  `listOnBotCheck` in `engine/human.ts` reads the setup of Core's public key through Cloudflare's
+  API (`GET` and `PUT /accounts/{account_id}/challenges/widgets/{sitekey}`, with
+  `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_TURNSTILE_TOKEN`, a key with "Turnstile Sites Write"),
+  adds the website's host name and keeps the setup's name, mode and clearance as they were. A
+  list of ten, the free plan's most, refuses the website (`full`), since paying is asked before an
+  eleventh; every other reason it is not listed is a sentence for the person saving: no Cloudflare
+  key, Cloudflare not answering, no keys at all, or a secret at Cloudflare that is not Core's,
+  which would refuse every visitor. Cloudflare's test keys take any address, so outside
+  production nothing is listed. Proved by `engine/human.test.ts`. The new admin's website save
+  calls it (the thread "New admin panel from the spec", sent to it on 2026-10-19).
+- **The guard's hold says so in the answer**: a held form's 409 carries `held: true`, so the
+  page "Formulär" shows it as a test run, with no "Skicka igen".
 
 ## The decisions (the discover list)
 

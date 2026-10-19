@@ -25,7 +25,13 @@ import { applied } from './http/applied.js';
 import { siteError } from './http/errors.js';
 import { botCheck, slots, submit } from './http/submissions.js';
 import { configureLiveService } from './registry.js';
-import { configureHumanCheck, turnstile } from './human.js';
+import {
+  configureBotCheckList,
+  configureHumanCheck,
+  TEST_SECRET,
+  TEST_SITE_KEY,
+  turnstile,
+} from './human.js';
 import { configureSubmissionContent, deleteExpiredSubmissions } from './storage/submissions.js';
 import { configureCompression, jsonResponse, startServer, type RouteTable } from './http/server.js';
 import { SEQUENCE_JUMP, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
@@ -94,9 +100,18 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
     email: config.alertEmail,
     slackWebhookUrl: config.alertSlackWebhookUrl,
   };
+  // The bot check's keys; outside production, without them, Cloudflare's test keys, so the check
+  // runs there too and never silently not at all. Production without them refuses every form.
   configureHumanCheck(
     config.turnstileSiteKey && config.turnstileSecret
       ? turnstile(config.turnstileSiteKey, config.turnstileSecret)
+      : config.environment === 'production'
+        ? null
+        : turnstile(TEST_SITE_KEY, TEST_SECRET),
+  );
+  configureBotCheckList(
+    config.cloudflareAccountId && config.cloudflareTurnstileToken
+      ? { accountId: config.cloudflareAccountId, token: config.cloudflareTurnstileToken }
       : null,
   );
   // Only the live service writes to a live CRM (question 152); staging and local stop before it,

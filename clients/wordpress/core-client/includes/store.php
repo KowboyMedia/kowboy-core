@@ -317,6 +317,20 @@ function core_client_install(): void
         value text NOT NULL,
         PRIMARY KEY  (name)
     ) $charset;");
+    // The forms the site sent, with the visitor's details and the outcome, for 30 days (includes/forms.php).
+    $forms = core_client_forms_table();
+    dbDelta("CREATE TABLE $forms (
+        id char(36) NOT NULL,
+        sent_at datetime NOT NULL,
+        kind varchar(20) NOT NULL,
+        body longtext NOT NULL,
+        outcome varchar(20) NOT NULL,
+        said text NOT NULL,
+        tries int NOT NULL DEFAULT 1,
+        last_at datetime NOT NULL,
+        PRIMARY KEY  (id),
+        KEY sent (sent_at)
+    ) $charset;");
     // The forms widget's site key (0.5.7 and 0.5.8) went with the widget; the theme draws the forms now.
     delete_option('core_client_site_key');
     // The shadow DOM setting (until 0.6.0) is style isolation now, off unless a site turns it on

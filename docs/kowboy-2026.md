@@ -412,7 +412,8 @@ own WordPress plugin or script line; the theme only cooperates, in two places:
 
 ## The form window, 2026-10-19
 
-Theme 1.3.2, the forms list Patric verified on 2026-10-07 (next-steps item 29):
+Theme 1.3.2 and 1.3.3 with plugin 0.9.0, the forms list Patric verified on 2026-10-07 (next-steps
+item 29):
 
 - **The hidden trap field is gone.** A browser or a password manager may fill a hidden field
   despite `autocomplete="off"`, and a form so filled was dropped as a bot's; his rule was "If
@@ -425,6 +426,14 @@ Theme 1.3.2, the forms list Patric verified on 2026-10-07 (next-steps item 29):
   WordPress names under Inställningar, Integritet. A site that had picked a page in the theme
   keeps it: the theme moves the choice to WordPress's setting when that names none, once, and
   deletes its own copy.
+- **The window shows only while the site's forms are on** (theme 1.3.3), the switch on the
+  plugin's page "Formulär"; off, the buttons lead to a contact, as without the plugin.
+- **A bot check that cannot run is never silent** (theme 1.3.3): when Cloudflare's script does not
+  load, the page has no public key, or the challenge reports a problem, the window sends the form
+  with why in place of the proof, and Core stops it and tells Kowboy; the visitor reads
+  "Robotkontrollen fungerar inte just nu, så formuläret kunde inte skickas. Vi har fått veta det.
+  Försök igen senare eller kontakta mäklaren direkt." A visitor's own failed challenge still asks
+  them to try again.
 
 ## The card dots, white on the screen, 2026-10-19
 

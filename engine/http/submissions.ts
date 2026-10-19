@@ -16,14 +16,15 @@ import {
   claimSubmission,
   contentOf,
   officesOfTenant,
+  REPEAT_WINDOW_MS,
   settleSubmission,
   submissionById,
   type SubmissionRow,
 } from '../storage/submissions.js';
 import { logEvent } from '../events.js';
 import { report } from '../errors.js';
-import { humanCheck, verifyHuman } from '../human.js';
-import { isLiveService, manifestFor, submissionsFor } from '../registry.js';
+import { humanCheck, verifyHuman, type Verdict } from '../human.js';
+import { manifestFor, NOT_LIVE, submissionsFor } from '../registry.js';
 import { jsonResponse, type Request, type Response } from './server.js';
 import type {
   Adapter,
@@ -66,34 +67,123 @@ export function resetSubmissionLimits(): void {
   recent.clear();
 }
 
-/** A form: the tenant token, the bot check's proof, and the site named by `X-Core-Site`. */
+/**
+ * A form: the tenant token, the bot check's proof, and the site named by `X-Core-Site`. A form
+ * Core already holds gets its first answer before anything else (166), so the site's retry hears
+ * it although the proof was spent, and nothing goes twice. `X-Core-Resend: yes` is the site's own
+ * "Send again" from its page "Formulär", which its server sends with no visitor and so no proof:
+ * a form the CRM did not take goes once more under its id, and one Core never received goes as
+ * new (docs/forms.md, "Built 2026-10-19").
+ */
 export async function submit(request: Request): Promise<Response> {
   const auth = await authenticate(request);
   if ('error' in auth) return jsonResponse(auth.status, { error: auth.error });
-  const notHuman = await checkHuman(request);
-  if (notHuman) return notHuman;
-  const subscriberId = await subscriberByBellUrl(
-    auth.tenantId,
-    request.headers['x-core-site'] ?? null,
-  );
-  return submitThrough(request, { tenantId: auth.tenantId, subscriberId });
+  const resend = request.headers['x-core-resend'] === 'yes';
+  const proof = (): Promise<Verdict> | null =>
+    resend ? null : verifyHuman(request.headers['x-core-human'] ?? null);
+  const parsed = parseSubmission(request);
+  if ('response' in parsed) return notAForm(parsed.response, auth.tenantId, proof());
+  const { submission } = parsed;
+  const door: Door = {
+    tenantId: auth.tenantId,
+    subscriberId: await subscriberByBellUrl(auth.tenantId, request.headers['x-core-site'] ?? null),
+  };
+
+  const known = await heldAlready(submission.id);
+  if (known) return answerKnown(known, submission, door, resend);
+
+  const verdict = await proof();
+  if (verdict?.kind === 'refused') return notHuman();
+  if (overLimit(door.tenantId)) return tooMany();
+  if (verdict?.kind === 'broken') return checkBroken(request, submission, door, verdict.cause);
+  return submitThrough(request, submission, door);
+}
+
+/** Not a form: the proof first all the same, so a program without one uses up no limit. */
+async function notAForm(
+  answer: Response,
+  tenantId: number,
+  proof: Promise<Verdict> | null,
+): Promise<Response> {
+  if ((await proof)?.kind === 'refused') return notHuman();
+  return overLimit(tenantId) ? tooMany() : answer;
+}
+
+const notHuman = (): Response => jsonResponse(403, { error: 'the bot check did not pass' });
+
+const tooMany = (): Response =>
+  jsonResponse(429, {
+    error: `more than ${String(SUBMISSIONS_PER_MINUTE)} submissions in a minute; try again shortly`,
+  });
+
+/**
+ * A form Core holds: its first answer, once it is in, or for the site's own "Send again" of one
+ * the CRM did not take, one more send. An id of another tenant's names no form of this one's.
+ */
+async function answerKnown(
+  known: SubmissionRow,
+  submission: Submission,
+  door: Door,
+  resend: boolean,
+): Promise<Response> {
+  if (known.tenant_id !== door.tenantId) {
+    return jsonResponse(400, { id: submission.id, error: 'this id was used by another tenant' });
+  }
+  if (!resend || known.outcome === 'delivered') return answerFrom(await settled(known));
+  return sendOnceMore(known, submission, door);
+}
+
+/** The row of a form Core holds under this id, inside the window a repeated id is answered in. */
+async function heldAlready(id: string): Promise<SubmissionRow | null> {
+  const row = await submissionById(id);
+  return row && Date.now() - row.received_at.getTime() < REPEAT_WINDOW_MS ? row : null;
 }
 
 /**
- * The proof the window earned from the bot check, which the site's server passes on in
- * `X-Core-Human`, before anything else is read. The live service takes no form while the check is
- * not set up (known bug 4); elsewhere no check means none, since the guard keeps every form there
- * from a live CRM. Only a CRM's own test system gets forms there (question 181), still bounded by
- * the limit per token.
+ * The bot check could not run (no keys, Cloudflare refusing Core's secret or not answering, or
+ * the check failing in the visitor's browser): the form stops, the visitor reads why, and the
+ * form is logged as not delivered with the cause, which alerts and shows under "Needs attention"
+ * and names the site. Never a pass without a check, never a refusal nobody hears of. A cause on
+ * Core's side goes to the error tracker too.
  */
-async function checkHuman(request: Request): Promise<Response | null> {
-  if (!humanCheck()) {
-    if (!isLiveService()) return null;
-    report(new Error('a form was refused: the bot check is not set up'), { where: 'submission' });
-    return jsonResponse(503, { error: 'the bot check is not set up' });
+async function checkBroken(
+  request: Request,
+  submission: Submission,
+  door: Door,
+  cause: string,
+): Promise<Response> {
+  if (!request.headers['x-core-human']?.startsWith('unavailable:')) {
+    report(new Error(`a form was stopped: ${cause}`), { where: 'submission' });
   }
-  const passed = await verifyHuman(request.headers['x-core-human'] ?? null);
-  return passed ? null : jsonResponse(403, { error: 'the bot check did not pass' });
+  const routed = await route(door.tenantId, submission);
+  const where = {
+    correlationId: submission.id,
+    tenantId: door.tenantId,
+    connectionId: 'error' in routed ? null : routed.connection.id,
+    datatype: submission.record?.datatype ?? null,
+    remoteId: submission.record?.remote_id ?? null,
+    subscriberId: door.subscriberId,
+  };
+  await logEvent({
+    type: 'submission.received',
+    ...where,
+    fields: { kind: submission.kind, client: request.headers['x-core-client'] ?? null },
+  });
+  await logEvent({
+    type: 'submission.failed',
+    ...where,
+    fields: {
+      kind: submission.kind,
+      detail: `the bot check could not run: ${cause}`,
+      bot_check: cause,
+    },
+  });
+  return jsonResponse(503, {
+    id: submission.id,
+    status: 'failed',
+    bot_check: 'broken',
+    error: 'The form was not sent: the bot check could not run. Kowboy has been told.',
+  });
 }
 
 /**
@@ -106,16 +196,11 @@ export async function botCheck(request: Request): Promise<Response> {
   return jsonResponse(200, { human: humanCheck() });
 }
 
-async function submitThrough(request: Request, door: Door): Promise<Response> {
-  if (overLimit(door.tenantId)) {
-    return jsonResponse(429, {
-      error: `more than ${String(SUBMISSIONS_PER_MINUTE)} submissions in a minute; try again shortly`,
-    });
-  }
-  const parsed = parseSubmission(request);
-  if ('response' in parsed) return parsed.response;
-  const { submission } = parsed;
-
+async function submitThrough(
+  request: Request,
+  submission: Submission,
+  door: Door,
+): Promise<Response> {
   const routed = await route(door.tenantId, submission);
   if ('error' in routed) {
     return jsonResponse(routed.status, { id: submission.id, error: routed.error });
@@ -340,7 +425,13 @@ function answerFrom(answer: Answer): Response {
         reference: answer.reference ?? null,
       });
     case 'refused':
-      return jsonResponse(409, { id: answer.id, status: 'refused', reason: answer.detail ?? '' });
+      // The guard's dry run says so, so the site's page "Formulär" shows it as held, not refused.
+      return jsonResponse(409, {
+        id: answer.id,
+        status: 'refused',
+        reason: answer.detail ?? '',
+        ...(answer.detail === NOT_LIVE ? { held: true } : {}),
+      });
     default:
       // Failed, or still unanswered after the timeout: the visitor tries again.
       return jsonResponse(502, { id: answer.id, status: 'failed' });
@@ -365,10 +456,38 @@ export async function sendAgain(id: string): Promise<SentAgain> {
   const submission = row ? contentOf(row) : null;
   if (!row || !submission)
     return { status: 404, error: 'Core keeps no such form.', why: 'no-form' };
+  return onceMore(row, submission, { kept: true, subscriberId: null });
+}
+
+/**
+ * The site's own "Send again" of a form Core holds and the CRM did not take: the form as the
+ * site sent it, under its id, the way `sendAgain` sends Core's copy. A form on its way or taken
+ * meanwhile answers as the first send did.
+ */
+async function sendOnceMore(
+  row: SubmissionRow,
+  submission: Submission,
+  door: Door,
+): Promise<Response> {
+  const sent = await onceMore(row, submission, { kept: false, subscriberId: door.subscriberId });
+  if ('answer' in sent) return answerFrom(sent.answer);
+  if (sent.why === 'on-its-way') return answerFrom(await settled(row));
+  return jsonResponse(400, { id: row.id, error: sent.error });
+}
+
+/**
+ * One more send of a form Core holds, through the route, guard and CRM call of a first send. `kept`
+ * says the send is Core's own copy, which only a form that still keeps it can have.
+ */
+async function onceMore(
+  row: SubmissionRow,
+  submission: Submission,
+  from: { kept: boolean; subscriberId: number | null },
+): Promise<SentAgain> {
   const routed = await route(row.tenant_id, submission);
   if ('error' in routed)
     return { status: 409, error: `Not sent: ${routed.error}.`, why: routed.why };
-  if (!(await claimAgain(id, UNANSWERED_MS))) {
+  if (!(await claimAgain(row.id, UNANSWERED_MS, from.kept))) {
     return {
       status: 409,
       error: 'This form is on its way to the CRM now, or the CRM took it.',
@@ -377,17 +496,22 @@ export async function sendAgain(id: string): Promise<SentAgain> {
   }
   const { connection, send } = routed;
   const result = await deliver(send, connection, submission);
-  await settleSubmission(id, result);
+  await settleSubmission(row.id, result);
   await logEvent({
     type: `submission.${result.outcome}`,
-    correlationId: id,
+    correlationId: row.id,
     tenantId: row.tenant_id,
     connectionId: connection.id,
     datatype: row.datatype,
     remoteId: row.remote_id,
-    fields: { kind: submission.kind, ...said(result) },
+    subscriberId: from.subscriberId,
+    fields: {
+      kind: submission.kind,
+      ...said(result),
+      ...(from.kept ? {} : { sent_again: 'by the website' }),
+    },
   });
-  return { answer: toAnswer(id, result) };
+  return { answer: toAnswer(row.id, result) };
 }
 
 /**

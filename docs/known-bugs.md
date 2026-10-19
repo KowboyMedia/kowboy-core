@@ -124,3 +124,11 @@ per visitor address and the header it read. What remains: the two keys are in no
 them, which needs a question before it is built. The trap field and the minimum time stay in the
 window only; a program that skips them still needs the bot check's proof. The entry leaves this
 file when the fix is on production.
+
+**Since 2026-10-19** (209 a, the forms list's "never fails silently"): no Core takes a form
+unchecked. Without its keys, staging and local use Cloudflare's published test keys, whose check
+always passes, so their forms run the whole path; production without them stops every form. A
+check that cannot run (no keys, Cloudflare refusing Core's secret or not answering, the check
+failing in the visitor's browser) stops the form with a clear message and logs it as not
+delivered, with the cause and the site, which alerts (`engine/human.ts`,
+`engine/http/submissions.ts`). The trap field is gone from the window.

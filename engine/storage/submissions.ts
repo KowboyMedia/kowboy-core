@@ -131,20 +131,25 @@ export async function keptSubmissions(
 }
 
 /**
- * Take a kept form for one more send (question 160 a): only one the CRM refused or did not
- * answer, and only one send at a time, so two presses of "Send again" send once. Null when the
- * form is on its way, was taken, or keeps no details.
+ * Take a form for one more send (question 160 a): only one the CRM refused or did not answer, and
+ * only one send at a time, so two presses of "Send again" send once. `kept` is a send of Core's
+ * own copy, so only a form that keeps its details; the site's own "Send again" brings the form.
+ * Null when the form is on its way, was taken, or keeps no details a send of Core's copy needs.
  */
-export async function claimAgain(id: string, unansweredMs: number): Promise<SubmissionRow | null> {
+export async function claimAgain(
+  id: string,
+  unansweredMs: number,
+  kept = true,
+): Promise<SubmissionRow | null> {
   const { rows } = await db().query<SubmissionRow>(
     `update submissions
      set outcome = 'received', reference = null, detail = null, answered_at = now()
-     where id = $1 and content is not null
+     where id = $1 and (content is not null or not $3)
        and (outcome in ('refused', 'failed')
             or (outcome = 'received'
                 and coalesce(answered_at, received_at) < now() - ($2 || ' milliseconds')::interval))
      returning *`,
-    [id, unansweredMs],
+    [id, unansweredMs, kept],
   );
   return rows[0] ?? null;
 }

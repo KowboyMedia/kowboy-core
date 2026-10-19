@@ -411,7 +411,9 @@ drive directly.
   connection could not be sent; the Overview and the alert name each such connection and link it.
   `GET /v1/submissions/bot-check` gives a site's server the bot check's public key (`engine/human.ts`,
   `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET`), and a form carries the proof its window earned in
-  `X-Core-Human`. Only the live service hands a form to a live CRM; elsewhere it stops just
+  `X-Core-Human`. A bot check that cannot run logs the form as `submission.failed` with
+  `bot_check` naming the cause and the site, so it alerts like any form that did not reach the
+  CRM. Only the live service hands a form to a live CRM; elsewhere it stops just
   before, unless the CRM's code says the connection is its own test system (question 181). A
   connection ticked to dry-run its forms has every form stopped there, on the live service too.
   The visitor's browser never calls Core: it talks to its own site, whose server calls these

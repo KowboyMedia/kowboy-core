@@ -836,22 +836,28 @@ the seven days.
          the e-mail.
       4. Done 2026-10-19 (theme 1.3.2): `[client-wordpress]` The theme's privacy page picker goes;
          the consent links WordPress's own privacy page.
-      5. `[client-wordpress]` The plugin's page "Formulär": the switch "forms on" (the window
-         shows only when it is on) and every form the site sent, failed or not, with the
-         visitor's details and the outcome, kept 30 days, with "Send again" beside a failed one.
-         Core takes a form sent again from the site only by an id it holds as not delivered for
-         that tenant, with no new bot proof.
-      6. `[core]` `[client-wordpress]` 166: Core answers a form id it already holds before the
-         bot check; the plugin tries twice more, after 1 s and 3 s, when Core did not answer.
-      7. `[core]` `[client-wordpress]` The bot check never fails silently: Core tells a visitor's
-         failed check from a broken one (no keys, Cloudflare refusing the secret, Cloudflare not
-         answering), the window sends a check that could not load or run with the form, and a
-         broken check stops the form with a clear message and is logged as a form not delivered,
-         which alerts and shows under "Needs attention". Staging gets Cloudflare's published test
-         keys so its forms keep working until Patric creates the real ones.
-      8. `[core]` 171 a: each site's address on the check's list at Cloudflare when the site is
-         saved; on the free plan an eleventh site is refused with a clear message, since paying
-         is asked then (146).
+      5. Done 2026-10-19 (plugin 0.9.0, theme 1.3.3): `[client-wordpress]` The plugin's page
+         "Formulär": the switch "forms on" (the window shows only when it is on) and every form
+         the site sent, failed or not, with the visitor's details and the outcome, kept 30 days,
+         with "Send again" beside a failed one. Core takes the site's own "Send again" with no
+         bot proof, under the form's id, also for a form it never received (a form lost while
+         Core could not be reached), since only the site's server sends it.
+      6. Done 2026-10-19: `[core]` `[client-wordpress]` 166: Core answers a form id it already
+         holds before the bot check; the plugin tries twice more, after 1 s and 3 s, when Core
+         did not answer.
+      7. Done 2026-10-19 but the words of the alert: `[core]` `[client-wordpress]` The bot check
+         never fails silently: Core tells a visitor's failed check from a broken one (no keys,
+         Cloudflare refusing the secret, Cloudflare not answering), the window sends a check that
+         could not load or run with the form, and a broken check stops the form with a clear
+         message and is logged as a form not delivered, which alerts and shows under "Needs
+         attention". Outside production Core uses Cloudflare's published test keys when its own
+         are missing, so staging needs no setting. The alert's and "Needs attention"'s words for
+         it, and their link to the site's page "Formulär", are the thread "Notification system"'s
+         (`engine/attention.ts`), sent to it on 2026-10-19.
+      8. Done in the engine 2026-10-19 (`listOnBotCheck`): `[core]` 171 a: each site's address on
+         the check's list at Cloudflare when the site is saved; on the free plan an eleventh site
+         is refused with a clear message, since paying is asked then (146). The new admin's
+         website save calls it: the thread "New admin panel from the spec"'s, sent to it.
       9. `[client-wordpress]` "Söker du bostad?" in the theme; its screen goes to Patric before it
          counts as approved.
       10. `[core]` `[admin]` By the answer to 218: Core's copy of the details, the old page

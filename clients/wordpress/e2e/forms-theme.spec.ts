@@ -243,6 +243,36 @@ test('journey: while a form is on its way, “Skicka” reads “Skickar…” a
   expect(posted).toHaveLength(1);
 });
 
+test('journey: when the bot check cannot run in the browser, the window still sends the form, says why it was not sent, and asks the visitor to try later or contact the agent', async ({
+  page,
+}) => {
+  // Cloudflare's script does not load: an ad blocker, a network that drops it, or a broken setup.
+  await page.route('https://challenges.cloudflare.com/**', (route) => route.abort());
+  const proofs: (string | undefined)[] = [];
+  page.on('request', (request) => {
+    if (
+      request.method() === 'POST' &&
+      decodeURIComponent(request.url()).includes('core/v1/forms')
+    ) {
+      proofs.push(request.headers()['x-core-human']);
+    }
+  });
+  await page.goto('/?pagename=till-salu');
+  await page.getByRole('link', { name: 'Kungsgatan 3', exact: true }).click();
+  const dialog = page.locator('dialog.k-form');
+  await page.getByRole('link', { name: 'Anmäl intresse' }).click();
+  await fillPerson(dialog);
+  await dialog.getByLabel(/Jag samtycker/).check();
+  await dialog.getByRole('button', { name: 'Skicka' }).click();
+  await expect(dialog.getByText('Det gick inte att skicka just nu')).toBeVisible();
+  await expect(
+    dialog.getByText('Robotkontrollen fungerar inte just nu, så formuläret kunde inte skickas.', {
+      exact: false,
+    }),
+  ).toBeVisible();
+  expect(proofs).toEqual(['unavailable:script']);
+});
+
 test('journey: with Kowboy’s chat on the page, a form button opens the chat at that request, and the theme’s window opens where the chat cannot take it', async ({
   page,
 }) => {

@@ -36,7 +36,8 @@ export const HUMAN_TOKEN = 'XXXX.DUMMY.TOKEN.XXXX';
 export const HUMAN_CHECK: HumanCheck = {
   provider: 'turnstile',
   siteKey: '1x00000000000000000000AA',
-  verify: (token) => Promise.resolve(token === HUMAN_TOKEN),
+  secret: '1x0000000000000000000000000000000AA',
+  verify: (token) => Promise.resolve({ kind: token === HUMAN_TOKEN ? 'passed' : 'refused' }),
 };
 
 /** The test tenant's number: the first one made after every reset. */

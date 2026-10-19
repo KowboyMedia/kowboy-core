@@ -33,10 +33,16 @@ export type Config = {
   /**
    * The bot check on every form (docs/forms.md, question 138): Turnstile's public site key, which
    * a site's form window renders the challenge with, and the secret Core verifies its proof with.
-   * Both unset means no check: staging and local take forms without one, the live service none.
+   * Both unset: staging and local use Cloudflare's test keys, and the live service takes no form.
    */
   turnstileSiteKey: string | null;
   turnstileSecret: string | null;
+  /**
+   * Kowboy's Cloudflare account and a key of it that may change Turnstile (question 171 a), with
+   * which a website's address goes on the bot check's list when Core's admin saves the website.
+   */
+  cloudflareAccountId: string | null;
+  cloudflareTurnstileToken: string | null;
 };
 
 const required = (name: string): string => {
@@ -82,5 +88,7 @@ export function loadConfig(): Config {
     adminRememberDays: numberOr('ADMIN_REMEMBER_DAYS', 30),
     turnstileSiteKey: optional('TURNSTILE_SITE_KEY'),
     turnstileSecret: optional('TURNSTILE_SECRET'),
+    cloudflareAccountId: optional('CLOUDFLARE_ACCOUNT_ID'),
+    cloudflareTurnstileToken: optional('CLOUDFLARE_TURNSTILE_TOKEN'),
   };
 }
