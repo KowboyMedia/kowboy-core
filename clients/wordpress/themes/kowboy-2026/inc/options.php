@@ -41,7 +41,8 @@ function kowboy_contact(?array $agent = null): array
     $display = is_array($phone) && is_string($phone['display'] ?? null) ? $phone['display'] : '';
     $email = is_string($agent['email'] ?? null) ? $agent['email'] : '';
     if ($display !== '' || $email !== '') {
-        return ['phone' => $display, 'tel' => $display === '' ? '' : (string) ($phone['number'] ?? ''), 'email' => $email];
+        // Dialled from the number as shown, since the CRM's own may lack its leading +.
+        return ['phone' => $display, 'tel' => preg_replace('/[^+\d]/', '', $display) ?? '', 'email' => $email];
     }
     $phone = trim((string) kowboy_option('kowboy_phone'));
     return ['phone' => $phone, 'tel' => preg_replace('/[^+\d]/', '', $phone) ?? '', 'email' => trim((string) kowboy_option('kowboy_email'))];

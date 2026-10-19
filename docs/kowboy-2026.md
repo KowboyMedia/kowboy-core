@@ -448,6 +448,8 @@ item 29):
   mejla …", with the home's agent on a home's forms and the site's own phone and e-mail
   elsewhere, as links, and "Stäng". Nothing is sent again, so no "Försök igen" follows a form the
   brokerage did not get; a visitor's own failed bot check and a taken time still let them try.
+  Theme 1.3.7 dials the agent's number as shown, since the CRM's own number came without its
+  leading + on both demos (46722245324).
 
 ## The card dots, white on the screen, 2026-10-19
 

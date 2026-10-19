@@ -562,7 +562,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     const contact = /data-k-form="viewing"[^>]* data-contact="([^"]+)"/.exec(body)?.[1] ?? '';
     expect(JSON.parse(contact.replaceAll('&quot;', '"'))).toEqual({
       phone: '070-123 45 67',
-      tel: '070-123 45 67',
+      tel: '0701234567',
       email: 'anna@kowboy.test',
     });
     const wishes = /data-k-form="viewing"[^>]* data-wishes="([^"]+)"/.exec(body)?.[1] ?? '';
