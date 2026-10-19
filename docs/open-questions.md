@@ -4,10 +4,26 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 223 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 224 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 223. `[admin]` Approve what part 6 of design B shows beyond the B2 drawings
+
+- 2026-10-19 · Part 6 (B2's images 01 to 37: the Records tab with its filters, a record's page,
+  and the sync window that fetches again, prepares the website text again or sends to the
+  websites again) is on staging at `/admin/records`, with the bot check on website saves (171 a).
+  It needed 63 lines the drawings do not show, among them four new web addresses on Core and no
+  new table, column, event or setting, and leaves three of B2's details out. Two choices were made
+  after the build: a fetch that finds a record unchanged no longer moves its "Updated" time, and
+  sending all of a tenant's records has its websites rebuild from the start, as "Reload all data"
+  did (row 61). The list is `panel-candidates/b-part6-new-lines.md`, with pictures in
+  `panel-candidates/part6-shots/`, both in the project's shared folder. Row 63 asks separately
+  whether the reload's leftover code and its `reloads` table can go.
+- Blocked: nothing; the lines stay on staging meanwhile.
+- a) ok: all 63 lines, and the reload's leftovers go (recommended).
+- b) ok, except the lines named.
 
 ## 222. `[client-wordpress]` Put the new forms on the Ahre demo too
 
