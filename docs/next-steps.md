@@ -858,8 +858,10 @@ the seven days.
          the check's list at Cloudflare when the site is saved; on the free plan an eleventh site
          is refused with a clear message, since paying is asked then (146). The new admin's
          website save calls it: the thread "New admin panel from the spec"'s, sent to it.
-      9. `[client-wordpress]` "Söker du bostad?" in the theme; its screen goes to Patric before it
-         counts as approved.
+      9. Built 2026-10-19 (plugin 0.9.1, theme 1.3.4), not approved until Patric has seen its
+         screen (`/mnt/project-files/forms/profile-step/`): `[client-wordpress]` "Söker du
+         bostad?" in the theme. The home's type goes as null (docs/forms.md, "Built
+         2026-10-19").
       10. `[core]` `[admin]` By the answer to 218: Core's copy of the details, the old page
           "Failed forms" and the new admin's "Resend" go (a), stay (b), or "Resend" asks the
           site (c).

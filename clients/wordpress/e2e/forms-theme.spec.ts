@@ -5,8 +5,9 @@
 // other receiver with the bot check's proof, the plugin sends it on to Core with the site's token,
 // and the fake CRM takes it. The browser never calls Core's addresses and never sees the token.
 // Cloudflare's script is a stand-in here that hands out the dummy token of Cloudflare's test key,
-// the one the test Core's bot check takes (acceptance/harness.ts). The name starts with
-// "journey:" so the acceptance report can name it under its criterion.
+// the one the test Core's bot check takes (acceptance/harness.ts). Every form ends with the
+// optional step "Söker du bostad?", a search profile of its own. The name starts with "journey:"
+// so the acceptance report can name it under its criterion.
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -54,13 +55,15 @@ async function fillPerson(dialog: Locator): Promise<void> {
   await dialog.getByLabel('E-post').fill('anna@example.se');
 }
 
-test('journey: the interest, viewing and valuation buttons open the theme’s window, each form reaches the CRM through the site and Core with the bot check’s proof, and the browser never calls Core', async ({
+test('journey: the interest, viewing and valuation buttons open the theme’s window, each form reaches the CRM through the site and Core with the bot check’s proof, “Söker du bostad?” follows each one as a search profile of its own, prefilled from the home, and the browser never calls Core', async ({
   page,
 }) => {
   const authorized: string[] = [];
   const toCore: string[] = [];
   const leaked: string[] = [];
   const proofs: (string | undefined)[] = [];
+  // What the window sent the site's receiver, in order.
+  const sent: Record<string, unknown>[] = [];
   // What the site's receivers answered the browser, in order; a callback fills it.
   const answers: { status: number; body: Record<string, unknown> }[] = [];
   let timesRead = 0;
@@ -76,6 +79,7 @@ test('journey: the interest, viewing and valuation buttons open the theme’s wi
       decodeURIComponent(request.url()).includes('core/v1/forms')
     ) {
       proofs.push(request.headers()['x-core-human']);
+      sent.push(JSON.parse(request.postData() ?? '{}') as Record<string, unknown>);
     }
   });
   page.on('response', (response) => {
@@ -105,14 +109,13 @@ test('journey: the interest, viewing and valuation buttons open the theme’s wi
   await expect(page.getByRole('heading', { level: 1, name: 'Kungsgatan 3' })).toBeVisible();
   const dialog = page.locator('dialog.k-form');
 
-  // The interest: the window headed by the home, the current-home box, half a form refused in the window.
+  // The interest: the window headed by the home, half a form refused in the window.
   await page.getByRole('link', { name: 'Anmäl intresse' }).click();
   await expect(dialog).toBeVisible();
   await expect(
     dialog.getByRole('heading', { name: 'Är du intresserad av bostaden?' }),
   ).toBeVisible();
   await expect(dialog.getByText('Kungsgatan 3')).toBeVisible();
-  await expect(dialog.getByLabel('Kontakta mig om min nuvarande bostad.')).toBeVisible();
   await shot(page, '1-interest.png');
   await dialog.getByRole('button', { name: 'Skicka' }).click();
   await expect(dialog.getByText('Fyll i alla fält')).toBeVisible();
@@ -127,9 +130,44 @@ test('journey: the interest, viewing and valuation buttons open the theme’s wi
     dialog.getByRole('heading', { name: 'Din intresseanmälan är skickad' }),
   ).toBeVisible();
   await expect(dialog.getByText('Mäklaren hör av sig', { exact: false })).toBeVisible();
-  await shot(page, '3-interest-sent.png');
   await expect.poll(() => answers.length).toBe(1);
   expect(answers[0]).toMatchObject({ status: 200, body: { status: 'delivered' } });
+  // "Söker du bostad?" under the confirmation, prefilled with the closest values below the home's
+  // 4 rooms and 110 kvm, with the current-home box of a home's form.
+  await expect(dialog.getByRole('heading', { name: 'Söker du bostad?' })).toBeVisible();
+  await expect(dialog.getByText('Steg 2 av 2 · valfritt')).toBeVisible();
+  await expect(dialog.getByLabel('Minst antal rum')).toHaveValue('3');
+  await expect(dialog.getByLabel('Minst boarea (kvm)')).toHaveValue('105');
+  await shot(page, '3-interest-sent.png');
+  await dialog.getByLabel('Minst boarea (kvm)').selectOption('100');
+  await dialog.getByLabel('Kontakta mig om min nuvarande bostad.').check();
+  await dialog.getByRole('button', { name: 'Skicka' }).click();
+  await expect(dialog.getByText('Tack!')).toBeVisible();
+  await expect(
+    dialog.getByText('Du får tips om nya bostäder som passar det du söker.'),
+  ).toBeVisible();
+  await shot(page, '3b-profile-sent.png');
+  await expect.poll(() => answers.length).toBe(2);
+  expect(answers[1]).toMatchObject({ status: 200, body: { status: 'delivered' } });
+  // A search profile of its own, the person of the interest, the home's areas and kommun unseen.
+  expect(sent[1]).toMatchObject({
+    kind: 'search_profile',
+    person: sent[0]!['person'],
+    consent: sent[0]!['consent'],
+    record: sent[0]!['record'],
+    criteria: {
+      object_type: null,
+      rooms_min: 3,
+      living_area_min: 100,
+      areas: expect.arrayContaining([
+        { id: 'D-1', name: 'Vasastan', county_municipality_code: '018001' },
+      ]) as unknown,
+      county_municipality_code: '0163',
+    },
+    contact_about_current_home: true,
+  });
+  expect(sent[1]!['id']).not.toBe(sent[0]!['id']);
+  expect(sent[0]).not.toHaveProperty('contact_about_current_home');
   await dialog.getByRole('button', { name: 'Klart' }).click();
   await expect(dialog).toBeHidden();
 
@@ -159,24 +197,47 @@ test('journey: the interest, viewing and valuation buttons open the theme’s wi
   await expect(
     dialog.getByText(`Kungsgatan 3 · ${time}. Du får en bekräftelse från mäklaren.`),
   ).toBeVisible();
+  await expect(dialog.getByText('Steg 3 av 3 · valfritt')).toBeVisible();
   await shot(page, '6-booking-sent.png');
-  await expect.poll(() => answers.length).toBe(2);
-  expect(answers[1]).toMatchObject({ status: 200, body: { status: 'delivered' } });
-  await dialog.getByRole('button', { name: 'Klart' }).click();
+  await expect.poll(() => answers.length).toBe(3);
+  expect(answers[2]).toMatchObject({ status: 200, body: { status: 'delivered' } });
+  // Skipped, the profile is not sent and the window closes: the booking is in.
+  await dialog.getByRole('button', { name: 'Hoppa över' }).click();
+  await expect(dialog).toBeHidden();
 
-  // The footer's free valuation: no home and no current-home box, the person remembered.
+  // The footer's free valuation: no home, the person remembered.
   await page.getByRole('link', { name: 'Boka fri värdering' }).click();
   await expect(dialog.getByRole('heading', { name: 'Ska du sälja din bostad?' })).toBeVisible();
   await expect(dialog.getByText('Kostnadsfri värdering')).toBeVisible();
-  await expect(dialog.getByLabel('Kontakta mig om min nuvarande bostad.')).toBeHidden();
   await expect(dialog.getByLabel('Förnamn')).toHaveValue('Anna');
   await dialog.getByLabel(/Jag samtycker/).check();
   await shot(page, '7-valuation.png');
   await dialog.getByRole('button', { name: 'Skicka' }).click();
   await expect(dialog.getByRole('heading', { name: 'Tack, vi hör av oss' })).toBeVisible();
+  await expect.poll(() => answers.length).toBe(4);
+  expect(answers[3]).toMatchObject({ status: 200, body: { status: 'delivered' } });
+  // No home: no minimum prefilled and no current-home box, since the visitor is a seller already.
+  await expect(dialog.getByLabel('Minst antal rum')).toHaveValue('');
+  await expect(dialog.getByLabel('Minst boarea (kvm)')).toHaveValue('');
+  await expect(dialog.getByLabel('Kontakta mig om min nuvarande bostad.')).toBeHidden();
   await shot(page, '8-valuation-sent.png');
-  await expect.poll(() => answers.length).toBe(3);
-  expect(answers[2]).toMatchObject({ status: 200, body: { status: 'delivered' } });
+  await dialog.getByLabel('Minst antal rum').selectOption('2');
+  await dialog.getByRole('button', { name: 'Skicka' }).click();
+  await expect(dialog.getByText('Tack!')).toBeVisible();
+  await expect.poll(() => answers.length).toBe(5);
+  expect(answers[4]).toMatchObject({ status: 200, body: { status: 'delivered' } });
+  expect(sent[4]).toMatchObject({
+    kind: 'search_profile',
+    criteria: {
+      object_type: null,
+      rooms_min: 2,
+      living_area_min: null,
+      areas: [],
+      county_municipality_code: null,
+    },
+  });
+  expect(sent[4]).not.toHaveProperty('record');
+  expect(sent[4]).not.toHaveProperty('contact_about_current_home');
   await dialog.getByRole('button', { name: 'Klart' }).click();
   await expect(dialog).toBeHidden();
 
@@ -189,7 +250,7 @@ test('journey: the interest, viewing and valuation buttons open the theme’s wi
 
   // Every form carried the bot check's proof; the browser called none of Core's addresses, used
   // no token, and no answer carried it.
-  expect(proofs).toEqual([HUMAN_TOKEN, HUMAN_TOKEN, HUMAN_TOKEN]);
+  expect(proofs).toEqual(Array.from({ length: 5 }, () => HUMAN_TOKEN));
   expect(toCore).toEqual([]);
   expect(authorized).toEqual([]);
   expect(leaked).toEqual([]);

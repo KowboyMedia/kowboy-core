@@ -434,6 +434,11 @@ item 29):
   "Robotkontrollen fungerar inte just nu, så formuläret kunde inte skickas. Vi har fått veta det.
   Försök igen senare eller kontakta mäklaren direkt." A visitor's own failed challenge still asks
   them to try again.
+- **"Söker du bostad?" follows every form** (theme 1.3.4 with plugin 0.9.1): the minimum rooms
+  and living space, prefilled from the home, and on a home's forms "Kontakta mig om min nuvarande
+  bostad", which left the person's step; "Skicka" sends the search profile, "Hoppa över" closes
+  the window (docs/forms.md, "Built 2026-10-19"). The bot check's challenge now sits below the
+  steps, so each of the two sends earns its own proof.
 
 ## The card dots, white on the screen, 2026-10-19
 

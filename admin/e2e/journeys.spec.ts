@@ -4,6 +4,8 @@ import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 
 const EMAIL = 'tester@kowboy.se';
+/** The dummy token Cloudflare's test key hands out, which the journey Core's bot check takes. */
+const HUMAN_TOKEN = 'XXXX.DUMMY.TOKEN.XXXX';
 
 /** Sign in as a person does: ask for a link, open the one that comes back, land in the area. */
 async function signIn(page: Page, remember = false): Promise<void> {
@@ -255,7 +257,7 @@ test('journey: failed forms — read a form the CRM did not take, and send it ag
     .locator('xpath=preceding-sibling::code')
     .innerText();
   const sent = await page.request.post('/v1/submissions', {
-    headers: { authorization: `Bearer ${token}` },
+    headers: { authorization: `Bearer ${token}`, 'x-core-human': HUMAN_TOKEN },
     data: {
       id: randomUUID(),
       kind: 'interest',

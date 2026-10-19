@@ -1184,6 +1184,18 @@ Patric's go (209 a, 2026-10-19) for the forms list he verified on 2026-10-07
   calls it (the thread "New admin panel from the spec", sent to it on 2026-10-19).
 - **The guard's hold says so in the answer**: a held form's 409 carries `held: true`, so the
   page "Formulär" shows it as a test run, with no "Skicka igen".
+- **"Söker du bostad?" ends every form** (theme 1.3.4, plugin 0.9.1; 139, 141 a; waits on
+  Patric's look at its screen): under the confirmation once the form is in, "Steg N av N ·
+  valfritt" (2 of 2 on an interest and a valuation, 3 of 3 on a booking), "Minst antal rum" and
+  "Minst boarea (kvm)" from the whitelist, prefilled with the closest value below the home's
+  (`core_client_form_wishes`, printed on the home's buttons as `data-wishes`), and on a home's
+  forms the box "Kontakta mig om min nuvarande bostad", which moved here from the person's step.
+  "Skicka" sends a `search_profile` of its own through the same receiver, with the person and
+  consent of the form just sent, the home's areas as the site links them and its kommun code,
+  unseen; "Hoppa över" closes the window. On a valuation nothing is prefilled and the profile
+  has no home and no areas. The home's type goes as `null`: the record's type is the CRM's own
+  list, which a site never reads (the note for the widget, above). Proved by the journey's three
+  forms and the template test of the property page.
 
 ## The decisions (the discover list)
 
