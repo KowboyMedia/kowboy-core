@@ -500,9 +500,9 @@
         "submissions a lead, an interest and a viewing reach the CRM with every field mapped, and answer delivered with the CRM’s reference",
         "the Vitec adapter’s forms sends a lead as the valuation request with the sources left to Vitec, and answers Vitec’s contact id",
         "the Vitec adapter’s forms sends an interest on the home with its status left to Vitec, and the valuation too when the visitor ticked the current-home box",
-        "the Vitec adapter’s forms books a viewing slot with an e-mail confirmation and no reminder, and relays Vitec’s refusal and silence"
+        "the Vitec adapter’s forms books a viewing slot with the e-mail and SMS confirmations and no reminder, and relays Vitec’s refusal and silence"
       ],
-      "note": "Proved against the fake polling CRM, which takes every kind (docs/forms.md): the universal submission of schemas/submission.v1.json lands in the stand-in with every field under its own names, and the site gets the CRM's reference. Proved for Vitec against the stand-in Connect (adapters/vitec/forms.test.ts): the lead is the valuation request, the interest the interest registration with its status left to Vitec (and the valuation too when the current-home box is ticked, 141 a), the viewing the attendance with an e-mail confirmation, no SMS and no reminder; nothing about forms is typed on a connection (question 155); the bodies are compared field by field. The real send waits on a demo or test customer Patric has confirmed (question 54 f)."
+      "note": "Proved against the fake polling CRM, which takes every kind (docs/forms.md): the universal submission of schemas/submission.v1.json lands in the stand-in with every field under its own names, and the site gets the CRM's reference. Proved for Vitec against the stand-in Connect (adapters/vitec/forms.test.ts): the lead is the valuation request, the interest the interest registration with its status left to Vitec (and the valuation too when the current-home box is ticked, 141 a), the viewing the attendance with the e-mail and SMS confirmations and no reminder; nothing about forms is typed on a connection (question 155); the bodies are compared field by field. The real send waits on a demo or test customer Patric has confirmed (question 54 f)."
     },
     {
       "ac": 44,
@@ -511,8 +511,9 @@
       "tests": [
         "submissions a refusal and a failure reach the visitor and the timeline without the person, and submissions.failing turns red then green",
         "submissions a form keeps its details encrypted until the CRM takes it, and one the CRM refused or did not take keeps them for 30 days",
-        "the Vitec adapter’s forms books a viewing slot with an e-mail confirmation and no reminder, and relays Vitec’s refusal and silence",
-        "the Vitec adapter’s forms tries a call Vitec could not take again within the form’s short time, never a refusal, and the visitor hears it when Vitec stays down"
+        "the Vitec adapter’s forms books a viewing slot with the e-mail and SMS confirmations and no reminder, and relays Vitec’s refusal and silence",
+        "the Vitec adapter’s forms tries a call Vitec could not take again within the form’s short time, never a refusal, and the visitor hears it when Vitec stays down",
+        "the Vitec adapter’s forms sends no form to an office Vitec refuses: a form Vitec answers 403 is asked once, and every later request about that office is kept back"
       ],
       "note": "The Vitec code tries a call Vitec could not take twice more within the form's 15 s and never a refusal, so the failure the visitor reads is the last answer, inside Core's wait (question 165, answered no: no later retry). The events, the submissions table and the error tracker's output are searched for the person's name, e-mail, phone and street and hold none in plain text; a form the CRM refused or did not answer keeps its details encrypted with the key of the CRM logins for 30 days, so it can be sent again, and a form the CRM took keeps none (question 160 a); the check names the connection in `names` and not in its public detail. For Vitec: a 400 with Vitec's words is a refusal whose reason is those words with anything that looks like an e-mail address or a number scrubbed, a 500 is a failure, and the chain's crm.call events carry no body."
     },
@@ -552,9 +553,9 @@
       "title": "The theme’s three forms pass a browser journey through the site’s receivers and Core, and the browser never receives the tenant token or the CRM login",
       "phase": "engine",
       "tests": [
-        "journey: the interest, viewing and valuation buttons open the theme’s window, each form reaches the CRM through the site and Core with the bot check’s proof, and the browser never calls Core"
+        "journey: the interest, viewing and valuation buttons open the theme’s window, each form reaches the CRM through the site and Core with the bot check’s proof, “Söker du bostad?” follows each one as a search profile of its own, prefilled from the home, and the browser never calls Core"
       ],
-      "note": "Proved locally on the test WordPress with the real theme Kowboy 2026 1.2.0, plugin 0.6.0 and a real Core over the fake polling CRM (clients/wordpress/e2e/forms-theme.spec.ts): the interest, the booking of a live time read through the site and the free valuation each confirmed, each form carrying the bot check’s proof (Cloudflare’s script a stand-in handing out its test key’s token), the browser calling none of Core’s addresses, no request carrying the tenant token and no answer containing it. On the staging site the windows open and read the times, and no form is sent: staging reads a real brokerage’s office, and Core sends no form to a live CRM outside the live service (question 152)."
+      "note": "Proved locally on the test WordPress with the real theme Kowboy 2026 1.3.5, plugin 0.9.2 and a real Core over the fake polling CRM (clients/wordpress/e2e/forms-theme.spec.ts): the interest, the booking of a live time read through the site and the free valuation each confirmed and followed by “Söker du bostad?”, each form carrying the bot check’s proof (Cloudflare’s script a stand-in handing out its test key’s token), the browser calling none of Core’s addresses, no request carrying the tenant token and no answer containing it. On the staging site the windows open and read the times, and no form is sent: staging reads a real brokerage’s office, and Core sends no form to a live CRM outside the live service (question 152)."
     },
     {
       "ac": 49,
@@ -564,7 +565,7 @@
         "submissions a search profile reaches the CRM with the criteria mapped, from a home or after a lead",
         "the Vitec adapter’s forms makes a search profile: the contact through UpdatePerson, then the residential profile with the criteria"
       ],
-      "note": "The criteria of question 139 reach the stand-in from a home and after a lead (no home, the tenant's one office). The skipped third step is the widget's, proved with AC 48. For Vitec: Contacts/UpdatePerson (its duplicate check answers the contact) then the residential profile in the CRM function group, the subtypes, areas, municipality codes and minimums mapped, an open profile sent empty; against the stand-in until the function group is granted on a confirmed test customer (54 f)."
+      "note": "The criteria of question 139 reach the stand-in from a home and after a lead (no home, the tenant's one office). The third step is the theme's “Söker du bostad?”, proved with AC 48: it follows each form, a sent one reaches the CRM as a search profile, and a skipped one leaves the form before it delivered. For Vitec: Contacts/UpdatePerson (its duplicate check answers the contact) then the residential profile in the CRM function group, the subtypes, areas, municipality codes and minimums mapped, an open profile sent empty; against the stand-in until the function group is granted on a confirmed test customer (54 f)."
     }
   ]
 }

@@ -294,6 +294,27 @@ describe('the Vitec adapter’s forms', () => {
     expect(ended).toHaveLength(1);
   });
 
+  it('sends no form to an office Vitec refuses: a form Vitec answers 403 is asked once, and every later request about that office is kept back', async () => {
+    const call = `/Advertising/Estate/${OFFICE}/${ESTATE}/interest`;
+    const asked = (): number => fake.requests.filter((request) => request.path === call).length;
+
+    // Vitec will not let the login reach the office: asked once, never again, and not sent.
+    fake.forbid(OFFICE);
+    expect((await post(submission('interest', { record }))).status).toBe(502);
+    expect(asked()).toBe(1);
+
+    // From then on the adapter's door keeps the office back, whatever Vitec would answer now.
+    fake.allow(OFFICE);
+    const form = submission('interest', { record });
+    expect(await post(form)).toMatchObject({ status: 502, body: { status: 'failed' } });
+    expect(asked()).toBe(1);
+    const [failed] = await queryEvents({
+      correlationId: form['id'] as string,
+      type: 'submission.failed',
+    });
+    expect(String(failed?.fields['detail'])).toContain('refuses to let this login read the office');
+  });
+
   it('makes a search profile: the contact through UpdatePerson, then the residential profile with the criteria', async () => {
     const answer = await post(
       submission('search_profile', {
