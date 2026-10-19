@@ -26,6 +26,22 @@ const SUBTYPE: Record<NonNullable<SearchCriteria['object_type']>, string> = {
   plot: 'Plot',
 };
 
+/**
+ * A home's own subtype (Api_EstateSubType) onto the residential profile's (SubtypeResidential),
+ * for a profile that names a home but not its type: a site never reads the CRM's types, so the
+ * Vitec code reads the home's here. Kedjehus and parhus go with radhus, as they are sold; a type
+ * the residential profile has no word for (a farm, a commercial property) asks for none.
+ */
+const HOME_SUBTYPE: Record<string, string> = {
+  Apartment: 'Apartment',
+  DetachedHouse: 'House',
+  TownHouse: 'TownHouse',
+  LinkedHouse: 'TownHouse',
+  DuplexHouse: 'TownHouse',
+  Cottage: 'Cottage',
+  Plot: 'Plot',
+};
+
 const segment = encodeURIComponent;
 
 /**
@@ -250,7 +266,9 @@ async function searchProfile(sending: Sending): Promise<string | null> {
     login,
     `CRM/Contact/${segment(customerId)}/SearchProfile/Residential/${segment(contactId)}`,
     {
-      subtypes: criteria.object_type ? [SUBTYPE[criteria.object_type]] : [],
+      subtypes: criteria.object_type
+        ? [SUBTYPE[criteria.object_type]]
+        : await homeSubtypes(sending),
       areaIds: criteria.areas.map((area) => area.id),
       municipalityCodes:
         codes.length > 0
@@ -265,6 +283,22 @@ async function searchProfile(sending: Sending): Promise<string | null> {
     },
   );
   return contactId;
+}
+
+/** The profile's type from the home it names, as Vitec has it now; none without a home or a match. */
+async function homeSubtypes(sending: Sending): Promise<string[]> {
+  const id = sending.submission.record?.remote_id;
+  if (!id) return [];
+  const home = await connect.getOne(
+    sending.login,
+    'property',
+    sending.customerId,
+    id,
+    sending.trace,
+  );
+  const subtype = (home as { subtype?: { id?: unknown } } | null)?.subtype?.id;
+  const matched = typeof subtype === 'string' ? HOME_SUBTYPE[subtype] : undefined;
+  return matched ? [matched] : [];
 }
 
 const estateOf = (submission: Submission): string => {

@@ -987,8 +987,8 @@
 
     /**
      * The search profile (kind search_profile), with the person and consent of the form just sent.
-     * Its areas and kommun code are the home's, unseen; the home's type is not sent, because a
-     * site never reads the CRM's own list of types (docs/forms.md, the note for the widget).
+     * Its areas and kommun code are the home's, unseen; the home's type is left to the CRM's code,
+     * because a site never reads the CRM's own list of types (docs/forms.md, the note for the widget).
      */
     function searchProfile() {
       var chosen = function (name) {

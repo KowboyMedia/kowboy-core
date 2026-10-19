@@ -1193,9 +1193,11 @@ Patric's go (209 a, 2026-10-19) for the forms list he verified on 2026-10-07
   "Skicka" sends a `search_profile` of its own through the same receiver, with the person and
   consent of the form just sent, the home's areas as the site links them and its kommun code,
   unseen; "Hoppa över" closes the window. On a valuation nothing is prefilled and the profile
-  has no home and no areas. The home's type goes as `null`: the record's type is the CRM's own
-  list, which a site never reads (the note for the widget, above). Proved by the journey's three
-  forms and the template test of the property page.
+  has no home and no areas. The site sends the home's type as `null`, since the record's type is
+  the CRM's own list, which a site never reads (the note for the widget, above); the Vitec code
+  reads the home's own subtype from Vitec and sends the profile's (kedjehus and parhus as radhus,
+  none for a farm or a commercial property), proved by `adapters/vitec/forms.test.ts`. Proved by
+  the journey's three forms and the template test of the property page.
 
 ## The decisions (the discover list)
 
