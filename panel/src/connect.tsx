@@ -17,21 +17,24 @@ export const shortName = (name: string): string => name.trim().split(/\s+/)[0] ?
 /** "Fyrbåk’s", "Sjöbris’". */
 export const owning = (name: string): string => (name.endsWith('s') ? `${name}’` : `${name}’s`);
 
-/** Why Core saved nothing: its sentence, and the CRM's code's own answer when it gave one. */
+/** Why Core saved nothing: its sentence, and the CRM's code's own words when it gave them. */
 export type Refusal = { text: string; answer: string | null };
 
 /**
  * Why Core did not save a login, for the person who typed it (image 10): Core's sentence, and under
- * it the CRM's code's own words when Core gave them, which say why the CRM refused the login,
- * didn't answer or holds nothing behind it.
+ * it the CRM's code's own words when Core gave them. Those words are whole sentences that say who
+ * refused, whether the CRM was asked at all, and what to do, so the panel adds neither a claim that
+ * the CRM refused nor advice of its own.
  */
 export function loginRefusal(error: unknown, crm: string): Refusal {
   if (error instanceof Refused) {
     if (error.status === 422) {
-      return {
-        text: `${crm} refused this login, so nothing is saved. Check the fields and try again.`,
-        answer: error.said ? `${crm}’s answer: ${error.said}` : null,
-      };
+      return error.said
+        ? { text: 'Nothing is saved.', answer: error.said }
+        : {
+            text: `${crm} refused this login, so nothing is saved. Check the fields and try again.`,
+            answer: null,
+          };
     }
     if (error.status === 502) {
       return {
@@ -86,7 +89,7 @@ function secretWords(crm: Crm): { words: string; many: boolean } {
   };
 }
 
-/** Core saved nothing (image 10): its sentence, and under it the CRM's answer. */
+/** Core saved nothing (image 10): its sentence, and under it the CRM's code's own words. */
 export function RefusalBox({ refusal }: { refusal: Refusal }) {
   return (
     <div className="k-refusal" role="alert">

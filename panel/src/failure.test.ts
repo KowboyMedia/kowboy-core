@@ -3,6 +3,7 @@
 // to do.
 import { describe, expect, it } from 'vitest';
 import { Refused } from './api';
+import { loginRefusal } from './connect';
 import { failureWords, GONE } from './failure';
 
 describe('what the panel says went wrong', () => {
@@ -38,5 +39,23 @@ describe('what the panel says went wrong', () => {
     expect(failureWords(new Refused(400, 'fields'))).toBe(
       'Core refused this, with answer code 400 and the reason “fields”. This is a fault in Core’s admin panel, not in a CRM or a login, so pass it on to Core’s developers.',
     );
+  });
+});
+
+describe('why a login was not saved', () => {
+  it('shows the CRM’s code’s own sentences under “Nothing is saved.”, adding no claim of its own', () => {
+    const said =
+      'Vitec was not asked, because the field “Customer or group id” is empty. Without the id, nothing reaches the sites. Type the id Vitec issued the login for, such as M30011 or G2, and try again.';
+    expect(loginRefusal(new Refused(422, 'login', said), 'Vitec')).toEqual({
+      text: 'Nothing is saved.',
+      answer: said,
+    });
+  });
+
+  it('says the CRM refused only when its code gave no words', () => {
+    expect(loginRefusal(new Refused(422, 'login'), 'Vitec')).toEqual({
+      text: 'Vitec refused this login, so nothing is saved. Check the fields and try again.',
+      answer: null,
+    });
   });
 });
