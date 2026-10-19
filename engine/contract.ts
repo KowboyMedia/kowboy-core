@@ -51,3 +51,10 @@ export const validateSubmission = (body: unknown): ValidationResult =>
 
 /** Validate what an adapter answers for a home's slots (GET /v1/submissions/slots). */
 export const validateSlots = (body: unknown): ValidationResult => check('slots.v1.json', body);
+
+/** A datatype's fields in the order its schema lists them, as the panel shows a record's. */
+export function fieldOrder(datatype: Datatype): string[] {
+  const schema = ajv.getSchema(`${datatype}.v1.json`)?.schema as
+    { properties?: Record<string, unknown> } | undefined;
+  return Object.keys(schema?.properties ?? {});
+}

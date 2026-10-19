@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { api, Refused, type Brokerage, type Crm } from './api';
-import { Shell, useShell } from './Shell';
+import { Shell, useShell, type Arrival } from './Shell';
 import { failureWords } from './failure';
 import { ArrowRightIcon, CheckIcon, CircleCheckIcon, LoaderIcon } from './icons';
 import { when } from './time';
@@ -291,28 +291,29 @@ function WebsiteStep({ id }: { id: number }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const connection = params.get('connection');
-  const check = (site?: number) => {
+  const check = (site?: number, warning?: string) => {
     const next = new URLSearchParams();
     if (connection) next.set('connection', connection);
     if (site !== undefined) {
       next.set('site', String(site));
       next.set('platform', draft.platform);
     }
-    navigate(`/new/${String(id)}/check?${next.toString()}`);
+    const arrival: Arrival | undefined = warning ? { warning } : undefined;
+    navigate(`/new/${String(id)}/check?${next.toString()}`, { state: arrival });
   };
   const save = async () => {
     setBusy(true);
     setError(null);
     try {
-      const { id: site } = await api.addWebsite(id, {
+      const { id: site, warning } = await api.addWebsite(id, {
         label: draft.label.trim(),
         bellUrl: draft.bellUrl.trim(),
       });
-      check(site);
+      check(site, warning);
     } catch (failure) {
       if (away(failure)) return;
       setError(
-        failure instanceof Refused && failure.status === 400
+        failure instanceof Refused && failure.status === 400 && !failure.said
           ? 'Check the bell address: it starts with https://.'
           : failureWords(failure),
       );

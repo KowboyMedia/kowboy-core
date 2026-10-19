@@ -135,11 +135,16 @@ export type ScopeFilter = {
   officeId?: string;
   datatype?: Datatype;
   remoteId?: string;
+  /** Offices each of its own connection, as a person picks them: an office id alone may repeat. */
+  connectionOffices?: { connectionId: string; officeId: string }[];
   /** Named records, whatever else the scope says. */
   keys?: ItemKey[];
 };
 
-type Where = { clauses: string[]; values: unknown[] };
+export type Where = { clauses: string[]; values: unknown[] };
+
+/** A record's list of offices, as an agent's data names them; empty for any other record. */
+export const OFFICE_IDS = `case when jsonb_typeof(data->'office_ids') = 'array' then data->'office_ids' else '[]'::jsonb end`;
 
 /** One or several of a thing, as the clause `= any(...)` takes them; empty means every one. */
 const listed = <T>(many: T[] | undefined, one: T | undefined): T[] =>
@@ -149,7 +154,7 @@ const listed = <T>(many: T[] | undefined, one: T | undefined): T[] =>
  * The where clause of a scope. Live records unless `deleted` says otherwise (`null`: live and
  * removed alike, which only the records search asks for).
  */
-function scopeWhere(scope: ScopeFilter, deleted: boolean | null = false): Where {
+export function scopeWhere(scope: ScopeFilter, deleted: boolean | null = false): Where {
   const where: Where = { clauses: ['true'], values: [] };
   const add = (clause: string, value: unknown): void => {
     where.values.push(value);
@@ -164,6 +169,20 @@ function scopeWhere(scope: ScopeFilter, deleted: boolean | null = false): Where 
   const datatypes = listed(scope.datatypes, scope.datatype);
   if (datatypes.length > 0) add('datatype = any(?::text[])', datatypes);
   if (scope.remoteId) add('remote_id = ?', scope.remoteId);
+  if (scope.connectionOffices && scope.connectionOffices.length > 0) {
+    const n = where.values.length;
+    where.values.push(
+      scope.connectionOffices.map((office) => office.connectionId),
+      scope.connectionOffices.map((office) => office.officeId),
+    );
+    // An agent belongs to each of its offices, as its list of offices names them.
+    const picked = `select * from unnest($${n + 1}::text[], $${n + 2}::text[])`;
+    where.clauses.push(
+      `((connection_id, office_id) in (${picked})
+        or exists (select 1 from jsonb_array_elements_text(${OFFICE_IDS}) as office(id)
+                   where (connection_id, office.id) in (${picked})))`,
+    );
+  }
   if (scope.keys) {
     const n = where.values.length;
     where.values.push(

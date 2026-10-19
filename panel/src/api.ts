@@ -18,7 +18,6 @@ export type {
   WorkerCard,
 } from '../../engine/panel/inbox.js';
 export type { Fixed, FixedFacts } from '../../engine/panel/problems.js';
-export type { Removed, ReloadView } from '../../engine/panel/reload.js';
 import type { Resent } from '../../engine/panel/forms.js';
 export type { Resent };
 export type Level = InboxLevel;
@@ -36,6 +35,33 @@ import type { Brokerage, BrokerageRow, Crm } from '../../engine/panel/brokerages
 export type { ShownAction, ShownSection, ShownValue } from '../../engine/panel/sections.js';
 export type { Flow, FlowOffice, FlowRow, FlowSite } from '../../engine/panel/flow.js';
 import type { Flow } from '../../engine/panel/flow.js';
+export type {
+  OfficeChoice,
+  RecordChange,
+  RecordField,
+  RecordFilter,
+  RecordList,
+  RecordPage,
+  RecordRow,
+  TenantChoice,
+} from '../../engine/panel/recordlist.js';
+import type { RecordFilter, RecordList, RecordPage } from '../../engine/panel/recordlist.js';
+export type {
+  PickedRecord,
+  SyncChoice,
+  SyncSite,
+  SyncStarted,
+  SyncTicket,
+  SyncView,
+  SyncWhat,
+} from '../../engine/panel/sync.js';
+import type {
+  SyncChoice,
+  SyncStarted,
+  SyncTicket,
+  SyncView,
+  SyncWhat,
+} from '../../engine/panel/sync.js';
 
 export type SignInFacts = {
   instance: string;
@@ -96,11 +122,12 @@ export const api = {
   switchBrokerage: (id: number, on: boolean) =>
     post<{ ok: true }>(`/brokerages/${String(id)}/switch`, { on }),
   replaceToken: (id: number) => post<{ token: string }>(`/brokerages/${String(id)}/token`, {}),
+  /** A warning is the bot check's own sentence: the website is saved, its forms may not pass. */
   addWebsite: (id: number, website: { label: string; bellUrl: string }) =>
-    post<{ id: number }>(`/brokerages/${String(id)}/websites`, website),
+    post<{ id: number; warning?: string }>(`/brokerages/${String(id)}/websites`, website),
   removeWebsite: (id: number) => post<{ ok: true }>(`/websites/${String(id)}/remove`, {}),
   editWebsite: (id: number, website: { label: string; bellUrl: string }) =>
-    post<{ ok: true }>(`/websites/${String(id)}/edit`, website),
+    post<{ ok: true; warning?: string }>(`/websites/${String(id)}/edit`, website),
   newBellSecret: (id: number) =>
     post<{ bellSecret: string }>(`/websites/${String(id)}/bell-secret`, {}),
   addConnection: (
@@ -128,7 +155,26 @@ export const api = {
   maintenance: (on: boolean) => post<{ ok: true }>('/maintenance', { on }),
   resend: (id: number, ids: string[]) =>
     post<{ results: Resent[] }>(`/brokerages/${String(id)}/resend`, { ids }),
-  reload: (id: number) => post<{ ok: true }>(`/brokerages/${String(id)}/reload`, {}),
+  /** One page of the records the filter keeps, by name, with the filters' choices counted. */
+  records: (filter: Partial<RecordFilter>, page = 1) => {
+    const query = recordQuery(filter);
+    if (page > 1) query.set('page', String(page));
+    const asked = query.toString();
+    return call<RecordList>(`/records${asked ? `?${asked}` : ''}`);
+  },
+  record: (connection: string, datatype: string, id: string) =>
+    call<RecordPage>(`/records/${[connection, datatype, id].map(encodeURIComponent).join('/')}`),
+  /** Fetch again, recompute or send: it only reads from a CRM, through the CRM's own code. */
+  sync: (what: SyncWhat, choice: SyncChoice) =>
+    post<SyncStarted>('/records/sync', { what, ...choice }),
+  syncState: (ticket: SyncTicket) => {
+    const query = new URLSearchParams({ what: ticket.what, at: ticket.at });
+    for (const id of ticket.events) query.append('event', String(id));
+    for (const id of ticket.tenants) query.append('tenant', String(id));
+    if (ticket.job !== null) query.set('job', String(ticket.job));
+    if (ticket.sent !== null) query.set('sent', String(ticket.sent));
+    return call<SyncView>(`/records/sync?${query.toString()}`);
+  },
   /** "Retry 3 properties": the CRM fetches the records again, and the card waits meanwhile. */
   retry: (
     id: number,
@@ -136,6 +182,17 @@ export const api = {
     records: { connection: string; datatype: string; id: string }[],
   ) => post<{ ok: true }>(`/brokerages/${String(id)}/retry`, { key, records }),
 };
+
+/** The records filter as an address carries it: `tenant`, `office`, `type`, `id`, `removed=1`. */
+export function recordQuery(filter: Partial<RecordFilter>): URLSearchParams {
+  const query = new URLSearchParams();
+  for (const tenant of filter.tenants ?? []) query.append('tenant', String(tenant));
+  for (const office of filter.offices ?? []) query.append('office', office);
+  for (const type of filter.types ?? []) query.append('type', type);
+  if (filter.id) query.set('id', filter.id);
+  if (filter.removed) query.set('removed', '1');
+  return query;
+}
 
 export const signedOut = (error: unknown): boolean =>
   error instanceof Refused && error.status === 401;

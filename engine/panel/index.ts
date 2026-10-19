@@ -49,8 +49,11 @@ import { resendForms } from './forms.js';
 import { startReload } from './reload.js';
 import { retryRecords } from './records.js';
 import { databaseFailed, databaseWords, failureWords } from './failure.js';
+import { recordList, recordPage, RECORD_TYPES, type RecordFilter } from './recordlist.js';
+import { choiceOf, startSync, syncState, type SyncTicket, type SyncWhat } from './sync.js';
+import type { Datatype } from '../adapter-api/types.js';
 
-type PanelConfig = AuthSettings & Pick<Config, 'environment' | 'port'>;
+type PanelConfig = AuthSettings & Pick<Config, 'environment' | 'port' | 'eventRetentionDays'>;
 
 let config: PanelConfig | null = null;
 
@@ -284,6 +287,13 @@ type BrokerageChange = (
   person: Signed,
 ) => Promise<Response>;
 
+/**
+ * A website the bot check's list has no room for (171 a): nothing is saved, and the check's own
+ * sentence says why.
+ */
+const botCheckRefusal = (why: string): Response =>
+  answer(409, { error: 'bot check', message: why });
+
 /** A website's label and bell address as a person typed them; null when one is missing or wrong. */
 function websiteOf(given: Record<string, unknown>): { label: string; bellUrl: string } | null {
   const label = text(given['label']);
@@ -315,7 +325,12 @@ const BROKERAGE_CHANGES: Record<string, BrokerageChange> = {
     const typed = websiteOf(given);
     if (!typed) return refusal('fields');
     const website = await addWebsite(id, typed);
-    return website === null ? missing() : answer(201, { id: website });
+    if (website === null) return missing();
+    if ('refused' in website) return botCheckRefusal(website.refused);
+    return answer(
+      201,
+      website.warning ? { id: website.id, warning: website.warning } : { id: website.id },
+    );
   },
   connections: async (id, given) => {
     const done = await addConnection(
@@ -392,7 +407,10 @@ const websiteChange = change(async (request, given) => {
   if (what === 'edit') {
     const typed = websiteOf(given);
     if (!typed) return refusal('fields');
-    return (await editWebsite(id, typed)) ? answer(200, { ok: true }) : missing();
+    const saved = await editWebsite(id, typed);
+    if (saved === null) return missing();
+    if ('refused' in saved) return botCheckRefusal(saved.refused);
+    return answer(200, saved.warning ? { ok: true, warning: saved.warning } : { ok: true });
   }
   if (what === 'bell-secret') {
     const secret = await newBellSecret(id);
@@ -431,6 +449,77 @@ const maintenanceRoute = change(async (_request, given, person) => {
   return answer(200, { ok: true });
 });
 
+// ---- Records and manual sync ---------------------------------------------------------------------
+
+const isType = (value: string): value is Datatype =>
+  (RECORD_TYPES as readonly string[]).includes(value);
+
+/** The records filter as a page's address carries it. */
+const filterOf = (query: URLSearchParams): RecordFilter => ({
+  tenants: numbers(query.getAll('tenant')),
+  offices: query.getAll('office').filter((office) => office.includes(':')),
+  types: query.getAll('type').filter(isType),
+  id: (query.get('id') ?? '').trim(),
+  removed: query.get('removed') === '1',
+});
+
+/**
+ * `GET /v1/panel/records?tenant=&office=&type=&id=&removed=1&page=`: one page of the records the
+ * filter keeps, by name, with the filters' choices and their counts.
+ */
+const recordsRoute = signedIn(async (request) =>
+  answer(
+    200,
+    await recordList(filterOf(request.query), numberOf(request.query.get('page') ?? '') ?? 1),
+  ),
+);
+
+const SYNC_WHAT: readonly SyncWhat[] = ['fetch', 'recompute', 'send'];
+
+/** A sync's ticket as the panel sends it back: `what`, `at`, `event`s, `job`, `tenant`s, `sent`. */
+function ticketOf(query: URLSearchParams): SyncTicket | null {
+  const what = query.get('what') ?? '';
+  const at = query.get('at') ?? '';
+  if (!(SYNC_WHAT as readonly string[]).includes(what) || Number.isNaN(Date.parse(at))) return null;
+  return {
+    what: what as SyncWhat,
+    at: new Date(at).toISOString(),
+    events: numbers(query.getAll('event')),
+    job: numberOf(query.get('job') ?? ''),
+    tenants: numbers(query.getAll('tenant')),
+    sent: numberOf(query.get('sent') ?? ''),
+  };
+}
+
+/**
+ * `GET /v1/panel/records/sync?<ticket>`: how a sync is coming along. `GET
+ * /v1/panel/records/<connection>/<datatype>/<id>`: one record's page.
+ */
+const recordRoute = signedIn(async (request) => {
+  const parts = partsAfter('/v1/panel/records/', request.path);
+  if (parts.length === 1 && parts[0] === 'sync') {
+    const ticket = ticketOf(request.query);
+    return ticket ? answer(200, await syncState(ticket)) : refusal('fields');
+  }
+  const [connection, datatype, id] = parts;
+  if (parts.length !== 3 || !connection || !datatype || !id) return missing();
+  const page = await recordPage(connection, datatype, id, settings().eventRetentionDays);
+  return page ? answer(200, page) : missing();
+});
+
+/**
+ * `POST /v1/panel/records/sync`: fetch again, recompute or send the picked records (at most 500)
+ * or everything the filter keeps. It only reads from a CRM, through the CRM's own code.
+ */
+const syncRoute = change(async (request, given, person) => {
+  if (partsAfter('/v1/panel/records/', request.path).join('/') !== 'sync') return missing();
+  const what = text(given['what']);
+  const choice = choiceOf(given);
+  if (!(SYNC_WHAT as readonly string[]).includes(what) || !choice) return refusal('fields');
+  const started = await startSync(choice, what as SyncWhat, person.email);
+  return started ? answer(202, started) : missing();
+});
+
 export function panelRoutes(): RouteTable {
   return [
     { method: 'GET', path: '/v1/panel/sign-in', handler: () => signInFacts() },
@@ -443,6 +532,9 @@ export function panelRoutes(): RouteTable {
     { method: 'POST', path: '/v1/panel/maintenance', handler: maintenanceRoute },
     { method: 'GET', path: '/v1/panel/crms', handler: crmsRoute },
     { method: 'GET', path: '/v1/panel/flow', handler: flowRoute },
+    { method: 'GET', path: '/v1/panel/records', handler: recordsRoute },
+    { method: 'GET', path: '/v1/panel/records/*', handler: recordRoute },
+    { method: 'POST', path: '/v1/panel/records/*', handler: syncRoute },
     { method: 'GET', path: '/v1/panel/brokerages', handler: listRoute },
     { method: 'POST', path: '/v1/panel/brokerages', handler: createRoute },
     { method: 'GET', path: '/v1/panel/brokerages/*', handler: pageRoute },

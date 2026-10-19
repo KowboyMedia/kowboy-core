@@ -18,6 +18,7 @@ import {
 import { ring } from '../bells.js';
 import { healthReport, sitesFound, SITES_CHECK } from '../health.js';
 import { adminFor, adminProviders } from '../registry.js';
+import { listOnBotCheck, type Listed } from '../human.js';
 import { DATATYPES, type Connection, type Datatype } from '../adapter-api/types.js';
 import { crmName, inbox, type Card } from './inbox.js';
 import { reloadOf, type ReloadView } from './reload.js';
@@ -375,17 +376,38 @@ export async function replaceToken(id: number): Promise<string | null> {
 }
 
 /** A website for a brokerage, with a bell secret Core makes. */
+/**
+ * A website saved, with the bot check's own sentence when its address could not be put on the
+ * check's list; or refused, with that sentence, when the list is full.
+ */
+export type WebsiteSaved = { id: number; warning: string | null } | { refused: string };
+
+/** The bot check's sentence for a save: refused when its list is full, else a warning or none. */
+const botCheck = (listed: Listed): { refused: string } | { warning: string | null } =>
+  listed.listed
+    ? { warning: null }
+    : listed.full
+      ? { refused: listed.why }
+      : { warning: listed.why };
+
+/**
+ * Add a website, after putting its address on the bot check's list (171 a): a full list refuses
+ * it, and any other failure saves it with the check's sentence. Null: no such brokerage.
+ */
 export async function addWebsite(
   tenantId: number,
   input: { label: string; bellUrl: string },
-): Promise<number | null> {
+): Promise<WebsiteSaved | null> {
   if (!(await tenantById(tenantId))) return null;
-  return addSubscriber({
+  const check = botCheck(await listOnBotCheck(input.bellUrl));
+  if ('refused' in check) return check;
+  const id = await addSubscriber({
     tenantId,
     label: input.label,
     bellUrl: input.bellUrl,
     bellSecret: newSecret(),
   });
+  return { id, warning: check.warning };
 }
 
 /** Rename a brokerage. */
@@ -398,14 +420,20 @@ export async function renameBrokerage(id: number, name: string): Promise<boolean
 const websiteExists = async (id: number): Promise<boolean> =>
   (await db().query('select 1 from subscribers where id = $1', [id])).rows.length === 1;
 
-/** A website's label and bell address, changed; its bell secret and history stay. */
+/**
+ * A website's label and bell address, changed; its bell secret and history stay. Every save puts
+ * the address on the bot check's list again, so saving again retries one Cloudflare did not take.
+ * Null: no such website.
+ */
 export async function editWebsite(
   id: number,
   input: { label: string; bellUrl: string },
-): Promise<boolean> {
-  if (!(await websiteExists(id))) return false;
+): Promise<{ warning: string | null } | { refused: string } | null> {
+  if (!(await websiteExists(id))) return null;
+  const check = botCheck(await listOnBotCheck(input.bellUrl));
+  if ('refused' in check) return check;
   await updateSubscriber(id, { label: input.label, bellUrl: input.bellUrl });
-  return true;
+  return check;
 }
 
 /**

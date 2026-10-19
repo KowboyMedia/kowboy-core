@@ -51,6 +51,7 @@ import {
 import { failureWords } from './failure';
 import { Modal, useNote, ValueField } from './ui';
 import { isPlatform, platformWords } from './websites';
+import { recordPath } from './records';
 
 const EVERY_MS = 30_000;
 
@@ -345,7 +346,13 @@ function Records({ card, now, onRetried }: { card: RecordsCard; now: Date; onRet
       <ul className="k-card-records">
         {card.records.map((record) => (
           <li key={recordKey(record)}>
-            <span className="k-card-record">{recordName(record, card.crm)}</span>
+            {record.name !== null ? (
+              <Link className="k-card-record" to={recordPath(record)}>
+                {record.name}
+              </Link>
+            ) : (
+              <span className="k-card-record">{recordName(record, card.crm)}</span>
+            )}
             {record.note && <span className="k-card-note">{capital(record.note)}</span>}
           </li>
         ))}

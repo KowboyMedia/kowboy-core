@@ -95,3 +95,22 @@ export const clock = (iso: string): string => parts(new Date(iso)).clock;
 
 /** A sentence's first letter in capitals: "Yesterday 21:14". */
 export const capital = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** When a record in a list last changed: "today 07:40", "yesterday 21:14", "14 Oct" before. */
+export function listTime(iso: string, now: Date): string {
+  const at = parts(new Date(iso));
+  if (at.day === parts(now).day) return `today ${at.clock}`;
+  if (at.day === yesterdayOf(now)) return `yesterday ${at.clock}`;
+  return at.date;
+}
+
+/** A date with its year, for a day months away: "13 Jan 2027". */
+export const fullDate = (iso: string): string =>
+  `${parts(new Date(iso)).date} ${parts(new Date(iso)).day.slice(0, 4)}`;
+
+/** A time in full in a record's facts: "today 09:58", "yesterday 21:14", "14 Oct 16:18". */
+export function factTime(iso: string, now: Date): string {
+  const at = parts(new Date(iso));
+  if (at.day === parts(now).day) return `today ${at.clock}`;
+  return when(iso, now);
+}

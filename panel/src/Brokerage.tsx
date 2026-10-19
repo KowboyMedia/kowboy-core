@@ -6,7 +6,7 @@
 // show without a reload.
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { api, type Brokerage, type ConnectionView, type ReloadView, type Website } from './api';
+import { api, type Brokerage, type ConnectionView, type Website } from './api';
 import { Shell, useShell, type Arrival } from './Shell';
 import { StatusBadge } from './Brokerages';
 import { failureWords } from './failure';
@@ -16,18 +16,18 @@ import {
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  CircleCheckIcon,
-  LoaderIcon,
   PencilIcon,
   PlusIcon,
   PowerIcon,
   RefreshIcon,
   TrashIcon,
 } from './icons';
-import { clock, counted, listed, when } from './time';
+import { counted, listed, when } from './time';
 import { loadedList, records } from './records';
 import { clientLine, platformOf, platformWords } from './websites';
 import { AddCrmWindow } from './connect';
+import { SyncBanner, SyncWindow, useSync, type SyncTarget } from './sync';
+import { targetOf } from './Records';
 import { ConnectionSections } from './sections';
 import { idOf, Nothing, useTenant } from './tenant';
 
@@ -639,162 +639,16 @@ function TokenReplacedWindow({
   );
 }
 
-// ---- Reload all data ------------------------------------------------------------------------------
-
-/** "Reload all data for Mäklarbyrån Ljungström?" (image 39). */
-function ReloadWindow({
-  page,
-  onClose,
-  onDone,
-}: {
-  page: Brokerage;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const { away } = useShell();
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-  const crms = page.connections.length > 0 ? crmWords(page) : '';
-  const sites = page.websites.map((website) => website.label);
-  const fetch = crms
-    ? `Core fetches everything from ${crms} again and removes what ${crms} no longer lists. `
-    : '';
-  const then = fetch ? 'Then ' : '';
-  const reload =
-    sites.length === 0
-      ? ''
-      : sites.length === 1
-        ? `${then}${sites[0] ?? ''} reloads everything. The website keeps showing its copy meanwhile. `
-        : `${then}${listed(sites)} reload everything. The websites keep showing their copy meanwhile. `;
-  const off =
-    !page.active && sites.length > 0 ? 'They reload once the tenant is switched on. ' : '';
-  const go = async () => {
-    setBusy(true);
-    setFailed(null);
-    try {
-      await api.reload(page.id);
-      onDone();
-    } catch (error) {
-      if (!away(error)) setFailed(failureWords(error));
-      setBusy(false);
-    }
-  };
-  return (
-    <Modal
-      title={`Reload all data for ${page.name}?`}
-      tone="info"
-      onClose={onClose}
-      footer={
-        <>
-          <button type="button" className="k-button k-button-link" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="k-button k-button-primary"
-            disabled={busy}
-            onClick={() => void go()}
-          >
-            {busy ? <LoaderIcon className="k-spin" size={18} /> : <RefreshIcon size={18} />}
-            Reload all data
-          </button>
-        </>
-      }
-    >
-      <p className="k-modal-text">
-        {fetch}
-        {reload}
-        {off}Takes a few minutes.
-      </p>
-      {failed && <p className="k-error">{failed}</p>}
-    </Modal>
-  );
-}
-
-/** "<CRM> no longer lists 1 property, so Core removed it: Kopparbergsvägen 8, Västerås." */
-function removedWords(reload: ReloadView, crms: string): string {
-  if (reload.removedCount === 0)
-    return `${crms} lists everything Core had, so nothing was removed.`;
-  const from = listed([...new Set(reload.removed.map((one) => one.crm))]) || crms;
-  const names = reload.removed.map(
-    (one) =>
-      one.name ?? `${records(1, one.datatype).replace(/^1 /, '')} with ${one.crm} id ${one.id}`,
-  );
-  const more = reload.removedCount - reload.removed.length;
-  if (more > 0) {
-    return `${from} no longer lists ${String(reload.removedCount)} records, so Core removed them, among them ${names.join(', ')}.`;
-  }
-  const types = [...new Set(reload.removed.map((one) => one.datatype))].map((datatype) =>
-    records(reload.removed.filter((one) => one.datatype === datatype).length, datatype),
-  );
-  const them = reload.removedCount === 1 ? 'it' : 'them';
-  return `${from} no longer lists ${listed(types)}, so Core removed ${them}: ${listed(names)}.`;
-}
-
-/** How long the page says a reload is done. */
-const DONE_SHOWN_MS = 60 * 60_000;
-
-/** A reload under way, or done (image 40), at the top of the page. */
-function ReloadBanner({ page }: { page: Brokerage }) {
-  const reload = page.reload;
-  if (!reload) return null;
-  const crms = crmWords(page) || 'the CRM';
-  if (reload.state !== 'done') {
-    const waiting = reload.sites
-      .filter((site) => site.reloadedAt === null)
-      .map((site) => site.label);
-    return (
-      <section className="k-banner k-banner-info" aria-label="Reload all data">
-        <LoaderIcon className="k-spin" size={20} />
-        <div>
-          <p className="k-banner-title">Reloading all data…</p>
-          <p className="k-banner-text">
-            {reload.state === 'fetching'
-              ? `Core is fetching everything from ${crms} again. The websites keep showing their copy meanwhile.`
-              : `Core has fetched everything from ${crms} again. Waiting for ${listed(waiting) || 'the websites'} to reload everything.`}
-          </p>
-        </div>
-      </section>
-    );
-  }
-  if (!reload.doneAt || Date.parse(page.now) - Date.parse(reload.doneAt) > DONE_SHOWN_MS)
-    return null;
-  const reloaded = reload.sites
-    .filter((site) => site.reloadedAt !== null)
-    .map((site) => site.label);
-  const sites =
-    page.active && reloaded.length > 0 ? ` ${listed(reloaded)} reloaded everything.` : '';
-  return (
-    <section
-      className={`k-banner ${reload.failure !== null ? 'k-banner-warn' : 'k-banner-done'}`}
-      aria-label="Reload all data"
-    >
-      {reload.failure !== null ? <AlertTriangleIcon size={20} /> : <CircleCheckIcon size={20} />}
-      <div>
-        <p className="k-banner-title">
-          {reload.failure !== null ? 'Reload done in part' : 'Reload done'} ({clock(reload.doneAt)})
-        </p>
-        <p className="k-banner-text">
-          {reload.failure !== null &&
-            `Core couldn’t fetch everything from ${crms} again, and the error said “${reload.failure}”. Some records may still be missing or out of date: try again in a while, and if it fails again, pass these words on to Core’s developers. `}
-          {removedWords(reload, crms)}
-          {sites}
-        </p>
-      </div>
-    </section>
-  );
-}
-
 // ---- The tenant's switch ----------------------------------------------------------------------------
 
 function TenantCard({
   page,
   onSwitch,
-  onReload,
+  onSync,
 }: {
   page: Brokerage;
   onSwitch: (on: boolean) => void;
-  onReload: () => void;
+  onSync: () => void;
 }) {
   return (
     <section className="k-box">
@@ -804,18 +658,14 @@ function TenantCard({
       <div className="k-box-body">
         <div className="k-box-line">
           <Switch on={page.active} label={page.active ? 'On' : 'Off'} strong onChange={onSwitch} />
-          <button
-            type="button"
-            className="k-button k-button-quiet k-button-small"
-            onClick={onReload}
-          >
+          <button type="button" className="k-button k-button-quiet k-button-small" onClick={onSync}>
             <RefreshIcon size={16} />
-            Reload all data…
+            Sync records…
           </button>
         </div>
         <p className="k-help">
           Switch off when a customer leaves: its websites can no longer fetch data or send forms.
-          Reload: if a website shows something {crmWords(page, 'or')} no longer has.
+          Sync records: if a website shows something {crmWords(page, 'or')} no longer has.
         </p>
       </div>
     </section>
@@ -901,7 +751,6 @@ type Open =
   | { kind: 'replace-token' }
   | { kind: 'token-replaced'; token: string }
   | { kind: 'switch-off' }
-  | { kind: 'reload' }
   | null;
 
 /** A connection just deleted, until every website it was on has fetched since. */
@@ -921,11 +770,11 @@ function Page({ id }: { id: number }) {
   const [deleted, setDeleted] = useState<Deleted | null>(null);
   /** A token replaced from this page: armed, then waiting until every website uses it. */
   const [watching, setWatching] = useState<'armed' | 'waiting' | null>(null);
-  /** A reload under way, followed until every website has reloaded. */
-  const [reloading, setReloading] = useState(false);
-  const fast =
-    open?.kind === 'token-replaced' || deleted !== null || watching !== null || reloading;
+  const fast = open?.kind === 'token-replaced' || deleted !== null || watching !== null;
   const { page, state, failure, load } = useTenant(id, fast);
+  const sync = useSync(`tenant:${String(id)}`, () => void load());
+  /** The sync window, once Core said how many records the tenant has. */
+  const [syncing, setSyncing] = useState<SyncTarget | null>(null);
   const before = useRef<Brokerage | null>(null);
 
   const close = useCallback(() => setOpen(null), []);
@@ -933,12 +782,6 @@ function Page({ id }: { id: number }) {
     setOpen(null);
     void load();
   }, [load]);
-
-  useEffect(() => {
-    setReloading(
-      page?.reload !== null && page?.reload !== undefined && page.reload.state !== 'done',
-    );
-  }, [page]);
 
   // What changed since the last read: websites that took the new token, a delete that reached
   // every website.
@@ -1011,6 +854,23 @@ function Page({ id }: { id: number }) {
     }
   };
 
+  // The window counts the tenant's records as the Records page does, and names its connections.
+  const openSync = async () => {
+    try {
+      const list = await api.records({ tenants: [page.id] });
+      setSyncing(
+        targetOf(
+          list,
+          { tenants: [page.id], offices: [], types: [], id: '', removed: false },
+          [],
+          `tenant:${String(page.id)}`,
+        ),
+      );
+    } catch (error) {
+      if (!away(error)) note({ text: failureWords(error), icon: 'warn' });
+    }
+  };
+
   const connectionDeleted = (connection: ConnectionView, deletedAt: string) => {
     const sites = page.active ? page.websites.map((website) => website.id) : [];
     setOpen(null);
@@ -1052,7 +912,7 @@ function Page({ id }: { id: number }) {
           </IconButton>
         </span>
       </div>
-      <ReloadBanner page={page} />
+      <SyncBanner kept={sync.kept} view={sync.view} />
 
       <WebsitesCard
         page={page}
@@ -1069,7 +929,7 @@ function Page({ id }: { id: number }) {
       <TenantCard
         page={page}
         onSwitch={(on) => (on ? void switchOn() : setOpen({ kind: 'switch-off' }))}
-        onReload={() => setOpen({ kind: 'reload' })}
+        onSync={() => void openSync()}
       />
 
       {open?.kind === 'delete-website' && (
@@ -1114,13 +974,13 @@ function Page({ id }: { id: number }) {
       {open?.kind === 'switch-off' && (
         <SwitchOffWindow page={page} onClose={close} onDone={closeAndLoad} />
       )}
-      {open?.kind === 'reload' && (
-        <ReloadWindow
-          page={page}
-          onClose={close}
-          onDone={() => {
-            setReloading(true);
-            closeAndLoad();
+      {syncing && (
+        <SyncWindow
+          target={syncing}
+          onClose={() => setSyncing(null)}
+          onStarted={(kept) => {
+            setSyncing(null);
+            sync.start(kept);
           }}
         />
       )}

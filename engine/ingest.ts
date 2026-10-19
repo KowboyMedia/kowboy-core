@@ -38,9 +38,10 @@ export async function ingest(
   const existing = await readItem(key);
 
   if (unchanged(existing, hash)) {
-    // Same content: no seq, no bell, nothing reaches a site. Keep raw current for replay.
+    // Same content: no seq, no bell, nothing reaches a site. Keep raw current for replay, and keep
+    // when the record last changed, which the panel's records list shows as "Updated".
     await db().query(
-      `update items set raw = $5, remote_updated_at = $6, updated_at = now()
+      `update items set raw = $5, remote_updated_at = $6
        where tenant_id = $1 and connection_id = $2 and datatype = $3 and remote_id = $4`,
       [
         key.tenantId,

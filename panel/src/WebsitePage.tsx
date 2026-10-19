@@ -25,7 +25,7 @@ import { idOf, Nothing, UnderTenant, useTenant } from './tenant';
 
 /** Why Core did not save a website's fields. */
 const websiteRefusal = (error: unknown): string =>
-  error instanceof Refused && error.status === 400
+  error instanceof Refused && error.status === 400 && !error.said
     ? 'Check the bell address: it starts with https://.'
     : failureWords(error);
 
@@ -92,8 +92,11 @@ function AddForm({ page }: { page: Brokerage }) {
     setFailed(null);
     try {
       const label = draft.label.trim();
-      const { id } = await api.addWebsite(page.id, { label, bellUrl: draft.bellUrl.trim() });
-      const arrival: Arrival = { note: `${label} added.` };
+      const { id, warning } = await api.addWebsite(page.id, {
+        label,
+        bellUrl: draft.bellUrl.trim(),
+      });
+      const arrival: Arrival = { note: `${label} added.`, ...(warning ? { warning } : {}) };
       navigate(`${base}/websites/${String(id)}?platform=${draft.platform}`, {
         replace: true,
         state: arrival,
@@ -272,8 +275,11 @@ function EditForm({ page, website }: { page: Brokerage; website: Website }) {
     setFailed(null);
     try {
       const label = draft.label.trim();
-      await api.editWebsite(website.id, { label, bellUrl: draft.bellUrl.trim() });
-      const arrival: Arrival = { note: `“${label}” is saved.` };
+      const { warning } = await api.editWebsite(website.id, {
+        label,
+        bellUrl: draft.bellUrl.trim(),
+      });
+      const arrival: Arrival = { note: `“${label}” is saved.`, ...(warning ? { warning } : {}) };
       navigate(base, { state: arrival });
     } catch (error) {
       if (away(error)) return;

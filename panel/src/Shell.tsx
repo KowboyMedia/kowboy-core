@@ -32,8 +32,11 @@ const Parts = createContext<ShellParts>({
 
 export const useShell = (): ShellParts => useContext(Parts);
 
-/** What a page says on arrival, left by the page that sent the person there. */
-export type Arrival = { note?: string };
+/**
+ * What a page says on arrival, left by the page that sent the person there: a note, and a warning
+ * that stays until it is closed.
+ */
+export type Arrival = { note?: string; warning?: string };
 
 /** Says the message the last page left, once, and forgets it so a reload does not say it again. */
 function ArrivalNote() {
@@ -41,11 +44,13 @@ function ArrivalNote() {
   const navigate = useNavigate();
   const note = useNote();
   const left = (location.state as Arrival | null)?.note;
+  const warning = (location.state as Arrival | null)?.warning;
   useEffect(() => {
-    if (!left) return;
-    note({ text: left });
+    if (!left && !warning) return;
+    if (left) note({ text: left });
+    if (warning) note({ text: warning, icon: 'warn' });
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
-  }, [left, note, navigate, location.pathname, location.search]);
+  }, [left, warning, note, navigate, location.pathname, location.search]);
   return null;
 }
 

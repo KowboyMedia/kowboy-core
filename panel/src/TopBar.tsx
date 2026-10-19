@@ -1,12 +1,20 @@
-// The top bar (design B, images 05, 06, 19, 23, 44 and 45, and the tenant mockups, images 01 and
-// 25): the mark, the Inbox with its count, Tenants, and the Flow with a marker while maintenance is
-// on, on a desktop; the Inbox icon on a phone; and the account menu.
+// The top bar (design B, images 05, 06, 19, 23, 44 and 45, the tenant mockups, images 01 and 25,
+// and B2's redrawn screens): the mark, the Inbox with its count, Tenants, Records, and the Flow
+// with a marker while maintenance is on, on a desktop; the Inbox icon on a phone; and the account
+// menu.
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { api, type Me } from './api';
 import { Brand } from './brand';
 import { dateOf } from './time';
-import { ActivityIcon, BuildingIcon, ChevronDownIcon, InboxIcon, LogoutIcon } from './icons';
+import {
+  ActivityIcon,
+  BuildingIcon,
+  ChevronDownIcon,
+  DatabaseIcon,
+  InboxIcon,
+  LogoutIcon,
+} from './icons';
 import { failureWords } from './failure';
 
 function AccountMenu({ me }: { me: Me }) {
@@ -82,7 +90,7 @@ function AccountMenu({ me }: { me: Me }) {
 }
 
 /** Which tab the page belongs to; the new-tenant steps belong to none. */
-export type Tab = 'inbox' | 'brokerages' | 'flow' | null;
+export type Tab = 'inbox' | 'brokerages' | 'records' | 'flow' | null;
 
 export function TopBar({
   me,
@@ -116,6 +124,14 @@ export function TopBar({
           >
             <BuildingIcon />
             Tenants
+          </Link>
+          <Link
+            className={`k-tab${tab === 'records' ? ' k-tab-active' : ''}`}
+            to="/records"
+            aria-current={tab === 'records' ? 'page' : undefined}
+          >
+            <DatabaseIcon />
+            Records
           </Link>
           <Link
             className={`k-tab${tab === 'flow' ? ' k-tab-active' : ''}`}

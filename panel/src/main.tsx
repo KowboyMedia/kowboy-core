@@ -12,6 +12,8 @@ import { EditTenantPage } from './EditTenant';
 import { AddWebsitePage, EditWebsitePage } from './WebsitePage';
 import { AddCrmPage, EditCrmPage } from './CrmPage';
 import { FlowPage } from './Flow';
+import { RecordsPage } from './Records';
+import { RecordPagePage } from './Record';
 
 function App() {
   return (
@@ -26,6 +28,8 @@ function App() {
       <Route path="/brokerages/:id/websites/:site" element={<EditWebsitePage />} />
       <Route path="/brokerages/:id/crms/new" element={<AddCrmPage />} />
       <Route path="/brokerages/:id/connections/:connection" element={<EditCrmPage />} />
+      <Route path="/records" element={<RecordsPage />} />
+      <Route path="/records/:connection/:datatype/:id" element={<RecordPagePage />} />
       <Route path="/flow" element={<FlowPage />} />
       <Route path="/new" element={<NewBrokeragePage />} />
       <Route path="/new/:id" element={<NewBrokeragePage />} />

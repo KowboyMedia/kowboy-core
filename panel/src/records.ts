@@ -33,3 +33,14 @@ export const loadedList = (counts: ConnectionView['counts']): string[] =>
   LOADED.filter((datatype) => counts[datatype] > 0).map((datatype) =>
     records(counts[datatype], datatype),
   );
+
+/** The one CRM's name, as its code gives it, or "the CRMs" when Core reads several or none. */
+export const crmOf = (crms: string[]): string => (crms.length === 1 ? (crms[0] ?? '') : 'the CRMs');
+
+/** "<CRM> id" for the one CRM Core reads, or "CRM id" when it reads several. */
+export const idWord = (crms: string[]): string =>
+  crms.length === 1 ? `${crms[0] ?? ''} id` : 'CRM id';
+
+/** A record's page in the panel. */
+export const recordPath = (record: { connection: string; datatype: string; id: string }): string =>
+  `/records/${[record.connection, record.datatype, record.id].map(encodeURIComponent).join('/')}`;

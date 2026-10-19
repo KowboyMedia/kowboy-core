@@ -9,18 +9,16 @@ import { failureWords } from './failure';
 import {
   AlertCircleIcon,
   AlertTriangleIcon,
-  CheckIcon,
-  ChevronDownIcon,
   CircleCheckIcon,
   ClockIcon,
   LoaderIcon,
   PauseIcon,
   PowerIcon,
   TrafficConeIcon,
-  XIcon,
 } from './icons';
 import { capital, exactly, when } from './time';
 import { Modal, Switch, useNote } from './ui';
+import { Picker } from './picker';
 
 const EVERY_MS = 1_000;
 
@@ -137,98 +135,6 @@ function MaintenanceBox({ flow, onChanged }: { flow: Flow; onChanged: () => void
 }
 
 // ---- The filters ----------------------------------------------------------------------------------
-
-type Option = { key: string; name: string };
-
-/** A list to pick several from (B2's filters): the picked ones as chips, the rest in a menu. */
-function Picker({
-  id,
-  label,
-  all,
-  options,
-  chosen,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  /** What an empty filter reads as: "All tenants". */
-  all: string;
-  options: Option[];
-  chosen: string[];
-  onChange: (chosen: string[]) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const holder = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const away = (event: MouseEvent) => {
-      if (!holder.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', away);
-    document.addEventListener('keydown', escape);
-    return () => {
-      document.removeEventListener('mousedown', away);
-      document.removeEventListener('keydown', escape);
-    };
-  }, [open]);
-  const picked = options.filter((option) => chosen.includes(option.key));
-  const toggle = (key: string) =>
-    onChange(chosen.includes(key) ? chosen.filter((one) => one !== key) : [...chosen, key]);
-  return (
-    <div className="k-field k-field-first" ref={holder}>
-      <span className="k-label" id={`${id}-label`}>
-        {label}
-      </span>
-      <div className="k-picker">
-        <button
-          type="button"
-          className="k-picker-box"
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          aria-labelledby={`${id}-label`}
-          onClick={() => setOpen(!open)}
-        >
-          {picked.length === 0 && <span className="k-picker-all">{all}</span>}
-          <ChevronDownIcon className="k-picker-chevron" size={16} />
-        </button>
-        {picked.length > 0 && (
-          <span className="k-picker-chips">
-            {picked.map((option) => (
-              <span key={option.key} className="k-chip">
-                {option.name}
-                <button
-                  type="button"
-                  aria-label={`Remove ${option.name}`}
-                  onClick={() => toggle(option.key)}
-                >
-                  <XIcon size={12} />
-                </button>
-              </span>
-            ))}
-          </span>
-        )}
-        {open && (
-          <ul className="k-menu k-picker-menu" role="listbox" aria-multiselectable="true">
-            {options.map((option) => {
-              const on = chosen.includes(option.key);
-              return (
-                <li key={option.key} role="option" aria-selected={on}>
-                  <button type="button" className="k-menu-item" onClick={() => toggle(option.key)}>
-                    <span className="k-picker-tick">{on && <CheckIcon size={14} />}</span>
-                    {option.name}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ---- The list -------------------------------------------------------------------------------------
 
