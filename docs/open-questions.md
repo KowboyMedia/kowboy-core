@@ -233,31 +233,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 - a: yes, the one more read. b: no; stop here, Core has no record of this property.
   Recommended: a, the last place in Core that could hold the old image lists.
 
-## 187. `[core]` The sign-in link, so the Ahre demo site joins the Norban tenant
-
-- 2026-10-07 · Patric asked for a new site with Norban's records and the look of Ahre's own
-  site, ahre.se, added to the Norban tenant as a second site ("Edit core admin if needed, to add
-  a secondary site to norban tenant"). The admin area already holds several sites per tenant
-  ("Add a site" on the tenant's page), so it needs no change. The new site is the Cloudways app
-  "ahre-demo" (application 6715283 on server 1545003), a copy of the Norban demo, at
-  `https://wordpress-1545003-6715283.cloudwaysapps.com`. Adding it to the tenant "Kowboy test
-  account" is a save on that tenant's page in staging Core's admin, which opens only by a
-  sign-in link mailed to Patric. With the link, the agent adds the site and puts its bell secret
-  (the key that lets Core tell the site at once that a record changed) into the site's settings.
-  Until then the site still fetches Norban's records whenever it is visited. Instruction: paste
-  the sign-in link from the mail Core's admin sent; it works for 15 minutes, and "again" brings a
-  new one. Smaller: Patric adds the site on the tenant's page himself and pastes its bell secret.
-
-- 2026-10-18 · Patric said "again" and asked the agent to read his mail instead of pasting. The
-  agent asked for a link at 19:41 UTC and searched his inbox, spam and trash: no mail from Core
-  has arrived since 2026-10-03, neither this link nor the three asked for on 2026-10-07. That is
-  question 100 (kowboy.se lacks the two DNS records Postmark needs, so Google takes Core's mail
-  and shows it nowhere), so no sign-in link can reach him until 100 is done. Options: a) skip
-  (recommended): the Ahre demo stays outside the tenant and keeps fetching Norban's records on
-  each visit, which a demo does not notice; b) himself: if his browser is still signed in to
-  staging Core's admin, he adds the site on the Kowboy test account's page and pastes its bell
-  secret; c) mail first: 100 is done, then the agent signs in from his inbox.
-
 ## 135. `[client-wordpress]` Default: the search tests are listed under acceptance criterion 20, the search suite
 
 - 2026-10-04 · The acceptance list `acceptance/criteria.json` is a protected path, changed on
