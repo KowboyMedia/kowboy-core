@@ -865,8 +865,9 @@ the seven days.
       10. `[core]` `[admin]` By the answer to 218: Core's copy of the details, the old page
           "Failed forms" and the new admin's "Resend" go (a), stay (b), or "Resend" asks the
           site (c).
-      11. Item 32's tests; then every forms file checked against the list with the tests green, a
-          fresh review, and the report file by file.
+      11. Done 2026-10-19 (5a42439, 97f7d90): item 32's tests; every forms file checked against
+          the list with the tests green, a fresh review, and the report file by file
+          (`/mnt/project-files/forms/check-report.md`).
 30. **A new admin area from scratch** (Patric, 2026-10-13: "How can I get you to create a nice
     admin panel, without trying to fix the current one?", then "Tabler looks good. Use that. ...
     MVP features only.", then "MVP Greenfield"; in progress 2026-10-13, the "New admin panel"
