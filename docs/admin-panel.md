@@ -384,8 +384,15 @@ drive directly.
   with Core's own reason), which never left Core. A form the bot check could not run for
   (`submission.failed` with `bot_check`, the cause) is its own P1 line, "The bot check stopped a
   site’s forms": what to do by the cause (give Core the two keys, save the website in the admin
-  area to put its address on Cloudflare's list, or wait for Cloudflare), then "Send again" on the
-  website's own page. A form the website sent again (`sent_again`) says so; a site that is
+  area to put its address on Cloudflare's list, or wait for Cloudflare), then "Skicka igen" on the
+  website's own page. A form Core stopped before asking any CRM (`submission.failed` with
+  `stopped`) is a P1 line of its own for each why, since no CRM failed and sending it again once
+  the CRM answers would not help: Core could not read it (`unreadable`; update the website's
+  plugin), its home is another tenant's (`foreign`; check the website's tenant) or gone (`gone`),
+  its office is not the tenant's (`office`), it names no office of several (`which-office`; give
+  the website's button its office), the tenant has no office (`no-office`; a connection that syncs
+  one), or the CRM takes no such form (`kind`; remove its button, or turn the website's forms
+  off). A form the website sent again (`sent_again`) says so; a site that is
   not fetching its changes (the sites check's `check.failed` for it) is P1, but not the sites check
   that could not run, which names no site. The adapter logs the first three through the adapter
   API with the connection in the context, and the engine logs the rest. The Overview lists them
@@ -396,10 +403,10 @@ drive directly.
   visitor sent from Acme's site acme.se", "Acme's site acme.se") as a link that opens it (the
   office's records on Records, each with its state, the connection's or the site's block on the
   tenant's page; a form the website's own page of its forms, "Formulär", which keeps it 30 days
-  with "Send again" beside it (decision of 2026-10-07), at the WordPress address the site is told
+  with "Skicka igen" beside it (decision of 2026-10-07), at the WordPress address the site is told
   about changes at, `/wp-admin/admin.php?page=core-client-forms`; Failed forms for a website that
-  is not WordPress, or the site's block for a form the bot check stopped, which Core does not
-  keep; the alert gives that address whole); where it is
+  is not WordPress, or the site's block for a form the bot check or Core stopped, which Core does
+  not keep; the alert gives that address whole); where it is
   when its name does not say (the connection an office or a form came through); and its tenant as
   a link when the name does not hold it. A site's line ends with how its problem ended, "Resolved
   after" how long or "Still open.", read from the `check.recovered` with the same `problem`. The
