@@ -9,8 +9,12 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 219. `[client-wordpress]` Sharp photos: let the theme ask Kowboy's image CDN for a sharp copy at the size each photo is shown
+## 219. `[client-wordpress]` Sharp card and agent photos: let the theme ask Kowboy's image CDN for a sharp copy at the size each is shown
 
+- Volume assumed: 1,046 properties, Core's totals through the two staging sites on 2026-10-19
+  (Norban 547, Ahre 499, every status; production's counts are not readable from a session);
+  3 photos per card; 6 widths per photo at most. A property page holds 27 photos on average (655
+  photos on 24 pages sampled), which counts only for the larger option below.
 - 2026-10-19 · Patric: "Images overall feel low resolution. I see it on property lists, agent
   list, agent inside of property page or agent page." Measured on the Norban demo at Windows'
   100 %, 125 % and 150 %: the theme picks a large enough file everywhere (never stretched), but
@@ -22,17 +26,22 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   `/mnt/project-files/kowboy-2026/photos-today-vs-sharp-copies.png`.
 - The fix: the CDN `cdn-realestate.kowboy.se` already answers Cloudflare's image resizing
   (`/cdn-cgi/image/width=…/`, tried 2026-10-19), which makes a sharp copy of the 1920 photo at any
-  width. The theme would list those widths instead of the stored copies, so the browser gets a
-  file close to the size it draws; if the resizer refuses, the photo falls back to today's copy.
-  Cloudflare bills it as Images Transformed: the first 5,000 different sizes a month are free,
-  then $0.50 per 1,000; on a Free plan, new sizes beyond 5,000 fail instead of being billed
-  (developers.cloudflare.com/images/pricing, read 2026-10-19). Estimate: 100 homes with 30 photos
-  each, every photo asked at 3 sizes a month, is 9,000 sizes, so $2 a month above the free 5,000.
+  width. On the cards' photos and the agents' photos, where Patric saw it, the theme would list
+  the widths 640, 768, 960, 1152, 1536 and 1920 (a card at 100 %, 125 % and 150 % gets its exact
+  size) instead of the stored copies; if the resizer refuses, the photo falls back to today's
+  copy. The large photo and the gallery stay as today.
+- Cost: Cloudflare bills it as Images Transformed: the first 5,000 different sizes a month are
+  free, then $0.50 per 1,000; on a Free plan, new sizes beyond 5,000 fail instead of being billed
+  (developers.cloudflare.com/images/pricing, read 2026-10-19). At most every card photo at all 6
+  widths every month: 3 × 6 = 18 sizes per property, $0.009 per property a month; for 1,046
+  properties 18,828 sizes, 13,828 above the free 5,000, $6.91 a month. Each agent adds 6 sizes at
+  most. Every photo on the property pages too would be 27 × 6 = 162 sizes per property, $0.081 per
+  property a month, $82 a month for 1,046; not proposed.
 - Blocked: sharp photos on the sites. The free route is to remake the CDN's stored copies with a
   sharp shrink where they are made, which is outside this repository.
-- a) yes: the theme uses the CDN's resizing, on both demo sites; the account's Cloudflare plan
-  must bill above 5,000 (recommended: the only fix inside the theme).
-- b) no: the stored copies are remade sharply where they are made, outside Core.
+- a) yes: the theme uses the CDN's resizing for card and agent photos, on both demo sites; the
+  account's Cloudflare plan must bill above 5,000 (recommended: the only fix inside the theme).
+- b) source: the stored copies are remade sharply where they are made, outside Core.
 - c) keep the photos as they are.
 
 ## 218. `[core]` `[admin]` `[client-wordpress]` Where a visitor's form that failed is sent again: on the website, or in Core's new admin
