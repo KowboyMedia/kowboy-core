@@ -60,7 +60,12 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   and one password for every call, Patric 2026-10-06). The offices that read and sit in the group "webbplats" (any case) are synced; with no
   such group, or none of its offices readable, every office that reads is. An office that came is
   loaded; one that went is tombstoned with all its records (`presentIds` per datatype, scoped to the
-  office), so each site deletes it at its next sync. A check Vitec did not answer (down, busy,
+  office), so each site deletes it at its next sync. Agents, areas and associations carry no
+  office, so the connection keeps only those `vitec_known` has under an office it still syncs, and
+  tombstones the rest (`presentIds` for the whole connection; Patric, 2026-10-19: "Any orphaned
+  agents are deleted"). A record of no office removed under one office, by the comparison, a
+  `Remove` or a fetch answering 404, stays in a connection while another office it syncs still has
+  it: an agent who works at two offices and leaves one stays. A check Vitec did not answer (down, busy,
   broken) keeps the last offices and is tried again within the hour. An office Vitec refuses (401
   or 403, on its own or with its whole id; question 158 b) stays synced for a day of grace
   (`REFUSAL_GRACE_MS`, the first refusal's time carried from check to check, an office behind an
@@ -74,6 +79,11 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   office, not even from an answer saved before question 156 a: listing homes, agents or areas
   under a group is not asking for one office, and Vitec answers its areas with an error. The
   answer is kept in `vitec_state` and shown on the tenant's page.
+- **A connection deleted in Core** (the admin's Delete, or its tenant deleted) leaves nothing
+  here. The engine tells no CRM's code of a deletion, so the tick finds it (`forgetRemoved`): a
+  connection the last tick saw, or at the first tick one with rows in `vitec_state`, that Core no
+  longer has loses its state, and the fetch list's records and seen ids of every office no other
+  connection syncs go with it. Its records left the sites with the deletion itself.
 - **Vitec's QA environment** (question 169 a, 2026-10-06). A login whose field `qa` is `yes`
   (any case; any other value, or none, is live Vitec) is for Vitec's QA environment, its test copy
   of Connect: every call of it, its forms included, goes to `https://connect-qa.maklare.vitec.net`

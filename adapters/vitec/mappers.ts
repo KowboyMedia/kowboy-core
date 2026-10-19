@@ -767,6 +767,13 @@ export const mappers: Mappers = {
 };
 
 /**
+ * The datatypes whose items carry no office (`officeId` null above): an agent may work at several
+ * offices, and an area or an association may be shared, so the fetch list's seen ids say which
+ * offices still have one.
+ */
+export const OFFICELESS: readonly Datatype[] = ['agent', 'area', 'association'];
+
+/**
  * The items a payload points at that have no list endpoint of their own, or may not be listed
  * yet: the adapter fetches them when it first sees the reference.
  */

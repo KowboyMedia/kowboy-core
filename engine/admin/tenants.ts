@@ -295,8 +295,8 @@ async function saveConnections(
     // The connection's records go with it, tombstones and all, so no site would hear they left:
     // instead every site of the tenant fetches everything again and drops what it no longer
     // receives, told to fetch at once. Removing first, then raising the watermark, makes a
-    // fetch that starts in between fetch everything once more. No CRM's code does anything when
-    // a connection goes, so none is told.
+    // fetch that starts in between fetch everything once more. A CRM's code finds by itself that
+    // a connection went and clears what it kept, so none is told.
     await deleteConnection(gone.id);
     changes.push(
       `${connectionName(named.tenant, gone.provider, gone.name)} is removed, and its records are being taken off the sites.`,

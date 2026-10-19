@@ -337,6 +337,23 @@ export async function known(
   return new Map(rows.map((row) => [row.remote_id, row.changed_at]));
 }
 
+/** The ids of a datatype seen under any of the offices, or only those of `remoteIds` among them. */
+export async function knownUnder(
+  offices: readonly Office[],
+  datatype: Datatype,
+  remoteIds?: readonly string[],
+): Promise<Set<string>> {
+  if (offices.length === 0) return new Set();
+  const { rows } = await (
+    await db()
+  ).query<{ remote_id: string }>(
+    `select distinct remote_id from vitec_known
+      where office_id = any($1) and datatype = $2 and ($3::text[] is null or remote_id = any($3))`,
+    [offices.map(keyOf), datatype, remoteIds ?? null],
+  );
+  return new Set(rows.map((row) => row.remote_id));
+}
+
 export async function isKnown(
   office: Office,
   datatype: Datatype,
@@ -675,6 +692,25 @@ export async function forgetRefusal(office: Office): Promise<void> {
     `${REFUSED}${keyOf(office)}`,
   ]);
   blocks = null;
+}
+
+/** The connections that keep state here, the door's refusals aside. */
+export async function connectionsWithState(): Promise<string[]> {
+  const { rows } = await (
+    await db()
+  ).query<{ connection_id: string }>(
+    'select distinct connection_id from vitec_state where connection_id <> $1',
+    [DOOR],
+  );
+  return rows.map((row) => row.connection_id);
+}
+
+/** Every office but these is forgotten: its records waiting on the fetch list, and its seen ids. */
+export async function forgetOfficesBut(kept: readonly Office[]): Promise<void> {
+  const keys = kept.map(keyOf);
+  const pool = await db();
+  await pool.query('delete from vitec_fetch_list where office_id <> all($1::text[])', [keys]);
+  await pool.query('delete from vitec_known where office_id <> all($1::text[])', [keys]);
 }
 
 /**
