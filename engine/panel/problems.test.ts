@@ -1,14 +1,13 @@
 // The Inbox's problems and its windows (design B, images 13 to 16, 20 to 22 and 39 to 43): a
 // problem stays open until it is solved, waits while someone acted on it, and is listed as fixed
-// today; forms are resent through Core's own "Send again"; maintenance is turned on and off; and a
-// brokerage's data is reloaded; records a CRM can't load are fetched again; a refused login says
-// when its offices leave the websites. A stand-in CRM, "somecrm", records what it is asked and
-// calls nothing: its form handler takes every form, its full fetch removes one record it no longer
-// "lists", and its check of failing records says what the test sets. No real CRM is reached, and
+// today; the forms a CRM did not take are counted; maintenance is turned on and off; records
+// a CRM can't load are fetched again; a refused login says when its offices leave the websites. A
+// stand-in CRM, "somecrm", records what it is asked and calls nothing: its form handler takes every
+// form, and its check of failing records says what the test sets. No real CRM is reached, and
 // every website's bell address is the harness's own.
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { harness, TENANT, TOKEN, type Harness } from '../../acceptance/harness.js';
+import { harness, TENANT, type Harness } from '../../acceptance/harness.js';
 import { db } from '../storage/db.js';
 import { encrypt, tokenHmac } from '../storage/crypto.js';
 import { addSubscriber, createTenant, upsertConnection } from '../storage/connections.js';
@@ -17,9 +16,7 @@ import { logEvent } from '../events.js';
 import { ring } from '../bells.js';
 import type { Adapter, Canonical, HealthResult } from '../adapter-api/types.js';
 import { COOKIE } from './auth.js';
-import type { Brokerage } from './brokerages.js';
 import type { FormsCard, Inbox, LoginCard, RecordsCard, SiteCard } from './inbox.js';
-import type { Resent } from './forms.js';
 
 let core: Harness;
 let other: number;
@@ -30,11 +27,8 @@ const NOWHERE = 'http://127.0.0.1:9/bell';
 
 const asked: {
   sent: string[];
-  resyncs: string[];
   acts: { action: string; params: Record<string, string>; connections: string[] }[];
-} = { sent: [], resyncs: [], acts: [] };
-/** The record the stand-in CRM no longer lists at its next full fetch. */
-let unlisted: string | null = null;
+} = { sent: [], acts: [] };
 /** What the stand-in's check of the records it can't load says. */
 let retries: HealthResult = { ok: true };
 /** What the stand-in's action fails with, when a test makes it fail. */
@@ -58,11 +52,6 @@ const somecrm: Adapter = {
   },
   start(api) {
     api.healthCheck('somecrm.retries', () => retries);
-    api.onLifecycle(async (event) => {
-      if (event.type !== 'resync') return;
-      asked.resyncs.push(event.connection.id);
-      if (unlisted) await api.notFound(event.connection, 'property', unlisted);
-    });
   },
   admin: {
     credentials: [
@@ -95,14 +84,12 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   asked.sent = [];
-  asked.resyncs = [];
   asked.acts = [];
-  unlisted = null;
   retries = { ok: true };
   actFails = null;
   core.bells.length = 0;
   await db().query(
-    'truncate submissions, events, alert_state, admin_sessions, heartbeats, health_results, lifecycle_events, settings, panel_problems, reloads',
+    'truncate submissions, events, alert_state, admin_sessions, heartbeats, health_results, lifecycle_events, settings, panel_problems',
   );
   await db().query('delete from items');
   await db().query('delete from connections');
@@ -142,8 +129,6 @@ async function call<T = Record<string, unknown>>(
 }
 
 const inbox = async (): Promise<Inbox> => (await call<Inbox>('/inbox')).json;
-const page = async (): Promise<Brokerage> =>
-  (await call<Brokerage>(`/brokerages/${String(TENANT)}`)).json;
 
 async function property(remoteId: string, street: string, city: string): Promise<void> {
   await db().query(
@@ -470,57 +455,20 @@ describe('records a CRM can’t load', () => {
   });
 });
 
-describe('resending a brokerage’s forms', () => {
-  it('sends the forms the window listed again, one at a time, and lists them fixed', async () => {
+describe('the forms a CRM did not take', () => {
+  it('lists them on their brokerage’s card, with the record each was about and the CRM’s answer', async () => {
     await property('P-1', 'Lindängsvägen 12', 'Malmö');
     await property('P-2', 'Södra Förstadsgatan 40', 'Lund');
     const viewing = await keptForm('viewing', 'P-1', 12);
     const interest = await keptForm('interest', 'P-2', 11);
 
     const card = (await inbox()).cards[0] as FormsCard;
+    expect(card).toMatchObject({ kind: 'forms', count: 2, crms: ['Somecrm'] });
     expect(card.forms).toMatchObject([
       { id: viewing, kind: 'viewing', record: 'Lindängsvägen 12, Malmö', answer: 'none' },
       { id: interest, kind: 'interest', record: 'Södra Förstadsgatan 40, Lund', answer: 'none' },
     ]);
     expect(card.waitSeconds).toBe(20);
-
-    const sent = await call<{ results: Resent[] }>(`/brokerages/${String(TENANT)}/resend`, {
-      ids: [viewing, interest, randomUUID()],
-    });
-    expect(sent.status).toBe(200);
-    expect(sent.json.results).toEqual([
-      { id: viewing, outcome: 'delivered' },
-      { id: interest, outcome: 'delivered' },
-    ]);
-    expect(asked.sent).toEqual(['somecrm-1', 'somecrm-1']);
-
-    const read = await inbox();
-    expect(read.cards).toEqual([]);
-    expect(read.fixed[0]?.facts).toEqual({
-      kind: 'forms',
-      delivered: 2,
-      total: 2,
-      crms: ['Somecrm'],
-    });
-  });
-
-  it('leaves another brokerage’s forms alone, and holds every form while forms test mode is on', async () => {
-    await property('P-1', 'Lindängsvägen 12', 'Malmö');
-    const id = await keptForm('viewing', 'P-1', 2);
-    const elsewhere = await call<{ results: Resent[] }>(`/brokerages/${String(other)}/resend`, {
-      ids: [id],
-    });
-    expect(elsewhere.json.results).toEqual([]);
-    expect((await call('/brokerages/999/resend', { ids: [id] })).status).toBe(404);
-
-    await db().query("update connections set forms_dry_run = true where id = 'somecrm-1'");
-    const held = await call<{ results: Resent[] }>(`/brokerages/${String(TENANT)}/resend`, {
-      ids: [id],
-    });
-    expect(held.json.results).toEqual([{ id, outcome: 'held' }]);
-    expect(asked.sent).toEqual([]);
-    // Held forms were not put right: nothing is listed as fixed.
-    expect((await inbox()).fixed).toEqual([]);
   });
 });
 
@@ -540,70 +488,5 @@ describe('maintenance', () => {
     const { flushPendingBells } = await import('../bells.js');
     await flushPendingBells();
     expect(core.bells).toHaveLength(1);
-  });
-});
-
-describe('reloading all of a brokerage’s data', () => {
-  it('fetches everything again, removes what the CRM no longer lists, then follows its websites until they reloaded', async () => {
-    await property('P-1', 'Kungsgatan 1', 'Malmö');
-    await property('P-2', 'Kopparbergsvägen 8', 'Västerås');
-    unlisted = 'P-2';
-
-    expect((await call(`/brokerages/${String(TENANT)}/reload`, {})).status).toBe(202);
-    // Pressed twice while it fetches: one fetch.
-    await call(`/brokerages/${String(TENANT)}/reload`, {});
-    const { rows: queued } = await db().query<{ event: string }>(
-      'select event from lifecycle_events',
-    );
-    expect(queued.map((row) => row.event)).toEqual(['resync']);
-    expect((await page()).reload).toMatchObject({ state: 'fetching', doneAt: null });
-    expect(core.bells).toHaveLength(0);
-
-    await core.deliver();
-    expect(asked.resyncs).toEqual(['somecrm-1']);
-    let reload = (await page()).reload;
-    expect(reload).toMatchObject({
-      state: 'rebuilding',
-      failure: null,
-      removedCount: 1,
-      removed: [
-        { datatype: 'property', crm: 'Somecrm', name: 'Kopparbergsvägen 8, Västerås', id: 'P-2' },
-      ],
-      sites: [{ label: 'test site', reloadedAt: null }],
-    });
-    expect(core.bells.length).toBeGreaterThan(0);
-    const { rows } = await db().query<{ purge_watermark: string }>(
-      'select purge_watermark from tenants where id = $1',
-      [TENANT],
-    );
-    expect(Number(rows[0]?.purge_watermark)).toBeGreaterThan(0);
-
-    // The website fetches everything from the start, as a rebuild does.
-    const { rows: sites } = await db().query<{ bell_url: string }>(
-      'select bell_url from subscribers where tenant_id = $1',
-      [TENANT],
-    );
-    const pulled = await fetch(`${core.baseUrl}/v1/changes?datatype=property&after=0`, {
-      headers: { authorization: `Bearer ${TOKEN}`, 'x-core-site': sites[0]?.bell_url ?? '' },
-    });
-    expect(pulled.status).toBe(200);
-    reload = (await page()).reload;
-    expect(reload?.state).toBe('done');
-    expect(reload?.doneAt).not.toBeNull();
-    expect(reload?.sites[0]?.reloadedAt).not.toBeNull();
-
-    // A fetch that failed is told in the words of the CRM's code, without the error's type.
-    await db().query(
-      `update reloads set error = 'Error: Somecrm answered HTTP 500; TypeError: x is not a function'`,
-    );
-    expect((await page()).reload?.failure).toBe('Somecrm answered HTTP 500; x is not a function');
-  });
-
-  it('tells the websites to reload at once when the brokerage has no connection', async () => {
-    await db().query('delete from connections');
-    expect((await call(`/brokerages/${String(TENANT)}/reload`, {})).status).toBe(202);
-    expect((await page()).reload).toMatchObject({ state: 'rebuilding', removedCount: 0 });
-    expect(core.bells.length).toBeGreaterThan(0);
-    expect((await call('/brokerages/999/reload', {})).status).toBe(404);
   });
 });

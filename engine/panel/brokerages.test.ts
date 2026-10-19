@@ -129,7 +129,7 @@ beforeEach(async () => {
   listed = [];
   await writeSetting(MAINTENANCE, 'off', null);
   await db().query(
-    'truncate submissions, events, alert_state, admin_sessions, heartbeats, health_results, lifecycle_events, jobs, panel_problems, reloads',
+    'truncate submissions, events, alert_state, admin_sessions, heartbeats, health_results, lifecycle_events, jobs, panel_problems',
   );
   await db().query('delete from items');
   await db().query('delete from connections');
@@ -823,9 +823,6 @@ describe('deleting a tenant and everything of it', () => {
     await db().query(`insert into panel_problems (key, facts) values ($1, '{"kind": "login"}')`, [
       `login:${connectionId}`,
     ]);
-    await db().query(`insert into reloads (tenant_id, requested_by) values ($1, 'tester')`, [
-      tenantId,
-    ]);
     await db().query(`insert into jobs (kind, scope) values ('recompute', $1)`, [
       JSON.stringify({ tenantId }),
     ]);
@@ -869,7 +866,6 @@ describe('deleting a tenant and everything of it', () => {
         'submissions.tenant_id',
         'lifecycle_events.connection_id',
         'panel_problems.tenant_id',
-        'reloads.tenant_id',
       ]),
     );
     expect(Object.values(after).every((n) => n === 0)).toBe(true);
