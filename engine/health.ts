@@ -285,7 +285,7 @@ export async function healthReport(): Promise<HealthReport> {
     return {
       ok: false,
       level: 'P2',
-      detail: `The last form a visitor sent through ${many ? 'each of ' : ''}${inWords(failing.length, 'CRM connection', 'CRM connections')} could not be sent, and its visitor was asked to contact the brokerage directly. The check shows fine again when the CRM answers a form through ${many ? 'each of them' : 'that connection'}.`,
+      detail: `The last form a visitor sent through ${many ? 'each of ' : ''}${inWords(failing.length, 'CRM connection', 'CRM connections')} could not be sent: the brokerage does not have it, and Core does not send it again, so its visitor was asked to contact the brokerage directly. The check shows fine again when the CRM answers a form through ${many ? 'each of them' : 'that connection'}.`,
       names: failing.map((connection) => ({ connection })),
     };
   });
