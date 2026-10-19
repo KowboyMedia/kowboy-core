@@ -826,6 +826,38 @@ the seven days.
       2026-10-07 on 151, 171, the details kept on the site and the list. Development is ready:
       on his go, first what the list marks as not built or to remove, then every forms file is
       checked against the list, line by line, with the tests green, and reported file by file.
+    - **In progress since 2026-10-19** (209 a; the thread "Confirm forms features and tests"),
+      with item 21's leftovers and item 32, in this order:
+      1. `[client-wordpress]` The hidden trap field goes from the window; the browser journey
+         proves there is none.
+      2. `[client-wordpress]` A test proves "Skicka" cannot be pressed and reads "Skickar…" while
+         a form is on its way.
+      3. `[crm-vitec]` A booking asks Vitec for the SMS confirmation as well as the e-mail.
+      4. `[client-wordpress]` The theme's privacy page picker goes; the consent links WordPress's
+         own privacy page.
+      5. `[client-wordpress]` The plugin's page "Formulär": the switch "forms on" (the window
+         shows only when it is on) and every form the site sent, failed or not, with the
+         visitor's details and the outcome, kept 30 days, with "Send again" beside a failed one.
+         Core takes a form sent again from the site only by an id it holds as not delivered for
+         that tenant, with no new bot proof.
+      6. `[core]` `[client-wordpress]` 166: Core answers a form id it already holds before the
+         bot check; the plugin tries twice more, after 1 s and 3 s, when Core did not answer.
+      7. `[core]` `[client-wordpress]` The bot check never fails silently: Core tells a visitor's
+         failed check from a broken one (no keys, Cloudflare refusing the secret, Cloudflare not
+         answering), the window sends a check that could not load or run with the form, and a
+         broken check stops the form with a clear message and is logged as a form not delivered,
+         which alerts and shows under "Needs attention". Staging gets Cloudflare's published test
+         keys so its forms keep working until Patric creates the real ones.
+      8. `[core]` 171 a: each site's address on the check's list at Cloudflare when the site is
+         saved; on the free plan an eleventh site is refused with a clear message, since paying
+         is asked then (146).
+      9. `[client-wordpress]` "Söker du bostad?" in the theme; its screen goes to Patric before it
+         counts as approved.
+      10. `[core]` `[admin]` By the answer to 218: Core's copy of the details, the old page
+          "Failed forms" and the new admin's "Resend" go (a), stay (b), or "Resend" asks the
+          site (c).
+      11. Item 32's tests; then every forms file checked against the list with the tests green, a
+          fresh review, and the report file by file.
 30. **A new admin area from scratch** (Patric, 2026-10-13: "How can I get you to create a nice
     admin panel, without trying to fix the current one?", then "Tabler looks good. Use that. ...
     MVP features only.", then "MVP Greenfield"; in progress 2026-10-13, the "New admin panel"
