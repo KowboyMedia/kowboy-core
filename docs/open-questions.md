@@ -62,39 +62,37 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 - a) ok: all 37 lines (recommended).
 - b) ok, except the lines named.
 
-## 219. `[client-wordpress]` Sharp card and agent photos: let the theme ask Kowboy's image CDN for a sharp copy at the size each is shown
+## 219. `[client-wordpress]` Sharp photos: the CDN's worker shrinks its copies with a sharp filter and gets a 768 step
 
-- Volume assumed: 1,046 properties, Core's totals through the two staging sites on 2026-10-19
-  (Norban 547, Ahre 499, every status; production's counts are not readable from a session);
-  3 photos per card; 6 widths per photo at most. A property page holds 27 photos on average (655
-  photos on 24 pages sampled), which counts only for the larger option below.
+- Volume assumed: none for the recommended option, which costs nothing per view. Option b's
+  figures assume 1,046 properties (Core's totals through the two staging sites on 2026-10-19:
+  Norban 547, Ahre 499, every status), 3 photos per card and 6 widths per photo at most.
 - 2026-10-19 · Patric: "Images overall feel low resolution. I see it on property lists, agent
   list, agent inside of property page or agent page." Measured on the Norban demo at Windows'
   100 %, 125 % and 150 %: the theme picks a large enough file everywhere (never stretched), but
   the CDN's smaller copies (480 to 1600 wide) are shrunk from the 1920 photo with a soft filter
   and hold about half the fine detail of a sharp shrink (a 1024 copy: 961 against 1956, the
-  variance of the Laplacian), and the browser then shrinks that copy again to the box. On screen
-  a card's photo keeps about 45 % of the detail a sharp copy gives (772 against 1362 at 100 %, 426
-  against 813 at 125 %); an agent's photo 77 % and 54 %. The side by side is
-  `/mnt/project-files/kowboy-2026/photos-today-vs-sharp-copies.png`.
-- The fix: the CDN `cdn-realestate.kowboy.se` already answers Cloudflare's image resizing
-  (`/cdn-cgi/image/width=…/`, tried 2026-10-19), which makes a sharp copy of the 1920 photo at any
-  width. On the cards' photos and the agents' photos, where Patric saw it, the theme would list
-  the widths 640, 768, 960, 1152, 1536 and 1920 (a card at 100 %, 125 % and 150 % gets its exact
-  size) instead of the stored copies; if the resizer refuses, the photo falls back to today's
-  copy. The large photo and the gallery stay as today.
-- Cost: Cloudflare bills it as Images Transformed: the first 5,000 different sizes a month are
-  free, then $0.50 per 1,000; on a Free plan, new sizes beyond 5,000 fail instead of being billed
-  (developers.cloudflare.com/images/pricing, read 2026-10-19). At most every card photo at all 6
-  widths every month: 3 × 6 = 18 sizes per property, $0.009 per property a month; for 1,046
-  properties 18,828 sizes, 13,828 above the free 5,000, $6.91 a month. Each agent adds 6 sizes at
-  most. Every photo on the property pages too would be 27 × 6 = 162 sizes per property, $0.081 per
-  property a month, $82 a month for 1,046; not proposed.
-- Blocked: sharp photos on the sites. The free route is to remake the CDN's stored copies with a
-  sharp shrink where they are made, which is outside this repository.
-- a) yes: the theme uses the CDN's resizing for card and agent photos, on both demo sites; the
-  account's Cloudflare plan must bill above 5,000 (recommended: the only fix inside the theme).
-- b) source: the stored copies are remade sharply where they are made, outside Core.
+  variance of the Laplacian), and the browser then shrinks that copy again to the box. Patric,
+  15:26: the CDN is custom code on a worker, and its whitelisted widths force cache hits and few
+  variants; the browser's second shrink is hard to get rid of on a responsive site.
+- Measured on screen (card photo, Laplacian variance, higher is sharper), at 100 % and 125 %:
+  today 772 and 426; a sharp (Lanczos) shrink at the worker's same widths 1199 and 701; a copy at
+  the exact size of the box 1362 and 813. So the second shrink costs little once the copy is
+  sharp. The agent photo at 125 % is the exception: the browser shrinks its 1024 copy more than
+  twice, which Chrome draws from a half-size version, so it stays soft (179, 181 with a sharp
+  copy); with a 768 step and a sharp shrink it is 362 (exact size 333). A light sharpening after
+  the shrink measures higher still but leaves a visible halo on edges, so it is not proposed.
+  The side by side at 125 % is `/mnt/project-files/kowboy-2026/photos-sharp-shrink-at-the-cdn.png`.
+- The worker is outside this repository. Its change: shrink with Lanczos, allow 768, and remake
+  the copies already stored. The copies are served `immutable` for 180 days, so browsers keep
+  the soft ones unless the address changes; the theme then adds a version to the smaller widths
+  (the worker ignores a query string, tried 2026-10-19) and lists the 768 step.
+- Blocked: sharp photos on the sites.
+- a) worker: the worker shrinks sharply and allows 768; the theme adds the version and the
+  step (recommended: no cost per view, every site and every photo, the whitelist stays).
+- b) Cloudflare: the theme bypasses the worker for card and agent photos with Cloudflare's own
+  resizing at 6 widths: at most 18 sizes, $0.009, per property a month above 5,000 free sizes,
+  $6.91 a month for 1,046 properties (developers.cloudflare.com/images/pricing, read 2026-10-19).
 - c) keep the photos as they are.
 
 ## 218. `[core]` `[admin]` `[client-wordpress]` Where a visitor's form that failed is sent again: on the website, or in Core's new admin
