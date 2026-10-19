@@ -4,10 +4,23 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 220 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 221 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 220. `[admin]` Approve what part 5 of design B shows beyond the tenant mockups
+
+- 2026-10-19 · Part 5 (the tenant mockups' pages: Tenants, one Add/Edit screen each for a tenant,
+  a website and a CRM, Delete for each, deleting a tenant with everything of it, the Flow page with
+  the maintenance box, and a CRM's fields, line, sections and buttons drawn only from its own code)
+  is on staging at `/admin`. It needed 37 lines the mockups do not show, among them six new web
+  addresses on Core, one index (migration 022) and the panel's own texts, and leaves four rows
+  unbuilt. The list is `panel-candidates/b-part5-new-lines.md`, with pictures of every screen in
+  `panel-candidates/part5-shots/`, both in the project's shared folder.
+- Blocked: nothing; the lines stay on staging meanwhile.
+- a) ok: all 37 lines (recommended).
+- b) ok, except the lines named.
 
 ## 219. `[client-wordpress]` Sharp photos: let the theme ask Kowboy's image CDN for a sharp copy at the size each photo is shown
 
