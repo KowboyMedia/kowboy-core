@@ -3,8 +3,9 @@
 // mouse cursor indicating that it is clickable"), walked with a mouse on a wide screen: over the
 // whole face of a home's card, an area's, an association's and an agent's the pointer is the hand,
 // and a click on a home's photo, on its status pill or on an agent's title leads to the record's
-// page as a click on the name does. The dots over a home's photos are bright (Patric, the same
-// day: "make it a bit brighter"), and a click that just misses one changes the photo, never the
+// page as a click on the name does. The dots over a home's photos are bright on the screen, not
+// only in their style (Patric, the same day: "make it a bit brighter", and on 2026-10-19 "still not
+// done lighter": the card's dark fade lay over them), and a click that just misses one changes the photo, never the
 // page. The name starts with "journey:" so the acceptance report can name it under its criterion.
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
@@ -42,6 +43,31 @@ const pointsWithoutHand = (card: Locator): Promise<string[]> =>
     return misses;
   });
 
+/**
+ * How bright a thing shows on the screen, from 0 (black) to 255 (white): the brightest pixel of
+ * its picture, read by the browser itself, so whatever lies over it counts.
+ */
+const brightness = async (page: Page, thing: Locator): Promise<number> => {
+  const picture = (await thing.screenshot()).toString('base64');
+  return page.evaluate(async (png) => {
+    const image = new Image();
+    image.src = `data:image/png;base64,${png}`;
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext('2d');
+    if (context === null) return 0;
+    context.drawImage(image, 0, 0);
+    const { data } = context.getImageData(0, 0, image.width, image.height);
+    let most = 0;
+    for (let at = 0; at < data.length; at += 4) {
+      most = Math.max(most, ((data[at] ?? 0) + (data[at + 1] ?? 0) + (data[at + 2] ?? 0)) / 3);
+    }
+    return Math.round(most);
+  }, picture);
+};
+
 /** A plain click where a thing stands on the screen, as a visitor's mouse makes it. */
 const clickOn = async (page: Page, thing: Locator): Promise<void> => {
   await thing.evaluate((element) =>
@@ -64,18 +90,20 @@ test('journey: every card shows the hand over its whole face and leads to its pa
   expect(await pointsWithoutHand(home)).toEqual([]);
   const dots = home.locator('.swiper-pagination-bullet');
   await expect(dots).toHaveCount(2);
-  const opacities = await dots.evaluateAll((all) =>
-    all.map((dot) => Number(getComputedStyle(dot).opacity)),
-  );
-  expect(Math.max(...opacities), 'the dot of the photo shown').toBe(1);
-  expect(Math.min(...opacities), 'the other dot').toBeGreaterThanOrEqual(0.8);
+  const shown = home.locator('.swiper-pagination-bullet-active');
+  const other = home.locator('.swiper-pagination-bullet:not(.swiper-pagination-bullet-active)');
+  // The dot of the photo shown is white on the screen, the other nearly so.
+  expect(await brightness(page, shown), 'the dot of the photo shown').toBeGreaterThanOrEqual(245);
+  expect(await brightness(page, other), 'the other dot').toBeGreaterThanOrEqual(200);
 
   // A click that just misses the other dot shows that dot's photo and stays on the page.
-  const other = dots.nth(opacities.indexOf(Math.min(...opacities)));
+  const otherIndex = await dots.evaluateAll((all) =>
+    all.findIndex((one) => !one.classList.contains('swiper-pagination-bullet-active')),
+  );
   const dot = await other.boundingBox();
   expect(dot).not.toBeNull();
   await page.mouse.click(dot!.x + dot!.width + 3, dot!.y + dot!.height / 2);
-  await expect(other).toHaveClass(/swiper-pagination-bullet-active/);
+  await expect(dots.nth(otherIndex)).toHaveClass(/swiper-pagination-bullet-active/);
   await expect(page).toHaveURL(/post_type=core_property/);
 
   // A click on the photo leads to the home, and so does a click on the status pill over it.

@@ -409,6 +409,15 @@ own WordPress plugin or script line; the theme only cooperates, in two places:
 - **The property page names its home** for the chat: `data-kowboy-chat-listing-id` on the page's
   wrapper carries the record's `id` (the CRM's id, `docs/field-tables.md`).
 
+## The card dots, white on the screen, 2026-10-19
+
+Theme 1.3.1. Patric, 2026-10-19: the dots over a home card's photos were "still not done lighter",
+his third ask. Theme 1.2.5 had made them white (the others at 80 %), but the slider was a layer
+of its own under the card's dark fade, so the fade lay over the dots too and the screen showed
+them grey (128 of 255, measured on the staging site). The slider no longer makes a layer: its
+photos stay under the fade and its dots stand over it, white on the screen. The cards journey
+now measures the dots' pixels on the screen instead of their style, and fails on the old theme.
+
 ## Lists on cached pages, with page links, 2026-10-18
 
 Theme 1.3.0 and plugin 0.8.0, next-steps item 31 (Patric, 2026-10-15: lists "server side

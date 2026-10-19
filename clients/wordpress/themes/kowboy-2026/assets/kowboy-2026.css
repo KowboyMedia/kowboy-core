@@ -919,7 +919,13 @@ iframe.k-hero__video {
   height: 100%;
   object-fit: cover;
 }
-/* The dark fade at the bottom, over the photo and over the slider (Swiper puts its root at z-index 1). */
+/* The slider makes no layer of its own (Swiper puts its root at z-index 1), so its photos stay
+   under the dark fade and its dots stand over it; as one layer the fade covered the dots too and
+   left them grey whatever their colour (Patric, 2026-10-19: "still not done lighter"). */
+.k-card__slider {
+  z-index: auto;
+}
+/* The dark fade at the bottom, over the photo and over the slider's photos (Swiper puts its wrapper at z-index 1). */
 .k-card__media::after {
   content: '';
   position: absolute;
