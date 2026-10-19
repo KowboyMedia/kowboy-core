@@ -72,18 +72,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 - b) no: AC 27 runs on staging itself, on the database server live shares, and AC 18 stays as
   written.
 
-## 209. `[core]` `[crm-vitec]` `[client-wordpress]` Start the forms work now, on the list verified on 7 October
-
-- 2026-10-18 · Item 29: Patric verified the forms list
-  (`/mnt/project-files/strategy/forms-list.md`) on 2026-10-07 ("No other comments/changes"), and
-  the development starts on his go: first what the list marks as not built or to remove, then
-  every forms file checked against the list line by line, with the tests green, reported file by
-  file. The first brokerage's site needs its forms, so the plan for the final release
-  (`/mnt/project-files/release/final-release-plan.md`) puts them before that site goes live.
-- Blocked: the forms work (item 29), with item 21's leftovers and item 32.
-- a) yes: go (recommended).
-- b) later: the forms wait until after the final release.
-
 ## 208. `[core]` Default: the project is done when the first brokerage runs on live, and what the plan marks Later waits for a new project
 
 - 2026-10-18 · Patric: "work towards closing this project and getting it production ready". The
@@ -99,26 +87,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   table.
 - Blocked: nothing; silence agrees.
 - Reply only if you disagree: no, and which row.
-
-## 207. `[core]` Release staging to live once staging is green and the preview has run, before the rest is finished
-
-- 2026-10-18 · Live runs the version of 23 September with the fix of 6 October; staging is 342
-  changes ahead. On 2026-10-03 Patric said "keep on staging for now". No CRM connection on live
-  is recorded anywhere, so no customer uses it (read from the records; confirmed in live's admin
-  before the release). Releasing now tries every new database change, setting and one-time step
-  on live while nothing depends on it, and leaves the final release only what is built after.
-  What it waits for: the automatic checks green on staging (green on 2026-10-18), staging's health
-  check green (red on 2026-10-18: five records that could not load, which the thread "Proper error
-  messages in admin" is clearing), the acceptance report made again, the preview built and run on
-  live's records, the release note, and live's settings (its 12 database connections by 167 c,
-  kept by 206 a, the error reports, and the old admin password it no longer uses
-  removed). Undo: this release changes how live's database is laid out, and the old version cannot read the
-  new layout (item 33, "The undo"), so going back needs live's database set back from its backup
-  as well as the old version; with no customer on live a fault is fixed forward through staging.
-  Releases after it keep a one-step undo (strategy §6).
-- Blocked: the early release.
-- a) yes: release once staging is green and the preview has run (recommended).
-- b) no: live stays as it is until the final release.
 
 ## 202. `[admin]` Approve what parts 3 and 4 of design B show beyond B's images
 

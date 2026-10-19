@@ -12,11 +12,12 @@ when the first brokerage runs on live; every other open item is moved to "Later"
 table (Default 208).
 Threads at work on the way: the new admin (item 30, waits on 199 to 205), the clear error
 messages and the five records Core cannot store (staging's health is red until they load), Core's
-mail (question 100), the lists (item 31, waits on 198) and the forms (item 29, waits on 209).
+mail (question 100), the lists (item 31, waits on 198) and the forms (item 29, started on 209 a, 2026-10-19).
 "Resume next steps" means:
 the first open step of item 33 that waits on nobody. On 2026-10-18 condition 1 was done and Core's
-part of condition 4, and the preview of condition 2 was built; the rest waits on 207, 210 and
-211, on the threads, or on the seven days.
+part of condition 4, and the preview of condition 2 was built. On 2026-10-19 Patric answered 207 a
+(the early release) and 209 a (the forms); the rest waits on 210 and 211, on the threads, or on
+the seven days.
 
 ## Agent setup (from the 2026-09-27 review of how agents and Patric work together)
 
@@ -984,7 +985,7 @@ part of condition 4, and the preview of condition 2 was built; the rest waits on
       the update channel for the plugin and the theme, the approved Space (2026-09-16), of which
       no `v*` tag and no Spaces key exist yet; Vitec's notification address for live, which Patric
       gives Vitec.
-    - **The order:** conditions 1, 2 and the Sentry triage first; on 207 a, the early release once
+    - **The order:** conditions 1, 2 and the Sentry triage first; on 207 a (given 2026-10-19), the early release once
       staging is green and the preview has run; then condition 3; the threads' work in the plan's
       table; the alerts seen arriving; the final release on Patric's "release". After it: the
       one-time clean-up of known bug 3 leaves `main.ts` once live's log shows it ran, the old admin
