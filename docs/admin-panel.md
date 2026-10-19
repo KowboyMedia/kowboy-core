@@ -58,7 +58,7 @@ Each thing has one word, the same on every page:
 A number sits in its sentence and agrees with it ("one site has", "three sites have"), never
 "site(s)". A named thing links to its place: a tenant, a connection or a site to the tenant's page
 (`/tenants/<id>`, `#connection:<Core's id for it>`, `#site:<id>`), an office or a record to Records, a
-form to Failed forms, a CRM to its page.
+form to its website's page "Formulär" (else the website's block), a CRM to its page.
 
 ## The pages
 
@@ -380,18 +380,19 @@ drive directly.
   refuses (`login.refused`) is P1; a visitor's form that could not be sent or that the CRM refused
   (`submission.failed`, `submission.refused`) is P1, but not a form Core held back as a dry run
   (outside production, or through a connection ticked to dry-run its forms; `submission.refused`
-  with Core's own reason), which never left Core. A form the bot check could not run for
+  with Core's own reason), which never left Core. Core never sends a form again (question 218):
+  each such line says the brokerage does not have it and that the visitor was told so and to
+  contact the brokerage directly. A form the bot check could not run for
   (`submission.failed` with `bot_check`, the cause) is its own P1 line, "The bot check stopped a
   site’s forms": what to do by the cause (give Core the two keys, save the website in the admin
-  area to put its address on Cloudflare's list, or wait for Cloudflare), then "Skicka igen" on the
-  website's own page. A form Core stopped before asking any CRM (`submission.failed` with
-  `stopped`) is a P1 line of its own for each why, since no CRM failed and sending it again once
-  the CRM answers would not help: Core could not read it (`unreadable`; update the website's
+  area to put its address on Cloudflare's list, or wait for Cloudflare). A form Core stopped
+  before asking any CRM (`submission.failed` with `stopped`) is a P1 line of its own for each why,
+  since no CRM failed: Core could not read it (`unreadable`; update the website's
   plugin), its home is another tenant's (`foreign`; check the website's tenant) or gone (`gone`),
   its office is not the tenant's (`office`), it names no office of several (`which-office`; give
   the website's button its office), the tenant has no office (`no-office`; a connection that syncs
   one), or the CRM takes no such form (`kind`; remove its button, or turn the website's forms
-  off); a site that is
+  off). A site that is
   not fetching its changes (the sites check's `check.failed` for it) is P1, but not the sites check
   that could not run, which names no site. The adapter logs the first three through the adapter
   API with the connection in the context, and the engine logs the rest. The Overview lists them
@@ -401,11 +402,11 @@ drive directly.
   CRM's office id M30011)", "Acme's Vitec connection “Main”", "A viewing booking a
   visitor sent from Acme's site acme.se", "Acme's site acme.se") as a link that opens it (the
   office's records on Records, each with its state, the connection's or the site's block on the
-  tenant's page; a form the website's own page of its forms, "Formulär", which keeps it 30 days
-  with "Skicka igen" beside it (decision of 2026-10-07), at the WordPress address the site is told
-  about changes at, `/wp-admin/admin.php?page=core-client-forms`; Failed forms for a website that
-  is not WordPress, or the site's block for a form the bot check or Core stopped, which Core does
-  not keep; the alert gives that address whole); where it is
+  tenant's page; a form the website's own page of its forms, "Formulär", which keeps what the
+  visitor wrote for 30 days (decision of 2026-10-07), at the WordPress address the site is told
+  about changes at, `/wp-admin/admin.php?page=core-client-forms`, or for a website that is not
+  WordPress its block on the tenant's page, since Core keeps no form that was not sent; the alert
+  gives that address whole); where it is
   when its name does not say (the connection an office or a form came through); and its tenant as
   a link when the name does not hold it. A site's line ends with how its problem ended, "Resolved
   after" how long or "Still open.", read from the `check.recovered` with the same `problem`. The

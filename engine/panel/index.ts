@@ -45,8 +45,6 @@ import {
 import { deleteBrokerage } from './deletion.js';
 import { flow } from './flow.js';
 import { actOn } from './problems.js';
-import { resendForms } from './forms.js';
-import { startReload } from './reload.js';
 import { retryRecords } from './records.js';
 import { databaseFailed, databaseWords, failureWords } from './failure.js';
 import { recordList, recordPage, RECORD_TYPES, type RecordFilter } from './recordlist.js';
@@ -344,16 +342,6 @@ const BROKERAGE_CHANGES: Record<string, BrokerageChange> = {
     );
     return done.ok ? answer(201, done.value) : refusal(done.why, done.said);
   },
-  // The forms of the brokerage the Inbox listed, sent to the CRM again one at a time.
-  resend: async (id, given) => {
-    const ids = Array.isArray(given['ids'])
-      ? given['ids'].filter((one): one is string => typeof one === 'string')
-      : [];
-    const results = await resendForms(id, ids);
-    return results ? answer(200, { results }) : missing();
-  },
-  reload: async (id, _given, person) =>
-    (await startReload(id, person.email)) ? answer(202, { ok: true }) : missing(),
   // The records of the brokerage an Inbox card says can't be loaded, fetched again by their CRM.
   retry: async (id, given, person) => {
     const key = text(given['key']);

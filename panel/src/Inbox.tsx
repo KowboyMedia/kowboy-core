@@ -2,7 +2,7 @@
 // 26): Core's state, then what needs you, urgent first and then oldest first; what waits after
 // someone acted; and what was fixed today. Maintenance is on the Flow page. The page reads again
 // by itself, so a problem that is put right moves to "Fixed today". Each card's button opens its
-// window: resend the forms, fix a website's bell secret; "Enter new login" opens the connection's
+// window: fix a website's bell secret; "Enter new login" opens the connection's
 // own screen; "Retry 3 properties" has the CRM fetch them again at once; "Open <tenant>" opens the
 // tenant's page.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -15,28 +15,15 @@ import {
   type Fixed,
   type FormsCard,
   type Inbox,
-  type KeptForm,
   type Level,
   type LoginCard,
   type RecordsCard,
-  type Resent,
   type SiteCard,
   type Tenant,
   type WorkerCard,
 } from './api';
 import { Shell, useShell } from './Shell';
-import {
-  ago,
-  ahead,
-  capital,
-  clock,
-  counted,
-  dateOf,
-  listed,
-  sameDay,
-  sentWhen,
-  when,
-} from './time';
+import { ago, ahead, capital, clock, counted, listed, sameDay, sentWhen, when } from './time';
 import {
   AlertTriangleIcon,
   CheckIcon,
@@ -46,7 +33,6 @@ import {
   LoaderIcon,
   PencilIcon,
   RefreshIcon,
-  SendIcon,
 } from './icons';
 import { failureWords } from './failure';
 import { Modal, useNote, ValueField } from './ui';
@@ -62,7 +48,7 @@ const LEVELS: Record<Level, { words: string; colour: string }> = {
 };
 
 /** What a card's buttons open. */
-type Open = { kind: 'resend'; card: FormsCard } | { kind: 'bell'; card: SiteCard } | null;
+type Open = { kind: 'bell'; card: SiteCard } | null;
 
 type Opener = (open: Open) => void;
 
@@ -125,8 +111,7 @@ function sentSentence(card: FormsCard, now: Date): string {
   return `Sent${from} ${listed(times)}${cause}.`;
 }
 
-function Forms({ card, now, onOpen }: { card: FormsCard; now: Date; onOpen: Opener }) {
-  const forms = counted(card.count, 'form', 'forms');
+function Forms({ card, now }: { card: FormsCard; now: Date }) {
   const again = card.answeredAgainAt
     ? ` ${card.crms.length > 1 ? 'They have' : 'It has'} answered again since ${when(card.answeredAgainAt, now)}.`
     : '';
@@ -136,23 +121,11 @@ function Forms({ card, now, onOpen }: { card: FormsCard; now: Date; onOpen: Open
       who={card.tenant.name}
       now={now}
       title={`${counted(card.count, 'visitor form', 'visitor forms')} didn’t reach ${listed(card.crms) || 'the CRM'}`}
-      actions={
-        <>
-          <button
-            type="button"
-            className="k-button k-button-primary"
-            onClick={() => onOpen({ kind: 'resend', card })}
-          >
-            <SendIcon />
-            Resend {forms}
-          </button>
-          <OpenBrokerage tenant={card.tenant} />
-        </>
-      }
+      actions={<OpenBrokerage tenant={card.tenant} />}
     >
       <p className="k-card-body">
         {sentSentence(card, now)}
-        {again} Core keeps the {card.count === 1 ? 'form' : 'forms'} until {dateOf(card.keptUntil)}.
+        {again}
       </p>
     </Frame>
   );
@@ -460,7 +433,7 @@ function OneCard({
     case 'worker':
       return <Worker card={card} crms={inbox.crms} now={now} />;
     case 'forms':
-      return <Forms card={card} now={now} onOpen={onOpen} />;
+      return <Forms card={card} now={now} />;
     case 'login':
       return <Login card={card} now={now} />;
     case 'site':
@@ -674,147 +647,6 @@ function BellSecretWindow({
   );
 }
 
-const KINDS: Record<KeptForm['kind'], string> = {
-  viewing: 'Viewing booking',
-  interest: 'Interest in a property',
-  lead: 'Message to the brokerage',
-  search_profile: 'Search profile',
-};
-
-/** Why the CRM did not take a form: "<CRM> didn’t answer (20 s)". */
-function formCause(form: KeptForm, crm: string, seconds: number): string {
-  if (form.answer === 'refused') {
-    return form.said ? `${crm} refused it, saying “${form.said}”` : `${crm} refused it`;
-  }
-  if (form.answer === 'error') return `${crm} answered with an error`;
-  return `${crm} didn’t answer (${String(seconds)} s)`;
-}
-
-/** What became of a resend, in the corner: "Both forms delivered to <CRM>." */
-function resentNote(results: Resent[], crm: string): { text: string; icon?: 'warn' } {
-  const n = results.length;
-  const delivered = results.filter((one) => one.outcome === 'delivered').length;
-  const held = results.filter((one) => one.outcome === 'held').length;
-  const unsent = results.filter((one) => one.outcome === 'not-sent').length;
-  const them = n === 1 ? 'it' : 'them';
-  if (n === 0)
-    return { text: 'Core no longer keeps these forms, so nothing was sent.', icon: 'warn' };
-  if (delivered === n) {
-    return {
-      text:
-        n === 1
-          ? `The form was delivered to ${crm}.`
-          : n === 2
-            ? `Both forms delivered to ${crm}.`
-            : `All ${String(n)} forms delivered to ${crm}.`,
-    };
-  }
-  if (held === n) {
-    return {
-      text: `Core held ${them} back: forms test mode is on, or this Core doesn’t send forms to ${crm}.`,
-      icon: 'warn',
-    };
-  }
-  if (unsent === n) {
-    // Core itself sent nothing: another send had it, the CRM took it meanwhile, or Core can't send it.
-    return {
-      text: `Core didn’t send ${them} again: ${n === 1 ? 'it was on its' : 'they were on their'} way to ${crm} already or ${crm} had taken ${them}, or Core can no longer send ${them}. Reload the page to see what is left.`,
-      icon: 'warn',
-    };
-  }
-  if (delivered === 0) {
-    return {
-      text: `${crm} didn’t take ${n === 1 ? 'the form' : 'the forms'}. ${n === 1 ? 'It stays' : 'They stay'} in the Inbox.`,
-      icon: 'warn',
-    };
-  }
-  const left = n - delivered;
-  return {
-    text: `${String(delivered)} of ${counted(n, 'form', 'forms')} delivered to ${crm}. ${left === 1 ? 'The other stays' : 'The others stay'} in the Inbox.`,
-    icon: 'warn',
-  };
-}
-
-/** "Resend 2 forms · Granstedt Bostad" (image 20): the forms, then one send after another. */
-function ResendWindow({
-  card,
-  now,
-  onClose,
-  onDone,
-}: {
-  card: FormsCard;
-  now: Date;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const { away } = useShell();
-  const note = useNote();
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-  const forms = counted(card.count, 'form', 'forms');
-  const crm = listed(card.crms, 'or') || 'the CRM';
-  const one = card.count === 1;
-  const sends = one ? 'Core sends it again' : 'Core sends them one at a time';
-  const intro = card.answeredAgainAt
-    ? `${crm} has answered again since ${when(card.answeredAgainAt, now)}. ${sends}.`
-    : card.unanswered === 0
-      ? `${crm} refused ${one ? 'it' : 'them'}. ${sends}; ${one ? 'if it is refused again, it stays' : 'any it refuses again stay'} in the Inbox.`
-      : `${crm} hasn’t answered a form since. ${sends}; ${one ? 'if it isn’t taken, it stays' : 'any it doesn’t take stay'} in the Inbox.`;
-  const send = async () => {
-    setBusy(true);
-    setFailed(null);
-    try {
-      const { results } = await api.resend(
-        card.tenant.id,
-        card.forms.map((form) => form.id),
-      );
-      note(resentNote(results, listed(card.crms) || 'the CRM'));
-      onDone();
-    } catch (error) {
-      if (!away(error)) setFailed(failureWords(error));
-      setBusy(false);
-    }
-  };
-  return (
-    <Modal
-      title={`Resend ${forms} · ${card.tenant.name}`}
-      tone="danger"
-      onClose={onClose}
-      footer={
-        <>
-          <button type="button" className="k-button k-button-link" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="k-button k-button-primary"
-            disabled={busy}
-            onClick={() => void send()}
-          >
-            {busy ? <LoaderIcon className="k-spin" size={18} /> : <SendIcon size={18} />}
-            Resend {forms}
-          </button>
-        </>
-      }
-    >
-      <p className="k-modal-text">{intro}</p>
-      <ul className="k-forms">
-        {card.forms.map((form) => (
-          <li key={form.id}>
-            <span className="k-forms-kind">{KINDS[form.kind]}</span>
-            {form.record && <span className="k-forms-record">{form.record}</span>}
-            <span className="k-forms-when">
-              {[capital(when(form.sentAt, now)), form.site].filter(Boolean).join(' · ')}
-            </span>
-            <span className="k-forms-cause">{formCause(form, crm, card.waitSeconds)}</span>
-          </li>
-        ))}
-      </ul>
-      {failed && <p className="k-error">{failed}</p>}
-    </Modal>
-  );
-}
-
 // ---- The page -------------------------------------------------------------------------------------
 
 function DownBanner({ inbox, now }: { inbox: Inbox; now: Date }) {
@@ -948,9 +780,6 @@ function InboxView({ inbox, onRead }: { inbox: Inbox; onRead: () => void }) {
       )}
       {!down && <FixedToday fixed={inbox.fixed} now={now} />}
 
-      {open?.kind === 'resend' && (
-        <ResendWindow card={open.card} now={now} onClose={close} onDone={closeAndRead} />
-      )}
       {open?.kind === 'bell' && (
         <BellSecretWindow card={open.card} now={now} onClose={close} onDone={closeAndRead} />
       )}

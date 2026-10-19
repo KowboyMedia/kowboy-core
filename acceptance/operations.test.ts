@@ -408,7 +408,6 @@ describe('alerts', () => {
         bot_check: cause,
       },
     });
-    // A form the CRM refused.
     await logEvent({
       type: 'submission.refused',
       correlationId: 'form-4',
@@ -444,16 +443,16 @@ describe('alerts', () => {
     );
     expect(stopped?.said).toMatch(/TURNSTILE_SITE_KEY and TURNSTILE_SECRET/);
     expect(stopped?.said).toMatch(
-      /press “Skicka igen” beside each form it stopped, on the website’s page “Formulär”\.$/,
+      /The website keeps what each visitor wrote for 30 days, on its page “Formulär”\.$/,
     );
     expect(refused).toMatchObject({
       level: 'P1',
       link: page,
-      said: 'Fake-webhook refused a viewing booking, with the reason “no such viewing”. The brokerage does not have it. The website keeps it for 30 days with what the visitor wrote and the CRM’s reason, on its page “Formulär”; press “Skicka igen” beside it there once the cause is put right.',
+      said: 'Fake-webhook refused a viewing booking, with the reason “no such viewing”. The brokerage does not have it, and Core does not send it again: the visitor was told it was not sent and to contact the brokerage directly. Put right the reason the CRM gave, so the next form gets through. The website keeps what the visitor wrote and the CRM’s reason for 30 days, on its page “Formulär”.',
     });
 
     // The page is the WordPress plugin's, wherever WordPress lives; a website that is not
-    // WordPress has none, and its forms open Failed forms, or for a stopped one the site's place.
+    // WordPress has none, and its forms open the website's place, since Core keeps no form.
     expect(formsPage('https://x.example/blog/wp-json/core/v1/bell')).toBe(
       'https://x.example/blog/wp-admin/admin.php?page=core-client-forms',
     );
@@ -464,7 +463,10 @@ describe('alerts', () => {
     await db().query(
       "update subscribers set bell_url = 'https://abc.supabase.co/functions/v1/core-bell' where id = 1",
     );
-    expect((await attention()).map((line) => line.link)).toEqual(['/forms', '/tenants/1#site:1']);
+    expect((await attention()).map((line) => line.link)).toEqual([
+      '/tenants/1#site:1',
+      '/tenants/1#site:1',
+    ]);
   });
 
   it('words a form Core stopped before asking any CRM by why, never as one the CRM did not answer (209 a)', async () => {
@@ -505,13 +507,15 @@ describe('alerts', () => {
     ]);
     for (const line of lines) {
       expect(line).toMatchObject({ level: 'P1', link: page });
-      expect(line.said).toContain('The brokerage does not have it');
+      expect(line.said).toContain(
+        'The brokerage does not have it, and Core does not send it again: the visitor was told it was not sent and to contact the brokerage directly.',
+      );
       expect(line.said).toContain('on its page “Formulär”');
       expect(line.said).not.toContain('once the CRM answers');
     }
     const said = new Map(lines.map((line) => [line.kind.title, line.said]));
     expect(said.get('Core could not read a visitor’s form')).toBe(
-      'A valuation or contact request from the site test site was not sent, because Core could not read it: /person/email must match format "email". The brokerage does not have it. The website’s form window and Core disagree on what the form holds: update the website’s plugin, and if it already runs the newest one, the fault is for a developer to fix. The website keeps the form for 30 days with what the visitor wrote, on its page “Formulär”, from where the brokerage can be told of the visitor. “Skicka igen” there sends the same form, which Core cannot read either.',
+      'A valuation or contact request from the site test site was not sent, because Core could not read it: /person/email must match format "email". The brokerage does not have it, and Core does not send it again: the visitor was told it was not sent and to contact the brokerage directly. The website’s form window and Core disagree on what the form holds: update the website’s plugin, and if it already runs the newest one, the fault is for a developer to fix. The website keeps what the visitor wrote for 30 days, on its page “Formulär”.',
     );
     expect(said.get('A visitor’s form named no office')).toMatch(
       /^A valuation or contact request from the site test site was not sent, because it names no office, and Test tenant has several\. /,
@@ -693,9 +697,9 @@ describe('alerts', () => {
         'Test tenant’s offices Lidingö (the CRM’s office id 100) and the one with the CRM’s office id 200: https://core.example/admin/records?tenant=1&office=100,200',
         '',
         'P1 Disrupted · A visitor’s form did not reach the CRM',
-        'A viewing booking could not be sent to Fake-webhook: it did not answer within 20 seconds. The brokerage does not have it yet. Failed forms keeps it for 30 days with what the visitor wrote; press “Send again” beside it there once the CRM answers.',
+        'A viewing booking could not be sent to Fake-webhook: it did not answer within 20 seconds. The brokerage does not have it, and Core does not send it again: the visitor was told it was not sent and to contact the brokerage directly.',
         `Through Test tenant’s Fake-webhook connection “${CONNECTION}”.`,
-        'A viewing booking a visitor sent: https://core.example/admin/forms',
+        'A viewing booking a visitor sent: https://core.example/admin/tenants/1',
         '',
         'What needs attention, on the Overview: https://core.example/admin/',
       ].join('\n'),
