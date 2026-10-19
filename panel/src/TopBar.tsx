@@ -1,11 +1,12 @@
-// The top bar (design B, images 05, 06, 19, 23, 44 and 45): the mark, the Inbox with its count,
-// Brokerages and "New brokerage" on a desktop, the Inbox icon on a phone, and the account menu.
+// The top bar (design B, images 05, 06, 19, 23, 44 and 45, and the tenant mockups, images 01 and
+// 25): the mark, the Inbox with its count, Tenants, and the Flow with a marker while maintenance is
+// on, on a desktop; the Inbox icon on a phone; and the account menu.
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { api, type Me } from './api';
 import { Brand } from './brand';
 import { dateOf } from './time';
-import { BuildingIcon, ChevronDownIcon, InboxIcon, LogoutIcon, PlusIcon } from './icons';
+import { ActivityIcon, BuildingIcon, ChevronDownIcon, InboxIcon, LogoutIcon } from './icons';
 import { failureWords } from './failure';
 
 function AccountMenu({ me }: { me: Me }) {
@@ -80,10 +81,20 @@ function AccountMenu({ me }: { me: Me }) {
   );
 }
 
-/** Which tab the page belongs to; the new-brokerage steps belong to neither. */
-export type Tab = 'inbox' | 'brokerages' | null;
+/** Which tab the page belongs to; the new-tenant steps belong to none. */
+export type Tab = 'inbox' | 'brokerages' | 'flow' | null;
 
-export function TopBar({ me, count, tab }: { me: Me; count: number; tab: Tab }) {
+export function TopBar({
+  me,
+  count,
+  maintenance,
+  tab,
+}: {
+  me: Me;
+  count: number;
+  maintenance: boolean;
+  tab: Tab;
+}) {
   return (
     <header className="k-top">
       <div className="k-top-inner">
@@ -104,17 +115,22 @@ export function TopBar({ me, count, tab }: { me: Me; count: number; tab: Tab }) 
             aria-current={tab === 'brokerages' ? 'page' : undefined}
           >
             <BuildingIcon />
-            Brokerages
+            Tenants
+          </Link>
+          <Link
+            className={`k-tab${tab === 'flow' ? ' k-tab-active' : ''}`}
+            to="/flow"
+            aria-current={tab === 'flow' ? 'page' : undefined}
+          >
+            <ActivityIcon />
+            Flow
+            {maintenance && <span className="k-tab-mark">Maintenance</span>}
           </Link>
         </nav>
         <div className="k-top-end">
           <Link className="k-phone-inbox" to="/" aria-label={`Inbox, ${String(count)}`}>
             <InboxIcon size={24} strokeWidth={1.75} />
             {count > 0 && <span className="k-bubble">{count}</span>}
-          </Link>
-          <Link className="k-button k-button-primary k-new" to="/new">
-            <PlusIcon />
-            New brokerage
           </Link>
           <AccountMenu me={me} />
         </div>

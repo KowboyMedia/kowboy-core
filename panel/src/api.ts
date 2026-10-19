@@ -29,11 +29,13 @@ export type {
   ConnectionView,
   Crm,
   CrmField,
-  Office,
   Status,
   Website,
 } from '../../engine/panel/brokerages.js';
-import type { Brokerage, BrokerageRow, Crm, Office } from '../../engine/panel/brokerages.js';
+import type { Brokerage, BrokerageRow, Crm } from '../../engine/panel/brokerages.js';
+export type { ShownAction, ShownSection, ShownValue } from '../../engine/panel/sections.js';
+export type { Flow, FlowOffice, FlowRow, FlowSite } from '../../engine/panel/flow.js';
+import type { Flow } from '../../engine/panel/flow.js';
 
 export type SignInFacts = {
   instance: string;
@@ -86,24 +88,41 @@ export const api = {
   brokerages: () => call<{ brokerages: BrokerageRow[] }>('/brokerages'),
   createBrokerage: (name: string) => post<{ id: number }>('/brokerages', { name }),
   brokerage: (id: number) => call<Brokerage>(`/brokerages/${String(id)}`),
+  editBrokerage: (id: number, name: string) =>
+    post<{ ok: true }>(`/brokerages/${String(id)}/edit`, { name }),
+  /** Deletes the tenant and everything of it; Core asks for its name, typed. */
+  deleteBrokerage: (id: number, name: string) =>
+    post<{ ok: true }>(`/brokerages/${String(id)}/delete`, { name }),
   switchBrokerage: (id: number, on: boolean) =>
     post<{ ok: true }>(`/brokerages/${String(id)}/switch`, { on }),
   replaceToken: (id: number) => post<{ token: string }>(`/brokerages/${String(id)}/token`, {}),
   addWebsite: (id: number, website: { label: string; bellUrl: string }) =>
     post<{ id: number }>(`/brokerages/${String(id)}/websites`, website),
   removeWebsite: (id: number) => post<{ ok: true }>(`/websites/${String(id)}/remove`, {}),
-  addConnection: (id: number, connection: { provider: string; login: Record<string, string> }) =>
-    post<{ id: string; name: string }>(`/brokerages/${String(id)}/connections`, connection),
-  changeLogin: (connection: string, login: Record<string, string>) =>
-    post<{ ok: true }>(`/connections/${encodeURIComponent(connection)}/login`, { login }),
-  formsTestMode: (connection: string, on: boolean) =>
-    post<{ ok: true }>(`/connections/${encodeURIComponent(connection)}/forms-test-mode`, { on }),
+  editWebsite: (id: number, website: { label: string; bellUrl: string }) =>
+    post<{ ok: true }>(`/websites/${String(id)}/edit`, website),
+  newBellSecret: (id: number) =>
+    post<{ bellSecret: string }>(`/websites/${String(id)}/bell-secret`, {}),
+  addConnection: (
+    id: number,
+    connection: { provider: string; login: Record<string, string>; formsTestMode: boolean },
+  ) => post<{ id: string; name: string }>(`/brokerages/${String(id)}/connections`, connection),
+  /** The CRM screen's Save: a login field changed or a secret typed is tested with the CRM first. */
+  editConnection: (
+    connection: string,
+    change: { login: Record<string, string>; formsTestMode: boolean },
+  ) => post<{ tested: boolean }>(`/connections/${encodeURIComponent(connection)}/edit`, change),
   act: (connection: string, action: string) =>
-    post<{ ok: true }>(`/connections/${encodeURIComponent(connection)}/act`, { action }),
+    post<{ message: string }>(`/connections/${encodeURIComponent(connection)}/act`, { action }),
   removeConnection: (connection: string) =>
     post<{ removedAt: string }>(`/connections/${encodeURIComponent(connection)}/remove`, {}),
-  offices: (connection: string) =>
-    call<{ offices: Office[] }>(`/connections/${encodeURIComponent(connection)}/offices`),
+  flow: (tenants: number[], offices: string[]) => {
+    const query = new URLSearchParams();
+    for (const tenant of tenants) query.append('tenant', String(tenant));
+    for (const office of offices) query.append('office', office);
+    const asked = query.toString();
+    return call<Flow>(`/flow${asked ? `?${asked}` : ''}`);
+  },
   /** "Done, I've pasted it": the Inbox card waits until the problem is solved. */
   acted: (key: string) => post<{ ok: true }>('/problems/act', { key }),
   maintenance: (on: boolean) => post<{ ok: true }>('/maintenance', { on }),

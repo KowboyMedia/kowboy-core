@@ -8,6 +8,10 @@ import { InboxPage } from './Inbox';
 import { BrokeragesPage } from './Brokerages';
 import { BrokeragePage } from './Brokerage';
 import { NewBrokeragePage, NewBrokerageStep } from './NewBrokerage';
+import { EditTenantPage } from './EditTenant';
+import { AddWebsitePage, EditWebsitePage } from './WebsitePage';
+import { AddCrmPage, EditCrmPage } from './CrmPage';
+import { FlowPage } from './Flow';
 
 function App() {
   return (
@@ -17,6 +21,12 @@ function App() {
       <Route path="/" element={<InboxPage />} />
       <Route path="/brokerages" element={<BrokeragesPage />} />
       <Route path="/brokerages/:id" element={<BrokeragePage />} />
+      <Route path="/brokerages/:id/edit" element={<EditTenantPage />} />
+      <Route path="/brokerages/:id/websites/new" element={<AddWebsitePage />} />
+      <Route path="/brokerages/:id/websites/:site" element={<EditWebsitePage />} />
+      <Route path="/brokerages/:id/crms/new" element={<AddCrmPage />} />
+      <Route path="/brokerages/:id/connections/:connection" element={<EditCrmPage />} />
+      <Route path="/flow" element={<FlowPage />} />
       <Route path="/new" element={<NewBrokeragePage />} />
       <Route path="/new/:id" element={<NewBrokeragePage />} />
       <Route path="/new/:id/crm" element={<NewBrokerageStep step="crm" />} />

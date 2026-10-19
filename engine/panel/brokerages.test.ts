@@ -1,7 +1,9 @@
-// Brokerages (design B, images 06 to 12 and 23 to 38): the list, one brokerage's page, and the
-// changes a person makes there. A stand-in CRM, "somecrm", declares a login, a login test, one
-// action and a form handler; each records what it was asked and calls nothing, and its form
-// handler must never be reached while forms test mode is on. Its action fails when a test says.
+// Tenants (design B, images 06 to 12 and 23 to 38, and the tenant mockups): the list, one tenant's
+// page, and the changes a person makes there, deleting a tenant and everything of it, and the Flow.
+// A stand-in CRM, "somecrm", declares a login, a line under a connection's name, its own sections
+// with one action, a fetch list, a login test and a form handler; each records what it was asked
+// and calls nothing, and its form handler must never be reached while forms test mode is on. Its
+// action fails when a test says.
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { harness, TENANT, type Harness } from '../../acceptance/harness.js';
@@ -10,9 +12,12 @@ import { decrypt, tokenHmac } from '../storage/crypto.js';
 import { createTenant, upsertConnection, tenantForToken } from '../storage/connections.js';
 import { heartbeat } from '../health.js';
 import { NOT_LIVE, submissionsFor } from '../registry.js';
-import type { Adapter, Connection, Submission } from '../adapter-api/types.js';
+import type { Adapter, AdminQueued, Connection, Submission } from '../adapter-api/types.js';
+import { MAINTENANCE, writeSetting } from '../storage/settings.js';
+import { logEvent } from '../events.js';
 import { COOKIE } from './auth.js';
-import type { Brokerage, BrokerageRow, Crm, Office } from './brokerages.js';
+import type { Brokerage, BrokerageRow, Crm } from './brokerages.js';
+import type { Flow } from './flow.js';
 
 let core: Harness;
 const SESSION = 'brokerages-test-session';
@@ -30,6 +35,9 @@ const GOOD = 'right-password';
 /** What the stand-in CRM's action fails with, when a test makes it fail. */
 let actFails: Error | null = null;
 
+/** What the stand-in CRM's fetch list holds, as its code would answer `queue`. */
+let listed: AdminQueued[] = [];
+
 const somecrm: Adapter = {
   manifest: { provider: 'somecrm', datatypes: ['property', 'agent', 'office'] },
   mappers: {},
@@ -38,16 +46,38 @@ const somecrm: Adapter = {
     credentials: [
       { key: 'account', label: 'Account', required: true },
       { key: 'password', label: 'Password', secret: true, required: true },
-      { key: 'system', label: 'System', options: [{ value: 'live' }, { value: 'test' }] },
+      {
+        key: 'system',
+        label: 'System',
+        options: [{ value: 'live', label: 'Live system' }, { value: 'test' }],
+      },
     ],
     directions: () => ({ steps: [], settings: [] }),
     panel: () => Promise.resolve([]),
+    describe: (connection: Connection) => {
+      const login = JSON.parse(connection.credentials ?? '{}') as Record<string, string>;
+      return `Live system · ${login['account'] ?? ''}`;
+    },
     connection: (connection: Connection) =>
       Promise.resolve([
         {
           title: 'Offices',
+          help: 'The offices the system lists.',
+          items: [
+            { label: 'Last check', value: { moment: '2026-10-19T06:02:00.000Z' } },
+            { label: 'First office', value: { connection: connection.id, office: 'Södermalm' } },
+          ],
+          table: {
+            columns: ['Office', 'Status'],
+            rows: [{ cells: ['Södermalm', { text: 'On the websites', state: 'ok' as const }] }],
+          },
           actions: [
-            { id: 'check_offices', label: 'Check', params: { connection: connection.id } },
+            {
+              id: 'check_offices',
+              label: 'Check',
+              help: 'When an office joined.',
+              params: { connection: connection.id },
+            },
             { id: 'rename_office', label: 'Rename', fields: [{ key: 'name', label: 'Name' }] },
           ],
         },
@@ -55,6 +85,22 @@ const somecrm: Adapter = {
     act: (action, params, connections) => {
       asked.acts.push({ action, params, connections: connections.map((one) => one.id) });
       return actFails ? Promise.reject(actFails) : Promise.resolve({ message: 'queued' });
+    },
+    queue: (connections) => {
+      const ids = new Set(connections.map((one) => one.id));
+      return Promise.resolve(listed.filter((one) => ids.has(one.connectionId ?? '')));
+    },
+    queueCount: (connections, scope) => {
+      const ids = new Set(connections.map((one) => one.id));
+      const mine = listed.filter(
+        (one) =>
+          ids.has(one.connectionId ?? '') &&
+          (!scope.officeIds || scope.officeIds.includes(one.officeId)),
+      );
+      return Promise.resolve({
+        waiting: mine.filter((one) => one.attempts === 0).length,
+        failed: mine.filter((one) => one.attempts > 0).length,
+      });
     },
     probe: (credentials) => {
       asked.probes.push(credentials);
@@ -80,12 +126,20 @@ beforeEach(async () => {
   asked.acts = [];
   asked.sent = [];
   actFails = null;
+  listed = [];
+  await writeSetting(MAINTENANCE, 'off', null);
   await db().query(
-    'truncate submissions, events, alert_state, admin_sessions, heartbeats, health_results, lifecycle_events',
+    'truncate submissions, events, alert_state, admin_sessions, heartbeats, health_results, lifecycle_events, jobs, panel_problems, reloads',
   );
   await db().query('delete from items');
   await db().query('delete from connections');
   await db().query('delete from subscribers where tenant_id <> $1', [TENANT]);
+  // The harness's own website stays, the first the tenant got; a test's others go.
+  await db().query(
+    `delete from subscribers where tenant_id = $1
+       and id <> (select min(id) from subscribers where tenant_id = $1)`,
+    [TENANT],
+  );
   await db().query('delete from tenants where id <> $1', [TENANT]);
   await db().query(
     'update tenants set active = true, token_replaced_at = null, display_name = $2 where id = $1',
@@ -168,15 +222,16 @@ describe('the brokerages list and a brokerage’s page', () => {
     expect((await call('/brokerages', { name: 'X' }, false)).status).toBe(401);
   });
 
-  it('lists every brokerage by name with its status, websites and offices on them', async () => {
+  it('lists every tenant by name with its status, websites and entities', async () => {
     await connection();
-    await records('main', 'Södermalm', 2);
+    await records('main', 'Södermalm', 2, 1);
     const off = await createTenant({ displayName: 'Norrsken Mäkleri', token: randomUUID() });
     await db().query('update tenants set active = false where id = $1', [off]);
     const rows = await list();
     expect(rows.map((row) => row.name)).toEqual(['Lindqvist & Holm Mäkleri', 'Norrsken Mäkleri']);
-    expect(rows[0]).toMatchObject({ status: 'ok', websites: 1, offices: 1, formsTestMode: false });
-    expect(rows[1]).toMatchObject({ status: 'off', websites: 0, offices: 0 });
+    // Entities: every live record of every type, the office, its 2 properties and its agent.
+    expect(rows[0]).toMatchObject({ status: 'ok', websites: 1, entities: 4, formsTestMode: false });
+    expect(rows[1]).toMatchObject({ status: 'off', websites: 0, entities: 0 });
   });
 
   it('shows a brokerage’s websites, its token, and its connections without their secrets', async () => {
@@ -200,25 +255,51 @@ describe('the brokerages list and a brokerage’s page', () => {
     expect(JSON.stringify(shown)).not.toContain(GOOD);
     expect(main?.counts).toMatchObject({ property: 3, agent: 2, office: 1 });
     expect(main?.offices).toEqual(['Södermalm']);
-    expect(main?.actions).toEqual(['check_offices', 'rename_office']);
+    expect(main?.status).toBe('ok');
     expect(shown.crms.map((crm) => crm.provider)).toEqual(['somecrm']);
+  });
+
+  it('draws a connection from what its CRM’s code declares: its line and its own sections', async () => {
+    await connection();
+    await records('main', 'Södermalm', 1);
+    await db().query(
+      `update items set data = '{"name": "Södermalm office"}' where datatype = 'office'`,
+    );
+    const [main] = (await page()).connections;
+    expect(main?.describe).toBe('Live system · G12');
+    expect(main?.sectionsFailed).toBeNull();
+    // The code's words as it gave them; a thing it names by Core's name for it; no action that
+    // asks for typed fields, which the panel cannot offer.
+    expect(main?.sections).toEqual([
+      {
+        title: 'Offices',
+        help: 'The offices the system lists.',
+        items: [
+          { label: 'Last check', value: { moment: '2026-10-19T06:02:00.000Z' } },
+          { label: 'First office', value: 'Södermalm office' },
+        ],
+        table: {
+          columns: ['Office', 'Status'],
+          rows: [['Södermalm', { text: 'On the websites', state: 'ok' }]],
+          empty: null,
+        },
+        actions: [
+          {
+            id: 'check_offices',
+            label: 'Check',
+            help: 'When an office joined.',
+            confirm: null,
+            danger: false,
+          },
+        ],
+      },
+    ]);
   });
 
   it('says a page that does not exist is missing', async () => {
     expect((await call('/brokerages/999')).status).toBe(404);
     expect((await call('/brokerages/abc')).status).toBe(404);
-    expect((await call('/connections/none/offices')).status).toBe(404);
-  });
-
-  it('lists a connection’s offices with their properties', async () => {
-    await connection();
-    await records('main', 'Vasastan', 2);
-    await records('main', 'Bromma', 1);
-    const { json } = await call('/connections/main/offices');
-    expect(json['offices'] as Office[]).toEqual([
-      { id: 'Bromma', name: 'Bromma', properties: 1 },
-      { id: 'Vasastan', name: 'Vasastan', properties: 2 },
-    ]);
+    expect((await call('/connections/none/edit', { login: {} })).status).toBe(404);
   });
 });
 
@@ -251,7 +332,11 @@ describe('a new brokerage and its CRM login', () => {
       ['password', true, true],
       ['system', false, false],
     ]);
-    expect(crm?.fields[2]?.options).toEqual(['live', 'test']);
+    // Each choice with the CRM's code's words for it, or its value where the code gives none.
+    expect(crm?.fields[2]?.options).toEqual([
+      { value: 'live', label: 'Live system' },
+      { value: 'test', label: 'test' },
+    ]);
   });
 
   it('saves nothing when the CRM refuses the login', async () => {
@@ -322,28 +407,81 @@ describe('a new brokerage and its CRM login', () => {
       id: 'lindqvist-holm-makleri-somecrm-2',
       name: 'Lindqvist & Holm Mäkleri-somecrm-2',
     });
+    const { rows: held } = await db().query<{ forms_dry_run: boolean }>(
+      'select forms_dry_run from connections order by id',
+    );
+    expect(held.map((row) => row.forms_dry_run)).toEqual([false, false]);
   });
+
+  it('adds a connection with forms test mode on, from the moment it is saved', async () => {
+    const { status } = await call(`/brokerages/${String(TENANT)}/connections`, {
+      provider: 'somecrm',
+      login: { account: 'G31', password: GOOD },
+      formsTestMode: true,
+    });
+    expect(status).toBe(201);
+    const [added] = (await page()).connections;
+    expect(added?.formsTestMode).toBe(true);
+    expect(added?.formsTestModeSince).not.toBeNull();
+  });
+});
+
+describe('the CRM screen: a connection’s login and forms test mode on one screen', () => {
+  const read = async () => {
+    const { rows } = await db().query<{ credentials: string }>(
+      "select credentials from connections where id = 'main'",
+    );
+    return JSON.parse(decrypt(rows[0]?.credentials ?? '', core.engine.config.credentialsKey)) as {
+      password: string;
+    };
+  };
 
   it('saves a new login only when the CRM accepts it', async () => {
     await connection('main', 'old-password');
-    const refused = await call('/connections/main/login', {
+    const refused = await call('/connections/main/edit', {
       login: { account: 'G12', password: 'wrong' },
     });
     expect(refused.status).toBe(422);
-    const read = async () => {
-      const { rows } = await db().query<{ credentials: string }>(
-        "select credentials from connections where id = 'main'",
-      );
-      return JSON.parse(decrypt(rows[0]?.credentials ?? '', core.engine.config.credentialsKey)) as {
-        password: string;
-      };
-    };
+    expect(refused.json).toEqual({
+      error: 'login',
+      message: 'Somecrm does not know this password.',
+    });
     expect((await read()).password).toBe('old-password');
-    const accepted = await call('/connections/main/login', {
+    const accepted = await call('/connections/main/edit', {
       login: { account: 'G12', password: GOOD, system: 'test' },
     });
-    expect(accepted.status).toBe(200);
+    expect(accepted).toEqual({ status: 200, json: { tested: true } });
     expect(await read()).toEqual({ account: 'G12', password: GOOD, system: 'test' });
+  });
+
+  it('keeps the saved secret when it is left empty, and tests only a login that changed', async () => {
+    await connection('main');
+    // Nothing of the login changed: forms test mode alone is saved, and the CRM is not asked.
+    const kept = await call('/connections/main/edit', {
+      login: { account: 'G12', password: '', system: 'live' },
+      formsTestMode: true,
+    });
+    expect(kept).toEqual({ status: 200, json: { tested: false } });
+    expect(asked.probes).toEqual([]);
+    expect((await page()).connections[0]?.formsTestMode).toBe(true);
+    expect(await read()).toEqual({ account: 'G12', password: GOOD, system: 'live' });
+
+    // A field changed: the CRM tests the login with the saved password merged in.
+    const moved = await call('/connections/main/edit', {
+      login: { account: 'G13', system: 'live' },
+    });
+    expect(moved).toEqual({ status: 200, json: { tested: true } });
+    expect(asked.probes.map((one) => JSON.parse(one) as unknown)).toEqual([
+      { account: 'G13', password: GOOD, system: 'live' },
+    ]);
+    expect(await read()).toEqual({ account: 'G13', password: GOOD, system: 'live' });
+    // Left out, forms test mode stays as it was.
+    expect((await page()).connections[0]?.formsTestMode).toBe(true);
+
+    // A required field emptied is refused before anything is asked.
+    const emptied = await call('/connections/main/edit', { login: { account: '', password: '' } });
+    expect(emptied.status).toBe(400);
+    expect(asked.probes).toHaveLength(1);
   });
 });
 
@@ -351,7 +489,8 @@ describe('what a person does on a brokerage’s page', () => {
   it('runs an action the CRM’s code declares for the connection, and no other', async () => {
     await connection();
     const ran = await call('/connections/main/act', { action: 'check_offices' });
-    expect(ran.status).toBe(200);
+    // The code's message goes to the person who pressed it.
+    expect(ran).toEqual({ status: 200, json: { message: 'queued' } });
     expect(asked.acts).toEqual([
       { action: 'check_offices', params: { connection: 'main' }, connections: ['main'] },
     ]);
@@ -372,7 +511,8 @@ describe('what a person does on a brokerage’s page', () => {
       licensedOffices: [],
     };
 
-    expect((await call('/connections/main/forms-test-mode', { on: true })).status).toBe(200);
+    const on = { login: { account: 'G12', system: 'live' }, formsTestMode: true };
+    expect((await call('/connections/main/edit', on)).status).toBe(200);
     const first = (await page()).connections[0];
     expect(first?.formsTestMode).toBe(true);
     expect(first?.formsTestModeSince).not.toBeNull();
@@ -386,11 +526,11 @@ describe('what a person does on a brokerage’s page', () => {
     await db().query(
       "update connections set forms_dry_run_since = now() - interval '1 hour' where id = 'main'",
     );
-    await call('/connections/main/forms-test-mode', { on: true });
+    await call('/connections/main/edit', on);
     const kept = (await page()).connections[0]?.formsTestModeSince ?? '';
     expect(Date.now() - Date.parse(kept)).toBeGreaterThan(50 * 60_000);
 
-    await call('/connections/main/forms-test-mode', { on: false });
+    await call('/connections/main/edit', { ...on, formsTestMode: false });
     const off = (await page()).connections[0];
     expect(off).toMatchObject({ formsTestMode: false, formsTestModeSince: null });
     expect(await handlers?.submit?.(main, submission())).toEqual({ outcome: 'delivered' });
@@ -444,6 +584,48 @@ describe('what a person does on a brokerage’s page', () => {
     expect((await call(`/websites/${String(id)}/remove`, {})).status).toBe(200);
     expect((await page()).websites.map((website) => website.id)).not.toContain(id);
     expect((await call(`/websites/${String(id)}/remove`, {})).status).toBe(404);
+  });
+
+  it('edits a website’s label and bell address, and gives it a new bell secret', async () => {
+    const [site] = (await page()).websites;
+    const id = site?.id ?? 0;
+    const bad = await call(`/websites/${String(id)}/edit`, { label: 'x', bellUrl: 'nope' });
+    expect(bad.status).toBe(400);
+    const edited = await call(`/websites/${String(id)}/edit`, {
+      label: ' lindqvistholm.se ',
+      bellUrl: 'https://lindqvistholm.se/wp-json/core/v1/bell',
+    });
+    expect(edited.status).toBe(200);
+    const after = (await page()).websites[0];
+    expect(after).toMatchObject({
+      label: 'lindqvistholm.se',
+      bellUrl: 'https://lindqvistholm.se/wp-json/core/v1/bell',
+      bellSecret: site?.bellSecret,
+    });
+
+    const { status, json } = await call(`/websites/${String(id)}/bell-secret`, {});
+    expect(status).toBe(200);
+    expect(json['bellSecret']).not.toBe(site?.bellSecret);
+    expect((await page()).websites[0]?.bellSecret).toBe(json['bellSecret']);
+    expect((await call('/websites/9999/bell-secret', {})).status).toBe(404);
+    expect(
+      (await call('/websites/9999/edit', { label: 'x', bellUrl: 'https://x.se' })).status,
+    ).toBe(404);
+    // The harness's website as it was, so its change notices reach the harness again.
+    await db().query('update subscribers set label = $2, bell_url = $3 where id = $1', [
+      id,
+      site?.label,
+      site?.bellUrl,
+    ]);
+  });
+
+  it('renames a tenant', async () => {
+    expect((await call(`/brokerages/${String(TENANT)}/edit`, { name: ' ' })).status).toBe(400);
+    expect(
+      (await call(`/brokerages/${String(TENANT)}/edit`, { name: ' Lindqvist & Holm ' })).status,
+    ).toBe(200);
+    expect((await page()).name).toBe('Lindqvist & Holm');
+    expect((await call('/brokerages/999/edit', { name: 'X' })).status).toBe(404);
   });
 
   it('removes a connection: its records and forms go, and the websites fetch everything again', async () => {
@@ -570,5 +752,290 @@ describe('what a person is told when Core fails at what they asked', () => {
     } finally {
       await db().query('alter table panel_problems_away rename to panel_problems');
     }
+  });
+});
+
+describe('deleting a tenant and everything of it', () => {
+  /** Every table of Core's that holds a tenant's or a connection's id, as the database lists them. */
+  async function holding(column: 'tenant_id' | 'connection_id'): Promise<string[]> {
+    const { rows } = await db().query<{ table_name: string }>(
+      `select c.table_name from information_schema.columns c
+       join information_schema.tables t using (table_schema, table_name)
+       where c.table_schema = current_schema() and c.column_name = $1 and t.table_type = 'BASE TABLE'
+       order by c.table_name`,
+      [column],
+    );
+    return rows.map((row) => row.table_name);
+  }
+
+  /** How many rows of each such table hold the tenant or one of its connections. */
+  async function left(tenantId: number, connections: string[]): Promise<Record<string, number>> {
+    const counts: Record<string, number> = {};
+    for (const table of await holding('tenant_id')) {
+      const { rows } = await db().query<{ n: string }>(
+        `select count(*) as n from ${table} where tenant_id::text = $1`,
+        [String(tenantId)],
+      );
+      counts[`${table}.tenant_id`] = Number(rows[0]?.n);
+    }
+    for (const table of await holding('connection_id')) {
+      const { rows } = await db().query<{ n: string }>(
+        `select count(*) as n from ${table} where connection_id = any($1::text[])`,
+        [connections],
+      );
+      counts[`${table}.connection_id`] = Number(rows[0]?.n);
+    }
+    return counts;
+  }
+
+  /** A tenant with a website, a connection with records, a form, events, a problem and a reload. */
+  async function filled(tenantId: number, connectionId: string, site: string): Promise<void> {
+    await upsertConnection({
+      id: connectionId,
+      tenantId,
+      provider: 'somecrm',
+      name: `${connectionId} name`,
+      credentials: JSON.stringify({ account: 'M1', password: GOOD }),
+    });
+    await db().query(
+      `insert into subscribers (tenant_id, label, bell_url, bell_secret) values ($1, $2, $3, 'secret')`,
+      [tenantId, site, `https://${site}/bell`],
+    );
+    await db().query(
+      `insert into items (tenant_id, connection_id, datatype, remote_id, office_id, seq, content_hash, data, rules_version)
+       values ($1, $2, 'property', $3, null, nextval('item_seq'), 'h', '{}', '1')`,
+      [tenantId, connectionId, `${connectionId}-p1`],
+    );
+    await db().query(
+      `insert into submissions (id, tenant_id, connection_id, kind, outcome, content)
+       values ($1, $2, $3, 'interest', 'failed', 'kept')`,
+      [randomUUID(), tenantId, connectionId],
+    );
+    await logEvent({ type: 'entity.written', tenantId, connectionId, datatype: 'property' });
+    await logEvent({ type: 'crm.call', connectionId, fields: {} });
+    await db().query(`insert into lifecycle_events (connection_id, event) values ($1, 'resync')`, [
+      connectionId,
+    ]);
+    await db().query(
+      `insert into panel_problems (key, tenant_id, facts) values ($1, $2, '{"kind": "forms"}')`,
+      [`forms:${String(tenantId)}`, tenantId],
+    );
+    await db().query(`insert into panel_problems (key, facts) values ($1, '{"kind": "login"}')`, [
+      `login:${connectionId}`,
+    ]);
+    await db().query(`insert into reloads (tenant_id, requested_by) values ($1, 'tester')`, [
+      tenantId,
+    ]);
+    await db().query(`insert into jobs (kind, scope) values ('recompute', $1)`, [
+      JSON.stringify({ tenantId }),
+    ]);
+  }
+
+  it('asks for the tenant’s name, then leaves nothing of it and touches no other tenant', async () => {
+    const gone = await createTenant({ displayName: 'Hjortronet Fastighetsbyrå', token: 'gone' });
+    await filled(gone, 'hjortronet', 'hjortronet.se');
+    await filled(TENANT, 'main', 'lindqvistholm.se');
+    // A check naming things of both tenants, and a problem about both.
+    await db().query(
+      `insert into health_results (name, ok, names) values ('somecrm.retries', false, $1)`,
+      [JSON.stringify([{ connection: 'hjortronet' }, { connection: 'main' }, 'a site'])],
+    );
+    await db().query(`insert into panel_problems (key, facts) values ('somecrm.offices', $1)`, [
+      JSON.stringify({ kind: 'check', title: 'x', tenants: [gone, TENANT], about: null }),
+    ]);
+    const before = await left(TENANT, ['main']);
+
+    expect((await call(`/brokerages/${String(gone)}/delete`, {})).status).toBe(400);
+    expect((await call(`/brokerages/${String(gone)}/delete`, { name: 'Hjortronet' })).status).toBe(
+      400,
+    );
+    expect((await list()).map((row) => row.id)).toContain(gone);
+
+    const deleted = await call(`/brokerages/${String(gone)}/delete`, {
+      name: ' Hjortronet Fastighetsbyrå ',
+    });
+    expect(deleted.status).toBe(200);
+
+    // Every table of Core's that holds a tenant's or a connection's id holds none of this one's.
+    const after = await left(gone, ['hjortronet']);
+    expect(Object.keys(after)).toEqual(
+      expect.arrayContaining([
+        'connections.tenant_id',
+        'subscribers.tenant_id',
+        'items.tenant_id',
+        'items.connection_id',
+        'events.tenant_id',
+        'events.connection_id',
+        'submissions.tenant_id',
+        'lifecycle_events.connection_id',
+        'panel_problems.tenant_id',
+        'reloads.tenant_id',
+      ]),
+    );
+    expect(Object.values(after).every((n) => n === 0)).toBe(true);
+    const { rows: tenant } = await db().query('select 1 from tenants where id = $1', [gone]);
+    expect(tenant).toHaveLength(0);
+    const { rows: jobs } = await db().query<{ scope: { tenantId?: number } }>(
+      'select scope from jobs',
+    );
+    expect(jobs.map((job) => job.scope.tenantId)).toEqual([TENANT]);
+    const { rows: problems } = await db().query<{ key: string; facts: { tenants?: number[] } }>(
+      'select key, facts from panel_problems order by key',
+    );
+    expect(problems.map((one) => one.key)).toEqual(
+      expect.arrayContaining([`forms:${String(TENANT)}`, 'login:main', 'somecrm.offices']),
+    );
+    expect(problems.map((one) => one.key)).not.toContain('login:hjortronet');
+    expect(problems.map((one) => one.key)).not.toContain(`forms:${String(gone)}`);
+    expect(problems.find((one) => one.key === 'somecrm.offices')?.facts.tenants).toEqual([TENANT]);
+    const { rows: checks } = await db().query<{ names: unknown[] }>(
+      "select names from health_results where name = 'somecrm.retries'",
+    );
+    expect(checks[0]?.names).toEqual([{ connection: 'main' }, 'a site']);
+
+    // The other tenant keeps everything it had.
+    expect(await left(TENANT, ['main'])).toEqual(before);
+    expect((await page()).connections.map((one) => one.id)).toEqual(['main']);
+    expect((await call(`/brokerages/${String(gone)}/delete`, { name: 'x' })).status).toBe(404);
+  });
+});
+
+describe('the Flow', () => {
+  const at = (minutesAgo: number): string =>
+    new Date(Date.now() - minutesAgo * 60_000).toISOString();
+
+  async function flowOf(query = ''): Promise<Flow> {
+    const { status, json } = await call(`/flow${query}`);
+    expect(status).toBe(200);
+    return json as unknown as Flow;
+  }
+
+  beforeEach(async () => {
+    await connection('main');
+    await records('main', 'Bromma', 1);
+    await db().query(`update items set data = '{"name": "Bromma"}' where datatype = 'office'`);
+    await db().query(
+      `update items set data = '{"address": {"street": "Alviksvägen 44"}}' where datatype = 'property'`,
+    );
+    const other = await createTenant({ displayName: 'Granstedt Bostad', token: randomUUID() });
+    await upsertConnection({ id: 'granstedt', tenantId: other, provider: 'somecrm', name: 'g' });
+    listed = [
+      {
+        connectionId: 'main',
+        officeId: 'Bromma',
+        datatype: 'property',
+        remoteId: 'Bromma-p0',
+        queuedAt: at(1),
+        reason: 'Notice',
+        attempts: 1,
+        nextAt: at(-2),
+        lastError: 'The system didn’t answer within 30 seconds.',
+      },
+      {
+        connectionId: 'main',
+        officeId: 'Bromma',
+        datatype: 'property',
+        remoteId: 'OBJ1',
+        queuedAt: at(0.5),
+        reason: 'Notice',
+        attempts: 0,
+        nextAt: at(0),
+        lastError: null,
+      },
+      {
+        connectionId: 'main',
+        officeId: 'Bromma',
+        datatype: 'property',
+        remoteId: 'OBJ2',
+        queuedAt: at(300),
+        reason: 'Catch-up',
+        attempts: 6,
+        nextAt: null,
+        lastError: 'Answered 500.',
+      },
+      {
+        connectionId: 'granstedt',
+        officeId: 'Lund',
+        datatype: 'agent',
+        remoteId: 'A1',
+        queuedAt: at(0.2),
+        reason: 'Notice',
+        attempts: 0,
+        nextAt: null,
+        lastError: null,
+      },
+    ];
+    await logEvent({
+      type: 'entity.written',
+      tenantId: TENANT,
+      connectionId: 'main',
+      datatype: 'property',
+      remoteId: 'Bromma-p0',
+      fields: {},
+    });
+    // A recompute writes too, but nothing a CRM listed.
+    await logEvent({
+      type: 'entity.written',
+      tenantId: TENANT,
+      connectionId: 'main',
+      datatype: 'office',
+      remoteId: 'Bromma',
+      fields: { cause: 'recompute' },
+    });
+  });
+
+  it('lists what the CRMs’ code has queued and what Core wrote, newest first, with the totals', async () => {
+    const shown = await flowOf();
+    expect(shown.rows.map((row) => [row.state, row.id, row.tenant.name])).toEqual([
+      ['written', 'Bromma-p0', 'Lindqvist & Holm Mäkleri'],
+      ['waiting', 'A1', 'Granstedt Bostad'],
+      ['waiting', 'OBJ1', 'Lindqvist & Holm Mäkleri'],
+      ['failed', 'Bromma-p0', 'Lindqvist & Holm Mäkleri'],
+      ['given-up', 'OBJ2', 'Lindqvist & Holm Mäkleri'],
+    ]);
+    expect(shown).toMatchObject({ waiting: 2, failed: 2 });
+    const failed = shown.rows.find((row) => row.state === 'failed');
+    expect(failed).toMatchObject({
+      name: 'Alviksvägen 44',
+      office: 'Bromma',
+      why: 'Notice',
+      attempts: 1,
+      lastError: 'The system didn’t answer within 30 seconds.',
+      writtenAt: null,
+    });
+    // A record Core doesn't hold yet goes by the CRM's id; a written one has no queued time.
+    expect(shown.rows.find((row) => row.id === 'OBJ1')?.name).toBeNull();
+    const written = shown.rows.find((row) => row.state === 'written');
+    expect(written).toMatchObject({ queuedAt: null, name: 'Alviksvägen 44', office: 'Bromma' });
+    expect(written?.sites).toEqual([{ label: 'test site', state: 'waiting', at: null }]);
+    expect(failed?.sites).toEqual([]);
+    expect(shown.tenants.map((tenant) => tenant.name)).toEqual([
+      'Granstedt Bostad',
+      'Lindqvist & Holm Mäkleri',
+    ]);
+    expect(shown.offices).toEqual([{ key: 'main:Bromma', name: 'Bromma', tenant: TENANT }]);
+    expect(shown.maintenance.on).toBe(false);
+  });
+
+  it('says whether each website fetched a written record, is held by maintenance or is off', async () => {
+    const state = async () =>
+      (await flowOf()).rows.find((row) => row.state === 'written')?.sites[0]?.state;
+    await writeSetting(MAINTENANCE, 'on', 'anna@kowboy.se');
+    expect(await state()).toBe('held');
+    expect((await flowOf()).maintenance).toMatchObject({ on: true, by: 'anna@kowboy.se' });
+    await db().query('update tenants set active = false where id = $1', [TENANT]);
+    expect(await state()).toBe('off');
+    await db().query("update subscribers set last_pull_at = now() + interval '1 second'");
+    expect(await state()).toBe('fetched');
+  });
+
+  it('keeps to the tenants and offices chosen', async () => {
+    const mine = await flowOf(`?tenant=${String(TENANT)}`);
+    expect(new Set(mine.rows.map((row) => row.tenant.id))).toEqual(new Set([TENANT]));
+    expect(mine).toMatchObject({ waiting: 1, failed: 2 });
+    const office = await flowOf('?office=main:Bromma');
+    expect(office.rows.map((row) => row.id)).toEqual(['Bromma-p0', 'OBJ1', 'Bromma-p0', 'OBJ2']);
+    const none = await flowOf('?office=main:Nacka');
+    expect(none).toMatchObject({ rows: [], waiting: 0, failed: 0 });
   });
 });

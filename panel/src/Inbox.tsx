@@ -1,17 +1,16 @@
-// The Inbox (design B, images 05, 13 to 16, 19 to 22 and 41 to 45): Core's state and maintenance,
-// then what needs you, urgent first and then oldest first; what waits after someone acted; and
-// what was fixed today. The page reads again by itself, so a problem that is put right moves to
-// "Fixed today". Each card's button opens its window: resend the forms, enter a new login, fix a
-// website's bell secret; "Retry 3 properties" has the CRM fetch them again at once; "Open
-// <brokerage>" opens the brokerage's page.
+// The Inbox (design B, images 05, 13 to 16, 19 to 22 and 43 to 45, and the tenant mockups, image
+// 26): Core's state, then what needs you, urgent first and then oldest first; what waits after
+// someone acted; and what was fixed today. Maintenance is on the Flow page. The page reads again
+// by itself, so a problem that is put right moves to "Fixed today". Each card's button opens its
+// window: resend the forms, fix a website's bell secret; "Enter new login" opens the connection's
+// own screen; "Retry 3 properties" has the CRM fetch them again at once; "Open <tenant>" opens the
+// tenant's page.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import {
   api,
   type Card,
   type CheckCard,
-  type Crm,
-  type ConnectionView,
   type FailingRecord,
   type Fixed,
   type FormsCard,
@@ -46,15 +45,11 @@ import {
   KeyIcon,
   LoaderIcon,
   PencilIcon,
-  PowerIcon,
   RefreshIcon,
   SendIcon,
-  TrafficConeIcon,
 } from './icons';
-import { failureWords, GONE } from './failure';
+import { failureWords } from './failure';
 import { Modal, useNote, ValueField } from './ui';
-import { LoginWindow } from './connect';
-import { loginNamed } from './crm-words';
 import { isPlatform, platformWords } from './websites';
 
 const EVERY_MS = 30_000;
@@ -66,12 +61,7 @@ const LEVELS: Record<Level, { words: string; colour: string }> = {
 };
 
 /** What a card's buttons open. */
-type Open =
-  | { kind: 'resend'; card: FormsCard }
-  | { kind: 'login'; card: LoginCard; crm: Crm; connection: ConnectionView }
-  | { kind: 'bell'; card: SiteCard }
-  | { kind: 'maintenance' }
-  | null;
+type Open = { kind: 'resend'; card: FormsCard } | { kind: 'bell'; card: SiteCard } | null;
 
 type Opener = (open: Open) => void;
 
@@ -119,7 +109,7 @@ function Frame({
   );
 }
 
-/** "Sent from granstedtbostad.se last night, when Vitec didn’t answer." */
+/** "Sent from granstedtbostad.se last night, when the CRM didn’t answer." */
 function sentSentence(card: FormsCard, now: Date): string {
   const crm = listed(card.crms, 'or') || 'the CRM';
   const times = [...new Set(card.sentAt.map((at) => sentWhen(at, now)))];
@@ -167,25 +157,15 @@ function Forms({ card, now, onOpen }: { card: FormsCard; now: Date; onOpen: Open
   );
 }
 
-function Login({ card, now, onOpen }: { card: LoginCard; now: Date; onOpen: Opener }) {
-  const { away } = useShell();
-  const note = useNote();
-  const [busy, setBusy] = useState(false);
+function Login({ card, now }: { card: LoginCard; now: Date }) {
+  const navigate = useNavigate();
   const tenant = card.tenant;
-  // The window needs the connection's saved login and the CRM's fields, from the brokerage's page.
-  const enter = async () => {
+  // The connection's own screen, the one its Edit icon opens, coming back here when saved.
+  const enter = () => {
     if (!tenant) return;
-    setBusy(true);
-    try {
-      const page = await api.brokerage(tenant.id);
-      const connection = page.connections.find((one) => one.id === card.connectionId);
-      const crm = page.crms.find((one) => one.provider === connection?.provider);
-      if (connection && crm) onOpen({ kind: 'login', card, crm, connection });
-      else note({ text: GONE, icon: 'warn' });
-    } catch (error) {
-      if (!away(error)) note({ text: failureWords(error), icon: 'warn' });
-    }
-    setBusy(false);
+    navigate(
+      `/brokerages/${String(tenant.id)}/connections/${encodeURIComponent(card.connectionId)}?from=inbox`,
+    );
   };
   return (
     <Frame
@@ -196,13 +176,8 @@ function Login({ card, now, onOpen }: { card: LoginCard; now: Date; onOpen: Open
       actions={
         <>
           {tenant && (
-            <button
-              type="button"
-              className="k-button k-button-primary"
-              disabled={busy}
-              onClick={() => void enter()}
-            >
-              {busy ? <LoaderIcon className="k-spin" /> : <PencilIcon />}
+            <button type="button" className="k-button k-button-primary" onClick={enter}>
+              <PencilIcon />
               Enter new login
             </button>
           )}
@@ -251,7 +226,7 @@ function siteCause(card: SiteCard, now: Date): string {
     return `The website doesn’t answer Core’s change notices (no answer${at}): it is down or slow, or the bell address it was added with is wrong. Check that the website opens in a browser.`;
   }
   if (card.lastAnswer === 'ok') {
-    return `The website takes Core’s change notices (the last${at}) but doesn’t fetch the changes: the tenant token it uses may not be Core’s. Compare it with the tenant token on the brokerage’s page.`;
+    return `The website takes Core’s change notices (the last${at}) but doesn’t fetch the changes: the tenant token it uses may not be Core’s. Compare it with the tenant token on the tenant’s page.`;
   }
   return 'Core can’t tell why from the website’s answers.';
 }
@@ -480,7 +455,7 @@ function OneCard({
     case 'forms':
       return <Forms card={card} now={now} onOpen={onOpen} />;
     case 'login':
-      return <Login card={card} now={now} onOpen={onOpen} />;
+      return <Login card={card} now={now} />;
     case 'site':
       return <Site card={card} now={now} onOpen={onOpen} />;
     case 'check':
@@ -553,7 +528,7 @@ function loadedWords(counts: Record<string, number>, name: string | null): strin
   return `All ${words} loaded`;
 }
 
-/** "2 forms delivered to Vitec", "New login works", "Website up to date again". */
+/** "2 forms delivered to <CRM>", "New login works", "Website up to date again". */
 function fixedWords(fixed: Fixed): string {
   const facts = fixed.facts;
   switch (facts.kind) {
@@ -602,136 +577,16 @@ function FixedToday({ fixed, now }: { fixed: Fixed[]; now: Date }) {
   );
 }
 
-// ---- Core's state and maintenance ---------------------------------------------------------------
+// ---- Core's state ----------------------------------------------------------------------------------
 
-function Strip({ onOpen }: { onOpen: Opener }) {
+function Strip() {
   return (
     <section className="k-strip" aria-label="Core">
       <div className="k-strip-state">
         <span className="k-pill k-pill-green">Core running</span>
         Worker and database OK
       </div>
-      <div className="k-strip-end">
-        Maintenance: off
-        <button
-          type="button"
-          className="k-button k-button-quiet k-button-small"
-          onClick={() => onOpen({ kind: 'maintenance' })}
-        >
-          <TrafficConeIcon size={14} />
-          Turn on…
-        </button>
-      </div>
     </section>
-  );
-}
-
-/** "Vitec", "Vitec and Mspecs": the CRMs Core reads. */
-const reads = (inbox: Inbox): string => listed(inbox.crms) || 'the CRMs';
-
-/** Maintenance is on (image 42): since when, by whom, what it means, and turning it off. */
-function MaintenanceBanner({
-  inbox,
-  now,
-  onDone,
-}: {
-  inbox: Inbox;
-  now: Date;
-  onDone: () => void;
-}) {
-  const { away } = useShell();
-  const note = useNote();
-  const [busy, setBusy] = useState(false);
-  const { since, by } = inbox.maintenance;
-  const off = async () => {
-    setBusy(true);
-    try {
-      await api.maintenance(false);
-      note({ text: 'Maintenance is off. Held changes are going out to the websites.' });
-      onDone();
-    } catch (error) {
-      if (!away(error)) note({ text: failureWords(error), icon: 'warn' });
-    }
-    setBusy(false);
-  };
-  const started = since ? `Since ${when(since, now)}${by ? `, by ${by}` : ''}. ` : '';
-  return (
-    <section className="k-banner k-banner-info k-banner-top" aria-label="Maintenance">
-      <TrafficConeIcon size={20} />
-      <div>
-        <p className="k-banner-title">Maintenance is on</p>
-        <p className="k-banner-text">
-          {started}Websites aren’t told about changes and queued jobs wait. Core keeps reading{' '}
-          {reads(inbox)}, and visitors’ forms still reach {reads(inbox)}.
-          {inbox.worker.ok && inbox.database.ok ? ' Worker and database OK.' : ''}
-        </p>
-        <button
-          type="button"
-          className="k-button k-button-primary k-banner-button"
-          disabled={busy}
-          onClick={() => void off()}
-        >
-          {busy ? <LoaderIcon className="k-spin" size={18} /> : <PowerIcon size={18} />}
-          Turn off maintenance
-        </button>
-      </div>
-    </section>
-  );
-}
-
-/** "Turn on maintenance?" (image 41). */
-function MaintenanceWindow({
-  inbox,
-  onClose,
-  onDone,
-}: {
-  inbox: Inbox;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const { away } = useShell();
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-  const on = async () => {
-    setBusy(true);
-    setFailed(null);
-    try {
-      await api.maintenance(true);
-      onDone();
-    } catch (error) {
-      if (!away(error)) setFailed(failureWords(error));
-      setBusy(false);
-    }
-  };
-  return (
-    <Modal
-      title="Turn on maintenance?"
-      tone="info"
-      onClose={onClose}
-      footer={
-        <>
-          <button type="button" className="k-button k-button-link" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="k-button k-button-primary"
-            disabled={busy}
-            onClick={() => void on()}
-          >
-            {busy ? <LoaderIcon className="k-spin" size={18} /> : <TrafficConeIcon size={18} />}
-            Turn on maintenance
-          </button>
-        </>
-      }
-    >
-      <p className="k-modal-text">
-        Websites aren’t told about changes — the notices go out together when you turn it off. No
-        queued job starts. Core keeps reading {reads(inbox)}, and visitors’ forms still reach{' '}
-        {reads(inbox)}.
-      </p>
-      {failed && <p className="k-error">{failed}</p>}
-    </Modal>
   );
 }
 
@@ -819,7 +674,7 @@ const KINDS: Record<KeptForm['kind'], string> = {
   search_profile: 'Search profile',
 };
 
-/** Why the CRM did not take a form: "Vitec didn’t answer (20 s)". */
+/** Why the CRM did not take a form: "<CRM> didn’t answer (20 s)". */
 function formCause(form: KeptForm, crm: string, seconds: number): string {
   if (form.answer === 'refused') {
     return form.said ? `${crm} refused it, saying “${form.said}”` : `${crm} refused it`;
@@ -828,7 +683,7 @@ function formCause(form: KeptForm, crm: string, seconds: number): string {
   return `${crm} didn’t answer (${String(seconds)} s)`;
 }
 
-/** What became of a resend, in the corner: "Both forms delivered to Vitec." */
+/** What became of a resend, in the corner: "Both forms delivered to <CRM>." */
 function resentNote(results: Resent[], crm: string): { text: string; icon?: 'warn' } {
   const n = results.length;
   const delivered = results.filter((one) => one.outcome === 'delivered').length;
@@ -972,13 +827,12 @@ function DownBanner({ inbox, now }: { inbox: Inbox; now: Date }) {
   );
 }
 
-function Empty({ crms }: { crms: string[] }) {
-  const connection = crms.length === 1 ? `${crms[0] ?? ''} connection` : 'CRM connection';
+function Empty() {
   return (
     <section className="k-empty">
       <CircleCheckIcon size={50} strokeWidth={1.3} />
       <h2>Nothing needs you</h2>
-      <p>Every brokerage, {connection} and website is working.</p>
+      <p>Every tenant, CRM connection and website is working.</p>
     </section>
   );
 }
@@ -1038,7 +892,6 @@ function InboxView({ inbox, onRead }: { inbox: Inbox; onRead: () => void }) {
   };
   const now = new Date(inbox.now);
   const down = !inbox.worker.ok;
-  const maintenance = inbox.maintenance.on && !down;
   const count = inbox.cards.length;
   const close = () => setOpen(null);
   const closeAndRead = () => {
@@ -1048,15 +901,14 @@ function InboxView({ inbox, onRead }: { inbox: Inbox; onRead: () => void }) {
   return (
     <>
       {down && <DownBanner inbox={inbox} now={now} />}
-      {maintenance && <MaintenanceBanner inbox={inbox} now={now} onDone={onRead} />}
       <h1 className="k-page-title">Inbox</h1>
       <p className="k-page-sub">
         {count === 0
           ? 'Nothing needs you right now'
           : counted(count, 'thing needs you', 'things need you')}
       </p>
-      {!down && !maintenance && <Strip onOpen={setOpen} />}
-      {count === 0 && !down && <Empty crms={inbox.crms} />}
+      {!down && <Strip />}
+      {count === 0 && !down && <Empty />}
       {count > 0 && !down && (
         <div className="k-section">
           <h2>Needs you</h2>
@@ -1092,20 +944,8 @@ function InboxView({ inbox, onRead }: { inbox: Inbox; onRead: () => void }) {
       {open?.kind === 'resend' && (
         <ResendWindow card={open.card} now={now} onClose={close} onDone={closeAndRead} />
       )}
-      {open?.kind === 'login' && (
-        <LoginWindow
-          crm={open.crm}
-          connection={open.connection}
-          why={`${open.card.crm} refused ${loginNamed(open.crm.provider, open.connection.login) ?? 'the login'}${open.card.since ? ` at ${when(open.card.since, now)}` : ''}.`}
-          onClose={close}
-          onDone={closeAndRead}
-        />
-      )}
       {open?.kind === 'bell' && (
         <BellSecretWindow card={open.card} now={now} onClose={close} onDone={closeAndRead} />
-      )}
-      {open?.kind === 'maintenance' && (
-        <MaintenanceWindow inbox={inbox} onClose={close} onDone={closeAndRead} />
       )}
     </>
   );
@@ -1121,7 +961,7 @@ export function InboxPage() {
 }
 
 function InboxReader() {
-  const { setCount, away } = useShell();
+  const { setCount, setMaintenance, away } = useShell();
   const [inbox, setInbox] = useState<Inbox | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
 
@@ -1130,13 +970,14 @@ function InboxReader() {
       (next) => {
         setInbox(next);
         setCount(next.cards.length);
+        setMaintenance(next.maintenance.on);
         setFailed(null);
       },
       (error: unknown) => {
         if (!away(error)) setFailed(failureWords(error));
       },
     );
-  }, [away, setCount]);
+  }, [away, setCount, setMaintenance]);
 
   useEffect(() => {
     read();

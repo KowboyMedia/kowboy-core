@@ -1,13 +1,13 @@
-// A new brokerage in four steps (design B, images 06 to 10): its name, its CRM login, its
-// website, and a check that shows what is ready and what the website still needs. Each step has
-// its own address, so a reload keeps the step.
+// A new tenant in four steps (design B, images 06 to 10, as the tenant mockups 17 to 20 change
+// them): its name, its CRM (which one, then that CRM's own screen), its website, and a check that
+// shows what is ready and what the website still needs. Each step has its own address, so a reload
+// keeps the step.
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { api, Refused, type Brokerage, type Crm } from './api';
 import { Shell, useShell } from './Shell';
 import { failureWords } from './failure';
 import { ArrowRightIcon, CheckIcon, CircleCheckIcon, LoaderIcon } from './icons';
-import { loginLine } from './crm-words';
 import { when } from './time';
 import { loadedLine } from './records';
 import {
@@ -18,20 +18,15 @@ import {
   WebsiteFields,
   websiteReady,
 } from './websites';
-import {
-  ConnectFields,
-  connect,
-  connectReady,
-  loginRefusal,
-  owning,
-  shortName,
-  useConnectForm,
-} from './connect';
+import { CrmChoice, CrmFields, owning, saveCrm, shortName, TestNote, useCrmForm } from './connect';
+import { idOf } from './tenant';
 
 const EVERY_MS = 4_000;
 
-function StepBar({ at, crm }: { at: 1 | 2 | 3 | 4; crm: string }) {
-  const steps = ['Brokerage', crm, 'Website', 'Check'];
+const STEPS = ['Tenant', 'CRM', 'Website', 'Check'];
+
+function StepBar({ at }: { at: 1 | 2 | 3 | 4 }) {
+  const steps = STEPS;
   return (
     <ol className="k-steps">
       {steps.map((label, index) => {
@@ -53,28 +48,29 @@ function StepBar({ at, crm }: { at: 1 | 2 | 3 | 4; crm: string }) {
 
 function Wizard({
   at,
-  crm,
+  parts = false,
   children,
   footer,
 }: {
   at: 1 | 2 | 3 | 4;
-  crm: string;
+  /** The body is in parts, each under a line, as the CRM's screen is. */
+  parts?: boolean;
   children: ReactNode;
   footer: ReactNode;
 }) {
   return (
     <main className="k-page">
-      <h1 className="k-page-title k-page-title-large">New brokerage</h1>
-      <StepBar at={at} crm={crm} />
+      <h1 className="k-page-title k-page-title-large">New tenant</h1>
+      <StepBar at={at} />
       <div className="k-wizard">
-        <div className="k-wizard-body">{children}</div>
+        <div className={`k-wizard-body${parts ? ' k-wizard-parts' : ''}`}>{children}</div>
         <div className="k-wizard-foot">{footer}</div>
       </div>
     </main>
   );
 }
 
-/** The brokerage a step belongs to, read again every few seconds when the step asks for it. */
+/** The tenant a step belongs to, read again every few seconds when the step asks for it. */
 function useBrokerage(id: number | null, every: number | null = null) {
   const { away } = useShell();
   const [page, setPage] = useState<Brokerage | null>(null);
@@ -97,32 +93,11 @@ function useBrokerage(id: number | null, every: number | null = null) {
   return { page, failed };
 }
 
-/** The CRM a new brokerage connects to: the one the address names, else the first Core has. */
-function useCrmName(): string {
-  const [name, setName] = useState('CRM');
-  const [params] = useSearchParams();
-  const provider = params.get('provider');
-  useEffect(() => {
-    api.crms().then(
-      ({ crms }) => {
-        const crm = crms.find((one) => one.provider === provider) ?? crms[0];
-        if (crm) setName(crm.name);
-      },
-      () => undefined,
-    );
-  }, [provider]);
-  return name;
-}
-
-const idOf = (value: string | undefined): number | null =>
-  value && /^\d+$/.test(value) ? Number(value) : null;
-
-// ---- 1. The brokerage's name ------------------------------------------------------------------------
+// ---- 1. The tenant's name ---------------------------------------------------------------------------
 
 function NameStep({ id }: { id: number | null }) {
   const navigate = useNavigate();
   const { away } = useShell();
-  const crm = useCrmName();
   const { page, failed } = useBrokerage(id);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -148,7 +123,6 @@ function NameStep({ id }: { id: number | null }) {
   return (
     <Wizard
       at={1}
-      crm={crm}
       footer={
         <>
           <button
@@ -177,18 +151,18 @@ function NameStep({ id }: { id: number | null }) {
         }}
       >
         <div className="k-field k-field-first">
-          <label className="k-label" htmlFor="brokerage-name">
-            Brokerage name <span className="k-required">*</span>
+          <label className="k-label" htmlFor="tenant-name">
+            Tenant name <span className="k-required">*</span>
           </label>
           <input
-            id="brokerage-name"
+            id="tenant-name"
             className="k-input"
             autoFocus={!made}
             disabled={made}
             value={made ? (page?.name ?? '') : name}
             onChange={(event) => setName(event.target.value)}
           />
-          <p className="k-help">Core creates the brokerage and its tenant token.</p>
+          <p className="k-help">Core creates the tenant and its tenant token.</p>
         </div>
       </form>
       {made && failed && !page && <p className="k-error">{failed} Reload the page to try again.</p>}
@@ -197,57 +171,33 @@ function NameStep({ id }: { id: number | null }) {
   );
 }
 
-// ---- 2. The CRM's login -----------------------------------------------------------------------------
+// ---- 2. The CRM: which one, then its own screen ---------------------------------------------------
 
 function CrmStep({ id }: { id: number }) {
-  const navigate = useNavigate();
   const [params] = useSearchParams();
   const { page, failed } = useBrokerage(id);
-  const crm = page
-    ? (page.crms.find((one) => one.provider === params.get('provider')) ?? page.crms[0] ?? null)
-    : null;
+  const provider = params.get('provider');
+  const crm = page?.crms.find((one) => one.provider === provider) ?? null;
   if (page && crm) return <CrmForm key={crm.provider} id={id} page={page} crm={crm} />;
-  return (
-    <Wizard
-      at={2}
-      crm="CRM"
-      footer={
-        <button
-          type="button"
-          className="k-button k-button-link"
-          onClick={() => navigate(`/new/${String(id)}`)}
-        >
-          Back
-        </button>
-      }
-    >
-      {failed && <p className="k-error">{failed}</p>}
-      {page && <p className="k-quiet k-quiet-tight">Core has no CRM to connect to.</p>}
-    </Wizard>
-  );
+  return <CrmChoiceStep id={id} page={page} failed={failed} />;
 }
 
-function CrmForm({ id, page, crm }: { id: number; page: Brokerage; crm: Crm }) {
+/** "Connect Fyrbåk’s CRM" (image 18): which CRM, the same question however many Core can read. */
+function CrmChoiceStep({
+  id,
+  page,
+  failed,
+}: {
+  id: number;
+  page: Brokerage | null;
+  failed: string | null;
+}) {
   const navigate = useNavigate();
-  const { away } = useShell();
-  const short = shortName(page.name);
-  const form = useConnectForm(crm);
-  const save = async () => {
-    form.setBusy(true);
-    form.setError(null);
-    try {
-      const connection = await connect(id, crm, form.login);
-      navigate(`/new/${String(id)}/website?connection=${encodeURIComponent(connection.id)}`);
-    } catch (error) {
-      if (away(error)) return;
-      form.setError(loginRefusal(error, crm.name));
-      form.setBusy(false);
-    }
-  };
+  const [chosen, setChosen] = useState<string | null>(null);
+  const picked = chosen ?? page?.crms[0]?.provider ?? null;
   return (
     <Wizard
       at={2}
-      crm={crm.name}
       footer={
         <>
           <button
@@ -257,13 +207,61 @@ function CrmForm({ id, page, crm }: { id: number; page: Brokerage; crm: Crm }) {
           >
             Back
           </button>
-          <span className="k-foot-note">
-            Core tests the login with {crm.name} and saves it only if {crm.name} accepts it.
-          </span>
+          <button
+            type="button"
+            className="k-button k-button-primary k-end"
+            disabled={picked === null}
+            onClick={() =>
+              picked && navigate(`/new/${String(id)}/crm?provider=${encodeURIComponent(picked)}`)
+            }
+          >
+            <ArrowRightIcon size={18} />
+            Continue
+          </button>
+        </>
+      }
+    >
+      {page && <h2 className="k-step-title">Connect {owning(shortName(page.name))} CRM</h2>}
+      {failed && !page && <p className="k-error">{failed} Reload the page to try again.</p>}
+      {page && page.crms.length === 0 && (
+        <p className="k-quiet k-quiet-tight">Core has no CRM to connect to.</p>
+      )}
+      {page && page.crms.length > 0 && (
+        <CrmChoice crms={page.crms} chosen={picked} onChoose={setChosen} />
+      )}
+    </Wizard>
+  );
+}
+
+/** "Connect Fyrbåk’s <CRM>" (image 19): the CRM's own screen, as Add CRM shows it. */
+function CrmForm({ id, page, crm }: { id: number; page: Brokerage; crm: Crm }) {
+  const navigate = useNavigate();
+  const { away } = useShell();
+  const form = useCrmForm(crm);
+  const save = async () => {
+    const saved = await saveCrm(form, crm, { tenantId: id }, away);
+    if (saved) {
+      navigate(`/new/${String(id)}/website?connection=${encodeURIComponent(saved.id)}`);
+    }
+  };
+  return (
+    <Wizard
+      at={2}
+      parts
+      footer={
+        <>
+          <button
+            type="button"
+            className="k-button k-button-link"
+            onClick={() => navigate(`/new/${String(id)}/crm`)}
+          >
+            Back
+          </button>
+          <TestNote crm={crm} />
           <button
             type="button"
             className="k-button k-button-primary"
-            disabled={form.busy || !connectReady(crm, form)}
+            disabled={form.busy || !form.ready}
             onClick={() => void save()}
           >
             {form.busy ? <LoaderIcon className="k-spin" size={18} /> : <ArrowRightIcon size={18} />}
@@ -272,8 +270,12 @@ function CrmForm({ id, page, crm }: { id: number; page: Brokerage; crm: Crm }) {
         </>
       }
     >
-      <ConnectFields crm={crm} form={form} title={`Connect ${owning(short)} ${crm.name}`} />
-      {form.error && <p className="k-error">{form.error}</p>}
+      <CrmFields
+        crm={crm}
+        form={form}
+        editing={false}
+        title={`Connect ${owning(shortName(page.name))} ${crm.name}`}
+      />
     </Wizard>
   );
 }
@@ -284,7 +286,6 @@ function WebsiteStep({ id }: { id: number }) {
   const navigate = useNavigate();
   const { away } = useShell();
   const [params] = useSearchParams();
-  const crm = useCrmName();
   const { page, failed } = useBrokerage(id);
   const [draft, setDraft] = useState(newWebsite);
   const [busy, setBusy] = useState(false);
@@ -321,7 +322,6 @@ function WebsiteStep({ id }: { id: number }) {
   return (
     <Wizard
       at={3}
-      crm={crm}
       footer={
         <>
           <button type="button" className="k-button k-button-link" onClick={() => check()}>
@@ -378,7 +378,6 @@ function CheckStep({ id }: { id: number }) {
   return (
     <Wizard
       at={4}
-      crm={crm?.name ?? 'CRM'}
       footer={
         <button
           type="button"
@@ -394,11 +393,9 @@ function CheckStep({ id }: { id: number }) {
       {failed && !page && <p className="k-error">{failed} Reload the page to try again.</p>}
       {page && (
         <ul className="k-checks">
-          <Done title="Brokerage created">Tenant token ready.</Done>
+          <Done title="Tenant created">Tenant token ready.</Done>
           {connection && crm && (
-            <Done title={`${crm.name} login accepted and saved`}>
-              {loginLine(crm.name, crm.provider, connection.login)}
-            </Done>
+            <Done title={`${crm.name} login accepted and saved`}>{connection.describe}</Done>
           )}
           {connection && connection.offices.length > 0 && (
             <Done title={`Offices on the website: ${connection.offices.join(', ')}`} />
@@ -432,7 +429,7 @@ function CheckStep({ id }: { id: number }) {
 
 // ---- The addresses ----------------------------------------------------------------------------------
 
-/** `/admin/new` and `/admin/new/<id>`: the brokerage's name. */
+/** `/admin/new` and `/admin/new/<id>`: the tenant's name. */
 export function NewBrokeragePage() {
   const { id } = useParams();
   return (
@@ -450,7 +447,7 @@ export function NewBrokerageStep({ step }: { step: 'crm' | 'website' | 'check' }
     <Shell tab={null}>
       {number === null ? (
         <main className="k-page">
-          <p className="k-quiet">There is no brokerage at this address.</p>
+          <p className="k-quiet">There is no tenant at this address.</p>
         </main>
       ) : step === 'crm' ? (
         <CrmStep id={number} />

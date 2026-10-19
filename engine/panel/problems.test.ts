@@ -250,13 +250,13 @@ describe('a problem stays open until it is solved', () => {
     let read = await inbox();
     expect(read.cards[0]).toMatchObject({ kind: 'login', connectionId: 'somecrm-1' });
 
-    const refused = await call('/connections/somecrm-1/login', {
+    const refused = await call('/connections/somecrm-1/edit', {
       login: { account: 'acme', password: 'wrong' },
     });
     expect(refused.status).toBe(422);
     expect((await inbox()).cards).toHaveLength(1);
 
-    const saved = await call('/connections/somecrm-1/login', {
+    const saved = await call('/connections/somecrm-1/edit', {
       login: { account: 'acme', password: GOOD },
     });
     expect(saved.status).toBe(200);
@@ -271,11 +271,11 @@ describe('a problem stays open until it is solved', () => {
   });
 
   it('solves a refusal no Inbox has read yet, and a new login without a refusal fixes nothing', async () => {
-    await call('/connections/somecrm-1/login', { login: { account: 'acme', password: GOOD } });
+    await call('/connections/somecrm-1/edit', { login: { account: 'acme', password: GOOD } });
     expect((await inbox()).fixed).toEqual([]);
 
     await logEvent({ type: 'login.refused', connectionId: 'somecrm-1', fields: { detail: 'No.' } });
-    await call('/connections/somecrm-1/login', { login: { account: 'acme', password: GOOD } });
+    await call('/connections/somecrm-1/edit', { login: { account: 'acme', password: GOOD } });
     const read = await inbox();
     expect(read.cards).toEqual([]);
     expect(read.fixed).toHaveLength(1);

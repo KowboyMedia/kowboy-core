@@ -677,7 +677,7 @@ const thingsOf = (check: HealthResult): AdminThing[] =>
   (check.names ?? []).filter((thing): thing is AdminThing => typeof thing !== 'string');
 
 /** The names of the offices and records the checks name: an office's name, a record's street or name. */
-async function recordNames(things: AdminThing[]): Promise<Map<string, string>> {
+export async function recordNames(things: AdminThing[]): Promise<Map<string, string>> {
   const wanted = things.flatMap((thing) =>
     thing.office
       ? [{ connection: thing.connection, datatype: 'office', id: thing.office }]

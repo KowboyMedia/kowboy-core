@@ -185,14 +185,6 @@ export const EyeOffIcon = icon(
   </>,
 );
 
-export const DotsIcon = icon(
-  <>
-    <path d="M5 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
-    <path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
-    <path d="M19 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
-  </>,
-);
-
 export const TrashIcon = icon(
   <>
     <path d="M4 7l16 0" />
@@ -229,3 +221,20 @@ export const PlugIcon = icon(
 );
 
 export const LoaderIcon = icon(<path d="M12 3a9 9 0 1 0 9 9" />);
+
+export const AlertCircleIcon = icon(
+  <>
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+    <path d="M12 8v4" />
+    <path d="M12 16h.01" />
+  </>,
+);
+
+export const ActivityIcon = icon(<path d="M3 12h4l3 8l4 -16l3 8h4" />);
+
+export const PauseIcon = icon(
+  <>
+    <path d="M6 5m0 1a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1z" />
+    <path d="M14 5m0 1a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1z" />
+  </>,
+);

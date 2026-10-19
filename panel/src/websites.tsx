@@ -1,6 +1,7 @@
-// A website's pieces that the new-brokerage steps and the brokerage page share (design B, images
-// 08, 09, 11, 24, 28 and 29): its platform's words, the fields that add one, and the settings a
-// person copies into it.
+// A website's pieces that the new-tenant steps and the website's own screen share (design B, images
+// 08, 09, 11, 24, 28 and 29, and the tenant mockups, images 05 and 06): its platform's words, the
+// fields that add or edit one, and the settings a person copies into it.
+import type { ReactNode } from 'react';
 import type { Website } from './api';
 import { ValueField } from './ui';
 
@@ -100,6 +101,31 @@ export const newWebsite = (): WebsiteDraft => ({
   labelTyped: false,
 });
 
+/**
+ * A saved website's fields: Core keeps its bell address and label, so its address and platform
+ * are read from them. A field that is what the address would fill in keeps following it.
+ */
+export function savedWebsite(website: Website): WebsiteDraft {
+  const platform =
+    platformOf(website) ?? (/\.supabase\.co\//.test(website.bellUrl) ? 'lovable' : 'wordpress');
+  let address = `https://${website.label}`;
+  if (platform === 'wordpress') {
+    try {
+      address = new URL(website.bellUrl).origin;
+    } catch {
+      // A bell address that is not one keeps the label's.
+    }
+  }
+  return {
+    platform,
+    address,
+    bellUrl: website.bellUrl,
+    label: website.label,
+    bellTyped: bellFor(address, platform) !== website.bellUrl,
+    labelTyped: labelFor(address) !== website.label,
+  };
+}
+
 /** The address, the bell address and the label are all there. */
 export const websiteReady = (draft: WebsiteDraft): boolean =>
   labelFor(draft.address) !== '' && draft.bellUrl.trim() !== '' && draft.label.trim() !== '';
@@ -116,9 +142,12 @@ function filled(draft: WebsiteDraft): WebsiteDraft {
 export function WebsiteFields({
   draft,
   onChange,
+  adding = true,
 }: {
   draft: WebsiteDraft;
   onChange: (draft: WebsiteDraft) => void;
+  /** A new website: Core makes its bell secret next. */
+  adding?: boolean;
 }) {
   const set = (change: Partial<WebsiteDraft>) => onChange(filled({ ...draft, ...change }));
   return (
@@ -196,10 +225,12 @@ export function WebsiteFields({
           </div>
         </div>
       </div>
-      <p className="k-help k-help-alone">
-        Core makes the website’s bell secret. Next you copy it, with the other settings, into the
-        website.
-      </p>
+      {adding && (
+        <p className="k-help k-help-alone">
+          Core makes the website’s bell secret. Next you copy it, with the other settings, into the
+          website.
+        </p>
+      )}
     </>
   );
 }
@@ -210,19 +241,26 @@ export function SettingsToPaste({
   token,
   bellSecret,
   platform,
+  live = true,
+  bellAction,
 }: {
   coreUrl: string;
   token: string | null;
   bellSecret: string;
   platform: Platform | null;
+  /** The page updates by itself while it waits for the website. */
+  live?: boolean;
+  /** "New bell secret…" beside the bell secret's help, and what it does under them. */
+  bellAction?: { button: ReactNode; help: string };
 }) {
   const where = platform ? WORDS[platform].settings : null;
+  const updates = live ? ' This page updates by itself.' : '';
   return (
     <>
       <p className="k-step-text">
         {platform === 'lovable'
-          ? `Enter these in ${where ?? ''} as CORE_URL, CORE_TENANT_TOKEN and CORE_BELL_SECRET. Copy gives the whole value. This page updates by itself.`
-          : `Enter these in ${where ?? 'the website’s settings'} and save. Copy gives the whole value. This page updates by itself.`}
+          ? `Enter these in ${where ?? ''} as CORE_URL, CORE_TENANT_TOKEN and CORE_BELL_SECRET. Copy gives the whole value.${updates}`
+          : `Enter these in ${where ?? 'the website’s settings'} and save. Copy gives the whole value.${updates}`}
       </p>
       <div className="k-paste">
         <span className="k-label">Core URL</span>
@@ -234,20 +272,24 @@ export function SettingsToPaste({
           <ValueField value={token} secret />
         ) : (
           <p className="k-help">
-            Core keeps no copy of this brokerage’s token. Replace it on the brokerage’s page to get
-            one you can copy.
+            Core keeps no copy of this tenant’s token. Replace it on the tenant’s page to get one
+            you can copy.
           </p>
         )}
         <p className="k-help">
-          The secret key all of this brokerage’s websites use to fetch data and send forms.
+          The secret key all of this tenant’s websites use to fetch data and send forms.
         </p>
       </div>
       <div className="k-paste">
         <span className="k-label">Bell secret</span>
         <ValueField value={bellSecret} secret />
-        <p className="k-help">
-          This website’s own secret: it checks that change notices come from Core.
-        </p>
+        <div className={bellAction ? 'k-help-line' : undefined}>
+          <p className="k-help">
+            This website’s own secret: it checks that change notices come from Core.
+          </p>
+          {bellAction?.button}
+        </div>
+        {bellAction && <p className="k-help">{bellAction.help}</p>}
       </div>
     </>
   );

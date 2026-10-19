@@ -1,160 +1,239 @@
-// Connecting a brokerage to a CRM, and entering a new login (design B, images 07 and 15): the
-// connection's name and the CRM's login, which Core tests with the CRM and saves only if the CRM
-// accepts it.
+// The CRM screen (the tenant mockups, images 07 to 10, 18 and 19): which CRM, then that CRM's own
+// fields as its code declares them, and Core's own forms test mode. One screen adds a connection and
+// edits one: on the tenant's page, in the new-tenant steps, and from the Inbox's "Enter new login".
+// Core names a new connection itself, so the screen has no name field. Every word about the CRM is
+// its code's, or its name.
 import { useState, type ReactNode } from 'react';
 import { api, Refused, type ConnectionView, type Crm } from './api';
-import { complete, LoginFields, startingLogin, type Login } from './LoginForm';
-import { fieldWords, wordsFor } from './crm-words';
+import { complete, LoginFields, secretTyped, startingLogin, type Login } from './LoginForm';
 import { listed } from './time';
 import { failureWords } from './failure';
-import { Modal, useNote } from './ui';
-import { useShell } from './Shell';
-import { LoaderIcon, PlugIcon } from './icons';
+import { Modal, Switch } from './ui';
+import { AlertCircleIcon, ArrowRightIcon } from './icons';
 
-/** A brokerage's short name, as B says it: the first word of "Fyrbåk Fastigheter". */
+/** A tenant's short name, as B says it: the first word of "Fyrbåk Fastigheter". */
 export const shortName = (name: string): string => name.trim().split(/\s+/)[0] ?? name;
 
 /** "Fyrbåk’s", "Sjöbris’". */
 export const owning = (name: string): string => (name.endsWith('s') ? `${name}’` : `${name}’s`);
 
+/** Why Core saved nothing: its sentence, and the CRM's code's own answer when it gave one. */
+export type Refusal = { text: string; answer: string | null };
+
 /**
- * Why Core did not save a login, for the person who typed it: in the words of the CRM's code when
- * Core gave them, which say whether the CRM refused the login, didn't answer or holds nothing
- * behind it.
+ * Why Core did not save a login, for the person who typed it (image 10): Core's sentence, and under
+ * it the CRM's code's own words when Core gave them, which say why the CRM refused the login,
+ * didn't answer or holds nothing behind it.
  */
-export function loginRefusal(error: unknown, crm: string): string {
+export function loginRefusal(error: unknown, crm: string): Refusal {
   if (error instanceof Refused) {
-    if (error.said && (error.status === 422 || error.status === 502)) {
-      return `Nothing is saved. ${error.said}`;
-    }
     if (error.status === 422) {
-      return `${crm} refused this login, so nothing is saved. Check the fields and try again.`;
+      return {
+        text: `${crm} refused this login, so nothing is saved. Check the fields and try again.`,
+        answer: error.said ? `${crm}’s answer: ${error.said}` : null,
+      };
     }
     if (error.status === 502) {
-      return `${crm} didn’t answer, so nothing is saved. Try again in a moment.`;
+      return {
+        text: error.said
+          ? `Nothing is saved. ${error.said}`
+          : `${crm} didn’t answer, so nothing is saved. Try again in a moment.`,
+        answer: null,
+      };
     }
-    if (error.status === 400) return 'Fill in every field.';
+    if (error.status === 400) return { text: 'Fill in every field.', answer: null };
   }
-  return failureWords(error);
+  return { text: failureWords(error), answer: null };
 }
 
-/**
- * What a saved login keeps when a person enters a new one: every field that is not secret, as
- * saved (decision D5). A secret field is never sent to the page, so it is entered again.
- */
-export function keptLogin(crm: Crm, connection: ConnectionView): Login {
-  return Object.fromEntries(
-    crm.fields
-      .filter((field) => !field.secret && connection.login[field.key] !== undefined)
-      .map((field) => [field.key, connection.login[field.key] ?? '']),
+/** The CRM screen's state: the login, forms test mode, whether it is being saved, and why not. */
+export function useCrmForm(crm: Crm, connection?: ConnectionView) {
+  const [login, setLogin] = useState<Login>(() => startingLogin(crm, connection?.login ?? {}));
+  const [formsTestMode, setFormsTestMode] = useState(connection?.formsTestMode ?? false);
+  const [busy, setBusy] = useState(false);
+  const [refusal, setRefusal] = useState<Refusal | null>(null);
+  const saved = connection?.login ?? {};
+  const changed = crm.fields.some(
+    (field) => !field.secret && (login[field.key] ?? '') !== (saved[field.key] ?? ''),
   );
+  return {
+    login,
+    setLogin,
+    formsTestMode,
+    setFormsTestMode,
+    busy,
+    setBusy,
+    refusal,
+    setRefusal,
+    /** Every field the CRM requires is there; a saved secret may stay empty. */
+    ready: complete(crm, login, connection !== undefined),
+    /** Saving asks the CRM first: a new connection, a login field changed, a secret typed. */
+    tests: connection === undefined || changed || secretTyped(crm, login),
+  };
 }
 
-/** The secret fields of a login in a sentence: "password". */
-export const secretWords = (crm: Crm): { words: string; many: boolean } => {
+export type CrmForm = ReturnType<typeof useCrmForm>;
+
+/** "password", or "password or key", from the secret fields the CRM's code declares. */
+function secretWords(crm: Crm): { words: string; many: boolean } {
   const secret = crm.fields.filter((field) => field.secret);
   return {
     words: listed(
-      secret.map((field) => fieldWords(crm, field).label.toLowerCase()),
+      secret.map((field) => field.label.toLowerCase()),
       'or',
     ),
     many: secret.length > 1,
   };
-};
-
-/** The state of a login form: the login, whether it is being tested, and why not. */
-export function useConnectForm(crm: Crm | null, kept: Login = {}) {
-  const [login, setLogin] = useState<Login>(() => (crm ? startingLogin(crm, kept) : {}));
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  return { login, setLogin, busy, setBusy, error, setError };
 }
 
-/**
- * Test a new connection's login with the CRM and save it on a yes; answers its id and the name
- * Core gave it (the brokerage's name and the CRM's).
- */
-export const connect = (
-  tenantId: number,
-  crm: Crm,
-  login: Login,
-): Promise<{ id: string; name: string }> =>
-  api.addConnection(tenantId, { provider: crm.provider, login });
+/** Core saved nothing (image 10): its sentence, and under it the CRM's answer. */
+export function RefusalBox({ refusal }: { refusal: Refusal }) {
+  return (
+    <div className="k-refusal" role="alert">
+      <AlertCircleIcon size={18} />
+      <div>
+        <p className="k-refusal-text">{refusal.text}</p>
+        {refusal.answer && <p className="k-refusal-answer">{refusal.answer}</p>}
+      </div>
+    </div>
+  );
+}
 
-export function ConnectFields({
+/** The CRM's fields, then forms test mode, each part under a line, then why nothing was saved. */
+export function CrmFields({
   crm,
   form,
+  editing,
   title,
 }: {
   crm: Crm;
-  form: ReturnType<typeof useConnectForm>;
+  form: CrmForm;
+  /** A saved connection: its secrets are not shown, and left empty they stay. */
+  editing: boolean;
   title?: ReactNode;
 }) {
+  const secret = secretWords(crm);
   return (
     <>
-      {title && <h2 className="k-step-title">{title}</h2>}
-      <LoginFields crm={crm} login={form.login} onChange={form.setLogin} />
+      <div className="k-part">
+        {title && <h2 className="k-step-title">{title}</h2>}
+        <LoginFields crm={crm} login={form.login} onChange={form.setLogin} />
+        {editing && secret.words && (
+          <p className="k-help">
+            Core never shows a saved {secret.words}, so enter {secret.many ? 'them' : 'it'} again to
+            change the login. Core tests the login with {crm.name} and saves it only if {crm.name}{' '}
+            accepts it. Left empty, the saved login stays.
+          </p>
+        )}
+      </div>
+      <div className="k-part">
+        <Switch on={form.formsTestMode} label="Forms test mode" onChange={form.setFormsTestMode} />
+        <p className="k-help">
+          On: forms from the websites stop in Core and never reach {crm.name}; the website is told
+          “not sent”. Nothing is sent later. For a website that is still being built.
+        </p>
+        {form.refusal && <RefusalBox refusal={form.refusal} />}
+      </div>
     </>
   );
 }
 
-/** Every field the CRM requires is there. */
-export const connectReady = (crm: Crm, form: ReturnType<typeof useConnectForm>): boolean =>
-  complete(crm, form.login);
+/** B's sentence beside a button that tests the login first. */
+export function TestNote({ crm }: { crm: Crm }) {
+  return (
+    <span className="k-foot-note">
+      Core tests the login with {crm.name} and saves it only if {crm.name} accepts it.
+    </span>
+  );
+}
 
 /**
- * A new login for a connection (image 15), tested before it is saved, then its offices checked.
- * Opened from the brokerage's page ("Change login") and from the Inbox ("Enter new login"), which
- * first says why.
+ * Save a CRM screen: a new connection after the CRM accepts its login, or a saved one's changes.
+ * Answers the connection, by its id and name, and whether the login was tested, or null when
+ * nothing was saved, with why on the form.
  */
-export function LoginWindow({
-  crm,
-  connection,
-  why,
-  onClose,
-  onDone,
-}: {
-  crm: Crm;
-  connection: ConnectionView;
-  /** The sentence before the others: "Vitec refused customer id M14582 at 06:02." */
-  why?: string;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const { away } = useShell();
-  const note = useNote();
-  const form = useConnectForm(crm, keptLogin(crm, connection));
-  const secret = secretWords(crm);
-  const save = async () => {
-    form.setBusy(true);
-    form.setError(null);
-    try {
-      await api.changeLogin(connection.id, form.login);
-    } catch (error) {
-      if (away(error)) return;
-      form.setError(loginRefusal(error, crm.name));
-      form.setBusy(false);
-      return;
+export async function saveCrm(
+  form: CrmForm,
+  crm: Crm,
+  target: { tenantId: number } | { connection: ConnectionView },
+  away: (error: unknown) => boolean,
+): Promise<{ id: string; name: string; tested: boolean } | null> {
+  form.setBusy(true);
+  form.setRefusal(null);
+  try {
+    if ('tenantId' in target) {
+      const added = await api.addConnection(target.tenantId, {
+        provider: crm.provider,
+        login: form.login,
+        formsTestMode: form.formsTestMode,
+      });
+      return { id: added.id, name: added.name, tested: true };
     }
-    const check = wordsFor(crm.provider).officeCheck;
-    let checking = false;
-    if (check && connection.actions.includes(check)) {
-      checking = await api.act(connection.id, check).then(
-        () => true,
-        () => false,
-      );
-    }
-    note({
-      text: `${crm.name} accepted the new login for “${connection.name}”. It’s saved${checking ? ', and Core is checking its offices' : ''}.`,
+    const { tested } = await api.editConnection(target.connection.id, {
+      login: form.login,
+      formsTestMode: form.formsTestMode,
     });
-    onDone();
-  };
+    return { id: target.connection.id, name: target.connection.name, tested };
+  } catch (error) {
+    if (!away(error)) {
+      form.setRefusal(loginRefusal(error, crm.name));
+      form.setBusy(false);
+    }
+    return null;
+  }
+}
+
+/** "Which CRM?" (images 07 and 18): every CRM Core can read, the same question however many. */
+export function CrmChoice({
+  crms,
+  chosen,
+  onChoose,
+}: {
+  crms: Crm[];
+  chosen: string | null;
+  onChoose: (provider: string) => void;
+}) {
+  return (
+    <div className="k-field k-field-first">
+      <span className="k-label" id="crm-choice">
+        CRM
+      </span>
+      <div className="k-choice" role="radiogroup" aria-labelledby="crm-choice">
+        {crms.map((crm) => (
+          <button
+            key={crm.provider}
+            type="button"
+            role="radio"
+            aria-checked={chosen === crm.provider}
+            className={`k-choice-option${chosen === crm.provider ? ' k-choice-on' : ''}`}
+            onClick={() => onChoose(crm.provider)}
+          >
+            {crm.name}
+          </button>
+        ))}
+      </div>
+      <p className="k-help">The CRMs Core can read. Next come the chosen CRM’s own fields.</p>
+    </div>
+  );
+}
+
+/** "Add CRM · {tenant}" (image 07): which CRM, then on to its screen. */
+export function AddCrmWindow({
+  tenant,
+  crms,
+  onClose,
+  onChosen,
+}: {
+  tenant: string;
+  crms: Crm[];
+  onClose: () => void;
+  onChosen: (provider: string) => void;
+}) {
+  const [chosen, setChosen] = useState<string | null>(crms[0]?.provider ?? null);
   return (
     <Modal
-      title={`Enter new login · ${connection.name}`}
+      title={`Add CRM · ${tenant}`}
       onClose={onClose}
-      tone={why ? 'danger' : undefined}
-      wide
       footer={
         <>
           <button type="button" className="k-button k-button-link" onClick={onClose}>
@@ -162,24 +241,17 @@ export function LoginWindow({
           </button>
           <button
             type="button"
-            className="k-button k-button-primary"
-            disabled={form.busy || !complete(crm, form.login)}
-            onClick={() => void save()}
+            className="k-button k-button-primary k-end"
+            disabled={chosen === null}
+            onClick={() => chosen && onChosen(chosen)}
           >
-            {form.busy ? <LoaderIcon className="k-spin" size={18} /> : <PlugIcon size={18} />}
-            Test and save
+            <ArrowRightIcon size={18} />
+            Continue
           </button>
         </>
       }
     >
-      <p className="k-modal-text">
-        {why && `${why} `}
-        {secret.words &&
-          `Core never shows a saved ${secret.words}, so enter ${secret.many ? 'them' : 'it'} again. `}
-        Core tests the login with {crm.name} and saves it only if {crm.name} accepts it.
-      </p>
-      <LoginFields crm={crm} login={form.login} onChange={form.setLogin} />
-      {form.error && <p className="k-error">{form.error}</p>}
+      <CrmChoice crms={crms} chosen={chosen} onChoose={setChosen} />
     </Modal>
   );
 }

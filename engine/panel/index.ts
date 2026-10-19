@@ -5,6 +5,7 @@ import type { Config } from '../config.js';
 import { report } from '../errors.js';
 import { sendMail } from '../mail.js';
 import { MAINTENANCE, writeSetting } from '../storage/settings.js';
+import { tenantById } from '../storage/connections.js';
 import type { Request, Response, RouteTable } from '../http/server.js';
 import {
   clearedCookie,
@@ -27,19 +28,22 @@ import {
   brokerageList,
   createBrokerage,
   crms,
-  officesOf,
+  editWebsite,
+  newBellSecret,
   removeWebsite,
+  renameBrokerage,
   replaceToken,
   switchBrokerage,
 } from './brokerages.js';
 import {
   addConnection,
-  changeLogin,
+  editConnection,
   removeConnection,
   runAction,
-  setFormsTestMode,
   type Refusal,
 } from './connections.js';
+import { deleteBrokerage } from './deletion.js';
+import { flow } from './flow.js';
 import { actOn } from './problems.js';
 import { resendForms } from './forms.js';
 import { startReload } from './reload.js';
@@ -280,25 +284,47 @@ type BrokerageChange = (
   person: Signed,
 ) => Promise<Response>;
 
+/** A website's label and bell address as a person typed them; null when one is missing or wrong. */
+function websiteOf(given: Record<string, unknown>): { label: string; bellUrl: string } | null {
+  const label = text(given['label']);
+  const bellUrl = bellAddress(given['bellUrl']);
+  return label === '' || !bellUrl ? null : { label, bellUrl };
+}
+
 /** What a person changes on a brokerage, by the last part of its address. */
 const BROKERAGE_CHANGES: Record<string, BrokerageChange> = {
   switch: async (id, given) =>
     (await switchBrokerage(id, given['on'] === true)) ? answer(200, { ok: true }) : missing(),
+  edit: async (id, given) => {
+    const name = text(given['name']);
+    if (name === '') return refusal('fields');
+    return (await renameBrokerage(id, name)) ? answer(200, { ok: true }) : missing();
+  },
+  // Deleting a brokerage and everything of it takes its name, typed: the page asks for it.
+  delete: async (id, given) => {
+    const tenant = await tenantById(id);
+    if (!tenant) return missing();
+    if (text(given['name']) !== tenant.display_name.trim()) return refusal('fields');
+    return (await deleteBrokerage(id)) ? answer(200, { ok: true }) : missing();
+  },
   token: async (id) => {
     const token = await replaceToken(id);
     return token ? answer(200, { token }) : missing();
   },
   websites: async (id, given) => {
-    const label = text(given['label']);
-    const bellUrl = bellAddress(given['bellUrl']);
-    if (label === '' || !bellUrl) return refusal('fields');
-    const website = await addWebsite(id, { label, bellUrl });
+    const typed = websiteOf(given);
+    if (!typed) return refusal('fields');
+    const website = await addWebsite(id, typed);
     return website === null ? missing() : answer(201, { id: website });
   },
   connections: async (id, given) => {
     const done = await addConnection(
       id,
-      { provider: text(given['provider']), login: given['login'] },
+      {
+        provider: text(given['provider']),
+        login: given['login'],
+        formsTestMode: given['formsTestMode'] === true,
+      },
       settings().credentialsKey,
     );
     return done.ok ? answer(201, done.value) : refusal(done.why, done.said);
@@ -334,28 +360,22 @@ const brokerageChange = change(async (request, given, person) => {
   return handler(id, given, person);
 });
 
-const connectionRead = signedIn(async (request) => {
-  const [id, what] = partsAfter('/v1/panel/connections/', request.path);
-  if (!id || what !== 'offices') return missing();
-  const offices = await officesOf(id);
-  return offices ? answer(200, { offices }) : missing();
-});
-
 const connectionChange = change(async (request, given, person) => {
   const [id, what] = partsAfter('/v1/panel/connections/', request.path);
   if (!id) return missing();
-  if (what === 'login') {
-    const done = await changeLogin(id, given['login'], settings().credentialsKey, person.email);
-    return done.ok ? answer(200, { ok: true }) : refusal(done.why, done.said);
-  }
-  if (what === 'forms-test-mode') {
-    return (await setFormsTestMode(id, given['on'] === true))
-      ? answer(200, { ok: true })
-      : missing();
+  // The CRM screen's Save: the login, tested only when it changed, and forms test mode.
+  if (what === 'edit') {
+    const done = await editConnection(
+      id,
+      { login: given['login'], formsTestMode: given['formsTestMode'] },
+      settings().credentialsKey,
+      person.email,
+    );
+    return done.ok ? answer(200, done.value) : refusal(done.why, done.said);
   }
   if (what === 'act') {
     const done = await runAction(id, text(given['action']));
-    return done.ok ? answer(200, { ok: true }) : refusal(done.why, done.said);
+    return done.ok ? answer(200, done.value) : refusal(done.why, done.said);
   }
   if (what === 'remove') {
     const removed = await removeConnection(id);
@@ -364,12 +384,37 @@ const connectionChange = change(async (request, given, person) => {
   return missing();
 });
 
-const websiteChange = change(async (request) => {
+const websiteChange = change(async (request, given) => {
   const [part, what] = partsAfter('/v1/panel/websites/', request.path);
   const id = numberOf(part);
-  if (id === null || what !== 'remove') return missing();
-  return (await removeWebsite(id)) ? answer(200, { ok: true }) : missing();
+  if (id === null) return missing();
+  if (what === 'remove') return (await removeWebsite(id)) ? answer(200, { ok: true }) : missing();
+  if (what === 'edit') {
+    const typed = websiteOf(given);
+    if (!typed) return refusal('fields');
+    return (await editWebsite(id, typed)) ? answer(200, { ok: true }) : missing();
+  }
+  if (what === 'bell-secret') {
+    const secret = await newBellSecret(id);
+    return secret ? answer(200, { bellSecret: secret }) : missing();
+  }
+  return missing();
 });
+
+/** The numbers among a query's values. */
+const numbers = (values: string[]): number[] =>
+  values.filter((value) => /^\d+$/.test(value)).map(Number);
+
+/** `GET /v1/panel/flow?tenant=<id>&office=<connection>:<office>`: the Flow, filtered. */
+const flowRoute = signedIn(async (request) =>
+  answer(
+    200,
+    await flow({
+      tenants: numbers(request.query.getAll('tenant')),
+      offices: request.query.getAll('office').filter((office) => office.includes(':')),
+    }),
+  ),
+);
 
 /** `POST /v1/panel/problems/act`: a person did what an Inbox card asks ("Done, I've pasted it"). */
 const actRoute = change(async (_request, given, person) =>
@@ -397,11 +442,11 @@ export function panelRoutes(): RouteTable {
     { method: 'POST', path: '/v1/panel/problems/act', handler: actRoute },
     { method: 'POST', path: '/v1/panel/maintenance', handler: maintenanceRoute },
     { method: 'GET', path: '/v1/panel/crms', handler: crmsRoute },
+    { method: 'GET', path: '/v1/panel/flow', handler: flowRoute },
     { method: 'GET', path: '/v1/panel/brokerages', handler: listRoute },
     { method: 'POST', path: '/v1/panel/brokerages', handler: createRoute },
     { method: 'GET', path: '/v1/panel/brokerages/*', handler: pageRoute },
     { method: 'POST', path: '/v1/panel/brokerages/*', handler: brokerageChange },
-    { method: 'GET', path: '/v1/panel/connections/*', handler: connectionRead },
     { method: 'POST', path: '/v1/panel/connections/*', handler: connectionChange },
     { method: 'POST', path: '/v1/panel/websites/*', handler: websiteChange },
     { method: 'GET', path: '/admin', handler: panelApp },

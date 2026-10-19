@@ -1,8 +1,10 @@
-// Brokerages (design B, images 06 to 12 and 23 to 38): the list of tenants, one tenant's page with
-// its websites, its CRM connections, its token and its switch, and the changes a person makes
-// there. B says "brokerage" for a tenant and "website" for a site. The engine sends facts and the
-// panel words them; no CRM is named here. What a CRM's login holds is the adapter's: the engine
-// hands on the fields the adapter declares and never knows what one of them means.
+// Tenants (design B, images 06 to 12 and 23 to 38, and the tenant mockups): the list of tenants,
+// one tenant's page with its websites, its CRM connections, its token and its switch, and the
+// changes a person makes there. The code says "brokerage" for a tenant, as B first did; a person
+// reads "tenant". The engine sends facts and the panel words them; no CRM is named here. What a
+// CRM's login holds is the adapter's: the engine hands on the fields the adapter declares, with
+// their words, and never knows what one of them means. So is the line under a connection's name
+// and the connection's own sections (sections.ts).
 import { db } from '../storage/db.js';
 import { decrypt, newSecret } from '../storage/crypto.js';
 import {
@@ -10,6 +12,7 @@ import {
   deleteSubscriber,
   addSubscriber,
   tenantById,
+  updateSubscriber,
   updateTenant,
 } from '../storage/connections.js';
 import { ring } from '../bells.js';
@@ -18,6 +21,7 @@ import { adminFor, adminProviders } from '../registry.js';
 import { DATATYPES, type Connection, type Datatype } from '../adapter-api/types.js';
 import { crmName, inbox, type Card } from './inbox.js';
 import { reloadOf, type ReloadView } from './reload.js';
+import { describe, sectionsOf, type ShownSection } from './sections.js';
 
 /** A brokerage as the list and its page badge it: OK, Needs a look, or Off. */
 export type Status = 'ok' | 'look' | 'off';
@@ -29,8 +33,8 @@ export type BrokerageRow = {
   /** One of its connections holds its forms in Core. */
   formsTestMode: boolean;
   websites: number;
-  /** The offices on its websites: the office records Core holds for it. */
-  offices: number;
+  /** Its entities: every live record Core holds for its websites, of every type. */
+  entities: number;
 };
 
 /** A field of a CRM's login, as the CRM's code declares it. */
@@ -40,8 +44,8 @@ export type CrmField = {
   help: string | null;
   secret: boolean;
   required: boolean;
-  /** A fixed set of values instead of free text. */
-  options: string[] | null;
+  /** A fixed set of values instead of free text, each with its words where the code gives them. */
+  options: { value: string; label: string }[] | null;
 };
 
 /** A CRM Core can connect to, by its provider, with what its login asks. */
@@ -68,14 +72,20 @@ export type ConnectionView = {
   name: string;
   /** The login's fields that are not secret, by key, as saved. */
   login: Record<string, string>;
+  /** The line under its name, as the CRM's code says it ("Live system · G12"); null without one. */
+  describe: string | null;
   /** Live records by type. */
   counts: Record<Datatype, number>;
   /** The office records Core holds, by name. */
   offices: string[];
   formsTestMode: boolean;
   formsTestModeSince: string | null;
-  /** The actions the CRM's code offers for this connection, by id. */
-  actions: string[];
+  /** An Inbox card names it, so it needs a look. */
+  status: 'ok' | 'look';
+  /** What the CRM's code shows of it, with the actions it offers (sections.ts). */
+  sections: ShownSection[];
+  /** What failed when the CRM's code could not give its sections; null when it gave them. */
+  sectionsFailed: string | null;
 };
 
 export type Brokerage = {
@@ -96,9 +106,6 @@ export type Brokerage = {
   reload: ReloadView | null;
 };
 
-/** An office of one connection, with its properties. */
-export type Office = { id: string; name: string; properties: number };
-
 const iso = (at: Date | null | undefined): string | null => (at ? at.toISOString() : null);
 
 /** The CRMs registered with a panel, in registration order, with their login fields. */
@@ -112,7 +119,12 @@ export function crms(): Crm[] {
       help: field.help ?? null,
       secret: field.secret === true,
       required: field.required === true,
-      options: field.options ? field.options.map((option) => option.value) : null,
+      options: field.options
+        ? field.options.map((option) => ({
+            value: option.value,
+            label: option.label ?? option.value,
+          }))
+        : null,
     })),
   }));
 }
@@ -124,6 +136,16 @@ function tenantsOf(cards: Card[]): Set<number> {
     if (card.kind === 'forms' || card.kind === 'records') ids.add(card.tenant.id);
     if ((card.kind === 'login' || card.kind === 'site') && card.tenant) ids.add(card.tenant.id);
     if (card.kind === 'check') for (const tenant of card.tenants) ids.add(tenant.id);
+  }
+  return ids;
+}
+
+/** The connections an Inbox card names: a refused login, records that can't be loaded. */
+function connectionsOf(cards: Card[]): Set<string> {
+  const ids = new Set<string>();
+  for (const card of cards) {
+    if (card.kind === 'login') ids.add(card.connectionId);
+    if (card.kind === 'records') for (const record of card.records) ids.add(record.connection);
   }
   return ids;
 }
@@ -141,9 +163,11 @@ async function waitingForToken(): Promise<Set<number>> {
 const statusOf = (id: number, active: boolean, look: Set<number>): Status =>
   !active ? 'off' : look.has(id) ? 'look' : 'ok';
 
-async function needingALook(): Promise<Set<number>> {
+/** The brokerages and the connections that need a look. */
+async function needingALook(): Promise<{ tenants: Set<number>; connections: Set<string> }> {
   const [{ cards, waiting }, token] = await Promise.all([inbox(), waitingForToken()]);
-  return new Set([...tenantsOf([...cards, ...waiting]), ...token]);
+  const all = [...cards, ...waiting];
+  return { tenants: new Set([...tenantsOf(all), ...token]), connections: connectionsOf(all) };
 }
 
 /** `GET /v1/panel/brokerages`: every brokerage, by name. */
@@ -154,13 +178,12 @@ export async function brokerageList(): Promise<BrokerageRow[]> {
       display_name: string;
       active: boolean;
       websites: string;
-      offices: string;
+      entities: string;
       test_mode: boolean;
     }>(
       `select t.id, t.display_name, t.active,
          (select count(*) from subscribers s where s.tenant_id = t.id) as websites,
-         (select count(*) from items i
-          where i.tenant_id = t.id and i.datatype = 'office' and not i.deleted) as offices,
+         (select count(*) from items i where i.tenant_id = t.id and not i.deleted) as entities,
          exists (select 1 from connections c where c.tenant_id = t.id and c.forms_dry_run) as test_mode
        from tenants t order by lower(t.display_name), t.id`,
     ),
@@ -169,10 +192,10 @@ export async function brokerageList(): Promise<BrokerageRow[]> {
   return rows.map((row) => ({
     id: Number(row.id),
     name: row.display_name,
-    status: statusOf(Number(row.id), row.active, look),
+    status: statusOf(Number(row.id), row.active, look.tenants),
     formsTestMode: row.test_mode,
     websites: Number(row.websites),
-    offices: Number(row.offices),
+    entities: Number(row.entities),
   }));
 }
 
@@ -205,18 +228,6 @@ function shownLogin(
     }
   }
   return shown;
-}
-
-/** The actions a CRM's code offers for one connection, by id; none when it offers no view. */
-async function actionsOf(provider: string, connection: Connection): Promise<string[]> {
-  const admin = adminFor(provider);
-  if (!admin?.connection) return [];
-  try {
-    const sections = await admin.connection(connection);
-    return sections.flatMap((section) => (section.actions ?? []).map((action) => action.id));
-  } catch {
-    return [];
-  }
 }
 
 const zeroCounts = (): Record<Datatype, number> =>
@@ -290,19 +301,23 @@ export async function brokerage(
       credentials: row.credentials ? decrypt(row.credentials, settings.credentialsKey) : null,
       licensedOffices: row.licensed_offices,
     };
+    const own = await sectionsOf(connection, settings.coreUrl);
     views.push({
       id: row.id,
       provider: row.provider,
       crm: crmName(row.provider),
       name: row.name,
       login: shownLogin(row.provider, row.credentials, settings.credentialsKey),
+      describe: describe(connection),
       counts: count,
       offices: offices.rows
         .filter((office) => office.connection_id === row.id && office.name)
         .map((office) => office.name ?? ''),
       formsTestMode: row.forms_dry_run,
       formsTestModeSince: row.forms_dry_run ? iso(row.forms_dry_run_since) : null,
-      actions: await actionsOf(row.provider, connection),
+      status: look.connections.has(row.id) ? 'look' : 'ok',
+      sections: own.sections,
+      sectionsFailed: own.failed,
     });
   }
   return {
@@ -310,7 +325,7 @@ export async function brokerage(
     id,
     name: tenant.display_name,
     active: tenant.active,
-    status: statusOf(id, tenant.active, look),
+    status: statusOf(id, tenant.active, look.tenants),
     token: tenant.token,
     tokenReplacedAt: iso(replacedAt),
     coreUrl: settings.coreUrl,
@@ -329,29 +344,6 @@ export async function brokerage(
     connections: views,
     reload: await reloadOf(id),
   };
-}
-
-/** `GET /v1/panel/connections/<id>/offices`: the offices on the websites, with their properties. */
-export async function officesOf(connectionId: string): Promise<Office[] | null> {
-  const { rows: exists } = await db().query('select 1 from connections where id = $1', [
-    connectionId,
-  ]);
-  if (exists.length === 0) return null;
-  const { rows } = await db().query<{ id: string; name: string | null; properties: string }>(
-    `select o.remote_id as id, o.data->>'name' as name,
-       (select count(*) from items p
-        where p.connection_id = o.connection_id and p.datatype = 'property'
-          and p.office_id = o.remote_id and not p.deleted) as properties
-     from items o
-     where o.connection_id = $1 and o.datatype = 'office' and not o.deleted
-     order by lower(coalesce(o.data->>'name', o.remote_id))`,
-    [connectionId],
-  );
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name ?? row.id,
-    properties: Number(row.properties),
-  }));
 }
 
 // ---- Changes ---------------------------------------------------------------------------------------
@@ -396,10 +388,40 @@ export async function addWebsite(
   });
 }
 
+/** Rename a brokerage. */
+export async function renameBrokerage(id: number, name: string): Promise<boolean> {
+  if (!(await tenantById(id))) return false;
+  await updateTenant(id, { displayName: name });
+  return true;
+}
+
+const websiteExists = async (id: number): Promise<boolean> =>
+  (await db().query('select 1 from subscribers where id = $1', [id])).rows.length === 1;
+
+/** A website's label and bell address, changed; its bell secret and history stay. */
+export async function editWebsite(
+  id: number,
+  input: { label: string; bellUrl: string },
+): Promise<boolean> {
+  if (!(await websiteExists(id))) return false;
+  await updateSubscriber(id, { label: input.label, bellUrl: input.bellUrl });
+  return true;
+}
+
+/**
+ * A new bell secret for a website, for when its old one leaked: the website refuses Core's change
+ * notices until the new one is pasted into it.
+ */
+export async function newBellSecret(id: number): Promise<string | null> {
+  if (!(await websiteExists(id))) return null;
+  const secret = newSecret();
+  await updateSubscriber(id, { bellSecret: secret });
+  return secret;
+}
+
 /** Remove a website: Core stops telling it about changes and deletes its history. */
 export async function removeWebsite(id: number): Promise<boolean> {
-  const { rows } = await db().query('select 1 from subscribers where id = $1', [id]);
-  if (rows.length === 0) return false;
+  if (!(await websiteExists(id))) return false;
   await deleteSubscriber(id);
   return true;
 }

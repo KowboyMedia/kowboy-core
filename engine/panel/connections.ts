@@ -1,8 +1,9 @@
-// A brokerage's CRM connections as the panel changes them (design B, images 07, 12, 15, 24 to 26
-// and 34 to 36): connect one after the CRM accepts its login, enter a new login, hold its forms
-// in Core, run what the CRM's code offers for it, and remove it. The engine knows a CRM by its
-// provider only: the login's fields, the test and the actions are the adapter's, declared through
-// the adapter API, and the engine hands them on without knowing what they mean.
+// A tenant's CRM connections as the panel changes them (design B, images 07, 12, 15, 24 to 26 and
+// 34 to 36, and the tenant mockups 08 to 10 and 13): connect one after the CRM accepts its login,
+// edit its login and forms test mode on one screen, run what the CRM's code offers for it, and
+// remove it. The engine knows a CRM by its provider only: the login's fields, the test and the
+// actions are the adapter's, declared through the adapter API, and the engine hands them on
+// without knowing what they mean.
 import { db } from '../storage/db.js';
 import { encrypt } from '../storage/crypto.js';
 import { connectionById, deleteConnection, tenantById } from '../storage/connections.js';
@@ -99,11 +100,12 @@ async function newConnectionName(tenantName: string, provider: string): Promise<
 
 /**
  * Connect a brokerage to a CRM: Core tests the login with the CRM and saves it only if the CRM
- * accepts it. The CRM's code is then told of the new connection and starts loading its data.
+ * accepts it, with forms test mode on when the person switched it on. The CRM's code is then told
+ * of the new connection and starts loading its data.
  */
 export async function addConnection(
   tenantId: number,
-  input: { provider: string; login: unknown },
+  input: { provider: string; login: unknown; formsTestMode?: boolean },
   key: string,
 ): Promise<Done<{ id: string; name: string }>> {
   const admin = adminFor(input.provider);
@@ -116,10 +118,13 @@ export async function addConnection(
   for (;;) {
     const name = await newConnectionName(tenant.display_name, input.provider);
     const id = await newConnectionId(name);
+    const held = input.formsTestMode === true;
     const { rows } = await db().query(
-      `insert into connections (id, tenant_id, provider, credentials, licensed_offices, name)
-       values ($1, $2, $3, $4, '{}', $5) on conflict (id) do nothing returning id`,
-      [id, tenantId, input.provider, encrypt(login, key), name],
+      `insert into connections
+         (id, tenant_id, provider, credentials, licensed_offices, name, forms_dry_run, forms_dry_run_since)
+       values ($1, $2, $3, $4, '{}', $5, $6, case when $6 then now() end)
+       on conflict (id) do nothing returning id`,
+      [id, tenantId, input.provider, encrypt(login, key), name, held],
     );
     if (rows.length === 0) continue;
     await queueLifecycle(id, 'connection_added');
@@ -127,29 +132,87 @@ export async function addConnection(
   }
 }
 
+/** The saved login's values, by key; empty when there is none or it can't be read. */
+function savedValues(credentials: string | null): Record<string, unknown> {
+  if (!credentials) return {};
+  try {
+    const saved: unknown = JSON.parse(credentials);
+    return saved && typeof saved === 'object' ? (saved as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
 /**
- * A new login for a connection, saved only if the CRM accepts it. A login the CRM refused is then
- * put right, by the person who saved the new one: the Inbox lists it as fixed.
+ * The login a person sent, with each secret field they left empty taken from the saved login:
+ * Core never shows a saved secret, so an empty one means "keep it".
  */
-export async function changeLogin(
-  connectionId: string,
+function mergedLogin(
+  fields: AdminField[],
   given: unknown,
+  saved: Record<string, unknown>,
+): Record<string, unknown> | null {
+  if (!given || typeof given !== 'object') return null;
+  const merged: Record<string, unknown> = { ...(given as Record<string, unknown>) };
+  for (const field of fields) {
+    const value = merged[field.key];
+    const empty = typeof value !== 'string' || value.trim() === '';
+    if (field.secret && empty && saved[field.key] !== undefined) {
+      merged[field.key] = String(saved[field.key] as string | number);
+    }
+  }
+  return merged;
+}
+
+/** A person typed a secret field: Core never shows one, so any typed is new. */
+const secretTyped = (fields: AdminField[], given: unknown): boolean =>
+  !!given &&
+  typeof given === 'object' &&
+  fields.some((field) => {
+    const value = (given as Record<string, unknown>)[field.key];
+    return field.secret === true && typeof value === 'string' && value.trim() !== '';
+  });
+
+/**
+ * Edit a connection (the tenant mockups, images 09 and 10): its login and its forms test mode on
+ * one screen, which the Inbox's "Enter new login" opens too. A secret field left empty keeps the
+ * saved one. Core tests the login with the CRM only when a field of it changed or a secret was
+ * typed again, and saves nothing
+ * if the CRM does not accept it; a login the CRM refused is then put right by the person who saved
+ * the new one, and the Inbox lists it as fixed. Answers whether the login was tested.
+ */
+export async function editConnection(
+  connectionId: string,
+  given: { login: unknown; formsTestMode: unknown },
   key: string,
   by: string,
-): Promise<Done<null>> {
+): Promise<Done<{ tested: boolean }>> {
   const connection = await connectionById(connectionId);
   const admin = connection ? adminFor(connection.provider) : null;
   if (!connection || !admin) return refused('missing');
-  const login = loginDocument(admin.credentials, given);
+  const saved = savedValues(connection.credentials);
+  const login = loginDocument(
+    admin.credentials,
+    mergedLogin(admin.credentials, given.login, saved),
+  );
   if (!login) return refused('fields');
-  const tested = await crmTakes(connection.provider, login);
-  if (!tested.ok) return tested;
-  await db().query('update connections set credentials = $2 where id = $1', [
-    connectionId,
-    encrypt(login, key),
-  ]);
-  await solveLogin(connectionId, crmName(connection.provider), by);
-  return { ok: true, value: null };
+  // A secret typed again is a new login to test, as the screen's "Test and save" says.
+  const changed =
+    secretTyped(admin.credentials, given.login) ||
+    login !== loginDocument(admin.credentials, saved);
+  if (changed) {
+    const tested = await crmTakes(connection.provider, login);
+    if (!tested.ok) return tested;
+    await db().query('update connections set credentials = $2 where id = $1', [
+      connectionId,
+      encrypt(login, key),
+    ]);
+    await solveLogin(connectionId, crmName(connection.provider), by);
+  }
+  if (typeof given.formsTestMode === 'boolean') {
+    await setFormsTestMode(connectionId, given.formsTestMode);
+  }
+  return { ok: true, value: { tested: changed } };
 }
 
 /**
@@ -172,9 +235,13 @@ export async function setFormsTestMode(connectionId: string, on: boolean): Promi
 
 /**
  * Run an action the CRM's code offers for a connection, such as checking its offices now, with
- * the parameters the code gave it. Only an action the code declares for the connection runs.
+ * the parameters the code gave it. Only an action the code declares for the connection runs, and
+ * the code's message goes to the person who pressed it.
  */
-export async function runAction(connectionId: string, action: string): Promise<Done<null>> {
+export async function runAction(
+  connectionId: string,
+  action: string,
+): Promise<Done<{ message: string }>> {
   const connection = await connectionById(connectionId);
   const admin = connection ? adminFor(connection.provider) : null;
   if (!connection || !admin?.connection) return refused('missing');
@@ -183,8 +250,8 @@ export async function runAction(connectionId: string, action: string): Promise<D
       .flatMap((section) => section.actions ?? [])
       .find((one) => one.id === action && !one.fields?.length);
     if (!declared) return refused('missing');
-    await admin.act(declared.id, declared.params ?? {}, [connection]);
-    return { ok: true, value: null };
+    const { message } = await admin.act(declared.id, declared.params ?? {}, [connection]);
+    return { ok: true, value: { message } };
   } catch (error) {
     report(error, { where: 'panel action', provider: connection.provider, action });
     return refused('crm', failureWords(error, { crm: crmName(connection.provider) }));

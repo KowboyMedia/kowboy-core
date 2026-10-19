@@ -1,106 +1,35 @@
-// One brokerage's page (design B, images 11, 12 and 24 to 38): its websites, a card for each CRM
-// with its connections, its tenant token and its switch, and the windows that change them. The
-// page updates by itself, so a website's new token and a removal reaching the websites show
-// without a reload.
+// One tenant's page (design B, images 11, 12 and 24 to 38, as the tenant mockups 02, 03 and 11 to
+// 16 change it): its websites and its CRM connections, each with an Edit and a Delete icon, its
+// tenant token and its switch, and the windows that confirm a delete. A connection's card says
+// what its CRM's code says of it and opens the code's own sections; the page names no CRM of its
+// own. The page updates by itself, so a website's new token and a delete reaching the websites
+// show without a reload.
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
-import {
-  api,
-  Refused,
-  type Brokerage,
-  type ConnectionView,
-  type Crm,
-  type Office,
-  type ReloadView,
-  type Website,
-} from './api';
-import { Shell, useShell } from './Shell';
+import { Link, useNavigate, useParams } from 'react-router';
+import { api, type Brokerage, type ConnectionView, type ReloadView, type Website } from './api';
+import { Shell, useShell, type Arrival } from './Shell';
 import { StatusBadge } from './Brokerages';
-import { failureWords, GONE } from './failure';
-import { Badge, DotsMenu, Modal, Switch, useNote, ValueField, type Tone } from './ui';
+import { failureWords } from './failure';
+import { Badge, IconButton, Modal, Switch, useNote, ValueField, type Tone } from './ui';
 import {
   AlertTriangleIcon,
+  ChevronDownIcon,
   ChevronLeftIcon,
+  ChevronRightIcon,
   CircleCheckIcon,
-  KeyIcon,
   LoaderIcon,
   PencilIcon,
-  PlugIcon,
   PlusIcon,
   PowerIcon,
   RefreshIcon,
   TrashIcon,
 } from './icons';
-import { isTestSystem, loginLine, systemShort, wordsFor } from './crm-words';
-import { clock, listed, when } from './time';
+import { clock, counted, listed, when } from './time';
 import { loadedList, records } from './records';
-import {
-  clientLine,
-  newWebsite,
-  platformOf,
-  platformWords,
-  SettingsToPaste,
-  WebsiteFields,
-  websiteReady,
-  type Platform,
-} from './websites';
-import {
-  ConnectFields,
-  connect,
-  connectReady,
-  LoginWindow,
-  loginRefusal,
-  owning,
-  shortName,
-  useConnectForm,
-} from './connect';
-
-const SLOW_MS = 15_000;
-const FAST_MS = 4_000;
-
-// ---- Reading the page ------------------------------------------------------------------------------
-
-type Load = 'loading' | 'missing' | 'failed' | 'ok';
-
-function usePage(id: number, fast: boolean) {
-  const { away } = useShell();
-  const [page, setPage] = useState<Brokerage | null>(null);
-  const [state, setState] = useState<Load>('loading');
-  const [failure, setFailure] = useState('');
-  /** The reads asked for, and the latest whose page is shown: an older answer comes too late. */
-  const asked = useRef(0);
-  const shown = useRef(0);
-  /** Read the page again: null once it shows this read or a later one, else what went wrong. */
-  const load = useCallback(async (): Promise<string | null> => {
-    asked.current += 1;
-    const read = asked.current;
-    try {
-      const next = await api.brokerage(id);
-      if (read < shown.current) return null;
-      shown.current = read;
-      setPage(next);
-      setState('ok');
-      return null;
-    } catch (error) {
-      if (read < shown.current) return null;
-      if (away(error)) return null;
-      if (error instanceof Refused && error.status === 404) {
-        setState('missing');
-        return GONE;
-      }
-      const words = failureWords(error);
-      setFailure(words);
-      setState((was) => (was === 'ok' ? 'ok' : 'failed'));
-      return words;
-    }
-  }, [id, away]);
-  useEffect(() => {
-    void load();
-    const timer = setInterval(() => void load(), fast ? FAST_MS : SLOW_MS);
-    return () => clearInterval(timer);
-  }, [load, fast]);
-  return { page, state, failure, load };
-}
+import { clientLine, platformOf, platformWords } from './websites';
+import { AddCrmWindow } from './connect';
+import { ConnectionSections } from './sections';
+import { idOf, Nothing, useTenant } from './tenant';
 
 /** "a, b and c" for pieces of a sentence that are not plain text. */
 function joined(parts: ReactNode[]): ReactNode {
@@ -112,23 +41,25 @@ function joined(parts: ReactNode[]): ReactNode {
   ));
 }
 
-/** The CRMs a brokerage uses, by name, for a sentence: "Vitec". */
-function crmWords(page: Brokerage): string {
+/** The CRMs a tenant's connections are with, by their names, for a sentence. */
+function crmWords(page: Brokerage, last = 'and'): string {
   const names = [...new Set(page.connections.map((connection) => connection.crm))];
   if (names.length === 0 && page.crms[0]) names.push(page.crms[0].name);
-  return listed(names, 'or');
+  return listed(names, last);
 }
 
-const crmFor = (page: Brokerage, provider: string): Crm =>
-  page.crms.find((crm) => crm.provider === provider) ?? { provider, name: provider, fields: [] };
-
-/** "Varberg and Falkenberg and their 61 properties", for the message after a removal. */
-function whatLeft(offices: string[], properties: number, test: boolean): string {
-  const homes = records(properties, 'property', test ? 'test ' : '');
-  if (offices.length === 0) return properties > 0 ? `Its ${homes}` : '';
-  if (properties === 0) return listed(offices);
-  return `${listed(offices)} and ${offices.length === 1 ? 'its' : 'their'} ${homes}`;
+/** "12 properties, 3 agents and the office Testkontoret": what a connection holds, in a sentence. */
+function holding(connection: ConnectionView): string[] {
+  const what = loadedList(connection.counts);
+  const offices = connection.offices;
+  if (offices.length > 0) {
+    what.push(`the office${offices.length === 1 ? '' : 's'} ${listed(offices)}`);
+  }
+  return what;
 }
+
+/** The word on the line that opens a connection's own sections: Core's name for its offices. */
+const OFFICES = 'Offices';
 
 // ---- Websites ---------------------------------------------------------------------------------------
 
@@ -148,23 +79,22 @@ function websiteStatus(
 function WebsitesCard({
   page,
   switched,
-  onAdd,
-  onRemove,
+  onDelete,
 }: {
   page: Brokerage;
   switched: Set<number>;
-  onAdd: () => void;
-  onRemove: (website: Website) => void;
+  onDelete: (website: Website) => void;
 }) {
   const now = new Date(page.now);
+  const base = `/brokerages/${String(page.id)}/websites`;
   return (
     <section className="k-box">
       <header className="k-box-head">
         <h2>Websites</h2>
-        <button type="button" className="k-button k-button-quiet k-button-small" onClick={onAdd}>
+        <Link className="k-button k-button-quiet k-button-small" to={`${base}/new`}>
           <PlusIcon size={16} />
           Add website
-        </button>
+        </Link>
       </header>
       {page.websites.length === 0 && (
         <p className="k-box-empty">No website yet. Add one with “Add website”.</p>
@@ -183,31 +113,12 @@ function WebsitesCard({
                 <span className="k-row-time">Last sync {when(website.lastFetchAt, now)}</span>
               )}
               <span className="k-row-buttons">
-                <button
-                  type="button"
-                  className="k-button k-button-quiet k-button-small"
-                  aria-disabled="true"
-                >
-                  Settings
-                </button>
-                <DotsMenu
-                  label={`More for ${website.label}`}
-                  items={[
-                    {
-                      label: 'Edit label and address',
-                      icon: <PencilIcon size={16} />,
-                      later: true,
-                    },
-                    { label: 'New bell secret…', icon: <KeyIcon size={16} />, later: true },
-                    {
-                      label: 'Remove website…',
-                      icon: <TrashIcon size={16} />,
-                      danger: true,
-                      apart: true,
-                      onSelect: () => onRemove(website),
-                    },
-                  ]}
-                />
+                <IconButton label="Edit website" to={`${base}/${String(website.id)}`}>
+                  <PencilIcon size={16} />
+                </IconButton>
+                <IconButton label="Delete website" danger onClick={() => onDelete(website)}>
+                  <TrashIcon size={16} />
+                </IconButton>
               </span>
             </div>
           </div>
@@ -217,134 +128,15 @@ function WebsitesCard({
   );
 }
 
-/** Add a website: its fields, then the settings to copy into it until it fetches (images 08, 09). */
-function AddWebsiteWindow({
-  page,
-  onAdded,
-  onClose,
-}: {
-  page: Brokerage;
-  /** Read the page again, so the window shows the website Core saved: what went wrong, if it did. */
-  onAdded: () => Promise<string | null>;
-  onClose: () => void;
-}) {
-  const { away } = useShell();
-  const note = useNote();
-  const [draft, setDraft] = useState(newWebsite);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  /**
-   * The website saved: while the page is read again (`reading`), and why that read failed, if it
-   * did. Only a read after the save can tell the website is gone.
-   */
-  const [added, setAdded] = useState<{
-    id: number;
-    platform: Platform;
-    reading: boolean;
-    failed: string | null;
-  } | null>(null);
-  const website = added ? page.websites.find((one) => one.id === added.id) : undefined;
-
-  const save = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const { id } = await api.addWebsite(page.id, {
-        label: draft.label.trim(),
-        bellUrl: draft.bellUrl.trim(),
-      });
-      setAdded({ id, platform: draft.platform, reading: true, failed: null });
-      note({ text: `${draft.label.trim()} added.` });
-      const failed = await onAdded();
-      setAdded((was) => was && { ...was, reading: false, failed });
-    } catch (failure) {
-      if (away(failure)) return;
-      setError(
-        failure instanceof Refused && failure.status === 400
-          ? 'Check the bell address: it starts with https://.'
-          : failureWords(failure),
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const title = `Add ${owning(shortName(page.name))} website`;
-  if (added) {
-    const now = new Date(page.now);
-    return (
-      <Modal
-        title={title}
-        onClose={onClose}
-        wide
-        footer={
-          <button type="button" className="k-button k-button-link k-end" onClick={onClose}>
-            Close
-          </button>
-        }
-      >
-        {website?.lastFetchAt ? (
-          <div className="k-done-line">
-            <strong>{website.label} is connected.</strong> It fetched its data at{' '}
-            {when(website.lastFetchAt, now)}
-            {website.client ? ` (${clientLine(website)})` : ''}.
-          </div>
-        ) : website ? (
-          <>
-            <h3 className="k-step-head">Waiting for {website.label} to contact Core</h3>
-            <SettingsToPaste
-              coreUrl={page.coreUrl}
-              token={page.token}
-              bellSecret={website.bellSecret}
-              platform={added.platform}
-            />
-          </>
-        ) : added.reading ? (
-          // Saved: the page is being read again, so the window can show the new website.
-          <LoaderIcon className="k-spin" size={18} />
-        ) : added.failed ? (
-          <p className="k-error">{added.failed} The page tries again by itself.</p>
-        ) : (
-          <p className="k-quiet">{GONE}</p>
-        )}
-      </Modal>
-    );
-  }
-  return (
-    <Modal
-      title={title}
-      onClose={onClose}
-      wide
-      footer={
-        <>
-          <button type="button" className="k-button k-button-link" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="k-button k-button-primary"
-            disabled={busy || !websiteReady(draft)}
-            onClick={() => void save()}
-          >
-            Save and continue
-          </button>
-        </>
-      }
-    >
-      <WebsiteFields draft={draft} onChange={setDraft} />
-      {error && <p className="k-error">{error}</p>}
-    </Modal>
-  );
-}
-
-function RemoveWebsiteWindow({
+/** "Delete lindqvistholm.se?" (image 11). */
+function DeleteWebsiteWindow({
   website,
   onClose,
-  onRemoved,
+  onDeleted,
 }: {
   website: Website;
   onClose: () => void;
-  onRemoved: () => void;
+  onDeleted: () => void;
 }) {
   const { away } = useShell();
   const note = useNote();
@@ -355,8 +147,8 @@ function RemoveWebsiteWindow({
     setFailed(null);
     try {
       await api.removeWebsite(website.id);
-      note({ text: `${website.label} removed.` });
-      onRemoved();
+      note({ text: `${website.label} deleted.` });
+      onDeleted();
     } catch (error) {
       if (!away(error)) setFailed(failureWords(error));
       setBusy(false);
@@ -364,7 +156,7 @@ function RemoveWebsiteWindow({
   };
   return (
     <Modal
-      title={`Remove ${website.label}?`}
+      title={`Delete ${website.label}?`}
       tone="danger"
       onClose={onClose}
       footer={
@@ -379,7 +171,7 @@ function RemoveWebsiteWindow({
             onClick={() => void remove()}
           >
             <TrashIcon size={18} />
-            Remove website
+            Delete website
           </button>
         </>
       }
@@ -387,333 +179,168 @@ function RemoveWebsiteWindow({
       <p className="k-modal-text">
         Core stops telling it about changes and deletes its history. A website that is shut down
         needs nothing more; one still running keeps its last copy and could still fetch data with
-        the tenant token. To stop serving a brokerage that has left, switch the brokerage off
-        instead.
+        the tenant token. To stop serving a tenant that has left, switch the tenant off instead.
       </p>
       {failed && <p className="k-error">{failed}</p>}
     </Modal>
   );
 }
 
-// ---- A CRM and its connections ------------------------------------------------------------------
+// ---- CRM connections ----------------------------------------------------------------------------
 
-function CrmCard({
+const CONNECTION_STATUS: Record<ConnectionView['status'], { words: string; tone: Tone }> = {
+  ok: { words: 'OK', tone: 'green' },
+  look: { words: 'Needs a look', tone: 'orange' },
+};
+
+function ConnectionRow({
   page,
-  crm,
-  onConnect,
-  onOffices,
-  onLogin,
-  onRemove,
-  onTestMode,
+  connection,
+  onDelete,
+  onActed,
 }: {
   page: Brokerage;
-  crm: Crm;
-  onConnect: () => void;
-  onOffices: (connection: ConnectionView) => void;
-  onLogin: (connection: ConnectionView) => void;
-  onRemove: (connection: ConnectionView) => void;
-  onTestMode: (connection: ConnectionView, on: boolean) => void;
+  connection: ConnectionView;
+  onDelete: () => void;
+  onActed: () => void;
 }) {
+  const [open, setOpen] = useState(false);
   const now = new Date(page.now);
-  const connections = page.connections.filter((one) => one.provider === crm.provider);
+  const status = page.active
+    ? CONNECTION_STATUS[connection.status]
+    : { words: 'Off', tone: 'grey' as const };
+  const opens = connection.sections.length > 0 || connection.sectionsFailed !== null;
+  const offices = `${OFFICES}: ${connection.offices.length > 0 ? connection.offices.join(', ') : 'none yet'}`;
+  const line = [connection.describe, records(connection.counts.property, 'property')]
+    .filter(Boolean)
+    .join(' · ');
+  return (
+    <div className="k-row k-row-stack">
+      <div className="k-row-top">
+        <div className="k-row-main">
+          <div className="k-row-name">
+            {connection.name}
+            {page.active && connection.formsTestMode && (
+              <span className="k-tag k-tag-beside">Forms test mode</span>
+            )}
+          </div>
+          <div className="k-row-sub">{line}</div>
+        </div>
+        <div className="k-row-end">
+          <Badge tone={status.tone}>{status.words}</Badge>
+          <span className="k-row-buttons">
+            <IconButton
+              label="Edit connection"
+              to={`/brokerages/${String(page.id)}/connections/${encodeURIComponent(connection.id)}`}
+            >
+              <PencilIcon size={16} />
+            </IconButton>
+            <IconButton label="Delete connection" danger onClick={onDelete}>
+              <TrashIcon size={16} />
+            </IconButton>
+          </span>
+        </div>
+      </div>
+      {page.active && connection.formsTestMode && (
+        <p className="k-warning">
+          <AlertTriangleIcon size={16} />
+          <span>
+            {connection.formsTestModeSince
+              ? `On since ${when(connection.formsTestModeSince, now)}. `
+              : 'On. '}
+            Forms stop in Core and never reach {connection.crm}; the website is told “not sent”.
+            Nothing is sent later.
+          </span>
+        </p>
+      )}
+      <div className="k-row-bottom">
+        {opens ? (
+          <button
+            type="button"
+            className="k-opener"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+          >
+            {open ? <ChevronDownIcon size={16} /> : <ChevronRightIcon size={16} />}
+            {offices}
+          </button>
+        ) : (
+          <span className="k-row-sub">{offices}</span>
+        )}
+        {!page.active && <span className="k-row-sub">Forms: refused (tenant off)</span>}
+      </div>
+      {open && opens && (
+        <ConnectionSections connection={connection} opener={OFFICES} now={now} onDone={onActed} />
+      )}
+    </div>
+  );
+}
+
+function CrmsCard({
+  page,
+  onAdd,
+  onDelete,
+  onActed,
+}: {
+  page: Brokerage;
+  onAdd: () => void;
+  onDelete: (connection: ConnectionView) => void;
+  onActed: () => void;
+}) {
   return (
     <section className="k-box">
       <header className="k-box-head">
-        <h2>{crm.name}</h2>
-        <button
-          type="button"
-          className="k-button k-button-quiet k-button-small"
-          onClick={onConnect}
-        >
+        <h2>CRMs</h2>
+        <button type="button" className="k-button k-button-quiet k-button-small" onClick={onAdd}>
           <PlusIcon size={16} />
-          Connect {crm.name}
+          Add CRM
         </button>
       </header>
-      {connections.length === 0 && (
-        <p className="k-box-empty">
-          No {crm.name} connection yet. Connect one with “Connect {crm.name}”.
-        </p>
+      {page.connections.length === 0 && (
+        <p className="k-box-empty">No CRM connection yet. Add one with “Add CRM”.</p>
       )}
-      {connections.map((connection) => {
-        const short = systemShort(crm.name, crm.provider, connection.login);
-        return (
-          <div key={connection.id} className="k-row k-row-stack">
-            <div className="k-row-top">
-              <div className="k-row-main">
-                <div className="k-row-name">{connection.name}</div>
-                <div className="k-row-sub">
-                  {[
-                    loginLine(crm.name, crm.provider, connection.login),
-                    records(connection.counts.property, 'property'),
-                  ].join(' · ')}
-                </div>
-              </div>
-              <div className="k-row-end">
-                <span className="k-row-buttons">
-                  <button
-                    type="button"
-                    className="k-button k-button-quiet k-button-small"
-                    onClick={() => onOffices(connection)}
-                  >
-                    Offices
-                  </button>
-                  <button
-                    type="button"
-                    className="k-button k-button-quiet k-button-small"
-                    onClick={() => onLogin(connection)}
-                  >
-                    Change login
-                  </button>
-                  <DotsMenu
-                    label={`More for ${connection.name}`}
-                    items={[
-                      { label: 'Rename', icon: <PencilIcon size={16} />, later: true },
-                      {
-                        label: 'Remove connection…',
-                        icon: <TrashIcon size={16} />,
-                        danger: true,
-                        apart: true,
-                        onSelect: () => onRemove(connection),
-                      },
-                    ]}
-                  />
-                </span>
-              </div>
-            </div>
-            <div className="k-row-bottom">
-              <span className="k-row-sub">
-                Offices:{' '}
-                {connection.offices.length > 0 ? connection.offices.join(', ') : 'none yet'}
-              </span>
-              {page.active ? (
-                <Switch
-                  on={connection.formsTestMode}
-                  label="Forms test mode"
-                  onChange={(on) => onTestMode(connection, on)}
-                />
-              ) : (
-                <span className="k-row-sub">Forms: refused (brokerage off)</span>
-              )}
-            </div>
-            {page.active && connection.formsTestMode && (
-              <p className="k-warning">
-                <AlertTriangleIcon size={16} />
-                <span>
-                  {connection.formsTestModeSince
-                    ? `On since ${when(connection.formsTestModeSince, now)}. `
-                    : 'On. '}
-                  Forms stop in Core and never reach {short}; the website is told “not sent”.
-                  Nothing is sent later.
-                </span>
-              </p>
-            )}
-          </div>
-        );
-      })}
+      {page.connections.map((connection) => (
+        <ConnectionRow
+          key={connection.id}
+          page={page}
+          connection={connection}
+          onDelete={() => onDelete(connection)}
+          onActed={onActed}
+        />
+      ))}
     </section>
   );
 }
 
-/** Connect the brokerage to a CRM from its page: the wizard's second step in a window. */
-function ConnectWindow({
+/** "Delete “<connection>”?" (image 13): what leaves the websites, and what is deleted. */
+function DeleteConnectionWindow({
   page,
-  crm,
-  onClose,
-  onDone,
-}: {
-  page: Brokerage;
-  crm: Crm;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const { away } = useShell();
-  const note = useNote();
-  const short = shortName(page.name);
-  const form = useConnectForm(crm);
-  const save = async () => {
-    form.setBusy(true);
-    form.setError(null);
-    try {
-      const { name } = await connect(page.id, crm, form.login);
-      note({
-        text: `${crm.name} accepted the login. “${name}” is saved, and Core is loading its data.`,
-      });
-      onDone();
-    } catch (error) {
-      if (away(error)) return;
-      form.setError(loginRefusal(error, crm.name));
-      form.setBusy(false);
-    }
-  };
-  return (
-    <Modal
-      title={`Connect ${owning(short)} ${crm.name}`}
-      onClose={onClose}
-      wide
-      footer={
-        <>
-          <button type="button" className="k-button k-button-link" onClick={onClose}>
-            Cancel
-          </button>
-          <span className="k-foot-note">
-            Core tests the login with {crm.name} and saves it only if {crm.name} accepts it.
-          </span>
-          <button
-            type="button"
-            className="k-button k-button-primary"
-            disabled={form.busy || !connectReady(crm, form)}
-            onClick={() => void save()}
-          >
-            {form.busy ? <LoaderIcon className="k-spin" size={18} /> : <PlugIcon size={18} />}
-            Test and save
-          </button>
-        </>
-      }
-    >
-      <ConnectFields crm={crm} form={form} />
-      {form.error && <p className="k-error">{form.error}</p>}
-    </Modal>
-  );
-}
-
-/** A connection's offices on the websites (images 25, 26), and checking them now. */
-function OfficesWindow({
-  crm,
   connection,
   onClose,
-}: {
-  crm: Crm;
-  connection: ConnectionView;
-  onClose: () => void;
-}) {
-  const { away } = useShell();
-  const [offices, setOffices] = useState<Office[] | null>(null);
-  const [failed, setFailed] = useState<string | null>(null);
-  const [queued, setQueued] = useState(false);
-  const [checkFailed, setCheckFailed] = useState<string | null>(null);
-  const check = wordsFor(crm.provider).officeCheck;
-  const canCheck = check !== undefined && connection.actions.includes(check);
-
-  useEffect(() => {
-    api.offices(connection.id).then(
-      (answer) => setOffices(answer.offices),
-      (error: unknown) => {
-        if (!away(error)) setFailed(failureWords(error));
-      },
-    );
-  }, [connection.id, away]);
-
-  const checkNow = async () => {
-    if (!check) return;
-    setCheckFailed(null);
-    setQueued(true);
-    try {
-      await api.act(connection.id, check);
-    } catch (error) {
-      if (away(error)) return;
-      setQueued(false);
-      setCheckFailed(failureWords(error));
-    }
-  };
-
-  return (
-    <Modal
-      title={`Offices · ${connection.name}`}
-      onClose={onClose}
-      wide
-      footer={
-        <>
-          <button type="button" className="k-button k-button-link" onClick={onClose}>
-            Close
-          </button>
-          {canCheck && (
-            <button
-              type="button"
-              className={`k-button ${queued ? 'k-button-quiet k-button-spent' : 'k-button-primary'}`}
-              disabled={queued}
-              onClick={() => void checkNow()}
-            >
-              <RefreshIcon size={18} />
-              Check offices now
-            </button>
-          )}
-        </>
-      }
-    >
-      {failed && <p className="k-error">{failed} Reload the page to try again.</p>}
-      {offices && offices.length === 0 && (
-        <p className="k-quiet k-quiet-tight">Core holds no offices for this connection yet.</p>
-      )}
-      {offices && offices.length > 0 && (
-        <table className="k-table k-table-plain">
-          <thead>
-            <tr>
-              <th>Office</th>
-              <th>Status</th>
-              <th>Properties</th>
-            </tr>
-          </thead>
-          <tbody>
-            {offices.map((office) => (
-              <tr key={office.id}>
-                <td className="k-strong">{office.name}</td>
-                <td>
-                  <Badge tone="green">On the websites</Badge>
-                </td>
-                <td className="k-muted">{records(office.properties, 'property')}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {queued && (
-        <p className="k-queued">
-          <LoaderIcon className="k-spin" size={18} />
-          Office check queued — it runs within a minute.
-        </p>
-      )}
-      {checkFailed && <p className="k-error">{checkFailed}</p>}
-    </Modal>
-  );
-}
-
-/** What removing a connection takes off the websites (image 35). */
-function RemoveConnectionWindow({
-  page,
-  crm,
-  connection,
-  onClose,
-  onRemoved,
+  onDeleted,
 }: {
   page: Brokerage;
-  crm: Crm;
   connection: ConnectionView;
   onClose: () => void;
-  onRemoved: (removedAt: string) => void;
+  onDeleted: (deletedAt: string) => void;
 }) {
   const { away } = useShell();
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const sites = page.websites.map((website) => website.label);
-  const what = loadedList(connection.counts);
-  const offices = connection.offices;
-  if (offices.length > 0) {
-    what.push(`the office${offices.length === 1 ? '' : 's'} ${listed(offices)}`);
-  }
-  const short = systemShort(crm.name, crm.provider, connection.login);
+  const what = holding(connection);
   const leaving =
     what.length === 0
       ? 'It holds no records yet.'
       : sites.length === 0
         ? `Its ${listed(what)} leave Core.`
-        : `Its ${listed(what)} leave ${listed(sites)} within minutes — Core tells the website${sites.length === 1 ? '' : 's'} at once.`;
-
+        : `Its ${listed(what)} leave ${listed(sites)} at ${sites.length === 1 ? 'its' : 'their'} next fetch.`;
   const remove = async () => {
     setBusy(true);
     setFailed(null);
     try {
       const { removedAt } = await api.removeConnection(connection.id);
-      onRemoved(removedAt);
+      onDeleted(removedAt);
     } catch (error) {
       if (!away(error)) setFailed(failureWords(error));
       setBusy(false);
@@ -721,7 +348,7 @@ function RemoveConnectionWindow({
   };
   return (
     <Modal
-      title={`Remove “${connection.name}”?`}
+      title={`Delete “${connection.name}”?`}
       tone="danger"
       onClose={onClose}
       footer={
@@ -736,14 +363,115 @@ function RemoveConnectionWindow({
             onClick={() => void remove()}
           >
             <TrashIcon size={18} />
-            Remove connection
+            Delete connection
           </button>
         </>
       }
     >
       <p className="k-modal-text">
-        {leaving} Its form history (forms sent to {short}) is deleted. This can’t be undone.
+        {leaving} Its saved login and its form history are deleted, and Core stops reading{' '}
+        {connection.crm} for {page.name}. This can’t be undone.
       </p>
+      {failed && <p className="k-error">{failed}</p>}
+    </Modal>
+  );
+}
+
+// ---- The tenant itself ----------------------------------------------------------------------------
+
+/** "Delete Hjortronet Fastighetsbyrå?" (image 15): everything that goes, confirmed by its name. */
+function DeleteTenantWindow({ page, onClose }: { page: Brokerage; onClose: () => void }) {
+  const { away } = useShell();
+  const navigate = useNavigate();
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const sites = page.websites.map((website) => website.label);
+  const held = page.connections.reduce(
+    (sum, connection) =>
+      sum + Object.values(connection.counts).reduce((all, count) => all + count, 0),
+    0,
+  );
+  const matches = typed.trim() !== '' && typed.trim() === page.name.trim();
+  const after =
+    sites.length === 0
+      ? ''
+      : sites.length === 1
+        ? `${sites[0] ?? ''} stops updating and keeps what it shows until its own admin removes it. `
+        : `${listed(sites)} stop updating and keep what they show until their own admins remove them. `;
+  const remove = async () => {
+    setBusy(true);
+    setFailed(null);
+    try {
+      await api.deleteBrokerage(page.id, typed.trim());
+      const arrival: Arrival = { note: `Deleted ${page.name} and everything of it.` };
+      navigate('/brokerages', { state: arrival });
+    } catch (error) {
+      if (!away(error)) setFailed(failureWords(error));
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal
+      title={`Delete ${page.name}?`}
+      tone="danger"
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="k-button k-button-link" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="k-button k-button-danger"
+            disabled={busy || !matches}
+            onClick={() => void remove()}
+          >
+            <TrashIcon size={18} />
+            Delete tenant
+          </button>
+        </>
+      }
+    >
+      <p className="k-modal-text">Core deletes everything of {page.name}:</p>
+      <ul className="k-modal-list">
+        {page.websites.map((website) => (
+          <li key={website.id}>
+            <strong>{website.label}</strong>: it can no longer fetch from Core
+          </li>
+        ))}
+        {page.connections.map((connection) => (
+          <li key={connection.id}>
+            the {connection.crm} connection <strong>{connection.name}</strong> and its saved login
+          </li>
+        ))}
+        {held > 0 && (
+          <li>
+            its <strong>{counted(held, 'record', 'records')}</strong>: properties, projects, agents,
+            offices, areas and associations
+          </li>
+        )}
+        <li>the forms Core holds for it, and its problems in the Inbox</li>
+      </ul>
+      <p className="k-modal-text">
+        {after}This can’t be undone. To stop serving a tenant for now, switch it off instead.
+      </p>
+      <div className="k-field">
+        <label className="k-label" htmlFor="delete-name">
+          Type the tenant’s name to delete it
+        </label>
+        <input
+          id="delete-name"
+          className="k-input"
+          autoComplete="off"
+          spellCheck={false}
+          value={typed}
+          onChange={(event) => setTyped(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && matches && !busy) void remove();
+          }}
+        />
+      </div>
       {failed && <p className="k-error">{failed}</p>}
     </Modal>
   );
@@ -770,11 +498,11 @@ function TokenCard({ page, onReplace }: { page: Brokerage; onReplace: () => void
           <ValueField value={page.token} secret />
         ) : (
           <p className="k-row-sub">
-            Core keeps no copy of this brokerage’s token. Replacing it makes one you can copy.
+            Core keeps no copy of this tenant’s token. Replacing it makes one you can copy.
           </p>
         )}
         <p className="k-help">
-          The secret key all of this brokerage’s websites use to fetch data and send forms.
+          The secret key all of this tenant’s websites use to fetch data and send forms.
         </p>
       </div>
     </section>
@@ -913,11 +641,6 @@ function TokenReplacedWindow({
 
 // ---- Reload all data ------------------------------------------------------------------------------
 
-/** The CRMs a brokerage's connections are with, in a sentence that names them all: "Vitec". */
-function fetchedFrom(page: Brokerage): string {
-  return listed([...new Set(page.connections.map((connection) => connection.crm))]);
-}
-
 /** "Reload all data for Mäklarbyrån Ljungström?" (image 39). */
 function ReloadWindow({
   page,
@@ -931,12 +654,11 @@ function ReloadWindow({
   const { away } = useShell();
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
-  const crms = fetchedFrom(page);
+  const crms = page.connections.length > 0 ? crmWords(page) : '';
   const sites = page.websites.map((website) => website.label);
-  const fetch =
-    page.connections.length > 0
-      ? `Core fetches everything from ${crms} again and removes what ${crms} no longer lists. `
-      : '';
+  const fetch = crms
+    ? `Core fetches everything from ${crms} again and removes what ${crms} no longer lists. `
+    : '';
   const then = fetch ? 'Then ' : '';
   const reload =
     sites.length === 0
@@ -945,7 +667,7 @@ function ReloadWindow({
         ? `${then}${sites[0] ?? ''} reloads everything. The website keeps showing its copy meanwhile. `
         : `${then}${listed(sites)} reload everything. The websites keep showing their copy meanwhile. `;
   const off =
-    !page.active && sites.length > 0 ? 'They reload once the brokerage is switched on. ' : '';
+    !page.active && sites.length > 0 ? 'They reload once the tenant is switched on. ' : '';
   const go = async () => {
     setBusy(true);
     setFailed(null);
@@ -989,7 +711,7 @@ function ReloadWindow({
   );
 }
 
-/** "Vitec no longer lists 1 property: Kopparbergsvägen 8, Västerås — removed." */
+/** "<CRM> no longer lists 1 property, so Core removed it: Kopparbergsvägen 8, Västerås." */
 function removedWords(reload: ReloadView, crms: string): string {
   if (reload.removedCount === 0)
     return `${crms} lists everything Core had, so nothing was removed.`;
@@ -1000,12 +722,13 @@ function removedWords(reload: ReloadView, crms: string): string {
   );
   const more = reload.removedCount - reload.removed.length;
   if (more > 0) {
-    return `${from} no longer lists ${String(reload.removedCount)} records, among them ${names.join(', ')} — removed.`;
+    return `${from} no longer lists ${String(reload.removedCount)} records, so Core removed them, among them ${names.join(', ')}.`;
   }
   const types = [...new Set(reload.removed.map((one) => one.datatype))].map((datatype) =>
     records(reload.removed.filter((one) => one.datatype === datatype).length, datatype),
   );
-  return `${from} no longer lists ${listed(types)}: ${listed(names)} — removed.`;
+  const them = reload.removedCount === 1 ? 'it' : 'them';
+  return `${from} no longer lists ${listed(types)}, so Core removed ${them}: ${listed(names)}.`;
 }
 
 /** How long the page says a reload is done. */
@@ -1015,7 +738,7 @@ const DONE_SHOWN_MS = 60 * 60_000;
 function ReloadBanner({ page }: { page: Brokerage }) {
   const reload = page.reload;
   if (!reload) return null;
-  const crms = fetchedFrom(page) || 'the CRM';
+  const crms = crmWords(page) || 'the CRM';
   if (reload.state !== 'done') {
     const waiting = reload.sites
       .filter((site) => site.reloadedAt === null)
@@ -1062,9 +785,9 @@ function ReloadBanner({ page }: { page: Brokerage }) {
   );
 }
 
-// ---- The brokerage's switch -------------------------------------------------------------------------
+// ---- The tenant's switch ----------------------------------------------------------------------------
 
-function BrokerageCard({
+function TenantCard({
   page,
   onSwitch,
   onReload,
@@ -1076,7 +799,7 @@ function BrokerageCard({
   return (
     <section className="k-box">
       <header className="k-box-head">
-        <h2>Brokerage</h2>
+        <h2>Tenant</h2>
       </header>
       <div className="k-box-body">
         <div className="k-box-line">
@@ -1092,7 +815,7 @@ function BrokerageCard({
         </div>
         <p className="k-help">
           Switch off when a customer leaves: its websites can no longer fetch data or send forms.
-          Reload: if a website shows something {crmWords(page)} no longer has.
+          Reload: if a website shows something {crmWords(page, 'or')} no longer has.
         </p>
       </div>
     </section>
@@ -1171,24 +894,20 @@ function SwitchOffWindow({
 // ---- The page ---------------------------------------------------------------------------------------
 
 type Open =
-  | { kind: 'add-website' }
-  | { kind: 'remove-website'; website: Website }
-  | { kind: 'connect'; crm: Crm }
-  | { kind: 'login'; connection: ConnectionView }
-  | { kind: 'offices'; connection: ConnectionView }
-  | { kind: 'remove-connection'; connection: ConnectionView }
+  | { kind: 'delete-website'; website: Website }
+  | { kind: 'add-crm' }
+  | { kind: 'delete-connection'; connection: ConnectionView }
+  | { kind: 'delete-tenant' }
   | { kind: 'replace-token' }
   | { kind: 'token-replaced'; token: string }
   | { kind: 'switch-off' }
   | { kind: 'reload' }
   | null;
 
-/** A connection just removed, until every website it was on has fetched since. */
-type Removal = {
+/** A connection just deleted, until every website it was on has fetched since. */
+type Deleted = {
   name: string;
-  offices: string[];
-  properties: number;
-  test: boolean;
+  what: string[];
   at: number;
   sites: number[];
 };
@@ -1196,16 +915,17 @@ type Removal = {
 function Page({ id }: { id: number }) {
   const { away } = useShell();
   const note = useNote();
+  const navigate = useNavigate();
   const [open, setOpen] = useState<Open>(null);
   const [switched, setSwitched] = useState<Set<number>>(new Set());
-  const [removal, setRemoval] = useState<Removal | null>(null);
+  const [deleted, setDeleted] = useState<Deleted | null>(null);
   /** A token replaced from this page: armed, then waiting until every website uses it. */
   const [watching, setWatching] = useState<'armed' | 'waiting' | null>(null);
   /** A reload under way, followed until every website has reloaded. */
   const [reloading, setReloading] = useState(false);
   const fast =
-    open?.kind === 'token-replaced' || removal !== null || watching !== null || reloading;
-  const { page, state, failure, load } = usePage(id, fast);
+    open?.kind === 'token-replaced' || deleted !== null || watching !== null || reloading;
+  const { page, state, failure, load } = useTenant(id, fast);
   const before = useRef<Brokerage | null>(null);
 
   const close = useCallback(() => setOpen(null), []);
@@ -1214,14 +934,14 @@ function Page({ id }: { id: number }) {
     void load();
   }, [load]);
 
-  // What changed since the last read: websites that took the new token, a removal that reached
-  // every website.
   useEffect(() => {
     setReloading(
       page?.reload !== null && page?.reload !== undefined && page.reload.state !== 'done',
     );
   }, [page]);
 
+  // What changed since the last read: websites that took the new token, a delete that reached
+  // every website.
   useEffect(() => {
     if (!page) return;
     const was = before.current;
@@ -1250,39 +970,28 @@ function Page({ id }: { id: number }) {
               : `All ${String(n)} websites use the new token.`,
       });
     }
-    if (removal) {
-      const sites = page.websites.filter((website) => removal.sites.includes(website.id));
+    if (deleted) {
+      const sites = page.websites.filter((website) => deleted.sites.includes(website.id));
       const fetched = sites.every(
-        (website) => website.lastFetchAt !== null && Date.parse(website.lastFetchAt) > removal.at,
+        (website) => website.lastFetchAt !== null && Date.parse(website.lastFetchAt) > deleted.at,
       );
       if (sites.length === 0 || fetched) {
-        setRemoval(null);
-        const left = whatLeft(removal.offices, removal.properties, removal.test);
+        setDeleted(null);
         const last = sites
           .map((website) => website.lastFetchAt ?? '')
           .sort()
           .at(-1);
         note({
           text:
-            sites.length > 0 && left && last
-              ? `Removed “${removal.name}”. ${left} left ${listed(sites.map((site) => site.label))} at ${when(last, new Date(page.now))}.`
-              : `Removed “${removal.name}”.`,
+            sites.length > 0 && deleted.what.length > 0 && last
+              ? `Deleted “${deleted.name}”. Its ${listed(deleted.what)} left ${listed(sites.map((site) => site.label))} at ${when(last, new Date(page.now))}.`
+              : `Deleted “${deleted.name}”.`,
         });
       }
     }
-  }, [page, watching, removal, note]);
+  }, [page, watching, deleted, note]);
 
-  if (state === 'missing') {
-    return (
-      <main className="k-page">
-        <Link className="k-back" to="/brokerages">
-          <ChevronLeftIcon size={16} />
-          Brokerages
-        </Link>
-        <p className="k-quiet">There is no brokerage at this address.</p>
-      </main>
-    );
-  }
+  if (state === 'missing') return <Nothing />;
   if (state === 'failed') {
     return (
       <main className="k-page">
@@ -1291,29 +1000,6 @@ function Page({ id }: { id: number }) {
     );
   }
   if (!page) return null;
-
-  const testMode = async (connection: ConnectionView, on: boolean) => {
-    try {
-      await api.formsTestMode(connection.id, on);
-    } catch (error) {
-      if (!away(error)) note({ text: failureWords(error), icon: 'warn' });
-      return;
-    }
-    const sites = listed(page.websites.map((website) => website.label));
-    const crm = crmFor(page, connection.provider);
-    note(
-      on
-        ? {
-            text: `Forms test mode is on for ${connection.name}. Forms from ${sites || 'its websites'} stop in Core.`,
-            icon: 'warn',
-            stays: false,
-          }
-        : {
-            text: `Forms test mode is off for ${connection.name}. Forms go to ${systemShort(crm.name, crm.provider, connection.login)} again.`,
-          },
-    );
-    void load();
-  };
 
   const switchOn = async () => {
     try {
@@ -1325,22 +1011,19 @@ function Page({ id }: { id: number }) {
     }
   };
 
-  const removed = (connection: ConnectionView, removedAt: string) => {
-    const crm = crmFor(page, connection.provider);
+  const connectionDeleted = (connection: ConnectionView, deletedAt: string) => {
     const sites = page.active ? page.websites.map((website) => website.id) : [];
     setOpen(null);
     if (sites.length === 0) {
-      note({ text: `Removed “${connection.name}”.` });
+      note({ text: `Deleted “${connection.name}”.` });
     } else {
       note({
-        text: `Removed “${connection.name}”. Waiting for ${listed(page.websites.map((website) => website.label))} to fetch the change.`,
+        text: `Deleted “${connection.name}”. Waiting for ${listed(page.websites.map((website) => website.label))} to fetch the change.`,
       });
-      setRemoval({
+      setDeleted({
         name: connection.name,
-        offices: connection.offices,
-        properties: connection.counts.property,
-        test: isTestSystem(crm.provider, connection.login),
-        at: Date.parse(removedAt),
+        what: holding(connection),
+        at: Date.parse(deletedAt),
         sites,
       });
     }
@@ -1351,72 +1034,68 @@ function Page({ id }: { id: number }) {
     <main className="k-page">
       <Link className="k-back" to="/brokerages">
         <ChevronLeftIcon size={16} />
-        Brokerages
+        Tenants
       </Link>
       <div className="k-title-line">
         <h1 className="k-page-title k-page-title-large">{page.name}</h1>
         <StatusBadge status={page.status} />
+        <span className="k-row-buttons k-end">
+          <IconButton label="Edit tenant" to={`/brokerages/${String(page.id)}/edit`}>
+            <PencilIcon size={16} />
+          </IconButton>
+          <IconButton
+            label="Delete tenant"
+            danger
+            onClick={() => setOpen({ kind: 'delete-tenant' })}
+          >
+            <TrashIcon size={16} />
+          </IconButton>
+        </span>
       </div>
       <ReloadBanner page={page} />
 
       <WebsitesCard
         page={page}
         switched={switched}
-        onAdd={() => setOpen({ kind: 'add-website' })}
-        onRemove={(website) => setOpen({ kind: 'remove-website', website })}
+        onDelete={(website) => setOpen({ kind: 'delete-website', website })}
       />
-      {page.crms.map((crm) => (
-        <CrmCard
-          key={crm.provider}
-          page={page}
-          crm={crm}
-          onConnect={() => setOpen({ kind: 'connect', crm })}
-          onOffices={(connection) => setOpen({ kind: 'offices', connection })}
-          onLogin={(connection) => setOpen({ kind: 'login', connection })}
-          onRemove={(connection) => setOpen({ kind: 'remove-connection', connection })}
-          onTestMode={(connection, on) => void testMode(connection, on)}
-        />
-      ))}
+      <CrmsCard
+        page={page}
+        onAdd={() => setOpen({ kind: 'add-crm' })}
+        onDelete={(connection) => setOpen({ kind: 'delete-connection', connection })}
+        onActed={() => void load()}
+      />
       <TokenCard page={page} onReplace={() => setOpen({ kind: 'replace-token' })} />
-      <BrokerageCard
+      <TenantCard
         page={page}
         onSwitch={(on) => (on ? void switchOn() : setOpen({ kind: 'switch-off' }))}
         onReload={() => setOpen({ kind: 'reload' })}
       />
 
-      {open?.kind === 'add-website' && (
-        <AddWebsiteWindow page={page} onAdded={load} onClose={closeAndLoad} />
+      {open?.kind === 'delete-website' && (
+        <DeleteWebsiteWindow website={open.website} onClose={close} onDeleted={closeAndLoad} />
       )}
-      {open?.kind === 'remove-website' && (
-        <RemoveWebsiteWindow website={open.website} onClose={close} onRemoved={closeAndLoad} />
-      )}
-      {open?.kind === 'connect' && (
-        <ConnectWindow page={page} crm={open.crm} onClose={close} onDone={closeAndLoad} />
-      )}
-      {open?.kind === 'login' && (
-        <LoginWindow
-          crm={crmFor(page, open.connection.provider)}
-          connection={open.connection}
+      {open?.kind === 'add-crm' && (
+        <AddCrmWindow
+          tenant={page.name}
+          crms={page.crms}
           onClose={close}
-          onDone={closeAndLoad}
+          onChosen={(provider) =>
+            navigate(
+              `/brokerages/${String(page.id)}/crms/new?provider=${encodeURIComponent(provider)}`,
+            )
+          }
         />
       )}
-      {open?.kind === 'offices' && (
-        <OfficesWindow
-          crm={crmFor(page, open.connection.provider)}
-          connection={open.connection}
-          onClose={close}
-        />
-      )}
-      {open?.kind === 'remove-connection' && (
-        <RemoveConnectionWindow
+      {open?.kind === 'delete-connection' && (
+        <DeleteConnectionWindow
           page={page}
-          crm={crmFor(page, open.connection.provider)}
           connection={open.connection}
           onClose={close}
-          onRemoved={(removedAt) => removed(open.connection, removedAt)}
+          onDeleted={(deletedAt) => connectionDeleted(open.connection, deletedAt)}
         />
       )}
+      {open?.kind === 'delete-tenant' && <DeleteTenantWindow page={page} onClose={close} />}
       {open?.kind === 'replace-token' && (
         <ReplaceTokenWindow
           page={page}
@@ -1452,16 +1131,10 @@ function Page({ id }: { id: number }) {
 /** `/admin/brokerages/<id>`. */
 export function BrokeragePage() {
   const { id } = useParams();
-  const number = id && /^\d+$/.test(id) ? Number(id) : null;
+  const number = idOf(id);
   return (
     <Shell tab="brokerages">
-      {number === null ? (
-        <main className="k-page">
-          <p className="k-quiet">There is no brokerage at this address.</p>
-        </main>
-      ) : (
-        <Page key={number} id={number} />
-      )}
+      {number === null ? <Nothing /> : <Page key={number} id={number} />}
     </Shell>
   );
 }

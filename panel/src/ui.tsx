@@ -1,5 +1,5 @@
 // The pieces design B repeats: a window, a message in the corner, a field that hides a secret with
-// Show and Copy, a switch, a status badge and a "…" menu.
+// Show and Copy, a switch, a status badge and an icon button with its hint.
 import {
   createContext,
   useCallback,
@@ -9,12 +9,12 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { Link } from 'react-router';
 import {
   AlertTriangleIcon,
   CheckIcon,
   CircleCheckIcon,
   CopyIcon,
-  DotsIcon,
   EyeIcon,
   EyeOffIcon,
   PowerIcon,
@@ -226,7 +226,7 @@ export function ValueField({
   );
 }
 
-// ---- A switch, a badge, a menu ---------------------------------------------------------------------
+// ---- A switch, a badge, an icon button ---------------------------------------------------------------------
 
 export function Switch({
   on,
@@ -262,70 +262,40 @@ export function Badge({ tone, children }: { tone: Tone; children: ReactNode }) {
   return <span className={`k-pill k-pill-${tone}`}>{children}</span>;
 }
 
-export type MenuItem = {
+/**
+ * A button that shows only its icon, with its words as a hint on hover and focus (the tenant
+ * mockups, image 02): an entity's Edit and Delete. With `to`, it opens that page.
+ */
+export function IconButton({
+  label,
+  to,
+  onClick,
+  danger = false,
+  children,
+}: {
   label: string;
-  icon: ReactNode;
-  onSelect?: () => void;
+  to?: string;
+  onClick?: () => void;
   danger?: boolean;
-  /** Its window belongs to a later part: shown as B draws it, and does nothing yet. */
-  later?: boolean;
-  /** A line above it. */
-  apart?: boolean;
-};
-
-export function DotsMenu({ label, items }: { label: string; items: MenuItem[] }) {
-  const [open, setOpen] = useState(false);
-  const holder = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const away = (event: MouseEvent) => {
-      if (!holder.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', away);
-    document.addEventListener('keydown', escape);
-    return () => {
-      document.removeEventListener('mousedown', away);
-      document.removeEventListener('keydown', escape);
-    };
-  }, [open]);
+  children: ReactNode;
+}) {
+  const className = `k-icon-button${danger ? ' k-icon-danger' : ''}`;
+  if (to !== undefined) {
+    return (
+      <Link className={className} to={to} aria-label={label} data-hint={label}>
+        {children}
+      </Link>
+    );
+  }
   return (
-    <div ref={holder} className="k-dots-holder">
-      <button
-        type="button"
-        className="k-button k-button-quiet k-button-small k-dots"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={label}
-        onClick={() => setOpen(!open)}
-      >
-        <DotsIcon size={16} />
-      </button>
-      {open && (
-        <div className="k-menu k-menu-actions" role="menu">
-          {items.map((item) => (
-            <div key={item.label}>
-              {item.apart && <div className="k-menu-line" />}
-              <button
-                type="button"
-                role="menuitem"
-                className={`k-menu-item${item.danger ? ' k-menu-danger' : ''}`}
-                aria-disabled={item.later ? 'true' : undefined}
-                onClick={() => {
-                  if (item.later) return;
-                  setOpen(false);
-                  item.onSelect?.();
-                }}
-              >
-                {item.icon}
-                {item.label}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    <button
+      type="button"
+      className={className}
+      aria-label={label}
+      data-hint={label}
+      onClick={onClick}
+    >
+      {children}
+    </button>
   );
 }

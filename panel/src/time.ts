@@ -3,7 +3,9 @@
 
 const ZONE = 'Europe/Stockholm';
 
-const parts = (at: Date): { day: string; hour: number; clock: string; date: string } => {
+const parts = (
+  at: Date,
+): { day: string; hour: number; clock: string; seconds: string; date: string } => {
   const read = new Intl.DateTimeFormat('en-GB', {
     timeZone: ZONE,
     year: 'numeric',
@@ -11,6 +13,7 @@ const parts = (at: Date): { day: string; hour: number; clock: string; date: stri
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+    second: '2-digit',
     hourCycle: 'h23',
   }).formatToParts(at);
   const get = (type: string): string => read.find((part) => part.type === type)?.value ?? '';
@@ -18,6 +21,7 @@ const parts = (at: Date): { day: string; hour: number; clock: string; date: stri
     day: `${get('year')}-${get('month')}-${get('day')}`,
     hour: Number(get('hour')),
     clock: `${get('hour')}:${get('minute')}`,
+    seconds: `${get('hour')}:${get('minute')}:${get('second')}`,
     date: new Intl.DateTimeFormat('en-GB', { timeZone: ZONE, day: 'numeric', month: 'short' })
       .format(at)
       .replace('Sept', 'Sep'),
@@ -43,6 +47,14 @@ export function when(iso: string, now: Date): string {
   if (at.day === parts(now).day) return at.clock;
   if (at.day === yesterdayOf(now)) return `yesterday ${at.clock}`;
   return `${at.date} ${at.clock}`;
+}
+
+/** To the second, as the Flow lists what moves within a minute: "10:41:07", "yesterday 21:14:02". */
+export function exactly(iso: string, now: Date): string {
+  const at = parts(new Date(iso));
+  if (at.day === parts(now).day) return at.seconds;
+  if (at.day === yesterdayOf(now)) return `yesterday ${at.seconds}`;
+  return `${at.date} ${at.seconds}`;
 }
 
 /** When something was sent, in words: "last night", "today", "yesterday", "on 12 Oct". */
