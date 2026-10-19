@@ -9,25 +9,6 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 213. `[core]` Is this what "any wish, matched against a large set of properties" means?
-
-- 2026-10-19 · Patric: "Repeat back to me what you think I mean when I say 'I want a user to be
-  able to describe any wish, and we match against a large set of properties'." The repeat-back:
-  - A visitor writes any wish in their own words, and nothing about it is prepared beforehand: no
-    supported criteria, fields, tags or facts chosen by us.
-  - When the search runs, the AI works out what this wish means and what evidence would show a
-    fit, and finds it in everything about each property (texts, photos, floor plans, documents,
-    position) and in the world around it, fetched for this wish.
-  - It matches across a large set, thousands of properties or more, with no number built into the
-    design, and ranks the best fits with their proof, saying "unknown" where nothing tells.
-  - A wish that works only because something was prepared for it is a failure.
-  - The "stored wishes" of the earlier design were only for "Bevaka": a visitor's own sentence,
-    kept when they ask to hear about new properties and judged anew each time. They are optional,
-    and the search does not need them.
-- Blocked: the redesign of the search (an exploration; nothing is built).
-- a) yes: the search is redesigned from this repeat-back.
-- b) no: Patric says what is wrong, and it is repeated back again.
-
 ## 212. `[core]` `[admin]` Keep a website's own answer to Core's change notice, so the card "stopped updating" can quote it
 
 - 2026-10-18 · When a website answers Core's change notice with an error, Core keeps only the answer
