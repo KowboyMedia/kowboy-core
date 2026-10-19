@@ -76,7 +76,7 @@ export const KINDS: readonly Kind[] = [
     level: 'P1',
     todo: 'The brokerage does not have it yet. Failed forms keeps it for 30 days with what the visitor wrote; press “Send again” beside it there once the CRM answers.',
     onSite:
-      'The brokerage does not have it yet. The website keeps it for 30 days with what the visitor wrote, on its page “Formulär”; press “Send again” beside it there once the CRM answers.',
+      'The brokerage does not have it yet. The website keeps it for 30 days with what the visitor wrote, on its page “Formulär”; press “Skicka igen” beside it there once the CRM answers.',
   },
   {
     type: 'submission.refused',
@@ -84,7 +84,7 @@ export const KINDS: readonly Kind[] = [
     level: 'P1',
     todo: 'The brokerage does not have it. Failed forms keeps it for 30 days with what the visitor wrote and the CRM’s reason; press “Send again” beside it there once the cause is put right.',
     onSite:
-      'The brokerage does not have it. The website keeps it for 30 days with what the visitor wrote and the CRM’s reason, on its page “Formulär”; press “Send again” beside it there once the cause is put right.',
+      'The brokerage does not have it. The website keeps it for 30 days with what the visitor wrote and the CRM’s reason, on its page “Formulär”; press “Skicka igen” beside it there once the cause is put right.',
   },
   {
     type: 'check.failed',
@@ -110,7 +110,77 @@ const BOT_CHECK: Kind = {
   title: 'The bot check stopped a site’s forms',
   level: 'P1',
   todo: BOT_CHECK_TODO,
-  onSite: `${BOT_CHECK_TODO} Then press “Send again” beside each form it stopped, on the website’s page “Formulär”.`,
+  onSite: `${BOT_CHECK_TODO} Then press “Skicka igen” beside each form it stopped, on the website’s page “Formulär”.`,
+};
+
+/** Where the website keeps a form Core stopped, and who can still act on it. */
+const KEPT =
+  'The website keeps the form for 30 days with what the visitor wrote, on its page “Formulär”, from where the brokerage can be told of the visitor.';
+
+/**
+ * A form Core stopped before asking any CRM (`fields.stopped`, why, from engine/http/submissions.ts).
+ * No CRM failed, so "Send again once the CRM answers" is wrong for it: each why has its own words.
+ * The brokerage does not get the form, so each is P1 like any form that did not reach it.
+ */
+const STOPPED: Record<string, Kind> = Object.fromEntries(
+  (
+    [
+      [
+        'unreadable',
+        'Core could not read a visitor’s form',
+        'The brokerage does not have it. The website’s form window and Core disagree on what the form holds: update the website’s plugin, and if it already runs the newest one, the fault is for a developer to fix.',
+        `${KEPT} “Skicka igen” there sends the same form, which Core cannot read either.`,
+      ],
+      [
+        'foreign',
+        'A visitor’s form was about another tenant’s home',
+        'The brokerage does not have it. The website showed a home its tenant does not have, as a website does after it moved to another tenant or the connection the home came through was deleted: check on the tenant’s page that the website is under the right tenant.',
+        KEPT,
+      ],
+      [
+        'gone',
+        'A visitor’s form was about a home that is gone',
+        'The brokerage does not have it, since Core sends no form about a home that is not on the CRM’s list. If the home left the list a while ago, the website is not fetching its changes: see the website on its tenant’s page.',
+        KEPT,
+      ],
+      [
+        'office',
+        'A visitor’s form named an office the tenant does not have',
+        'The brokerage does not have it. If that office left the sites a while ago, the website is not fetching its changes: see the website on its tenant’s page.',
+        KEPT,
+      ],
+      [
+        'which-office',
+        'A visitor’s form named no office',
+        'The brokerage does not have it, since Core cannot tell which office should get it. Give the website’s button that opened the form its office, in the website’s theme.',
+        KEPT,
+      ],
+      [
+        'no-office',
+        'A visitor’s form found no office to go to',
+        'The brokerage does not have it, and every form of the tenant that names no home stops the same way until the tenant has an office in Core, which comes with a CRM connection that syncs one: see the connections on the tenant’s page.',
+        `${KEPT} “Skicka igen” beside it there sends it once the tenant has an office.`,
+      ],
+      [
+        'kind',
+        'A visitor sent a form the CRM does not take',
+        'The brokerage does not have it, and every visitor who sends this form reaches no one: remove its button from the website.',
+        `${KEPT} Turning the website’s forms off on that page makes every form button lead to the brokerage’s contact details instead.`,
+      ],
+    ] as const
+  ).map(([why, title, todo, kept]) => [
+    why,
+    { type: 'submission.failed', title, level: 'P1', todo, onSite: `${todo} ${kept}` },
+  ]),
+);
+
+/** A form Core stopped for a why these words do not know yet: the sentence says why. */
+const STOPPED_OTHERWISE: Kind = {
+  type: 'submission.failed',
+  title: 'Core stopped a visitor’s form',
+  level: 'P1',
+  todo: 'The brokerage does not have it, and no CRM was asked.',
+  onSite: `The brokerage does not have it, and no CRM was asked. ${KEPT}`,
 };
 
 /** How long an event stays on the Overview. */
@@ -127,6 +197,9 @@ function kindOf(type: string, fields: EventFields): Kind | null {
   // A sites check that could not run names no site; its problem is the check's, not a site's.
   if (type === 'check.failed' && !named(fields, 'sites') && !named(fields, 'names')) return null;
   if (type === BOT_CHECK.type && fields['bot_check']) return BOT_CHECK;
+  if (type === 'submission.failed' && typeof fields['stopped'] === 'string') {
+    return STOPPED[fields['stopped']] ?? STOPPED_OTHERWISE;
+  }
   return (
     KINDS.find(
       (kind) => kind.type === type && (kind.name === undefined || fields['name'] === kind.name),
@@ -501,7 +574,7 @@ async function formsPagesOf(rows: EventRow[]): Promise<Map<number, string | null
 
 /**
  * A form a visitor sent, from the website when Core knows it, opening that website's page of its
- * forms; otherwise Failed forms, or for a form the bot check stopped, which Core does not keep,
+ * forms; otherwise Failed forms, or for a form stopped before any CRM, which Core does not keep,
  * the website's place on its tenant's page.
  */
 function formPlace(row: EventRow, known: Names, formsPages: Map<number, string | null>): Place {
@@ -518,9 +591,12 @@ function formPlace(row: EventRow, known: Names, formsPages: Map<number, string |
   };
 }
 
-/** A form's place in the admin area when its website has no page of its forms Core knows. */
+/**
+ * A form's place in the admin area when its website has no page of its forms Core knows: Failed
+ * forms, or the website's place for a form Core stopped before any CRM, which Core does not keep.
+ */
 function formElsewhere(row: EventRow, siteId: number | null, tenantId: number | null): string {
-  if (!row.fields['bot_check']) return '/forms';
+  if (!row.fields['bot_check'] && !row.fields['stopped']) return '/forms';
   if (tenantId === null) return '/tenants';
   return `/tenants/${String(tenantId)}${siteId === null ? '' : `#site:${String(siteId)}`}`;
 }

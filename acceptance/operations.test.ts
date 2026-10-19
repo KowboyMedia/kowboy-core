@@ -444,12 +444,12 @@ describe('alerts', () => {
     );
     expect(stopped?.said).toMatch(/TURNSTILE_SITE_KEY and TURNSTILE_SECRET/);
     expect(stopped?.said).toMatch(
-      /press “Send again” beside each form it stopped, on the website’s page “Formulär”\.$/,
+      /press “Skicka igen” beside each form it stopped, on the website’s page “Formulär”\.$/,
     );
     expect(refused).toMatchObject({
       level: 'P1',
       link: page,
-      said: 'Fake-webhook refused a viewing booking sent again from the website, with the reason “no such viewing”. The brokerage does not have it. The website keeps it for 30 days with what the visitor wrote and the CRM’s reason, on its page “Formulär”; press “Send again” beside it there once the cause is put right.',
+      said: 'Fake-webhook refused a viewing booking sent again from the website, with the reason “no such viewing”. The brokerage does not have it. The website keeps it for 30 days with what the visitor wrote and the CRM’s reason, on its page “Formulär”; press “Skicka igen” beside it there once the cause is put right.',
     });
 
     // The page is the WordPress plugin's, wherever WordPress lives; a website that is not
@@ -465,6 +465,74 @@ describe('alerts', () => {
       "update subscribers set bell_url = 'https://abc.supabase.co/functions/v1/core-bell' where id = 1",
     );
     expect((await attention()).map((line) => line.link)).toEqual(['/forms', '/tenants/1#site:1']);
+  });
+
+  it('words a form Core stopped before asking any CRM by why, never as one the CRM did not answer (209 a)', async () => {
+    const page = 'https://maklare.example/wp-admin/admin.php?page=core-client-forms';
+    await heartbeat();
+    await checkAlerts(config);
+    await db().query(
+      "update subscribers set bell_url = 'https://maklare.example/wp-json/core/v1/bell' where id = 1",
+    );
+    const whys = ['unreadable', 'foreign', 'gone', 'office', 'which-office', 'no-office', 'kind'];
+    for (const why of whys) {
+      await logEvent({
+        type: 'submission.failed',
+        correlationId: `stopped-${why}`,
+        tenantId: TENANT,
+        connectionId: null,
+        subscriberId: 1,
+        fields: {
+          kind: 'lead',
+          stopped: why,
+          detail:
+            why === 'unreadable'
+              ? 'Core could not read the form: /person/email must match format "email"'
+              : 'the words Core answered the site with',
+        },
+      });
+    }
+
+    const lines = await attention();
+    expect(lines.map((line) => line.kind.title).reverse()).toEqual([
+      'Core could not read a visitor’s form',
+      'A visitor’s form was about another tenant’s home',
+      'A visitor’s form was about a home that is gone',
+      'A visitor’s form named an office the tenant does not have',
+      'A visitor’s form named no office',
+      'A visitor’s form found no office to go to',
+      'A visitor sent a form the CRM does not take',
+    ]);
+    for (const line of lines) {
+      expect(line).toMatchObject({ level: 'P1', link: page });
+      expect(line.said).toContain('The brokerage does not have it');
+      expect(line.said).toContain('on its page “Formulär”');
+      expect(line.said).not.toContain('once the CRM answers');
+    }
+    const said = new Map(lines.map((line) => [line.kind.title, line.said]));
+    expect(said.get('Core could not read a visitor’s form')).toBe(
+      'A valuation or contact request from the site test site was not sent, because Core could not read it: /person/email must match format "email". The brokerage does not have it. The website’s form window and Core disagree on what the form holds: update the website’s plugin, and if it already runs the newest one, the fault is for a developer to fix. The website keeps the form for 30 days with what the visitor wrote, on its page “Formulär”, from where the brokerage can be told of the visitor. “Skicka igen” there sends the same form, which Core cannot read either.',
+    );
+    expect(said.get('A visitor’s form named no office')).toMatch(
+      /^A valuation or contact request from the site test site was not sent, because it names no office, and Test tenant has several\. /,
+    );
+
+    // The alert tells each by its own title.
+    await db().query(
+      "update alert_state set since = since - interval '1 minute' where name = 'alerts:events'",
+    );
+    await db().query("update events set at = at - interval '20 seconds'");
+    await checkAlerts(config);
+    expect(running.mails[0]?.subject).toBe('Core test: 7 problems, the worst P1 Disrupted');
+    expect(running.mails[0]?.text).toContain('P1 Disrupted · A visitor’s form named no office\n');
+
+    // Core keeps no copy of a stopped form, so without the website's page it opens the website.
+    await db().query(
+      "update subscribers set bell_url = 'https://abc.supabase.co/functions/v1/core-bell' where id = 1",
+    );
+    const elsewhere = await attention();
+    expect(new Set(elsewhere.map((line) => line.link))).toEqual(new Set(['/tenants/1#site:1']));
+    expect(elsewhere.every((line) => !line.said.includes('“Formulär”'))).toBe(true);
   });
 
   it('tells a CRM’s check at the level its code gave it, naming what it points at as the admin area does (questions 178 and 184)', async () => {

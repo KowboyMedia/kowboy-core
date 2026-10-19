@@ -82,6 +82,32 @@ const tenantsPage = (named: Named): string =>
 const formSent = (fields: EventFields): string =>
   text(fields, 'sent_again') ? `${form(fields)} sent again from the website` : form(fields);
 
+/**
+ * Why Core stopped a form before asking any CRM (`fields.stopped`, engine/http/submissions.ts), in
+ * a clause naming the tenant.
+ */
+const STOPPED: Record<string, (tenant: string) => string> = {
+  unreadable: () => 'Core could not read it',
+  foreign: (tenant) => `the home it is about came through a CRM connection that is not ${tenant}’s`,
+  gone: () => 'the home it is about is not on the CRM’s list',
+  office: (tenant) => `the office it names is not one of ${tenant}’s offices`,
+  'which-office': (tenant) => `it names no office, and ${tenant} has several`,
+  'no-office': (tenant) => `${tenant} has no office in Core to receive it`,
+  kind: (tenant) => `${tenant}’s CRM takes no form of this kind`,
+};
+
+/** A form Core stopped before asking any CRM, by why; null for a form that was not stopped. */
+function stoppedForm(fields: EventFields, named: Named): string | null {
+  const why = STOPPED[text(fields, 'stopped') ?? ''];
+  if (!why) return null;
+  const said = `${capital(formSent(fields))} from ${theSite(named)} was not sent, because ${why(named.tenant ?? 'the tenant')}`;
+  // An unreadable form's detail names what Core could not read in it.
+  const unread = text(fields, 'stopped') === 'unreadable' ? text(fields, 'detail') : null;
+  return sentence(
+    unread ? `${said}: ${unread.replace(/^Core could not read the form:\s*/, '')}` : said,
+  );
+}
+
 /** A form by its kind, as the `submission.` events name it (docs/forms.md). */
 const FORMS: Record<string, string> = {
   lead: 'a valuation or contact request',
@@ -317,6 +343,8 @@ const SAY: Record<string, (fields: EventFields, named: Named) => string> = {
         `${capital(form(fields))} from ${theSite(named)} was not sent, because the bot check could not run: ${cause}`,
       );
     }
+    const stopped = stoppedForm(fields, named);
+    if (stopped) return stopped;
     const detail = text(fields, 'detail');
     return detail
       ? sentence(`${capital(formSent(fields))} could not be sent to ${theCrm(named)}: ${detail}`)
