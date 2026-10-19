@@ -27,7 +27,7 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 
 ## 222. `[client-wordpress]` Put the new forms on the Ahre demo too
 
-- 2026-10-19 · The Norban demo runs theme 1.3.4 and plugin 0.9.1 (the forms list's changes and
+- 2026-10-19 · The Norban demo runs theme 1.3.5 and plugin 0.9.2 (the forms list's changes and
   the step "Söker du bostad?"); the Ahre demo still runs theme 1.3.1 and plugin 0.8.0, and a
   theme update there waits for Patric's word. Its styling lives in its database, which a theme
   update keeps.

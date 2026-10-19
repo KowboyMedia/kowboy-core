@@ -26,7 +26,7 @@ export type FakeConnect = {
   unlist(officeId: string, datatype: string, id: string): void;
   /** Answer the next `times` requests with HTTP 500. */
   failNext(times: number): void;
-  /** Answer 403 for this office from now on, as Connect does for a closed one. */
+  /** Answer 403 for this office from now on, its form calls too, as Connect does for a closed one. */
   forbid(officeId: string): void;
   allow(officeId: string): void;
   /** Answer the next `times` requests with 200 and a body that is not JSON. */
@@ -127,6 +127,8 @@ export function startFakeConnect(): Promise<FakeConnect> {
 
   /** What a form POST answers, by its path: a status and a body, or null for 204. */
   const postAnswer = (path: string): { status: number; body: unknown } | null => {
+    const office = /^\/(?:v2\/Advertising\/Form|Advertising\/Estate)\/([^/]+)\//.exec(path)?.[1];
+    if (office && forbidden.has(office)) return { status: 403, body: { message: 'forbidden' } };
     if (refusal) {
       const { message, field } = refusal;
       refusal = null;
