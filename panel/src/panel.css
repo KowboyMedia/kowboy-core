@@ -2091,38 +2091,6 @@ body {
   font-weight: 500;
   line-height: 20px;
 }
-.k-forms {
-  margin: 16px 0 0;
-  padding: 0;
-  list-style: none;
-  border: 1px solid var(--k-line);
-  border-radius: 6px;
-}
-.k-forms li {
-  display: flex;
-  flex-direction: column;
-  padding: 20px;
-  line-height: 20px;
-}
-.k-forms li + li {
-  border-top: 1px solid var(--k-line);
-}
-.k-forms-kind {
-  color: var(--k-strong);
-  font-weight: 500;
-}
-.k-forms-record {
-  color: var(--k-text);
-}
-.k-forms-when {
-  color: var(--k-muted);
-  font-size: 13px;
-}
-.k-forms-cause {
-  margin-top: 4px;
-  color: var(--k-red);
-  font-size: 13px;
-}
 
 /* ---- The phone -------------------------------------------------------------------------------- */
 

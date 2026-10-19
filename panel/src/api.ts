@@ -18,8 +18,6 @@ export type {
   WorkerCard,
 } from '../../engine/panel/inbox.js';
 export type { Fixed, FixedFacts } from '../../engine/panel/problems.js';
-import type { Resent } from '../../engine/panel/forms.js';
-export type { Resent };
 export type Level = InboxLevel;
 
 export type {
@@ -153,8 +151,6 @@ export const api = {
   /** "Done, I've pasted it": the Inbox card waits until the problem is solved. */
   acted: (key: string) => post<{ ok: true }>('/problems/act', { key }),
   maintenance: (on: boolean) => post<{ ok: true }>('/maintenance', { on }),
-  resend: (id: number, ids: string[]) =>
-    post<{ results: Resent[] }>(`/brokerages/${String(id)}/resend`, { ids }),
   /** One page of the records the filter keeps, by name, with the filters' choices counted. */
   records: (filter: Partial<RecordFilter>, page = 1) => {
     const query = recordQuery(filter);

@@ -1,6 +1,6 @@
 // Deleting a tenant and everything of it (the tenant mockups, images 15 and 16): its websites with
 // their history, its CRM connections with their logins, its records, the forms Core holds for it,
-// its problems in the Inbox, its reloads and its events. Each website and each connection goes the
+// its problems in the Inbox and its events. Each website and each connection goes the
 // way one is deleted on its own, so nothing about deleting one is done twice or done otherwise;
 // then every other row of Core's that holds the tenant or one of its connections goes. Nothing is
 // sent to a CRM: deleting reads and writes Core's own database only.
@@ -53,8 +53,8 @@ async function forgetRest(id: number, connections: string[]): Promise<void> {
 /**
  * Delete a tenant and everything of it. Its websites go first, so no change notice reaches a
  * website that is going; then each connection, whose records leave with it; then the rest. The
- * tenant's row goes last, and with it what is kept by its key: the forms Core holds, its problems
- * and its reloads. False when there is no such tenant.
+ * tenant's row goes last, and with it what is kept by its key: the forms Core holds and its
+ * problems. False when there is no such tenant.
  */
 export async function deleteBrokerage(id: number): Promise<boolean> {
   if (!(await tenantById(id))) return false;

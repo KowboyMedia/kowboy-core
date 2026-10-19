@@ -190,7 +190,7 @@ beforeEach(async () => {
   asked.sent = 0;
   await writeSetting(MAINTENANCE, 'off', null);
   await db().query(
-    'truncate submissions, events, admin_sessions, lifecycle_events, jobs, panel_problems, reloads',
+    'truncate submissions, events, admin_sessions, lifecycle_events, jobs, panel_problems',
   );
   await db().query('delete from items');
   await db().query('delete from connections');

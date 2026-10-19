@@ -6,13 +6,18 @@
 // the CRM's own code makes through its own door. Core keeps no row of a sync: the panel holds the
 // ticket it is given and asks with it how the sync is coming along.
 import { db } from '../storage/db.js';
-import { countItems, renumber, scopeWhere, type ScopeFilter } from '../storage/items.js';
+import {
+  countItems,
+  renumber,
+  resyncTenant,
+  scopeWhere,
+  type ScopeFilter,
+} from '../storage/items.js';
 import { connectionById } from '../storage/connections.js';
 import { inMaintenance } from '../storage/settings.js';
 import { queueLifecycle } from '../lifecycle.js';
 import { createJob, getJob } from '../jobs.js';
 import { ring } from '../bells.js';
-import { rebuildSites } from '../reload.js';
 import { adminFor } from '../registry.js';
 import { canonicalJson } from '../json.js';
 import type { AdminRecord, Datatype } from '../adapter-api/types.js';
@@ -362,7 +367,11 @@ function wholeTenants(chosen: Chosen): number[] | null {
 async function send(chosen: Chosen): Promise<number | null> {
   const whole = wholeTenants(chosen);
   if (whole) {
-    for (const tenant of whole) await rebuildSites(tenant);
+    // The tenant's purge watermark goes past everything it holds, so its websites rebuild.
+    for (const tenant of whole) {
+      await resyncTenant(tenant);
+      await ring(tenant, 'forcerefresh');
+    }
     return null;
   }
   const moved = await renumber(chosen.scope);

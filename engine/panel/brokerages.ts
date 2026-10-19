@@ -21,7 +21,6 @@ import { adminFor, adminProviders } from '../registry.js';
 import { listOnBotCheck, type Listed } from '../human.js';
 import { DATATYPES, type Connection, type Datatype } from '../adapter-api/types.js';
 import { crmName, inbox, type Card } from './inbox.js';
-import { reloadOf, type ReloadView } from './reload.js';
 import { describe, sectionsOf, type ShownSection } from './sections.js';
 
 /** A brokerage as the list and its page badge it: OK, Needs a look, or Off. */
@@ -103,8 +102,6 @@ export type Brokerage = {
   websites: Website[];
   crms: Crm[];
   connections: ConnectionView[];
-  /** Its latest "Reload all data" of the last day, followed until every website has reloaded. */
-  reload: ReloadView | null;
 };
 
 const iso = (at: Date | null | undefined): string | null => (at ? at.toISOString() : null);
@@ -343,7 +340,6 @@ export async function brokerage(
     })),
     crms: crms(),
     connections: views,
-    reload: await reloadOf(id),
   };
 }
 
