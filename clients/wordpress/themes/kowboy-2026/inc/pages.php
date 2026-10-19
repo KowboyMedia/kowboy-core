@@ -15,7 +15,7 @@ function kowboy_menu_fallback(array $args): void
         $url = $page instanceof WP_Post ? (string) get_permalink($page) : home_url('/' . $slug . '/');
         $items .= '<li class="menu-item"><a href="' . esc_url($url) . '">' . esc_html($label) . '</a></li>';
     }
-    // The footer's menu ends with the areas archive and the privacy page when the theme options name one.
+    // The footer's menu ends with the areas archive and the privacy page WordPress's own setting names.
     if (($args['theme_location'] ?? '') === 'footer') {
         $items .= kowboy_footer_menu_items();
     }
@@ -26,9 +26,10 @@ function kowboy_menu_fallback(array $args): void
 function kowboy_footer_menu_items(): string
 {
     $items = '<li class="menu-item"><a href="' . esc_url((string) get_post_type_archive_link('core_area')) . '">Områden</a></li>';
-    $privacy = (int) kowboy_option('kowboy_privacy_page');
-    if ($privacy > 0) {
-        $items .= '<li class="menu-item"><a href="' . esc_url((string) get_permalink($privacy)) . '">' . esc_html(get_the_title($privacy)) . '</a></li>';
+    // The page set under Inställningar, Integritet, once it is published; WordPress writes the link.
+    $privacy = get_the_privacy_policy_link();
+    if ($privacy !== '') {
+        $items .= '<li class="menu-item">' . $privacy . '</li>';
     }
     return $items;
 }

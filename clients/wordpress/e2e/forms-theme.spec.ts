@@ -195,6 +195,54 @@ test('journey: the interest, viewing and valuation buttons open the theme’s wi
   expect(leaked).toEqual([]);
 });
 
+test('journey: while a form is on its way, “Skicka” reads “Skickar…” and cannot be pressed, so a second press or Enter sends nothing more, and the window has no field a person cannot see', async ({
+  page,
+}) => {
+  await page.route('https://challenges.cloudflare.com/**', (route) =>
+    route.fulfill({ contentType: 'text/javascript', body: TURNSTILE_STAND_IN }),
+  );
+  // The site's receiver holds the form until the test lets it go, as a slow CRM would.
+  const posted: string[] = [];
+  let release = (): void => undefined;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(
+    (url) => /core\/v1\/forms(?!\/slots)/.test(decodeURIComponent(url.href)),
+    async (route) => {
+      if (route.request().method() === 'POST') {
+        posted.push(route.request().postData() ?? '');
+        await held;
+      }
+      await route.continue();
+    },
+  );
+
+  await page.goto('/?pagename=till-salu');
+  await page.getByRole('link', { name: 'Kungsgatan 3', exact: true }).click();
+  const dialog = page.locator('dialog.k-form');
+  await page.getByRole('link', { name: 'Anmäl intresse' }).click();
+  await expect(dialog).toBeVisible();
+  // The hidden trap field is gone (forms list, 2026-10-07): nothing in the window hides from people.
+  await expect(
+    dialog.locator('[aria-hidden="true"] input, input[tabindex="-1"], input[name="website"]'),
+  ).toHaveCount(0);
+  await fillPerson(dialog);
+  await dialog.getByLabel(/Jag samtycker/).check();
+  await dialog.getByRole('button', { name: 'Skicka' }).click();
+
+  const sending = dialog.getByRole('button', { name: 'Skickar…' });
+  await expect(sending).toBeDisabled();
+  await expect.poll(() => posted.length).toBe(1);
+  await sending.click({ force: true });
+  await dialog.getByLabel('E-post').press('Enter');
+  await expect(sending).toBeDisabled();
+  release();
+
+  await expect(
+    dialog.getByRole('heading', { name: 'Din intresseanmälan är skickad' }),
+  ).toBeVisible();
+  expect(posted).toHaveLength(1);
+});
+
 test('journey: with Kowboy’s chat on the page, a form button opens the chat at that request, and the theme’s window opens where the chat cannot take it', async ({
   page,
 }) => {

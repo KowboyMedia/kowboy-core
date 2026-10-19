@@ -4,7 +4,8 @@
 // could not take is tried again within the form's short time, and when Vitec stays down the
 // visitor hears it while they wait (question 165). Nothing about forms is typed on a connection
 // (question 155): Vitec's own defaults stand for the lead source, the intake source and an
-// interest's status, and a booking asks Vitec for an e-mail confirmation, no SMS and no reminder.
+// interest's status, and a booking asks Vitec for its confirmation by e-mail and by SMS, and no
+// reminder.
 import * as connect from './api.js';
 import { isoDate } from './mappers.js';
 import { failureInWords } from './words.js';
@@ -198,8 +199,9 @@ async function booking(sending: Sending): Promise<string | null> {
       address: address(submission),
       gdpr: { hasApproved: submission.consent.given },
       lead: { leadSourceId: null, message: submission.message ?? null },
-      // The window tells the visitor the brokerage confirms by e-mail.
-      confirmation: { isEmailEnabled: true, isSmsEnabled: false },
+      // Both of Vitec's confirmations on (Patric, 2026-10-07: "make sure this is always ON/true, the
+      // agent can control it themselves in vitec"); Vitec's documentation does not say who gets them.
+      confirmation: { isEmailEnabled: true, isSmsEnabled: true },
       marketing: marketing(submission),
       reminderTime: null,
       // No rules of our own: Vitec applies the viewing's booking limit and deadline as it has them.

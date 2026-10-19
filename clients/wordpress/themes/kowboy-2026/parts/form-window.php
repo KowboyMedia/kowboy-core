@@ -44,8 +44,6 @@ $human = $human ?? null;
                 <label class="k-form__label"><span>E-post</span><input class="k-form__field" name="email" type="email" autocomplete="email" required></label>
             </div>
             <label class="k-form__label"><span>Meddelande (valfritt)</span><textarea class="k-form__field" name="message"></textarea></label>
-            <?php // The honeypot: a field no person sees; filled, the form is "sent" and nothing leaves. ?>
-            <label class="k-form__trap" aria-hidden="true">Webbplats<input name="website" tabindex="-1" autocomplete="off"></label>
             <?php // On an interest and a booking: the visitor may be a seller too, which the brokerage hears with the form. ?>
             <label class="k-form__consent" data-form-current-home><input type="checkbox" name="current_home"><span>Kontakta mig om min nuvarande bostad.</span></label>
             <label class="k-form__consent"><input type="checkbox" name="consent" required><span>Jag samtycker till att mäklaren kontaktar mig och behandlar mina uppgifter enligt <?php if ($policy !== '') : ?><a href="<?php echo esc_url($policy); ?>" target="_blank" rel="noopener">integritetspolicyn</a><?php else : ?>integritetspolicyn<?php endif; ?>.</span></label>

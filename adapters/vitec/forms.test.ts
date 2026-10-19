@@ -209,7 +209,7 @@ describe('the Vitec adapter’s forms', () => {
       address: { streetAddress: 'Storgatan 1', zipCode: '211 22', city: 'Malmö' },
       gdpr: { hasApproved: true },
       lead: { leadSourceId: null, message: 'Hej!' },
-      confirmation: { isEmailEnabled: true, isSmsEnabled: false },
+      confirmation: { isEmailEnabled: true, isSmsEnabled: true },
       marketing: {
         referrer: 'https://site.example/objekt/1',
         utmTags: [{ name: 'utm_source', value: 'hemnet' }],

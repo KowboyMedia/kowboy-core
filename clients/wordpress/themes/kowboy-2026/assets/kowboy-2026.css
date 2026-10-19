@@ -2308,13 +2308,6 @@ textarea.k-form__field {
   font-size: 22px;
   font-weight: 600;
 }
-.k-form__trap {
-  position: absolute;
-  left: -9999px;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-}
 .k-form .k-button[disabled] {
   opacity: 0.5;
   cursor: default;

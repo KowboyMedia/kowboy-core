@@ -1,7 +1,7 @@
 <?php
 // The theme options, in WordPress's own Customizer (Utseende, Anpassa), with Swedish labels: the
 // logotype in a bright and a dark variant, the main typography, the office's contact details
-// for the footer, the footer form's words, and the form's receiving address and privacy page.
+// for the footer and the footer form's words. The privacy page is WordPress's own setting.
 
 declare(strict_types=1);
 
@@ -16,7 +16,6 @@ const KOWBOY_OPTIONS = [
     'kowboy_address' => '',
     'kowboy_phone' => '',
     'kowboy_email' => '',
-    'kowboy_privacy_page' => 0,
     'kowboy_form_title' => 'Ska du sälja din bostad?',
     'kowboy_form_text' => 'Fyll i dina uppgifter så hör vi av oss!',
     'kowboy_copyright' => 'Alla rättigheter reserverade.',
@@ -57,10 +56,9 @@ add_action('customize_register', function (WP_Customize_Manager $customizer): vo
     $customizer->add_control('kowboy_email', ['label' => 'E-post', 'section' => 'kowboy_contact', 'type' => 'email']);
     $customizer->add_control('kowboy_copyright', ['label' => 'Copyrightrad', 'section' => 'kowboy_contact', 'type' => 'text', 'description' => 'Årtalet läggs till automatiskt.']);
 
-    $customizer->add_section('kowboy_forms', ['title' => 'Formulär', 'panel' => 'kowboy', 'description' => 'Formuläret i sidfoten visas på alla sidor. Formulären är ännu inte kopplade: vart en förfrågan går bestäms senare (fråga 105).']);
+    $customizer->add_section('kowboy_forms', ['title' => 'Formulär', 'panel' => 'kowboy', 'description' => 'Formuläret i sidfoten visas på alla sidor. Samtyckesrutan länkar till sidan som är vald under Inställningar, Integritet.']);
     $customizer->add_control('kowboy_form_title', ['label' => 'Rubrik i sidfotens formulär', 'section' => 'kowboy_forms', 'type' => 'text']);
     $customizer->add_control('kowboy_form_text', ['label' => 'Text i sidfotens formulär', 'section' => 'kowboy_forms', 'type' => 'text']);
-    $customizer->add_control('kowboy_privacy_page', ['label' => 'Integritetspolicy', 'section' => 'kowboy_forms', 'type' => 'dropdown-pages', 'description' => 'Sidan som samtyckesrutan länkar till.']);
 });
 
 /** Every option is a number, a page id or a short string; nothing else is stored. */
@@ -91,3 +89,19 @@ function kowboy_logo(bool $bright): string
         : '<img src="' . esc_url($url) . '" alt="' . esc_attr($name) . '" class="k-logo__image">';
     return '<a class="k-logo" href="' . esc_url(home_url('/')) . '" rel="home">' . $inner . '</a>';
 }
+
+/**
+ * One-time, for sites that chose a privacy page in the theme's own picker, which is gone: the
+ * choice moves to WordPress's own setting when that names none, and the theme's copy is deleted.
+ * It comes out once the sites run a theme version with it.
+ */
+add_action('init', function (): void {
+    $picked = (int) get_theme_mod('kowboy_privacy_page', 0);
+    if ($picked === 0) {
+        return;
+    }
+    if ((int) get_option('wp_page_for_privacy_policy') === 0) {
+        update_option('wp_page_for_privacy_policy', $picked);
+    }
+    remove_theme_mod('kowboy_privacy_page');
+});

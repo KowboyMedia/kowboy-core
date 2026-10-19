@@ -1091,6 +1091,37 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
       await wp('theme', 'mod', 'remove', 'kowboy_address', 'kowboy_display_size');
     }
   });
+
+  it('links the privacy page WordPress names from the footer and the forms’ consent, and moves a page picked in the theme’s old picker there once', async () => {
+    const before = (await wp('option', 'get', 'wp_page_for_privacy_policy')).stdout.trim();
+    const { stdout: id } = await wp(
+      'post',
+      'create',
+      '--post_type=page',
+      '--post_status=publish',
+      '--post_title=Integritetspolicy',
+      '--porcelain',
+    );
+    try {
+      const url = (await wp('post', 'url', id.trim())).stdout.trim();
+      await wp('option', 'update', 'wp_page_for_privacy_policy', '0');
+      await wp('theme', 'mod', 'set', 'kowboy_privacy_page', id.trim());
+      const { body } = await page('/');
+      expect(body).toContain(`<a class="privacy-policy-link" href="${url}"`);
+      expect(body).toContain(
+        `<a href="${url}" target="_blank" rel="noopener">integritetspolicyn</a>`,
+      );
+      expect((await wp('option', 'get', 'wp_page_for_privacy_policy')).stdout.trim()).toBe(
+        id.trim(),
+      );
+      expect(
+        (await wp('theme', 'mod', 'get', 'kowboy_privacy_page', '--field=value')).stdout.trim(),
+      ).toBe('');
+    } finally {
+      await wp('post', 'delete', id.trim(), '--force');
+      await wp('option', 'update', 'wp_page_for_privacy_policy', before);
+    }
+  });
 });
 
 describe('the plugin’s set machinery, with a set plugin', () => {

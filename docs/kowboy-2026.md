@@ -41,7 +41,8 @@ holds everything the design needs and that a site installs as its theme (decisio
   the editor; the demo pages (Home, Till salu, Sålda bostäder, Om oss) are created on install.
 - **Theme options** (Swedish UI): the logotype in a bright and a dark variant, the main
   typography (the display, body and label styles), the office's address, phone and e-mail for
-  the footer, the privacy policy page, the lead form's receiving address.
+  the footer, the lead form's receiving address. The privacy page is WordPress's own setting
+  (Inställningar, Integritet), which the footer and the forms' consent link.
 - **The CRM views** under `core/` in the theme, where the plugin's override rule finds them
   first: the property list wrapper and card, the single property (hero, facts, floor plan,
   viewings, agent, interest form, image grid, fact tables, area, map), the agent card and page,
@@ -408,6 +409,22 @@ own WordPress plugin or script line; the theme only cooperates, in two places:
   opens as always. A site with the chat needs no button settings on the chat's side.
 - **The property page names its home** for the chat: `data-kowboy-chat-listing-id` on the page's
   wrapper carries the record's `id` (the CRM's id, `docs/field-tables.md`).
+
+## The form window, 2026-10-19
+
+Theme 1.3.2, the forms list Patric verified on 2026-10-07 (next-steps item 29):
+
+- **The hidden trap field is gone.** A browser or a password manager may fill a hidden field
+  despite `autocomplete="off"`, and a form so filled was dropped as a bot's; his rule was "If
+  there is a risk, remove the honeypot". The bot check, the three seconds before a send and
+  Core's rate limit stay.
+- **"Skicka" is locked while a form is on its way.** It reads "Skickar…" and cannot be pressed,
+  and Enter in a field sends nothing more, until the site has answered; a browser journey proves
+  it with the site's answer held back.
+- **The theme's own privacy page picker is gone.** The footer and the consent link use the page
+  WordPress names under Inställningar, Integritet. A site that had picked a page in the theme
+  keeps it: the theme moves the choice to WordPress's setting when that names none, once, and
+  deletes its own copy.
 
 ## The card dots, white on the screen, 2026-10-19
 

@@ -1060,7 +1060,8 @@ staging when it is done:
   the reminder, with their directions, the adapter's reading of them and the switch's test under
   criterion 46. Nothing about forms is typed on a connection: the lead source, the intake source
   and an interest's status are left to Vitec, and a booking asks Vitec for an e-mail confirmation
-  (the window tells the visitor so), no SMS and no reminder. The guard replaces the switch. The
+  (the window tells the visitor so), no SMS and no reminder (the SMS is on since 2026-10-19, see
+  "Built 2026-10-19"). The guard replaces the switch. The
   CRM password, kept here at first, was wrong and left on 2026-10-06: the office check and the
   search profile use the connection's one username and password. Known bug 3 goes with the
   fields.
@@ -1113,6 +1114,26 @@ staging when it is done:
   brokerage has several offices Core answers 400 "office_id is required" and the window says the
   form could not be sent; the office is set on the site's side when such a site gets forms
   (146's item 6).
+
+### Built 2026-10-19: the forms list's changes (209 a)
+
+Patric's go (209 a, 2026-10-19) for the forms list he verified on 2026-10-07
+(`/mnt/project-files/strategy/forms-list.md`); next-steps item 29 holds the plan.
+
+- **The hidden trap field is gone** from the window (theme 1.3.2): a browser or a password
+  manager may fill it despite `autocomplete="off"`, and such a form was dropped as a bot's
+  without a word. The bot check, the three seconds before a send and Core's rate limit stay.
+  The journey "while a form is on its way" proves the window has no field a person cannot see.
+- **"Skicka" is locked while a form is on its way**: it reads "Skickar…" and cannot be pressed,
+  and Enter sends nothing more, until the site answers. The same journey holds the site's answer
+  back and proves one send.
+- **A booking asks Vitec for both confirmations**, the e-mail and the SMS ("make sure this is
+  always ON/true, the agent can control it themselves in vitec"); Vitec's documentation does not
+  say who receives them. `adapters/vitec/forms.ts`, proved by its test.
+- **The privacy page is WordPress's own setting** (Inställningar, Integritet): the theme's own
+  picker is gone, and the footer and the consent link the page WordPress names. A page picked in
+  the old picker moves to WordPress's setting once, when that names none. Proved by the template
+  test "links the privacy page WordPress names".
 
 ## The decisions (the discover list)
 

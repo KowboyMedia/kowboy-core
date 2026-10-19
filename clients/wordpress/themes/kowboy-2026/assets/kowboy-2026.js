@@ -595,8 +595,7 @@
    * booking reads the home's times from the plugin's receiver on this site and picks one; then the
    * person's step, whose form goes to the plugin's other receiver, which sends it on to Core. The
    * page holds no key but the bot check's public one. The person is remembered in the visitor's
-   * own browser after a sent form, with a line saying so and "Glöm mig"; a filled honeypot is told
-   * it succeeded and sends nothing.
+   * own browser after a sent form, with a line saying so and "Glöm mig".
    */
   function setupFormWindow(dialog) {
     if (!once(dialog, 'ready') || typeof dialog.showModal !== 'function') return;
@@ -634,7 +633,7 @@
       var first = dialog
         .querySelector('[data-form-step="' + step + '"]')
         .querySelector(
-          'input:not([tabindex="-1"]), .k-form__slot:not([disabled]), textarea, button:not([hidden])',
+          'input:not([type="hidden"]), .k-form__slot:not([disabled]), textarea, button:not([hidden])',
         );
       if (first) first.focus();
     }
@@ -663,7 +662,6 @@
         field(name).value = (kept && kept[name]) || '';
       });
       field('message').value = '';
-      field('website').value = '';
       field('current_home').checked = false;
       field('consent').checked = false;
       mark('current-home').hidden = kind === 'lead';
@@ -932,8 +930,6 @@
         return;
       }
       error.hidden = true;
-      // The honeypot filled: a bot, which is told it succeeded and sends nothing.
-      if (field('website').value !== '') return sent();
       var form = submission(person);
       var spent = false;
       sending = true;
