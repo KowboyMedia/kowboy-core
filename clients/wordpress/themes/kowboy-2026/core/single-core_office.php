@@ -18,7 +18,7 @@ $properties = core_client_list(['entity' => 'property', 'office' => $office_id, 
     <h1 class="k-section__title"><?php echo esc_html($name); ?></h1>
     <p class="k-office__contact">
         <?php if (isset($display['address_line'])) : ?><span><?php echo esc_html((string) $display['address_line']); ?></span><?php endif; ?>
-        <?php if (is_array($phone) && is_string($phone['display'] ?? null)) : ?><a href="tel:<?php echo esc_attr((string) ($phone['number'] ?? '')); ?>"><?php echo esc_html($phone['display']); ?></a><?php endif; ?>
+        <?php if (is_array($phone) && is_string($phone['display'] ?? null)) : ?><a href="tel:<?php echo esc_attr(preg_replace('/[^+\d]/', '', $phone['display']) ?? ''); ?>"><?php echo esc_html($phone['display']); ?></a><?php endif; ?>
         <?php if ($email !== null) : ?><a href="mailto:<?php echo esc_attr($email); ?>"><?php echo esc_html($email); ?></a><?php endif; ?>
     </p>
     <?php if (is_string($item['description'] ?? null) && $item['description'] !== '') : ?><div class="k-prose"><?php echo wp_kses_post(wpautop(esc_html($item['description']))); ?></div><?php endif; ?>

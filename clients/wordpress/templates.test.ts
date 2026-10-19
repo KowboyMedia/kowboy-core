@@ -586,6 +586,8 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('Kontakta även');
     expect(body.indexOf('Anna Andersson')).toBeLessThan(body.indexOf('Bertil Berg'));
     expect(body).toContain('070-123 45 67');
+    // The card dials the number as shown, stripped to digits and +, since the CRM's own number may lack its +.
+    expect(body).toContain('<a href="tel:0701234567">070-123 45 67</a>');
     // The fact tables start closed (Patric, 2026-10-03).
     expect(body).toContain('class="k-accordion__item"');
     expect(body).not.toContain('k-accordion__item is-open');
@@ -921,6 +923,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
       const norr = await page(pathOf(office.permalink));
       expect(norr.body).toContain('<h1 class="k-section__title">Kowboy Norr</h1>');
       expect(norr.body).toContain('Norra vägen 2, 111 22 Stockholm');
+      expect(norr.body).toContain('<a href="tel:08100200">08-100 200</a>');
       expect(norr.body).toContain('Fia Ny');
       const erikPage = await page(pathOf(erik.permalink));
       expect(erikPage.body).toContain('Erik är ny.');

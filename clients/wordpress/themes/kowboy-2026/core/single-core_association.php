@@ -22,7 +22,7 @@ $document_icon = '<svg class="k-docs__icon" viewBox="0 0 24 24" fill="none" stro
     <h1 class="k-section__title"><?php echo esc_html($name); ?></h1>
     <p class="k-office__contact">
         <?php if (is_string($contact['name'] ?? null) && $contact['name'] !== '') : ?><span><?php echo esc_html($contact['name']); ?></span><?php endif; ?>
-        <?php foreach (['phone', 'mobile'] as $key) : ?><?php if (is_string($contact[$key] ?? null) && $contact[$key] !== '') : ?><a href="tel:<?php echo esc_attr($contact[$key]); ?>"><?php echo esc_html($contact[$key]); ?></a><?php endif; ?><?php endforeach; ?>
+        <?php foreach (['phone', 'mobile'] as $key) : ?><?php if (is_string($contact[$key] ?? null) && $contact[$key] !== '') : ?><a href="tel:<?php echo esc_attr(preg_replace('/[^+\d]/', '', $contact[$key]) ?? ''); ?>"><?php echo esc_html($contact[$key]); ?></a><?php endif; ?><?php endforeach; ?>
         <?php if (is_string($contact['email'] ?? null) && $contact['email'] !== '') : ?><a href="mailto:<?php echo esc_attr($contact['email']); ?>"><?php echo esc_html($contact['email']); ?></a><?php endif; ?>
         <?php if ($home_page !== null) : ?><a href="<?php echo esc_url($home_page); ?>" target="_blank" rel="noopener"><?php echo esc_html(preg_replace('#^https?://(www\.)?#', '', $home_page) ?? $home_page); ?></a><?php endif; ?>
     </p>
