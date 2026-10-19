@@ -4,10 +4,36 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 219 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 220 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 219. `[client-wordpress]` Sharp photos: let the theme ask Kowboy's image CDN for a sharp copy at the size each photo is shown
+
+- 2026-10-19 · Patric: "Images overall feel low resolution. I see it on property lists, agent
+  list, agent inside of property page or agent page." Measured on the Norban demo at Windows'
+  100 %, 125 % and 150 %: the theme picks a large enough file everywhere (never stretched), but
+  the CDN's smaller copies (480 to 1600 wide) are shrunk from the 1920 photo with a soft filter
+  and hold about half the fine detail of a sharp shrink (a 1024 copy: 961 against 1956, the
+  variance of the Laplacian), and the browser then shrinks that copy again to the box. On screen
+  a card's photo keeps about 45 % of the detail a sharp copy gives (772 against 1362 at 100 %, 426
+  against 813 at 125 %); an agent's photo 77 % and 54 %. The side by side is
+  `/mnt/project-files/kowboy-2026/photos-today-vs-sharp-copies.png`.
+- The fix: the CDN `cdn-realestate.kowboy.se` already answers Cloudflare's image resizing
+  (`/cdn-cgi/image/width=…/`, tried 2026-10-19), which makes a sharp copy of the 1920 photo at any
+  width. The theme would list those widths instead of the stored copies, so the browser gets a
+  file close to the size it draws; if the resizer refuses, the photo falls back to today's copy.
+  Cloudflare bills it as Images Transformed: the first 5,000 different sizes a month are free,
+  then $0.50 per 1,000; on a Free plan, new sizes beyond 5,000 fail instead of being billed
+  (developers.cloudflare.com/images/pricing, read 2026-10-19). Estimate: 100 homes with 30 photos
+  each, every photo asked at 3 sizes a month, is 9,000 sizes, so $2 a month above the free 5,000.
+- Blocked: sharp photos on the sites. The free route is to remake the CDN's stored copies with a
+  sharp shrink where they are made, which is outside this repository.
+- a) yes: the theme uses the CDN's resizing, on both demo sites; the account's Cloudflare plan
+  must bill above 5,000 (recommended: the only fix inside the theme).
+- b) no: the stored copies are remade sharply where they are made, outside Core.
+- c) keep the photos as they are.
 
 ## 218. `[core]` `[admin]` `[client-wordpress]` Where a visitor's form that failed is sent again: on the website, or in Core's new admin
 
