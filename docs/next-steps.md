@@ -955,6 +955,10 @@ the seven days.
       whose proof the form window earns in the visitor's browser for each send
       (`assets/kowboy-2026.js`); the page holds only the check's public key, which does not expire.
       What remains of the bot protection itself is known bug 4: the keys are in no environment yet.
+    - Done 2026-10-19: `clients/wordpress/forms.test.ts`, "carries no WordPress security code on
+      a public page": the home, a list, a home's, an agent's, an office's, an area's and an
+      association's page hold no code, and a form sent from a stored copy of a home's page once
+      WordPress's codes have expired (the test install's `nonce_life` per request) is taken.
     - The work: automated tests that keep it so. No public page carries a WordPress security code,
       and a form sent from a page whose HTML was made more than a day earlier is accepted (with
       the bot check's stand-in). The same rule holds for every form, and every script that sends

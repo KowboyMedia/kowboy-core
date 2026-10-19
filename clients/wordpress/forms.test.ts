@@ -197,6 +197,56 @@ describe('the WordPress client’s forms', () => {
     }
   });
 
+  it('carries no WordPress security code on a public page, so a form sent from a copy of the page made a day earlier is taken (item 32)', async () => {
+    const permalink = async (datatype: string, id: string): Promise<string> =>
+      (
+        await wp(
+          'eval',
+          `echo get_permalink(core_client_post_id(${JSON.stringify(datatype)}, ${JSON.stringify(id)}));`,
+        )
+      ).stdout.trim();
+    const home = await permalink('property', 'P-1');
+    const pages = [
+      `${siteUrl}/`,
+      `${siteUrl}/?post_type=core_property`,
+      home,
+      await permalink('agent', 'S-1'),
+      await permalink('office', 'B-1'),
+      await permalink('area', 'D-1'),
+      await permalink('association', 'A-1'),
+    ];
+    for (const page of pages) {
+      const response = await fetch(page);
+      expect(response.status, page).toBe(200);
+      // A security code expires within 24 hours, so a cached copy older than that would refuse.
+      expect(await response.text(), page).not.toMatch(/nonce/i);
+    }
+
+    // The home's page as a page cache stored it, sent from once WordPress's codes made with it
+    // have expired: the window's receiver and the home are read from the copy, as the script does.
+    const copy = await (await fetch(home)).text();
+    const endpoint = /<dialog class="k-form" data-endpoint="([^"]+)"/.exec(copy)?.[1];
+    const named = /data-k-form="interest" data-record="property:([^":]+):([^"]+)"/.exec(copy);
+    expect(endpoint).toBeDefined();
+    expect(named?.[2]).toBe('P-1');
+    await new Promise((resolve) => setTimeout(resolve, 2_100));
+    const form = {
+      ...interest(),
+      record: { datatype: 'property', connection_id: named?.[1], remote_id: 'P-1' },
+    };
+    const answer = await fetch(endpoint!.replaceAll('&amp;', '&'), {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-core-human': HUMAN_TOKEN,
+        // Every code WordPress made more than a second ago is expired for this request.
+        'x-core-nonce-life': '1',
+      },
+      body: JSON.stringify(form),
+    });
+    expect(answer.status).toBe(200);
+  });
+
   it('turned off on its page, the forms leave the pages and the buttons lead to a contact; turned on, the window is back', async () => {
     const window = /<dialog class="k-form"/;
     expect(await (await fetch(`${siteUrl}/`)).text()).toMatch(window);
