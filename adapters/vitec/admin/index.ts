@@ -665,27 +665,38 @@ export const vitecAdmin: AdapterAdmin = {
     'vitec.connect': { title: 'Vitec answering Core' },
   },
 
+  // The words the admin panel shows for this login, field by field, in the order it shows them.
   credentials: [
     {
-      key: 'username',
-      label: 'Username',
-      help: 'The username Vitec issued for this brokerage, shown with its password in Vitec’s partner portal. The one username and password are used for every call to Vitec.',
-      required: true,
+      key: 'qa',
+      label: 'Vitec system',
+      // Exactly no and yes, the system's words on each: a QA login reads Vitec's test system.
+      options: [
+        { value: 'no', label: 'Live Vitec' },
+        { value: 'yes', label: 'Vitec QA (test system)' },
+      ],
     },
-    { key: 'password', label: 'Password', secret: true, required: true },
     {
       key: 'customer_id',
       label: 'Customer or group id',
-      help: 'The id Vitec issued this login for. Behind a group id, such as G2, are all the offices of the group; behind a customer id, such as M30011, only its own office, so a customer id loads only that office even when the brokerage has several. Without it, Core cannot ask Vitec for offices, and nothing reaches the sites. Core asks Vitec once a day which offices sit behind the id. After the save, the card “Offices Vitec lists” below shows which offices reach the sites. A changed id counts from the next daily check, or within a minute after “Fetch offices”.',
+      help: 'From Vitec: an office’s customer id (M…) or the id of a group of offices (G…).',
     },
+    { key: 'username', label: 'Username', required: true },
     {
-      key: 'qa',
-      label: 'Use Vitec’s QA environment',
-      help: `Tick this when the username and password above are a test account in Vitec’s QA environment, Vitec’s test system at ${connect.baseUrlOf('qa')}: every call then goes there, and its records are kept apart from live Vitec’s. The forms visitors send about this account’s homes go there too, even from a test copy of Core such as staging, which holds every other form back. Unticking it switches a saved connection back to live Vitec. A switch takes everything the other system gave off the sites, and the offices are loaded again from the system chosen. Give a test account a tenant of its own, so that test homes never reach a real website.`,
-      // Exactly no and yes: the new tenant page draws such a field as a tickbox, ticked sending yes.
-      options: [{ value: 'no' }, { value: 'yes' }],
+      key: 'password',
+      label: 'Password',
+      secret: true,
+      required: true,
+      help: 'From the Vitec Connect key pair',
     },
   ],
+
+  // The line under a connection's name: the Vitec system it reads and the id it reads.
+  describe(connection) {
+    const login = connect.loginOf(connection.credentials);
+    const system = login?.environment === 'qa' ? 'Vitec QA (test system)' : 'Live Vitec';
+    return login?.customerId ? `${system} · ${login.customerId}` : system;
+  },
 
   directions,
 

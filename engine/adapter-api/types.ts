@@ -357,6 +357,12 @@ export type AdapterAdmin = {
   panel(connections: Connection[]): Promise<AdminSection[]>;
   /** What the adapter knows about one connection, shown on its tenant's page. */
   connection?(connection: Connection): Promise<AdminSection[]>;
+  /**
+   * One connection in one line, shown under its name: which of the CRM's systems it reads and
+   * with which id, never a secret. Any CRM may give it; the panel then holds none of its words
+   * (Patric, 204 a, 2026-10-19).
+   */
+  describe?(connection: Connection): string;
   /** Run an action a section declared. The message goes to the person who pressed it. */
   act(
     action: string,

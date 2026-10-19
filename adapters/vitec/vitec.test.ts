@@ -1130,11 +1130,12 @@ describe('the Vitec adapter', () => {
     expect(acted.message).toContain('within a minute');
     expect(await store.getState(CONNECTION, 'catch_up_at')).toBe('1970-01-01T00:00:00.000Z');
     expect(vitecAdmin.credentials.map((field) => field.key)).toEqual([
+      'qa',
+      'customer_id',
       'username',
       'password',
-      'customer_id',
-      'qa',
     ]);
+    expect(vitecAdmin.describe?.(connections[0] as Connection)).toBe(`Live Vitec · ${OFFICE}`);
     const own = await vitecAdmin.connection?.(connections[0] as Connection);
     expect(own?.map((section) => section.title)).toEqual(['Offices Vitec lists']);
   });
