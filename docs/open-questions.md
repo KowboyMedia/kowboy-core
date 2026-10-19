@@ -9,25 +9,6 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 216. `[core]` `[client-wordpress]` How a website gets its token and bell secret
-
-- 2026-10-19 · Patric asked whether the step of pasting the token and bell secret into a
-  website's plugin can go, since Core is trusted and knows the website's address ("discuss before
-  changes"). The site needs proof because it calls Core to fetch, and an address cannot prove
-  who is calling; the bell secret proves to the site that a change notice came from Core. A
-  token posted blindly to a site would let anyone post their own and decide what the site shows
-  and where its forms go.
-- Blocked: nothing; today each website takes two pastes once.
-- a) code: on "Add website" Core sends the site a one-time code, and the plugin fetches its
-  settings from Core's own address, built into the plugin; nothing is pasted and a replaced
-  token reaches every WordPress site by itself; the plugin and Core change, Lovable sites keep
-  their Supabase secrets, and a mistyped address receives the code (recommended, after the
-  release).
-- b) pairing: in WordPress, "Connect to Core" opens Core's admin to approve the site for a
-  tenant, and the values come back by themselves; safer against a mistyped address, but needs a
-  sign-in on both sides.
-- c) paste: keep pasting two values once per website.
-
 ## 215. `[core]` `[admin]` Keep the maintenance switch, or remove it
 
 - 2026-10-19 · Patric asked what maintenance is for. While it is on, websites keep fetching, but
