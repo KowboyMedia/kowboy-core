@@ -4,10 +4,27 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 217 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 218 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 217. `[core]` Rehearse a restore now: a new database server from the latest backup, staging pointed at it, then back
+
+- 2026-10-19 · Patric: "In case of disaster, can you restore backup using DO api key?" The key
+  reads the cluster's backups (eight, one a day from 2026-10-11 to 2026-10-18 at 17:38 UTC, the
+  latest 1.37 GB; read 2026-10-19). DigitalOcean restores a backup only into a new database
+  server, to any moment of the last seven days (its PostgreSQL documentation, read 2026-10-19).
+  Whether the key may create a server shows only by doing it, so it is unproven. The restore drill
+  of AC 24 (item 33, condition 3) does it once, staging only, live untouched: (1) a new server
+  from the latest backup, the same size; (2) staging's settings pointed at it, with a pool
+  `staging` on it, until staging's sites catch up with nothing lost; (3) staging pointed back and
+  the new server deleted the same day. Cost: this size is $15.15 a month, billed by the hour, about
+  $0.02 an hour, so under $0.10 for the drill. The plan put the drill after 210; it does not
+  depend on 210.
+- Blocked: AC 24, and knowing that a restore works before a disaster needs it.
+- a) yes: run the drill now, staging only (recommended).
+- b) later: with the load tests, after 210.
 
 ## 215. `[core]` `[admin]` Keep the maintenance switch, or remove it
 
