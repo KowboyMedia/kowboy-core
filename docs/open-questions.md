@@ -4,39 +4,10 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 215 (206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 215 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
-
-## 214. `[handbook]` Enter four rules on designing, drafted after the search was designed on a misreading
-
-- 2026-10-19 · Patric found two mistakes in the design of search by any wish: it prepared fixed
-  lists (the facts about a property's surroundings, a description of each property made once),
-  which makes it a wider version of the old filter search, and it was sized to the 13 properties
-  for sale on the demo site, leaving "a large set of properties" for later ("like me asking you to
-  design a car, and you design a tractor"). He asked for a self-reflection and rules, to validate
-  before they are entered. Drafted for `AGENTS.md`, Principles, after "Rules hold back changes,
-  never ideas" (this session reaches only Core's repository; `AGENTS.md` wins over the handbook):
-  1. **Repeat the aim back first.** Before designing a core feature, the agent repeats back in a
-     few lines what Patric means, in his terms and at the scale he stated, and designs only after
-     his yes.
-  2. **Design for the stated goal, never for today's data.** A design starts from the openness and
-     scale its goal states, not from the size of today's data or what today's code makes easy. An
-     assumption on volume, scope or limits is written at the top of the design, and one that
-     changes the architecture is a question. Today's size may decide what is built first, never
-     what the design can do.
-  3. **Open-ended means nothing prepared for it.** A goal stated as open-ended ("any wish") is
-     never narrowed to a list of criteria, fields or facts chosen beforehand; what is prepared
-     ahead holds everything known, not a selection, and the design is tested on a wish nobody
-     foresaw.
-  4. **A design is checked against his words before he sees it.** A fresh agent given only
-     Patric's words and the design checks that it delivers what he asked, at his scale, and names
-     the assumption that would break it.
-- Blocked: nothing is built from the search's design until 213 is answered; these rules then
-  apply to the redesign.
-- a) yes: all four enter `AGENTS.md` as written (recommended).
-- b) some: Patric names the numbers to drop or change.
 
 ## 213. `[core]` Is this what "any wish, matched against a large set of properties" means?
 
