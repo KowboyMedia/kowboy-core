@@ -1,10 +1,8 @@
 // The outcomes of form submissions (docs/forms.md): what Core keeps of a form a site posted. The
-// id, the kind, the record and what the CRM said; and, until the CRM has taken the form, the form
-// itself, encrypted with the key of the CRM logins (question 160 a). A form the CRM refused or
-// never answered keeps it for 30 days, so it can be read and sent again.
+// id, the kind, the record and what the CRM said; never the form itself or the person, which only
+// the site keeps (218: a form is sent once).
 import { db } from './db.js';
-import { decrypt, encrypt } from './crypto.js';
-import type { Submission, SubmissionKind, SubmissionResult } from '../adapter-api/types.js';
+import type { SubmissionKind, SubmissionResult } from '../adapter-api/types.js';
 
 export type SubmissionOutcome = 'received' | 'delivered' | 'refused' | 'failed';
 
@@ -20,25 +18,12 @@ export type SubmissionRow = {
   reference: string | null;
   detail: string | null;
   received_at: Date;
-  /** When the CRM last answered; while a person's "Send again" is on its way, when it began. */
+  /** When the CRM answered. */
   answered_at: Date | null;
-  /** The form as the site sent it, encrypted; null once the CRM took it, or after 30 days. */
-  content: string | null;
 };
 
-/** How long a form the CRM did not take keeps its details (question 160 a). */
+/** How long a form the CRM did not take is listed, as long as the site keeps its details. */
 export const KEPT_DAYS = 30;
-
-let contentKey = '';
-
-/** The key the details are encrypted with: the CRM logins' (CREDENTIALS_KEY). */
-export function configureSubmissionContent(key: string): void {
-  contentKey = key;
-}
-
-/** A kept form's details, as the site sent them; null when none are kept. */
-export const contentOf = (row: SubmissionRow): Submission | null =>
-  row.content ? (JSON.parse(decrypt(row.content, contentKey)) as Submission) : null;
 
 /** A repeated id inside this window answers the stored outcome; after it, the form is sent again. */
 export const REPEAT_WINDOW_MS = 24 * 60 * 60_000;
@@ -51,8 +36,6 @@ export type ClaimInput = {
   datatype: string | null;
   remoteId: string | null;
   officeId: string | null;
-  /** The form itself, kept encrypted until the CRM has it. */
-  submission: Submission;
 };
 
 /**
@@ -64,13 +47,13 @@ export async function claimSubmission(
   input: ClaimInput,
 ): Promise<{ claimed: true } | { claimed: false; existing: SubmissionRow }> {
   const { rows } = await db().query<SubmissionRow>(
-    `insert into submissions (id, tenant_id, connection_id, kind, datatype, remote_id, office_id, outcome, content)
-     values ($1, $2, $3, $4, $5, $6, $7, 'received', $9)
+    `insert into submissions (id, tenant_id, connection_id, kind, datatype, remote_id, office_id, outcome)
+     values ($1, $2, $3, $4, $5, $6, $7, 'received')
      on conflict (id) do update
        set tenant_id = excluded.tenant_id, connection_id = excluded.connection_id,
            kind = excluded.kind, datatype = excluded.datatype, remote_id = excluded.remote_id,
            office_id = excluded.office_id, outcome = 'received', reference = null, detail = null,
-           received_at = now(), answered_at = null, content = excluded.content
+           received_at = now(), answered_at = null
        where submissions.received_at < now() - ($8 || ' milliseconds')::interval
      returning *`,
     [
@@ -82,7 +65,6 @@ export async function claimSubmission(
       input.remoteId,
       input.officeId,
       REPEAT_WINDOW_MS,
-      encrypt(JSON.stringify(input.submission), contentKey),
     ],
   );
   if (rows[0]) return { claimed: true };
@@ -91,7 +73,7 @@ export async function claimSubmission(
   return { claimed: false, existing };
 }
 
-/** Record what the CRM said. A form the CRM took drops its details; any other keeps them. */
+/** Record what the CRM said. */
 export async function settleSubmission(id: string, result: SubmissionResult): Promise<void> {
   const reference = result.outcome === 'delivered' ? (result.reference ?? null) : null;
   const detail =
@@ -101,17 +83,16 @@ export async function settleSubmission(id: string, result: SubmissionResult): Pr
         ? result.detail
         : null;
   await db().query(
-    `update submissions set outcome = $2, reference = $3, detail = $4, answered_at = now(),
-       content = case when $2 = 'delivered' then null else content end
+    `update submissions set outcome = $2, reference = $3, detail = $4, answered_at = now()
      where id = $1`,
     [id, result.outcome, reference, detail],
   );
 }
 
 /**
- * The forms Core keeps that the CRM did not take, newest first: refused, not answered, or cut off
- * before the CRM answered (still waiting `unansweredMs` after the send began). What the admin
- * area lists as failed forms (question 160 a).
+ * The forms of the last `KEPT_DAYS` that the CRM did not take, newest first: refused, not
+ * answered, or cut off before the CRM answered (still waiting `unansweredMs` after the send
+ * began). What the admin area's Inbox lists.
  */
 export async function keptSubmissions(
   unansweredMs: number,
@@ -120,38 +101,14 @@ export async function keptSubmissions(
     `select s.*, t.display_name as tenant, c.provider
      from submissions s join tenants t on t.id = s.tenant_id
        left join connections c on c.id = s.connection_id
-     where s.content is not null
+     where s.received_at >= now() - ($2 || ' days')::interval
        and (s.outcome in ('refused', 'failed')
             or (s.outcome = 'received'
                 and coalesce(s.answered_at, s.received_at) < now() - ($1 || ' milliseconds')::interval))
      order by s.received_at desc`,
-    [unansweredMs],
+    [unansweredMs, KEPT_DAYS],
   );
   return rows;
-}
-
-/**
- * Take a form for one more send (question 160 a): only one the CRM refused or did not answer, and
- * only one send at a time, so two presses of "Send again" send once. `kept` is a send of Core's
- * own copy, so only a form that keeps its details; the site's own "Send again" brings the form.
- * Null when the form is on its way, was taken, or keeps no details a send of Core's copy needs.
- */
-export async function claimAgain(
-  id: string,
-  unansweredMs: number,
-  kept = true,
-): Promise<SubmissionRow | null> {
-  const { rows } = await db().query<SubmissionRow>(
-    `update submissions
-     set outcome = 'received', reference = null, detail = null, answered_at = now()
-     where id = $1 and (content is not null or not $3)
-       and (outcome in ('refused', 'failed')
-            or (outcome = 'received'
-                and coalesce(answered_at, received_at) < now() - ($2 || ' milliseconds')::interval))
-     returning *`,
-    [id, unansweredMs, kept],
-  );
-  return rows[0] ?? null;
 }
 
 export async function submissionById(id: string): Promise<SubmissionRow | null> {
@@ -193,16 +150,8 @@ export async function connectionsWithFailingSubmissions(): Promise<string[]> {
   return rows.map((row) => row.connection_id);
 }
 
-/**
- * Outcomes older than the retention go, with the events that told of them, and a kept form's
- * details go after 30 days whatever the retention. Housekeeping.
- */
+/** Outcomes older than the retention go, with the events that told of them. Housekeeping. */
 export async function deleteExpiredSubmissions(days: number): Promise<number> {
-  await db().query(
-    `update submissions set content = null
-     where content is not null and received_at < now() - ($1 || ' days')::interval`,
-    [KEPT_DAYS],
-  );
   const { rowCount } = await db().query(
     `delete from submissions where received_at < now() - ($1 || ' days')::interval`,
     [days],

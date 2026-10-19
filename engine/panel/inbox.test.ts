@@ -79,17 +79,9 @@ async function form(input: {
 }): Promise<string> {
   const id = randomUUID();
   await db().query(
-    `insert into submissions (id, tenant_id, connection_id, kind, outcome, detail, received_at, answered_at, content)
-     values ($1, $2, $3, 'interest', $4, $5, $6, $6::timestamptz + interval '20 seconds', $7)`,
-    [
-      id,
-      input.tenantId,
-      input.connectionId,
-      input.outcome,
-      input.detail ?? null,
-      input.receivedAt,
-      input.outcome === 'delivered' ? null : 'kept',
-    ],
+    `insert into submissions (id, tenant_id, connection_id, kind, outcome, detail, received_at, answered_at)
+     values ($1, $2, $3, 'interest', $4, $5, $6, $6::timestamptz + interval '20 seconds')`,
+    [id, input.tenantId, input.connectionId, input.outcome, input.detail ?? null, input.receivedAt],
   );
   if (input.site) {
     await logEvent({

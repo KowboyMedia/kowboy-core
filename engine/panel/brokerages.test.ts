@@ -807,8 +807,8 @@ describe('deleting a tenant and everything of it', () => {
       [tenantId, connectionId, `${connectionId}-p1`],
     );
     await db().query(
-      `insert into submissions (id, tenant_id, connection_id, kind, outcome, content)
-       values ($1, $2, $3, 'interest', 'failed', 'kept')`,
+      `insert into submissions (id, tenant_id, connection_id, kind, outcome)
+       values ($1, $2, $3, 'interest', 'failed')`,
       [randomUUID(), tenantId, connectionId],
     );
     await logEvent({ type: 'entity.written', tenantId, connectionId, datatype: 'property' });

@@ -19,10 +19,9 @@ import * as crm from '../adapters/fake-polling/crm.js';
 import { queryEvents } from '../engine/events.js';
 import { connectionById, createTenant, upsertConnection } from '../engine/storage/connections.js';
 import { validateSlots } from '../engine/contract.js';
-import { sendAgain, SUBMISSIONS_PER_MINUTE } from '../engine/http/submissions.js';
+import { SUBMISSIONS_PER_MINUTE } from '../engine/http/submissions.js';
 import { db } from '../engine/storage/db.js';
 import {
-  contentOf,
   deleteExpiredSubmissions,
   KEPT_DAYS,
   type SubmissionRow,
@@ -137,16 +136,10 @@ const slots = async (
 const timeline = () =>
   queryEvents({ entity: { connectionId: CONNECTION, datatype: 'property', remoteId: HOME } });
 
-/**
- * Every character Core wrote about the forms in plain text: the events, the outcomes table. A form
- * the CRM has not taken is kept encrypted (question 160 a); that text is proved unreadable on its
- * own, so here it counts only as kept or not.
- */
+/** Every character Core wrote about the forms: the events, the outcomes table. */
 const everythingStored = async (): Promise<string> => {
   const events = await queryEvents({ tenantId: 1, limit: 5000 });
-  const rows = (await db().query<SubmissionRow>('select * from submissions')).rows.map(
-    ({ content, ...row }) => ({ ...row, kept: content !== null }),
-  );
+  const rows = (await db().query<SubmissionRow>('select * from submissions')).rows;
   return JSON.stringify({ events, rows });
 };
 
@@ -283,42 +276,59 @@ describe('submissions', () => {
     expect((await healthReport()).checks['submissions.failing']?.ok).toBe(true);
   });
 
-  it('a form keeps its details encrypted until the CRM takes it, and one the CRM refused or did not take keeps them for 30 days', async () => {
+  it('Core keeps none of a form’s details, whatever the CRM answered: only its outcome, which goes with the log', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const row = async (body: Record<string, unknown>): Promise<SubmissionRow | undefined> =>
       (await db().query<SubmissionRow>('select * from submissions where id = $1', [body['id']]))
         .rows[0];
+    const { rows: columns } = await db().query<{ column_name: string }>(
+      "select column_name from information_schema.columns where table_name = 'submissions' order by column_name",
+    );
+    expect(columns.map((column) => column.column_name)).toEqual([
+      'answered_at',
+      'connection_id',
+      'datatype',
+      'detail',
+      'id',
+      'kind',
+      'office_id',
+      'outcome',
+      'received_at',
+      'reference',
+      'remote_id',
+      'tenant_id',
+    ]);
 
-    // Taken: the outcome stays, the details go.
+    // Taken, refused and not answered alike: the row names the form, never the person.
     const taken = submission('interest', { record });
     expect((await post(taken)).status).toBe(200);
-    expect(await row(taken)).toMatchObject({ outcome: 'delivered', content: null });
-
-    // Refused, and not answered: each keeps the form as the site sent it, with the office Core
-    // found for it, and none of it reads without the key.
     crm.answerNext({ refuse: 'The showing is fully booked' });
     const refused = submission('viewing', { record, slot_id: 'T-1' });
     expect((await post(refused)).status).toBe(409);
     crm.answerNext({ fail: 'connection refused' });
     const failed = submission('interest', { record });
     expect((await post(failed)).status).toBe(502);
-    for (const body of [refused, failed]) {
-      const kept = await row(body);
-      expect(kept?.content).toEqual(expect.any(String));
-      for (const plain of ['anna@example.se', 'Malmö', '211 22', 'Hej! Jag vill veta mer.']) {
-        expect(kept?.content).not.toContain(plain);
+    for (const body of [taken, refused, failed]) {
+      const kept = JSON.stringify(await row(body));
+      for (const plain of [
+        'Anna',
+        'anna@example.se',
+        '0701234567',
+        'Malmö',
+        'Hej! Jag vill veta mer.',
+      ]) {
+        expect(kept).not.toContain(plain);
       }
-      expect(kept && contentOf(kept)).toEqual({ ...body, office_id: OFFICE });
     }
 
-    // After 30 days the details go, whatever the log's retention; the outcome stays with the log.
+    // The outcome goes with the log's retention.
     await db().query(
       `update submissions set received_at = now() - ($2 || ' days')::interval where id = $1`,
-      [refused['id'], KEPT_DAYS + 1],
+      [refused['id'], KEPT_DAYS * 3 + 1],
     );
     await deleteExpiredSubmissions(KEPT_DAYS * 3);
-    expect(await row(refused)).toMatchObject({ outcome: 'refused', content: null });
-    expect((await row(failed))?.content).toEqual(expect.any(String));
+    expect(await row(refused)).toBeUndefined();
+    expect(await row(failed)).toMatchObject({ outcome: 'failed' });
   });
 
   it('the same id posted twice sends once and answers the same outcome', async () => {
@@ -437,14 +447,6 @@ describe('submissions', () => {
     const chain = await queryEvents({ correlationId: body['id'] as string });
     expect(chain.map((event) => event.type)).toEqual(['submission.received', 'submission.refused']);
     expect(chain[1]?.fields).toMatchObject({ kind: 'interest', reason: NOT_LIVE });
-
-    // The other way a form reaches a CRM, "Send again" in the admin area, passes the same step:
-    // the kept form is refused again with the same reason, and the CRM is never called.
-    expect(await sendAgain(body['id'] as string)).toEqual({
-      answer: { id: body['id'], outcome: 'refused', reference: null, detail: NOT_LIVE },
-    });
-    expect(send).not.toHaveBeenCalled();
-    expect(crm.formsTaken()).toHaveLength(0);
 
     // Reading a viewing's times is no write, so it still asks the CRM.
     crm.setShowings(HOME, []);

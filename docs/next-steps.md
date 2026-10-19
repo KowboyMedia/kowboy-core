@@ -862,12 +862,12 @@ the seven days.
       9. Done 2026-10-19 (plugin 0.9.1, theme 1.3.4; its look approved with 221, and on the Ahre
          demo with 222): `[client-wordpress]` "Söker du bostad?" in the theme; the Vitec code
          adds the home's type (docs/forms.md, "Built 2026-10-19").
-      10. `[core]` `[admin]` 218 (2026-10-19): nothing sends a form again; the window tells the
-          visitor it was not sent and whom to contact instead. Done (plugin 0.9.3, theme 1.3.6):
+      10. Done 2026-10-19: `[core]` `[admin]` 218: nothing sends a form again; the window tells
+          the visitor it was not sent and whom to contact instead. Plugin 0.9.3, theme 1.3.6:
           the window, the site's "Skicka igen", the old page "Failed forms" and Core's
-          `X-Core-Resend`. Open: the new admin's "Resend" (the thread "New admin panel from the
-          spec"), then Core's copy of the details and its send again (migration 023), then the
-          "Needs attention" words (the thread "Notification system").
+          `X-Core-Resend`; then the new admin's "Resend" (the thread "New admin panel from the
+          spec", d495a0e), the "Needs attention" words (the thread "Notification system",
+          1c1abaa), and Core's copy of the details with its send again (migration 023).
       11. Done 2026-10-19 (5a42439, 97f7d90): item 32's tests; every forms file checked against
           the list with the tests green, a fresh review, and the report file by file
           (`/mnt/project-files/forms/check-report.md`).

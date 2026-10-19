@@ -656,7 +656,8 @@ from them; it was weighed and set aside.
   what was sent; no name, no e-mail, no phone is stored in Core, logged, or sent to Sentry.
   Amended by 160 a (2026-10-06): the form itself is kept, encrypted, until the CRM has taken it,
   and 30 days when the CRM refused it or did not answer, so a failed form can be sent again;
-  nothing about the person is logged or sent to Sentry, as before.
+  nothing about the person is logged or sent to Sentry, as before. Undone by 218 (2026-10-19):
+  no form is kept, since none is sent again (migration 023).
 - **Events** on the record's timeline, with a correlation id: `submission.received`, then
   `submission.delivered`, `submission.refused` or `submission.failed`, each with the kind and the
   outcome, never the person.
@@ -1227,8 +1228,10 @@ Patric's go (209 a, 2026-10-19) for the forms list he verified on 2026-10-07
   and a taken viewing time (back to the times) still let the visitor put it right. The old
   admin's page "Failed forms" and its API, the site's "Skicka igen" and Core's `X-Core-Resend`
   are gone; the site keeps its 30-day log on "Formulär" with no button, and drops its count of
-  sends on update. The new admin's "Resend" and Core's encrypted copy of the details go next
-  (the thread "New admin panel from the spec" removes "Resend" first). Proved by
+  sends on update. The new admin's "Resend" went too, and with it Core's copy of the details:
+  `sendAgain` and `claimAgain` are removed, and migration 023 drops `submissions.content`, so
+  Core keeps no form's details whatever the CRM answered; the Inbox lists a form the CRM did not
+  take for 30 days by its outcome alone. Proved by
   `clients/wordpress/forms.test.ts`, `acceptance/submissions.test.ts` and the journey "when the
   bot check cannot run".
 

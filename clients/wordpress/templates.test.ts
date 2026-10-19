@@ -555,9 +555,16 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     // step "Söker du bostad?" takes from the home; without the window, the agent's card.
     expect(
       body.match(
-        /<a class="k-button" href="#k-agents" data-k-form="viewing" data-record="property:[^":]+:P-3" data-viewing="[^"]+" data-home="Kungsgatan 3" data-wishes="[^"]+">Boka här<\/a>/g,
+        /<a class="k-button" href="#k-agents" data-k-form="viewing" data-record="property:[^":]+:P-3" data-viewing="[^"]+" data-home="Kungsgatan 3" data-wishes="[^"]+" data-contact="[^"]+">Boka här<\/a>/g,
       ),
     ).toHaveLength(1);
+    // A form that could not be sent names the home's agent to contact instead (218).
+    const contact = /data-k-form="viewing"[^>]* data-contact="([^"]+)"/.exec(body)?.[1] ?? '';
+    expect(JSON.parse(contact.replaceAll('&quot;', '"'))).toEqual({
+      phone: '070-123 45 67',
+      tel: '070-123 45 67',
+      email: 'anna@kowboy.test',
+    });
     const wishes = /data-k-form="viewing"[^>]* data-wishes="([^"]+)"/.exec(body)?.[1] ?? '';
     expect(JSON.parse(wishes.replaceAll('&quot;', '"'))).toEqual({
       rooms: 4,
@@ -629,10 +636,10 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     // which talks to the plugin's receivers on the site, never to Core or a CRM, and carries the
     // bot check's public key as Core gives it.
     expect(body).toMatch(
-      /<a class="k-button k-button--light k-lead__button" href="#k-agents" data-k-form="interest" data-record="property:[^":]+:P-3" data-home="Kungsgatan 3" data-wishes="[^"]+">Anmäl intresse<\/a>/,
+      /<a class="k-button k-button--light k-lead__button" href="#k-agents" data-k-form="interest" data-record="property:[^":]+:P-3" data-home="Kungsgatan 3" data-wishes="[^"]+" data-contact="[^"]+">Anmäl intresse<\/a>/,
     );
     expect(body).toMatch(
-      /<dialog class="k-form" data-endpoint="[^"]*core\/v1\/forms" data-slots="[^"]*core\/v1\/forms\/slots" data-human-key="1x00000000000000000000AA"/,
+      /<dialog class="k-form" data-endpoint="[^"]*core\/v1\/forms" data-slots="[^"]*core\/v1\/forms\/slots" data-contact="[^"]+" data-human-key="1x00000000000000000000AA"/,
     );
     expect(body.replace(/<dialog class="k-form"[\s\S]*?<\/dialog>/, '')).not.toContain('<form');
     expect(body).not.toContain(core.baseUrl);

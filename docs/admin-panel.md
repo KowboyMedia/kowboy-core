@@ -418,10 +418,9 @@ drive directly.
 - **Form submissions** (`engine/http/submissions.ts`, docs/forms.md): `POST /v1/submissions` hands
   a site's form to the connection's adapter and answers what the CRM said; `GET
 /v1/submissions/slots` reads a home's viewings and slots live. The outcomes table keeps the id,
-  the kind, the record and the CRM's answer; it keeps the form itself, encrypted with the key of
-  the CRM logins, until the CRM has taken it, and 30 days when the CRM refused it or did not
-  answer, until the new admin's "Resend" goes too (decision of 2026-10-19: a form is sent once,
-  and its visitor is asked to contact the brokerage directly); the events `submission.received`,
+  the kind, the record and the CRM's answer, never the form itself (decision of 2026-10-19: a form
+  is sent once, and its visitor is asked to contact the brokerage directly; the site keeps its
+  own log); the events `submission.received`,
   `.delivered`, `.refused` and `.failed` sit on the record's timeline; the check
   `submissions.failing` ("Sending forms to the CRMs") fails while the last form sent through a
   connection could not be sent; the Overview and the alert name each such connection and link it.

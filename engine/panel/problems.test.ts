@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { harness, TENANT, type Harness } from '../../acceptance/harness.js';
 import { db } from '../storage/db.js';
-import { encrypt, tokenHmac } from '../storage/crypto.js';
+import { tokenHmac } from '../storage/crypto.js';
 import { addSubscriber, createTenant, upsertConnection } from '../storage/connections.js';
 import { heartbeat } from '../health.js';
 import { logEvent } from '../events.js';
@@ -144,28 +144,14 @@ async function property(remoteId: string, street: string, city: string): Promise
   );
 }
 
-/** A form the CRM did not answer, as Core keeps it: its details encrypted, as a site sent them. */
+/** A form the CRM did not answer, as Core keeps it: its outcome, never what the visitor wrote. */
 async function keptForm(kind: 'interest' | 'viewing', remoteId: string, hoursAgo: number) {
   const id = randomUUID();
-  const submission = {
-    id,
-    kind,
-    record: { datatype: 'property', connection_id: 'somecrm-1', remote_id: remoteId },
-    person: { first_name: 'Anna', last_name: 'Svensson', email: 'anna@example.se' },
-    consent: { given: true, at: new Date().toISOString() },
-  };
   await db().query(
-    `insert into submissions (id, tenant_id, connection_id, kind, datatype, remote_id, outcome, detail, received_at, answered_at, content)
+    `insert into submissions (id, tenant_id, connection_id, kind, datatype, remote_id, outcome, detail, received_at, answered_at)
      values ($1, $2, 'somecrm-1', $3, 'property', $4, 'failed', 'the CRM did not answer within 20 s',
-             now() - ($5 || ' hours')::interval, now() - ($5 || ' hours')::interval, $6)`,
-    [
-      id,
-      TENANT,
-      kind,
-      remoteId,
-      String(hoursAgo),
-      encrypt(JSON.stringify(submission), core.engine.config.credentialsKey),
-    ],
+             now() - ($5 || ' hours')::interval, now() - ($5 || ' hours')::interval)`,
+    [id, TENANT, kind, remoteId, String(hoursAgo)],
   );
   return id;
 }

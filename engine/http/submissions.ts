@@ -4,17 +4,15 @@
 // site's own server calls these with its token; the visitor's browser never does. Core
 // authenticates, checks the bot check's proof, validates, finds the connection and hands the
 // submission to that connection's adapter inside the request; it stores and logs the id and the
-// outcome, keeps the form itself encrypted until the CRM has taken it, or 30 days when it never
-// does (question 160 a), never writes the person anywhere in plain text, and reads nothing out of
-// the submission to decide anything.
+// outcome, never keeps or writes the person anywhere, and sends no form again (218: the visitor
+// is told it was not sent and whom to contact), and reads nothing out of the submission to decide
+// anything.
 import { authenticate } from './changes.js';
 import { validateSlots, validateSubmission } from '../contract.js';
 import { connectionById, subscriberByBellUrl } from '../storage/connections.js';
 import { readItem } from '../storage/items.js';
 import {
-  claimAgain,
   claimSubmission,
-  contentOf,
   officesOfTenant,
   REPEAT_WINDOW_MS,
   settleSubmission,
@@ -43,7 +41,7 @@ const MINUTE_MS = 60_000;
 const WAIT_STEP_MS = 50;
 /**
  * A form still waiting this long after its send began lost its answer: Core stopped before the
- * CRM answered. It counts as not answered, and may be sent again (question 160 a).
+ * CRM answered. It counts as not answered.
  */
 export const UNANSWERED_MS = 2 * SUBMISSION_TIMEOUT_MS;
 
@@ -257,7 +255,6 @@ async function submitThrough(
     ...where,
     kind: submission.kind,
     officeId: submission.office_id ?? null,
-    submission,
   });
   if (!claim.claimed) {
     // The same id again: a double click or a retried request. The first request's answer is the
@@ -497,52 +494,6 @@ function answerFrom(answer: Answer): Response {
 
 /** A form's id is a UUID (schemas/submission.v1.json); anything else names no form. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** What a person's "Send again" got: the CRM's answer, or why nothing was sent. */
-export type SentAgain =
-  { answer: Answer } | { status: number; error: string; why: Refusal | 'no-form' | 'on-its-way' };
-
-/**
- * "Send again" in the admin area (question 160 a): a form Core keeps goes to its tenant's CRM
- * once more under its own id, through the same route, guard and CRM call as a site's send, and
- * the CRM's answer replaces the old one. Only a form the CRM refused or did not answer, and one
- * send at a time; a form the CRM takes drops its details and leaves the list.
- */
-export async function sendAgain(id: string): Promise<SentAgain> {
-  const row = UUID.test(id) ? await submissionById(id) : null;
-  const submission = row ? contentOf(row) : null;
-  if (!row || !submission)
-    return { status: 404, error: 'Core keeps no such form.', why: 'no-form' };
-  return onceMore(row, submission);
-}
-
-/** One more send of a form Core keeps, through the route, guard and CRM call of a first send. */
-async function onceMore(row: SubmissionRow, submission: Submission): Promise<SentAgain> {
-  const routed = await route(row.tenant_id, submission);
-  if ('error' in routed)
-    return { status: 409, error: `Not sent: ${routed.error}.`, why: routed.why };
-  if (!(await claimAgain(row.id, UNANSWERED_MS, true))) {
-    return {
-      status: 409,
-      error: 'This form is on its way to the CRM now, or the CRM took it.',
-      why: 'on-its-way',
-    };
-  }
-  const { connection, send } = routed;
-  const result = await deliver(send, connection, submission);
-  await settleSubmission(row.id, result);
-  await logEvent({
-    type: `submission.${result.outcome}`,
-    correlationId: row.id,
-    tenantId: row.tenant_id,
-    connectionId: connection.id,
-    datatype: row.datatype,
-    remoteId: row.remote_id,
-    subscriberId: null,
-    fields: { kind: submission.kind, ...said(result) },
-  });
-  return { answer: toAnswer(row.id, result) };
-}
 
 /**
  * `GET /v1/submissions/slots?connection_id=…&remote_id=…`: the home's viewings and slots as the
