@@ -326,11 +326,16 @@ function core_client_install(): void
         body longtext NOT NULL,
         outcome varchar(20) NOT NULL,
         said text NOT NULL,
-        tries int NOT NULL DEFAULT 1,
-        last_at datetime NOT NULL,
         PRIMARY KEY  (id),
         KEY sent (sent_at)
     ) $charset;");
+    // "Skicka igen" (0.9.0 to 0.9.2) went (Patric, 2026-10-19): a form is sent once, so its count of
+    // sends and the last one's time go too; dbDelta drops no column itself.
+    foreach (['tries', 'last_at'] as $column) {
+        if ($wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM $forms LIKE %s", $column)) !== null) {
+            $wpdb->query("ALTER TABLE $forms DROP COLUMN $column");
+        }
+    }
     // The forms widget's site key (0.5.7 and 0.5.8) went with the widget; the theme draws the forms now.
     delete_option('core_client_site_key');
     // The shadow DOM setting (until 0.6.0) is style isolation now, off unless a site turns it on

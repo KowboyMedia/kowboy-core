@@ -255,7 +255,7 @@ async function searchProfile(sending: Sending): Promise<string | null> {
   const contactId = typeof contact === 'string' ? contact : contactIdOf(contact);
   if (!contactId) {
     throw new NotSent(
-      'Vitec took the visitor as a contact but gave back no contact number, so the search profile was not added. Send it again from Failed forms.',
+      'Vitec took the visitor as a contact but gave back no contact number, so the search profile was not added.',
     );
   }
   const codes = criteria.areas
@@ -327,10 +327,10 @@ const REFUSALS = new Set([400, 404, 409, 422]);
  */
 const wordsOf = (error: connect.VitecError): string => error.said ?? '';
 
-/** A form Core itself did not send, in words for Failed forms. */
+/** A form Core itself did not send, in words for the event log. */
 class NotSent extends Error {}
 
-/** A form by what Vitec makes of it, for the words on Failed forms. */
+/** A form by what Vitec makes of it, for the words in the event log. */
 const FORM_WORDS: Record<string, string> = {
   lead: 'lead',
   interest: 'interest',
@@ -338,25 +338,25 @@ const FORM_WORDS: Record<string, string> = {
   search_profile: 'search profile',
 };
 
-/** What became of a form that failed, and what to do, for Failed forms and the event sentence. */
+/** What became of a form that failed, and what to do, for the event sentence. */
 function failedInWords(error: unknown, kind: string): string {
   const form = FORM_WORDS[kind] ?? 'form';
   if (error instanceof NotSent) return error.message;
   if (error instanceof connect.Blocked) {
-    return `The form was not sent, because Vitec refuses to let this login read the office with Vitec’s office id ${error.officeId}${error.environment === 'qa' ? ' in its QA environment' : ''}. Send it again from Failed forms once Vitec no longer refuses the office.`;
+    return `The form was not sent, because Vitec refuses to let this login read the office with Vitec’s office id ${error.officeId}${error.environment === 'qa' ? ' in its QA environment' : ''}.`;
   }
   if (error instanceof Error && error.message.includes('time ran out')) {
-    return `Core stopped trying after ${String(FORM_TIME_MS / 1000)} seconds, so the form was not sent to Vitec and the visitor read that it was not sent. Send it again from Failed forms.`;
+    return `Core stopped trying after ${String(FORM_TIME_MS / 1000)} seconds, so the form was not sent to Vitec and the visitor was asked to contact the brokerage directly.`;
   }
   switch (connect.kindOf(error)) {
     case 'forbidden':
-      return 'Vitec does not let this login send forms. Press “Check login” on the tenant’s page, then send the form again from Failed forms.';
+      return 'Vitec does not let this login send forms. Press “Check login” on the tenant’s page.';
     case 'broken':
-      return `Vitec’s answer could not be read, so it is unclear whether Vitec took the ${form}. Check in Vitec before sending it again.`;
+      return `Vitec’s answer could not be read, so it is unclear whether Vitec took the ${form}. Check in Vitec whether it is there.`;
     case 'unavailable':
-      return `Vitec did not take the ${form}, because ${failureInWords(error)}. Send it again from Failed forms when Vitec works.`;
+      return `Vitec did not take the ${form}, because ${failureInWords(error)}.`;
     default:
-      return `Vitec did not take the ${form}, because ${failureInWords(error)}. Send it again from Failed forms.`;
+      return `Vitec did not take the ${form}, because ${failureInWords(error)}.`;
   }
 }
 

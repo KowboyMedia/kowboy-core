@@ -30,7 +30,6 @@ import { steps } from './event-log.js';
 import { inspect, readRecord, search } from './records.js';
 import { auditedOn, describe, recordsFromBody, sync, LEVELS, type ScopeInput } from './runs.js';
 import { scopeFromBody, scopeFromQuery, scopeOptions } from './scope.js';
-import { auditSentAgain, failedForms, sendAgainAsked } from './forms.js';
 import {
   listTenants,
   readTenant,
@@ -367,27 +366,6 @@ const routes: AdminRoute[] = [
       if (refused) return refused;
       const found = await steps(number(request, 'page', 1), text(request, 'correlation') ?? null);
       return page(found.steps, found.total);
-    },
-  },
-
-  // ---- Failed forms ----------------------------------------------------------------------------
-  {
-    method: 'GET',
-    path: '/forms',
-    handler: async () => {
-      const rows = await failedForms();
-      return page(rows, rows.length);
-    },
-  },
-  {
-    method: 'POST',
-    path: '/forms/:id/send-again',
-    handler: async (request) => {
-      const id = request.params['id'] ?? '';
-      const sent = await sendAgainAsked(id);
-      if ('error' in sent) return fail(sent.status, sent.error);
-      await auditSentAgain(request.session, id, sent.answer.outcome);
-      return one(sent.answer);
     },
   },
 

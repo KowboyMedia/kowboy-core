@@ -408,14 +408,14 @@ describe('alerts', () => {
         bot_check: cause,
       },
     });
-    // The website's own "Send again" says so.
+    // A form the CRM refused.
     await logEvent({
       type: 'submission.refused',
       correlationId: 'form-4',
       tenantId: TENANT,
       connectionId: CONNECTION,
       subscriberId: 1,
-      fields: { kind: 'viewing', reason: 'no such viewing', sent_again: 'by the website' },
+      fields: { kind: 'viewing', reason: 'no such viewing' },
     });
 
     // The alert names the website and opens its page as it is, not under Core's admin area.
@@ -449,7 +449,7 @@ describe('alerts', () => {
     expect(refused).toMatchObject({
       level: 'P1',
       link: page,
-      said: 'Fake-webhook refused a viewing booking sent again from the website, with the reason “no such viewing”. The brokerage does not have it. The website keeps it for 30 days with what the visitor wrote and the CRM’s reason, on its page “Formulär”; press “Skicka igen” beside it there once the cause is put right.',
+      said: 'Fake-webhook refused a viewing booking, with the reason “no such viewing”. The brokerage does not have it. The website keeps it for 30 days with what the visitor wrote and the CRM’s reason, on its page “Formulär”; press “Skicka igen” beside it there once the cause is put right.',
     });
 
     // The page is the WordPress plugin's, wherever WordPress lives; a website that is not

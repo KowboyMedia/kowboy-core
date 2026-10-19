@@ -9,7 +9,6 @@ const ICON: Record<string, string> = {
   Records: 'search',
   Tenants: 'building',
   'Manual sync': 'play',
-  'Failed forms': 'inbox',
   Events: 'list',
   CRMs: 'plug',
   Settings: 'settings',

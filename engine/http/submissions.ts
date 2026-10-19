@@ -70,17 +70,13 @@ export function resetSubmissionLimits(): void {
 /**
  * A form: the tenant token, the bot check's proof, and the site named by `X-Core-Site`. A form
  * Core already holds gets its first answer before anything else (166), so the site's retry hears
- * it although the proof was spent, and nothing goes twice. `X-Core-Resend: yes` is the site's own
- * "Send again" from its page "Formulär", which its server sends with no visitor and so no proof:
- * a form the CRM did not take goes once more under its id, and one Core never received goes as
- * new (docs/forms.md, "Built 2026-10-19").
+ * it although the proof was spent, and nothing goes twice. A form that could not be sent is sent
+ * again by nobody (Patric, 2026-10-19): the window tells the visitor whom to contact instead.
  */
 export async function submit(request: Request): Promise<Response> {
   const auth = await authenticate(request);
   if ('error' in auth) return jsonResponse(auth.status, { error: auth.error });
-  const resend = request.headers['x-core-resend'] === 'yes';
-  const proof = (): Promise<Verdict> | null =>
-    resend ? null : verifyHuman(request.headers['x-core-human'] ?? null);
+  const proof = (): Promise<Verdict> => verifyHuman(request.headers['x-core-human'] ?? null);
   const parsed = parseSubmission(request);
   const door: Door = {
     tenantId: auth.tenantId,
@@ -90,12 +86,12 @@ export async function submit(request: Request): Promise<Response> {
   const { submission } = parsed;
 
   const known = await heldAlready(submission.id);
-  if (known) return answerKnown(known, submission, door, resend);
+  if (known) return answerKnown(known, submission, door);
 
   const verdict = await proof();
-  if (verdict?.kind === 'refused') return notHuman();
+  if (verdict.kind === 'refused') return notHuman();
   if (overLimit(door.tenantId)) return tooMany();
-  if (verdict?.kind === 'broken') return checkBroken(request, submission, door, verdict.cause);
+  if (verdict.kind === 'broken') return checkBroken(request, submission, door, verdict.cause);
   return submitThrough(request, submission, door);
 }
 
@@ -108,9 +104,9 @@ async function notAForm(
   request: Request,
   parsed: Unread,
   door: Door,
-  proof: Promise<Verdict> | null,
+  proof: Promise<Verdict>,
 ): Promise<Response> {
-  if ((await proof)?.kind === 'refused') return notHuman();
+  if ((await proof).kind === 'refused') return notHuman();
   if (overLimit(door.tenantId)) return tooMany();
   if (parsed.id) {
     await loggedNotSent(
@@ -168,21 +164,16 @@ const tooMany = (): Response =>
     error: `more than ${String(SUBMISSIONS_PER_MINUTE)} submissions in a minute; try again shortly`,
   });
 
-/**
- * A form Core holds: its first answer, once it is in, or for the site's own "Send again" of one
- * the CRM did not take, one more send. An id of another tenant's names no form of this one's.
- */
+/** A form Core holds: its first answer, once it is in. An id of another tenant's names no form of this one's. */
 async function answerKnown(
   known: SubmissionRow,
   submission: Submission,
   door: Door,
-  resend: boolean,
 ): Promise<Response> {
   if (known.tenant_id !== door.tenantId) {
     return jsonResponse(400, { id: submission.id, error: 'this id was used by another tenant' });
   }
-  if (!resend || known.outcome === 'delivered') return answerFrom(await settled(known));
-  return sendOnceMore(known, submission, door);
+  return answerFrom(await settled(known));
 }
 
 /** The row of a form Core holds under this id, inside the window a repeated id is answered in. */
@@ -499,7 +490,7 @@ function answerFrom(answer: Answer): Response {
         ...(answer.detail === NOT_LIVE ? { held: true } : {}),
       });
     default:
-      // Failed, or still unanswered after the timeout: the visitor tries again.
+      // Failed, or still unanswered after the timeout: the visitor is asked to contact the brokerage.
       return jsonResponse(502, { id: answer.id, status: 'failed' });
   }
 }
@@ -522,38 +513,15 @@ export async function sendAgain(id: string): Promise<SentAgain> {
   const submission = row ? contentOf(row) : null;
   if (!row || !submission)
     return { status: 404, error: 'Core keeps no such form.', why: 'no-form' };
-  return onceMore(row, submission, { kept: true, subscriberId: null });
+  return onceMore(row, submission);
 }
 
-/**
- * The site's own "Send again" of a form Core holds and the CRM did not take: the form as the
- * site sent it, under its id, the way `sendAgain` sends Core's copy. A form on its way or taken
- * meanwhile answers as the first send did.
- */
-async function sendOnceMore(
-  row: SubmissionRow,
-  submission: Submission,
-  door: Door,
-): Promise<Response> {
-  const sent = await onceMore(row, submission, { kept: false, subscriberId: door.subscriberId });
-  if ('answer' in sent) return answerFrom(sent.answer);
-  if (sent.why === 'on-its-way') return answerFrom(await settled(row));
-  return jsonResponse(400, { id: row.id, error: sent.error });
-}
-
-/**
- * One more send of a form Core holds, through the route, guard and CRM call of a first send. `kept`
- * says the send is Core's own copy, which only a form that still keeps it can have.
- */
-async function onceMore(
-  row: SubmissionRow,
-  submission: Submission,
-  from: { kept: boolean; subscriberId: number | null },
-): Promise<SentAgain> {
+/** One more send of a form Core keeps, through the route, guard and CRM call of a first send. */
+async function onceMore(row: SubmissionRow, submission: Submission): Promise<SentAgain> {
   const routed = await route(row.tenant_id, submission);
   if ('error' in routed)
     return { status: 409, error: `Not sent: ${routed.error}.`, why: routed.why };
-  if (!(await claimAgain(row.id, UNANSWERED_MS, from.kept))) {
+  if (!(await claimAgain(row.id, UNANSWERED_MS, true))) {
     return {
       status: 409,
       error: 'This form is on its way to the CRM now, or the CRM took it.',
@@ -570,12 +538,8 @@ async function onceMore(
     connectionId: connection.id,
     datatype: row.datatype,
     remoteId: row.remote_id,
-    subscriberId: from.subscriberId,
-    fields: {
-      kind: submission.kind,
-      ...said(result),
-      ...(from.kept ? {} : { sent_again: 'by the website' }),
-    },
+    subscriberId: null,
+    fields: { kind: submission.kind, ...said(result) },
   });
   return { answer: toAnswer(row.id, result) };
 }

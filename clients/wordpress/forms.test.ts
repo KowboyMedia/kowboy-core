@@ -1,8 +1,8 @@
 // The plugin's forms (docs/forms.md, "Built 2026-10-19"): its receiver keeps every form it sends,
 // delivered or not, with the visitor's details and the outcome, for 30 days on its page
-// "Formulär", where "Skicka igen" sends a form that did not reach the brokerage once more; a form
-// that does not reach Core is tried twice more (question 166); and the page's switch turns the
-// forms off, which takes the window off the pages. Proved against the test Core and its fake CRM
+// "Formulär", and sends none again (Patric, 2026-10-19); a form that does not reach Core is tried
+// twice more (question 166); and the page's switch turns the forms off, which takes the window off
+// the pages. Proved against the test Core and its fake CRM
 // on the WordPress install of test/setup.sh.
 import { randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
@@ -56,7 +56,7 @@ const send = async (
   return { status: response.status, body: (await response.json()) as Record<string, unknown> };
 };
 
-type Kept = { id: string; kind: string; outcome: string; said: string; tries: string };
+type Kept = { id: string; kind: string; outcome: string; said: string };
 
 /** The forms the site keeps, as its table holds them. */
 const kept = async (): Promise<Kept[]> =>
@@ -64,7 +64,7 @@ const kept = async (): Promise<Kept[]> =>
     (
       await wp(
         'eval',
-        'global $wpdb; echo wp_json_encode($wpdb->get_results("SELECT id, kind, outcome, said, tries FROM " . core_client_forms_table() . " ORDER BY sent_at, id"));',
+        'global $wpdb; echo wp_json_encode($wpdb->get_results("SELECT id, kind, outcome, said FROM " . core_client_forms_table() . " ORDER BY sent_at, id"));',
       )
     ).stdout,
   ) as Kept[];
@@ -72,10 +72,6 @@ const kept = async (): Promise<Kept[]> =>
 /** The page "Formulär" as an administrator sees it. */
 const formsPage = async (): Promise<string> =>
   (await wp('eval', 'wp_set_current_user(1); core_client_forms_page();')).stdout;
-
-/** "Skicka igen" on one form, as its button does it. */
-const again = async (id: string): Promise<string> =>
-  (await wp('eval', `echo core_client_forms_again(${JSON.stringify(id)});`)).stdout.trim();
 
 beforeAll(async () => {
   crm.reset();
@@ -101,7 +97,7 @@ afterAll(async () => {
 });
 
 describe('the WordPress client’s forms', () => {
-  it('keeps every form it sends with the visitor’s details and the outcome on its page “Formulär”, and “Skicka igen” sends one the CRM did not take once more', async () => {
+  it('keeps every form it sends with the visitor’s details and the outcome on its page “Formulär”, and sends none again', async () => {
     const delivered = interest();
     expect((await send(delivered)).status).toBe(200);
     const failed = interest();
@@ -118,8 +114,8 @@ describe('the WordPress client’s forms', () => {
     expect(rows).toHaveLength(3);
     expect(rows).toEqual(
       expect.arrayContaining([
-        { id: delivered['id'], kind: 'interest', outcome: 'delivered', said: '', tries: '1' },
-        { id: failed['id'], kind: 'interest', outcome: 'crm', said: '', tries: '1' },
+        { id: delivered['id'], kind: 'interest', outcome: 'delivered', said: '' },
+        { id: failed['id'], kind: 'interest', outcome: 'crm', said: '' },
         expect.objectContaining({ id: unchecked['id'], outcome: 'check' }),
       ]),
     );
@@ -132,22 +128,10 @@ describe('the WordPress client’s forms', () => {
     expect(page).toContain('Kom fram till mäklaren.');
     expect(page).toContain('Kom inte fram: mäklarsystemet svarade inte.');
     expect(page).toContain('Kom inte fram: robotkontrollen fungerade inte.');
-    // "Skicka igen" with its sentence, beside the two forms that did not reach the CRM only.
-    expect(page.match(/value="Skicka igen"/g)).toHaveLength(2);
-    expect(page).toContain('Skickar det en gång till, med samma uppgifter.');
-
-    expect(await again(failed['id'] as string)).toBe('delivered');
-    expect(crm.formsTaken()).toHaveLength(2);
-    expect((await kept()).find((form) => form.id === failed['id'])).toMatchObject({
-      outcome: 'delivered',
-      tries: '2',
-    });
-    // The site's own send needs no proof, so the form the bot check stopped reaches the CRM too.
-    expect(await again(unchecked['id'] as string)).toBe('delivered');
-    expect(crm.formsTaken()).toHaveLength(3);
-    // Pressed again, a form the CRM took is not sent twice.
-    expect(await again(failed['id'] as string)).toBe('delivered');
-    expect(crm.formsTaken()).toHaveLength(3);
+    // A form that did not reach the brokerage is not sent again: the visitor was told whom to contact.
+    expect(page).not.toContain('Skicka igen');
+    expect(page).toContain('Ett formulär som inte kom fram skickas inte igen');
+    expect(crm.formsTaken()).toHaveLength(1);
   });
 
   it('tries a form that does not reach Core twice more under its id, so a restarting Core loses no form and none goes twice (166)', async () => {
@@ -251,13 +235,32 @@ describe('the WordPress client’s forms', () => {
     const [old, recent] = [randomUUID(), randomUUID()];
     await wp(
       'eval',
-      `global $wpdb; foreach ([[${JSON.stringify(old)}, 31], [${JSON.stringify(recent)}, 29]] as [$id, $days]) { $at = gmdate('Y-m-d H:i:s', time() - $days * DAY_IN_SECONDS); $wpdb->insert(core_client_forms_table(), ['id' => $id, 'sent_at' => $at, 'kind' => 'interest', 'body' => '{}', 'outcome' => 'delivered', 'said' => '', 'tries' => 1, 'last_at' => $at]); }`,
+      `global $wpdb; foreach ([[${JSON.stringify(old)}, 31], [${JSON.stringify(recent)}, 29]] as [$id, $days]) { $at = gmdate('Y-m-d H:i:s', time() - $days * DAY_IN_SECONDS); $wpdb->insert(core_client_forms_table(), ['id' => $id, 'sent_at' => $at, 'kind' => 'interest', 'body' => '{}', 'outcome' => 'delivered', 'said' => '']); }`,
     );
     expect((await kept()).map((form) => form.id)).toEqual(expect.arrayContaining([old, recent]));
     await formsPage();
     const ids = (await kept()).map((form) => form.id);
     expect(ids).toContain(recent);
     expect(ids).not.toContain(old);
+  });
+
+  it('drops the count of sends that “Skicka igen” kept, when a site updates from a plugin that had it', async () => {
+    const columns = async (): Promise<string[]> =>
+      JSON.parse(
+        (
+          await wp(
+            'eval',
+            'global $wpdb; echo wp_json_encode($wpdb->get_col("SHOW COLUMNS FROM " . core_client_forms_table()));',
+          )
+        ).stdout,
+      ) as string[];
+    await wp(
+      'eval',
+      'global $wpdb; $wpdb->query("ALTER TABLE " . core_client_forms_table() . " ADD COLUMN tries int NOT NULL DEFAULT 1, ADD COLUMN last_at datetime NULL");',
+    );
+    expect(await columns()).toEqual(expect.arrayContaining(['tries', 'last_at']));
+    await wp('eval', 'core_client_install();');
+    expect(await columns()).toEqual(['id', 'sent_at', 'kind', 'body', 'outcome', 'said']);
   });
 
   it('turned off on its page, the forms leave the pages and the buttons lead to a contact; turned on, the window is back', async () => {

@@ -2,9 +2,10 @@
 // The page "Formulär" under Kowboy Estates (decision of 2026-10-05 on question 146, item 2; the
 // decision of 2026-10-07 on the details kept on the site): the switch that turns the site's forms
 // on, and every form the site sent in the last 30 days, delivered or not, with what the visitor
-// wrote and what became of it, and "Skicka igen" beside one that did not reach the brokerage.
-// Only an administrator sees it, since it holds the visitors' details. The words are Swedish, as
-// the brokerage's staff read them.
+// wrote and what became of it. A form that did not reach the brokerage is not sent again: the
+// window told the visitor so and whom to contact instead (Patric, 2026-10-19). Only an
+// administrator sees it, since it holds the visitors' details. The words are Swedish, as the
+// brokerage's staff read them.
 
 declare(strict_types=1);
 
@@ -24,40 +25,6 @@ add_action('admin_post_core_client_forms_on', function (): void {
     wp_safe_redirect(admin_url('admin.php?page=core-client-forms&saved=1'));
     exit;
 });
-
-add_action('admin_post_core_client_form_again', function (): void {
-    if (!current_user_can('manage_options')) {
-        wp_die('Du får inte skicka formulär.');
-    }
-    check_admin_referer('core_client_form_again');
-    $outcome = core_client_forms_again(sanitize_text_field((string) ($_POST['id'] ?? '')));
-    wp_safe_redirect(admin_url('admin.php?page=core-client-forms&again=' . rawurlencode($outcome)));
-    exit;
-});
-
-/**
- * "Skicka igen": the kept form once more to Core, as the window sent it and under its id, marked
- * as the site's own send, which needs no bot proof since no visitor is behind it. Core sends a form
- * the CRM did not take once more, answers a taken one as before, and sends one it never got as
- * new. Returns the outcome, or `gone` when the site no longer keeps the form and `busy` when Core
- * refused before it judged the form (the limit per minute).
- */
-function core_client_forms_again(string $id): string
-{
-    global $wpdb;
-    $table = core_client_forms_table();
-    $row = $wpdb->get_row($wpdb->prepare("SELECT body FROM $table WHERE id = %s", $id));
-    $form = is_object($row) ? json_decode((string) $row->body) : null;
-    if (!($form instanceof stdClass)) {
-        return 'gone';
-    }
-    $answer = core_client_forms_send((string) $row->body, ['X-Core-Resend' => 'yes']);
-    if (in_array($answer->get_status(), [403, 429], true)) {
-        return 'busy';
-    }
-    core_client_forms_keep($form, (string) $row->body, $answer);
-    return core_client_forms_outcome($answer->get_status(), (array) $answer->get_data())[0];
-}
 
 /** What became of a form, in the words of the page. */
 function core_client_forms_outcome_text(string $outcome, string $said): string
@@ -155,21 +122,11 @@ function core_client_forms_page(): void
         CORE_CLIENT_FORMS_PER_PAGE,
         ($page - 1) * CORE_CLIENT_FORMS_PER_PAGE,
     ));
-    $again = sanitize_key((string) ($_GET['again'] ?? ''));
     ?>
     <div class="wrap">
         <h1>Formulär</h1>
         <?php if (isset($_GET['saved'])) : ?>
             <div class="notice notice-success"><p>Sparat. Formulären är <?php echo core_client_forms_on() ? 'på' : 'avstängda'; ?>.</p></div>
-        <?php endif; ?>
-        <?php if ($again === 'delivered') : ?>
-            <div class="notice notice-success"><p>Formuläret kom fram till mäklaren.</p></div>
-        <?php elseif ($again === 'gone') : ?>
-            <div class="notice notice-error"><p>Formuläret finns inte kvar här, så det skickades inte.</p></div>
-        <?php elseif ($again === 'busy') : ?>
-            <div class="notice notice-error"><p>Kowboy Core tar emot för många formulär just nu, så det skickades inte. Försök igen om en minut.</p></div>
-        <?php elseif ($again !== '') : ?>
-            <div class="notice notice-error"><p>Formuläret skickades igen men kom inte fram. Raden nedan säger varför.</p></div>
         <?php endif; ?>
 
         <h2>Formulären på webbplatsen</h2>
@@ -182,7 +139,7 @@ function core_client_forms_page(): void
         </form>
 
         <h2>Skickade formulär</h2>
-        <p class="description">Varje formulär som webbplatsen har skickat de senaste <?php echo (int) CORE_CLIENT_FORMS_KEPT_DAYS; ?> dagarna, med det besökaren skrev och hur det gick, nyast först. Efter <?php echo (int) CORE_CLIENT_FORMS_KEPT_DAYS; ?> dagar raderas det. Ett formulär som inte kom fram kan skickas igen när felet är åtgärdat: "Skicka igen" skickar det en gång till med samma uppgifter, och ett som redan har kommit fram skickas inte två gånger.</p>
+        <p class="description">Varje formulär som webbplatsen har skickat de senaste <?php echo (int) CORE_CLIENT_FORMS_KEPT_DAYS; ?> dagarna, med det besökaren skrev och hur det gick, nyast först. Efter <?php echo (int) CORE_CLIENT_FORMS_KEPT_DAYS; ?> dagar raderas det. Ett formulär som inte kom fram skickas inte igen: besökaren fick veta det och ombads kontakta mäklaren direkt.</p>
         <?php if ($rows === []) : ?>
             <p>Inga formulär de senaste <?php echo (int) CORE_CLIENT_FORMS_KEPT_DAYS; ?> dagarna.</p>
         <?php else : ?>
@@ -201,15 +158,6 @@ function core_client_forms_page(): void
                         <td><?php echo core_client_forms_person($form); ?></td>
                         <td>
                             <?php echo esc_html(core_client_forms_outcome_text((string) $row->outcome, (string) $row->said)); ?>
-                            <?php if ((int) $row->tries > 1) : ?><br><span class="description">Skickat <?php echo (int) $row->tries; ?> gånger, senast <?php echo esc_html(wp_date('j M H:i', (int) strtotime($row->last_at . ' UTC'))); ?>.</span><?php endif; ?>
-                            <?php if (!in_array($row->outcome, ['delivered', 'held'], true)) : ?>
-                                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                                    <?php wp_nonce_field('core_client_form_again'); ?>
-                                    <input type="hidden" name="action" value="core_client_form_again">
-                                    <input type="hidden" name="id" value="<?php echo esc_attr((string) $row->id); ?>">
-                                    <p><?php submit_button('Skicka igen', 'secondary', 'submit', false); ?> <span class="description">Skickar det en gång till, med samma uppgifter.</span></p>
-                                </form>
-                            <?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?>

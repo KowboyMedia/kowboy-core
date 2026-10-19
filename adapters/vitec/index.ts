@@ -1521,7 +1521,7 @@ export const vitecAdapter: Adapter = {
       return Promise.resolve({
         outcome: 'failed' as const,
         detail:
-          'the form was not sent to Vitec, because the connection has no username or password saved. Type them on the tenant’s page, save, and send the form again from Failed forms.',
+          'the form was not sent to Vitec, because the connection has no username or password saved. Type them on the tenant’s page and save.',
       });
     }
     return forms.submit(connection, credentials, submission);

@@ -841,7 +841,8 @@ the seven days.
          the site sent, failed or not, with the visitor's details and the outcome, kept 30 days,
          with "Send again" beside a failed one. Core takes the site's own "Send again" with no
          bot proof, under the form's id, also for a form it never received (a form lost while
-         Core could not be reached), since only the site's server sends it.
+         Core could not be reached), since only the site's server sends it. "Send again" and its
+         way into Core were removed with 218 (step 10).
       6. Done 2026-10-19: `[core]` `[client-wordpress]` 166: Core answers a form id it already
          holds before the bot check; the plugin tries twice more, after 1 s and 3 s, when Core
          did not answer.
@@ -858,13 +859,15 @@ the seven days.
          the check's list at Cloudflare when the site is saved; on the free plan an eleventh site
          is refused with a clear message, since paying is asked then (146). The new admin's
          website save calls it: the thread "New admin panel from the spec"'s, sent to it.
-      9. Built 2026-10-19 (plugin 0.9.1, theme 1.3.4), not approved until Patric has seen its
-         screen (`/mnt/project-files/forms/profile-step/`): `[client-wordpress]` "Söker du
-         bostad?" in the theme; the Vitec code adds the home's type (docs/forms.md, "Built
-         2026-10-19").
-      10. `[core]` `[admin]` By the answer to 218: Core's copy of the details, the old page
-          "Failed forms" and the new admin's "Resend" go (a), stay (b), or "Resend" asks the
-          site (c).
+      9. Done 2026-10-19 (plugin 0.9.1, theme 1.3.4; its look approved with 221, and on the Ahre
+         demo with 222): `[client-wordpress]` "Söker du bostad?" in the theme; the Vitec code
+         adds the home's type (docs/forms.md, "Built 2026-10-19").
+      10. `[core]` `[admin]` 218 (2026-10-19): nothing sends a form again; the window tells the
+          visitor it was not sent and whom to contact instead. Done (plugin 0.9.3, theme 1.3.6):
+          the window, the site's "Skicka igen", the old page "Failed forms" and Core's
+          `X-Core-Resend`. Open: the new admin's "Resend" (the thread "New admin panel from the
+          spec"), then Core's copy of the details and its send again (migration 023), then the
+          "Needs attention" words (the thread "Notification system").
       11. Done 2026-10-19 (5a42439, 97f7d90): item 32's tests; every forms file checked against
           the list with the tests green, a fresh review, and the report file by file
           (`/mnt/project-files/forms/check-report.md`).

@@ -23,11 +23,6 @@ export const PAGES: Page[] = [
     path: '/manual-sync',
     what: 'Fetch from the CRM, recompute or send to the sites, by scope',
   },
-  {
-    name: 'Failed forms',
-    path: '/forms',
-    what: 'Forms the CRM did not take, to read and send again',
-  },
   { name: 'Events', path: '/events', what: 'Everything that happened' },
   { name: 'CRMs', path: '/crms', what: 'Each adapter’s own page' },
   { name: 'Settings', path: '/settings', what: 'Configuration, versions, maintenance' },

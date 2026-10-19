@@ -6,11 +6,9 @@ import type { AddressInfo } from 'node:net';
 import { startEngine } from '../engine/index.js';
 import { adapterApi, startAdapter } from '../engine/adapter-api/index.js';
 import { adapterRoutes } from '../engine/http/server.js';
-import { registerAdmin, registerSubmissions } from '../engine/registry.js';
+import { registerAdmin } from '../engine/registry.js';
 import { db } from '../engine/storage/db.js';
 import { deliverLifecycleEvents } from '../engine/lifecycle.js';
-import { configureHumanCheck } from '../engine/human.js';
-import { HUMAN_CHECK } from '../acceptance/harness.js';
 import { fakeWebhookAdapter } from '../adapters/fake-webhook/index.js';
 import * as crm from '../adapters/fake-webhook/crm.js';
 
@@ -47,31 +45,21 @@ const port = Number(process.argv[2] ?? 4319);
 process.env['PORT'] = String(port);
 
 const engine = await startEngine({ port });
-// The tests' bot check (acceptance/harness.ts), so a form in a journey passes with the dummy token
-// and no journey calls Cloudflare.
-configureHumanCheck(HUMAN_CHECK);
 // A journey starts from nothing, so what a person sees is what these tests made.
 await db().query(
   'truncate tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results, error_reports, jobs, alert_state, settings, admin_logins, admin_sessions restart identity cascade',
 );
 await db().query("select setval('item_seq', 1, false)");
 
-// The fake CRM here takes an interest, so a form tried in the journeys goes as far as the guard:
-// this Core is not the live service, so the form stops before any CRM call and is kept as
-// refused, which is what "Failed forms" lists and sends again.
-const takesForms = {
-  ...fakeWebhookAdapter,
-  manifest: { ...fakeWebhookAdapter.manifest, submissions: ['interest' as const] },
-};
-adapterApi(takesForms.manifest.provider).register(takesForms.manifest, takesForms.mappers);
-registerSubmissions(takesForms.manifest.provider, {
-  submit: () => Promise.resolve({ outcome: 'delivered' }),
-});
+adapterApi(fakeWebhookAdapter.manifest.provider).register(
+  fakeWebhookAdapter.manifest,
+  fakeWebhookAdapter.mappers,
+);
 if (fakeWebhookAdapter.admin) {
   registerAdmin(fakeWebhookAdapter.manifest.provider, fakeWebhookAdapter.admin);
 }
 fillTheCrm();
-await startAdapter(takesForms);
+await startAdapter(fakeWebhookAdapter);
 
 // The worker's two ticks the journeys depend on: a save's lifecycle event reaches the adapter,
 // and the health checks are recorded, so the Overview page has a verdict to show.

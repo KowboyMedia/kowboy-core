@@ -7,7 +7,9 @@
 // so the page holds no key but the bot check's public one. Every word the visitor reads is here
 // or in the script; none names a system. After the main form is sent, every form ends with the
 // optional step "Söker du bostad?" (docs/forms.md, the wizard), a second form of its own: the
-// minimum rooms and living space, from the whitelist below, prefilled from the home.
+// minimum rooms and living space, from the whitelist below, prefilled from the home. A form that
+// cannot be sent is not sent again: the window says so and names whom to contact instead, the
+// home's agent or the site (data-contact; Patric, 2026-10-19).
 //
 // In scope: $endpoint (the plugin's receiver for a form), $slots (its receiver for a viewing's
 // times), $policy (the privacy policy's address, or '') and $human (the bot check's provider and
@@ -20,7 +22,7 @@ $human = $human ?? null;
 $rooms = range(1, 7);
 $living_areas = [20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 150, 160, 170, 180, 200, 250];
 ?>
-<dialog class="k-form" data-endpoint="<?php echo esc_attr($endpoint); ?>" data-slots="<?php echo esc_attr($slots); ?>"<?php if (is_array($human) && $human['provider'] === 'turnstile') : ?> data-human-key="<?php echo esc_attr($human['site_key']); ?>"<?php endif; ?> aria-labelledby="k-form-title">
+<dialog class="k-form" data-endpoint="<?php echo esc_attr($endpoint); ?>" data-slots="<?php echo esc_attr($slots); ?>" data-contact="<?php echo esc_attr((string) wp_json_encode(kowboy_contact())); ?>"<?php if (is_array($human) && $human['provider'] === 'turnstile') : ?> data-human-key="<?php echo esc_attr($human['site_key']); ?>"<?php endif; ?> aria-labelledby="k-form-title">
     <div class="k-form__modal">
         <div class="k-form__top" data-form-top>
             <div>
@@ -83,9 +85,11 @@ $living_areas = [20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95,
         <div class="k-form__step" data-form-step="fail" hidden>
             <div class="k-form__big" data-form-fail-title></div>
             <p class="k-form__sub" data-form-fail-text></p>
+            <p class="k-form__sub" data-form-elsewhere hidden></p>
             <div class="k-form__row">
                 <button class="k-form__text-button" type="button" data-form-back hidden>Tillbaka</button>
                 <button class="k-button" type="button" data-form-retry>Försök igen</button>
+                <button class="k-button" type="button" data-form-dismiss hidden>Stäng</button>
             </div>
         </div>
 

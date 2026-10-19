@@ -443,6 +443,11 @@ item 29):
   e-mail address Core's schema does not take, and fields longer than it allows, are asked again
   in the window instead of sent; Cloudflare's script that has not loaded after 10 seconds counts
   as the check not running.
+- **A form that could not be sent says whom to contact** (theme 1.3.6 with plugin 0.9.3; 218):
+  "Det gick inte att skicka", why, then "Kontakta mäklaren direkt i stället: ring … eller
+  mejla …", with the home's agent on a home's forms and the site's own phone and e-mail
+  elsewhere, as links, and "Stäng". Nothing is sent again, so no "Försök igen" follows a form the
+  brokerage did not get; a visitor's own failed bot check and a taken time still let them try.
 
 ## The card dots, white on the screen, 2026-10-19
 

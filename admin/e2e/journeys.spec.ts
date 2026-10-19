@@ -1,11 +1,8 @@
 // One test per use case of docs/admin-panel-rebuild.md §1, walked as a person walks it. Each name
 // starts with "journey:" so the acceptance report can name it under AC 42.
-import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 
 const EMAIL = 'tester@kowboy.se';
-/** The dummy token Cloudflare's test key hands out, which the journey Core's bot check takes. */
-const HUMAN_TOKEN = 'XXXX.DUMMY.TOKEN.XXXX';
 
 /** Sign in as a person does: ask for a link, open the one that comes back, land in the area. */
 async function signIn(page: Page, remember = false): Promise<void> {
@@ -244,61 +241,6 @@ test('journey: U8 try things — send a record to the sites again, and fetch it 
   await expect(
     page.getByText('Core asks the CRM for 1 record again.', { exact: false }),
   ).toBeVisible();
-});
-
-test('journey: failed forms — read a form the CRM did not take, and send it again', async ({
-  page,
-}) => {
-  // A visitor's interest in a home, sent the way a site's server sends it, with the tenant's
-  // token. This Core is not the live service, so the form stops before the CRM and is kept.
-  await openTenant(page);
-  const token = await page
-    .getByRole('button', { name: 'Copy the tenant token' })
-    .locator('xpath=preceding-sibling::code')
-    .innerText();
-  const sent = await page.request.post('/v1/submissions', {
-    headers: { authorization: `Bearer ${token}`, 'x-core-human': HUMAN_TOKEN },
-    data: {
-      id: randomUUID(),
-      kind: 'interest',
-      record: { datatype: 'property', connection_id: 'acme-crm', remote_id: 'OBJ-1' },
-      person: {
-        first_name: 'Anna',
-        last_name: 'Svensson',
-        email: 'anna@example.se',
-        phone: '0701234567',
-      },
-      message: 'Hej! Jag vill gärna veta mer om bostaden.',
-      consent: { given: true, at: new Date().toISOString() },
-    },
-  });
-  expect(sent.status(), await sent.text()).toBe(409);
-
-  await go(page, 'Failed forms');
-  const form = page.getByTestId('failed-form');
-  await expect(form).toHaveCount(1);
-  await expect(form.getByText('Anna Svensson')).toBeVisible();
-  await expect(form.getByText('anna@example.se')).toBeVisible();
-  await expect(form.getByText('Hej! Jag vill gärna veta mer om bostaden.')).toBeVisible();
-  // Core's own hold outside production says so in words, not in the site's Swedish answer.
-  await expect(form.getByText('Held back', { exact: true })).toBeVisible();
-  await expect(
-    form.getByText('Held back: only production sends forms to a live CRM', { exact: false }),
-  ).toBeVisible();
-  // The home by its address, then the CRM's id for it.
-  await expect(form.getByRole('link', { name: 'Storgatan 12' })).toBeVisible();
-  await expect(form.getByText('the CRM’s id OBJ-1', { exact: false })).toBeVisible();
-
-  // The button says beside it what it does, and asks before it sends.
-  await expect(
-    form.getByText('Sends this form to the CRM once more.', { exact: false }),
-  ).toBeVisible();
-  await form.getByRole('button', { name: 'Send again' }).click();
-  await page.getByRole('button', { name: 'Send it' }).click();
-  await expect(
-    page.getByText('Held back again: only production sends forms to a live CRM', { exact: false }),
-  ).toBeVisible();
-  await expect(form).toHaveCount(1);
 });
 
 test('journey: U7 configure an adapter — its directions, settings and actions', async ({

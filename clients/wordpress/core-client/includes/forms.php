@@ -100,11 +100,10 @@ function core_client_forms_receive(WP_REST_Request $request): WP_REST_Response
 }
 
 /**
- * One form to Core, as the window sent it, with the headers given (the window's proof, or the
- * page "Formulär"'s mark for its own "Send again"). When Core did not answer (no connection, or a
- * gateway's error while Core restarts), the same form, under the same id, is tried twice more,
- * after 1 s and 3 s, and none starts later than 10 s after the first (166): Core answers an id it
- * already holds with its first answer, so nothing goes twice.
+ * One form to Core, as the window sent it, with the headers given (the window's proof). When Core
+ * did not answer (no connection, or a gateway's error while Core restarts), the same form, under
+ * the same id, is tried twice more, after 1 s and 3 s, and none starts later than 10 s after the
+ * first (166): Core answers an id it already holds with its first answer, so nothing goes twice.
  */
 function core_client_forms_send(string $body, array $extra): WP_REST_Response
 {
@@ -160,16 +159,15 @@ function core_client_forms_keep(stdClass $form, string $body, WP_REST_Response $
     $table = core_client_forms_table();
     $now = current_time('mysql', true);
     $wpdb->query($wpdb->prepare(
-        "INSERT INTO $table (id, sent_at, kind, body, outcome, said, tries, last_at)
-         VALUES (%s, %s, %s, %s, %s, %s, 1, %s)
-         ON DUPLICATE KEY UPDATE outcome = VALUES(outcome), said = VALUES(said), tries = tries + 1, last_at = VALUES(last_at)",
+        "INSERT INTO $table (id, sent_at, kind, body, outcome, said)
+         VALUES (%s, %s, %s, %s, %s, %s)
+         ON DUPLICATE KEY UPDATE outcome = VALUES(outcome), said = VALUES(said)",
         $id,
         $now,
         is_string($form->kind ?? null) ? substr($form->kind, 0, 20) : '',
         $body,
         $outcome,
         $said,
-        $now,
     ));
     core_client_forms_purge();
 }

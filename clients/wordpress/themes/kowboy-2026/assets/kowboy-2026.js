@@ -533,12 +533,17 @@
     humanWaiting: 'Robotkontrollen är inte klar än. Vänta en liten stund och försök igen.',
     refused: 'Det gick tyvärr inte',
     refusedSlot: 'Någon hann före. Välj en annan tid.',
-    failed: 'Det gick inte att skicka just nu',
-    failedText: 'Mäklarsystemet svarade inte. Dina uppgifter finns kvar; försök igen om en stund.',
-    tooMany: 'För många försök just nu. Vänta en stund och försök igen.',
+    failed: 'Det gick inte att skicka',
+    failedText: 'Mäklarsystemet svarade inte, så formuläret kom inte fram.',
+    tooMany: 'Just nu kommer det in för många formulär, så ditt kom inte fram.',
     notHuman: 'Robotkontrollen gick inte igenom. Försök igen.',
     checkBroken:
-      'Robotkontrollen fungerar inte just nu, så formuläret kunde inte skickas. Vi har fått veta det. Försök igen senare eller kontakta mäklaren direkt.',
+      'Robotkontrollen fungerar inte just nu, så formuläret kunde inte skickas. Vi har fått veta det.',
+    /** After every form that could not be sent, which is never sent again: whom to contact instead. */
+    elsewhere: 'Kontakta mäklaren direkt i stället',
+    call: 'ring ',
+    mail: 'mejla ',
+    or: ' eller ',
     cannotLoad: 'Det gick inte att hämta formuläret. Ladda om sidan och försök igen.',
   };
   /**
@@ -652,6 +657,8 @@
     var wishes = null;
     var sentWith = null;
     var retryStep = 'person';
+    // Whom the visitor contacts when a form cannot be sent: the home's agent, else the site.
+    var contact = null;
     var humanWidget = null;
     var humanToken = null;
     // Why the bot check cannot give a proof (Cloudflare's error code, "script" or "no-key"), sent
@@ -840,16 +847,22 @@
         });
     }
 
+    /** A JSON mark on a button or the window, or null. */
+    function parsed(value) {
+      try {
+        return JSON.parse(value || 'null');
+      } catch {
+        return null;
+      }
+    }
+
     function open(button) {
       kind = button.dataset.kForm;
       record = kind === 'lead' ? null : recordRef(button.dataset.record || '');
       home = button.dataset.home || '';
       viewingId = button.dataset.viewing || '';
-      try {
-        wishes = kind === 'lead' ? null : JSON.parse(button.dataset.wishes || 'null');
-      } catch {
-        wishes = null;
-      }
+      wishes = kind === 'lead' ? null : parsed(button.dataset.wishes);
+      contact = parsed(button.dataset.contact) || parsed(dialog.dataset.contact);
       sentWith = null;
       retryStep = 'person';
       viewings = [];
@@ -877,8 +890,7 @@
         .catch(function () {
           if (opened !== openedAt) return;
           mark('loading').hidden = true;
-          fail(FORM_TEXT.failed, FORM_TEXT.cannotLoad, false);
-          mark('retry').hidden = true;
+          fail(FORM_TEXT.failed, FORM_TEXT.cannotLoad, 'elsewhere');
         });
     }
 
@@ -921,12 +933,40 @@
       });
     }
 
-    function fail(title, text, canGoBack) {
+    /**
+     * A form that did not go. `next` is what the visitor can do: `back` to a booking's times,
+     * `retry` after their own failed bot check, or `elsewhere`: a form that could not be sent is
+     * not sent again (Patric, 2026-10-19), so the window names whom to contact instead.
+     */
+    function fail(title, text, next) {
       mark('fail-title').textContent = title;
       mark('fail-text').textContent = text;
-      mark('back').hidden = !canGoBack;
-      mark('retry').hidden = false;
+      mark('fail-text').hidden = text === '';
+      mark('back').hidden = next !== 'back';
+      mark('retry').hidden = next !== 'retry';
+      mark('dismiss').hidden = next !== 'elsewhere';
+      mark('elsewhere').hidden = next !== 'elsewhere';
+      if (next === 'elsewhere') elsewhere(mark('elsewhere'));
       show('fail');
+    }
+
+    /** "Kontakta mäklaren direkt i stället: ring … eller mejla …", with what is known. */
+    function elsewhere(line) {
+      var ways = [];
+      if (contact && contact.phone)
+        ways.push([FORM_TEXT.call, 'tel:' + contact.tel, contact.phone]);
+      if (contact && contact.email) {
+        ways.push([FORM_TEXT.mail, 'mailto:' + contact.email, contact.email]);
+      }
+      line.textContent = FORM_TEXT.elsewhere + (ways.length > 0 ? ': ' : '.');
+      ways.forEach(function (way, n) {
+        if (n > 0) line.append(FORM_TEXT.or);
+        var link = document.createElement('a');
+        link.href = way[1];
+        link.textContent = way[2];
+        line.append(way[0], link);
+      });
+      if (ways.length > 0) line.append('.');
     }
 
     function chosenSlot() {
@@ -972,21 +1012,26 @@
     /**
      * The receiver's answer, which is Core's: 200 sent, 409 refused, 403 the bot check, 429 too
      * many, 503 with the bot check broken, else failed. Only a booking's own refusal goes back to
-     * the times.
+     * the times, and only the visitor's own failed bot check is tried again; every other form that
+     * did not go names whom to contact instead.
      */
     function answered(status, body) {
       if (status === 200) return sent();
       if (status === 503 && body && body.bot_check === 'broken') {
-        return fail(FORM_TEXT.failed, FORM_TEXT.checkBroken, false);
+        return fail(FORM_TEXT.failed, FORM_TEXT.checkBroken, 'elsewhere');
       }
-      if (status === 409) {
-        var booking = kind === 'viewing' && retryStep === 'person';
-        var reason = (body && body.reason) || (booking ? FORM_TEXT.refusedSlot : '');
-        return fail(FORM_TEXT.refused, reason, booking);
+      if (status === 409) return refused((body && body.reason) || '');
+      if (status === 429) return fail(FORM_TEXT.failed, FORM_TEXT.tooMany, 'elsewhere');
+      if (status === 403) return fail(FORM_TEXT.failed, FORM_TEXT.notHuman, 'retry');
+      fail(FORM_TEXT.failed, FORM_TEXT.failedText, 'elsewhere');
+    }
+
+    /** The CRM said no: a booking goes back to its times, any other form names whom to contact. */
+    function refused(reason) {
+      if (kind === 'viewing' && retryStep === 'person') {
+        return fail(FORM_TEXT.refused, reason || FORM_TEXT.refusedSlot, 'back');
       }
-      if (status === 429) return fail(FORM_TEXT.failed, FORM_TEXT.tooMany, false);
-      if (status === 403) return fail(FORM_TEXT.failed, FORM_TEXT.notHuman, false);
-      fail(FORM_TEXT.failed, FORM_TEXT.failedText, false);
+      fail(FORM_TEXT.refused, reason, 'elsewhere');
     }
 
     function submission(person) {
@@ -1105,7 +1150,7 @@
           });
         })
         .catch(function () {
-          fail(FORM_TEXT.failed, FORM_TEXT.failedText, false);
+          fail(FORM_TEXT.failed, FORM_TEXT.failedText, 'elsewhere');
         })
         .finally(function () {
           sending = false;
@@ -1144,6 +1189,9 @@
       dialog.close();
     });
     mark('finish').addEventListener('click', function () {
+      dialog.close();
+    });
+    mark('dismiss').addEventListener('click', function () {
       dialog.close();
     });
     mark('retry').addEventListener('click', function () {

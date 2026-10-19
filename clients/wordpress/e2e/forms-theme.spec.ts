@@ -315,7 +315,7 @@ for (const [how, answer] of [
   ['does not load', 'abort'],
   ['loads without the check in it', 'empty'],
 ] as const) {
-  test(`journey: when the bot check cannot run in the browser (its script ${how}), the window still sends the form, says why it was not sent, and asks the visitor to try later or contact the agent`, async ({
+  test(`journey: when the bot check cannot run in the browser (its script ${how}), the window still sends the form, says why it was not sent, and names the agent to contact instead, with no “Försök igen”`, async ({
     page,
   }) => {
     // Cloudflare's script fails: an ad blocker, a network that drops it, or a broken setup.
@@ -340,12 +340,19 @@ for (const [how, answer] of [
     await fillPerson(dialog);
     await dialog.getByLabel(/Jag samtycker/).check();
     await dialog.getByRole('button', { name: 'Skicka' }).click();
-    await expect(dialog.getByText('Det gick inte att skicka just nu')).toBeVisible();
+    await expect(dialog.getByText('Det gick inte att skicka', { exact: true })).toBeVisible();
     await expect(
       dialog.getByText('Robotkontrollen fungerar inte just nu, så formuläret kunde inte skickas.', {
         exact: false,
       }),
     ).toBeVisible();
+    // A form that could not be sent is not sent again: the home's agent is named instead.
+    const elsewhere = dialog.locator('[data-form-elsewhere]');
+    await expect(elsewhere).toHaveText(/^Kontakta mäklaren direkt i stället: (ring|mejla) .+\.$/);
+    await expect(elsewhere.locator('a').first()).toHaveAttribute('href', /^(tel|mailto):.+/);
+    await expect(dialog.getByRole('button', { name: 'Försök igen' })).toBeHidden();
+    await dialog.getByRole('button', { name: 'Stäng', exact: true }).last().click();
+    await expect(dialog).toBeHidden();
     expect(proofs).toEqual(['unavailable:script']);
   });
 }

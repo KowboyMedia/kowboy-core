@@ -101,10 +101,7 @@ const ABOUT: Record<string, About> = {
   worker: { title: 'Core’s background worker' },
   [SITES_CHECK]: { title: 'Sites fetching their changes' },
   lifecycle: { title: 'Tasks asked for in the admin area' },
-  'submissions.failing': {
-    title: 'Sending forms to the CRMs',
-    page: { to: '/forms', label: 'Failed forms' },
-  },
+  'submissions.failing': { title: 'Sending forms to the CRMs' },
 };
 
 /**
@@ -288,7 +285,7 @@ export async function healthReport(): Promise<HealthReport> {
     return {
       ok: false,
       level: 'P2',
-      detail: `The last form a visitor sent through ${many ? 'each of ' : ''}${inWords(failing.length, 'CRM connection', 'CRM connections')} could not be sent. Send ${many ? 'those forms' : 'that form'} again on Failed forms once the cause shown there is fixed. The check shows fine again when the CRM answers a form through ${many ? 'each of them' : 'that connection'}.`,
+      detail: `The last form a visitor sent through ${many ? 'each of ' : ''}${inWords(failing.length, 'CRM connection', 'CRM connections')} could not be sent, and its visitor was asked to contact the brokerage directly. The check shows fine again when the CRM answers a form through ${many ? 'each of them' : 'that connection'}.`,
       names: failing.map((connection) => ({ connection })),
     };
   });

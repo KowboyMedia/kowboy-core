@@ -1081,7 +1081,8 @@ staging when it is done:
   nothing about the person (criterion 44's tests, one of them on the kept details). On staging
   every form to a live CRM keeps its details, since the guard holds them all. Nothing tries a form later (165
   was answered no, below); the alert for a failed form (line 5) comes with 172's levels.
-- **Failed forms in the admin area, with "Send again"** (160 a line 4): the page Failed forms
+- **Failed forms in the admin area, with "Send again"** (160 a line 4; removed 2026-10-19 with
+  218, below): the page Failed forms
   (`admin/src/pages/forms.tsx`) lists every form Core keeps that the CRM did not take, newest
   first: the kind, the tenant and when it was sent, why it is there (the CRM's reason or the
   failure's cause, or that Core stopped before the CRM answered), the home with a link to its
@@ -1136,14 +1137,15 @@ Patric's go (209 a, 2026-10-19) for the forms list he verified on 2026-10-07
   test "links the privacy page WordPress names".
 - **The site keeps every form it sends** (plugin 0.9.0; the decision of 2026-10-07 on the kept
   details): the table `{prefix}core_forms` holds each form as the window sent it, with the
-  visitor's details, its outcome and how often it was sent, for 30 days, then deletes it. Not
+  visitor's details and its outcome, for 30 days, then deletes it. Not
   kept: what Core refused before it judged a form (no or a failed bot proof, the limit per
   minute, a body that is no form), which is a program's, not a visitor's. The plugin's page
   **"Formulär"** under Kowboy Estates (administrators only, in Swedish) lists them newest first,
-  with the home, what the visitor wrote and what became of it, and **"Skicka igen"**, with its
-  sentence beside it, beside each form that did not reach the brokerage. Proved by
+  with the home, what the visitor wrote and what became of it (its "Skicka igen" went with 218,
+  below). Proved by
   `clients/wordpress/forms.test.ts`.
-- **The site's own "Send again" needs no bot proof**, since no visitor is behind it: the plugin
+- **The site's own "Send again" needs no bot proof** (removed 2026-10-19 with 218, below; a form
+  marked so now needs the proof like any other), since no visitor is behind it: the plugin
   marks it `X-Core-Resend: yes`, which its public receiver never passes on. Core sends a form the
   CRM did not take once more under its id (the event names it "by the website"), answers one the
   CRM took as before, and sends one it never received as new, so a form lost while Core could
@@ -1164,11 +1166,10 @@ Patric's go (209 a, 2026-10-19) for the forms list he verified on 2026-10-07
   public key on the page, or any other of Cloudflare's codes, which the window sends in place of
   the proof as `unavailable:<code>`. A broken check answers 503 with `bot_check: "broken"`; the
   window says "Robotkontrollen fungerar inte just nu, så formuläret kunde inte skickas. Vi har
-  fått veta det. Försök igen senare eller kontakta mäklaren direkt."; Core logs the form as
+  fått veta det." and whom to contact instead (218, below); Core logs the form as
   `submission.received` and `submission.failed` with `bot_check` naming the cause and the site,
   which alerts and shows under "Needs attention", and reports a cause on its own side to the
-  error tracker. The site keeps the form, so "Skicka igen" delivers it once the check works or
-  at once. Outside production Core uses Cloudflare's published test keys when its own are
+  error tracker. The site keeps the form 30 days on "Formulär". Outside production Core uses Cloudflare's published test keys when its own are
   missing. Proved by `acceptance/submissions.test.ts` and the journey "when the bot check cannot
   run".
 - **A website's address goes on the bot check's list at Cloudflare** (171 a; 146, item 7):
@@ -1183,9 +1184,9 @@ Patric's go (209 a, 2026-10-19) for the forms list he verified on 2026-10-07
   production nothing is listed. Proved by `engine/human.test.ts`. The new admin's website save
   calls it (the thread "New admin panel from the spec", sent to it on 2026-10-19).
 - **The guard's hold says so in the answer**: a held form's 409 carries `held: true`, so the
-  page "Formulär" shows it as a test run, with no "Skicka igen".
-- **"Söker du bostad?" ends every form** (theme 1.3.4, plugin 0.9.1; 139, 141 a; waits on
-  Patric's look at its screen): under the confirmation once the form is in, "Steg N av N ·
+  page "Formulär" shows it as a test run.
+- **"Söker du bostad?" ends every form** (theme 1.3.4, plugin 0.9.1; 139, 141 a; its look
+  approved with 221, 2026-10-19): under the confirmation once the form is in, "Steg N av N ·
   valfritt" (2 of 2 on an interest and a valuation, 3 of 3 on a booking), "Minst antal rum" and
   "Minst boarea (kvm)" from the whitelist, prefilled with the closest value below the home's
   (`core_client_form_wishes`, printed on the home's buttons as `data-wishes`), and on a home's
@@ -1216,6 +1217,20 @@ Patric's go (209 a, 2026-10-19) for the forms list he verified on 2026-10-07
     form kept, when "Formulär" opens and with the 15-minute backstop, so none outstays its time
     on a quiet site. Proved by `clients/wordpress/forms.test.ts`.
   - Vitec's own words on a refused form are read from its answer whichever field holds them.
+- **A form is sent once** (218, 2026-10-19: "if the form cant be sent, just tell the user and
+  instruct to contect elsewhere"; plugin 0.9.3, theme 1.3.6): nothing sends a form again. A form
+  that could not be sent (the CRM refused it, did not answer, Core stopped it, or the bot check
+  could not run) ends in the window with "Det gick inte att skicka", why, and "Kontakta mäklaren
+  direkt i stället: ring … eller mejla …", with the agent of the home when it has one (mobile,
+  else the public number, and e-mail), else the site's own phone and e-mail from the theme's
+  settings, as links; "Stäng" closes the window. A visitor's own failed bot check ("Försök igen")
+  and a taken viewing time (back to the times) still let the visitor put it right. The old
+  admin's page "Failed forms" and its API, the site's "Skicka igen" and Core's `X-Core-Resend`
+  are gone; the site keeps its 30-day log on "Formulär" with no button, and drops its count of
+  sends on update. The new admin's "Resend" and Core's encrypted copy of the details go next
+  (the thread "New admin panel from the spec" removes "Resend" first). Proved by
+  `clients/wordpress/forms.test.ts`, `acceptance/submissions.test.ts` and the journey "when the
+  bot check cannot run".
 
 ## The decisions (the discover list)
 

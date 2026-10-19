@@ -26,6 +26,27 @@ function kowboy_option(string $name): mixed
     return get_theme_mod($name, KOWBOY_OPTIONS[$name] ?? '');
 }
 
+/**
+ * Who a visitor contacts when a form cannot be sent, since none is sent again (Patric, 2026-10-19):
+ * the agent's phone and e-mail, as the agent's card shows them, or else the site's own under
+ * "Kontakt". A part that is missing is ''.
+ *
+ * @param array<string, mixed>|null $agent
+ * @return array{phone: string, tel: string, email: string}
+ */
+function kowboy_contact(?array $agent = null): array
+{
+    $phones = is_array($agent['phones'] ?? null) ? $agent['phones'] : [];
+    $phone = is_array($phones['mobile'] ?? null) ? $phones['mobile'] : ($phones['public'] ?? null);
+    $display = is_array($phone) && is_string($phone['display'] ?? null) ? $phone['display'] : '';
+    $email = is_string($agent['email'] ?? null) ? $agent['email'] : '';
+    if ($display !== '' || $email !== '') {
+        return ['phone' => $display, 'tel' => $display === '' ? '' : (string) ($phone['number'] ?? ''), 'email' => $email];
+    }
+    $phone = trim((string) kowboy_option('kowboy_phone'));
+    return ['phone' => $phone, 'tel' => preg_replace('/[^+\d]/', '', $phone) ?? '', 'email' => trim((string) kowboy_option('kowboy_email'))];
+}
+
 add_action('customize_register', function (WP_Customize_Manager $customizer): void {
     $customizer->add_panel('kowboy', ['title' => 'Kowboy 2026', 'priority' => 10]);
     foreach (KOWBOY_OPTIONS as $name => $default) {

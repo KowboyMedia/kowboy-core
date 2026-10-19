@@ -19,16 +19,14 @@ import * as crm from '../adapters/fake-polling/crm.js';
 import { queryEvents } from '../engine/events.js';
 import { connectionById, createTenant, upsertConnection } from '../engine/storage/connections.js';
 import { validateSlots } from '../engine/contract.js';
-import { sendAgain, SUBMISSIONS_PER_MINUTE, UNANSWERED_MS } from '../engine/http/submissions.js';
+import { sendAgain, SUBMISSIONS_PER_MINUTE } from '../engine/http/submissions.js';
 import { db } from '../engine/storage/db.js';
 import {
-  claimAgain,
   contentOf,
   deleteExpiredSubmissions,
   KEPT_DAYS,
   type SubmissionRow,
 } from '../engine/storage/submissions.js';
-import type { FailedForm } from '../engine/admin/forms.js';
 import type { Connection, Submission } from '../engine/adapter-api/types.js';
 import {
   configureLiveService,
@@ -94,7 +92,7 @@ let posted = 0;
 
 /**
  * A form as the site's server passes it on: the token, the proof the window earned, the site's
- * bell address when a site is named, and the site's own "Send again" when it is one.
+ * bell address when a site is named, and the mark that the site's old "Skicka igen" sent.
  */
 const post = async (
   body: unknown,
@@ -150,33 +148,6 @@ const everythingStored = async (): Promise<string> => {
     ({ content, ...row }) => ({ ...row, kept: content !== null }),
   );
   return JSON.stringify({ events, rows });
-};
-
-/** A person signed in to the admin area the way the admin suite does it: the mailed link's cookie. */
-async function adminCookie(): Promise<string> {
-  const before = running.mails.length;
-  await fetch(`${running.baseUrl}/v1/admin/sign-in`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email: 'tester@kowboy.se' }),
-  });
-  const path = /\/v1\/admin\/sign-in\/[A-Za-z0-9_-]+/.exec(running.mails[before]?.text ?? '')?.[0];
-  if (!path) throw new Error('no sign-in link was mailed');
-  const opened = await fetch(`${running.baseUrl}${path}`, { redirect: 'manual' });
-  return (opened.headers.get('set-cookie') ?? '').split(';')[0] ?? '';
-}
-
-/** One call to the admin area's API with that cookie. */
-const admin = async <T>(
-  cookie: string,
-  path: string,
-  method: 'GET' | 'POST' = 'GET',
-): Promise<{ status: number; body: T }> => {
-  const response = await fetch(`${running.baseUrl}/v1/admin${path}`, {
-    method,
-    headers: { cookie },
-  });
-  return { status: response.status, body: (await response.json()) as T };
 };
 
 beforeEach(async () => {
@@ -348,105 +319,6 @@ describe('submissions', () => {
     await deleteExpiredSubmissions(KEPT_DAYS * 3);
     expect(await row(refused)).toMatchObject({ outcome: 'refused', content: null });
     expect((await row(failed))?.content).toEqual(expect.any(String));
-  });
-
-  it('the admin area lists the forms the CRM did not take, with what the visitor wrote and why, and sends one again once at a time', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    crm.answerNext({ refuse: 'The showing is fully booked' });
-    const refused = submission('viewing', { record, slot_id: 'T-1' });
-    expect((await post(refused)).status).toBe(409);
-    crm.answerNext({ fail: 'connection refused' });
-    const failed = submission('interest', { record });
-    expect((await post(failed)).status).toBe(502);
-    expect((await post(submission('lead'))).status).toBe(200);
-
-    // Newest first; a form the CRM took is not listed. Each with the whole form and what was said.
-    const cookie = await adminCookie();
-    expect((await admin(cookie.replace(/=.*/, '=nobody'), '/forms')).status).toBe(401);
-    const listed = await admin<{ data: FailedForm[] }>(cookie, '/forms');
-    expect(listed.status).toBe(200);
-    expect(listed.body.data.map((form) => form.id)).toEqual([failed['id'], refused['id']]);
-    expect(listed.body.data[0]).toMatchObject({
-      outcome: 'failed',
-      said: 'connection refused',
-      kind: 'interest',
-      tenantId: 1,
-      connectionId: CONNECTION,
-      remoteId: HOME,
-      form: { ...failed, office_id: OFFICE },
-    });
-    expect(listed.body.data[1]).toMatchObject({
-      outcome: 'refused',
-      said: 'The showing is fully booked',
-      form: { ...refused, office_id: OFFICE },
-    });
-
-    // Sent again and taken: it leaves the list, its details go, and the chain says who sent it.
-    const sent = await admin<{ data: Record<string, unknown> }>(
-      cookie,
-      `/forms/${String(failed['id'])}/send-again`,
-      'POST',
-    );
-    expect(sent.status).toBe(200);
-    expect(sent.body.data).toMatchObject({ outcome: 'delivered', reference: 'C-2' });
-    expect(crm.formsTaken().map((form) => form.form)).toEqual(['CONTACT', 'INTEREST']);
-    expect(
-      (await admin<{ data: FailedForm[] }>(cookie, '/forms')).body.data.map((form) => form.id),
-    ).toEqual([refused['id']]);
-    const chain = await queryEvents({ correlationId: failed['id'] as string });
-    expect(chain.map((event) => event.type)).toEqual([
-      'submission.received',
-      'submission.failed',
-      'submission.delivered',
-      'admin.form_sent_again',
-    ]);
-    expect(chain[3]?.fields).toMatchObject({ by: 'tester@kowboy.se', outcome: 'delivered' });
-    const again = await admin<{ error: string }>(
-      cookie,
-      `/forms/${String(failed['id'])}/send-again`,
-      'POST',
-    );
-    expect(again.status).toBe(404);
-    expect(again.body.error).toMatch(/^Not sent: Core no longer keeps this form\./);
-    expect((await admin(cookie, '/forms/no-such-form/send-again', 'POST')).status).toBe(404);
-
-    // Refused again: it stays, with the CRM's new reason.
-    crm.answerNext({ refuse: 'Still fully booked' });
-    const still = await admin<{ data: Record<string, unknown> }>(
-      cookie,
-      `/forms/${String(refused['id'])}/send-again`,
-      'POST',
-    );
-    expect(still.body.data).toMatchObject({ outcome: 'refused', detail: 'Still fully booked' });
-    expect((await admin<{ data: FailedForm[] }>(cookie, '/forms')).body.data).toMatchObject([
-      { id: refused['id'], outcome: 'refused', said: 'Still fully booked' },
-    ]);
-
-    // One send at a time: a second claim while the first is on its way gets nothing, and a press
-    // then says so; Core stopping before the CRM answered lists it again after twice the CRM's time.
-    expect(await claimAgain(refused['id'] as string, UNANSWERED_MS)).not.toBeNull();
-    expect(await claimAgain(refused['id'] as string, UNANSWERED_MS)).toBeNull();
-    const busy = await admin<{ error: string }>(
-      cookie,
-      `/forms/${String(refused['id'])}/send-again`,
-      'POST',
-    );
-    expect(busy.status).toBe(409);
-    expect((await admin<{ data: FailedForm[] }>(cookie, '/forms')).body.data).toEqual([]);
-    await db().query(
-      `update submissions set answered_at = now() - ($2 || ' milliseconds')::interval where id = $1`,
-      [refused['id'], UNANSWERED_MS + 1000],
-    );
-    expect((await admin<{ data: FailedForm[] }>(cookie, '/forms')).body.data).toMatchObject([
-      { id: refused['id'], outcome: 'unanswered', answeredAt: null },
-    ]);
-    const recovered = await admin<{ data: Record<string, unknown> }>(
-      cookie,
-      `/forms/${String(refused['id'])}/send-again`,
-      'POST',
-    );
-    expect(recovered.body.data).toMatchObject({ outcome: 'delivered' });
-    expect((await admin<{ data: FailedForm[] }>(cookie, '/forms')).body.data).toEqual([]);
   });
 
   it('the same id posted twice sends once and answers the same outcome', async () => {
@@ -828,42 +700,11 @@ describe('submissions', () => {
     expect(crm.formsTaken()).toHaveLength(1);
   });
 
-  it('the site’s own “Send again” needs no proof: a form the CRM did not take goes once more, a taken one answers as before, and one Core never received goes as new; without it no proof is refused', async () => {
+  it('a form that says it is sent again, as the site’s “Skicka igen” once did, still needs the bot check’s proof', async () => {
     const site = await theSite();
-    const failed = submission('interest', { record });
-    crm.answerNext({ fail: 'connection refused' });
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    expect((await post(failed, HUMAN_TOKEN, site.bell)).status).toBe(502);
-
-    const resent = await post(failed, null, site.bell, true);
-    expect(resent.status).toBe(200);
-    expect(resent.body).toMatchObject({ id: failed['id'], status: 'delivered' });
-    expect(crm.formsTaken()).toHaveLength(1);
-    const chain = await queryEvents({ correlationId: failed['id'] as string });
-    expect(chain.map((event) => event.type)).toEqual([
-      'submission.received',
-      'submission.failed',
-      'submission.delivered',
-    ]);
-    expect(chain[2]).toMatchObject({
-      subscriber_id: String(site.id),
-      fields: { kind: 'interest', sent_again: 'by the website' },
-    });
-
-    // Taken already: the same answer, nothing sent twice.
-    expect((await post(failed, null, site.bell, true)).body).toMatchObject({
-      status: 'delivered',
-    });
-    expect(crm.formsTaken()).toHaveLength(1);
-
-    // Never received (Core could not be reached): sent as new.
-    const lost = submission('lead');
-    expect((await post(lost, null, site.bell, true)).status).toBe(200);
-    expect(crm.formsTaken()).toHaveLength(2);
-
-    // A form from the window with no proof is still refused.
-    expect((await post(submission('lead'), null, site.bell)).status).toBe(403);
-    expect(crm.formsTaken()).toHaveLength(2);
+    const answer = await post(submission('lead'), null, site.bell, true);
+    expect(answer.status).toBe(403);
+    expect(crm.formsTaken()).toHaveLength(0);
   });
 
   it('the slots call answers the stand-in’s viewings and slots under the universal names', async () => {

@@ -7,13 +7,16 @@
 //
 // In scope: $title, $text, $label (the button's words), $form (lead or interest), $record
 // (property:<connection>:<id>, or '' for a lead), $href (where the button leads otherwise), and
-// $home (the home's street, shown in the window's heading; '' or unset for a lead) and $wishes
-// (what the window's step "Söker du bostad?" takes from the home, as JSON; '' or unset for a lead).
+// $home (the home's street, shown in the window's heading; '' or unset for a lead), $wishes
+// (what the window's step "Söker du bostad?" takes from the home, as JSON; '' or unset for a lead)
+// and $contact (whom the window names when the form cannot be sent, as JSON; '' or unset for the
+// site's own).
 
 declare(strict_types=1);
 
 $home = $home ?? '';
 $wishes = $wishes ?? '';
+$contact = $contact ?? '';
 $marks = ' data-k-form="' . esc_attr($form) . '"';
 if ($record !== '') {
     $marks .= ' data-record="' . esc_attr($record) . '"';
@@ -23,6 +26,9 @@ if ($home !== '') {
 }
 if ($wishes !== '') {
     $marks .= ' data-wishes="' . esc_attr($wishes) . '"';
+}
+if ($contact !== '') {
+    $marks .= ' data-contact="' . esc_attr($contact) . '"';
 }
 ?>
 <div class="k-lead">
