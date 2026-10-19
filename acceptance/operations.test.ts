@@ -7,7 +7,7 @@ import * as crm from '../adapters/fake-webhook/crm.js';
 import { db } from '../engine/storage/db.js';
 import { healthReport, heartbeat } from '../engine/health.js';
 import { checkAlerts } from '../engine/alerts.js';
-import { attention, connectionsNamed } from '../engine/attention.js';
+import { attention, connectionsNamed, formsPage } from '../engine/attention.js';
 import { summarise } from '../engine/admin/summary.js';
 import { flushBells, ring } from '../engine/bells.js';
 import { queueLifecycle } from '../engine/lifecycle.js';
@@ -386,6 +386,85 @@ describe('alerts', () => {
     expect((await attention()).map((line) => line.said)).toEqual([
       `${said} Resolved after 16 minutes.`,
     ]);
+  });
+
+  it('tells a form the bot check stopped by its cause, and opens the website’s own page of its forms (209 a)', async () => {
+    const page = 'https://maklare.example/wp-admin/admin.php?page=core-client-forms';
+    await heartbeat();
+    await checkAlerts(config);
+    await db().query(
+      "update subscribers set bell_url = 'https://maklare.example/wp-json/core/v1/bell' where id = 1",
+    );
+    const cause = 'Core has no keys for the bot check';
+    await logEvent({
+      type: 'submission.failed',
+      correlationId: 'form-3',
+      tenantId: TENANT,
+      connectionId: CONNECTION,
+      subscriberId: 1,
+      fields: {
+        kind: 'interest',
+        detail: `the bot check could not run: ${cause}`,
+        bot_check: cause,
+      },
+    });
+    // The website's own "Send again" says so.
+    await logEvent({
+      type: 'submission.refused',
+      correlationId: 'form-4',
+      tenantId: TENANT,
+      connectionId: CONNECTION,
+      subscriberId: 1,
+      fields: { kind: 'viewing', reason: 'no such viewing', sent_again: 'by the website' },
+    });
+
+    // The alert names the website and opens its page as it is, not under Core's admin area.
+    await db().query(
+      "update alert_state set since = since - interval '1 minute' where name = 'alerts:events'",
+    );
+    await db().query("update events set at = at - interval '20 seconds'");
+    await checkAlerts(config);
+    expect(running.mails[0]?.subject).toBe('Core test: 2 problems, the worst P1 Disrupted');
+    expect(running.mails[0]?.text).toContain(
+      `P1 Disrupted · The bot check stopped a site’s forms\n`,
+    );
+    expect(running.mails[0]?.text).toContain(
+      `An interest in the home a visitor sent from Test tenant’s site test site: ${page}\n`,
+    );
+
+    const [refused, stopped] = await attention();
+    expect(stopped).toMatchObject({
+      level: 'P1',
+      kind: { title: 'The bot check stopped a site’s forms' },
+      what: 'An interest in the home a visitor sent from Test tenant’s site test site',
+      link: page,
+    });
+    expect(stopped?.said).toMatch(
+      /^An interest in the home from the site test site was not sent, because the bot check could not run: Core has no keys for the bot check\. While the bot check cannot run, the site’s forms stop there/,
+    );
+    expect(stopped?.said).toMatch(/TURNSTILE_SITE_KEY and TURNSTILE_SECRET/);
+    expect(stopped?.said).toMatch(
+      /press “Send again” beside each form it stopped, on the website’s page “Formulär”\.$/,
+    );
+    expect(refused).toMatchObject({
+      level: 'P1',
+      link: page,
+      said: 'Fake-webhook refused a viewing booking sent again from the website, with the reason “no such viewing”. The brokerage does not have it. The website keeps it for 30 days with what the visitor wrote and the CRM’s reason, on its page “Formulär”; press “Send again” beside it there once the cause is put right.',
+    });
+
+    // The page is the WordPress plugin's, wherever WordPress lives; a website that is not
+    // WordPress has none, and its forms open Failed forms, or for a stopped one the site's place.
+    expect(formsPage('https://x.example/blog/wp-json/core/v1/bell')).toBe(
+      'https://x.example/blog/wp-admin/admin.php?page=core-client-forms',
+    );
+    expect(formsPage('https://x.example/?rest_route=/core/v1/bell')).toBe(
+      'https://x.example/wp-admin/admin.php?page=core-client-forms',
+    );
+    expect(formsPage('https://abc.supabase.co/functions/v1/core-bell')).toBeNull();
+    await db().query(
+      "update subscribers set bell_url = 'https://abc.supabase.co/functions/v1/core-bell' where id = 1",
+    );
+    expect((await attention()).map((line) => line.link)).toEqual(['/forms', '/tenants/1#site:1']);
   });
 
   it('tells a CRM’s check at the level its code gave it, naming what it points at as the admin area does (questions 178 and 184)', async () => {

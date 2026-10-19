@@ -381,7 +381,11 @@ drive directly.
   refuses (`login.refused`) is P1; a visitor's form that could not be sent or that the CRM refused
   (`submission.failed`, `submission.refused`) is P1, but not a form Core held back as a dry run
   (outside production, or through a connection ticked to dry-run its forms; `submission.refused`
-  with Core's own reason), which never left Core; a site that is
+  with Core's own reason), which never left Core. A form the bot check could not run for
+  (`submission.failed` with `bot_check`, the cause) is its own P1 line, "The bot check stopped a
+  site’s forms": what to do by the cause (give Core the two keys, save the website in the admin
+  area to put its address on Cloudflare's list, or wait for Cloudflare), then "Send again" on the
+  website's own page. A form the website sent again (`sent_again`) says so; a site that is
   not fetching its changes (the sites check's `check.failed` for it) is P1, but not the sites check
   that could not run, which names no site. The adapter logs the first three through the adapter
   API with the connection in the context, and the engine logs the rest. The Overview lists them
@@ -389,8 +393,13 @@ drive directly.
   178), its title, and under it a sentence of what
   happened, what it means for the sites and what to do; which thing ("Acme's office Lidingö (the
   CRM's office id M30011)", "Acme's Vitec connection “Main”", "A viewing booking a
-  visitor sent", "Acme's site acme.se") as a link that opens it (the office's records on Records,
-  each with its state, the connection's or the site's block on the tenant's page, Failed forms); where it is
+  visitor sent from Acme's site acme.se", "Acme's site acme.se") as a link that opens it (the
+  office's records on Records, each with its state, the connection's or the site's block on the
+  tenant's page; a form the website's own page of its forms, "Formulär", which keeps it 30 days
+  with "Send again" beside it (decision of 2026-10-07), at the WordPress address the site is told
+  about changes at, `/wp-admin/admin.php?page=core-client-forms`; Failed forms for a website that
+  is not WordPress, or the site's block for a form the bot check stopped, which Core does not
+  keep; the alert gives that address whole); where it is
   when its name does not say (the connection an office or a form came through); and its tenant as
   a link when the name does not hold it. A site's line ends with how its problem ended, "Resolved
   after" how long or "Still open.", read from the `check.recovered` with the same `problem`. The
