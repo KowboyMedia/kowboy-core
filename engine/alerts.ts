@@ -441,10 +441,14 @@ const paragraph = (item: Told, config: AlertConfig, slack: boolean): string =>
     .filter((line) => line)
     .join('\n');
 
-/** A place in the admin area, by its name, with its whole address when Core knows its own. */
+/**
+ * A place by its name, with its whole address: one in the admin area when Core knows its own, or
+ * a whole address elsewhere as it is, such as a website's own page of its forms.
+ */
 const opened = (place: string, link: string, config: AlertConfig, slack: boolean): string => {
-  if (!config.publicUrl) return `${capital(place)}, in Core’s admin area at ${link}`;
-  const url = `${config.publicUrl}/admin${link}`;
+  const whole = /^https?:/.test(link);
+  if (!whole && !config.publicUrl) return `${capital(place)}, in Core’s admin area at ${link}`;
+  const url = whole ? link : `${config.publicUrl ?? ''}/admin${link}`;
   return slack ? `<${url}|${capital(place)}>` : `${capital(place)}: ${url}`;
 };
 

@@ -551,12 +551,20 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('Föranmälan krävs');
     expect(body).toContain('Visningen som var');
     expect(body).toMatch(/<div class="k-viewing" data-viewing data-until="[^"]+" hidden>/);
-    // A bookable viewing's button opens the booking window on this home and viewing; without the window, the agent's card.
+    // A bookable viewing's button opens the booking window on this home and viewing, with what its
+    // step "Söker du bostad?" takes from the home; without the window, the agent's card.
     expect(
       body.match(
-        /<a class="k-button" href="#k-agents" data-k-form="viewing" data-record="property:[^":]+:P-3" data-viewing="[^"]+" data-home="Kungsgatan 3">Boka här<\/a>/g,
+        /<a class="k-button" href="#k-agents" data-k-form="viewing" data-record="property:[^":]+:P-3" data-viewing="[^"]+" data-home="Kungsgatan 3" data-wishes="[^"]+">Boka här<\/a>/g,
       ),
     ).toHaveLength(1);
+    const wishes = /data-k-form="viewing"[^>]* data-wishes="([^"]+)"/.exec(body)?.[1] ?? '';
+    expect(JSON.parse(wishes.replaceAll('&quot;', '"'))).toEqual({
+      rooms: 4,
+      living_space: 110,
+      areas: [{ id: 'D-1', name: 'Vasastan', county_municipality_code: '018001' }],
+      county_municipality_code: '0163',
+    });
     // Without a viewing, the box's button takes the visitor to the agent's contact (Patric, 2026-10-04).
     expect(body).toContain('<a class="k-button" href="#k-agents">Kontakta oss</a>');
     expect(body).toContain('<div class="k-property__contact" id="k-agents">');
@@ -621,7 +629,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     // which talks to the plugin's receivers on the site, never to Core or a CRM, and carries the
     // bot check's public key as Core gives it.
     expect(body).toMatch(
-      /<a class="k-button k-button--light k-lead__button" href="#k-agents" data-k-form="interest" data-record="property:[^":]+:P-3" data-home="Kungsgatan 3">Anmäl intresse<\/a>/,
+      /<a class="k-button k-button--light k-lead__button" href="#k-agents" data-k-form="interest" data-record="property:[^":]+:P-3" data-home="Kungsgatan 3" data-wishes="[^"]+">Anmäl intresse<\/a>/,
     );
     expect(body).toMatch(
       /<dialog class="k-form" data-endpoint="[^"]*core\/v1\/forms" data-slots="[^"]*core\/v1\/forms\/slots" data-human-key="1x00000000000000000000AA"/,

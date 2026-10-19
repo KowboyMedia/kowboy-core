@@ -2308,6 +2308,19 @@ textarea.k-form__field {
   font-size: 22px;
   font-weight: 600;
 }
+/* The step "Söker du bostad?", under the confirmation of the form already sent. */
+.k-form__next {
+  display: grid;
+  gap: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--k-border);
+}
+.k-form__heading {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+}
 .k-form .k-button[disabled] {
   opacity: 0.5;
   cursor: default;

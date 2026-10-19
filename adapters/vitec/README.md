@@ -168,12 +168,14 @@ calls, nothing read to decide anything: a lead (the free valuation) is
 `POST v2/Advertising/Form/{customerId}/Estate/{estateId}/Viewing/Attend`, and a search profile
 is `POST Contacts/UpdatePerson` (whose duplicate check answers the existing or the new contact's
 id) followed by `POST CRM/Contact/{customerId}/SearchProfile/Residential/{contactId}`, both in
-the CRM function group. The customer id is the office Core filled in. A ticked "contact me about
+the CRM function group; a profile that names a home but not its type gets the home's own
+subtype, read with `GET Advertising/Estate/{customerId}/{estateId}` (kedjehus and parhus as
+radhus, none for a type the residential profile lacks). The customer id is the office Core filled in. A ticked "contact me about
 my current home" (question 141 a) sends the valuation too, on the same person. The slots are
 `GET v2/Advertising/Form/{customerId}/Estate/{estateId}` under the universal names, its bare
 Swedish times read in Vitec's zone as the records' are. Nothing about forms is typed on a
 connection (question 155): the lead source, the intake source and an interest's status are left
-to Vitec, and a booking asks for an e-mail confirmation, no SMS and no reminder. Only the live service hands a form for live Vitec to the adapter (question 152); a QA login's form is handed over from staging too, since `testSystem` answers yes for it (question 181). Vitec's 400, 404, 409 and 422 are a refusal with Vitec's words, scrubbed
+to Vitec, and a booking asks for both confirmations, by e-mail and by SMS, and no reminder. Only the live service hands a form for live Vitec to the adapter (question 152); a QA login's form is handed over from staging too, since `testSystem` answers yes for it (question 181). Vitec's 400, 404, 409 and 422 are a refusal with Vitec's words, scrubbed
 of anything that looks like an e-mail address or a number; anything else is a failure. A call
 Vitec could not take (5xx, 429, no connection) is tried twice more, after 1 s and 3 s, within
 15 s of the form's start, and no call starts or lasts after that, so the visitor hears the last

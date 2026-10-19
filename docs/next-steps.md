@@ -858,8 +858,10 @@ the seven days.
          the check's list at Cloudflare when the site is saved; on the free plan an eleventh site
          is refused with a clear message, since paying is asked then (146). The new admin's
          website save calls it: the thread "New admin panel from the spec"'s, sent to it.
-      9. `[client-wordpress]` "Söker du bostad?" in the theme; its screen goes to Patric before it
-         counts as approved.
+      9. Built 2026-10-19 (plugin 0.9.1, theme 1.3.4), not approved until Patric has seen its
+         screen (`/mnt/project-files/forms/profile-step/`): `[client-wordpress]` "Söker du
+         bostad?" in the theme; the Vitec code adds the home's type (docs/forms.md, "Built
+         2026-10-19").
       10. `[core]` `[admin]` By the answer to 218: Core's copy of the details, the old page
           "Failed forms" and the new admin's "Resend" go (a), stay (b), or "Resend" asks the
           site (c).
@@ -953,6 +955,10 @@ the seven days.
       whose proof the form window earns in the visitor's browser for each send
       (`assets/kowboy-2026.js`); the page holds only the check's public key, which does not expire.
       What remains of the bot protection itself is known bug 4: the keys are in no environment yet.
+    - Done 2026-10-19: `clients/wordpress/forms.test.ts`, "carries no WordPress security code on
+      a public page": the home, a list, a home's, an agent's, an office's, an area's and an
+      association's page hold no code, and a form sent from a stored copy of a home's page once
+      WordPress's codes have expired (the test install's `nonce_life` per request) is taken.
     - The work: automated tests that keep it so. No public page carries a WordPress security code,
       and a form sent from a page whose HTML was made more than a day earlier is accepted (with
       the bot check's stand-in). The same rule holds for every form, and every script that sends

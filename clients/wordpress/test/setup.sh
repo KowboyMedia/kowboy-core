@@ -77,5 +77,13 @@ cat > "$WP_ROOT/wp-content/mu-plugins/core-client-test-isolation.php" <<'ISOLATI
 add_filter('pre_option_core_client_styleisolation', fn (mixed $value): mixed => ($_SERVER['HTTP_X_CORE_STYLEISOLATION'] ?? '') === '1' ? '1' : $value);
 ISOLATION
 
+# A test asks for WordPress's security codes (nonces) to expire within seconds by a header, as a
+# day-old copy of a page meets them, so it can prove a form needs none (next-steps item 32).
+cat > "$WP_ROOT/wp-content/mu-plugins/core-client-test-nonce-life.php" <<'NONCE'
+<?php
+// Written by clients/wordpress/test/setup.sh. Not for any real site.
+add_filter('nonce_life', fn (int $life): int => (int) ($_SERVER['HTTP_X_CORE_NONCE_LIFE'] ?? 0) > 0 ? (int) $_SERVER['HTTP_X_CORE_NONCE_LIFE'] : $life);
+NONCE
+
 WP_ROOT="$WP_ROOT" php "$repo/clients/wordpress/test/install.php"
 echo "WordPress ready at $WP_ROOT"

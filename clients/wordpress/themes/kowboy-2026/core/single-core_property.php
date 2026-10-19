@@ -82,6 +82,9 @@ $highest_bid = $display['highest_bid'] ?? null;
 $agents = core_client_items('agent', is_array($item['agent_ids'] ?? null) ? $item['agent_ids'] : []);
 // The home as the form window names it on a booking and an interest (docs/forms.md, "The clients' part").
 $record = 'property:' . (string) core_client_connection_of($post_id) . ':' . (string) ($item['id'] ?? '');
+// What the window's step "Söker du bostad?" takes from the home: its rooms and living space to
+// prefill, its areas and kommun code to go with the profile (the plugin's core_client_form_wishes).
+$wishes = function_exists('core_client_form_wishes') ? (string) wp_json_encode(core_client_form_wishes($post_id, $item)) : '';
 
 // This site's rule, as the design shows it: a sold home keeps its text, chips, plan and photos, and shows no fact tables.
 $sections = !$sold && is_array($display['sections'] ?? null) ? $display['sections'] : [];
@@ -187,7 +190,7 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
                                 <?php if ($viewing['comment'] !== '') : ?><span class="k-viewing__comment"><?php echo esc_html($viewing['comment']); ?></span><?php endif; ?>
                             </div>
                             <?php // Opens the booking window on this viewing (data-viewing shows its times); without the window, the agent's card. ?>
-                            <?php if ($viewing['bookable']) : ?><a class="k-button" href="#k-agents" data-k-form="viewing" data-record="<?php echo esc_attr($record); ?>"<?php echo $viewing['id'] === '' ? '' : ' data-viewing="' . esc_attr($viewing['id']) . '"'; ?> data-home="<?php echo esc_attr($street_title); ?>">Boka här</a><?php endif; ?>
+                            <?php if ($viewing['bookable']) : ?><a class="k-button" href="#k-agents" data-k-form="viewing" data-record="<?php echo esc_attr($record); ?>"<?php echo $viewing['id'] === '' ? '' : ' data-viewing="' . esc_attr($viewing['id']) . '"'; ?> data-home="<?php echo esc_attr($street_title); ?>"<?php echo $wishes === '' ? '' : ' data-wishes="' . esc_attr($wishes) . '"'; ?>>Boka här</a><?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                     <div class="k-viewing k-viewing--empty" data-viewings-empty <?php echo $upcoming > 0 ? 'hidden' : ''; ?>>
@@ -233,7 +236,7 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
     </div>
 
     <?php if (!$sold) : ?>
-        <div class="k-container k-property__interest"><?php echo kowboy_part('form-card', ['title' => 'Är du intresserad av bostaden?', 'text' => 'Anmäl ditt intresse så kontaktar vi dig.', 'label' => 'Anmäl intresse', 'form' => 'interest', 'record' => $record, 'href' => '#k-agents', 'home' => $street_title]); ?></div>
+        <div class="k-container k-property__interest"><?php echo kowboy_part('form-card', ['title' => 'Är du intresserad av bostaden?', 'text' => 'Anmäl ditt intresse så kontaktar vi dig.', 'label' => 'Anmäl intresse', 'form' => 'interest', 'record' => $record, 'href' => '#k-agents', 'home' => $street_title, 'wishes' => $wishes]); ?></div>
     <?php endif; ?>
 
     <?php echo kowboy_part('gallery', ['photos' => $gallery, 'alt' => $street]); ?>

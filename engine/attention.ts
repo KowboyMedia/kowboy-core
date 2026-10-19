@@ -35,6 +35,8 @@ export type Kind = {
   todo: string;
   /** What to do instead for an office the CRM still refused, which makes the line P1 (row 20). */
   refused?: string;
+  /** What to do instead when the line opens the website's own page of its forms, "Formulär". */
+  onSite?: string;
 };
 
 /**
@@ -73,12 +75,16 @@ export const KINDS: readonly Kind[] = [
     title: 'A visitor’s form did not reach the CRM',
     level: 'P1',
     todo: 'The brokerage does not have it yet. Failed forms keeps it for 30 days with what the visitor wrote; press “Send again” beside it there once the CRM answers.',
+    onSite:
+      'The brokerage does not have it yet. The website keeps it for 30 days with what the visitor wrote, on its page “Formulär”; press “Send again” beside it there once the CRM answers.',
   },
   {
     type: 'submission.refused',
     title: 'The CRM refused a visitor’s form',
     level: 'P1',
     todo: 'The brokerage does not have it. Failed forms keeps it for 30 days with what the visitor wrote and the CRM’s reason; press “Send again” beside it there once the cause is put right.',
+    onSite:
+      'The brokerage does not have it. The website keeps it for 30 days with what the visitor wrote and the CRM’s reason, on its page “Formulär”; press “Send again” beside it there once the cause is put right.',
   },
   {
     type: 'check.failed',
@@ -89,6 +95,23 @@ export const KINDS: readonly Kind[] = [
     todo: '',
   },
 ];
+
+/** What to do when the bot check could not run, whatever the website's forms page. */
+const BOT_CHECK_TODO =
+  'While the bot check cannot run, the site’s forms stop there: the brokerage gets none of them, and each visitor reads that the form was not sent. When Core has no keys for the bot check, or Cloudflare does not know or refuses them, give Core the bot check’s two keys from Cloudflare, the settings TURNSTILE_SITE_KEY and TURNSTILE_SECRET where Core is hosted. When the website’s address is not on the bot check’s list at Cloudflare, save the website in the admin area, which puts it there. When Cloudflare did not answer or had an error, wait: the forms work again once it answers.';
+
+/**
+ * A form the bot check could not run for (`fields.bot_check`, the cause): not the CRM's doing, so
+ * its own words. The site's forms stop until the check runs, so it is P1 like any form that did
+ * not reach the brokerage.
+ */
+const BOT_CHECK: Kind = {
+  type: 'submission.failed',
+  title: 'The bot check stopped a site’s forms',
+  level: 'P1',
+  todo: BOT_CHECK_TODO,
+  onSite: `${BOT_CHECK_TODO} Then press “Send again” beside each form it stopped, on the website’s page “Formulär”.`,
+};
 
 /** How long an event stays on the Overview. */
 export const ATTENTION_DAYS = 7;
@@ -103,6 +126,7 @@ function kindOf(type: string, fields: EventFields): Kind | null {
   if (type === 'submission.refused' && fields['reason'] === NOT_LIVE) return null;
   // A sites check that could not run names no site; its problem is the check's, not a site's.
   if (type === 'check.failed' && !named(fields, 'sites') && !named(fields, 'names')) return null;
+  if (type === BOT_CHECK.type && fields['bot_check']) return BOT_CHECK;
   return (
     KINDS.find(
       (kind) => kind.type === type && (kind.name === undefined || fields['name'] === kind.name),
@@ -117,7 +141,8 @@ const named = (fields: EventFields, key: string): boolean =>
  * One thing that needs attention: the thing in words ("office Lidingö (the CRM's office id
  * M30011)", "Acme's Somecrm connection “Main”", "site acme.se"), its place in the
  * admin area (a path under /admin), where it is in words when the thing does not say it, and its
- * tenant.
+ * tenant. A form's place is the website's own page of its forms when Core knows it, a whole
+ * address (decision of 2026-10-07: the website keeps its forms).
  */
 type Place = {
   what: string;
@@ -150,9 +175,10 @@ type EventRow = {
   correlation_id: string | null;
   tenant_id: number | null;
   connection_id: string | null;
+  subscriber_id: string | null;
 };
 
-const COLUMNS = 'id, at, type, fields, correlation_id, tenant_id, connection_id';
+const COLUMNS = 'id, at, type, fields, correlation_id, tenant_id, connection_id, subscriber_id';
 
 /** Leaves out a form Core held back as a dry run: its reason is Core's own sentence, the parameter. */
 const notHeldBack = (reason: string): string =>
@@ -196,6 +222,7 @@ export async function attentionBetween(after: Date, until: Date): Promise<Attent
 /** The events as lines: grouped by cause, named, placed, and each with its level. */
 async function lines(rows: EventRow[]): Promise<AttentionRow[]> {
   const known = await namesNow();
+  const formsPages = await formsPagesOf(rows);
   const refused = await stillRefused(rows.filter((row) => row.type === 'office.taken_off'));
   const ends = await endings(rows.filter((row) => row.type === 'check.failed'));
   const found: AttentionRow[] = [];
@@ -206,8 +233,15 @@ async function lines(rows: EventRow[]): Promise<AttentionRow[]> {
     const refusedNow = group.some((row) => refused.has(row.id));
     const level = refusedNow ? 'P1' : kind.level;
     const places =
-      first.type === 'office.taken_off' ? [officesTogether(group, known)] : placesOf(first, known);
-    const todo = refusedNow ? (kind.refused ?? kind.todo) : kind.todo;
+      first.type === 'office.taken_off'
+        ? [officesTogether(group, known)]
+        : placesOf(first, known, formsPages);
+    const onSite = places.some((place) => /^https?:/.test(place.link));
+    const todo = refusedNow
+      ? (kind.refused ?? kind.todo)
+      : onSite
+        ? (kind.onSite ?? kind.todo)
+        : kind.todo;
     const said = [sentence(happened(group, first, known)), todo, ends.get(first.id)]
       .filter((part) => part)
       .join(' ');
@@ -245,7 +279,7 @@ function byCause(rows: EventRow[]): EventRow[][] {
 
 /** What happened, in the event log's sentence; several offices one cause took off in one. */
 function happened(group: EventRow[], first: EventRow, known: Names): string {
-  const named = namedFor({ ...first, subscriber_id: null, datatype: null }, known);
+  const named = namedFor({ ...first, datatype: null }, known);
   if (group.length > 1) {
     const reason = text(first.fields, 'reason');
     return `${number(group.length)} of ${named.tenant ?? 'the tenant'}’s offices were taken off the sites, with their homes and new-build projects. ${reason ? sentence(reason) : 'No reason was recorded.'}`;
@@ -424,22 +458,79 @@ function officesTogether(rows: EventRow[], known: Names): Place {
   };
 }
 
+/**
+ * The website's own page of its forms, "Formulär", from the address Core tells it about changes
+ * at: the WordPress plugin's, whose address runs through `/wp-json/` or `?rest_route=`. None for a
+ * website that is not WordPress, or an address that is not one.
+ */
+export function formsPage(bellUrl: string | null): string | null {
+  if (!bellUrl) return null;
+  try {
+    const url = new URL(bellUrl);
+    const at = url.pathname.indexOf('/wp-json/');
+    const base =
+      at >= 0
+        ? url.pathname.slice(0, at)
+        : url.searchParams.has('rest_route')
+          ? url.pathname.replace(/\/(?:index\.php)?$/, '')
+          : null;
+    return base === null ? null : `${url.origin}${base}/wp-admin/admin.php?page=core-client-forms`;
+  } catch {
+    return null;
+  }
+}
+
+/** The forms pages of the websites the form events came from, by the site's id. */
+async function formsPagesOf(rows: EventRow[]): Promise<Map<number, string | null>> {
+  const ids = [
+    ...new Set(
+      rows.flatMap((row) =>
+        row.type.startsWith('submission.') && row.subscriber_id !== null
+          ? [Number(row.subscriber_id)]
+          : [],
+      ),
+    ),
+  ];
+  if (ids.length === 0) return new Map();
+  const { rows: sites } = await db().query<{ id: number; bell_url: string | null }>(
+    'select id, bell_url from subscribers where id = any($1::int[])',
+    [ids],
+  );
+  return new Map(sites.map((site) => [Number(site.id), formsPage(site.bell_url)]));
+}
+
+/**
+ * A form a visitor sent, from the website when Core knows it, opening that website's page of its
+ * forms; otherwise Failed forms, or for a form the bot check stopped, which Core does not keep,
+ * the website's place on its tenant's page.
+ */
+function formPlace(row: EventRow, known: Names, formsPages: Map<number, string | null>): Place {
+  const { tenantId, tenant } = tenantOf(row, known);
+  const siteId = row.subscriber_id === null ? null : Number(row.subscriber_id);
+  const site = siteId === null ? undefined : known.sites.get(siteId);
+  const from = site ? ` from ${siteNamed(site.label, known.tenants.get(site.tenantId))}` : '';
+  return {
+    what: `${capital(form(row.fields))} a visitor sent${from}`,
+    link: (siteId === null ? null : formsPages.get(siteId)) ?? formElsewhere(row, siteId, tenantId),
+    where: row.connection_id ? `Through ${connectionWords(row.connection_id, known)}.` : null,
+    tenantId,
+    tenant,
+  };
+}
+
+/** A form's place in the admin area when its website has no page of its forms Core knows. */
+function formElsewhere(row: EventRow, siteId: number | null, tenantId: number | null): string {
+  if (!row.fields['bot_check']) return '/forms';
+  if (tenantId === null) return '/tenants';
+  return `/tenants/${String(tenantId)}${siteId === null ? '' : `#site:${String(siteId)}`}`;
+}
+
 /** Which things one event is about, where each is, and its place: one, or one per site. */
-function placesOf(row: EventRow, known: Names): Place[] {
+function placesOf(row: EventRow, known: Names, formsPages: Map<number, string | null>): Place[] {
   const { tenantId, tenant } = tenantOf(row, known);
   const connection = row.connection_id ?? '';
   if (row.type === 'check.failed') return sitesOf(row.fields, known);
-  if (row.type.startsWith('submission.')) {
-    return [
-      {
-        what: `${capital(form(row.fields))} a visitor sent`,
-        link: '/forms',
-        where: connection ? `Through ${connectionWords(connection, known)}.` : null,
-        tenantId,
-        tenant,
-      },
-    ];
-  }
+  if (row.type.startsWith('submission.')) return [formPlace(row, known, formsPages)];
   return [
     {
       what: connectionWords(connection, known),

@@ -84,6 +84,7 @@ function seed(fake: FakeConnect): void {
     secondaryAgentId: null,
     projectId: 'PR1',
     address: { streetAddress: 'Storgatan 1', area: { id: 'A1', name: 'Centrum' } },
+    subtype: { id: 'TownHouse', name: 'Radhus' },
     extensions: { housingCooperative: { association: { id: 'F1' } } },
     changedAt: CHANGED,
   });
@@ -326,6 +327,26 @@ describe('the Vitec adapter’s forms', () => {
       isAutomaticProfile: false,
     });
 
+    // After an interest or a booking: the home named but not its type, which Vitec's code reads
+    // from the home as Vitec has it now (a radhus here).
+    const typed = await post(
+      submission('search_profile', {
+        record,
+        criteria: {
+          object_type: null,
+          rooms_min: 3,
+          living_area_min: null,
+          areas: [],
+          county_municipality_code: '1280',
+        },
+      }),
+    );
+    expect(typed.status).toBe(200);
+    expect(fake.forms[3]?.body).toMatchObject({
+      subtypes: ['TownHouse'],
+      municipalityCodes: ['1280'],
+    });
+
     // After the footer's lead: no home, no type, no requirement on size; the home's office.
     const open = await post(
       submission('search_profile', {
@@ -339,7 +360,7 @@ describe('the Vitec adapter’s forms', () => {
       }),
     );
     expect(open.status).toBe(200);
-    expect(fake.forms[3]?.body).toEqual({
+    expect(fake.forms[5]?.body).toEqual({
       subtypes: [],
       areaIds: [],
       municipalityCodes: [],

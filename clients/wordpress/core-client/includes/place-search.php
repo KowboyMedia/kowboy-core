@@ -97,6 +97,26 @@ function core_client_area_as_homes_name_it(string $area_id): array
 }
 
 /**
+ * An area's name and kommun code by its stored record, else as its homes name it; the name ''
+ * when the site knows none.
+ *
+ * @return array{name: string, code: string|null}
+ */
+function core_client_area_named(string $area_id): array
+{
+    $post_id = core_client_post_id('area', $area_id);
+    $area = $post_id === null ? null : core_client_item($post_id);
+    if (is_array($area)) {
+        return [
+            'name' => is_string($area['name'] ?? null) ? $area['name'] : '',
+            'code' => is_string($area['county_municipality_code'] ?? null) ? $area['county_municipality_code'] : null,
+        ];
+    }
+    ['name' => $name, 'code' => $code] = core_client_area_as_homes_name_it($area_id);
+    return ['name' => $name ?? '', 'code' => $code];
+}
+
+/**
  * The places the address names, for the pills the box shows: an area as the box offers it
  * (`$offered`, id to label), so a pill reads the same drawn from the address as chosen from the
  * list; else by its stored record, else as its homes name it. A code by the plugin's tables. A
@@ -115,15 +135,7 @@ function core_client_place_pills(array $area_ids, array $codes, array $offered =
             $pills[] = ['kind' => 'areas', 'id' => $area_id, 'label' => $offered[$area_id]];
             continue;
         }
-        $post_id = core_client_post_id('area', $area_id);
-        $area = $post_id === null ? null : core_client_item($post_id);
-        if (is_array($area)) {
-            $name = is_string($area['name'] ?? null) ? $area['name'] : '';
-            $code = is_string($area['county_municipality_code'] ?? null) ? $area['county_municipality_code'] : null;
-        } else {
-            ['name' => $named, 'code' => $code] = core_client_area_as_homes_name_it($area_id);
-            $name = $named ?? '';
-        }
+        ['name' => $name, 'code' => $code] = core_client_area_named($area_id);
         $pills[] = ['kind' => 'areas', 'id' => $area_id, 'label' => core_client_area_label($name, $code, $area_id)];
     }
     foreach ($codes as $code) {

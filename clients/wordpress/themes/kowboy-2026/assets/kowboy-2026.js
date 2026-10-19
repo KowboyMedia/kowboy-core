@@ -520,6 +520,11 @@
     },
     send: 'Skicka',
     sending: 'Skickar…',
+    /** The step "Söker du bostad?", the last of every form's steps. */
+    profileStep: function (n) {
+      return 'Steg ' + n + ' av ' + n + ' · valfritt';
+    },
+    profileSent: ['Tack!', 'Du får tips om nya bostäder som passar det du söker.'],
     placesLeft: function (n) {
       return n + ' ' + (n === 1 ? 'plats' : 'platser') + ' kvar';
     },
@@ -536,8 +541,15 @@
       'Robotkontrollen fungerar inte just nu, så formuläret kunde inte skickas. Vi har fått veta det. Försök igen senare eller kontakta mäklaren direkt.',
     cannotLoad: 'Det gick inte att hämta formuläret. Ladda om sidan och försök igen.',
   };
-  /** Each form's steps before the answer: a booking picks its time first. */
-  var FORM_STEPS = { interest: ['person'], viewing: ['slot', 'person'], lead: ['person'] };
+  /**
+   * Each form's steps: a booking picks its time first, and every form ends with the optional
+   * search profile, sent on its own once the form itself is in.
+   */
+  var FORM_STEPS = {
+    interest: ['person', 'profile'],
+    viewing: ['slot', 'person', 'profile'],
+    lead: ['person', 'profile'],
+  };
   /** The visitor's details after a sent form, in their own browser, so the next form is one tap. */
   var FORM_REMEMBER = 'core-forms:person';
   /** No form leaves before this long after the window opened: a bot measure the window keeps. */
@@ -595,8 +607,10 @@
    * The form window (parts/form-window.php): every form button (data-k-form, on the page or
    * inside a shadow root) opens it, for an interest, a viewing booking or a free valuation. A
    * booking reads the home's times from the plugin's receiver on this site and picks one; then the
-   * person's step, whose form goes to the plugin's other receiver, which sends it on to Core. The
-   * page holds no key but the bot check's public one. The person is remembered in the visitor's
+   * person's step, whose form goes to the plugin's other receiver, which sends it on to Core; then
+   * the optional step "Söker du bostad?", a search profile of its own through the same receiver,
+   * prefilled from the home the button names (data-wishes). The page holds no key but the bot
+   * check's public one. The person is remembered in the visitor's
    * own browser after a sent form, with a line saying so and "Glöm mig".
    */
   function setupFormWindow(dialog) {
@@ -615,6 +629,11 @@
     var slotId = null;
     var openedAt = 0;
     var sending = false;
+    // What the profile step takes from the home (core_client_form_wishes), the person and consent
+    // of the form already sent, and the step a failed send goes back to.
+    var wishes = null;
+    var sentWith = null;
+    var retryStep = 'person';
     var humanWidget = null;
     var humanToken = null;
     // Why the bot check cannot give a proof (Cloudflare's error code, "script" or "no-key"), sent
@@ -638,7 +657,7 @@
       var first = dialog
         .querySelector('[data-form-step="' + step + '"]')
         .querySelector(
-          'input:not([type="hidden"]), .k-form__slot:not([disabled]), textarea, button:not([hidden])',
+          'input:not([type="hidden"]), select, .k-form__slot:not([disabled]), textarea, button:not([hidden])',
         );
       if (first) first.focus();
     }
@@ -667,9 +686,7 @@
         field(name).value = (kept && kept[name]) || '';
       });
       field('message').value = '';
-      field('current_home').checked = false;
       field('consent').checked = false;
-      mark('current-home').hidden = kind === 'lead';
       mark('remembered').hidden = !kept;
       mark('error').hidden = true;
       mark('send').disabled = false;
@@ -811,6 +828,13 @@
       record = kind === 'lead' ? null : recordRef(button.dataset.record || '');
       home = button.dataset.home || '';
       viewingId = button.dataset.viewing || '';
+      try {
+        wishes = kind === 'lead' ? null : JSON.parse(button.dataset.wishes || 'null');
+      } catch {
+        wishes = null;
+      }
+      sentWith = null;
+      retryStep = 'person';
       viewings = [];
       slotId = null;
       openedAt = Date.now();
@@ -896,19 +920,40 @@
       return found;
     }
 
-    /** The confirmation becomes the heading (Patric, 2026-10-04). */
+    /** The closest whitelisted value below the home's (78 kvm gives 75 kvm, 3 rum gives 2 rum), else "Inget krav". */
+    function below(select, value) {
+      var picked = '';
+      Array.prototype.forEach.call(select.options, function (option) {
+        if (typeof value === 'number' && option.value !== '' && Number(option.value) < value) {
+          picked = option.value;
+        }
+      });
+      select.value = picked;
+    }
+
+    /**
+     * The confirmation becomes the heading (Patric, 2026-10-04), and the optional step "Söker du
+     * bostad?" follows under it, prefilled from the home; a lead has none, so it asks no minimum.
+     */
     function sent() {
       var slot = chosenSlot();
       var words = FORM_TEXT.sent[kind](home, slot ? slotLabel(slot.starts_at, slot.ends_at) : '');
       mark('title').textContent = words[0];
       mark('subtitle').textContent = words[1];
       mark('top').classList.add('is-done');
-      show('end');
+      mark('profile-step').textContent = FORM_TEXT.profileStep(FORM_STEPS[kind].length);
+      below(field('rooms_min'), wishes && wishes.rooms);
+      below(field('living_area_min'), wishes && wishes.living_space);
+      field('current_home').checked = false;
+      mark('current-home').hidden = kind === 'lead';
+      mark('profile-error').hidden = true;
+      show('profile');
     }
 
     /**
      * The receiver's answer, which is Core's: 200 sent, 409 refused, 403 the bot check, 429 too
-     * many, 503 with the bot check broken, else failed.
+     * many, 503 with the bot check broken, else failed. Only a booking's own refusal goes back to
+     * the times.
      */
     function answered(status, body) {
       if (status === 200) return sent();
@@ -916,8 +961,9 @@
         return fail(FORM_TEXT.failed, FORM_TEXT.checkBroken, false);
       }
       if (status === 409) {
-        var reason = (body && body.reason) || (kind === 'viewing' ? FORM_TEXT.refusedSlot : '');
-        return fail(FORM_TEXT.refused, reason, kind === 'viewing');
+        var booking = kind === 'viewing' && retryStep === 'person';
+        var reason = (body && body.reason) || (booking ? FORM_TEXT.refusedSlot : '');
+        return fail(FORM_TEXT.refused, reason, booking);
       }
       if (status === 429) return fail(FORM_TEXT.failed, FORM_TEXT.tooMany, false);
       if (status === 403) return fail(FORM_TEXT.failed, FORM_TEXT.notHuman, false);
@@ -936,7 +982,35 @@
       if (kind === 'viewing') form.slot_id = slotId;
       var message = field('message').value.trim();
       if (message) form.message = message;
-      if (kind !== 'lead' && field('current_home').checked) form.contact_about_current_home = true;
+      return form;
+    }
+
+    /**
+     * The search profile (kind search_profile), with the person and consent of the form just sent.
+     * Its areas and kommun code are the home's, unseen; the home's type is left to the CRM's code,
+     * because a site never reads the CRM's own list of types (docs/forms.md, the note for the widget).
+     */
+    function searchProfile() {
+      var chosen = function (name) {
+        var value = field(name).value;
+        return value === '' ? null : Number(value);
+      };
+      var form = {
+        id: uuid(),
+        kind: 'search_profile',
+        person: sentWith.person,
+        consent: sentWith.consent,
+        source: source(),
+        criteria: {
+          object_type: null,
+          rooms_min: chosen('rooms_min'),
+          living_area_min: chosen('living_area_min'),
+          areas: (wishes && wishes.areas) || [],
+          county_municipality_code: (wishes && wishes.county_municipality_code) || null,
+        },
+      };
+      if (record) form.record = record;
+      if (kind !== 'lead') form.contact_about_current_home = field('current_home').checked;
       return form;
     }
 
@@ -951,10 +1025,38 @@
       }
       error.hidden = true;
       var form = submission(person);
+      retryStep = 'person';
+      post(form, mark('send'), error, function (status, body) {
+        if (status === 200) {
+          remember(person);
+          sentWith = { person: person, consent: form.consent };
+        }
+        answered(status, body);
+      });
+    }
+
+    function sendProfile() {
+      if (sending || !sentWith) return;
+      var error = mark('profile-error');
+      error.hidden = true;
+      retryStep = 'profile';
+      post(searchProfile(), mark('profile-send'), error, function (status, body) {
+        if (status !== 200) return answered(status, body);
+        mark('end-title').textContent = FORM_TEXT.profileSent[0];
+        mark('end-text').textContent = FORM_TEXT.profileSent[1];
+        show('end');
+      });
+    }
+
+    /**
+     * One form to the site's receiver with the bot check's proof. Its button reads "Skickar…" and
+     * cannot be pressed until the answer is in, so one press sends one form.
+     */
+    function post(form, button, error, done) {
       var spent = false;
       sending = true;
-      mark('send').disabled = true;
-      mark('send').textContent = FORM_TEXT.sending;
+      button.disabled = true;
+      button.textContent = FORM_TEXT.sending;
       new Promise(function (resolve) {
         setTimeout(resolve, Math.max(0, FORM_MIN_OPEN_MS - (Date.now() - openedAt)));
       })
@@ -979,8 +1081,7 @@
                 return {};
               })
               .then(function (body) {
-                if (response.status === 200) remember(person);
-                answered(response.status, body);
+                done(response.status, body);
               });
           });
         })
@@ -989,8 +1090,8 @@
         })
         .finally(function () {
           sending = false;
-          mark('send').disabled = false;
-          mark('send').textContent = FORM_TEXT.send;
+          button.disabled = false;
+          button.textContent = FORM_TEXT.send;
           // A token is good for one send: the next one earns its own.
           if (spent && humanWidget !== null && window.turnstile) {
             window.turnstile.reset(humanWidget);
@@ -1012,6 +1113,14 @@
       event.preventDefault();
       send();
     });
+    dialog.querySelector('[data-form-step="profile"]').addEventListener('submit', function (event) {
+      event.preventDefault();
+      sendProfile();
+    });
+    // Skipping the profile loses nothing: the form itself is in, and its confirmation is the heading.
+    mark('skip').addEventListener('click', function () {
+      dialog.close();
+    });
     mark('close').addEventListener('click', function () {
       dialog.close();
     });
@@ -1019,7 +1128,7 @@
       dialog.close();
     });
     mark('retry').addEventListener('click', function () {
-      show('person');
+      show(retryStep);
     });
     // After a refused booking: back to the times, read again, to pick another.
     mark('back').addEventListener('click', function () {

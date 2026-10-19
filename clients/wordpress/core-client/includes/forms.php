@@ -44,6 +44,34 @@ function core_client_forms_on(): bool
 }
 
 /**
+ * What the step "Söker du bostad?" takes from a home (docs/forms.md, the whitelisted fields): its
+ * rooms and living space, which the form window prefills with the closest whitelisted value below,
+ * and its areas and kommun code, which go with the search profile unseen: every area the site
+ * links the home to, by its name and kommun code. As stored; nothing is decided from a value.
+ *
+ * @param array<string, mixed> $item the home as Core delivered it
+ * @return array{rooms: float|int|null, living_space: float|int|null, areas: list<array{id: string, name: string, county_municipality_code: string|null}>, county_municipality_code: string|null}
+ */
+function core_client_form_wishes(int $post_id, array $item): array
+{
+    global $wpdb;
+    $links = core_client_links_table();
+    $areas = [];
+    foreach ($wpdb->get_col($wpdb->prepare("SELECT area_id FROM $links WHERE post_id = %d ORDER BY area_id", $post_id)) as $area_id) {
+        ['name' => $name, 'code' => $code] = core_client_area_named((string) $area_id);
+        $areas[] = ['id' => (string) $area_id, 'name' => $name !== '' ? $name : (string) $area_id, 'county_municipality_code' => $code];
+    }
+    $number = static fn (mixed $value): float|int|null => is_int($value) || is_float($value) ? $value : null;
+    $code = $item['address']['county_municipality_code'] ?? null;
+    return [
+        'rooms' => $number($item['rooms'] ?? null),
+        'living_space' => $number($item['living_space'] ?? null),
+        'areas' => $areas,
+        'county_municipality_code' => is_string($code) && $code !== '' ? $code : null,
+    ];
+}
+
+/**
  * Pass a filled form on to Core and answer as Core answered. The body is the universal submission
  * the theme built (schemas/submission.v1.json): Core checks it against the schema, finds the
  * tenant's connection from the token and refuses a home that is not the tenant's; this function

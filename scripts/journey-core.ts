@@ -9,6 +9,8 @@ import { adapterRoutes } from '../engine/http/server.js';
 import { registerAdmin, registerSubmissions } from '../engine/registry.js';
 import { db } from '../engine/storage/db.js';
 import { deliverLifecycleEvents } from '../engine/lifecycle.js';
+import { configureHumanCheck } from '../engine/human.js';
+import { HUMAN_CHECK } from '../acceptance/harness.js';
 import { fakeWebhookAdapter } from '../adapters/fake-webhook/index.js';
 import * as crm from '../adapters/fake-webhook/crm.js';
 
@@ -45,6 +47,9 @@ const port = Number(process.argv[2] ?? 4319);
 process.env['PORT'] = String(port);
 
 const engine = await startEngine({ port });
+// The tests' bot check (acceptance/harness.ts), so a form in a journey passes with the dummy token
+// and no journey calls Cloudflare.
+configureHumanCheck(HUMAN_CHECK);
 // A journey starts from nothing, so what a person sees is what these tests made.
 await db().query(
   'truncate tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results, error_reports, jobs, alert_state, settings, admin_logins, admin_sessions restart identity cascade',

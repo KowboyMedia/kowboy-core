@@ -78,6 +78,10 @@ const theConnection = (named: Named): string => named.connection ?? 'this connec
 const tenantsPage = (named: Named): string =>
   named.tenant ? `${named.tenant}’s page` : 'its tenant’s page';
 
+/** A form the website's own "Send again" sent once more says so (`fields.sent_again`). */
+const formSent = (fields: EventFields): string =>
+  text(fields, 'sent_again') ? `${form(fields)} sent again from the website` : form(fields);
+
 /** A form by its kind, as the `submission.` events name it (docs/forms.md). */
 const FORMS: Record<string, string> = {
   lead: 'a valuation or contact request',
@@ -292,7 +296,7 @@ const SAY: Record<string, (fields: EventFields, named: Named) => string> = {
     `A visitor sent ${form(fields)} from ${theSite(named)}.`,
   'submission.delivered': (fields, named) => {
     const reference = text(fields, 'reference');
-    return `${capital(form(fields))} was delivered to ${theCrm(named)}${reference ? `, which gave it the id ${reference}` : ''}.`;
+    return `${capital(formSent(fields))} was delivered to ${theCrm(named)}${reference ? `, which gave it the id ${reference}` : ''}.`;
   },
   'submission.refused': (fields, named) => {
     const reason = text(fields, 'reason');
@@ -302,14 +306,21 @@ const SAY: Record<string, (fields: EventFields, named: Named) => string> = {
       return `Core held back ${form(fields)} as a dry run: only production sends forms to a live CRM, and never through a connection ticked to dry-run its forms.`;
     }
     return reason
-      ? `${capital(theCrm(named))} refused ${form(fields)}, with the reason “${reason}”.`
-      : `${capital(theCrm(named))} refused ${form(fields)} and gave no reason.`;
+      ? `${capital(theCrm(named))} refused ${formSent(fields)}, with the reason “${reason}”.`
+      : `${capital(theCrm(named))} refused ${formSent(fields)} and gave no reason.`;
   },
   'submission.failed': (fields, named) => {
+    // The bot check could not run, so the form stopped before the CRM (submissions.ts).
+    const cause = text(fields, 'bot_check');
+    if (cause) {
+      return sentence(
+        `${capital(form(fields))} from ${theSite(named)} was not sent, because the bot check could not run: ${cause}`,
+      );
+    }
     const detail = text(fields, 'detail');
     return detail
-      ? sentence(`${capital(form(fields))} could not be sent to ${theCrm(named)}: ${detail}`)
-      : `${capital(form(fields))} could not be sent to ${theCrm(named)}, and no cause was recorded.`;
+      ? sentence(`${capital(formSent(fields))} could not be sent to ${theCrm(named)}: ${detail}`)
+      : `${capital(formSent(fields))} could not be sent to ${theCrm(named)}, and no cause was recorded.`;
   },
   bell: told,
   pull: (fields, named) => {
