@@ -38,8 +38,11 @@ export type FakeConnect = {
   requests: { path: string; query: URLSearchParams }[];
   /** Every form call a site's visitor caused, oldest first, with the body as Connect got it. */
   forms: { path: string; body: Record<string, unknown> }[];
-  /** Answer the next form call with 400 and this message, as Connect refuses a full viewing. */
-  refuseNext(message: string): void;
+  /**
+   * Answer the next form call with 400 and this message under the field given, as Connect refuses
+   * a full viewing; an empty message answers 400 with no words at all.
+   */
+  refuseNext(message: string, field?: string): void;
   /** What the form endpoint answers for this estate: its viewings and time slots. */
   setForm(officeId: string, estateId: string, payload: Record<string, unknown>): void;
   /** The office groups a customer keeps in Vitec's CRM (`CRM/Officegroups/{customerId}`). */
@@ -89,7 +92,7 @@ export function startFakeConnect(): Promise<FakeConnect> {
     delayMs: 0,
     requests: [],
     forms: [],
-    refuseNext: (message) => (refusal = message),
+    refuseNext: (message, field = 'message') => (refusal = { message, field }),
     setForm: (officeId, estateId, payload) => formData.set(`${officeId}/${estateId}`, payload),
     setGroups: (customerId, list) => groups.set(customerId, list),
     forbidGroups: (customerId) => groupsForbidden.add(customerId),
@@ -119,15 +122,15 @@ export function startFakeConnect(): Promise<FakeConnect> {
     reply: (status: number, body: unknown) => void,
     noContent: () => void,
   ): boolean => answerForm(method, path, text, reply, noContent) || answerGroups(path, reply);
-  let refusal: string | null = null;
+  let refusal: { message: string; field: string } | null = null;
   const formData = new Map<string, Record<string, unknown>>();
 
   /** What a form POST answers, by its path: a status and a body, or null for 204. */
   const postAnswer = (path: string): { status: number; body: unknown } | null => {
     if (refusal) {
-      const message = refusal;
+      const { message, field } = refusal;
       refusal = null;
-      return { status: 400, body: { message } };
+      return { status: 400, body: message === '' ? {} : { [field]: message } };
     }
     const n = String(fake.forms.length);
     if (path.endsWith('/Valuation') || path.endsWith('/Viewing/Attend')) {

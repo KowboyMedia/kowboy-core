@@ -1198,6 +1198,24 @@ Patric's go (209 a, 2026-10-19) for the forms list he verified on 2026-10-07
   reads the home's own subtype from Vitec and sends the profile's (kedjehus and parhus as radhus,
   none for a farm or a commercial property), proved by `adapters/vitec/forms.test.ts`. Proved by
   the journey's three forms and the template test of the property page.
+- **The review's fixes** (plugin 0.9.2, theme 1.3.5; a fresh review of every forms file against
+  the forms list, 2026-10-19):
+  - A form Core does not take is never unseen: one it cannot read, or one for a home or office it
+    cannot route, is logged as `submission.received` and `submission.failed` with `stopped`
+    naming why (`unreadable`, `foreign`, `gone`, `office`, `which-office`, `no-office`, `kind`),
+    so it alerts; an unreadable form's `detail` carries the schema's first three complaints,
+    which name fields, never a value. Core's 400 names the form's id when it has one, so the
+    site keeps the form. Proved by `acceptance/submissions.test.ts`.
+  - The window asks again for what Core's schema would refuse: an e-mail address as the schema's
+    format takes it (an address with å, ä or ö before the @), and fields no longer than the
+    schema allows; it sends at most ten UTM tags named as the schema takes them, and a page
+    address over 2,000 characters without its query. Cloudflare's script that has not loaded
+    after 10 seconds, or loads without the check, counts as the check not running.
+  - The site counts a 501 (the CRM takes no such form) as not taken by Core, and an answer from
+    Core it cannot read as a failure it reports; it deletes forms older than 30 days on every
+    form kept, when "Formulär" opens and with the 15-minute backstop, so none outstays its time
+    on a quiet site. Proved by `clients/wordpress/forms.test.ts`.
+  - Vitec's own words on a refused form are read from its answer whichever field holds them.
 
 ## The decisions (the discover list)
 

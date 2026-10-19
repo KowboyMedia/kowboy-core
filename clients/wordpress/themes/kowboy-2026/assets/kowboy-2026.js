@@ -557,6 +557,16 @@
   /** How long a send waits for the bot check's answer before asking the visitor to wait. */
   var FORM_HUMAN_WAIT_MS = 8000;
   var TURNSTILE_SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+  /** How long Cloudflare's script may take to load before the check counts as not loading. */
+  var TURNSTILE_LOAD_MS = 10000;
+  /**
+   * An e-mail address as Core's schema takes it (the format "email" of its validator), so the
+   * window asks again rather than send a form Core cannot read.
+   */
+  var FORM_EMAIL =
+    /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i;
+  /** The tags of a visit Core's schema takes: at most ten, named utm_ and small letters. */
+  var FORM_UTM = /^utm_[a-z_]{1,30}$/;
 
   var turnstileLoading = null;
   function loadTurnstile() {
@@ -564,14 +574,22 @@
     if (!turnstileLoading) {
       turnstileLoading = new Promise(function (resolve, reject) {
         var script = document.createElement('script');
+        var failed = function () {
+          turnstileLoading = null;
+          reject(new Error('the bot check did not load'));
+        };
+        // A script that hangs, or loads without the check in it, is a check that did not load.
+        var waited = setTimeout(failed, TURNSTILE_LOAD_MS);
         script.src = TURNSTILE_SCRIPT;
         script.async = true;
         script.onload = function () {
-          resolve();
+          clearTimeout(waited);
+          if (window.turnstile) resolve();
+          else failed();
         };
         script.onerror = function () {
-          turnstileLoading = null;
-          reject(new Error('the bot check did not load'));
+          clearTimeout(waited);
+          failed();
         };
         document.head.appendChild(script);
       });
@@ -709,7 +727,6 @@
       }
       loadTurnstile()
         .then(function () {
-          if (!window.turnstile) return;
           if (humanWidget !== null) {
             window.turnstile.reset(humanWidget);
             humanToken = null;
@@ -876,7 +893,7 @@
         email: value('email'),
         phone: value('phone'),
       };
-      var emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(person.email);
+      var emailOk = person.email.length <= 320 && FORM_EMAIL.test(person.email);
       var complete = person.first_name && person.last_name && person.phone && emailOk;
       return complete && field('consent').checked ? person : null;
     }
@@ -886,10 +903,12 @@
       var url = new URL(window.location.href);
       var utm = {};
       url.searchParams.forEach(function (value, key) {
-        if (key.indexOf('utm_') === 0) utm[key] = value;
+        if (FORM_UTM.test(key) && Object.keys(utm).length < 10) utm[key] = value.slice(0, 200);
       });
       url.hash = '';
-      return { page: url.toString(), utm: utm };
+      var page = url.toString();
+      // A very long address goes without its query, which Core's schema would not take.
+      return { page: page.length <= 2000 ? page : url.origin + url.pathname, utm: utm };
     }
 
     function uuid() {

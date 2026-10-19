@@ -120,9 +120,16 @@ test('journey: the interest, viewing and valuation buttons open the theme’s wi
   await dialog.getByRole('button', { name: 'Skicka' }).click();
   await expect(dialog.getByText('Fyll i alla fält')).toBeVisible();
   expect(answers).toEqual([]);
+  // An address Core's schema would not take is asked again in the window, never sent. (The
+  // browser itself writes a domain with å, ä or ö the way Core takes it, but not the name before @.)
   await fillPerson(dialog);
-  await dialog.getByLabel('Meddelande').fill('Jag vill gärna veta mer.');
+  await dialog.getByLabel('E-post').fill('änna@example.se');
   await dialog.getByLabel(/Jag samtycker/).check();
+  await dialog.getByRole('button', { name: 'Skicka' }).click();
+  await expect(dialog.getByText('Fyll i alla fält')).toBeVisible();
+  expect(answers).toEqual([]);
+  await dialog.getByLabel('E-post').fill('anna@example.se');
+  await dialog.getByLabel('Meddelande').fill('Jag vill gärna veta mer.');
   await shot(page, '2-interest-filled.png');
   await dialog.getByRole('button', { name: 'Skicka' }).click();
   // The confirmation becomes the heading; the CRM took it through the site's receiver and Core.
@@ -304,35 +311,44 @@ test('journey: while a form is on its way, “Skicka” reads “Skickar…” a
   expect(posted).toHaveLength(1);
 });
 
-test('journey: when the bot check cannot run in the browser, the window still sends the form, says why it was not sent, and asks the visitor to try later or contact the agent', async ({
-  page,
-}) => {
-  // Cloudflare's script does not load: an ad blocker, a network that drops it, or a broken setup.
-  await page.route('https://challenges.cloudflare.com/**', (route) => route.abort());
-  const proofs: (string | undefined)[] = [];
-  page.on('request', (request) => {
-    if (
-      request.method() === 'POST' &&
-      decodeURIComponent(request.url()).includes('core/v1/forms')
-    ) {
-      proofs.push(request.headers()['x-core-human']);
-    }
+for (const [how, answer] of [
+  ['does not load', 'abort'],
+  ['loads without the check in it', 'empty'],
+] as const) {
+  test(`journey: when the bot check cannot run in the browser (its script ${how}), the window still sends the form, says why it was not sent, and asks the visitor to try later or contact the agent`, async ({
+    page,
+  }) => {
+    // Cloudflare's script fails: an ad blocker, a network that drops it, or a broken setup.
+    await page.route('https://challenges.cloudflare.com/**', (route) =>
+      answer === 'abort'
+        ? route.abort()
+        : route.fulfill({ contentType: 'text/javascript', body: '/* not the check */' }),
+    );
+    const proofs: (string | undefined)[] = [];
+    page.on('request', (request) => {
+      if (
+        request.method() === 'POST' &&
+        decodeURIComponent(request.url()).includes('core/v1/forms')
+      ) {
+        proofs.push(request.headers()['x-core-human']);
+      }
+    });
+    await page.goto('/?pagename=till-salu');
+    await page.getByRole('link', { name: 'Kungsgatan 3', exact: true }).click();
+    const dialog = page.locator('dialog.k-form');
+    await page.getByRole('link', { name: 'Anmäl intresse' }).click();
+    await fillPerson(dialog);
+    await dialog.getByLabel(/Jag samtycker/).check();
+    await dialog.getByRole('button', { name: 'Skicka' }).click();
+    await expect(dialog.getByText('Det gick inte att skicka just nu')).toBeVisible();
+    await expect(
+      dialog.getByText('Robotkontrollen fungerar inte just nu, så formuläret kunde inte skickas.', {
+        exact: false,
+      }),
+    ).toBeVisible();
+    expect(proofs).toEqual(['unavailable:script']);
   });
-  await page.goto('/?pagename=till-salu');
-  await page.getByRole('link', { name: 'Kungsgatan 3', exact: true }).click();
-  const dialog = page.locator('dialog.k-form');
-  await page.getByRole('link', { name: 'Anmäl intresse' }).click();
-  await fillPerson(dialog);
-  await dialog.getByLabel(/Jag samtycker/).check();
-  await dialog.getByRole('button', { name: 'Skicka' }).click();
-  await expect(dialog.getByText('Det gick inte att skicka just nu')).toBeVisible();
-  await expect(
-    dialog.getByText('Robotkontrollen fungerar inte just nu, så formuläret kunde inte skickas.', {
-      exact: false,
-    }),
-  ).toBeVisible();
-  expect(proofs).toEqual(['unavailable:script']);
-});
+}
 
 test('journey: with Kowboy’s chat on the page, a form button opens the chat at that request, and the theme’s window opens where the chat cannot take it', async ({
   page,

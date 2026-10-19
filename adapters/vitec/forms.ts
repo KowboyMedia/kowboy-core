@@ -321,13 +321,11 @@ const contactIdOf = (answer: unknown): string | null => {
 /** The statuses with which Vitec says no to this form, as opposed to being down or shut. */
 const REFUSALS = new Set([400, 404, 409, 422]);
 
-/** Vitec's own words from an error, without the path and status Core put in front. */
-const wordsOf = (error: connect.VitecError): string => {
-  const quoted = /"message"\s*:\s*"([^"]*)"/.exec(error.message)?.[1];
-  if (quoted) return connect.scrub(quoted);
-  const after = error.message.replace(/^[^:]*: HTTP \d+ ?/, '');
-  return connect.scrub(after || `Vitec answered HTTP ${String(error.status)}`);
-};
+/**
+ * Vitec's own words for a refusal (its answer's message, scrubbed of e-mail addresses and
+ * numbers), or none, so the visitor reads "Det gick tyvärr inte" alone and never a system's name.
+ */
+const wordsOf = (error: connect.VitecError): string => error.said ?? '';
 
 /** A form Core itself did not send, in words for Failed forms. */
 class NotSent extends Error {}

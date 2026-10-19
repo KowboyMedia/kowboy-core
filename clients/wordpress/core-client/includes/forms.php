@@ -171,6 +171,18 @@ function core_client_forms_keep(stdClass $form, string $body, WP_REST_Response $
         $said,
         $now,
     ));
+    core_client_forms_purge();
+}
+
+/**
+ * Delete the forms kept longer than 30 days, with the visitors' details: on every form kept, when
+ * the page "Formulär" opens, and with the 15 minute backstop (includes/schedule.php), so none
+ * outstays its time on a site that gets no forms.
+ */
+function core_client_forms_purge(): void
+{
+    global $wpdb;
+    $table = core_client_forms_table();
     $wpdb->query($wpdb->prepare(
         "DELETE FROM $table WHERE sent_at < %s",
         gmdate('Y-m-d H:i:s', time() - CORE_CLIENT_FORMS_KEPT_DAYS * DAY_IN_SECONDS),
@@ -207,7 +219,7 @@ function core_client_forms_outcome(int $status, array $data): array
     if ($status === 502 && ($data['status'] ?? '') === 'failed' && isset($data['id'])) {
         return ['crm', ''];
     }
-    if ($status >= 500) {
+    if ($status >= 500 && $status !== 501) {
         return ['unreachable', $error];
     }
     return ['rejected', $error];
@@ -254,7 +266,12 @@ function core_client_forms_answer(array|WP_Error $response, string $failure): WP
     }
     $status = (int) wp_remote_retrieve_response_code($response);
     $answer = json_decode((string) wp_remote_retrieve_body($response), true);
-    return new WP_REST_Response(is_array($answer) ? $answer : ['status' => 'failed'], $status > 0 ? $status : 502);
+    if (!is_array($answer)) {
+        // Not Core's answer (a gateway's page, or none), so never a "sent": a failure, reported.
+        core_client_report($failure, ['where' => 'forms.php', 'detail' => 'HTTP ' . $status . ' without Core\'s answer']);
+        return new WP_REST_Response(['status' => 'failed'], $status >= 500 ? $status : 502);
+    }
+    return new WP_REST_Response($answer, $status > 0 ? $status : 502);
 }
 
 /**

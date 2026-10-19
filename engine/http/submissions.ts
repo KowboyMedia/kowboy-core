@@ -82,12 +82,12 @@ export async function submit(request: Request): Promise<Response> {
   const proof = (): Promise<Verdict> | null =>
     resend ? null : verifyHuman(request.headers['x-core-human'] ?? null);
   const parsed = parseSubmission(request);
-  if ('response' in parsed) return notAForm(parsed.response, auth.tenantId, proof());
-  const { submission } = parsed;
   const door: Door = {
     tenantId: auth.tenantId,
     subscriberId: await subscriberByBellUrl(auth.tenantId, request.headers['x-core-site'] ?? null),
   };
+  if ('response' in parsed) return notAForm(request, parsed, door, proof());
+  const { submission } = parsed;
 
   const known = await heldAlready(submission.id);
   if (known) return answerKnown(known, submission, door, resend);
@@ -99,14 +99,66 @@ export async function submit(request: Request): Promise<Response> {
   return submitThrough(request, submission, door);
 }
 
-/** Not a form: the proof first all the same, so a program without one uses up no limit. */
+/**
+ * Not a form: the proof first all the same, so a program without one uses up no limit. A body
+ * with a form's id is a form the site's window made that Core cannot read: logged as not sent, so
+ * it never goes unseen, and answered with its id, so the site keeps it.
+ */
 async function notAForm(
-  answer: Response,
-  tenantId: number,
+  request: Request,
+  parsed: Unread,
+  door: Door,
   proof: Promise<Verdict> | null,
 ): Promise<Response> {
   if ((await proof)?.kind === 'refused') return notHuman();
-  return overLimit(tenantId) ? tooMany() : answer;
+  if (overLimit(door.tenantId)) return tooMany();
+  if (parsed.id) {
+    await loggedNotSent(
+      request,
+      door,
+      { id: parsed.id, kind: parsed.kind, connectionId: null },
+      {
+        detail: `Core could not read the form: ${parsed.errors.slice(0, 3).join('; ')}`,
+        stopped: 'unreadable',
+      },
+    );
+  }
+  return parsed.response;
+}
+
+/** Where a form that stopped in Core is logged: its id, its kind, the connection when known. */
+type Stopped = {
+  id: string;
+  kind: string | null;
+  connectionId: string | null;
+  record?: Submission['record'];
+};
+
+/**
+ * A form that stopped in Core before any CRM call, logged as received and not delivered, with
+ * why, so it alerts, shows under "Needs attention" and names the site; the site keeps the form
+ * itself. Ids and outcomes only, never the person.
+ */
+async function loggedNotSent(
+  request: Request,
+  door: Door,
+  form: Stopped,
+  why: Record<string, unknown>,
+): Promise<void> {
+  const where = {
+    correlationId: form.id,
+    tenantId: door.tenantId,
+    connectionId: form.connectionId,
+    datatype: form.record?.datatype ?? null,
+    remoteId: form.record?.remote_id ?? null,
+    subscriberId: door.subscriberId,
+  };
+  await logEvent({
+    type: 'submission.received',
+    ...where,
+    fields: { kind: form.kind, client: request.headers['x-core-client'] ?? null },
+  });
+  await logEvent({ type: 'submission.failed', ...where, fields: { kind: form.kind, ...why } });
 }
 
 const notHuman = (): Response => jsonResponse(403, { error: 'the bot check did not pass' });
@@ -156,28 +208,17 @@ async function checkBroken(
     report(new Error(`a form was stopped: ${cause}`), { where: 'submission' });
   }
   const routed = await route(door.tenantId, submission);
-  const where = {
-    correlationId: submission.id,
-    tenantId: door.tenantId,
-    connectionId: 'error' in routed ? null : routed.connection.id,
-    datatype: submission.record?.datatype ?? null,
-    remoteId: submission.record?.remote_id ?? null,
-    subscriberId: door.subscriberId,
-  };
-  await logEvent({
-    type: 'submission.received',
-    ...where,
-    fields: { kind: submission.kind, client: request.headers['x-core-client'] ?? null },
-  });
-  await logEvent({
-    type: 'submission.failed',
-    ...where,
-    fields: {
+  await loggedNotSent(
+    request,
+    door,
+    {
+      id: submission.id,
       kind: submission.kind,
-      detail: `the bot check could not run: ${cause}`,
-      bot_check: cause,
+      connectionId: 'error' in routed ? null : routed.connection.id,
+      record: submission.record,
     },
-  });
+    { detail: `the bot check could not run: ${cause}`, bot_check: cause },
+  );
   return jsonResponse(503, {
     id: submission.id,
     status: 'failed',
@@ -203,6 +244,12 @@ async function submitThrough(
 ): Promise<Response> {
   const routed = await route(door.tenantId, submission);
   if ('error' in routed) {
+    await loggedNotSent(
+      request,
+      door,
+      { id: submission.id, kind: submission.kind, connectionId: null, record: submission.record },
+      { detail: routed.error, stopped: routed.why },
+    );
     return jsonResponse(routed.status, { id: submission.id, error: routed.error });
   }
   const { connection, send } = routed;
@@ -250,7 +297,9 @@ async function submitThrough(
   return answerFrom(toAnswer(submission.id, result));
 }
 
-type Parsed = { submission: Submission } | { response: Response };
+/** A body Core could not read as a form: the answer, and the form's id and kind when it has them. */
+type Unread = { response: Response; id: string | null; kind: string | null; errors: string[] };
+type Parsed = { submission: Submission } | Unread;
 
 /** The JSON and the schema: the answers given before any lookup. */
 function parseSubmission(request: Request): Parsed {
@@ -258,11 +307,28 @@ function parseSubmission(request: Request): Parsed {
   try {
     body = request.json<unknown>();
   } catch {
-    return { response: jsonResponse(400, { error: 'the body is not JSON' }) };
+    return {
+      response: jsonResponse(400, { error: 'the body is not JSON' }),
+      id: null,
+      kind: null,
+      errors: [],
+    };
   }
   const checked = validateSubmission(body);
   if (!checked.valid) {
-    return { response: jsonResponse(400, { error: 'not a submission', detail: checked.errors }) };
+    const fields = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const id = typeof fields['id'] === 'string' && UUID.test(fields['id']) ? fields['id'] : null;
+    const kind = typeof fields['kind'] === 'string' ? fields['kind'].slice(0, 20) : null;
+    return {
+      response: jsonResponse(400, {
+        ...(id ? { id } : {}),
+        error: 'not a submission',
+        detail: checked.errors,
+      }),
+      id,
+      kind,
+      errors: checked.errors,
+    };
   }
   return { submission: body as Submission };
 }

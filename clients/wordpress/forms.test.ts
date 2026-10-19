@@ -247,6 +247,19 @@ describe('the WordPress client’s forms', () => {
     expect(answer.status).toBe(200);
   });
 
+  it('deletes a form with the visitor’s details once it is 30 days old, when the page “Formulär” opens', async () => {
+    const [old, recent] = [randomUUID(), randomUUID()];
+    await wp(
+      'eval',
+      `global $wpdb; foreach ([[${JSON.stringify(old)}, 31], [${JSON.stringify(recent)}, 29]] as [$id, $days]) { $at = gmdate('Y-m-d H:i:s', time() - $days * DAY_IN_SECONDS); $wpdb->insert(core_client_forms_table(), ['id' => $id, 'sent_at' => $at, 'kind' => 'interest', 'body' => '{}', 'outcome' => 'delivered', 'said' => '', 'tries' => 1, 'last_at' => $at]); }`,
+    );
+    expect((await kept()).map((form) => form.id)).toEqual(expect.arrayContaining([old, recent]));
+    await formsPage();
+    const ids = (await kept()).map((form) => form.id);
+    expect(ids).toContain(recent);
+    expect(ids).not.toContain(old);
+  });
+
   it('turned off on its page, the forms leave the pages and the buttons lead to a contact; turned on, the window is back', async () => {
     const window = /<dialog class="k-form"/;
     expect(await (await fetch(`${siteUrl}/`)).text()).toMatch(window);

@@ -43,12 +43,12 @@ $living_areas = [20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95,
         <form class="k-form__step" data-form-step="person" novalidate hidden>
             <div class="k-form__eyebrow">Dina uppgifter</div>
             <div class="k-form__grid">
-                <label class="k-form__label"><span>Förnamn</span><input class="k-form__field" name="first_name" autocomplete="given-name" required></label>
-                <label class="k-form__label"><span>Efternamn</span><input class="k-form__field" name="last_name" autocomplete="family-name" required></label>
-                <label class="k-form__label"><span>Mobil</span><input class="k-form__field" name="phone" type="tel" autocomplete="tel" required></label>
-                <label class="k-form__label"><span>E-post</span><input class="k-form__field" name="email" type="email" autocomplete="email" required></label>
+                <label class="k-form__label"><span>Förnamn</span><input class="k-form__field" name="first_name" autocomplete="given-name" maxlength="200" required></label>
+                <label class="k-form__label"><span>Efternamn</span><input class="k-form__field" name="last_name" autocomplete="family-name" maxlength="200" required></label>
+                <label class="k-form__label"><span>Mobil</span><input class="k-form__field" name="phone" type="tel" autocomplete="tel" maxlength="40" required></label>
+                <label class="k-form__label"><span>E-post</span><input class="k-form__field" name="email" type="email" autocomplete="email" maxlength="320" required></label>
             </div>
-            <label class="k-form__label"><span>Meddelande (valfritt)</span><textarea class="k-form__field" name="message"></textarea></label>
+            <label class="k-form__label"><span>Meddelande (valfritt)</span><textarea class="k-form__field" name="message" maxlength="4000"></textarea></label>
             <label class="k-form__consent"><input type="checkbox" name="consent" required><span>Jag samtycker till att mäklaren kontaktar mig och behandlar mina uppgifter enligt <?php if ($policy !== '') : ?><a href="<?php echo esc_url($policy); ?>" target="_blank" rel="noopener">integritetspolicyn</a><?php else : ?>integritetspolicyn<?php endif; ?>.</span></label>
             <p class="k-form__hint" data-form-remembered hidden>Vi minns dina uppgifter från förra gången i den här webbläsaren. <button class="k-form__text-button" type="button" data-form-forget>Glöm mig</button></p>
             <p class="k-form__error" data-form-error hidden>Fyll i alla fält och godkänn integritetspolicyn.</p>

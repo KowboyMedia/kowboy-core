@@ -439,6 +439,10 @@ item 29):
   bostad", which left the person's step; "Skicka" sends the search profile, "Hoppa över" closes
   the window (docs/forms.md, "Built 2026-10-19"). The bot check's challenge now sits below the
   steps, so each of the two sends earns its own proof.
+- **The window asks again for what Core would refuse** (theme 1.3.5 with plugin 0.9.2): an
+  e-mail address Core's schema does not take, and fields longer than it allows, are asked again
+  in the window instead of sent; Cloudflare's script that has not loaded after 10 seconds counts
+  as the check not running.
 
 ## The card dots, white on the screen, 2026-10-19
 

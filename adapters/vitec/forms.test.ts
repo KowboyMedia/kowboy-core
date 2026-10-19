@@ -196,7 +196,7 @@ describe('the Vitec adapter’s forms', () => {
     expect(chain.map((event) => event.type)).toContain('submission.delivered');
   });
 
-  it('books a viewing slot with an e-mail confirmation and no reminder, and relays Vitec’s refusal and silence', async () => {
+  it('books a viewing slot with the e-mail and SMS confirmations and no reminder, and relays Vitec’s refusal and silence', async () => {
     const booked = await post(submission('viewing', { record, slot_id: 'T-1' }));
     expect(booked.status).toBe(200);
     expect(booked.body).toMatchObject({ status: 'delivered', reference: 'C-1' });
@@ -227,13 +227,25 @@ describe('the Vitec adapter’s forms', () => {
       status: 'refused',
       reason: 'Visningen är fullbokad, kontakta [e-mail]',
     });
+    // Vitec's words under its other field name reach the visitor too; a refusal without words
+    // gives none, so the window reads "Det gick tyvärr inte" alone and never a system's name.
+    fake.refuseNext('Tiden är passerad', 'Message');
+    expect((await post(submission('viewing', { record, slot_id: 'T-1' }))).body).toMatchObject({
+      status: 'refused',
+      reason: 'Tiden är passerad',
+    });
+    fake.refuseNext('');
+    expect((await post(submission('viewing', { record, slot_id: 'T-1' }))).body).toMatchObject({
+      status: 'refused',
+      reason: '',
+    });
 
     // Vitec stays down through the form's tries: a failure the visitor hears, and nothing sent.
     fake.failNext(3);
     const failed = await post(submission('viewing', { record, slot_id: 'T-1' }));
     expect(failed.status).toBe(502);
     expect(failed.body).toMatchObject({ status: 'failed' });
-    expect(fake.forms).toHaveLength(2);
+    expect(fake.forms).toHaveLength(4);
   });
 
   it('tries a call Vitec could not take again within the form’s short time, never a refusal, and the visitor hears it when Vitec stays down', async () => {

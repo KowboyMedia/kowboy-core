@@ -147,10 +147,7 @@ function core_client_forms_page(): void
         wp_die('Du får inte se formulären.');
     }
     $table = core_client_forms_table();
-    $wpdb->query($wpdb->prepare(
-        "DELETE FROM $table WHERE sent_at < %s",
-        gmdate('Y-m-d H:i:s', time() - CORE_CLIENT_FORMS_KEPT_DAYS * DAY_IN_SECONDS),
-    ));
+    core_client_forms_purge();
     $page = max(1, (int) ($_GET['paged'] ?? 1));
     $total = (int) $wpdb->get_var("SELECT COUNT(*) FROM $table");
     $rows = $wpdb->get_results($wpdb->prepare(

@@ -515,6 +515,16 @@ describe('submissions', () => {
     expect(notTaken.body['error']).toContain('takes no lead');
 
     expect(crm.formsTaken()).toHaveLength(0);
+    // None goes unseen: each is logged as not sent with why, under its id, which the answer
+    // carries, so the site keeps it too; a body outside the schema says what Core could not read.
+    expect(offList.body['id']).toEqual(expect.any(String));
+    const stopped = await queryEvents({ type: 'submission.failed' });
+    expect(stopped.map((event) => event.fields['stopped'])).toEqual(
+      expect.arrayContaining(['foreign', 'gone', 'unreadable', 'which-office', 'kind']),
+    );
+    const unread = stopped.find((event) => event.correlation_id === offList.body['id']);
+    expect(unread?.fields['detail']).toContain('living_area_min');
+    expect(JSON.stringify(stopped)).not.toContain('anna@example.se');
 
     // The limit: every post from this token counts, the refused ones above included.
     while (posted < SUBMISSIONS_PER_MINUTE) {
@@ -784,6 +794,12 @@ describe('submissions', () => {
     await stopped(HUMAN_TOKEN, 'Cloudflare refused Core’s secret key for the bot check');
     cloudflare({}, 500);
     await stopped(HUMAN_TOKEN, 'Cloudflare’s bot check answered Core with 500');
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) =>
+      String(input).startsWith('https://challenges.cloudflare.com/')
+        ? Promise.reject(new Error('getaddrinfo ENOTFOUND challenges.cloudflare.com'))
+        : real(input, init),
+    );
+    await stopped(HUMAN_TOKEN, 'Cloudflare’s bot check did not answer Core');
     configureHumanCheck(null);
     await stopped(HUMAN_TOKEN, 'Core has no keys for the bot check');
     expect(

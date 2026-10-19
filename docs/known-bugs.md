@@ -131,4 +131,5 @@ always passes, so their forms run the whole path; production without them stops 
 check that cannot run (no keys, Cloudflare refusing Core's secret or not answering, the check
 failing in the visitor's browser) stops the form with a clear message and logs it as not
 delivered, with the cause and the site, which alerts (`engine/human.ts`,
-`engine/http/submissions.ts`). The trap field is gone from the window.
+`engine/http/submissions.ts`). The trap field is gone from the window. What remains is
+production: the two keys in its environment and this code on it; then the entry leaves.
