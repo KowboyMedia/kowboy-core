@@ -15,7 +15,6 @@ import { adapterRoutes } from './engine/http/server.js';
 import { removeLoginFields } from './engine/admin/login.js';
 import { closeErrorReporting, report } from './engine/errors.js';
 import { databaseUrl } from './engine/config.js';
-import { markDemoTenants } from './engine/demo-tenants.js';
 import { previewInWords, previewRelease } from './engine/preview.js';
 import type { Adapter } from './engine/adapter-api/types.js';
 import { vitecAdapter } from './adapters/vitec/index.js';
@@ -92,14 +91,6 @@ export async function main(role: string): Promise<{ engine: Engine; server: Serv
       console.log(`removed the old forms fields and CRM password from ${cleaned} stored login(s)`);
     } catch (error) {
       report(error, { where: 'removing the old forms fields' });
-    }
-    // One-off on staging only; see engine/demo-tenants.ts.
-    if (engine.config.environment === 'staging') {
-      try {
-        for (const line of await markDemoTenants()) console.log(`demo tenants: ${line}`);
-      } catch (error) {
-        report(error, { where: 'marking the demo tenants' });
-      }
     }
     engine.startWorker();
     for (const adapter of adapters) await startAdapter(adapter);
