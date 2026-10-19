@@ -337,6 +337,23 @@ export async function known(
   return new Map(rows.map((row) => [row.remote_id, row.changed_at]));
 }
 
+/** The ids of a datatype seen under any of the offices, or only those of `remoteIds` among them. */
+export async function knownUnder(
+  offices: readonly Office[],
+  datatype: Datatype,
+  remoteIds?: readonly string[],
+): Promise<Set<string>> {
+  if (offices.length === 0) return new Set();
+  const { rows } = await (
+    await db()
+  ).query<{ remote_id: string }>(
+    `select distinct remote_id from vitec_known
+      where office_id = any($1) and datatype = $2 and ($3::text[] is null or remote_id = any($3))`,
+    [offices.map(keyOf), datatype, remoteIds ?? null],
+  );
+  return new Set(rows.map((row) => row.remote_id));
+}
+
 export async function isKnown(
   office: Office,
   datatype: Datatype,

@@ -1358,7 +1358,7 @@ describe('the Vitec adapter', () => {
         office_id: OFFICE,
         office_name: 'Kontor 1',
         reason: expect.stringMatching(
-          /^the brokerage took the office out of its office group “Webbplats” in Vitec\. Its homes, its new-build projects and the office itself left the sites, and its agents stay\./,
+          /^the brokerage took the office out of its office group “Webbplats” in Vitec\. The office left the sites with its homes, new-build projects, agents, areas and housing associations, except what another office on the sites also has, such as an agent who works at both\./,
         ),
       },
     ]);
@@ -1372,6 +1372,105 @@ describe('the Vitec adapter', () => {
     expect((await item('property', 'OBJ2'))?.['deleted']).toBe(false);
     const due = new Date((await store.getState(CONNECTION, 'offices_check_at')) ?? 0).getTime();
     expect(Date.now() - due).toBeGreaterThan(22 * 3_600_000);
+  });
+
+  it('takes an office’s agents, areas and associations off the sites with it, and keeps those another office on the sites has', async () => {
+    seed(fake);
+    // Bo works at both offices; the second office has its own area and housing association.
+    const bo = {
+      id: 'U2',
+      name: 'Bo',
+      offices: [
+        { id: OFFICE, customerId: OFFICE, orderNumber: 2 },
+        { id: 'M2', customerId: 'M2', orderNumber: 1 },
+      ],
+      changedAt: CHANGED,
+    };
+    fake.put(OFFICE, 'agent', bo);
+    fake.put('M2', 'agent', bo);
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
+    fake.put('M2', 'area', { id: 'A2', name: 'Söder', changedAt: CHANGED });
+    fake.put('M2', 'association', { id: 'F2', name: 'Brf Månen', changedAt: CHANGED });
+    fake.put(
+      'M2',
+      'property',
+      estate('OBJ2', 'M2', {
+        primaryAgentId: 'U2',
+        projectId: null,
+        address: { streetAddress: 'Storgatan 2', area: { id: 'A2', name: 'Söder' } },
+        extensions: { housingCooperative: { association: { id: 'F2' } } },
+      }),
+    );
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
+    await drainFetchList();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE, 'M2'] });
+    const records: [string, string][] = [
+      ['agent', 'U1'],
+      ['area', 'A1'],
+      ['association', 'F1'],
+      ['agent', 'U2'],
+      ['area', 'A2'],
+      ['association', 'F2'],
+    ];
+    for (const [datatype, id] of records)
+      expect((await item(datatype, id))?.['deleted'], id).toBe(false);
+
+    // The brokerage keeps only the second office on its website.
+    fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices: [{ id: 'M2' }] }]);
+    await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+    await runSchedules();
+    await drainFetchList();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: ['M2'], source: 'group' });
+    // Anna, the area Centrum and Brf Solen belonged to the first office only, so they go.
+    for (const [datatype, id] of records.slice(0, 3))
+      expect((await item(datatype, id))?.['deleted'], id).toBe(true);
+    // Bo still works at the second office: never removed, not even for a moment.
+    for (const [datatype, id] of records.slice(3))
+      expect((await item(datatype, id))?.['deleted'], id).toBe(false);
+    expect((await timelineOf('agent', 'U2')).map((row) => row.type)).not.toContain(
+      'entity.tombstoned',
+    );
+  });
+
+  it('keeps an agent who leaves one of two offices on the sites, and removes one who leaves the only one', async () => {
+    seed(fake);
+    const bo = {
+      id: 'U2',
+      name: 'Bo',
+      offices: [
+        { id: OFFICE, customerId: OFFICE },
+        { id: 'M2', customerId: 'M2' },
+      ],
+      changedAt: CHANGED,
+    };
+    fake.put(OFFICE, 'agent', bo);
+    fake.put('M2', 'agent', bo);
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
+    await drainFetchList();
+    expect((await item('agent', 'U2'))?.['deleted']).toBe(false);
+
+    // Bo leaves the first office and Anna leaves her only one: Vitec sends a Remove for each.
+    fake.remove(OFFICE, 'agent', 'U2');
+    fake.remove(OFFICE, 'agent', 'U1');
+    await hook({ type: 'User', event: 'Remove', customerId: OFFICE, id: 'U2' });
+    await hook({ type: 'User', event: 'Remove', customerId: OFFICE, id: 'U1' });
+    await drainFetchList();
+
+    expect((await item('agent', 'U2'))?.['deleted']).toBe(false);
+    expect((await item('agent', 'U1'))?.['deleted']).toBe(true);
+    expect(await store.isKnown(LIVE_OFFICE, 'agent', 'U2')).toBe(false);
+    expect(await store.isKnown({ environment: 'live', officeId: 'M2' }, 'agent', 'U2')).toBe(true);
+
+    // Bo leaves the second office too: now he goes.
+    fake.remove('M2', 'agent', 'U2');
+    await hook({ type: 'User', event: 'Remove', customerId: 'M2', id: 'U2' });
+    await drainFetchList();
+    expect((await item('agent', 'U2'))?.['deleted']).toBe(true);
   });
 
   it('ignores offices typed on the connection, and reloads Vitec’s choice when the engine empties the list', async () => {
@@ -1688,6 +1787,8 @@ describe('the Vitec adapter', () => {
     expect(takenOff.map((row) => row.fields['reason'])).toEqual([switched, switched]);
     expect(takenOff[0]?.correlation_id).toEqual(expect.any(String));
     expect(takenOff[1]?.correlation_id).toBe(takenOff[0]?.correlation_id);
+    // Nothing of live Vitec stays, its agents included, until the QA environment's load brings them.
+    expect((await item('agent', 'U1'))?.['deleted']).toBe(true);
   });
 
   it('checks the offices at the next tick after a refusal at a fetch', async () => {

@@ -36,7 +36,7 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import * as connect from './api.js';
 import * as store from './store.js';
 import * as forms from './forms.js';
-import { changedAtOf, isoDate, mappers, referencedIds } from './mappers.js';
+import { changedAtOf, isoDate, mappers, OFFICELESS, referencedIds } from './mappers.js';
 import { hookPath, refetchOffice, vitecAdmin } from './admin/index.js';
 import {
   type AdminThing,
@@ -634,15 +634,12 @@ async function withinPause(claimed: store.Entry[], targets: Live[]): Promise<sto
 
 /**
  * One record: fetched once and ingested into every connection that licenses its office, or, on a
- * removal, tombstoned in each of them without a fetch: the record left the sites' scope.
+ * removal, let go in each of them without a fetch: the record left the sites' scope.
  */
 async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi): Promise<void> {
   const owners = targets.filter((target) => syncs(target, entry));
   if (entry.reason === 'remove') {
-    for (const { connection } of owners) {
-      await current.notFound(connection, entry.datatype, entry.remoteId);
-    }
-    await store.forget(entry, entry.datatype, entry.remoteId);
+    await letGo(current, entry, owners);
     return;
   }
   const first = owners[0];
@@ -681,10 +678,7 @@ async function fetchOne(entry: store.Entry, targets: Live[], current: AdapterApi
   try {
     await noteSuccess(current, first);
     if (payload === null) {
-      for (const { connection } of owners) {
-        await current.notFound(connection, entry.datatype, entry.remoteId);
-      }
-      await store.forget(entry, entry.datatype, entry.remoteId);
+      await letGo(current, entry, owners);
       return;
     }
     for (const { connection } of owners) {
@@ -757,6 +751,33 @@ async function queueReferences(entry: store.Entry, payload: unknown): Promise<vo
 
 /** What Vitec lists, per datatype and office: each id with its change date. */
 type Listed = Map<Datatype, Map<string, Map<string, string | null>>>;
+
+/**
+ * A record its office no longer has: tombstoned in each connection that syncs the office, so the
+ * sites delete it. An agent, an area or an association stays in a connection while another office
+ * the connection syncs still has it (Patric, 2026-10-19: "Agents can belong to multiple offices,
+ * if they still belong to another office, then they are kept").
+ */
+async function letGo(current: AdapterApi, entry: store.Entry, owners: Live[]): Promise<void> {
+  for (const { connection, offices } of owners) {
+    const others = offices.filter((officeId) => officeId !== entry.officeId);
+    if (await stillHas(entry.environment, others, entry.datatype, entry.remoteId)) continue;
+    await current.notFound(connection, entry.datatype, entry.remoteId);
+  }
+  await store.forget(entry, entry.datatype, entry.remoteId);
+}
+
+/** Whether one of the offices still has this record of no office: an agent, an area or an association. */
+async function stillHas(
+  environment: connect.Environment,
+  offices: readonly string[],
+  datatype: Datatype,
+  remoteId: string,
+): Promise<boolean> {
+  if (!OFFICELESS.includes(datatype)) return false;
+  const under = offices.map((officeId) => ({ environment, officeId }));
+  return (await store.knownUnder(under, datatype, [remoteId])).size > 0;
+}
 
 /**
  * Every id Vitec lists for the given offices, per datatype and office, blocked offices left out.
@@ -982,11 +1003,13 @@ async function settleSwitch(current: AdapterApi, target: Live): Promise<Live> {
   const [now, other] = toQa
     ? ['Vitec’s QA environment, Vitec’s test system', 'live Vitec']
     : ['live Vitec', 'Vitec’s QA environment'];
-  const reason = `someone switched the connection’s login to ${now}, on the tenant’s page. The homes, new-build projects and offices ${other} gave left the sites, and their agents stay. Core now loads the offices from ${toQa ? 'the QA environment' : 'live Vitec'}. Nothing needs doing if the switch was meant. To undo it, type ${toQa ? 'no' : 'yes'} in the field “Use Vitec’s QA environment” on the tenant’s page and save.`;
+  const reason = `someone switched the connection’s login to ${now}, on the tenant’s page. Everything ${other} gave left the sites: its offices with their homes, new-build projects, agents, areas and housing associations. Core now loads the offices from ${toQa ? 'the QA environment' : 'live Vitec'}. Nothing needs doing if the switch was meant. To undo it, type ${toQa ? 'no' : 'yes'} in the field “Use Vitec’s QA environment” on the tenant’s page and save.`;
   // One switch, one cause: every office it takes off shares one id.
   const correlationId = randomUUID();
+  // Nothing stays of the other system, so its agents, areas and associations go with its offices.
+  const gone = { ...target, offices: [] };
   for (const officeId of before.offices) {
-    await takeOff(current, connection, officeId, reason, before.names[officeId], correlationId);
+    await takeOff(current, gone, officeId, reason, before.names[officeId], correlationId);
   }
   await store.clearState(connection.id);
   return { ...target, offices: [] };
@@ -1016,7 +1039,7 @@ async function checkAndApply(current: AdapterApi, target: Live): Promise<Live> {
     const reason = takenOffBecause(check, officeId);
     const correlationId = causes.get(reason) ?? randomUUID();
     causes.set(reason, correlationId);
-    await takeOff(current, connection, officeId, reason, name, correlationId);
+    await takeOff(current, next, officeId, reason, name, correlationId);
   }
   // A hold that began after this check started waits for the next one, at the next tick.
   const held = await heldSince(connection.id);
@@ -1084,19 +1107,31 @@ async function unblockReadable(
  * An office no longer synced (Patric, 2026-10-06: "an office that is removed regardless of method
  * needs to have their data pulled from client sites"): every record of it is tombstoned, so each
  * site deletes it at its next sync, and the tombstone stays for the engine's retention window.
- * Offices taken off for one cause carry the same correlation id.
+ * Agents, areas and associations carry no office, so the connection keeps only those an office it
+ * still syncs has (Patric, 2026-10-19: "Any orphaned agents are deleted"). Offices taken off for
+ * one cause carry the same correlation id.
  */
 async function takeOff(
   current: AdapterApi,
-  connection: Connection,
+  target: Live,
   officeId: string,
   reason: string,
   name: string | null | undefined,
   correlationId: string,
 ): Promise<void> {
   if (!officeId) return; // an empty office would be every office
-  for (const datatype of DATATYPES)
-    await current.presentIds(connection, datatype, { officeId }, []);
+  const { connection, credentials } = target;
+  for (const datatype of DATATYPES) {
+    if (!OFFICELESS.includes(datatype))
+      await current.presentIds(connection, datatype, { officeId }, []);
+  }
+  const staying = target.offices
+    .filter((office) => office !== officeId)
+    .map((office) => ({ environment: credentials.environment, officeId: office }));
+  for (const datatype of OFFICELESS) {
+    const kept = await store.knownUnder(staying, datatype);
+    await current.presentIds(connection, datatype, { officeId: null }, [...kept]);
+  }
   // For the super admin's notifications (question 159 a): told once, at the moment it goes, with
   // the office's name as Vitec last gave it, since its own record is a tombstone by now.
   await current.logEvent(
@@ -1108,7 +1143,7 @@ async function takeOff(
 
 /** What leaving the sites took, said after every reason an office leaves them. */
 const LEFT =
-  'Its homes, its new-build projects and the office itself left the sites, and its agents stay.';
+  'The office left the sites with its homes, new-build projects, agents, areas and housing associations, except what another office on the sites also has, such as an agent who works at both.';
 
 /** Why an office the last check synced is not synced now, in plain words. */
 function takenOffBecause(check: OfficesCheck, officeId: string): string {
@@ -1409,7 +1444,7 @@ async function refusedHealth(current: AdapterApi): Promise<HealthResult> {
   return {
     ok: false,
     level: 'P2',
-    detail: `Vitec refuses to let Core read ${counted(blocked.length, 'office', 'offices')}. Each stays on the sites for a day after the first refusal, without updates, and then leaves them with its homes and new-build projects if Vitec still refuses it. Its agents stay. Ask the brokerage about a refused office. Core asks Vitec about it again only at the daily office check, and “Fetch offices” on the tenant’s page asks within a minute.`,
+    detail: `Vitec refuses to let Core read ${counted(blocked.length, 'office', 'offices')}. Each stays on the sites for a day after the first refusal, without updates, and then leaves them if Vitec still refuses it, with its homes, new-build projects, agents, areas and housing associations, except what another office on the sites also has, such as an agent who works at both. Ask the brokerage about a refused office. Core asks Vitec about it again only at the daily office check, and “Fetch offices” on the tenant’s page asks within a minute.`,
     names,
   };
 }

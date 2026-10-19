@@ -60,7 +60,12 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   and one password for every call, Patric 2026-10-06). The offices that read and sit in the group "webbplats" (any case) are synced; with no
   such group, or none of its offices readable, every office that reads is. An office that came is
   loaded; one that went is tombstoned with all its records (`presentIds` per datatype, scoped to the
-  office), so each site deletes it at its next sync. A check Vitec did not answer (down, busy,
+  office), so each site deletes it at its next sync. Agents, areas and associations carry no
+  office, so the connection keeps only those `vitec_known` has under an office it still syncs, and
+  tombstones the rest (`presentIds` for the whole connection; Patric, 2026-10-19: "Any orphaned
+  agents are deleted"). A record of no office removed under one office, by the comparison, a
+  `Remove` or a fetch answering 404, stays in a connection while another office it syncs still has
+  it: an agent who works at two offices and leaves one stays. A check Vitec did not answer (down, busy,
   broken) keeps the last offices and is tried again within the hour. An office Vitec refuses (401
   or 403, on its own or with its whole id; question 158 b) stays synced for a day of grace
   (`REFUSAL_GRACE_MS`, the first refusal's time carried from check to check, an office behind an
