@@ -1823,6 +1823,8 @@ describe('the Vitec adapter', () => {
         licensedOffices: [],
       });
       await runSchedules();
+      // The QA environment's load runs in the background; wait for it, so nothing races it.
+      await drainFetchList();
     } finally {
       connect.pointQaAt(null);
     }
@@ -1835,8 +1837,13 @@ describe('the Vitec adapter', () => {
     expect(takenOff.map((row) => row.fields['reason'])).toEqual([switched, switched]);
     expect(takenOff[0]?.correlation_id).toEqual(expect.any(String));
     expect(takenOff[1]?.correlation_id).toBe(takenOff[0]?.correlation_id);
-    // Nothing of live Vitec stays, its agents included, until the QA environment's load brings them.
-    expect((await item('agent', 'U1'))?.['deleted']).toBe(true);
+    // Nothing of live Vitec stays, its agents included: removed at the switch, and written again
+    // from the QA environment by its load (a fetch of it repeated meanwhile changes nothing).
+    const history = (await timelineOf('agent', 'U1'))
+      .map((row) => row.type)
+      .filter((type) => type === 'entity.written' || type === 'entity.tombstoned');
+    expect(history).toEqual(['entity.written', 'entity.tombstoned', 'entity.written']);
+    expect((await item('agent', 'U1'))?.['deleted']).toBe(false);
   });
 
   it('checks the offices at the next tick after a refusal at a fetch', async () => {
