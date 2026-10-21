@@ -4,10 +4,29 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 226 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 227 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 226. `[crm-vitec]` `[core]` Fetch again by itself a record Core could not save, once a new version starts
+
+- 2026-10-21 · Staging's health has been red since 2026-10-18 for one record: a housing
+  cooperative of office M12462 (`ADRF7ACAE80521B40F299C00CC09DCE5F53`, Sentry KOWBOY-CORE-1N)
+  that Vitec sent with a null character in its text, which Core's database could not store. Core
+  gave up on it after 7 tries (2026-10-18 20:18 UTC). The fault was Core's, and Core stores such
+  text since a3e6ac2 (2026-10-18 20:48 UTC), but a record given up on is fetched again only when
+  someone presses "Retry now" in the admin, or when Vitec reports a change to it. New line: when a
+  new version of Core starts, the Vitec code fetches again, once, every record it gave up on
+  because Core could not save it (not those Vitec refused or failed to serve), since the new
+  version may store it; the one left now then loads at the next staging deploy. That is one more
+  fetch per such record per new version, from an office that answers, so the IP-ban rule holds.
+  The thread "New admin panel from the spec" holds the Vitec code's lines until 199 is on staging,
+  so the change goes through it.
+- Blocked: staging's health, and with it the early release (207 a).
+- a) yes: such records are fetched again by themselves after each new version (recommended: a fix
+  to Core then needs no one's hands).
+- b) no: you press "Retry now" beside it in the admin's fetch list.
 
 ## 225. `[client-wordpress]` Does a home that is not for sale, coming or sold get a page on the website?
 
@@ -53,39 +72,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 - Blocked: nothing; the lines stay on staging meanwhile.
 - a) ok: all 37 lines (recommended).
 - b) ok, except the lines named.
-
-## 219. `[client-wordpress]` Sharp photos: the CDN's worker shrinks its copies with a sharp filter and gets a 768 step
-
-- Volume assumed: none for the recommended option, which costs nothing per view. Option b's
-  figures assume 1,046 properties (Core's totals through the two staging sites on 2026-10-19:
-  Norban 547, Ahre 499, every status), 3 photos per card and 6 widths per photo at most.
-- 2026-10-19 · Patric: "Images overall feel low resolution. I see it on property lists, agent
-  list, agent inside of property page or agent page." Measured on the Norban demo at Windows'
-  100 %, 125 % and 150 %: the theme picks a large enough file everywhere (never stretched), but
-  the CDN's smaller copies (480 to 1600 wide) are shrunk from the 1920 photo with a soft filter
-  and hold about half the fine detail of a sharp shrink (a 1024 copy: 961 against 1956, the
-  variance of the Laplacian), and the browser then shrinks that copy again to the box. Patric,
-  15:26: the CDN is custom code on a worker, and its whitelisted widths force cache hits and few
-  variants; the browser's second shrink is hard to get rid of on a responsive site.
-- Measured on screen (card photo, Laplacian variance, higher is sharper), at 100 % and 125 %:
-  today 772 and 426; a sharp (Lanczos) shrink at the worker's same widths 1199 and 701; a copy at
-  the exact size of the box 1362 and 813. So the second shrink costs little once the copy is
-  sharp. The agent photo at 125 % is the exception: the browser shrinks its 1024 copy more than
-  twice, which Chrome draws from a half-size version, so it stays soft (179, 181 with a sharp
-  copy); with a 768 step and a sharp shrink it is 362 (exact size 333). A light sharpening after
-  the shrink measures higher still but leaves a visible halo on edges, so it is not proposed.
-  The side by side at 125 % is `/mnt/project-files/kowboy-2026/photos-sharp-shrink-at-the-cdn.png`.
-- The worker is outside this repository. Its change: shrink with Lanczos, allow 768, and remake
-  the copies already stored. The copies are served `immutable` for 180 days, so browsers keep
-  the soft ones unless the address changes; the theme then adds a version to the smaller widths
-  (the worker ignores a query string, tried 2026-10-19) and lists the 768 step.
-- Blocked: sharp photos on the sites.
-- a) worker: the worker shrinks sharply and allows 768; the theme adds the version and the
-  step (recommended: no cost per view, every site and every photo, the whitelist stays).
-- b) Cloudflare: the theme bypasses the worker for card and agent photos with Cloudflare's own
-  resizing at 6 widths: at most 18 sizes, $0.009, per property a month above 5,000 free sizes,
-  $6.91 a month for 1,046 properties (developers.cloudflare.com/images/pricing, read 2026-10-19).
-- c) keep the photos as they are.
 
 ## 208. `[core]` Default: the project is done when the first brokerage runs on live, and what the plan marks Later waits for a new project
 

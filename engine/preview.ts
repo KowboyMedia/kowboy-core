@@ -4,7 +4,7 @@
 // cannot be mapped or does not fit the schema stops the release. `node dist/main.js preview` runs
 // it as the release's first step, against the database of the app being released (the job
 // "preview" in .do/app.yaml), and its lines go into the release note.
-import { inWords } from './admin/words.js';
+import { inWords, number } from './admin/words.js';
 import { recompute, type Progress } from './recompute.js';
 import { closeDb, db } from './storage/db.js';
 
@@ -31,7 +31,7 @@ const short = (value: unknown): string => {
 /** The preview as lines for the release's log and its release note. */
 export function previewInWords(report: Progress): string[] {
   const lines = [
-    `Release preview: ${inWords(report.examined, 'record', 'records')} read from the database, nothing written. ${String(report.changed)} would change, ${String(report.unchanged)} stay the same, ${String(report.failed)} fail.`,
+    `Release preview: ${inWords(report.examined, 'record', 'records')} read from the database, nothing written. ${number(report.changed)} would change, ${number(report.unchanged)} stay the same, ${number(report.failed)} fail.`,
   ];
   for (const example of report.examples) {
     const fields = Object.entries(example.changed).map(

@@ -15,7 +15,7 @@ $min_spaces = [30, 40, 50, 60, 70, 80, 90, 100, 120, 150];
 $min_rooms = [1, 2, 3, 4, 5, 6];
 $chosen = fn (string $key): string => isset($_GET[$key]) ? sanitize_text_field((string) $_GET[$key]) : '';
 ?>
-<form class="k-search" method="get" action="">
+<form class="k-search" method="get" action="" data-filters>
     <label class="k-search__field"><span class="k-visually-hidden">Max pris</span>
         <select name="max_price"><option value="">Max pris</option>
             <?php foreach ($max_prices as $price) : ?><option value="<?php echo (int) $price; ?>" <?php selected($chosen('max_price'), (string) $price); ?>><?php echo esc_html(number_format($price, 0, ',', ' ') . ' kr'); ?></option><?php endforeach; ?>

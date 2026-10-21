@@ -1,7 +1,7 @@
 // The place search box (includes/place-search.php, docs/search.md): Tom Select (lib/tom-select)
 // over the multi-select the page rendered, the chosen places as pills, every change written to
 // the hidden fields and the address and sent to the list on the page, which reloads its cards
-// (the set's list script listens for `core-list:params`). Typing without choosing searches the
+// (the plugin's list script, assets/list.js, listens for `core-list:params`). Typing without choosing searches the
 // words as free text, with the pills saying where (Default 134): Enter sends them when no place
 // matches, and the form's button always. Plain JavaScript, on the page and inside every shadow
 // root the plugin opens; no build step.

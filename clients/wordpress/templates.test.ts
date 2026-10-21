@@ -1223,6 +1223,38 @@ describe('the plugin’s set machinery, with a set plugin', () => {
     }
   });
 
+  it('runs a list in the browser on the plugin’s own script in any theme whose wrapper carries the list’s attributes, and loads it on no other page (198 a)', async () => {
+    await driver('theme', 'twentytwentyone');
+    await driver('option', 'core_client_template_set "fixture"');
+    mkdirSync(THEME_OVERRIDES, { recursive: true });
+    try {
+      // The fixture's wrapper carries no attributes: no list script.
+      let { body } = await page('/?post_type=core_property');
+      expect(body).toContain('<div class="fixture-list">');
+      expect(body).not.toContain('core-client/assets/list.js');
+      // Another theme's wrapper with the attributes gets the plugin's script, with nothing of Kowboy 2026.
+      writeFileSync(
+        join(THEME_OVERRIDES, 'list-property.php'),
+        '<?php ?><section class="theme-list" <?php echo core_client_list_data($params, $result); ?>><div data-cards><?php echo $cards; ?></div></section>',
+      );
+      ({ body } = await page('/?post_type=core_property'));
+      expect(body).toMatch(
+        /<section class="theme-list" data-list="property" data-reload="[^"]+core\/v1\/list"/,
+      );
+      expect(body).toContain('core-client/assets/list.js');
+      expect(body).not.toContain('kowboy-2026.js');
+    } finally {
+      rmSync(THEME_OVERRIDES, { recursive: true, force: true });
+      await driver('option', 'core_client_template_set ""');
+      await driver('theme', 'kowboy-2026');
+    }
+    // Kowboy 2026's lists run on it too, and a page without a list loads none.
+    expect((await page('/?post_type=core_property')).body).toContain('core-client/assets/list.js');
+    expect((await page(await permalink('property', 'P-3'))).body).not.toContain(
+      'core-client/assets/list.js',
+    );
+  });
+
   it('registers the two list blocks in the plugin, renders them through the set’s views restricted to the picks, serves the picks to an editor only, and leaves the theme’s wrappers their background and text card', async () => {
     const registered = JSON.parse(
       (

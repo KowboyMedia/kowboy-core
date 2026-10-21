@@ -193,10 +193,17 @@ the parameter (WordPress's own drops the query), so each page is read as its own
 names `page`, as an archive paging by WordPress's own `/page/N/` does, gets that page alone and
 no parameter. A wrapper builds its links with `core_client_list_page_url($result, $n)` and
 carries `core_client_list_data($params, $result)`, the attributes a script needs: the reload
-address and parameters, the pages shown, the parameter and the cards' fingerprint. Kowboy 2026's
-script refreshes every list once on load with them, so a page served from a page cache shows the
-cards as they are now, and replaces them only when the fingerprint changed; its "Visa fler" is a
-link to the next page, which the script loads in place, keeping the address in step.
+address and parameters, the pages shown, the parameter and the cards' fingerprint, and it loads
+the plugin's list script (`assets/list.js`) on that page, so a list works in the browser in any
+theme (Patric, 198 a). The script refreshes every list once on load, so a page served from a page
+cache shows the cards as they are now, and replaces them only when the fingerprint changed; its
+"Visa fler" is a link to the next page, which the script loads in place, keeping the address in
+step; tabs, filters and the place search start again from the first page. The look stays the
+theme's: the script finds the parts by their attributes, `[data-cards]`, `[data-more]`,
+`[data-empty]`, `[data-tab]` (its value is the status) and `form[data-filters]`, puts `is-loading`
+on the list while cards load, and after new cards go in sends `core-list:cards` from the list with
+the cards' element as `detail.cards`, for what the theme's cards need (Kowboy 2026 starts their
+photo sliders).
 
 **The search box** (`includes/place-search.php`, `docs/search.md`): one function,
 `core_client_place_search($params)`, draws the box for any set that calls it (the theme Kowboy
@@ -208,7 +215,7 @@ Select (`lib/tom-select`, question 140 a) turns the select into a combo box with
 places as pills; the plugin's script and stylesheet (`assets/place-search.js`, `.css`) set it up
 and shape it, and all four files load only in a request that drew a box, inside a shadow root
 too. A choice, a removed pill and the form's submit send the form's fields to the list on the
-page as one event, `core-list:params` on the `[data-list]` element (the set's list script merges
+page as one event, `core-list:params` on the `[data-list]` element (the plugin's list script merges
 the detail into its parameters and reloads from the first page), and write them to the address;
 without a list on the page the form loads the page with them. Words that are no place search as
 free text with the pills saying where (Default 134).
