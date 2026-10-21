@@ -4,10 +4,29 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 226 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 227 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 226. `[crm-vitec]` `[core]` Fetch again by itself a record Core could not save, once a new version starts
+
+- 2026-10-21 · Staging's health has been red since 2026-10-18 for one record: a housing
+  cooperative of office M12462 (`ADRF7ACAE80521B40F299C00CC09DCE5F53`, Sentry KOWBOY-CORE-1N)
+  that Vitec sent with a null character in its text, which Core's database could not store. Core
+  gave up on it after 7 tries (2026-10-18 20:18 UTC). The fault was Core's, and Core stores such
+  text since a3e6ac2 (2026-10-18 20:48 UTC), but a record given up on is fetched again only when
+  someone presses "Retry now" in the admin, or when Vitec reports a change to it. New line: when a
+  new version of Core starts, the Vitec code fetches again, once, every record it gave up on
+  because Core could not save it (not those Vitec refused or failed to serve), since the new
+  version may store it; the one left now then loads at the next staging deploy. That is one more
+  fetch per such record per new version, from an office that answers, so the IP-ban rule holds.
+  The thread "New admin panel from the spec" holds the Vitec code's lines until 199 is on staging,
+  so the change goes through it.
+- Blocked: staging's health, and with it the early release (207 a).
+- a) yes: such records are fetched again by themselves after each new version (recommended: a fix
+  to Core then needs no one's hands).
+- b) no: you press "Retry now" beside it in the admin's fetch list.
 
 ## 225. `[client-wordpress]` Does a home that is not for sale, coming or sold get a page on the website?
 
