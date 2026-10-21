@@ -2521,6 +2521,131 @@ body {
   display: inline;
 }
 
+/* ---- How a CRM connection is coming along (rows 33, 41, 56, 64, 71, 75 and 111) ------------- */
+
+.k-card-warning {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 20px;
+}
+.k-accepted {
+  margin-bottom: 24px;
+}
+.k-check-bar {
+  margin-top: 8px;
+}
+.k-foot-note-start {
+  text-align: left;
+  white-space: normal;
+}
+.k-check-done {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 0;
+  color: var(--k-green);
+  line-height: 20px;
+}
+.k-check-done svg {
+  flex: none;
+  margin-top: 1px;
+}
+.k-ask {
+  margin-top: 4px;
+}
+.k-ask-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.k-ask-intro {
+  margin: 0;
+  color: var(--k-muted);
+  font-size: 13px;
+  line-height: 19px;
+}
+.k-ask-copy {
+  flex: none;
+}
+.k-ask-steps {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.k-ask-step {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--k-line);
+}
+.k-ask-step:last-child {
+  border-bottom: 0;
+}
+.k-ask-n {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  color: var(--k-strong);
+  font-size: 12px;
+  font-weight: 600;
+}
+.k-ask-body {
+  flex: 1;
+  min-width: 0;
+}
+.k-ask-text {
+  margin: 0;
+  color: var(--k-text);
+  line-height: 20px;
+}
+.k-ask-value {
+  margin-top: 8px;
+}
+/* An address breaks at its slashes where it can, not inside its hidden end. */
+.k-ask-value .k-value-wrap code {
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+.k-ask-plain {
+  margin: 6px 0 0;
+  color: var(--k-text);
+}
+.k-ask-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 18px;
+}
+.k-ask-note svg {
+  flex: none;
+  margin-top: 2px;
+}
+.k-ask-note-ok {
+  color: var(--k-green);
+}
+.k-ask-note-bad {
+  color: var(--k-red);
+}
+.k-ask-note-warn {
+  color: var(--k-yellow);
+}
+.k-ask-note-muted {
+  color: var(--k-muted);
+}
+.k-ask-meanwhile {
+  margin: 12px 0 0;
+  color: var(--k-muted);
+  font-size: 13px;
+  line-height: 19px;
+}
+
 @media (max-width: 640px) {
   .k-tabs,
   .k-account .k-chevron,
@@ -2722,5 +2847,24 @@ body {
   .k-sync-option {
     gap: 12px;
     padding: 12px;
+  }
+  .k-ask-head {
+    flex-wrap: wrap;
+  }
+  /* A step's value takes the whole width, with Show and Copy under it. */
+  .k-ask-value .k-value {
+    flex-wrap: wrap;
+  }
+  .k-ask-value .k-value code {
+    flex-basis: 100%;
+  }
+  .k-ask-value .k-field-button {
+    flex: 1;
+    justify-content: center;
+    min-height: 40px;
+    border-top: 1px solid var(--k-field);
+  }
+  .k-ask-value code + .k-field-button {
+    border-left: 0;
   }
 }

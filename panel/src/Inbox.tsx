@@ -1,6 +1,7 @@
 // The Inbox (design B, images 05, 13 to 16, 19 to 22 and 43 to 45, and the tenant mockups, image
 // 26): Core's state, then what needs you, urgent first and then oldest first; what waits after
-// someone acted; and what was fixed today. The page reads again
+// someone acted, and the CRM connections still waiting for their CRM's first notice, each with what
+// to ask the CRM's admin for; and what was fixed today. The page reads again
 // by itself, so a problem that is put right moves to "Fixed today". Each card's button opens its
 // window: fix a website's bell secret; "Enter new login" opens the connection's
 // own screen; "Retry 3 properties" has the CRM fetch them again at once; "Open <tenant>" opens the
@@ -18,18 +19,31 @@ import {
   type Level,
   type LoginCard,
   type RecordsCard,
+  type SetupCard,
   type SiteCard,
   type Tenant,
   type WorkerCard,
 } from './api';
 import { Shell, useShell } from './Shell';
-import { ago, ahead, capital, clock, counted, listed, sameDay, sentWhen, when } from './time';
+import {
+  ago,
+  ahead,
+  capital,
+  clock,
+  counted,
+  listed,
+  onDay,
+  sameDay,
+  sentWhen,
+  when,
+} from './time';
 import {
   AlertTriangleIcon,
   CheckIcon,
   CircleCheckIcon,
   CopyIcon,
   KeyIcon,
+  ListIcon,
   LoaderIcon,
   PencilIcon,
   RefreshIcon,
@@ -38,6 +52,8 @@ import { failureWords } from './failure';
 import { Modal, useNote, ValueField } from './ui';
 import { isPlatform, platformWords } from './websites';
 import { recordPath } from './records';
+import { owning, shortName } from './connect';
+import { AskFor, ended, reachWords } from './progress';
 
 const EVERY_MS = 30_000;
 
@@ -48,7 +64,7 @@ const LEVELS: Record<Level, { words: string; colour: string }> = {
 };
 
 /** What a card's buttons open. */
-type Open = { kind: 'bell'; card: SiteCard } | null;
+type Open = { kind: 'bell'; card: SiteCard } | { kind: 'ask'; card: SetupCard } | null;
 
 type Opener = (open: Open) => void;
 
@@ -496,6 +512,50 @@ function retriedWords(card: RecordsCard, by: string): string {
   return `${by} had ${card.crm} fetch ${one ? (card.records[0]?.name ?? `the ${RECORD_WORDS[card.records[0]?.datatype ?? 'property'][0]}`) : `the ${recordsCounted(card.records)}`} again. Waiting for ${them} to load. This card moves to “Fixed today” by itself, or back to “Needs you” if Core gives up on ${one ? 'it' : 'one of them'} again.`;
 }
 
+/**
+ * A CRM connection still being set up (row 41, images 14, 16 and 22): its CRM has sent Core no
+ * notice yet. It waits here until the first one comes, with what to ask the CRM's admin for.
+ */
+function Setup({ card, now, onOpen }: { card: SetupCard; now: Date; onOpen: Opener }) {
+  const sites = listed(card.sites) || 'its websites';
+  const test = card.formsTestMode;
+  return (
+    <article className="k-card k-card-wait">
+      <div className="k-card-head">
+        <span className="k-pill k-pill-blue">Setting up</span>
+        <span className="k-card-who">
+          {card.tenant.name} · set up {onDay(card.since, now)}
+        </span>
+      </div>
+      <h3 className="k-card-title">Waiting for {owning(card.crm)} first notice</h3>
+      <p className="k-card-body">
+        {owning(shortName(card.tenant.name))} {card.crm} admin has to send {owning(card.crm)}{' '}
+        notices to Core. Until the first one comes, changes reach {sites} {ended(card.meanwhile)}
+      </p>
+      {test && (
+        <p className="k-warning k-card-warning">
+          <AlertTriangleIcon size={18} />
+          <span>
+            Forms test mode is on{test.since ? ` (since ${when(test.since, now)})` : ''}: forms from{' '}
+            {sites} don’t reach {card.crm}.
+          </span>
+        </p>
+      )}
+      <div className="k-card-actions">
+        <button
+          type="button"
+          className="k-button k-button-quiet"
+          onClick={() => onOpen({ kind: 'ask', card })}
+        >
+          <ListIcon />
+          See what to ask for
+        </button>
+        <OpenBrokerage tenant={card.tenant} />
+      </div>
+    </article>
+  );
+}
+
 /** "All 3 properties loaded", "Both properties loaded", "Ringvägen 52 loaded". */
 function loadedWords(counts: Record<string, number>, name: string | null): string {
   const records = Object.entries(counts).flatMap(([datatype, n]) =>
@@ -649,6 +709,33 @@ function BellSecretWindow({
   );
 }
 
+/** "See what to ask for" (row 71): the steps for the CRM's admin, as the check step shows them. */
+function AskWindow({ card, now, onClose }: { card: SetupCard; now: Date; onClose: () => void }) {
+  return (
+    <Modal
+      title={`Waiting for ${owning(card.crm)} first notice · ${card.tenant.name}`}
+      wide
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="k-button k-button-link" onClick={onClose}>
+            Close
+          </button>
+          <OpenBrokerage tenant={card.tenant} />
+        </>
+      }
+    >
+      <AskFor
+        crm={card.crm}
+        steps={card.steps}
+        meanwhile={card.meanwhile}
+        reach={reachWords(card.sites, true)}
+        now={now}
+      />
+    </Modal>
+  );
+}
+
 // ---- The page -------------------------------------------------------------------------------------
 
 function DownBanner({ inbox, now }: { inbox: Inbox; now: Date }) {
@@ -770,13 +857,16 @@ function InboxView({ inbox, onRead }: { inbox: Inbox; onRead: () => void }) {
           ))}
         </div>
       )}
-      {!down && inbox.waiting.length > 0 && (
+      {!down && inbox.waiting.length + inbox.setup.length > 0 && (
         <>
           <div className="k-section k-section-quiet">
             <h2>Waiting</h2>
           </div>
           {inbox.waiting.map((card) => (
             <WaitingCard key={card.key} card={card} now={now} />
+          ))}
+          {inbox.setup.map((card) => (
+            <Setup key={card.key} card={card} now={now} onOpen={setOpen} />
           ))}
         </>
       )}
@@ -785,6 +875,7 @@ function InboxView({ inbox, onRead }: { inbox: Inbox; onRead: () => void }) {
       {open?.kind === 'bell' && (
         <BellSecretWindow card={open.card} now={now} onClose={close} onDone={closeAndRead} />
       )}
+      {open?.kind === 'ask' && <AskWindow card={open.card} now={now} onClose={close} />}
     </>
   );
 }

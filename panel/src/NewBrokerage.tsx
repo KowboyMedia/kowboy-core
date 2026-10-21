@@ -1,10 +1,11 @@
 // A new tenant in four steps (design B, images 06 to 10, as the tenant mockups 17 to 20 change
 // them): its name, its CRM (which one, then that CRM's own screen), its website, and a check that
-// shows what is ready and what the website still needs. Each step has its own address, so a reload
-// keeps the step.
+// shows what is ready and what the website and the CRM still need: the first load, the offices the
+// CRM's office check put on the website, and what to ask the CRM's admin for until the CRM's first
+// notice comes. Each step has its own address, so a reload keeps the step.
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
-import { api, Refused, type Brokerage, type Crm } from './api';
+import { api, Refused, type Brokerage, type ConnectionView, type Crm } from './api';
 import { Shell, useShell, type Arrival } from './Shell';
 import { failureWords } from './failure';
 import { ArrowRightIcon, CheckIcon, CircleCheckIcon, LoaderIcon } from './icons';
@@ -19,7 +20,8 @@ import {
   websiteReady,
 } from './websites';
 import { CrmChoice, CrmFields, owning, saveCrm, shortName, TestNote, useCrmForm } from './connect';
-import { idOf } from './tenant';
+import { crmFor, idOf } from './tenant';
+import { AskFor, loading, officesOnTitle, officesOnWords, offWords, ProgressBar } from './progress';
 
 const EVERY_MS = 4_000;
 
@@ -282,15 +284,54 @@ function CrmForm({ id, page, crm }: { id: number; page: Brokerage; crm: Crm }) {
 
 // ---- 3. The website ---------------------------------------------------------------------------------
 
+/**
+ * "<CRM> accepted the login. It’s saved." (row 56, image 08), with the line under the connection's
+ * name and the offices its CRM's office check put on the website, once the check has come.
+ */
+function Accepted({ page, connection }: { page: Brokerage; connection: ConnectionView }) {
+  const crm = crmFor(page, connection.provider);
+  const check = connection.progress?.officeCheck ?? null;
+  const offices = check
+    ? `${officesOnWords(check)} Core is loading the data now.`
+    : connection.progress
+      ? `Core is asking ${crm.name} which offices go on the website.`
+      : null;
+  return (
+    <div className="k-banner k-banner-done k-accepted">
+      <CircleCheckIcon size={18} />
+      <div>
+        <p className="k-banner-title">{crm.name} accepted the login. It’s saved.</p>
+        {connection.describe && (
+          <p className="k-banner-text k-banner-line">{connection.describe}</p>
+        )}
+        {offices && <p className="k-banner-text k-banner-line">{offices}</p>}
+      </div>
+    </div>
+  );
+}
+
+/** The step's connection, once the tenant is read, and whether its office check is still to come. */
+function useAccepted(id: number, connectionId: string | null) {
+  const [asking, setAsking] = useState(connectionId !== null);
+  const read = useBrokerage(id, asking ? EVERY_MS : null);
+  const connection = read.page?.connections.find((one) => one.id === connectionId) ?? null;
+  const waits =
+    connection !== null && connection.progress !== null && !connection.progress.officeCheck;
+  useEffect(() => {
+    if (read.page) setAsking(waits);
+  }, [read.page, waits]);
+  return { ...read, connection };
+}
+
 function WebsiteStep({ id }: { id: number }) {
   const navigate = useNavigate();
   const { away } = useShell();
   const [params] = useSearchParams();
-  const { page, failed } = useBrokerage(id);
+  const connection = params.get('connection');
+  const { page, failed, connection: accepted } = useAccepted(id, connection);
   const [draft, setDraft] = useState(newWebsite);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const connection = params.get('connection');
   const check = (site?: number, warning?: string) => {
     const next = new URLSearchParams();
     if (connection) next.set('connection', connection);
@@ -340,6 +381,7 @@ function WebsiteStep({ id }: { id: number }) {
         </>
       }
     >
+      {page && accepted && <Accepted page={page} connection={accepted} />}
       {page && <h2 className="k-step-title">Add {owning(shortName(page.name))} website</h2>}
       {failed && !page && <p className="k-error">{failed} Reload the page to try again.</p>}
       <WebsiteFields draft={draft} onChange={setDraft} />
@@ -362,6 +404,55 @@ function Done({ title, children }: { title: ReactNode; children?: ReactNode }) {
   );
 }
 
+function Waiting({ title, children }: { title: ReactNode; children?: ReactNode }) {
+  return (
+    <li className="k-check">
+      <LoaderIcon className="k-check-icon k-check-wait" size={20} />
+      <div className="k-check-grow">
+        <div className="k-check-title">{title}</div>
+        {children}
+      </div>
+    </li>
+  );
+}
+
+/** The offices on the website, from the CRM's office check when it has come, else Core's records. */
+function Offices({ connection }: { connection: ConnectionView }) {
+  const check = connection.progress?.officeCheck ?? null;
+  if (check) {
+    const off = offWords(check.off);
+    return (
+      <Done title={officesOnTitle(check, (names) => names.join(', '))}>{off || undefined}</Done>
+    );
+  }
+  if (connection.offices.length === 0) return null;
+  return <Done title={`Offices on the website: ${connection.offices.join(', ')}`} />;
+}
+
+/** The first load (row 64, image 09): how far it has come, then what Core holds. */
+function Loaded({ connection }: { connection: ConnectionView }) {
+  const load = connection.progress?.firstLoad ?? null;
+  const still = load ? loading(load) : null;
+  if (still) {
+    return (
+      <li className="k-check">
+        <LoaderIcon className="k-check-icon k-check-wait" size={20} />
+        <div className="k-check-grow">
+          <div className="k-check-title">{still.words}</div>
+          {still.of > 0 && (
+            <div className="k-check-bar">
+              <ProgressBar done={still.done} of={still.of} />
+            </div>
+          )}
+        </div>
+      </li>
+    );
+  }
+  const loaded = loadedLine(connection.counts);
+  // A first load the CRM's code tells of is done even when the CRM listed nothing.
+  return loaded || load ? <Done title="Data loaded">{loaded || undefined}</Done> : null;
+}
+
 function CheckStep({ id }: { id: number }) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -373,21 +464,30 @@ function CheckStep({ id }: { id: number }) {
   const siteId = Number(params.get('site'));
   const site = page?.websites.find((one) => one.id === siteId);
   const platform = params.get('platform');
-  const loaded = connection ? loadedLine(connection.counts) : '';
   const now = new Date(page?.now ?? Date.now());
+  const notice = connection?.progress?.firstNotice ?? null;
+  // The CRM's first notice still waits (row 75): the one wait the Inbox keeps a card for.
+  const waits = notice !== null;
 
   return (
     <Wizard
       at={4}
       footer={
-        <button
-          type="button"
-          className="k-button k-button-primary k-end"
-          onClick={() => navigate(`/brokerages/${String(id)}`)}
-        >
-          <CheckIcon size={18} />
-          Finish
-        </button>
+        <>
+          {waits && (
+            <span className="k-foot-note k-foot-note-start">
+              Anything still waiting stays in your inbox until it’s done.
+            </span>
+          )}
+          <button
+            type="button"
+            className="k-button k-button-primary k-end"
+            onClick={() => navigate(`/brokerages/${String(id)}`)}
+          >
+            <CheckIcon size={18} />
+            Finish
+          </button>
+        </>
       }
     >
       <h2 className="k-step-title">Almost there</h2>
@@ -398,10 +498,8 @@ function CheckStep({ id }: { id: number }) {
           {connection && crm && (
             <Done title={`${crm.name} login accepted and saved`}>{connection.describe}</Done>
           )}
-          {connection && connection.offices.length > 0 && (
-            <Done title={`Offices on the website: ${connection.offices.join(', ')}`} />
-          )}
-          {loaded && <Done title="Data loaded">{loaded}</Done>}
+          {connection && <Offices connection={connection} />}
+          {connection && <Loaded connection={connection} />}
           {site?.lastFetchAt && (
             <Done title={`${site.label} is connected`}>
               It fetched its data at {when(site.lastFetchAt, now)}
@@ -409,18 +507,25 @@ function CheckStep({ id }: { id: number }) {
             </Done>
           )}
           {site && !site.lastFetchAt && (
-            <li className="k-check">
-              <LoaderIcon className="k-check-icon k-check-wait" size={20} />
-              <div className="k-check-grow">
-                <div className="k-check-title">Waiting for {site.label} to contact Core</div>
-                <SettingsToPaste
-                  coreUrl={page.coreUrl}
-                  token={page.token}
-                  bellSecret={site.bellSecret}
-                  platform={isPlatform(platform) ? platform : null}
-                />
-              </div>
-            </li>
+            <Waiting title={`Waiting for ${site.label} to contact Core`}>
+              <SettingsToPaste
+                coreUrl={page.coreUrl}
+                token={page.token}
+                bellSecret={site.bellSecret}
+                platform={isPlatform(platform) ? platform : null}
+              />
+            </Waiting>
+          )}
+          {connection && notice && (
+            <Waiting title={`Waiting for ${owning(connection.crm)} first notice`}>
+              <AskFor
+                crm={connection.crm}
+                steps={notice.steps}
+                meanwhile={notice.meanwhile}
+                reach={page.websites.length > 1 ? 'the websites' : 'the website'}
+                now={now}
+              />
+            </Waiting>
           )}
         </ul>
       )}

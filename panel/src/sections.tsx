@@ -23,7 +23,7 @@ const TONES: Record<'ok' | 'bad' | 'warn' | 'muted', Tone> = {
 };
 
 /** One value as the code gave it: plain, a coloured state, or a moment on Stockholm's clock. */
-function Shown({ value, now }: { value: ShownValue; now: Date }) {
+export function Shown({ value, now }: { value: ShownValue; now: Date }) {
   if (value === null) return null;
   if (typeof value === 'boolean') return <>{value ? 'Yes' : 'No'}</>;
   if (typeof value === 'string' || typeof value === 'number') return <>{value}</>;

@@ -3,7 +3,8 @@
 // tenant token and its switch, and the windows that confirm a delete. A connection's card says
 // what its CRM's code says of it and opens the code's own sections; the page names no CRM of its
 // own. The page updates by itself, so a website's new token and a delete reaching the websites
-// show without a reload.
+// show without a reload, and after a press on a connection's section button it follows the CRM's
+// office check and says what the next one found.
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { api, type Brokerage, type ConnectionView, type Website } from './api';
@@ -14,6 +15,7 @@ import { Badge, IconButton, Modal, Switch, useNote, ValueField, type Tone } from
 import {
   AlertTriangleIcon,
   ChevronDownIcon,
+  CircleCheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   PencilIcon,
@@ -30,6 +32,7 @@ import { SyncBanner, SyncWindow, useSync, type SyncTarget } from './sync';
 import { targetOf } from './Records';
 import { ConnectionSections } from './sections';
 import { idOf, Nothing, useTenant } from './tenant';
+import { checkDoneWords } from './progress';
 
 /** "a, b and c" for pieces of a sentence that are not plain text. */
 function joined(parts: ReactNode[]): ReactNode {
@@ -60,6 +63,74 @@ function holding(connection: ConnectionView): string[] {
 
 /** The word on the line that opens a connection's own sections: Core's name for its offices. */
 const OFFICES = 'Offices';
+
+/** How long an office the CRM's office check added is marked as added. */
+const ADDED_MS = 7 * 86_400_000;
+
+/**
+ * "Offices: Södermalm, Vasastan, Täby (added 10:09)": the offices the CRM's last office check put
+ * on the websites when its code tells of one (row 111), else the office records Core holds.
+ */
+function officesLine(connection: ConnectionView, now: Date): string {
+  const check = connection.progress?.officeCheck ?? null;
+  const names = check
+    ? check.on.map((office) =>
+        office.addedAt && now.getTime() - Date.parse(office.addedAt) < ADDED_MS
+          ? `${office.name} (added ${when(office.addedAt, now)})`
+          : office.name,
+      )
+    : connection.offices;
+  return `${OFFICES}: ${names.length > 0 ? names.join(', ') : check ? 'none' : 'none yet'}`;
+}
+
+/** How long the page follows a connection's office checks after a press on its section buttons. */
+const FOLLOW_MS = 120_000;
+
+/** A connection someone pressed a section button of: its last office check then, and until when. */
+type Follow = { before: number; until: number };
+
+/**
+ * After a press on one of a connection's section buttons, the next office check its CRM's code
+ * tells of, for up to two minutes (row 111): what it found, by the connection.
+ */
+function useOfficeChecks(page: Brokerage | null) {
+  const [follows, setFollows] = useState<Record<string, Follow>>({});
+  const [found, setFound] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!page) return;
+    const done: Record<string, string> = {};
+    const left: Record<string, Follow> = {};
+    let ended = false;
+    for (const [id, follow] of Object.entries(follows)) {
+      const connection = page.connections.find((one) => one.id === id);
+      const check = connection?.progress?.officeCheck ?? null;
+      if (check && Date.parse(check.at) > follow.before) {
+        done[id] = checkDoneWords(check, page.websites.length);
+        ended = true;
+      } else if (connection && Date.now() < follow.until) {
+        left[id] = follow;
+      } else {
+        ended = true;
+      }
+    }
+    if (!ended) return;
+    setFollows(left);
+    setFound((was) => ({ ...was, ...done }));
+  }, [page, follows]);
+  const follow = useCallback((connection: ConnectionView) => {
+    const progress = connection.progress;
+    if (!progress) return;
+    const at = progress.officeCheck?.at;
+    setFollows((all) => ({
+      ...all,
+      [connection.id]: { before: at ? Date.parse(at) : 0, until: Date.now() + FOLLOW_MS },
+    }));
+    setFound((was) =>
+      Object.fromEntries(Object.entries(was).filter(([id]) => id !== connection.id)),
+    );
+  }, []);
+  return { following: Object.keys(follows).length > 0, found, follow };
+}
 
 // ---- Websites ---------------------------------------------------------------------------------------
 
@@ -191,16 +262,20 @@ function DeleteWebsiteWindow({
 const CONNECTION_STATUS: Record<ConnectionView['status'], { words: string; tone: Tone }> = {
   ok: { words: 'OK', tone: 'green' },
   look: { words: 'Needs a look', tone: 'orange' },
+  setup: { words: 'Waiting for first notice', tone: 'blue' },
 };
 
 function ConnectionRow({
   page,
   connection,
+  checkDone,
   onDelete,
   onActed,
 }: {
   page: Brokerage;
   connection: ConnectionView;
+  /** What the office check after a press on a section button found. */
+  checkDone: string | null;
   onDelete: () => void;
   onActed: () => void;
 }) {
@@ -210,7 +285,7 @@ function ConnectionRow({
     ? CONNECTION_STATUS[connection.status]
     : { words: 'Off', tone: 'grey' as const };
   const opens = connection.sections.length > 0 || connection.sectionsFailed !== null;
-  const offices = `${OFFICES}: ${connection.offices.length > 0 ? connection.offices.join(', ') : 'none yet'}`;
+  const offices = officesLine(connection, now);
   const line = [connection.describe, records(connection.counts.property, 'property')]
     .filter(Boolean)
     .join(' · ');
@@ -272,20 +347,29 @@ function ConnectionRow({
       {open && opens && (
         <ConnectionSections connection={connection} opener={OFFICES} now={now} onDone={onActed} />
       )}
+      {open && opens && checkDone && (
+        <p className="k-check-done">
+          <CircleCheckIcon size={18} />
+          <span>{checkDone}</span>
+        </p>
+      )}
     </div>
   );
 }
 
 function CrmsCard({
   page,
+  checks,
   onAdd,
   onDelete,
   onActed,
 }: {
   page: Brokerage;
+  /** What the office check after a press on a section button found, by the connection. */
+  checks: Record<string, string>;
   onAdd: () => void;
   onDelete: (connection: ConnectionView) => void;
-  onActed: () => void;
+  onActed: (connection: ConnectionView) => void;
 }) {
   return (
     <section className="k-box">
@@ -304,8 +388,9 @@ function CrmsCard({
           key={connection.id}
           page={page}
           connection={connection}
+          checkDone={checks[connection.id] ?? null}
           onDelete={() => onDelete(connection)}
-          onActed={onActed}
+          onActed={() => onActed(connection)}
         />
       ))}
     </section>
@@ -770,8 +855,13 @@ function Page({ id }: { id: number }) {
   const [deleted, setDeleted] = useState<Deleted | null>(null);
   /** A token replaced from this page: armed, then waiting until every website uses it. */
   const [watching, setWatching] = useState<'armed' | 'waiting' | null>(null);
-  const fast = open?.kind === 'token-replaced' || deleted !== null || watching !== null;
+  /** An office check followed after a press on a connection's section button. */
+  const [following, setFollowing] = useState(false);
+  const fast =
+    open?.kind === 'token-replaced' || deleted !== null || watching !== null || following;
   const { page, state, failure, load } = useTenant(id, fast);
+  const checks = useOfficeChecks(page);
+  useEffect(() => setFollowing(checks.following), [checks.following]);
   const sync = useSync(`tenant:${String(id)}`, () => void load());
   /** The sync window, once Core said how many records the tenant has. */
   const [syncing, setSyncing] = useState<SyncTarget | null>(null);
@@ -921,9 +1011,13 @@ function Page({ id }: { id: number }) {
       />
       <CrmsCard
         page={page}
+        checks={checks.found}
         onAdd={() => setOpen({ kind: 'add-crm' })}
         onDelete={(connection) => setOpen({ kind: 'delete-connection', connection })}
-        onActed={() => void load()}
+        onActed={(connection) => {
+          checks.follow(connection);
+          void load();
+        }}
       />
       <TokenCard page={page} onReplace={() => setOpen({ kind: 'replace-token' })} />
       <TenantCard

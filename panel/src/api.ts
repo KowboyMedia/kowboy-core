@@ -2,14 +2,14 @@
 // the page never reads; a 401 means this device is signed out.
 
 // The Inbox's shape is the engine's own (engine/panel/inbox.ts), so the two cannot drift apart.
-import type { Inbox, InboxLevel } from '../../engine/panel/inbox.js';
+import type { Inbox as Cards, InboxLevel } from '../../engine/panel/inbox.js';
+import type { SetupCard } from '../../engine/panel/progress.js';
 
 export type {
   Card,
   CheckCard,
   FailingRecord,
   FormsCard,
-  Inbox,
   KeptForm,
   LoginCard,
   RecordsCard,
@@ -19,6 +19,10 @@ export type {
 } from '../../engine/panel/inbox.js';
 export type { Fixed, FixedFacts } from '../../engine/panel/problems.js';
 export type Level = InboxLevel;
+export type { AddedOffice, Progress, SetupCard, ShownStep } from '../../engine/panel/progress.js';
+
+/** The Inbox as Core answers it: its cards, and the CRM connections still being set up. */
+export type Inbox = Cards & { setup: SetupCard[] };
 
 export type {
   Brokerage,

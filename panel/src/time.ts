@@ -57,6 +57,14 @@ export function exactly(iso: string, now: Date): string {
   return `${at.date} ${at.seconds}`;
 }
 
+/** The day alone, in words: "today", "yesterday", "on 12 Oct". */
+export function onDay(iso: string, now: Date): string {
+  const at = parts(new Date(iso));
+  if (at.day === parts(now).day) return 'today';
+  if (at.day === yesterdayOf(now)) return 'yesterday';
+  return `on ${at.date}`;
+}
+
 /** When something was sent, in words: "last night", "today", "yesterday", "on 12 Oct". */
 export function sentWhen(iso: string, now: Date): string {
   const at = parts(new Date(iso));
