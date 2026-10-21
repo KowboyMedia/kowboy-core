@@ -734,6 +734,16 @@ body {
   margin-top: 24px;
   color: var(--k-muted);
 }
+.k-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* The list shown while the next one loads: dimmed, so it never reads as the answer. */
+.k-stale {
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
 
 /* ---- Badges, tags, switches ------------------------------------------------------------------- */
 
@@ -2136,6 +2146,10 @@ body {
   flex-wrap: wrap;
   gap: 4px 12px;
   margin: 0;
+}
+.k-records-count .k-spin {
+  align-self: center;
+  color: var(--k-muted);
 }
 .k-records-count strong {
   font-size: 16px;

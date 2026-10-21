@@ -44,35 +44,6 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
   the sitemap; the site keeps its copy, so a change of status brings the page back.
 - b) **Yes**, as now: every home Core sends has a page.
 
-## 224. `[admin]` How the Inbox's card for forms that did not reach the CRM works now
-
-- 2026-10-19 · After 218 a form that cannot be sent is never sent again, so the card's "Resend"
-  button and window are gone from staging, with the sentence on how long Core keeps the forms.
-  The card still says how many forms did not reach the CRM, from which websites, when, and why.
-  Nothing on it ends it now except the forms' 30 days running out. Option a adds three lines:
-  1. The card ends by itself once the CRM takes a form through that brokerage's connection
-     again (what the card already reads as "it has answered again"), or after the 30 days.
-  2. "Fixed today" then says "<CRM> takes forms again".
-  3. The card adds: "Each visitor was told the form wasn't sent and to contact the brokerage
-     directly. The website's page Formulär keeps their details for 30 days."
-- Blocked: the card stays up to 30 days, with no way to end it.
-- a) the three lines above (recommended).
-- b) a "Done" button ends the card instead of line 1; lines 2 and 3 as in a.
-- c) no forms card: the health check of failing forms is the only sign.
-
-## 220. `[admin]` Approve what part 5 of design B shows beyond the tenant mockups
-
-- 2026-10-19 · Part 5 (the tenant mockups' pages: Tenants, one Add/Edit screen each for a tenant,
-  a website and a CRM, Delete for each, deleting a tenant with everything of it, the Flow page with
-  the maintenance box, and a CRM's fields, line, sections and buttons drawn only from its own code)
-  is on staging at `/admin`. It needed 37 lines the mockups do not show, among them six new web
-  addresses on Core, one index (migration 022) and the panel's own texts, and leaves four rows
-  unbuilt. The list is `panel-candidates/b-part5-new-lines.md`, with pictures of every screen in
-  `panel-candidates/part5-shots/`, both in the project's shared folder.
-- Blocked: nothing; the lines stay on staging meanwhile.
-- a) ok: all 37 lines (recommended).
-- b) ok, except the lines named.
-
 ## 208. `[core]` Default: the project is done when the first brokerage runs on live, and what the plan marks Later waits for a new project
 
 - 2026-10-18 · Patric: "work towards closing this project and getting it production ready". The

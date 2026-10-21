@@ -143,8 +143,11 @@ export type ScopeFilter = {
 
 export type Where = { clauses: string[]; values: unknown[] };
 
-/** A record's list of offices, as an agent's data names them; empty for any other record. */
-export const OFFICE_IDS = `case when jsonb_typeof(data->'office_ids') = 'array' then data->'office_ids' else '[]'::jsonb end`;
+/**
+ * A record's list of offices, as an agent's data names them; empty for any other record, whose
+ * data is then never read (a record's data is large, and reading it for every record is slow).
+ */
+export const OFFICE_IDS = `case when datatype <> 'agent' then '[]'::jsonb when jsonb_typeof(data->'office_ids') = 'array' then data->'office_ids' else '[]'::jsonb end`;
 
 /** One or several of a thing, as the clause `= any(...)` takes them; empty means every one. */
 const listed = <T>(many: T[] | undefined, one: T | undefined): T[] =>

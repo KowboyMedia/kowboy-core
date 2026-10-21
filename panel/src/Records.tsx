@@ -8,9 +8,16 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { api, recordQuery, type RecordFilter, type RecordList, type RecordRow } from './api';
 import { Shell, useShell } from './Shell';
 import { failureWords } from './failure';
-import { ChevronLeftIcon, ChevronRightIcon, RefreshIcon, SearchIcon, XIcon } from './icons';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  LoaderIcon,
+  RefreshIcon,
+  SearchIcon,
+  XIcon,
+} from './icons';
 import { Picker } from './picker';
-import { Badge, Switch, useNote } from './ui';
+import { Badge, Loading, Switch, useNote } from './ui';
 import { capital, counted, listed, listTime } from './time';
 import { pluralOf, SyncBanner, SyncWindow, useSync, type SyncTarget } from './sync';
 import { crmOf, idWord, recordPath } from './records';
@@ -381,17 +388,27 @@ function RecordsView() {
   const page = Math.max(1, Number(query.get('page') ?? '1') || 1);
   const [list, setList] = useState<RecordList | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  /** A list is on its way: the first one, or the next after a filter, a page or a sync. */
+  const [loading, setLoading] = useState(true);
   const [picked, setPicked] = useState<Map<string, RecordRow>>(new Map());
   const [syncing, setSyncing] = useState<SyncTarget | null>(null);
   const filterKey = recordQuery(filter).toString();
 
+  /** The newest list asked for, so an answer for an older filter or page is not shown. */
+  const asked = useRef(0);
   const load = useCallback(() => {
+    const ask = ++asked.current;
+    setLoading(true);
     api.records(filter, page).then(
       (next) => {
+        if (ask !== asked.current) return;
         setList(next);
         setFailed(null);
+        setLoading(false);
       },
       (error: unknown) => {
+        if (ask !== asked.current) return;
+        setLoading(false);
         if (!away(error)) setFailed(failureWords(error));
       },
     );
@@ -445,10 +462,15 @@ function RecordsView() {
           {failed} The page tries again when you reload it.
         </p>
       )}
+      {!list && !failed && <Loading words="Loading records" />}
       {list && (
         <>
           <Filters list={list} filter={filter} onChange={change} />
-          <section className="k-box k-records" aria-label="Records">
+          <section
+            className={`k-box k-records${loading ? ' k-stale' : ''}`}
+            aria-label="Records"
+            aria-busy={loading}
+          >
             <header className="k-box-head">
               {picked.size > 0 ? (
                 <>
@@ -477,6 +499,7 @@ function RecordsView() {
                   <p className="k-records-count">
                     <strong>{counted(list.total, 'record', 'records')}</strong>
                     {list.removed > 0 && <span className="k-muted">{list.removed} removed</span>}
+                    {loading && <LoaderIcon className="k-spin" size={16} aria-label="Loading" />}
                   </p>
                   <button
                     type="button"

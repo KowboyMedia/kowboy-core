@@ -166,7 +166,6 @@ describe('the Inbox lists what needs a person now', () => {
       sites: ['granstedtbostad.se'],
       unanswered: 2,
       refused: 0,
-      answeredAgainAt: null,
       since: first.toISOString(),
       keptUntil: new Date(first.getTime() + KEPT_DAYS * 86_400_000).toISOString(),
     });
@@ -175,17 +174,27 @@ describe('the Inbox lists what needs a person now', () => {
     // The CRM not answering is this card, not a check card beside it.
     expect(inbox.cards.some((card) => card.key === 'submissions.failing')).toBe(false);
 
-    const answered = ago(3 * HOUR);
+    // The CRM takes a form again: the forms before it leave, and the card with them; a form the
+    // other brokerage's CRM refused stays until its CRM answers a later one.
     await form({
       tenantId: other,
       connectionId: 'somecrm-2',
       outcome: 'delivered',
-      receivedAt: answered,
+      receivedAt: ago(3 * HOUR),
     });
     inbox = await read();
-    expect((inbox.cards[0] as FormsCard).answeredAgainAt).toBe(
-      new Date(answered.getTime() + 20_000).toISOString(),
-    );
+    expect(kinds(inbox.cards)).toEqual([`forms:${String(TENANT)}`]);
+    await form({
+      tenantId: TENANT,
+      connectionId: 'somecrm-1',
+      outcome: 'refused',
+      receivedAt: ago(HOUR / 2),
+      detail: 'The viewing is full.',
+    });
+    inbox = await read();
+    expect((inbox.cards[0] as FormsCard).forms.map((one) => one.said)).toEqual([
+      'The viewing is full.',
+    ]);
   });
 
   it('shows a CRM refusing a login, without the CRM code’s words, for the days Core lists such events', async () => {

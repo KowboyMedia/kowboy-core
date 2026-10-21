@@ -17,6 +17,7 @@ import {
   CopyIcon,
   EyeIcon,
   EyeOffIcon,
+  LoaderIcon,
   PowerIcon,
   XIcon,
 } from './icons';
@@ -297,5 +298,15 @@ export function IconButton({
     >
       {children}
     </button>
+  );
+}
+
+/** What a page shows while its answer is on its way: a turning circle and what it waits for. */
+export function Loading({ words }: { words: string }) {
+  return (
+    <p className="k-quiet k-loading" role="status">
+      <LoaderIcon className="k-spin" size={16} />
+      {words}
+    </p>
   );
 }

@@ -72,8 +72,6 @@ export type FormsCard = Base & {
   /** How many the CRM did not answer, and how many it refused. */
   unanswered: number;
   refused: number;
-  /** When the CRM first answered a form again after the last one it did not answer; null if not yet. */
-  answeredAgainAt: string | null;
   /** Core keeps a form's details this long, and the oldest goes first. */
   keptUntil: string;
 };
@@ -295,11 +293,34 @@ const answerOf = (row: KeptRow): KeptForm['answer'] =>
       : 'none';
 
 /**
- * One card per brokerage for the forms Core keeps because the CRM did not take them. A form the
- * guard held back as a test (forms test mode, or a Core that is not the live service) is no problem.
+ * The forms the CRM has not answered since: a form leaves its card once the CRM took or refused a
+ * later form through the same connection, as that shows the CRM takes forms again.
+ */
+async function notAnsweredSince(kept: KeptRow[]): Promise<KeptRow[]> {
+  if (kept.length === 0) return [];
+  const { rows } = await db().query<{ connection_id: string; at: Date }>(
+    `select connection_id, max(answered_at) as at from submissions
+     where connection_id = any($1::text[]) and answered_at is not null
+       and (outcome = 'delivered' or (outcome = 'refused' and detail is distinct from $2))
+     group by connection_id`,
+    [[...new Set(kept.map((row) => row.connection_id))], NOT_LIVE],
+  );
+  const answered = new Map(rows.map((row) => [row.connection_id, row.at]));
+  return kept.filter((row) => {
+    const at = answered.get(row.connection_id);
+    return !at || at <= (row.answered_at ?? row.received_at);
+  });
+}
+
+/**
+ * One card per brokerage for the forms the CRM did not take, until it takes forms again or Core's
+ * 30 days run out. A form the guard held back as a test (forms test mode, or a Core that is not the
+ * live service) is no problem.
  */
 async function formsCards(names: Known): Promise<FormsCard[]> {
-  const kept = (await keptSubmissions(UNANSWERED_MS)).filter((row) => row.detail !== NOT_LIVE);
+  const kept = await notAnsweredSince(
+    (await keptSubmissions(UNANSWERED_MS)).filter((row) => row.detail !== NOT_LIVE),
+  );
   if (kept.length === 0) return [];
   const sites = await sitesOfForms(kept.map((row) => row.id));
   const records = await formRecords(kept);
@@ -337,7 +358,6 @@ async function formsCards(names: Known): Promise<FormsCard[]> {
       sentAt: rows.map((row) => row.received_at.toISOString()).sort(),
       unanswered: unanswered.length,
       refused: rows.length - unanswered.length,
-      answeredAgainAt: unanswered.length > 0 ? await answeredAgain(unanswered) : null,
       keptUntil: new Date(oldest.received_at.getTime() + KEPT_DAYS * 86_400_000).toISOString(),
     });
   }
@@ -387,32 +407,6 @@ async function formRecords(kept: KeptRow[]): Promise<Map<string, string>> {
     if (name) found.set(row.id, name);
   }
   return found;
-}
-
-/**
- * When the CRM answered again: for each connection with a form it did not answer, the first form
- * it took or refused after the last one it did not answer. Null until every such connection has.
- */
-async function answeredAgain(unanswered: KeptRow[]): Promise<string | null> {
-  const lastMiss = new Map<string, Date>();
-  for (const row of unanswered) {
-    const at = row.answered_at ?? row.received_at;
-    const before = lastMiss.get(row.connection_id);
-    if (!before || at > before) lastMiss.set(row.connection_id, at);
-  }
-  let latest: Date | null = null;
-  for (const [connectionId, miss] of lastMiss) {
-    const { rows } = await db().query<{ at: Date | null }>(
-      `select min(answered_at) as at from submissions
-       where connection_id = $1 and answered_at > $2
-         and (outcome = 'delivered' or (outcome = 'refused' and detail is distinct from $3))`,
-      [connectionId, miss, NOT_LIVE],
-    );
-    const at = rows[0]?.at ?? null;
-    if (!at) return null;
-    if (!latest || at > latest) latest = at;
-  }
-  return iso(latest);
 }
 
 /** Each brokerage's websites, by their names, oldest first. */

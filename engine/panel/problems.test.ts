@@ -455,4 +455,37 @@ describe('the forms a CRM did not take', () => {
     ]);
     expect(card.waitSeconds).toBe(20);
   });
+
+  it('ends the card once the CRM takes a form again, and says so under Fixed today', async () => {
+    await keptForm('interest', 'P-1', 5);
+    expect((await inbox()).cards.map((card) => card.kind)).toEqual(['forms']);
+    // A form sent before the last one the CRM did not answer is no sign it answers again.
+    await db().query(
+      `insert into submissions (id, tenant_id, connection_id, kind, outcome, received_at, answered_at)
+       values ($1, $2, 'somecrm-1', 'interest', 'delivered', now() - interval '6 hours',
+               now() - interval '6 hours')`,
+      [randomUUID(), TENANT],
+    );
+    expect((await inbox()).cards.map((card) => card.kind)).toEqual(['forms']);
+
+    await db().query(
+      `insert into submissions (id, tenant_id, connection_id, kind, outcome, received_at, answered_at)
+       values ($1, $2, 'somecrm-1', 'interest', 'delivered', now() - interval '1 hour',
+               now() - interval '1 hour')`,
+      [randomUUID(), TENANT],
+    );
+    const read = await inbox();
+    expect(read.cards).toEqual([]);
+    expect(read.fixed.map((one) => one.facts)).toEqual([{ kind: 'forms', crms: ['Somecrm'] }]);
+    expect(Date.parse(read.fixed[0]?.solvedAt ?? '')).toBeLessThan(Date.now() - 50 * 60_000);
+  });
+
+  it('lists nothing under Fixed today when Core stopped keeping the forms before the CRM took one', async () => {
+    const id = await keptForm('interest', 'P-1', 5);
+    expect((await inbox()).cards).toHaveLength(1);
+    await db().query('delete from submissions where id = $1', [id]);
+    const read = await inbox();
+    expect(read.cards).toEqual([]);
+    expect(read.fixed).toEqual([]);
+  });
 });

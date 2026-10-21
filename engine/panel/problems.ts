@@ -5,19 +5,20 @@
 // read; this module keeps the problems in step with them. No CRM is named here.
 import { db } from '../storage/db.js';
 import { ATTENTION_DAYS } from '../attention.js';
+import { NOT_LIVE } from '../registry.js';
 import type { Card, Tenant } from './inbox.js';
 
 /** Who acted on a problem and when: "Done, I've pasted it". */
 export type Acted = { by: string; at: string };
 
 /**
- * What the Inbox says of a problem once it is solved. A login was put right by a new one a person
- * saved, or the CRM took the old one again; records loaded, counted by their type, and named when
- * there was one.
+ * What the Inbox says of a problem once it is solved. Forms: the CRM takes forms again. A login was
+ * put right by a new one a person saved, or the CRM took the old one again; records loaded, counted
+ * by their type, and named when there was one.
  */
 export type FixedFacts =
   | { kind: 'worker' }
-  | { kind: 'forms'; delivered: number; total: number; crms: string[] }
+  | { kind: 'forms'; crms: string[] }
   | { kind: 'login'; crm: string; saved: boolean }
   | { kind: 'site'; site: string }
   | { kind: 'check'; title: string }
@@ -40,6 +41,9 @@ export type Fixed = {
   facts: FixedFacts;
 };
 
+/** Forms once their card is gone: whether the CRM took forms again, or Core's 30 days ran out. */
+type SolvedForms = { kind: 'forms'; crms: string[]; answered: boolean };
+
 /** The facts a problem keeps while it is open, for the words once its card is gone. */
 type OpenFacts =
   | { kind: 'worker' }
@@ -54,7 +58,7 @@ type Row = {
   key: string;
   tenant_id: number | null;
   opened_at: Date;
-  facts: OpenFacts | (FixedFacts & { tenants?: number[]; about?: string | null });
+  facts: OpenFacts | SolvedForms | (FixedFacts & { tenants?: number[]; about?: string | null });
   acted_by: string | null;
   acted_at: Date | null;
   solved_at: Date | null;
@@ -209,13 +213,7 @@ function evidenceOfFix(row: Row): Promise<Date | null> {
   if (facts.kind === 'site' && 'siteId' in facts) {
     return timeOf('select last_pull_at as at from subscribers where id = $1', [facts.siteId]);
   }
-  if (facts.kind === 'forms' && 'ids' in facts) {
-    return timeOf(
-      `select max(answered_at) as at from submissions
-       where id::text = any($1::text[]) and outcome = 'delivered'`,
-      [facts.ids],
-    );
-  }
+  if (facts.kind === 'forms' && 'ids' in facts) return formsAnsweredAt(facts.ids);
   if (facts.kind === 'check') {
     return timeOf('select since as at from alert_state where name = $1 and ok', [row.key]);
   }
@@ -223,6 +221,30 @@ function evidenceOfFix(row: Row): Promise<Date | null> {
     return timeOf("select at from heartbeats where name = 'worker'", []);
   }
   return Promise.resolve(null);
+}
+
+/**
+ * When the CRM took forms again after the given ones: for each of their connections, the first
+ * form it took or refused after the last of them, the latest of those. Null while one has none, or
+ * once Core no longer keeps the forms.
+ */
+async function formsAnsweredAt(ids: string[]): Promise<Date | null> {
+  const { rows } = await db().query<{ at: Date | null }>(
+    `select (select min(later.answered_at) from submissions later
+             where later.connection_id = mine.connection_id and later.answered_at > mine.last
+               and (later.outcome = 'delivered'
+                    or (later.outcome = 'refused' and later.detail is distinct from $2))) as at
+     from (select connection_id, max(coalesce(answered_at, received_at)) as last
+           from submissions where id::text = any($1::text[]) group by connection_id) as mine`,
+    [ids, NOT_LIVE],
+  );
+  if (rows.length === 0) return null;
+  let latest: Date | null = null;
+  for (const row of rows) {
+    if (!row.at) return null;
+    if (!latest || row.at > latest) latest = row.at;
+  }
+  return latest;
 }
 
 async function solvedTime(row: Row, now: Date): Promise<Date> {
@@ -238,24 +260,14 @@ function recordsFacts(crm: string, seen: Seen[]): FixedFacts {
 }
 
 /**
- * What stays of a problem once solved: for forms, how many of them the CRM took; for records, how
- * many there were.
+ * What stays of a problem once solved: for forms, whether the CRM took forms again; for records,
+ * how many there were.
  */
 async function solvedFacts(row: Row): Promise<Row['facts']> {
   const facts = row.facts;
   if (facts.kind === 'records' && 'seen' in facts) return recordsFacts(facts.crm, facts.seen);
   if (facts.kind !== 'forms' || !('ids' in facts)) return facts;
-  const { rows } = await db().query<{ n: string }>(
-    `select count(*) as n from submissions
-     where id::text = any($1::text[]) and outcome = 'delivered'`,
-    [facts.ids],
-  );
-  return {
-    kind: 'forms',
-    delivered: Number(rows[0]?.n ?? 0),
-    total: facts.ids.length,
-    crms: facts.crms,
-  };
+  return { kind: 'forms', crms: facts.crms, answered: (await formsAnsweredAt(facts.ids)) !== null };
 }
 
 async function solve(row: Row, now: Date): Promise<void> {
@@ -321,8 +333,8 @@ async function fixedLately(tenants: Map<number, string>): Promise<Fixed[]> {
   const fixed: Fixed[] = [];
   for (const row of rows) {
     const facts = row.facts;
-    // Forms none of which the CRM took were not put right: Core stopped keeping them.
-    if (facts.kind === 'forms' && (!('delivered' in facts) || facts.delivered === 0)) continue;
+    // Forms whose 30 days ran out before the CRM took forms again were not put right.
+    if (facts.kind === 'forms' && !('answered' in facts && facts.answered)) continue;
     const ids =
       row.tenant_id !== null
         ? [Number(row.tenant_id)]
@@ -347,9 +359,7 @@ function shownFacts(row: Row): FixedFacts {
   const facts = row.facts;
   switch (facts.kind) {
     case 'forms':
-      return 'delivered' in facts
-        ? { kind: 'forms', delivered: facts.delivered, total: facts.total, crms: facts.crms }
-        : { kind: 'forms', delivered: 0, total: 0, crms: facts.crms };
+      return { kind: 'forms', crms: facts.crms };
     case 'login':
       return { kind: 'login', crm: facts.crm, saved: row.solved_by !== null };
     case 'records':

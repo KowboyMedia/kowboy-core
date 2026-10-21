@@ -37,6 +37,7 @@ import { configureCompression, jsonResponse, startServer, type RouteTable } from
 import { SEQUENCE_JUMP, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
 import { adminRoutes, configureAdmin } from './admin/index.js';
 import { configurePanel, panelRoutes } from './panel/index.js';
+import { readListNames } from './panel/recordlist.js';
 import { deleteExpiredSessions } from './admin/auth.js';
 
 export { SEQUENCE_JUMP, STARTED_AT, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
@@ -159,6 +160,12 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
     routes,
     listen(extraRoutes: RouteTable = []): Server {
       server = startServer([...routes, ...extraRoutes], config.port);
+      // The records list's names, read once now so the list's first load needs no wait. A stop
+      // waits for it as for the worker's tasks.
+      const names: Promise<void> = readListNames()
+        .catch((error: unknown) => report(error, { where: 'panel record names' }))
+        .finally(() => running.delete(names));
+      running.add(names);
       return server;
     },
     startWorker(): void {

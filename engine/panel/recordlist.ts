@@ -199,9 +199,79 @@ type Listed = {
   office_ids: unknown;
   deleted: boolean;
   updated_at: Date;
-  name: string | null;
-  raw: unknown;
+  seq: string;
 };
+
+/**
+ * Each record's name as the list shows it, by its key, with the `seq` it was read at. A record's
+ * data is large, and reading every record's data for its name made the list slow, so a name is
+ * read once and again only after its record changed. Kept for the life of the process.
+ */
+const listNames = new Map<string, { seq: string; name: string; id: string }>();
+const nameKey = (row: { connection_id: string; datatype: string; remote_id: string }): string =>
+  `${row.connection_id} ${row.datatype} ${row.remote_id}`;
+
+/** Every named record's place in the list's order, by name in Swedish; made again after a change. */
+let places: Map<string, number> | null = null;
+
+function placeOf(key: string): number {
+  if (!places) {
+    const order = [...listNames].sort(
+      ([, a], [, b]) => swedish.compare(a.name, b.name) || swedish.compare(a.id, b.id),
+    );
+    places = new Map(order.map(([named], at) => [named, at]));
+  }
+  return places.get(key) ?? Number.MAX_SAFE_INTEGER;
+}
+
+/** How many names one query reads. */
+const NAMES_AT_ONCE = 2000;
+
+type Keyed = Pick<Listed, 'connection_id' | 'datatype' | 'remote_id' | 'seq'>;
+
+/** Reads the names the list does not hold yet, or holds from before the record changed. */
+async function readNames(rows: Keyed[], facts: Known): Promise<void> {
+  const missing = rows.filter((row) => listNames.get(nameKey(row))?.seq !== row.seq);
+  for (let at = 0; at < missing.length; at += NAMES_AT_ONCE) {
+    const seqs = missing.slice(at, at + NAMES_AT_ONCE).map((row) => row.seq);
+    const { rows: read } = await db().query<{
+      connection_id: string;
+      datatype: Datatype;
+      remote_id: string;
+      seq: string;
+      deleted: boolean;
+      name: string | null;
+      raw: unknown;
+    }>(
+      `select connection_id, datatype, remote_id, seq, deleted, ${NAME} as name,
+         case when deleted then raw end as raw
+       from items where seq = any($1::bigint[])`,
+      [seqs],
+    );
+    for (const row of read) {
+      const provider = facts.connections.get(row.connection_id)?.provider ?? '';
+      const name =
+        row.name ??
+        (row.deleted ? nameIn(fieldsFromRaw(provider, row.datatype, row.raw)) : null) ??
+        row.remote_id;
+      listNames.set(nameKey(row), { seq: row.seq, name, id: row.remote_id });
+      places = null;
+    }
+  }
+}
+
+/**
+ * Reads every record's name and its place before anyone opens the list, so the first load after a
+ * start is as quick as the next. The web process starts it; the list reads what it still lacks.
+ */
+export async function readListNames(): Promise<void> {
+  const facts = await known();
+  const { rows } = await db().query<Keyed>(
+    'select connection_id, datatype, remote_id, seq from items',
+  );
+  await readNames(rows, facts);
+  placeOf('');
+}
 
 /** The offices a record belongs to, by name: an agent's every office, another record's own. */
 function officesOf(row: Listed | null, data: Canonical | null, facts: Known): string[] {
@@ -238,18 +308,43 @@ async function countsByOffice(
   removed: boolean,
 ): Promise<{ value: string; n: number }[]> {
   const where = scopeWhere(scope, removed ? null : false);
+  const clauses = where.clauses.join(' and ');
+  // Only an agent lists offices, so only an agent's data is read.
   const { rows } = await db().query<{ value: string; n: string }>(
-    `select office.value, count(*) as n from items
-     cross join lateral (
-       select connection_id || ':' || office_id as value where office_id is not null
-       union
-       select connection_id || ':' || id from jsonb_array_elements_text(${OFFICE_IDS}) as listed(id)
-     ) as office
-     where ${where.clauses.join(' and ')}
+    `select value, count(*) as n from (
+       select connection_id || ':' || office_id as value from items
+       where ${clauses} and office_id is not null and datatype <> 'agent'
+       union all
+       select distinct on (connection_id, remote_id, office.value) office.value from items
+       cross join lateral (
+         select connection_id || ':' || office_id where office_id is not null
+         union all
+         select connection_id || ':' || id from jsonb_array_elements_text(${OFFICE_IDS}) as listed(id)
+       ) as office(value)
+       where ${clauses} and datatype = 'agent'
+     ) as counted
      group by 1`,
     where.values,
   );
   return rows.map((row) => ({ value: String(row.value), n: Number(row.n) }));
+}
+
+/** The offices a listed record belongs to, as `<connection>:<office>`: its own, and an agent's. */
+function officeKeysOf(row: Listed): Set<string> {
+  const ids = Array.isArray(row.office_ids)
+    ? (row.office_ids as unknown[]).filter((id): id is string => typeof id === 'string')
+    : [];
+  const own = row.office_id === null ? [] : [row.office_id];
+  return new Set([...own, ...ids].map((id) => officeKey(row.connection_id, id)));
+}
+
+/** How many of the listed records each value has, when the list already holds that scope. */
+function countedIn(rows: Listed[], valuesOf: (row: Listed) => Iterable<string>) {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    for (const value of valuesOf(row)) counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return [...counts].map(([value, n]) => ({ value, n }));
 }
 
 /** The types whose records in a scope all belong to no office. */
@@ -264,6 +359,31 @@ async function officelessIn(scope: ScopeFilter, removed: boolean): Promise<Datat
   return RECORD_TYPES.filter((datatype) => rows.some((row) => row.datatype === datatype));
 }
 
+/**
+ * What each filter's choices hold. A filter's counts leave that filter out; with the filter unset,
+ * the list's own rows are its scope, so only a set filter costs a query.
+ */
+async function filterCounts(scope: ScopeFilter, removed: boolean, rows: Listed[]) {
+  const byTenant = scope.tenantIds?.length
+    ? await countsBy('tenant_id', { ...scope, tenantIds: [] }, removed)
+    : countedIn(rows, (row) => [String(row.tenant_id)]);
+  const byOffice = scope.connectionOffices?.length
+    ? await countsByOffice({ ...scope, connectionOffices: [] }, removed)
+    : countedIn(rows, officeKeysOf);
+  const byType = scope.datatypes?.length
+    ? await countsBy('datatype', { ...scope, datatypes: [] }, removed)
+    : countedIn(rows, (row) => [row.datatype]);
+  const officeless =
+    scope.datatypes?.length || scope.connectionOffices?.length
+      ? await officelessIn({ ...scope, datatypes: [], connectionOffices: [] }, removed)
+      : RECORD_TYPES.filter(
+          (datatype) =>
+            rows.some((row) => row.datatype === datatype) &&
+            rows.every((row) => row.datatype !== datatype || officeKeysOf(row).size === 0),
+        );
+  return { byTenant, byOffice, byType, officeless };
+}
+
 /** `GET /v1/panel/records`: one page of the records the filters keep, by name, and the filters. */
 export async function recordList(filter: RecordFilter, page: number): Promise<RecordList> {
   const facts = await known();
@@ -274,32 +394,20 @@ export async function recordList(filter: RecordFilter, page: number): Promise<Re
   // One query at a time: the pool holds two connections, and five at once left a query waiting
   // past the pool's timeout, so the page failed.
   const { rows } = await db().query<Listed>(
-    `select tenant_id, connection_id, datatype, remote_id, office_id, deleted, updated_at,
-       ${NAME} as name,
-       case when datatype = 'agent' then data->'office_ids' end as office_ids,
-       case when deleted then raw end as raw
+    `select tenant_id, connection_id, datatype, remote_id, office_id, deleted, updated_at, seq,
+       case when datatype = 'agent' then data->'office_ids' end as office_ids
      from items where ${where.clauses.join(' and ')}`,
     where.values,
   );
-  const byTenant = await countsBy('tenant_id', { ...scope, tenantIds: [] }, removed);
-  const byOffice = await countsByOffice({ ...scope, connectionOffices: [] }, removed);
-  const byType = await countsBy('datatype', { ...scope, datatypes: [] }, removed);
-  const officeless = await officelessIn(
-    { ...scope, datatypes: [], connectionOffices: [] },
-    removed,
-  );
+  await readNames(rows, facts);
+  const { byTenant, byOffice, byType, officeless } = await filterCounts(scope, removed, rows);
 
-  const named = rows.map((row) => {
-    const provider = facts.connections.get(row.connection_id)?.provider ?? '';
-    const name =
-      row.name ??
-      (row.deleted ? nameIn(fieldsFromRaw(provider, row.datatype, row.raw)) : null) ??
-      row.remote_id;
-    return { row, name };
-  });
-  named.sort(
-    (a, b) => swedish.compare(a.name, b.name) || swedish.compare(a.row.remote_id, b.row.remote_id),
-  );
+  const named = rows.map((row) => ({
+    row,
+    name: listNames.get(nameKey(row))?.name ?? row.remote_id,
+    place: placeOf(nameKey(row)),
+  }));
+  named.sort((a, b) => a.place - b.place);
   const pages = Math.max(1, Math.ceil(named.length / LIST_PAGE));
   const at = Math.min(Math.max(page, 1), pages);
   const shown = named.slice((at - 1) * LIST_PAGE, at * LIST_PAGE);
@@ -619,8 +727,7 @@ export async function recordPage(
         office_ids: null,
         deleted: item.deleted,
         updated_at: item.updated_at,
-        name: null,
-        raw: null,
+        seq: String(item.seq),
       },
       data,
       facts,

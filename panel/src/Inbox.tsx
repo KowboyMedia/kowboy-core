@@ -127,10 +127,24 @@ function sentSentence(card: FormsCard, now: Date): string {
   return `Sent${from} ${listed(times)}${cause}.`;
 }
 
+/**
+ * What each visitor was told, and where their details are: "Each visitor was told the form wasn’t
+ * sent and to contact the brokerage directly. The website’s page Formulär keeps their details for
+ * 30 days." A refused viewing sent its visitor back to the times instead.
+ */
+function visitorsTold(card: FormsCard): string {
+  const backToTimes = card.forms.some(
+    (form) => form.kind === 'viewing' && form.answer === 'refused',
+  );
+  const told = backToTimes
+    ? 'Each visitor was told the form wasn’t sent, and to contact the brokerage directly or, for a refused viewing, to pick another time.'
+    : 'Each visitor was told the form wasn’t sent and to contact the brokerage directly.';
+  const page =
+    card.sites.length > 1 ? 'Each website’s page Formulär' : 'The website’s page Formulär';
+  return `${told} ${page} keeps their details for 30 days.`;
+}
+
 function Forms({ card, now }: { card: FormsCard; now: Date }) {
-  const again = card.answeredAgainAt
-    ? ` ${card.crms.length > 1 ? 'They have' : 'It has'} answered again since ${when(card.answeredAgainAt, now)}.`
-    : '';
   return (
     <Frame
       card={card}
@@ -139,10 +153,8 @@ function Forms({ card, now }: { card: FormsCard; now: Date }) {
       title={`${counted(card.count, 'visitor form', 'visitor forms')} didn’t reach ${listed(card.crms) || 'the CRM'}`}
       actions={<OpenBrokerage tenant={card.tenant} />}
     >
-      <p className="k-card-body">
-        {sentSentence(card, now)}
-        {again}
-      </p>
+      <p className="k-card-body">{sentSentence(card, now)}</p>
+      <p className="k-card-body">{visitorsTold(card)}</p>
     </Frame>
   );
 }
@@ -570,16 +582,14 @@ function loadedWords(counts: Record<string, number>, name: string | null): strin
   return `All ${words} loaded`;
 }
 
-/** "2 forms delivered to <CRM>", "New login works", "Website up to date again". */
+/** "<CRM> takes forms again", "New login works", "Website up to date again". */
 function fixedWords(fixed: Fixed): string {
   const facts = fixed.facts;
   switch (facts.kind) {
-    case 'forms': {
-      const crm = listed(facts.crms) || 'the CRM';
-      return facts.delivered === facts.total
-        ? `${counted(facts.delivered, 'form', 'forms')} delivered to ${crm}`
-        : `${String(facts.delivered)} of ${counted(facts.total, 'form', 'forms')} delivered to ${crm}`;
-    }
+    case 'forms':
+      return facts.crms.length > 1
+        ? `${listed(facts.crms)} take forms again`
+        : `${facts.crms[0] ?? 'The CRM'} takes forms again`;
     case 'login':
       return facts.saved ? 'New login works' : `${facts.crm} accepts the login again`;
     case 'records':

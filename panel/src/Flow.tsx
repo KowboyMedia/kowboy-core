@@ -9,6 +9,7 @@ import { failureWords } from './failure';
 import { AlertCircleIcon, AlertTriangleIcon, CircleCheckIcon, ClockIcon, PowerIcon } from './icons';
 import { capital, exactly } from './time';
 import { Picker } from './picker';
+import { Loading } from './ui';
 
 const EVERY_MS = 1_000;
 
@@ -226,6 +227,7 @@ function FlowView() {
           {failed} The page tries again by itself.
         </p>
       )}
+      {!flow && !failed && <Loading words="Loading the flow" />}
       {flow && (
         <>
           <section className="k-box" aria-label="Filters">
