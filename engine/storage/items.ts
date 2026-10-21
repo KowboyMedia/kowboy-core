@@ -219,22 +219,35 @@ export async function itemsForScope(scope: ScopeFilter): Promise<ItemRow[]> {
  * either the records not sold or the sold ones, because a recompute runs the unsold first and the
  * sold last, whatever the CRM (Patric, 2026-09-20, question 74). "Sold" is the universal
  * `sold_at` (the contract date) being set; a datatype without it is never sold.
+ *
+ * The page is the next `limit` records of the scope by seq, read on the seq index, and of those
+ * only the sold or the unsold come back, so a page can come back short or empty while more
+ * follow: `next` is where the next page starts, null after the last. With the sold test in the
+ * same query as the limit the planner expected few records to match and read the whole table
+ * for every page, which made the release preview time out on staging (2026-10-21).
  */
 export async function scopeBatch(
   scope: ScopeFilter,
   sold: boolean,
   afterSeq: number,
   limit: number,
-): Promise<ItemRow[]> {
+): Promise<{ items: ItemRow[]; next: number | null }> {
   const where = scopeWhere(scope);
-  where.clauses.push(`(data->>'sold_at') is ${sold ? 'not null' : 'null'}`);
   where.values.push(afterSeq, limit);
-  const { rows } = await db().query<ItemRow>(
-    `select * from items where ${where.clauses.join(' and ')} and seq > $${where.values.length - 1}
+  const { rows: page } = await db().query<{ seq: string; sold: boolean }>(
+    `select seq, (data->>'sold_at') is not null as sold from items
+     where ${where.clauses.join(' and ')} and seq > $${where.values.length - 1}
      order by seq limit $${where.values.length}`,
     where.values,
   );
-  return rows;
+  const next = page.length === limit ? Number(page[page.length - 1]?.seq) : null;
+  const wanted = page.filter((row) => row.sold === sold).map((row) => row.seq);
+  if (wanted.length === 0) return { items: [], next };
+  const { rows } = await db().query<ItemRow>(
+    'select * from items where seq = any($1::bigint[]) order by seq',
+    [wanted],
+  );
+  return { items: rows, next };
 }
 
 /** How many records Core holds in a scope: live ones, or with `deleted` null live and removed alike. */

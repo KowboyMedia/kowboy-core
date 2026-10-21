@@ -81,16 +81,12 @@ export async function recompute(scope: Scope, options: RecomputeOptions = {}): P
   // Two passes: the records not sold first, the sold ones last (question 74).
   let goOn = true;
   for (const sold of [false, true]) {
-    let afterSeq = 0;
-    let more = true;
-    while (goOn && more) {
-      const items = await scopeBatch(scope, sold, afterSeq, BATCH);
-      for (const item of items) {
-        afterSeq = Number(item.seq);
-        await examine(item);
-      }
+    let afterSeq: number | null = 0;
+    while (goOn && afterSeq !== null) {
+      const { items, next } = await scopeBatch(scope, sold, afterSeq, BATCH);
+      for (const item of items) await examine(item);
       const wanted = items.length > 0 ? await options.onProgress?.(report) : undefined;
-      more = items.length === BATCH;
+      afterSeq = next;
       goOn = wanted !== false;
     }
   }
