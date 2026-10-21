@@ -159,6 +159,14 @@ const scheduleTick = (): Promise<void> => {
   return scheduling;
 };
 
+/** A drain or a tick started without waiting for it: what stops it is reported, never left loose. */
+function inBackground(run: () => Promise<void>, where: string): void {
+  run().catch((error: unknown) => {
+    if (engine) engine.report(error, { where });
+    else console.error(where, error);
+  });
+}
+
 /** Each connection's login as the last tick saw it, kept in this process's memory only. */
 let seenLogins = new Map<string, string>();
 const loginKey = (credentials: connect.Login): string =>
@@ -181,7 +189,7 @@ async function watchLogins(): Promise<void> {
   for (const connection of await current.connections()) {
     const credentials = credentialsOf(connection);
     if (credentials && seenLogins.get(connection.id) !== loginKey(credentials)) {
-      void scheduleTick();
+      inBackground(scheduleTick, 'vitec schedule');
       return;
     }
   }
@@ -1664,10 +1672,10 @@ export const vitecAdapter: Adapter = {
     given.healthCheck(`${PROVIDER}.offices`, () => refusedHealth(given));
     given.healthCheck(`${PROVIDER}.connect`, () => pausedHealth(given));
 
-    drainTimer = setInterval(() => void scheduleDrain(), DRAIN_MS);
+    drainTimer = setInterval(() => inBackground(scheduleDrain, 'vitec fetch list'), DRAIN_MS);
     drainTimer.unref?.();
-    void scheduleTick();
-    scheduleTimer = setInterval(() => void scheduleTick(), SCHEDULE_MS);
+    inBackground(scheduleTick, 'vitec schedule');
+    scheduleTimer = setInterval(() => inBackground(scheduleTick, 'vitec schedule'), SCHEDULE_MS);
     scheduleTimer.unref?.();
     watchTimer = setInterval(() => {
       watchLogins().catch((error: unknown) => given.report(error, { where: 'vitec login watch' }));
