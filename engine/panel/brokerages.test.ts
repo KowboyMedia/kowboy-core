@@ -421,6 +421,8 @@ describe('the brokerages list and a brokerage’s page', () => {
     const failed = (await page()).connections[0];
     expect(failed).toMatchObject({ status: 'ok', progress: null });
     expect((await call('/inbox')).json['setup']).toEqual([]);
+    // A fetch in the future would make the next tests' websites look up to date.
+    await db().query('update subscribers set last_pull_at = now() where tenant_id = $1', [TENANT]);
   });
 
   it('says a page that does not exist is missing', async () => {
