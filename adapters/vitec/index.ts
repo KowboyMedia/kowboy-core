@@ -1551,7 +1551,7 @@ async function refusedHealth(current: AdapterApi): Promise<HealthResult> {
   return {
     ok: false,
     level: 'P2',
-    detail: `Vitec refuses to let Core read ${counted(blocked.length, 'office', 'offices')}. Each stays on the sites for a day after the first refusal, without updates, and then leaves them if Vitec still refuses it, with its homes, new-build projects, agents, areas and housing associations, except what another office on the sites also has, such as an agent who works at both. Ask the brokerage about a refused office. Core asks Vitec about it again only at the daily office check, and “Fetch offices” on the tenant’s page asks within a minute.`,
+    detail: `Vitec refuses to let Core read ${counted(blocked.length, 'office', 'offices')}. Each stays on the sites for a day after the first refusal, without updates, and then leaves them if Vitec still refuses it, with its homes, new-build projects, agents, areas and housing associations, except what another office on the sites also has, such as an agent who works at both. Ask the brokerage about a refused office. Core asks Vitec about it again only at the daily office check, and “Fetch offices” on the tenant’s page asks within a minute. After a changed password, type the new one in the login on the tenant’s page: Core tests it at once.`,
     names,
   };
 }

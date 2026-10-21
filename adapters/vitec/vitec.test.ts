@@ -136,6 +136,7 @@ beforeEach(async () => {
   fake = await startFakeConnect();
   process.env['VITEC_BASE_URL'] = fake.url;
   process.env['VITEC_WEBHOOK_TOKEN'] = TOKEN;
+  connect.forgetNewLoginTests();
   await store.reset();
 });
 
@@ -657,18 +658,27 @@ describe('the Vitec adapter', () => {
     });
     await running.deliver();
     await drainFetchList();
-    const probe = required(vitecAdmin.probe, 'probe');
-    const login = JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: OFFICE });
-    expect(await probe(login, [])).toMatchObject({
-      ok: false,
-      detail: expect.stringContaining('Fetch offices'),
-    });
     const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
     await expect(
       connect.post(auth, OFFICE, `v2/Advertising/Form/${OFFICE}/Valuation`, {}),
-    ).rejects.toBeInstanceOf(connect.Blocked);
+    ).rejects.toThrow('Fetch offices');
     expect(fake.requests.length).toBe(sent);
     expect(fake.forms).toHaveLength(0);
+
+    // A new login typed for the office is the exception: one test an hour, then held back.
+    const probe = required(vitecAdmin.probe, 'probe');
+    const login = (password: string) =>
+      JSON.stringify({ username: USERNAME, password, customer_id: OFFICE });
+    expect(await probe(login('a typo'), [])).toMatchObject({
+      ok: false,
+      detail: expect.stringContaining('does not let this username and password read'),
+    });
+    expect(fake.requests.length).toBe(sent + 1);
+    expect(await probe(login('the new one'), [])).toMatchObject({
+      ok: false,
+      detail: expect.stringContaining('Try again in 60 minutes.'),
+    });
+    expect(fake.requests.length).toBe(sent + 1);
 
     // The office check at the next tick is the one call that asks: the id's own list, refused, so
     // no office groups. The office stays blocked, and later ticks within the day ask nothing.
@@ -678,6 +688,7 @@ describe('the Vitec adapter', () => {
     await drainFetchList();
     expect(fake.requests.map((request) => request.path)).toEqual([
       `/Advertising/Estate/${OFFICE}/OBJ2`,
+      `/Advertising/Office/${OFFICE}`, // the new login's one test
       `/Advertising/Office/${OFFICE}`,
     ]);
     expect((await health())['vitec.offices']?.ok).toBe(false);
@@ -2026,6 +2037,32 @@ describe('the Vitec adapter', () => {
       const left = await check([{ id: 'M2' }]);
       expect(left).toMatchObject({ added: [], removed: ['Kontor 1'] });
       expect(left?.on).toEqual([{ office: 'M2', name: 'Kontor 2', addedAt: at }]);
+    });
+
+    it('lets a new password be tested for a refused single office, and saving it brings the office back', async () => {
+      seed(fake);
+      await start();
+      await drainFetchList();
+      // The brokerage changed the password in Vitec: the check meets the refusal, and the office,
+      // which is the login's own id, is blocked.
+      fake.accept('new-key');
+      await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+      await runSchedules();
+      expect((await store.blockedOffices()).map((office) => office.officeId)).toEqual([OFFICE]);
+
+      const typed = JSON.stringify({
+        username: USERNAME,
+        password: 'new-key',
+        customer_id: OFFICE,
+      });
+      expect(await required(vitecAdmin.probe, 'probe')(typed, [])).toMatchObject({ ok: true });
+      await running.connection({ id: CONNECTION, provider: 'vitec', credentials: typed });
+      await until(
+        async () => (await store.blockedOffices()).length === 0,
+        'the saved login bringing the office back',
+        15_000,
+      );
+      expect((await progressOf()).heldSince).toBeNull();
     });
 
     it('checks the offices at once when a new password is saved, at most once an hour, and says since when changes were held', async () => {

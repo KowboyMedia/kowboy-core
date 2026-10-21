@@ -192,9 +192,14 @@ export class Blocked extends Error {
   constructor(
     readonly environment: Environment,
     readonly officeId: string,
+    /** For a new login's test held back because another was tested within the hour: when it may. */
+    testsFrom: Date | null = null,
   ) {
+    const office = `the office with Vitec’s office id ${officeId}${environment === 'qa' ? ' in its QA environment' : ''}`;
     super(
-      `Core did not ask Vitec, because Vitec refuses to let this login read the office with Vitec’s office id ${officeId}${environment === 'qa' ? ' in its QA environment' : ''}. Core asks Vitec about the office again only at the daily office check. Once the brokerage has sorted it out with Vitec, press “Fetch offices” on the tenant’s page, and Core checks within a minute.`,
+      testsFrom
+        ? `Core did not ask Vitec, because Vitec refuses to let the saved login read ${office}, and a new login for it was tested less than an hour ago. Core tests one new login an hour for a refused office, so Vitec never sees repeated tries from Core. Try again in ${String(Math.max(1, Math.ceil((testsFrom.getTime() - Date.now()) / 60_000)))} minutes.`
+        : `Core did not ask Vitec, because Vitec refuses to let this login read ${office}. Core asks Vitec about the office again only at the daily office check. Once the brokerage has sorted it out with Vitec, press “Fetch offices” on the tenant’s page, and Core checks within a minute. After a changed password, type the new one in the login on the tenant’s page instead: Core tests it at once.`,
     );
     this.name = 'Blocked';
   }
@@ -281,21 +286,47 @@ export const asOfficeCheck = <T>(run: () => Promise<T>): Promise<T> =>
   passing.run('office check', run);
 
 /**
- * Run "Check login" through the door: kept back from a refused office like any request, but a
- * refusal it meets is the typed login's, which nothing has saved, so it blocks no office.
+ * Run "Check login" through the door: a refusal it meets is the typed login's, which nothing has
+ * saved, so it blocks no office. A refused office lets one test through an hour (newTestAt), so
+ * a brokerage's changed password can be typed and saved at once.
  */
 export const asLoginTrial = <T>(run: () => Promise<T>): Promise<T> =>
   passing.run('login trial', run);
+
+/** When a new login was last tested for each refused office, in this process's memory only. */
+const newLoginTests = new Map<string, number>();
+
+/** Test use: no new login was tested for any refused office. */
+export function forgetNewLoginTests(): void {
+  newLoginTests.clear();
+}
+
+/**
+ * Whether a typed login may test a refused office now: once an hour per office, so a changed
+ * password is fixed in a minute and Vitec never sees repeated tries (Patric, 2026-10-21). The
+ * admin panel tests only a login that differs from the saved one.
+ */
+function newTestAt(environment: Environment, officeId: string): Date | null {
+  const key = `${environment} ${officeId}`;
+  const next = (newLoginTests.get(key) ?? 0) + 3_600_000;
+  if (next > Date.now()) return new Date(next);
+  newLoginTests.set(key, Date.now());
+  return null;
+}
 
 /**
  * The one door every request to Vitec passes, `get` and `post` alike (Patric, 2026-10-06: the
  * circuit breaker is central and does not rely on finding every use). A request about an office
  * Vitec refuses is never sent, whoever asks: the fetch list, a listing, a person's button, a form
- * or its "Send again". Each request names the office or the customer or group id it is about.
+ * or its "Send again"; the office check, and one new login's test an hour, are the exceptions.
+ * Each request names the office or the customer or group id it is about.
  */
 async function door(environment: Environment, officeId: string): Promise<void> {
-  if (passing.getStore() === 'office check') return;
-  if (await isBlocked({ environment, officeId })) throw new Blocked(environment, officeId);
+  const who = passing.getStore();
+  if (who === 'office check') return;
+  if (!(await isBlocked({ environment, officeId }))) return;
+  const testsFrom = who === 'login trial' ? newTestAt(environment, officeId) : null;
+  if (who !== 'login trial' || testsFrom) throw new Blocked(environment, officeId, testsFrom);
 }
 
 /**
