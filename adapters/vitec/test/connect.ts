@@ -29,6 +29,8 @@ export type FakeConnect = {
   /** Answer 403 for this office from now on, its form calls too, as Connect does for a closed one. */
   forbid(officeId: string): void;
   allow(officeId: string): void;
+  /** Take only these passwords from now on, as Vitec does once the brokerage changed one. */
+  accept(...passwords: string[]): void;
   /** Answer the next `times` requests with 200 and a body that is not JSON. */
   brokenNext(times: number): void;
   /** Answer the next request with 503 and a Retry-After of this many seconds. */
@@ -69,7 +71,9 @@ export function startFakeConnect(): Promise<FakeConnect> {
     return created;
   };
 
-  const expectedAuth = `Basic ${Buffer.from(`${USERNAME}:${PASSWORD}`).toString('base64')}`;
+  const basic = (password: string): string =>
+    `Basic ${Buffer.from(`${USERNAME}:${password}`).toString('base64')}`;
+  let accepted = new Set([basic(PASSWORD)]);
   const unlisted = new Set<string>();
   const forbidden = new Set<string>();
   let failures = 0;
@@ -87,6 +91,7 @@ export function startFakeConnect(): Promise<FakeConnect> {
     failNext: (times) => (failures = times),
     forbid: (officeId) => forbidden.add(officeId),
     allow: (officeId) => forbidden.delete(officeId),
+    accept: (...passwords) => (accepted = new Set(passwords.map(basic))),
     brokenNext: (times) => (broken = times),
     retryAfterNext: (seconds) => (retryAfter = seconds),
     delayMs: 0,
@@ -259,7 +264,9 @@ export function startFakeConnect(): Promise<FakeConnect> {
     request.on('data', (chunk: Buffer) => chunks.push(chunk));
     request.on('end', () =>
       setTimeout(() => {
-        if (request.headers['authorization'] !== expectedAuth) return reply(401, { message: 'no' });
+        if (!accepted.has(String(request.headers['authorization']))) {
+          return reply(401, { message: 'no' });
+        }
         const trouble = misbehave();
         if (trouble) {
           inFlight -= 1;

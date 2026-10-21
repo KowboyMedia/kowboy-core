@@ -54,6 +54,7 @@ import {
 } from './words.js';
 import {
   CHECK_EVERY_MS,
+  RETRY_AFTER_MS,
   checkOffices,
   checkSoon,
   lastCheck,
@@ -1310,6 +1311,19 @@ async function runDue(
   if (startup || (await aged(id, 'compare_at', COMPARE_EVERY_MS))) await compare(target);
 }
 
+/**
+ * Whether a newly saved login gets its office check now: once an hour at most per connection, so
+ * that saving the login again and again never adds up to calls to Vitec (the IP ban rule). A login
+ * saved again within the hour is checked at the daily check, or by "Fetch offices". Saving a login
+ * needs Vitec to accept it first, so this never asks with a login Vitec refused, and saving the
+ * same login again is no change and starts nothing.
+ */
+async function firstNewLoginCheck(connectionId: string): Promise<boolean> {
+  if (!(await aged(connectionId, 'login_check_at', RETRY_AFTER_MS))) return false;
+  await store.setState(connectionId, 'login_check_at', new Date().toISOString());
+  return true;
+}
+
 async function tickOnce(): Promise<void> {
   const current = engine;
   if (!current) return;
@@ -1327,6 +1341,8 @@ async function tickOnce(): Promise<void> {
   seenLogins = new Map(
     targets.map((target) => [target.connection.id, loginKey(target.credentials)]),
   );
+  const checkNow = new Set<string>();
+  for (const id of newLogins) if (await firstNewLoginCheck(id)) checkNow.add(id);
   const starting = (toStart ??= new Set(targets.map((target) => target.connection.id)));
   await resumeDue(targets);
   await settleDoorRefusals(current, targets);
@@ -1334,7 +1350,7 @@ async function tickOnce(): Promise<void> {
   for (const given of targets) {
     try {
       const { id } = given.connection;
-      await runDue(current, given, starting.has(id), newLogins.has(id));
+      await runDue(current, given, starting.has(id), checkNow.has(id));
       starting.delete(given.connection.id);
     } catch (error) {
       await current.logEvent(

@@ -2028,7 +2028,7 @@ describe('the Vitec adapter', () => {
       expect(left?.on).toEqual([{ office: 'M2', name: 'Kontor 2', addedAt: at }]);
     });
 
-    it('checks the offices at once when a new password is saved, and says since when changes were held', async () => {
+    it('checks the offices at once when a new password is saved, at most once an hour, and says since when changes were held', async () => {
       seed(fake);
       await start();
       await drainFetchList();
@@ -2040,24 +2040,32 @@ describe('the Vitec adapter', () => {
           credentials: JSON.stringify({ username: USERNAME, password, customer_id: OFFICE }),
         });
 
-      // A wrong password: Vitec refuses the id at the check, which the save starts by itself.
-      await save('changed-by-mistake');
-      await until(
-        async () => (await progressOf()).heldSince !== null,
-        'the refusal holding the changes back',
-        15_000,
-      );
+      // The brokerage changed the password in Vitec: the office check meets the refusal.
+      fake.accept('new-key');
+      await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+      await runSchedules();
       const refused = await lastCheck(CONNECTION);
       expect(refused?.ids[0]?.refusedSince).not.toBeNull();
+      expect((await progressOf()).heldSince).not.toBeNull();
 
-      // The right one again: checked at once, the office reads, and nothing is held any more.
-      await save(PASSWORD);
+      // The new one saved: checked at once, the office reads, and nothing is held any more.
+      await save('new-key');
       await until(
         async () => (await progressOf()).heldSince === null,
         'the new login ending the hold',
         15_000,
       );
-      expect((await lastCheck(CONNECTION))?.at).not.toBe(refused?.at);
+      await runSchedules();
+      const checked = await lastCheck(CONNECTION);
+      expect(checked?.at).not.toBe(refused?.at);
+
+      // Another login saved within the hour waits for the daily check: no call adds up.
+      fake.accept('new-key', 'newer-key');
+      fake.requests.length = 0;
+      await save('newer-key');
+      await runSchedules();
+      expect((await lastCheck(CONNECTION))?.at).toBe(checked?.at);
+      expect(fake.requests.filter((request) => request.path.includes('/Office'))).toEqual([]);
     });
   });
 });
