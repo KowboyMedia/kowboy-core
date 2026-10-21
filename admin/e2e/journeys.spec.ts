@@ -291,26 +291,6 @@ test('journey: U6 the event log says who did what', async ({ page }) => {
   await expect(page.getByText('admin.signed_in')).toHaveCount(0);
 });
 
-test('journey: U6 maintenance pauses Core’s own work, and says so everywhere', async ({ page }) => {
-  await go(page, 'Settings');
-  await page.getByRole('button', { name: 'Turn maintenance on' }).click();
-  await page.getByRole('button', { name: 'Turn it on' }).click();
-  // The card itself says so, by offering the switch the other way.
-  await expect(page.getByRole('button', { name: 'Turn maintenance off' })).toBeVisible();
-
-  // The page itself, not the toast that is still fading on top of it.
-  await go(page, 'Overview');
-  await expect(page.getByRole('main').getByText('Maintenance is on.')).toBeVisible();
-
-  await go(page, 'Settings');
-  await page.getByRole('button', { name: 'Turn maintenance off' }).click();
-  await page.getByRole('button', { name: 'Turn it off' }).click();
-  await expect(
-    page.getByText('Core tells the sites about the changes it held back.', { exact: false }),
-  ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Turn maintenance on' })).toBeVisible();
-});
-
 test('journey: the palette goes anywhere, and sign-out ends the session', async ({ page }) => {
   // The keys open it, and so does the button that spells them out for anyone who does not know
   // them (Patric, 2026-09-21: "⌘K" — what is this?).

@@ -24,7 +24,7 @@ import {
 import { audit } from './audit.js';
 import { overview } from './overview.js';
 import { act, crmPage, crms, probe } from './crms.js';
-import { configuration, setMaintenance } from './configuration.js';
+import { configuration } from './configuration.js';
 import { flow, stream } from './feed.js';
 import { steps } from './event-log.js';
 import { inspect, readRecord, search } from './records.js';
@@ -428,18 +428,6 @@ const routes: AdminRoute[] = [
 
   // ---- Settings --------------------------------------------------------------------------------
   { method: 'GET', path: '/settings', handler: async () => one(await configuration()) },
-  {
-    method: 'POST',
-    path: '/settings/maintenance',
-    handler: async (request) => {
-      const parsed = body<{ on?: boolean }>(request);
-      if ('error' in parsed) return parsed.error;
-      const on = parsed.value.on === true;
-      await setMaintenance(on, request.session.email);
-      await audit(request.session, 'maintenance', { on });
-      return one({ maintenance: on });
-    },
-  },
 ];
 
 const refuseConnection = (

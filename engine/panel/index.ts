@@ -4,7 +4,6 @@
 import type { Config } from '../config.js';
 import { report } from '../errors.js';
 import { sendMail } from '../mail.js';
-import { MAINTENANCE, writeSetting } from '../storage/settings.js';
 import { tenantById } from '../storage/connections.js';
 import type { Request, Response, RouteTable } from '../http/server.js';
 import {
@@ -427,16 +426,6 @@ const actRoute = change(async (_request, given, person) =>
   (await actOn(text(given['key']), person.email)) ? answer(200, { ok: true }) : missing(),
 );
 
-/**
- * `POST /v1/panel/maintenance`: turn maintenance on or off. Off, the worker sends the held change
- * notices within a second and takes the queued jobs again.
- */
-const maintenanceRoute = change(async (_request, given, person) => {
-  if (typeof given['on'] !== 'boolean') return refusal('fields');
-  await writeSetting(MAINTENANCE, given['on'] ? 'on' : 'off', person.email);
-  return answer(200, { ok: true });
-});
-
 // ---- Records and manual sync ---------------------------------------------------------------------
 
 const isType = (value: string): value is Datatype =>
@@ -517,7 +506,6 @@ export function panelRoutes(): RouteTable {
     { method: 'POST', path: '/v1/panel/sign-out', handler: signOut },
     { method: 'GET', path: '/v1/panel/inbox', handler: inboxRoute },
     { method: 'POST', path: '/v1/panel/problems/act', handler: actRoute },
-    { method: 'POST', path: '/v1/panel/maintenance', handler: maintenanceRoute },
     { method: 'GET', path: '/v1/panel/crms', handler: crmsRoute },
     { method: 'GET', path: '/v1/panel/flow', handler: flowRoute },
     { method: 'GET', path: '/v1/panel/records', handler: recordsRoute },

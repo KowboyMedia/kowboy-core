@@ -9,7 +9,6 @@ import * as crm from '../adapters/fake-webhook/crm.js';
 import { db } from '../engine/storage/db.js';
 import { logEvent, queryEvents } from '../engine/events.js';
 import { checkAlerts } from '../engine/alerts.js';
-import { inMaintenance } from '../engine/storage/settings.js';
 import { flushBells } from '../engine/bells.js';
 import { getJob, runNextJob } from '../engine/jobs.js';
 import { PAGE_NAMES, pagesNamedIn } from '../engine/admin/pages.js';
@@ -1209,34 +1208,6 @@ describe('the admin area', () => {
     // Whether it is set, never what it is.
     const asText = JSON.stringify(settings.body.data);
     expect(asText).not.toContain(process.env['CREDENTIALS_KEY'] ?? 'unset');
-  });
-
-  it('holds the bells and the jobs while maintenance is on (U6, AC 42)', async () => {
-    await api('/tenants', { method: 'POST', body: tenantBody() });
-    await api('/settings/maintenance', { method: 'POST', body: { on: true } });
-    expect(await inMaintenance()).toBe(true);
-
-    // A change while maintenance is on reaches Core, but no site is rung for it, and the job a
-    // recompute queues waits.
-    crm.put('office', '100', { ref: '100', title: 'Lidingö', updatedUtc: '2026-08-30T09:00:00Z' });
-    await running.deliver();
-    await until(
-      async () => (await api<{ total: number }>('/records')).body.total === 1,
-      'the office to load',
-    );
-    await flushBells();
-    expect(await queryEvents({ type: 'bell', limit: 10 })).toHaveLength(0);
-
-    await api('/runs/sync', { method: 'POST', body: { level: 'recompute' } });
-    expect(await runNextJob()).toBe(false);
-
-    await api('/settings/maintenance', { method: 'POST', body: { on: false } });
-    await flushBells();
-    await until(
-      async () => (await queryEvents({ type: 'bell', limit: 10 })).length > 0,
-      'the held bell to go out once maintenance is off',
-    );
-    expect(await runNextJob()).toBe(true);
   });
 
   it('syncs a scope at each of three levels, each ending at the sites (Patric, 2026-10-06)', async () => {

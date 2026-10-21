@@ -13,7 +13,6 @@ import { createTenant, upsertConnection, tenantForToken } from '../storage/conne
 import { heartbeat } from '../health.js';
 import { NOT_LIVE, submissionsFor } from '../registry.js';
 import type { Adapter, AdminQueued, Connection, Submission } from '../adapter-api/types.js';
-import { MAINTENANCE, writeSetting } from '../storage/settings.js';
 import { logEvent } from '../events.js';
 import { COOKIE } from './auth.js';
 import type { Brokerage, BrokerageRow, Crm } from './brokerages.js';
@@ -127,7 +126,6 @@ beforeEach(async () => {
   asked.sent = [];
   actFails = null;
   listed = [];
-  await writeSetting(MAINTENANCE, 'off', null);
   await db().query(
     'truncate submissions, events, alert_state, admin_sessions, heartbeats, health_results, lifecycle_events, jobs, panel_problems',
   );
@@ -1010,15 +1008,12 @@ describe('the Flow', () => {
       'Lindqvist & Holm Mäkleri',
     ]);
     expect(shown.offices).toEqual([{ key: 'main:Bromma', name: 'Bromma', tenant: TENANT }]);
-    expect(shown.maintenance.on).toBe(false);
   });
 
-  it('says whether each website fetched a written record, is held by maintenance or is off', async () => {
+  it('says whether each website fetched a written record, waits for it or is off', async () => {
     const state = async () =>
       (await flowOf()).rows.find((row) => row.state === 'written')?.sites[0]?.state;
-    await writeSetting(MAINTENANCE, 'on', 'anna@kowboy.se');
-    expect(await state()).toBe('held');
-    expect((await flowOf()).maintenance).toMatchObject({ on: true, by: 'anna@kowboy.se' });
+    expect(await state()).toBe('waiting');
     await db().query('update tenants set active = false where id = $1', [TENANT]);
     expect(await state()).toBe('off');
     await db().query("update subscribers set last_pull_at = now() + interval '1 second'");

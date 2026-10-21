@@ -150,7 +150,6 @@ export const api = {
   },
   /** "Done, I've pasted it": the Inbox card waits until the problem is solved. */
   acted: (key: string) => post<{ ok: true }>('/problems/act', { key }),
-  maintenance: (on: boolean) => post<{ ok: true }>('/maintenance', { on }),
   /** One page of the records the filter keeps, by name, with the filters' choices counted. */
   records: (filter: Partial<RecordFilter>, page = 1) => {
     const query = recordQuery(filter);

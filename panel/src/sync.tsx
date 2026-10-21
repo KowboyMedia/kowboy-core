@@ -283,9 +283,6 @@ export function shown(kept: Kept, view: SyncView | null, removedHint: boolean): 
     ? [...new Set(view.sites.filter((site) => !site.tenant.active).map((site) => site.tenant.name))]
     : kept.target.off;
   const offLine = offText(off, what);
-  const maintenance = view?.maintenance
-    ? 'Maintenance is on: the recompute and the change notices wait until it is turned off.'
-    : null;
   const get = `${sitesWords(kept.target.everyTenant ? [] : active, true)} ${one(active) && !kept.target.everyTenant ? 'gets' : 'get'} each change as soon as Core writes it.`;
   const lines = (all: (string | null | undefined)[]): string[] =>
     all.filter((line): line is string => typeof line === 'string' && line !== '');
@@ -306,7 +303,7 @@ export function shown(kept: Kept, view: SyncView | null, removedHint: boolean): 
     return {
       tone: 'info',
       title: `Sync started (${startedAt})`,
-      lines: lines([startedText(kept), queued, get, offLine, maintenance]),
+      lines: lines([startedText(kept), queued, get, offLine]),
       progress: what === 'recompute' ? (view?.progress ?? null) : null,
     };
   }
@@ -346,7 +343,6 @@ export function shown(kept: Kept, view: SyncView | null, removedHint: boolean): 
         failedFetches,
         `Waiting for ${one(labels) ? 'the website' : 'the websites'} to fetch ${what === 'send' ? 'them' : 'the changes'}. Websites usually fetch within seconds; one that hasn’t fetched within an hour shows up in the Inbox.`,
         offLine,
-        maintenance,
       ]),
       progress: null,
     };

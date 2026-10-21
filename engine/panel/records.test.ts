@@ -12,7 +12,6 @@ import { db } from '../storage/db.js';
 import { tokenHmac } from '../storage/crypto.js';
 import { addSubscriber, createTenant, upsertConnection } from '../storage/connections.js';
 import { runNextJob } from '../jobs.js';
-import { MAINTENANCE, writeSetting } from '../storage/settings.js';
 import type {
   Adapter,
   AdapterApi,
@@ -188,7 +187,6 @@ beforeEach(async () => {
   asked.refetches = [];
   asked.resyncs = [];
   asked.sent = 0;
-  await writeSetting(MAINTENANCE, 'off', null);
   await db().query(
     'truncate submissions, events, admin_sessions, lifecycle_events, jobs, panel_problems',
   );
@@ -547,11 +545,6 @@ describe('manual sync', () => {
     expect(started).toMatchObject({ what: 'recompute', count: 4, events: [] });
     expect(started.job).not.toBeNull();
     expect((await state(started)).state).toBe('working');
-
-    await writeSetting(MAINTENANCE, 'on', null);
-    expect(await runNextJob()).toBe(false);
-    expect((await state(started)).maintenance).toBe(true);
-    await writeSetting(MAINTENANCE, 'off', null);
 
     expect(await runNextJob()).toBe(true);
     const done = await state(started);

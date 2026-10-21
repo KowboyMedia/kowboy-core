@@ -1,17 +1,11 @@
 // The Settings page (§3 H): what this Core is configured with, what the database holds, which
-// versions are running, and the two switches a person throws. A setting's value is never shown,
+// versions are running. A setting's value is never shown,
 // only whether it is set, so a screen share never leaks one.
 import { migrationsApplied } from '../storage/migrate.js';
 import { RULES_VERSION } from '../rules/run.js';
 import { SCHEMA_VERSION } from '../contract.js';
 import { STARTED_AT, VERSION } from '../version.js';
 import { mailConfigured } from '../mail.js';
-import {
-  inMaintenance,
-  MAINTENANCE,
-  settings as storedSettings,
-  writeSetting,
-} from '../storage/settings.js';
 import { currentConfig } from './auth.js';
 
 export type Configuration = {
@@ -30,8 +24,6 @@ export type Configuration = {
   people: string[];
   peopleDomains: string[];
   migrations: string[];
-  maintenance: boolean;
-  switches: Awaited<ReturnType<typeof storedSettings>>;
 };
 
 export async function configuration(): Promise<Configuration> {
@@ -105,16 +97,5 @@ export async function configuration(): Promise<Configuration> {
     people: config.adminEmails,
     peopleDomains: config.adminEmailDomains,
     migrations: await migrationsApplied(),
-    maintenance: await inMaintenance(),
-    switches: await storedSettings(),
   };
-}
-
-/**
- * Maintenance. While it is on, Core keeps answering the sites' pulls exactly as before — nothing a
- * visitor sees changes — but no site is rung and no job is taken. Changes made meanwhile are
- * remembered and go out in one round when it is turned off.
- */
-export async function setMaintenance(on: boolean, by: string): Promise<void> {
-  await writeSetting(MAINTENANCE, on ? 'on' : 'off', by);
 }

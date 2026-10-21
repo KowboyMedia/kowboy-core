@@ -1,138 +1,16 @@
-// The Flow (the tenant mockups, images 22 to 27): maintenance at the top, then what the CRMs have
-// listed for Core to fetch, from queued to written in Core and fetched by the websites, the newest
-// 100, read again every second. The reasons and the errors are the CRMs' code's own words; the
+// The Flow (the tenant mockups, images 22 to 27): what the CRMs have listed for Core to fetch,
+// from queued to written in Core and fetched by the websites, the newest 100, read again every
+// second. The reasons and the errors are the CRMs' code's own words; the
 // page names no CRM.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { api, type Flow, type FlowRow, type FlowSite } from './api';
 import { Shell, useShell } from './Shell';
 import { failureWords } from './failure';
-import {
-  AlertCircleIcon,
-  AlertTriangleIcon,
-  CircleCheckIcon,
-  ClockIcon,
-  LoaderIcon,
-  PauseIcon,
-  PowerIcon,
-  TrafficConeIcon,
-} from './icons';
-import { capital, exactly, when } from './time';
-import { Modal, Switch, useNote } from './ui';
+import { AlertCircleIcon, AlertTriangleIcon, CircleCheckIcon, ClockIcon, PowerIcon } from './icons';
+import { capital, exactly } from './time';
 import { Picker } from './picker';
 
 const EVERY_MS = 1_000;
-
-// ---- Maintenance ------------------------------------------------------------------------------------
-
-/** "Turn on maintenance?" (image 24). */
-function MaintenanceWindow({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
-  const { away } = useShell();
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-  const on = async () => {
-    setBusy(true);
-    setFailed(null);
-    try {
-      await api.maintenance(true);
-      onDone();
-    } catch (error) {
-      if (!away(error)) setFailed(failureWords(error));
-      setBusy(false);
-    }
-  };
-  return (
-    <Modal
-      title="Turn on maintenance?"
-      tone="info"
-      onClose={onClose}
-      footer={
-        <>
-          <button type="button" className="k-button k-button-link" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="k-button k-button-primary"
-            disabled={busy}
-            onClick={() => void on()}
-          >
-            {busy ? <LoaderIcon className="k-spin" size={18} /> : <TrafficConeIcon size={18} />}
-            Turn on maintenance
-          </button>
-        </>
-      }
-    >
-      <p className="k-modal-text">
-        Websites aren’t told about changes; the notices go out together when you turn it off. No
-        queued job starts. Core keeps reading the CRMs, and visitors’ forms still reach them.
-      </p>
-      {failed && <p className="k-error">{failed}</p>}
-    </Modal>
-  );
-}
-
-/** The Maintenance box (images 22 and 25): off, or on since when and by whom. */
-function MaintenanceBox({ flow, onChanged }: { flow: Flow; onChanged: () => void }) {
-  const { away } = useShell();
-  const note = useNote();
-  const [asking, setAsking] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const { on, since, by } = flow.maintenance;
-  const now = new Date(flow.now);
-  const off = async () => {
-    setBusy(true);
-    try {
-      await api.maintenance(false);
-      note({ text: 'Maintenance is off. Held changes are going out to the websites.' });
-      onChanged();
-    } catch (error) {
-      if (!away(error)) note({ text: failureWords(error), icon: 'warn' });
-    }
-    setBusy(false);
-  };
-  return (
-    <section className={`k-box${on ? ' k-box-on' : ''}`} aria-label="Maintenance">
-      <header className="k-box-head">
-        <h2>
-          {on && <TrafficConeIcon size={18} />}
-          {on ? 'Maintenance is on' : 'Maintenance'}
-        </h2>
-      </header>
-      <div className="k-box-body k-maintenance">
-        <Switch
-          on={on}
-          label={on ? 'On' : 'Off'}
-          strong
-          disabled={busy}
-          onChange={(next) => (next ? setAsking(true) : void off())}
-        />
-        <div>
-          {on && since && (
-            <p className="k-maintenance-since">
-              Since {when(since, now)}
-              {by ? `, by ${by}` : ''}.
-            </p>
-          )}
-          <p className="k-maintenance-text">
-            For the developers, before work on Core such as a database restore. While it is on,
-            websites get no change notices and no queued job starts; the held notices go out
-            together when it is switched off. Core keeps reading the CRMs, and visitors’ forms still
-            go.
-          </p>
-        </div>
-      </div>
-      {asking && (
-        <MaintenanceWindow
-          onClose={() => setAsking(false)}
-          onDone={() => {
-            setAsking(false);
-            onChanged();
-          }}
-        />
-      )}
-    </section>
-  );
-}
 
 // ---- The filters ----------------------------------------------------------------------------------
 
@@ -183,26 +61,13 @@ function InCore({ row, now }: { row: FlowRow; now: Date }) {
 const SITE_ICON: Record<FlowSite['state'], ReactNode> = {
   fetched: <CircleCheckIcon size={16} />,
   waiting: <ClockIcon size={16} />,
-  held: <PauseIcon size={16} />,
   off: <PowerIcon size={16} />,
 };
 
 function Sites({ sites, now }: { sites: FlowSite[]; now: Date }) {
-  // While maintenance holds the notices, every website waits alike: one line says so.
-  const held = sites.some((site) => site.state === 'held');
-  const shown = held ? sites.filter((site) => site.state !== 'held') : sites;
   return (
     <>
-      {held && (
-        <span className="k-flow-site">
-          <span className="k-flow-state k-flow-held">
-            {SITE_ICON.held}
-            Held
-          </span>
-          <span className="k-flow-sub">until maintenance is off</span>
-        </span>
-      )}
-      {shown.map((site, index) => (
+      {sites.map((site, index) => (
         <span key={`${site.label} ${String(index)}`} className="k-flow-site">
           <span className={`k-flow-state k-flow-site-${site.state}`}>
             {SITE_ICON[site.state]}
@@ -305,7 +170,7 @@ function List({ flow, failed }: { flow: Flow; failed: string | null }) {
 // ---- The page -------------------------------------------------------------------------------------
 
 function FlowView() {
-  const { away, setMaintenance } = useShell();
+  const { away } = useShell();
   const [flow, setFlow] = useState<Flow | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [tenants, setTenants] = useState<string[]>([]);
@@ -325,7 +190,6 @@ function FlowView() {
         reading.current = false;
         if (asked.current !== filters) return;
         setFlow(next);
-        setMaintenance(next.maintenance.on);
         setFailed(null);
       },
       (error: unknown) => {
@@ -333,7 +197,7 @@ function FlowView() {
         if (!away(error)) setFailed(failureWords(error));
       },
     );
-  }, [tenants, offices, away, setMaintenance]);
+  }, [tenants, offices, away]);
 
   useEffect(() => {
     read();
@@ -364,7 +228,6 @@ function FlowView() {
       )}
       {flow && (
         <>
-          <MaintenanceBox flow={flow} onChanged={read} />
           <section className="k-box" aria-label="Filters">
             <div className="k-box-body">
               <div className="k-pair">

@@ -46,7 +46,10 @@ export function file(request: Request): Response {
   if (!base)
     return { status: 503, body: NOT_BUILT, headers: { 'content-type': TYPES['.html'] ?? '' } };
 
-  const wanted = normalize(request.path.replace(/^\/admin-old\/?/, '')).replace(/^(\.\.[/\\])+/, '');
+  const wanted = normalize(request.path.replace(/^\/admin-old\/?/, '')).replace(
+    /^(\.\.[/\\])+/,
+    '',
+  );
   const path = join(base, wanted);
   const inside = path.startsWith(base);
   const asFile =

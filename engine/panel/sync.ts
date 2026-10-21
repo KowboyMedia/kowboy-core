@@ -14,7 +14,6 @@ import {
   type ScopeFilter,
 } from '../storage/items.js';
 import { connectionById } from '../storage/connections.js';
-import { inMaintenance } from '../storage/settings.js';
 import { queueLifecycle } from '../lifecycle.js';
 import { createJob, getJob } from '../jobs.js';
 import { ring } from '../bells.js';
@@ -77,8 +76,6 @@ export type SyncSite = {
 
 export type SyncView = {
   state: 'working' | 'done' | 'stopped';
-  /** Maintenance holds the recompute and the change notices until it is turned off. */
-  maintenance: boolean;
   /** A recompute's progress, in records. */
   progress: { done: number; total: number } | null;
   /** Records the CRM's code still has to fetch, and those whose fetch failed so far. */
@@ -642,7 +639,6 @@ async function recomputeState(job: number, view: SyncView): Promise<void> {
 export async function syncState(ticket: SyncTicket): Promise<SyncView> {
   const view: SyncView = {
     state: 'done',
-    maintenance: await inMaintenance(),
     progress: null,
     waiting: 0,
     failedFetches: 0,

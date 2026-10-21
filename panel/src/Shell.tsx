@@ -1,5 +1,4 @@
-// Every page for a signed-in device: the top bar with the Inbox's count and the maintenance marker,
-// the page, and the messages in the corner. A device that is signed out goes to the sign-in page.
+// Every page for a signed-in device: the top bar with the Inbox's count, the page, and the messages in the corner. A device that is signed out goes to the sign-in page.
 // A page that sends the person to another one can leave a message for it to say in the corner.
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
@@ -15,8 +14,6 @@ const AGAIN_MS = 10_000;
 type ShellParts = {
   /** The Inbox page knows its own count and says it here, so the bar never waits for it. */
   setCount: (count: number) => void;
-  /** A page that reads whether maintenance is on says it here, for the Flow tab's marker. */
-  setMaintenance: (on: boolean) => void;
   /** Send this device to the sign-in page when Core says it is signed out; true if it did. */
   away: (error: unknown) => boolean;
   /** Who is signed in on this device. */
@@ -25,7 +22,6 @@ type ShellParts = {
 
 const Parts = createContext<ShellParts>({
   setCount: () => undefined,
-  setMaintenance: () => undefined,
   away: () => false,
   me: null,
 });
@@ -69,7 +65,6 @@ export function Shell({
   /** What went wrong when Core did not say who is signed in; asked again until it does. */
   const [failed, setFailed] = useState<string | null>(null);
   const [count, setCount] = useState(0);
-  const [maintenance, setMaintenance] = useState(false);
 
   const away = useCallback(
     (error: unknown) => {
@@ -107,10 +102,7 @@ export function Shell({
   useEffect(() => {
     if (ownCount) return;
     const read = () => {
-      api.inbox().then((inbox) => {
-        setCount(inbox.cards.length);
-        setMaintenance(inbox.maintenance.on);
-      }, away);
+      api.inbox().then((inbox) => setCount(inbox.cards.length), away);
     };
     read();
     const timer = setInterval(read, EVERY_MS);
@@ -127,9 +119,9 @@ export function Shell({
     ) : null;
   }
   return (
-    <Parts.Provider value={{ setCount, setMaintenance, away, me }}>
+    <Parts.Provider value={{ setCount, away, me }}>
       <NoteProvider>
-        <TopBar me={me} count={count} maintenance={maintenance} tab={tab} />
+        <TopBar me={me} count={count} tab={tab} />
         <ArrivalNote />
         {children}
       </NoteProvider>

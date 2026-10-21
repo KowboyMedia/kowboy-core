@@ -13,7 +13,6 @@ import {
 import { itemCounts } from '../storage/items.js';
 import { subscribers, tenants } from '../storage/connections.js';
 import { openJobs } from '../jobs.js';
-import { inMaintenance } from '../storage/settings.js';
 import { attention, type AttentionRow } from '../attention.js';
 import { namedThings, type Linked } from './things.js';
 import { capital, siteNamed } from './words.js';
@@ -51,7 +50,6 @@ export type Overview = {
    * check finds behind, and the connections, offices and records a check points at (things.ts).
    */
   links: Record<string, Linked[]>;
-  maintenance: boolean;
   attention: NeedsAttention[];
   tenants: { total: number; active: number };
   records: { tenantId: number; datatype: string; live: number; tombstoned: number }[];
@@ -106,9 +104,8 @@ async function namedLinks(health: Overview['health']): Promise<Overview['links']
 }
 
 export async function overview(): Promise<Overview> {
-  const [health, maintenance, needs, allTenants, counts, figures, sites, jobs] = await Promise.all([
+  const [health, needs, allTenants, counts, figures, sites, jobs] = await Promise.all([
     healthReport(),
-    inMaintenance(),
     attention(),
     tenants(),
     itemCounts(),
@@ -127,7 +124,6 @@ export async function overview(): Promise<Overview> {
         to: `/tenants/${String(site.tenantId)}#site:${String(site.id)}`,
       })),
     },
-    maintenance,
     attention: needs.map((row) => ({
       key: row.key,
       id: row.id,

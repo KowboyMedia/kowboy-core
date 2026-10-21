@@ -175,7 +175,7 @@ export async function harness(options: {
 }
 
 const TABLES =
-  'tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results, error_reports, jobs, alert_state, settings, admin_logins, admin_sessions, submissions';
+  'tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results, error_reports, jobs, alert_state, admin_logins, admin_sessions, submissions';
 
 /**
  * Every table empty and the sequence at 1: what the harness does before a test, and what a test

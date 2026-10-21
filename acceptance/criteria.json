@@ -463,7 +463,6 @@
         "the admin area reads the event log in sentences, a page at a time, and one happening’s steps together (U3, U6, AC 42)",
         "the admin area brings an adapter’s own page, its directions and its actions (U7, question 61)",
         "the admin area shows the configuration without any value, and the migrations (U6, AC 42)",
-        "the admin area holds the bells and the jobs while maintenance is on (U6, AC 42)",
         "the admin area syncs a scope at each of three levels, each ending at the sites (Patric, 2026-10-06)",
         "the admin area follows one record to each site, compares it with the CRM and tries each step again (Patric, 2026-10-06)",
         "the admin area streams what happens, so the pages need no reload (§3 I, Should)",
@@ -485,7 +484,6 @@
         "journey: U6 secrets — rotating a token says what breaks, and asks first",
         "journey: U6 remember this device, and see every device it is signed in on",
         "journey: U6 the event log says who did what",
-        "journey: U6 maintenance pauses Core’s own work, and says so everywhere",
         "journey: the palette goes anywhere, and sign-out ends the session"
       ],
       "note": "The admin area v3 (docs/admin-panel-design.md), built from the requirement sheets on 2026-09-20. The HTTP tests drive the admin API, which is the one code path the browser app and an agent both use; the journeys named `journey: …` walk each use case of docs/admin-panel-rebuild.md §1 in a real browser against the app as `npm run build` makes it, so \"it passed the tests\" means a person could do it."

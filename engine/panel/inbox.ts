@@ -20,7 +20,6 @@ import { ATTENTION_DAYS } from '../attention.js';
 import { NOT_LIVE, providers } from '../registry.js';
 import { KEPT_DAYS, keptSubmissions } from '../storage/submissions.js';
 import { NO_ANSWER, SUBMISSION_TIMEOUT_MS, UNANSWERED_MS } from '../http/submissions.js';
-import { MAINTENANCE, settings } from '../storage/settings.js';
 import type { AdminThing, Datatype, HealthResult, SubmissionKind } from '../adapter-api/types.js';
 import { reconcile, type Acted, type Fixed } from './problems.js';
 
@@ -169,7 +168,6 @@ export type Inbox = {
   crms: string[];
   worker: { ok: boolean; lastSeenAt: string | null };
   database: { ok: boolean };
-  maintenance: { on: boolean; since: string | null; by: string | null };
   /** What needs a person: urgent first, then oldest first. */
   cards: Card[];
   /** What someone acted on, until it is solved or needs a person again. */
@@ -237,18 +235,11 @@ export async function inbox(): Promise<Inbox> {
   ];
   const split = await reconcile(cards, names.tenants);
   const lastSeen = await workerLastSeen();
-  const maintenance = (await settings()).find((row) => row.key === MAINTENANCE);
-  const on = maintenance?.value === 'on';
   return {
     now: new Date().toISOString(),
     crms: providers().map(crmName),
     worker: { ok: health.checks['worker']?.ok === true, lastSeenAt: iso(lastSeen) },
     database: { ok: health.checks['database']?.ok === true },
-    maintenance: {
-      on,
-      since: on ? iso(maintenance?.updated_at) : null,
-      by: on ? (maintenance?.updated_by ?? null) : null,
-    },
     cards: sorted(split.needs),
     waiting: sorted(split.waiting),
     fixed: split.fixed,

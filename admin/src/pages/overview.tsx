@@ -79,7 +79,6 @@ type Overview = {
   about: Record<string, { title: string; page?: { to: string; label: string } }>;
   /** The things a failing check names, each with its place when it has one. */
   links: Record<string, { label: string; to: string | null }[]>;
-  maintenance: boolean;
   attention: NeedsAttention[];
   tenants: { total: number; active: number };
   records: { tenantId: number; datatype: string; live: number; tombstoned: number }[];
@@ -201,17 +200,6 @@ export function Overview() {
           <Link to="/flow">Open Flow</Link>
         </Button>
       </PageHeader>
-
-      {data?.maintenance && (
-        <div className="mb-4 rounded-md border border-warn/50 bg-warn/10 p-3 text-sm">
-          <strong>Maintenance is on.</strong> Core tells no site about changes and runs no
-          recompute; the sites keep fetching on their own schedule. Turn it off in{' '}
-          <Link className="underline" to="/settings">
-            Settings
-          </Link>{' '}
-          when the work on Core is done.
-        </div>
-      )}
 
       <Card className="mb-4" data-testid="verdict">
         <CardHeader>

@@ -1,6 +1,6 @@
 // The Inbox (design B, images 05, 13 to 16, 19 to 22 and 43 to 45, and the tenant mockups, image
 // 26): Core's state, then what needs you, urgent first and then oldest first; what waits after
-// someone acted; and what was fixed today. Maintenance is on the Flow page. The page reads again
+// someone acted; and what was fixed today. The page reads again
 // by itself, so a problem that is put right moves to "Fixed today". Each card's button opens its
 // window: fix a website's bell secret; "Enter new login" opens the connection's
 // own screen; "Retry 3 properties" has the CRM fetch them again at once; "Open <tenant>" opens the
@@ -797,7 +797,7 @@ export function InboxPage() {
 }
 
 function InboxReader() {
-  const { setCount, setMaintenance, away } = useShell();
+  const { setCount, away } = useShell();
   const [inbox, setInbox] = useState<Inbox | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
 
@@ -806,14 +806,13 @@ function InboxReader() {
       (next) => {
         setInbox(next);
         setCount(next.cards.length);
-        setMaintenance(next.maintenance.on);
         setFailed(null);
       },
       (error: unknown) => {
         if (!away(error)) setFailed(failureWords(error));
       },
     );
-  }, [away, setCount, setMaintenance]);
+  }, [away, setCount]);
 
   useEffect(() => {
     read();

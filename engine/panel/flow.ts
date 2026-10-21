@@ -7,7 +7,6 @@
 // errors are the CRM's code's own words.
 import { db } from '../storage/db.js';
 import { connectionsForProvider } from '../storage/connections.js';
-import { MAINTENANCE, settings } from '../storage/settings.js';
 import { report } from '../errors.js';
 import { adminFor } from '../registry.js';
 import type {
@@ -25,8 +24,8 @@ export const FLOW_ROWS = 100;
 /** Where a website stands with a record Core wrote. */
 export type FlowSite = {
   label: string;
-  /** It fetched since the write; not yet; held while maintenance is on; its tenant is off. */
-  state: 'fetched' | 'waiting' | 'held' | 'off';
+  /** It fetched since the write; not yet; its tenant is off. */
+  state: 'fetched' | 'waiting' | 'off';
   /** Its last fetch, when it fetched since the write. */
   at: string | null;
 };
@@ -61,7 +60,6 @@ export type FlowOffice = { key: string; name: string; tenant: number };
 
 export type Flow = {
   now: string;
-  maintenance: { on: boolean; since: string | null; by: string | null };
   /** Every tenant and every office, for the filters. */
   tenants: Tenant[];
   offices: FlowOffice[];
@@ -74,8 +72,6 @@ export type Flow = {
 /** An empty list means every one. */
 export type FlowFilter = { tenants: number[]; offices: string[] };
 
-const iso = (at: Date | null | undefined): string | null => (at ? at.toISOString() : null);
-
 const officeKey = (connection: string, office: string): string => `${connection}:${office}`;
 
 type Facts = {
@@ -83,11 +79,10 @@ type Facts = {
   connections: Map<string, { tenantId: number; provider: string }>;
   sites: Map<number, { label: string; lastFetchAt: Date | null }[]>;
   offices: (FlowOffice & { connection: string; id: string })[];
-  maintenance: Flow['maintenance'];
 };
 
 async function facts(): Promise<Facts> {
-  const [tenants, connections, sites, offices, stored] = await Promise.all([
+  const [tenants, connections, sites, offices] = await Promise.all([
     db().query<{ id: number; display_name: string; active: boolean }>(
       'select id, display_name, active from tenants order by lower(display_name), id',
     ),
@@ -107,7 +102,6 @@ async function facts(): Promise<Facts> {
        where datatype = 'office' and not deleted
        order by lower(coalesce(data->>'name', remote_id)), connection_id`,
     ),
-    settings(),
   ]);
   const siteMap = new Map<number, { label: string; lastFetchAt: Date | null }[]>();
   for (const site of sites.rows) {
@@ -117,8 +111,6 @@ async function facts(): Promise<Facts> {
       { label: site.label, lastFetchAt: site.last_pull_at },
     ]);
   }
-  const maintenance = stored.find((row) => row.key === MAINTENANCE);
-  const on = maintenance?.value === 'on';
   return {
     tenants: new Map(
       tenants.rows.map((row) => [Number(row.id), { name: row.display_name, active: row.active }]),
@@ -137,11 +129,6 @@ async function facts(): Promise<Facts> {
       connection: row.connection_id,
       id: row.remote_id,
     })),
-    maintenance: {
-      on,
-      since: on ? iso(maintenance?.updated_at) : null,
-      by: on ? (maintenance?.updated_by ?? null) : null,
-    },
   };
 }
 
@@ -168,7 +155,7 @@ function sitesFor(known: Facts, tenantId: number, at: Date): FlowSite[] {
       return { label: site.label, state: 'fetched', at: site.lastFetchAt.toISOString() };
     }
     if (tenant && !tenant.active) return { label: site.label, state: 'off', at: null };
-    return { label: site.label, state: known.maintenance.on ? 'held' : 'waiting', at: null };
+    return { label: site.label, state: 'waiting', at: null };
   });
 }
 
@@ -332,7 +319,6 @@ export async function flow(filter: FlowFilter): Promise<Flow> {
   const time = (row: FlowRow): number => Date.parse(row.queuedAt ?? row.writtenAt ?? '') || 0;
   return {
     now: new Date().toISOString(),
-    maintenance: known.maintenance,
     tenants: [...known.tenants].map(([id, tenant]) => ({ id, name: tenant.name })),
     offices: known.offices.map(({ key, name, tenant }) => ({ key, name, tenant })),
     waiting: listed.counts.waiting,

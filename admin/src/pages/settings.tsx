@@ -1,6 +1,5 @@
 // Settings (U6, U7): what this Core is configured with, what the database holds, which versions
-// are running, where alerts go, who may sign in, and the maintenance switch. A setting's value is
-// never shown — only whether it is set — so a screen share never leaks one.
+// are running, where alerts go and who may sign in. A setting's value is never shown — only whether it is set — so a screen share never leaks one.
 import { useCustom, useCustomMutation, useList } from '@refinedev/core';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -27,8 +26,6 @@ type Configuration = {
   people: string[];
   peopleDomains: string[];
   migrations: string[];
-  maintenance: boolean;
-  switches: { key: string; value: string; updated_at: string; updated_by: string | null }[];
 };
 
 type DeviceRow = {
@@ -53,37 +50,16 @@ export function SettingsPage() {
   // An answer that has not arrived is an empty object, so the page tests a field it needs.
   const config = result?.data?.version ? result.data : null;
 
-  const setMaintenance = async (on: boolean): Promise<void> => {
-    try {
-      await mutateAsync({
-        url: '/settings/maintenance',
-        method: 'post',
-        values: { on },
-        successNotification: false,
-        errorNotification: false,
-      });
-      await query.refetch();
-      toast.success(
-        on
-          ? 'Maintenance is on. Core holds back its own work until you turn it off.'
-          : 'Maintenance is off. Core tells the sites about the changes it held back.',
-      );
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
-    }
-  };
-
   if (query.isLoading || !config) {
     return <p className="text-sm text-muted-foreground">Looking…</p>;
   }
-  const switched = config.switches.find((row) => row.key === 'maintenance');
   const others = devices.length - 1;
 
   return (
     <>
       <PageHeader
         title="Settings"
-        what="How this Core is set up: what is running, which server settings have a value, where alerts go and who may sign in. Maintenance holds back Core’s own work while Core is being worked on."
+        what="How this Core is set up: what is running, which server settings have a value, where alerts go and who may sign in."
       >
         <Badge tone={config.environment === 'production' ? 'bad' : 'warn'}>
           {config.environment}
@@ -91,53 +67,6 @@ export function SettingsPage() {
       </PageHeader>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card data-testid="maintenance">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Maintenance
-              <Badge tone={config.maintenance ? 'warn' : 'ok'}>
-                {config.maintenance ? 'On' : 'Off'}
-              </Badge>
-            </CardTitle>
-            <CardDescription>
-              While maintenance is on, Core tells no site about changes and runs no recompute. The
-              sites keep fetching on their own schedule, so visitors see no break, only later
-              updates. When it is turned off, Core tells each site at once about what changed
-              meanwhile.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {config.maintenance ? (
-              <Explained what="Tells each site at once about the changes held back, and runs recomputes again. Press it when the work on Core is done.">
-                <Confirm
-                  label="Turn maintenance off"
-                  title="Turn maintenance off"
-                  what="Core tells each site about the changes it held back, and runs recomputes again."
-                  confirmLabel="Turn it off"
-                  variant="secondary"
-                  onConfirm={() => setMaintenance(false)}
-                />
-              </Explained>
-            ) : (
-              <Explained what="Holds back Core’s own work until you turn maintenance off. Press it while Core’s server or database is being worked on.">
-                <Confirm
-                  label="Turn maintenance on"
-                  title="Turn maintenance on"
-                  what="Core stops telling the sites about changes and stops running recomputes until you turn maintenance off. The sites keep fetching on their own schedule, so visitors see no break."
-                  confirmLabel="Turn it on"
-                  onConfirm={() => setMaintenance(true)}
-                />
-              </Explained>
-            )}
-            {switched && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Last turned {switched.value} {moment(switched.updated_at)}
-                {switched.updated_by ? ` by ${switched.updated_by}` : ''}.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
         <Card>
           <CardHeader>
             <CardTitle>What is running</CardTitle>

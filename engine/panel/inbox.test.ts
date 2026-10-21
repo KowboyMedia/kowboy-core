@@ -10,7 +10,6 @@ import { addSubscriber, createTenant, upsertConnection } from '../storage/connec
 import { heartbeat } from '../health.js';
 import { logEvent } from '../events.js';
 import { NOT_LIVE } from '../registry.js';
-import { writeSetting, MAINTENANCE } from '../storage/settings.js';
 import { KEPT_DAYS } from '../storage/submissions.js';
 import type { Adapter, HealthResult } from '../adapter-api/types.js';
 import { COOKIE } from './auth.js';
@@ -43,7 +42,7 @@ afterAll(async () => {
 beforeEach(async () => {
   retries = { ok: true };
   await db().query(
-    'truncate submissions, events, alert_state, admin_sessions, heartbeats, settings, health_results, panel_problems',
+    'truncate submissions, events, alert_state, admin_sessions, heartbeats, health_results, panel_problems',
   );
   await db().query('delete from subscribers');
   await db().query('delete from connections where id <> $1', ['somecrm-1']);
@@ -103,16 +102,7 @@ describe('the Inbox lists what needs a person now', () => {
     expect(inbox.cards).toEqual([]);
     expect(inbox.worker.ok).toBe(true);
     expect(inbox.database.ok).toBe(true);
-    expect(inbox.maintenance).toEqual({ on: false, since: null, by: null });
     expect(inbox.crms).toEqual(['Somecrm']);
-  });
-
-  it('shows maintenance with since when and by whom', async () => {
-    await writeSetting(MAINTENANCE, 'on', 'anna@kowboy.se');
-    const { maintenance } = await read();
-    expect(maintenance.on).toBe(true);
-    expect(maintenance.by).toBe('anna@kowboy.se');
-    expect(maintenance.since).not.toBeNull();
   });
 
   it('puts Core down first while the worker has stopped, with when it last checked in', async () => {

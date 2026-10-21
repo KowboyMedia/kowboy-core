@@ -1,6 +1,6 @@
 // The Inbox's problems and its windows (design B, images 13 to 16, 20 to 22 and 39 to 43): a
 // problem stays open until it is solved, waits while someone acted on it, and is listed as fixed
-// today; the forms a CRM did not take are counted; maintenance is turned on and off; records
+// today; the forms a CRM did not take are counted; records
 // a CRM can't load are fetched again; a refused login says when its offices leave the websites. A
 // stand-in CRM, "somecrm", records what it is asked and calls nothing: its form handler takes every
 // form, and its check of failing records says what the test sets. No real CRM is reached, and
@@ -13,7 +13,6 @@ import { tokenHmac } from '../storage/crypto.js';
 import { addSubscriber, createTenant, upsertConnection } from '../storage/connections.js';
 import { heartbeat } from '../health.js';
 import { logEvent } from '../events.js';
-import { ring } from '../bells.js';
 import type { Adapter, Canonical, HealthResult } from '../adapter-api/types.js';
 import { COOKIE } from './auth.js';
 import type { FormsCard, Inbox, LoginCard, RecordsCard, SiteCard } from './inbox.js';
@@ -89,7 +88,7 @@ beforeEach(async () => {
   actFails = null;
   core.bells.length = 0;
   await db().query(
-    'truncate submissions, events, alert_state, admin_sessions, heartbeats, health_results, lifecycle_events, settings, panel_problems',
+    'truncate submissions, events, alert_state, admin_sessions, heartbeats, health_results, lifecycle_events, panel_problems',
   );
   await db().query('delete from items');
   await db().query('delete from connections');
@@ -455,24 +454,5 @@ describe('the forms a CRM did not take', () => {
       { id: interest, kind: 'interest', record: 'Södra Förstadsgatan 40, Lund', answer: 'none' },
     ]);
     expect(card.waitSeconds).toBe(20);
-  });
-});
-
-describe('maintenance', () => {
-  it('is turned on with who did it, holds the change notices, and sends them once it is off', async () => {
-    expect((await call('/maintenance', { on: 'yes' })).status).toBe(400);
-    expect((await call('/maintenance', { on: true })).status).toBe(200);
-    let read = await inbox();
-    expect(read.maintenance).toMatchObject({ on: true, by: 'tester@kowboy.se' });
-
-    await ring(TENANT);
-    expect(core.bells).toHaveLength(0);
-
-    expect((await call('/maintenance', { on: false })).status).toBe(200);
-    read = await inbox();
-    expect(read.maintenance.on).toBe(false);
-    const { flushPendingBells } = await import('../bells.js');
-    await flushPendingBells();
-    expect(core.bells).toHaveLength(1);
   });
 });

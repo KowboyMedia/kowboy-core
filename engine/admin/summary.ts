@@ -524,7 +524,6 @@ const ADMIN: Record<string, (by: string, fields: EventFields, named: Named) => s
     const answer = fields['ok'] === true ? 'accepted' : 'refused';
     return `${by} checked ${provider ? `a ${crm}` : 'a CRM'} login, and ${crm} ${answer} it.`;
   },
-  maintenance: (by, fields) => `${by} turned maintenance ${fields['on'] === true ? 'on' : 'off'}.`,
 };
 
 /** One sentence, or a few, for one event. Never a payload, never a type, never a field's name. */

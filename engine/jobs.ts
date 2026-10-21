@@ -4,7 +4,6 @@
 import { db } from './storage/db.js';
 import { logEvent } from './events.js';
 import { report } from './errors.js';
-import { inMaintenance } from './storage/settings.js';
 import { recompute, type Progress, type Scope } from './recompute.js';
 
 export type JobState = 'queued' | 'running' | 'done' | 'failed';
@@ -64,8 +63,6 @@ export async function openJobs(): Promise<JobRow[]> {
 
 /** Take the oldest queued job and run it to the end. The worker's tick; true when one ran. */
 export async function runNextJob(): Promise<boolean> {
-  // Maintenance holds the queue: a job stays queued until the switch is turned off.
-  if (await inMaintenance()) return false;
   const { rows } = await db().query<JobRow>(
     `update jobs set state = 'running', started_at = now()
      where id = (select id from jobs where state = 'queued' order by id limit 1 for update skip locked)

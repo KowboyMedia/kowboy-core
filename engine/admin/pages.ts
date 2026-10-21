@@ -25,7 +25,7 @@ export const PAGES: Page[] = [
   },
   { name: 'Events', path: '/events', what: 'Everything that happened' },
   { name: 'CRMs', path: '/crms', what: 'Each adapter’s own page' },
-  { name: 'Settings', path: '/settings', what: 'Configuration, versions, maintenance' },
+  { name: 'Settings', path: '/settings', what: 'Configuration and versions' },
 ];
 
 export const PAGE_NAMES: string[] = PAGES.map((page) => page.name);

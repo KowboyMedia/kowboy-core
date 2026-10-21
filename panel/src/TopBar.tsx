@@ -1,7 +1,6 @@
 // The top bar (design B, images 05, 06, 19, 23, 44 and 45, the tenant mockups, images 01 and 25,
-// and B2's redrawn screens): the mark, the Inbox with its count, Tenants, Records, and the Flow
-// with a marker while maintenance is on, on a desktop; the Inbox icon on a phone; and the account
-// menu.
+// and B2's redrawn screens): the mark, the Inbox with its count, Tenants, Records, and the Flow,
+// on a desktop; the Inbox icon on a phone; and the account menu.
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { api, type Me } from './api';
@@ -92,17 +91,7 @@ function AccountMenu({ me }: { me: Me }) {
 /** Which tab the page belongs to; the new-tenant steps belong to none. */
 export type Tab = 'inbox' | 'brokerages' | 'records' | 'flow' | null;
 
-export function TopBar({
-  me,
-  count,
-  maintenance,
-  tab,
-}: {
-  me: Me;
-  count: number;
-  maintenance: boolean;
-  tab: Tab;
-}) {
+export function TopBar({ me, count, tab }: { me: Me; count: number; tab: Tab }) {
   return (
     <header className="k-top">
       <div className="k-top-inner">
@@ -140,7 +129,6 @@ export function TopBar({
           >
             <ActivityIcon />
             Flow
-            {maintenance && <span className="k-tab-mark">Maintenance</span>}
           </Link>
         </nav>
         <div className="k-top-end">
