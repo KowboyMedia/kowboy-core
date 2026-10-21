@@ -1003,14 +1003,16 @@ the seven days.
          before that version takes over, and stops the release when a record fails the schema or
          the invariants. Built before the early release, and its result is in every release note.
          Built and tested 2026-10-18 (`node dist/main.js preview`, the job "preview" in
-         `.do/app.staging.yaml`); putting the job in staging's own settings, and making it fail
-         once on purpose to see a deploy stop, waits on 211.
+         `.do/app.staging.yaml`). Done on staging 2026-10-21 (211 a): the job runs before every
+         staging deploy, and one made to fail stopped the deploy with the running version kept.
+         Live gets the same job in its own settings at the early release (condition 6).
       3. The four criteria still pending, after 210 for AC 18 and AC 27: AC 18 (a smoke suite run
          automatically after every staging deploy, and a test that reads both apps from the
          platform: the line of work each deploys, the health-gated deploy, the old version kept on
          a failed check), AC 24 (the restore drill: the cluster's backup restored onto a temporary
          cluster, staging pointed at it until its subscribers converge, then back, and the copy
-         deleted), AC 27 and AC 32 (load and latency at 10× launch on a temporary database server
+         deleted; run by hand through DigitalOcean's API on 2026-10-21 (217 a), see `decisions.md`;
+         AC 24 turns green once a script does the same and names its test), AC 27 and AC 32 (load and latency at 10× launch on a temporary database server
          and app of their own, so the shared cluster, 1 vCPU, 1 GB and 15 GB of disk, is never
          loaded; deleted the same day, well under $1).
       4. Seven days on staging with no unresolved Sentry issue (strategy §9, phase 7): 57 open on
