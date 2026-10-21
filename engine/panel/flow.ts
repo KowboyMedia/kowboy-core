@@ -82,27 +82,26 @@ type Facts = {
 };
 
 async function facts(): Promise<Facts> {
-  const [tenants, connections, sites, offices] = await Promise.all([
-    db().query<{ id: number; display_name: string; active: boolean }>(
-      'select id, display_name, active from tenants order by lower(display_name), id',
-    ),
-    db().query<{ id: string; tenant_id: number; provider: string }>(
-      'select id, tenant_id, provider from connections order by id',
-    ),
-    db().query<{ tenant_id: number; label: string; last_pull_at: Date | null }>(
-      'select tenant_id, label, last_pull_at from subscribers order by id',
-    ),
-    db().query<{
-      connection_id: string;
-      tenant_id: number;
-      remote_id: string;
-      name: string | null;
-    }>(
-      `select connection_id, tenant_id, remote_id, data->>'name' as name from items
-       where datatype = 'office' and not deleted
-       order by lower(coalesce(data->>'name', remote_id)), connection_id`,
-    ),
-  ]);
+  // One query at a time: the pool holds two connections, which other requests share.
+  const tenants = await db().query<{ id: number; display_name: string; active: boolean }>(
+    'select id, display_name, active from tenants order by lower(display_name), id',
+  );
+  const connections = await db().query<{ id: string; tenant_id: number; provider: string }>(
+    'select id, tenant_id, provider from connections order by id',
+  );
+  const sites = await db().query<{ tenant_id: number; label: string; last_pull_at: Date | null }>(
+    'select tenant_id, label, last_pull_at from subscribers order by id',
+  );
+  const offices = await db().query<{
+    connection_id: string;
+    tenant_id: number;
+    remote_id: string;
+    name: string | null;
+  }>(
+    `select connection_id, tenant_id, remote_id, data->>'name' as name from items
+     where datatype = 'office' and not deleted
+     order by lower(coalesce(data->>'name', remote_id)), connection_id`,
+  );
   const siteMap = new Map<number, { label: string; lastFetchAt: Date | null }[]>();
   for (const site of sites.rows) {
     const id = Number(site.tenant_id);

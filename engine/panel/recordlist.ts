@@ -141,26 +141,28 @@ type Known = {
 };
 
 async function known(): Promise<Known> {
-  const [tenants, connections, sites, offices] = await Promise.all([
-    db().query<{ id: number; display_name: string; active: boolean }>(
-      'select id, display_name, active from tenants',
-    ),
-    db().query<{ id: string; tenant_id: number; provider: string; name: string | null }>(
-      'select id, tenant_id, provider, name from connections order by id',
-    ),
-    db().query<{ tenant_id: number; label: string }>(
-      'select tenant_id, label from subscribers order by id',
-    ),
-    db().query<{
-      connection_id: string;
-      tenant_id: number;
-      remote_id: string;
-      name: string | null;
-    }>(
-      `select connection_id, tenant_id, remote_id, data->>'name' as name from items
-       where datatype = 'office'`,
-    ),
-  ]);
+  // One query at a time: the pool holds two connections, which other requests share.
+  const tenants = await db().query<{ id: number; display_name: string; active: boolean }>(
+    'select id, display_name, active from tenants',
+  );
+  const connections = await db().query<{
+    id: string;
+    tenant_id: number;
+    provider: string;
+    name: string | null;
+  }>('select id, tenant_id, provider, name from connections order by id');
+  const sites = await db().query<{ tenant_id: number; label: string }>(
+    'select tenant_id, label from subscribers order by id',
+  );
+  const offices = await db().query<{
+    connection_id: string;
+    tenant_id: number;
+    remote_id: string;
+    name: string | null;
+  }>(
+    `select connection_id, tenant_id, remote_id, data->>'name' as name from items
+     where datatype = 'office'`,
+  );
   const siteMap = new Map<number, string[]>();
   for (const site of sites.rows) {
     const id = Number(site.tenant_id);
@@ -269,20 +271,23 @@ export async function recordList(filter: RecordFilter, page: number): Promise<Re
   // A CRM id finds its record live or removed, whatever the switch says.
   const removed = filter.removed || filter.id !== '';
   const where = scopeWhere(scope, removed ? null : false);
-  const [{ rows }, byTenant, byOffice, byType, officeless] = await Promise.all([
-    db().query<Listed>(
-      `select tenant_id, connection_id, datatype, remote_id, office_id, deleted, updated_at,
-         ${NAME} as name,
-         case when datatype = 'agent' then data->'office_ids' end as office_ids,
-         case when deleted then raw end as raw
-       from items where ${where.clauses.join(' and ')}`,
-      where.values,
-    ),
-    countsBy('tenant_id', { ...scope, tenantIds: [] }, removed),
-    countsByOffice({ ...scope, connectionOffices: [] }, removed),
-    countsBy('datatype', { ...scope, datatypes: [] }, removed),
-    officelessIn({ ...scope, datatypes: [], connectionOffices: [] }, removed),
-  ]);
+  // One query at a time: the pool holds two connections, and five at once left a query waiting
+  // past the pool's timeout, so the page failed.
+  const { rows } = await db().query<Listed>(
+    `select tenant_id, connection_id, datatype, remote_id, office_id, deleted, updated_at,
+       ${NAME} as name,
+       case when datatype = 'agent' then data->'office_ids' end as office_ids,
+       case when deleted then raw end as raw
+     from items where ${where.clauses.join(' and ')}`,
+    where.values,
+  );
+  const byTenant = await countsBy('tenant_id', { ...scope, tenantIds: [] }, removed);
+  const byOffice = await countsByOffice({ ...scope, connectionOffices: [] }, removed);
+  const byType = await countsBy('datatype', { ...scope, datatypes: [] }, removed);
+  const officeless = await officelessIn(
+    { ...scope, datatypes: [], connectionOffices: [] },
+    removed,
+  );
 
   const named = rows.map((row) => {
     const provider = facts.connections.get(row.connection_id)?.provider ?? '';
