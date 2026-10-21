@@ -20,8 +20,13 @@ $facts = array_filter([
     $display['living_space'] ?? null,
 ]);
 $label = kowboy_property_label($item);
-// The card is 3:4 and the photos are wider than tall, so the file the browser picks must be about twice the card's width to fill it.
-$sizes = '(min-width: 1024px) 768px, (min-width: 640px) 100vw, 150vw';
+// The card is 3:4 and the photos are wider than tall, so a photo is drawn about twice the card's
+// width (768 px on a desktop). The hint asks for about 1.5 times that, so the browser shrinks the
+// file it picks by about that much: the CDN's copies are soft, and a copy drawn near its own size
+// shows it (Patric, 2026-10-21: svenskamaklarhuset.se's cards, from a 1280 copy, look sharper).
+// Measured on screen at 100, 125 and 150 % scaling: 1280, 1600 and 1920 instead of 1024, 1024
+// and 1280, about 1.4, 2.5 and 3.7 times the fine detail.
+$sizes = '(min-width: 1024px) 1150px, (min-width: 640px) 100vw, 150vw';
 ?>
 <article class="k-card<?php echo count($images) > 1 ? ' k-card--slider' : ''; ?>" data-card-url="<?php echo esc_url($url); ?>">
     <div class="k-card__media">

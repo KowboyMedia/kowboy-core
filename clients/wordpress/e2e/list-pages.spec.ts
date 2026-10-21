@@ -20,6 +20,10 @@ test('journey: a list grows by Visa fler in place with its page in the address, 
   await more.click();
   await expect(streets).toHaveText(['Kungsgatan 3', 'Kungsgatan 2']);
   await expect(page).toHaveURL(/[?&]sida=2(&|$)/);
+  // The plugin's list script put the card in; the theme started its photo slider (198 a).
+  await expect(first.locator('[data-cards] [data-card-slider]').nth(1)).toHaveClass(
+    /swiper-initialized/,
+  );
   // The second list keeps its own page: nothing of it is in the address.
   expect(page.url()).not.toContain('sida-2');
   await more.click();

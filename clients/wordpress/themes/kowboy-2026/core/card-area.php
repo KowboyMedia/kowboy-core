@@ -10,7 +10,8 @@ $name = (string) ($item['name'] ?? '');
 $url = get_permalink($post_id);
 $image = is_array($item['images'][0] ?? null) ? $item['images'][0] : null;
 $for_sale = function_exists('core_client_query') ? (int) core_client_query(['entity' => 'property', 'area_id' => (string) ($item['id'] ?? ''), 'status' => 'for_sale', 'per_page' => 1])['total'] : 0;
-$sizes = '(min-width: 1024px) 768px, (min-width: 640px) 100vw, 150vw';
+// As on a property card (card-property.php): about 1.5 times the drawn width, as the CDN's copies are soft.
+$sizes = '(min-width: 1024px) 1150px, (min-width: 640px) 100vw, 150vw';
 // The kommun over the name, from the area's LKF code, as on the area's page (Patric, 2026-10-04); "Område" when the code names none.
 $municipality = function_exists('core_client_municipality_name') ? core_client_municipality_name(is_string($item['county_municipality_code'] ?? null) ? $item['county_municipality_code'] : null) : null;
 ?>

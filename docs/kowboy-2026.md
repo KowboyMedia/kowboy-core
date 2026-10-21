@@ -478,8 +478,23 @@ rendered first, then hydrated using ajax", with "/2/ pagination somewhere linkab
   button shows the same cards. The page's canonical address keeps it. The areas and associations
   archives keep their page numbers on WordPress's `/page/N/`. An agent list shows "Visa fler"
   only past 100 agents; before, an agent beyond the hundredth was in no list.
-- **Where the browser part lives** is question 198: it stays in the theme until the answer
-  says otherwise.
+- **Where the browser part lives:** since plugin 0.10.0 and theme 1.4.0 (2026-10-21, Patric,
+  198 a) in the plugin (`core-client/assets/list.js`), for every list in any theme whose wrapper
+  carries the list's attributes; the theme keeps the look and starts the photo sliders of the
+  cards the plugin's script puts in (`core-list:cards`).
+
+## Sharper card photos, 2026-10-21
+
+Theme 1.4.0. Patric (2026-10-19): "Images overall feel low resolution"; (2026-10-21) the cards on
+svenskamaklarhuset.se look sharper. The CDN's smaller copies are soft, and a copy drawn near its
+own size shows it; svenskamaklarhuset.se draws a 1280 copy at about two thirds of its size
+(measured 2026-10-21, a card 403 wide). A property card and an area card now ask for about 1.5
+times the photo's drawn width, so a desktop browser picks 1280, 1600 and 1920 at 100, 125 and
+150 % scaling instead of 1024, 1024 and 1280. Measured on screen (the variance of the Laplacian
+over a card's photo): 772, 426 and 401 before, 1087, 1086 and 1500 after. One photo measured
+weighs more: about 246, 363 and 571 kB instead of 168, 168 and 246 kB. The agent photos stay as
+they are: at 125 % their copy is shrunk more than twice, and the next smaller copy is just as
+soft, so they wait on the CDN (question 219, handed to the CDN's own project).
 
 ## Order of work
 

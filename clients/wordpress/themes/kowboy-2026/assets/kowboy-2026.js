@@ -1,7 +1,8 @@
 // The theme's script, on the page and inside every shadow root: the menu, the sliders (Swiper,
-// in vendor/), the list reloads against the plugin's endpoint, the collapsibles, the gallery's
-// "Visa fler bilder" and the full-screen slider a photo opens, the viewings that are over, the
-// map (Leaflet, in vendor/), and the form window every form button opens.
+// in vendor/), the collapsibles, the gallery's "Visa fler bilder" and the full-screen slider a
+// photo opens, the viewings that are over, the map (Leaflet, in vendor/), and the form window
+// every form button opens. The lists run on the plugin's own script (core-client/assets/list.js,
+// Patric, 198 a); the theme starts the photo sliders of the cards it puts in.
 (function () {
   'use strict';
 
@@ -141,129 +142,6 @@
             prevEl: section.querySelector('[data-prev]'),
           }
         : undefined,
-    });
-  }
-
-  /**
-   * A list: reload its cards from the plugin's endpoint with its parameter set (the attributes of
-   * the plugin's core_client_list_data). Once on load it refreshes the pages the server built,
-   * so a page served from a page cache shows the cards as they are now, replacing them only when
-   * they changed. "Visa fler" is a link to the next page, which the script loads in place
-   * instead, keeping the list's own parameter in the address in step, so a reload or the back
-   * button finds the list as it was left; a tab, a filter or a search starts again from the
-   * first page.
-   */
-  function setupList(list) {
-    if (!once(list, 'ready')) return;
-    var params = JSON.parse(list.dataset.params || '{}');
-    var cards = list.querySelector('[data-cards]');
-    var more = list.querySelector('[data-more]');
-    var empty = list.querySelector('[data-empty]');
-    var first = parseInt(list.dataset.first || '1', 10);
-    var page = parseInt(list.dataset.page || '1', 10);
-    var perPage = parseInt(list.dataset.perPage || '10', 10);
-    var key = list.dataset.key || '';
-    var queue = Promise.resolve();
-
-    /** The address with the list's own parameter at `shown` pages, none for the first. */
-    function address(shown) {
-      var url = new URL(window.location.href);
-      if (shown > 1) url.searchParams.set(key, String(shown));
-      else url.searchParams.delete(key);
-      return url;
-    }
-
-    /**
-     * Pages `from` to `to` (more than one only from the first, as the server builds them), after
-     * any load before it; `busy` dims the cards meanwhile.
-     */
-    function load(from, to, busy, show) {
-      var url = new URL(list.dataset.reload, window.location.href);
-      Object.keys(params).forEach(function (name) {
-        if (params[name] !== '' && params[name] !== null && params[name] !== undefined) {
-          url.searchParams.set(name, params[name]);
-        }
-      });
-      url.searchParams.set('page', String(to > from ? 1 : from));
-      url.searchParams.set('per_page', String(perPage * (to - from + 1)));
-      queue = queue
-        .then(function () {
-          if (busy) list.classList.add('is-loading');
-          return fetch(url.toString());
-        })
-        .then(function (response) {
-          return response.json();
-        })
-        .then(function (result) {
-          show(result);
-          if (empty) empty.hidden = result.total > 0;
-          if (more) {
-            more.hidden = !result.has_more;
-            if (key) more.href = address(page + 1).toString();
-          }
-          cards.querySelectorAll('[data-card-slider]').forEach(setupCardSlider);
-        })
-        .catch(function () {
-          // The cards the page already shows stay; the next press tries again.
-        })
-        .finally(function () {
-          list.classList.remove('is-loading');
-        });
-      return queue;
-    }
-
-    /** Again from the first page, for a tab, a filter or a search. */
-    function restart() {
-      first = 1;
-      page = 1;
-      if (key) window.history.replaceState(window.history.state, '', address(1).toString());
-      load(1, 1, true, function (result) {
-        cards.innerHTML = result.html;
-      });
-    }
-
-    list.querySelectorAll('[data-tab]').forEach(function (tab) {
-      tab.addEventListener('click', function () {
-        list.querySelectorAll('[data-tab]').forEach(function (other) {
-          other.classList.remove('is-active');
-        });
-        tab.classList.add('is-active');
-        params.status = tab.dataset.tab;
-        restart();
-      });
-    });
-    // The place search box (the plugin's, in the list's filters or on the hero above) sends the
-    // parameters it stands for; the list takes them over and reloads from the first page.
-    list.addEventListener('core-list:params', function (event) {
-      Object.keys(event.detail || {}).forEach(function (name) {
-        params[name] = event.detail[name];
-      });
-      restart();
-    });
-    var form = list.querySelector('.k-search');
-    if (form) {
-      form.addEventListener('submit', function (event) {
-        event.preventDefault();
-        new FormData(form).forEach(function (value, name) {
-          params[name] = value;
-        });
-        restart();
-      });
-    }
-    if (more) {
-      more.addEventListener('click', function (event) {
-        event.preventDefault();
-        page += 1;
-        if (key) window.history.replaceState(window.history.state, '', address(page).toString());
-        load(page, page, true, function (result) {
-          cards.insertAdjacentHTML('beforeend', result.html);
-        });
-      });
-    }
-    // The refresh on load, quietly: the cards change only when the list did.
-    var hash = list.dataset.hash || '';
-    load(first, page, false, function (result) {
-      if (result.hash !== hash) cards.innerHTML = result.html;
     });
   }
 
@@ -1258,7 +1136,6 @@
     each('[data-plan-slider]', setupPlanSlider);
     each('[data-hero-slider]', setupHeroSlider);
     each('[data-testimonials]', setupTestimonials);
-    each('[data-list]', setupList);
     each('[data-accordion-button]', setupAccordion);
     each('[data-gallery]', setupGallery);
     each('[data-photo-slider]', setupPhotoSlider);
@@ -1267,6 +1144,11 @@
     each('[data-map]', setupMap);
     each('dialog.k-form', setupFormWindow);
   }
+
+  // New cards from the plugin's list script, after a refresh, a tab, a filter or "Visa fler".
+  document.addEventListener('core-list:cards', function (event) {
+    event.detail.cards.querySelectorAll('[data-card-slider]').forEach(setupCardSlider);
+  });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
   else setup();

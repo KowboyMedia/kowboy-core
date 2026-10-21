@@ -252,13 +252,16 @@ function core_client_list_page_url(array $result, int $page): string
  * The attributes a list's wrapper carries for the script that reloads it: the reload address,
  * the parameter set a reload sends (without what only shapes the wrapper), the pages it shows
  * and its own address parameter, and its cards' fingerprint. A page served from a page cache
- * then refreshes its cards once on load, and only when they changed.
+ * then refreshes its cards once on load, and only when they changed. It also loads that script,
+ * the plugin's own (assets/list.js), so a list works in the browser in any theme whose wrapper
+ * carries these attributes (Patric, 198 a).
  *
  * @param array<string, mixed> $params
  * @param array{page: int, first: int, per_page: int, key: string, hash: string} $result
  */
 function core_client_list_data(array $params, array $result): string
 {
+    wp_enqueue_script('core-client-list', plugins_url('assets/list.js', CORE_CLIENT_FILE), [], CORE_CLIENT_VERSION, ['in_footer' => true]);
     $reload = array_diff_key($params, array_flip(['title', 'lead', 'styleisolation', 'wrapper', 'part', 'page']));
     return sprintf(
         'data-list="%s" data-reload="%s" data-params="%s" data-page="%d" data-first="%d" data-per-page="%d" data-key="%s" data-hash="%s"',

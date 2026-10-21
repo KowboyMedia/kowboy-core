@@ -945,6 +945,8 @@ the seven days.
       its page N built on the server with its first N pages, "Visa fler" a link to it, the address
       kept in step and the canonical address keeping it; the areas and associations archives keep
       `/page/N/`. The browser part is in the theme, as today, until question 198 says otherwise.
+    - **Moved 2026-10-21** (plugin 0.10.0, theme 1.4.0, Patric, 198 a): the browser part is the
+      plugin's (`core-client/assets/list.js`), for every list in any theme.
 
 32. **Forms keep working on pages served from a page cache, and stay protected against bots**
     (Patric, 2026-10-15: "security codes / bot protection to forms"). Component:

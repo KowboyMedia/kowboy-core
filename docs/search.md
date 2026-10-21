@@ -245,7 +245,7 @@ offices; the list holds the agents of those offices, in the CRM's order as today
   where, the words say which street or name. With no pill the words search alone, as the ask says.
   Built: the form around the box sends its fields to the list on the page when there is one (the
   cards reload, the address is written, the page stays), and loads the page with the fields in
-  its address otherwise; a form inside a list's own filters is left to the set's list script.
+  its address otherwise; a form inside a list's own filters is left to the plugin's list script.
 - **The state goes into the page address** (`?areas=…&lkf=…&q=…`): the script writes every
   change there (`history.replaceState`, new behaviour; today only the Till salu card's full
   submit reaches the address, and the tabs and the in-list form reload the cards without it), so
@@ -295,7 +295,7 @@ offices; the list holds the agents of those offices, in the CRM's order as today
   ("Ingen plats matchar. Enter söker orden som text."). A choice clears the words. Every change
   of the chosen places writes the hidden fields and the address and tells the list on the page
   with one event, `core-list:params` on the `[data-list]` element nearest the box, else the first
-  on the page, its detail the form's fields; the set's list script merges the detail into its
+  on the page, its detail the form's fields; the plugin's list script merges the detail into its
   parameters and reloads from the first page. The theme's search card (`parts/search-form.php`)
   calls the function and keeps its text field when the plugin is older than 0.5.2; the hero
   block's setting "Platssök" (none, areas, or areas with kommuner and län, the last by default)
