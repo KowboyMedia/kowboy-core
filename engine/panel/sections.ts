@@ -119,6 +119,16 @@ function shownSection(section: AdminSection, names: Names, coreUrl: string): Sho
   };
 }
 
+/** Values as the panel shows them, with the things they name read at once. */
+export async function shownValues(values: AdminValue[], coreUrl: string): Promise<ShownValue[]> {
+  const things = values.filter(isThing);
+  const names: Names = {
+    records: await recordNames(things),
+    connections: await connectionNames(things),
+  };
+  return values.map((value) => shownValue(value, names, coreUrl));
+}
+
 /** What the CRM's code shows of one connection on its tenant's page; nothing when it shows none. */
 export async function sectionsOf(connection: Connection, coreUrl: string): Promise<Sections> {
   const admin = adminFor(connection.provider);

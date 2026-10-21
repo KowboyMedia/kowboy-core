@@ -1901,4 +1901,163 @@ describe('the Vitec adapter', () => {
     ]);
     expect(section?.actions?.[0]?.help).toBeTruthy();
   });
+
+  describe('how a new connection comes along (question 199 a)', () => {
+    const progressOf = async () => required(vitecAdmin.progress, 'progress')(await connection());
+
+    it('waits for Vitec’s first notice with the steps that bring it, and counts the first load until it is done', async () => {
+      seed(fake);
+      await start();
+      const loading = await progressOf();
+      expect(loading.firstNotice).toMatchObject({
+        since: expect.any(String),
+        meanwhile: expect.stringContaining('twice-daily catch-up'),
+      });
+      const steps = loading.firstNotice?.steps ?? [];
+      expect(steps).toHaveLength(4);
+      expect(steps[0]).toMatchObject({
+        value: { address: `/v1/hook/vitec/webhook/${TOKEN}` },
+        secret: true,
+      });
+      // The stand-in Connect answers the office groups, so Core can read them.
+      expect(steps[3]?.note).toEqual({
+        text: 'Office groups: Core can already read them.',
+        state: 'ok',
+      });
+      expect(loading.officeCheck).toMatchObject({
+        on: [{ office: OFFICE, name: 'Kontor 1', addedAt: null }],
+        off: [],
+        added: [],
+        removed: [],
+      });
+
+      // The start fetched everything; a record still waiting keeps the load unfinished.
+      const listed = { property: 1, agent: 1, office: 1, area: 1, project: 1 };
+      expect(loading.firstLoad).toEqual({ listed, waiting: {}, done: true });
+      await store.setState(CONNECTION, 'first_load_done', '');
+      fake.put(OFFICE, 'property', estate('OBJ2'));
+      await store.enqueue([
+        {
+          ...LIVE_OFFICE,
+          datatype: 'property',
+          remoteId: 'OBJ2',
+          reason: 'load',
+          correlationId: 'c',
+        },
+      ]);
+      expect((await progressOf()).firstLoad).toEqual({
+        listed,
+        waiting: { property: 1 },
+        done: false,
+      });
+      await drainFetchList();
+      expect((await progressOf()).firstLoad).toEqual({ listed, waiting: {}, done: true });
+
+      // The first notice ends the wait; a record waiting again never makes the load unfinished.
+      await notify('OBJ1');
+      const noticed = await progressOf();
+      expect(noticed.firstNotice).toBeNull();
+      expect(noticed.firstLoad?.done).toBe(true);
+    });
+
+    it('follows no connection whose offices were checked before, and starts again when its login is switched to Vitec’s QA', async () => {
+      seed(fake);
+      await start();
+      await drainFetchList();
+      await store.setState(CONNECTION, 'followed_since', '');
+      await store.setState(CONNECTION, 'first_load', '');
+      expect(await progressOf()).toMatchObject({ firstNotice: null, firstLoad: null });
+
+      const qa = { username: USERNAME, password: PASSWORD, customer_id: OFFICE, qa: 'yes' };
+      connect.pointQaAt(fake.url);
+      await running.connection({
+        id: CONNECTION,
+        provider: 'vitec',
+        credentials: JSON.stringify(qa),
+      });
+      await runSchedules().finally(() => connect.pointQaAt(null));
+      const switched = await progressOf();
+      expect(switched.firstNotice?.steps[0]).toMatchObject({
+        value: { address: `/v1/hook/vitec/qa/${TOKEN}` },
+      });
+      expect(switched.firstLoad).toMatchObject({ done: false });
+    });
+
+    it('names the offices left off and why, and keeps when a check added an office and what it changed', async () => {
+      seed(fake);
+      fake.put('M2', 'office', {
+        id: 'M2',
+        customerId: 'M2',
+        name: 'Kontor 2',
+        changedAt: CHANGED,
+      });
+      fake.put('G1', 'office', {
+        id: OFFICE,
+        customerId: OFFICE,
+        name: 'Kontor 1',
+        changedAt: CHANGED,
+      });
+      fake.put('G1', 'office', {
+        id: 'M2',
+        customerId: 'M2',
+        name: 'Kontor 2',
+        changedAt: CHANGED,
+      });
+      fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices: [{ id: OFFICE }] }]);
+      await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
+      expect((await progressOf()).officeCheck?.off).toEqual([
+        { name: 'Kontor 2', why: 'it isn’t in Vitec’s office group “Webbplats”' },
+      ]);
+
+      const check = async (offices: { id: string }[]) => {
+        fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices }]);
+        await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+        await runSchedules();
+        return (await progressOf()).officeCheck;
+      };
+      const joined = await check([{ id: OFFICE }, { id: 'M2' }]);
+      const at = (await lastCheck(CONNECTION))?.at;
+      expect(joined).toMatchObject({ at, off: [], added: ['M2'], removed: [] });
+      expect(joined?.on).toEqual([
+        { office: OFFICE, name: 'Kontor 1', addedAt: null },
+        { office: 'M2', name: 'Kontor 2', addedAt: at },
+      ]);
+
+      const left = await check([{ id: 'M2' }]);
+      expect(left).toMatchObject({ added: [], removed: ['Kontor 1'] });
+      expect(left?.on).toEqual([{ office: 'M2', name: 'Kontor 2', addedAt: at }]);
+    });
+
+    it('checks the offices at once when a new password is saved, and says since when changes were held', async () => {
+      seed(fake);
+      await start();
+      await drainFetchList();
+      expect((await progressOf()).heldSince).toBeNull();
+      const save = (password: string) =>
+        running.connection({
+          id: CONNECTION,
+          provider: 'vitec',
+          credentials: JSON.stringify({ username: USERNAME, password, customer_id: OFFICE }),
+        });
+
+      // A wrong password: Vitec refuses the id at the check, which the save starts by itself.
+      await save('changed-by-mistake');
+      await until(
+        async () => (await progressOf()).heldSince !== null,
+        'the refusal holding the changes back',
+        15_000,
+      );
+      const refused = await lastCheck(CONNECTION);
+      expect(refused?.ids[0]?.refusedSince).not.toBeNull();
+
+      // The right one again: checked at once, the office reads, and nothing is held any more.
+      await save(PASSWORD);
+      await until(
+        async () => (await progressOf()).heldSince === null,
+        'the new login ending the hold',
+        15_000,
+      );
+      expect((await lastCheck(CONNECTION))?.at).not.toBe(refused?.at);
+    });
+  });
 });

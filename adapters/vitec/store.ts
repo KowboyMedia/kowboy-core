@@ -563,6 +563,21 @@ export async function count(
   return { waiting: Number(rows[0]?.waiting ?? 0), failed: Number(rows[0]?.failed ?? 0) };
 }
 
+/** The records still to fetch under these offices, given-up ones aside, by type. */
+export async function waitingByType(
+  offices: readonly Office[],
+): Promise<Partial<Record<Datatype, number>>> {
+  const { rows } = await (
+    await db()
+  ).query<{ datatype: Datatype; n: string }>(
+    `select datatype, count(*) as n from vitec_fetch_list
+     where office_id = any($1::text[]) and next_at is not null
+     group by datatype`,
+    [offices.map(keyOf)],
+  );
+  return Object.fromEntries(rows.map((row) => [row.datatype, Number(row.n)]));
+}
+
 /** An operator's "try again now": due at once, attempts back to zero. */
 export async function expediteOne(
   office: Office,

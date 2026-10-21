@@ -347,6 +347,64 @@ export type AdminQueueCount = { waiting: number; failed: number };
 /** One record named for a fetch that writes nothing, or for a fetch again. */
 export type AdminRecord = { datatype: Datatype; remoteId: string; officeId: string | null };
 
+/**
+ * One numbered step a person asks of someone at the CRM, such as the brokerage's admin there, in
+ * the CRM's code's words. A value the step hands over, such as the address the CRM sends its
+ * notices to, shows under it; a secret one is masked, with a way to show and copy it.
+ */
+export type AdminStep = {
+  text: string;
+  value?: AdminValue;
+  secret?: boolean;
+  /** One line under the value. */
+  help?: string;
+  /** What the CRM's code already knows of the step being done, coloured by its state. */
+  note?: { text: string; state: 'ok' | 'bad' | 'warn' | 'muted' };
+};
+
+/**
+ * How a connection is coming along, as the CRM's code knows it (question 199 a): whether the CRM
+ * has sent its first notice, how far the first load has come, and what the last office check found
+ * and changed. The admin area shows it while a tenant is set up, on the tenant's page and in the
+ * Inbox. A part the code leaves out, or gives as null, is not shown.
+ */
+export type ConnectionProgress = {
+  /**
+   * Set while the CRM has sent Core no notice for the connection: since when Core waits for one,
+   * the steps that make the CRM send them, in order, and how changes reach the websites until it
+   * does, as the end of the sentence "Until the first one comes, changes reach the websites …".
+   * Null once a notice came, and for a connection the code does not follow.
+   */
+  firstNotice?: { since: string; steps: AdminStep[]; meanwhile: string } | null;
+  /**
+   * The first load of everything the CRM lists for the connection: how many records of each type
+   * it listed, how many of them still wait to be fetched, and whether the load is done. `listed`
+   * is empty while the CRM is still being asked. Null before it began, and for a connection that
+   * existed before the code followed it.
+   */
+  firstLoad?: {
+    listed: Partial<Record<Datatype, number>>;
+    waiting: Partial<Record<Datatype, number>>;
+    done: boolean;
+  } | null;
+  /**
+   * The last check of which of the CRM's offices reach the websites, for a CRM that checks: when it
+   * finished; the offices on the websites, by the CRM's ids, with the name the CRM gave and when a
+   * later check added the office; the offices it left off, with why as the end of the sentence
+   * "<office> stays off: …"; and what that check changed, the offices added by id and those taken
+   * off by name. Null before the first check.
+   */
+  officeCheck?: {
+    at: string;
+    on: { office: string; name: string | null; addedAt: string | null }[];
+    off: { name: string; why: string }[];
+    added: string[];
+    removed: string[];
+  } | null;
+  /** Since when the CRM's code holds back the connection's changes, as when the CRM refuses its login. */
+  heldSince?: string | null;
+};
+
 /** What an adapter shows and does in the admin panel. */
 export type AdapterAdmin = {
   /** The login form of a connection; the values become one JSON document, never shown back. */
@@ -384,6 +442,8 @@ export type AdapterAdmin = {
    * The panel shows these totals beside the newest of the records, which is all `queue` answers.
    */
   queueCount?(connections: Connection[], scope: AdminQueueScope): Promise<AdminQueueCount>;
+  /** How the connection is coming along: its first notice, its first load, its last office check. */
+  progress?(connection: Connection): Promise<ConnectionProgress>;
   /**
    * Each health check the adapter registers, by its name, in words: its title. The admin area and
    * the alerts show it, never the check's name; a check that passes is not shown.

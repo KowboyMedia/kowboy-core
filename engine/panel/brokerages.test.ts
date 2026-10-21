@@ -12,7 +12,13 @@ import { decrypt, tokenHmac } from '../storage/crypto.js';
 import { createTenant, upsertConnection, tenantForToken } from '../storage/connections.js';
 import { heartbeat } from '../health.js';
 import { NOT_LIVE, submissionsFor } from '../registry.js';
-import type { Adapter, AdminQueued, Connection, Submission } from '../adapter-api/types.js';
+import type {
+  Adapter,
+  AdminQueued,
+  Connection,
+  ConnectionProgress,
+  Submission,
+} from '../adapter-api/types.js';
 import { logEvent } from '../events.js';
 import { COOKIE } from './auth.js';
 import type { Brokerage, BrokerageRow, Crm } from './brokerages.js';
@@ -36,6 +42,9 @@ let actFails: Error | null = null;
 
 /** What the stand-in CRM's fetch list holds, as its code would answer `queue`. */
 let listed: AdminQueued[] = [];
+
+/** How the stand-in CRM's code says a connection comes along; a thrown error when a test says. */
+let told: ConnectionProgress | Error = {};
 
 const somecrm: Adapter = {
   manifest: { provider: 'somecrm', datatypes: ['property', 'agent', 'office'] },
@@ -101,6 +110,7 @@ const somecrm: Adapter = {
         failed: mine.filter((one) => one.attempts > 0).length,
       });
     },
+    progress: () => (told instanceof Error ? Promise.reject(told) : Promise.resolve(told)),
     probe: (credentials) => {
       asked.probes.push(credentials);
       const login = JSON.parse(credentials) as Record<string, string>;
@@ -126,6 +136,7 @@ beforeEach(async () => {
   asked.sent = [];
   actFails = null;
   listed = [];
+  told = {};
   await db().query(
     'truncate submissions, events, alert_state, admin_sessions, heartbeats, health_results, lifecycle_events, jobs, panel_problems',
   );
@@ -292,6 +303,124 @@ describe('the brokerages list and a brokerage’s page', () => {
         ],
       },
     ]);
+  });
+
+  it('shows how a connection comes along as its CRM’s code tells it, with what Core holds of an office a check added (question 199 a)', async () => {
+    await connection();
+    await records('main', 'Täby', 2);
+    await db().query(
+      "update subscribers set last_pull_at = now() + interval '1 second' where tenant_id = $1",
+      [TENANT],
+    );
+    listed = [
+      {
+        connectionId: 'main',
+        officeId: 'Täby',
+        datatype: 'property',
+        remoteId: 'Täby-p9',
+        queuedAt: new Date().toISOString(),
+        reason: 'load',
+        attempts: 0,
+        nextAt: null,
+        lastError: null,
+      },
+    ];
+    const at = '2026-10-21T08:09:00.000Z';
+    told = {
+      firstNotice: {
+        since: '2026-10-21T07:00:00.000Z',
+        steps: [
+          {
+            text: 'Send the notices to this address:',
+            value: { address: '/v1/hook/somecrm/secret' },
+            secret: true,
+            help: 'The same for every connection.',
+            note: { text: 'Already seen.', state: 'ok' },
+          },
+          { text: 'Subscribe it to every change.' },
+        ],
+        meanwhile: 'only with the nightly catch-up',
+      },
+      firstLoad: { listed: { property: 61, agent: 4 }, waiting: { property: 23 }, done: false },
+      officeCheck: {
+        at,
+        on: [
+          { office: 'Täby', name: 'Täby in the CRM', addedAt: at },
+          { office: 'V1', name: 'Varberg', addedAt: null },
+        ],
+        off: [{ name: 'Kungsbacka', why: 'it is not in the website group' }],
+        added: ['Täby'],
+        removed: ['Nacka'],
+      },
+      heldSince: null,
+    };
+    const shown = await page();
+    const [main] = shown.connections;
+    expect(main?.status).toBe('setup');
+    expect(main?.progress?.firstNotice).toEqual({
+      since: '2026-10-21T07:00:00.000Z',
+      steps: [
+        {
+          text: 'Send the notices to this address:',
+          value: `${shown.coreUrl}/v1/hook/somecrm/secret`,
+          secret: true,
+          help: 'The same for every connection.',
+          note: { text: 'Already seen.', state: 'ok' },
+        },
+        {
+          text: 'Subscribe it to every change.',
+          value: null,
+          secret: false,
+          help: null,
+          note: null,
+        },
+      ],
+      meanwhile: 'only with the nightly catch-up',
+    });
+    expect(main?.progress?.firstLoad).toMatchObject({
+      listed: { property: 61, agent: 4, office: 0 },
+      loaded: { property: 38, agent: 4, office: 0 },
+      done: false,
+    });
+    // Offices by Core's name for them where it holds them; an added one with its properties, what
+    // still waits for it, and the websites that fetched since its records last changed.
+    expect(main?.progress?.officeCheck).toEqual({
+      at,
+      on: [
+        { name: 'Täby', addedAt: at },
+        { name: 'Varberg', addedAt: null },
+      ],
+      off: [{ name: 'Kungsbacka', why: 'it is not in the website group' }],
+      added: [{ name: 'Täby', properties: 2, waiting: 1, websites: 1 }],
+      removed: ['Nacka'],
+    });
+    expect(main?.progress?.heldSince).toBeNull();
+
+    // The Inbox shows it as being set up, with what to ask for, until the first notice comes.
+    const inbox = await call('/inbox');
+    expect(inbox.json['setup']).toEqual([
+      {
+        kind: 'setup',
+        key: 'setup:main',
+        tenant: { id: TENANT, name: 'Lindqvist & Holm Mäkleri' },
+        crm: 'Somecrm',
+        connectionId: 'main',
+        since: '2026-10-21T07:00:00.000Z',
+        sites: ['test site'],
+        steps: main?.progress?.firstNotice?.steps,
+        meanwhile: 'only with the nightly catch-up',
+        formsTestMode: null,
+      },
+    ]);
+    told = { ...told, firstNotice: null };
+    expect((await page()).connections[0]?.status).toBe('ok');
+    expect((await call('/inbox')).json['setup']).toEqual([]);
+
+    // A code that fails to tell shows nothing of it, and the page still answers.
+    told = new Error('the state could not be read');
+    const failed = (await page()).connections[0];
+    expect(failed).toMatchObject({ status: 'ok', progress: null });
+    expect((await call('/inbox')).json['setup']).toEqual([]);
   });
 
   it('says a page that does not exist is missing', async () => {

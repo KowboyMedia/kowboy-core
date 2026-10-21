@@ -7,6 +7,7 @@
 // what waits on the fetch list. Nothing here knows the engine beyond the adapter API.
 import * as connect from '../api.js';
 import * as store from '../store.js';
+import * as progress from '../progress.js';
 import { mappers } from '../mappers.js';
 import { directions } from './directions.js';
 import {
@@ -23,8 +24,11 @@ import type {
   AdminAction,
   AdminQueued,
   AdminSection,
+  AdminStep,
   AdminValue,
   Connection,
+  ConnectionProgress,
+  Datatype,
 } from '../../../engine/adapter-api/index.js';
 
 /** The reset that makes the worker's next tick run a schedule now. */
@@ -623,7 +627,7 @@ async function officesSection(connection: Connection): Promise<AdminSection> {
   );
   return {
     title: 'Offices Vitec lists',
-    help: 'Vitec decides which offices reach this tenant’s sites, and nothing is chosen here. Core asks Vitec which offices sit behind the customer or group id above once a day, and within seconds after a new id is saved. When the brokerage keeps an office group called “Webbplats” in Vitec, only the offices in that group reach the sites. When there is no such group, or it holds none of these offices, every office behind the id reaches the sites. An office that leaves the group leaves the sites at the next check, with its homes, new-build projects, agents, areas and housing associations, except what another office on the sites also has, such as an agent who works at both. An office Vitec refuses to let this login read stays on the sites for one more day, and leaves them if Vitec still refuses it then.',
+    help: 'Vitec decides which offices reach this tenant’s sites, and nothing is chosen here. Core asks Vitec which offices sit behind the customer or group id above once a day, and within seconds after a new id or a new login is saved. When the brokerage keeps an office group called “Webbplats” in Vitec, only the offices in that group reach the sites. When there is no such group, or it holds none of these offices, every office behind the id reaches the sites. An office that leaves the group leaves the sites at the next check, with its homes, new-build projects, agents, areas and housing associations, except what another office on the sites also has, such as an agent who works at both. An office Vitec refuses to let this login read stays on the sites for one more day, and leaves them if Vitec still refuses it then.',
     items: [
       { label: 'Last check', value: lastCheckText(check) },
       { label: 'Office groups in Vitec', value: groupsText(check) },
@@ -649,6 +653,160 @@ async function officesSection(connection: Connection): Promise<AdminSection> {
         params: { connection: connection.id },
       },
     ],
+  };
+}
+
+// ---- How a connection is coming along (question 199 a) -------------------------------------------
+
+/** How changes reach the sites until Vitec's first notice comes: the end of the panel's sentence. */
+const UNTIL_NOTICES = 'only at Core’s twice-daily catch-up, and Core doesn’t warn about it';
+
+/** What the brokerage's Vitec admin does so that Vitec sends Core its notices, in order. */
+function noticeSteps(environment: connect.Environment, check: OfficesCheck | null): AdminStep[] {
+  const qa = environment === 'qa';
+  const address = webhookUrl(environment);
+  const listed = check?.ids.filter((checked) => checked.error === null) ?? [];
+  const groups: AdminStep['note'] =
+    listed.length === 0
+      ? undefined
+      : listed.some((checked) => checked.groupsError)
+        ? { text: 'Office groups: Vitec doesn’t let Core read them yet.', state: 'warn' }
+        : { text: 'Office groups: Core can already read them.', state: 'ok' };
+  return [
+    {
+      text: qa
+        ? 'Send the notices of Vitec’s QA environment to this address:'
+        : 'Send Vitec’s notices to this address:',
+      value: address,
+      secret: typeof address === 'object' && address !== null && 'address' in address,
+      help: `The same address for every ${qa ? 'connection to Vitec’s QA environment' : 'live Vitec connection'}; its end is Core’s secret. Copy gives the whole address; send it only to the brokerage’s Vitec admin.`,
+    },
+    {
+      text: 'Subscribe it to Estate, Project, User, Office and Area, for Update and Remove. For Estate, include only the properties the brokerage shows on its website.',
+    },
+    { text: 'Keep the website’s offices in Vitec’s office group “Webbplats”.' },
+    {
+      text: 'Give the Vitec login Core uses Vitec’s CRM function group: Core reads the office groups with it, and sends search-profile forms.',
+      ...(groups ? { note: groups } : {}),
+    },
+  ];
+}
+
+/** Why an office Vitec listed behind the id is not on the sites: the end of "<office> stays off: …". */
+function offBecause(office: OfficeSeen, check: OfficesCheck): string | null {
+  if (office.readable) {
+    return check.source === 'group' ? 'it isn’t in Vitec’s office group “Webbplats”' : null;
+  }
+  if (office.refusedSince) return 'Vitec doesn’t let this login read it';
+  if (office.detail === NO_SUCH_OFFICE) return 'Vitec answers that it doesn’t exist';
+  return `Core couldn’t read it, because ${office.detail ?? 'the call to Vitec failed'}`;
+}
+
+/** The last office check: the offices on the sites, those left off and why, and what it changed. */
+async function officeCheckOf(
+  connection: Connection,
+  check: OfficesCheck,
+): Promise<ConnectionProgress['officeCheck']> {
+  const [changes, added] = await Promise.all([
+    progress.changesOf(connection.id),
+    progress.addedAt(connection.id),
+  ]);
+  const seen = new Map<string, OfficeSeen>();
+  for (const office of check.ids.flatMap((checked) => checked.offices)) {
+    if (!check.offices.includes(office.customerId)) seen.set(office.customerId, office);
+  }
+  const current = changes?.at === check.at ? changes : null;
+  return {
+    at: check.at,
+    on: check.offices.map((office) => ({
+      office,
+      name: check.names[office] ?? null,
+      addedAt: added[office] ?? null,
+    })),
+    off: [...seen.values()].flatMap((office) => {
+      const why = offBecause(office, check);
+      return why ? [{ name: office.name ?? office.customerId, why }] : [];
+    }),
+    added: current?.added ?? [],
+    removed: current?.removed ?? [],
+  };
+}
+
+/** An office list kept in the state that holds no office. */
+const EMPTY_LIST = new Set(['', '[]']);
+
+const total = (counts: Partial<Record<Datatype, number>>): number =>
+  Object.values(counts).reduce((sum, n) => sum + n, 0);
+
+/**
+ * The first load: what Vitec listed, by type, and what still waits on the fetch list. It is done
+ * once no listing runs, no office's load waits for the office check, and nothing waits to be
+ * fetched; that is kept, so the notices that follow never make it unfinished.
+ */
+async function firstLoadOf(
+  connection: Connection,
+  offices: readonly string[],
+): Promise<ConnectionProgress['firstLoad']> {
+  const load = await progress.firstLoadOf(connection.id);
+  if (!load) return null;
+  const listed: Partial<Record<Datatype, number>> = {};
+  for (const counts of Object.values(load.listed)) {
+    for (const [datatype, n] of Object.entries(counts) as [Datatype, number][]) {
+      listed[datatype] = (listed[datatype] ?? 0) + n;
+    }
+  }
+  if (load.doneAt) return { listed, waiting: {}, done: true };
+  const environment = environmentOf(connection);
+  const [waiting, pending] = await Promise.all([
+    store.waitingByType(offices.map((officeId) => ({ environment, officeId }))),
+    store.getState(connection.id, 'load_after_check'),
+  ]);
+  const done =
+    Object.keys(load.listed).length > 0 &&
+    !load.listing &&
+    EMPTY_LIST.has(pending ?? '') &&
+    total(waiting) === 0;
+  if (done) await progress.noteLoaded(connection.id);
+  return { listed, waiting: done ? {} : waiting, done };
+}
+
+/** Since when the login's changes are held back: its hold, or the first of its offices blocked. */
+async function heldSinceOf(
+  connection: Connection,
+  offices: readonly string[],
+): Promise<string | null> {
+  const environment = environmentOf(connection);
+  const [held, blocked] = await Promise.all([
+    store.getState(connection.id, 'held'),
+    store.blockedOffices(),
+  ]);
+  const since = blocked
+    .filter((office) => office.environment === environment && offices.includes(office.officeId))
+    .map((office) => office.blockedAt.toISOString());
+  return [held || null, ...since].filter((at): at is string => at !== null).sort()[0] ?? null;
+}
+
+async function connectionProgress(connection: Connection): Promise<ConnectionProgress> {
+  const environment = environmentOf(connection);
+  const [check, offices, followed, noticed] = await Promise.all([
+    lastCheck(connection.id),
+    officesOf(connection),
+    progress.followedSince(connection.id),
+    progress.firstNoticeAt(connection.id),
+  ]);
+  const current = check?.environment === environment ? check : null;
+  return {
+    firstNotice:
+      followed && !noticed
+        ? {
+            since: followed,
+            steps: noticeSteps(environment, current),
+            meanwhile: UNTIL_NOTICES,
+          }
+        : null,
+    firstLoad: await firstLoadOf(connection, offices),
+    officeCheck: current ? await officeCheckOf(connection, current) : null,
+    heldSince: await heldSinceOf(connection, offices),
   };
 }
 
@@ -734,6 +892,8 @@ export const vitecAdmin: AdapterAdmin = {
   },
 
   probe,
+
+  progress: connectionProgress,
 
   async inspect(connection, record) {
     const auth = connect.loginOf(connection.credentials);

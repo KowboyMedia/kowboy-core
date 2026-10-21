@@ -22,6 +22,7 @@ import { listOnBotCheck, type Listed } from '../human.js';
 import { DATATYPES, type Connection, type Datatype } from '../adapter-api/types.js';
 import { crmName, inbox, type Card } from './inbox.js';
 import { describe, sectionsOf, type ShownSection } from './sections.js';
+import { progressOf, type Progress } from './progress.js';
 
 /** A brokerage as the list and its page badge it: OK, Needs a look, or Off. */
 export type Status = 'ok' | 'look' | 'off';
@@ -80,8 +81,13 @@ export type ConnectionView = {
   offices: string[];
   formsTestMode: boolean;
   formsTestModeSince: string | null;
-  /** An Inbox card names it, so it needs a look. */
-  status: 'ok' | 'look';
+  /**
+   * An Inbox card names it, so it needs a look; or else its CRM has sent no notice yet, so it is
+   * still being set up.
+   */
+  status: 'ok' | 'look' | 'setup';
+  /** How it is coming along, as its CRM's code tells it; null when the code tells nothing. */
+  progress: Progress | null;
   /** What the CRM's code shows of it, with the actions it offers (sections.ts). */
   sections: ShownSection[];
   /** What failed when the CRM's code could not give its sections; null when it gave them. */
@@ -228,6 +234,10 @@ function shownLogin(
   return shown;
 }
 
+/** A connection needs a look when a card names it, else it is set up while its CRM sent nothing. */
+const connectionStatus = (look: boolean, progress: Progress | null): ConnectionView['status'] =>
+  look ? 'look' : progress?.firstNotice ? 'setup' : 'ok';
+
 const zeroCounts = (): Record<Datatype, number> =>
   Object.fromEntries(DATATYPES.map((datatype) => [datatype, 0])) as Record<Datatype, number>;
 
@@ -299,7 +309,10 @@ export async function brokerage(
       credentials: row.credentials ? decrypt(row.credentials, settings.credentialsKey) : null,
       licensedOffices: row.licensed_offices,
     };
-    const own = await sectionsOf(connection, settings.coreUrl);
+    const [own, progress] = await Promise.all([
+      sectionsOf(connection, settings.coreUrl),
+      progressOf(connection, settings.coreUrl),
+    ]);
     views.push({
       id: row.id,
       provider: row.provider,
@@ -313,7 +326,8 @@ export async function brokerage(
         .map((office) => office.name ?? ''),
       formsTestMode: row.forms_dry_run,
       formsTestModeSince: row.forms_dry_run ? iso(row.forms_dry_run_since) : null,
-      status: look.connections.has(row.id) ? 'look' : 'ok',
+      status: connectionStatus(look.connections.has(row.id), progress),
+      progress,
       sections: own.sections,
       sectionsFailed: own.failed,
     });

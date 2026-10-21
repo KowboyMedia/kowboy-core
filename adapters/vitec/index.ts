@@ -36,6 +36,7 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import * as connect from './api.js';
 import * as store from './store.js';
 import * as forms from './forms.js';
+import * as progress from './progress.js';
 import { changedAtOf, isoDate, mappers, OFFICELESS, referencedIds } from './mappers.js';
 import { hookPath, refetchOffice, vitecAdmin } from './admin/index.js';
 import {
@@ -157,15 +158,21 @@ const scheduleTick = (): Promise<void> => {
   return scheduling;
 };
 
-/** Each connection's system and customer or group id, as the last tick saw them. */
+/** Each connection's login as the last tick saw it, kept in this process's memory only. */
 let seenLogins = new Map<string, string>();
 const loginKey = (credentials: connect.Login): string =>
-  `${credentials.environment} ${credentials.customerId ?? ''}`;
+  JSON.stringify([
+    credentials.environment,
+    credentials.customerId,
+    credentials.username,
+    credentials.password,
+  ]);
 
 /**
- * A login saved with another system or id since the last tick starts a tick at once, which checks
- * its offices (runDue), so an office added on the tenant's page shows within seconds. A new
- * connection is told to the adapter by the engine; an edited one is not.
+ * A login saved with another system, id, username or password since the last tick starts a tick
+ * at once, which checks its offices (runDue), so an office added on the tenant's page shows within
+ * seconds, and a new login typed after Vitec refused the old one is checked at once (199 a, row
+ * 33). A new connection is told to the adapter by the engine; an edited one is not.
  */
 async function watchLogins(): Promise<void> {
   const current = engine;
@@ -504,9 +511,11 @@ const tokenMatches = (given: string | undefined, expected: string): boolean =>
   given.length === expected.length &&
   timingSafeEqual(Buffer.from(given), Buffer.from(expected));
 
-/** The first active connection that syncs this office in its system: the record's timeline. */
-async function ownerOf(api: AdapterApi, office: store.Office): Promise<Connection | undefined> {
-  return (await live(api)).find((target) => syncs(target, office))?.connection;
+/** The active connections that sync this office in its system; the first one's is the record's timeline. */
+async function ownersOf(api: AdapterApi, office: store.Office): Promise<Connection[]> {
+  return (await live(api))
+    .filter((target) => syncs(target, office))
+    .map((target) => target.connection);
 }
 
 /**
@@ -553,7 +562,8 @@ async function notified(
   }
   // Never fetch inside the request: a burst must not become a burst of Connect calls.
   const correlationId = randomUUID();
-  const owner = await ownerOf(api, { environment, officeId: notification.officeId });
+  const owners = await ownersOf(api, { environment, officeId: notification.officeId });
+  const owner = owners[0];
   await arrived(
     {
       outcome: 'queued',
@@ -580,6 +590,8 @@ async function notified(
       correlationId,
     },
   ]);
+  // Vitec sends this brokerage's notices: the setup step that asks for them is done (199 a).
+  await progress.noteNotice(owners.map((one) => one.id));
   return { status: 202, body: { queued: true, correlation_id: correlationId } };
 }
 
@@ -906,8 +918,8 @@ async function enqueueMissing(environment: connect.Environment, listed: Listed):
 const listable = (datatype?: Datatype): readonly Datatype[] =>
   datatype ? connect.LISTABLE.filter((candidate) => candidate === datatype) : connect.LISTABLE;
 
-/** Everything the given offices publish, onto the list after any webhook fetches. */
-async function load(live: Live, offices: readonly string[], datatype?: Datatype): Promise<void> {
+/** Everything the given offices publish, onto the list after any webhook fetches; what it listed. */
+async function load(live: Live, offices: readonly string[], datatype?: Datatype): Promise<Listed> {
   const startedAt = new Date();
   const datatypes = listable(datatype);
   const { listed, complete } = await listAll(live, offices, datatypes);
@@ -920,7 +932,7 @@ async function load(live: Live, offices: readonly string[], datatype?: Datatype)
       live.connection.id,
       offices.filter((officeId) => !done(officeId)),
     );
-    return;
+    return listed;
   }
   // Only a load of every office is a catch-up and a comparison of the whole connection.
   const whole = live.offices.every((officeId) => offices.includes(officeId));
@@ -928,6 +940,7 @@ async function load(live: Live, offices: readonly string[], datatype?: Datatype)
     await markCatchUp(live.connection.id, startedAt);
     await store.setState(live.connection.id, 'compare_at', startedAt.toISOString());
   }
+  return listed;
 }
 
 /**
@@ -1050,6 +1063,7 @@ async function checkAndApply(current: AdapterApi, target: Live): Promise<Live> {
   const ids = credentials.customerId ? [credentials.customerId] : [];
   const before = await lastCheck(connection.id);
   const check = await checkOffices(connection.id, credentials, ids);
+  await progress.noteCheck(connection.id, before, check);
   await noteRefusedLogin(current, connection, before, check);
   const next = { ...target, offices: check.offices };
   // The blocks first, so an office that reads again is told unblocked before it is taken off.
@@ -1073,8 +1087,24 @@ async function checkAndApply(current: AdapterApi, target: Live): Promise<Live> {
   const blocked = await blockedIn(credentials.environment);
   const wanted = new Set([...added, ...back, ...(await takeLoadsAfterCheck(connection.id))]);
   const toLoad = check.offices.filter((office) => wanted.has(office) && !blocked.has(office));
-  if (toLoad.length > 0) await load(next, toLoad);
+  await loadChecked(next, toLoad, before);
   return next;
+}
+
+/**
+ * The offices a check gave to load, loaded. How the connection comes along is kept (199 a): it is
+ * followed from its first check, and its first load is the first that gives it offices.
+ */
+async function loadChecked(
+  next: Live,
+  toLoad: readonly string[],
+  before: OfficesCheck | null,
+): Promise<void> {
+  const { id } = next.connection;
+  if (before === null) await progress.follow(id);
+  if (toLoad.length === 0) return;
+  if (!before?.offices.length) await progress.startFirstLoad(id);
+  await progress.counting(id, () => load(next, toLoad));
 }
 
 /**
@@ -1241,12 +1271,13 @@ const aged = async (id: string, key: string, every: number): Promise<boolean> =>
 /**
  * Whether the connection's offices are checked now: once per start, never again when the start-up
  * round is retried (the check calls every office of the id, refused ones too, and a refused office
- * gets that call once a day, question 161 a); when the customer or group id was changed since the
- * last check; and once a day.
+ * gets that call once a day, question 161 a); when a new login was saved since the last tick or
+ * the customer or group id was changed since the last check; and once a day.
  */
-async function checkDue(given: Live, startup: boolean): Promise<boolean> {
+async function checkDue(given: Live, startup: boolean, newLogin: boolean): Promise<boolean> {
   const { id } = given.connection;
   const before = await lastCheck(id);
+  if (newLogin) return true;
   if (startup && (before?.at ?? '') <= runningSince) return true;
   const asked = before?.ids.map((checked) => checked.id).join(' ');
   if (before !== null && asked !== (given.credentials.customerId ?? '')) return true;
@@ -1265,9 +1296,15 @@ function dayOver(before: OfficesCheck): boolean {
 
 /** One connection's schedules that are due: the offices first, then the catch-up and the
  * comparison over the offices the check chose. */
-async function runDue(current: AdapterApi, given: Live, startup: boolean): Promise<void> {
+async function runDue(
+  current: AdapterApi,
+  given: Live,
+  startup: boolean,
+  newLogin: boolean,
+): Promise<void> {
   const { id } = given.connection;
-  const target = (await checkDue(given, startup)) ? await checkAndApply(current, given) : given;
+  const due = await checkDue(given, startup, newLogin);
+  const target = due ? await checkAndApply(current, given) : given;
   if (target.offices.length === 0) return;
   if (startup || (await aged(id, 'catch_up_at', CATCH_UP_EVERY_MS))) await catchUp(target);
   if (startup || (await aged(id, 'compare_at', COMPARE_EVERY_MS))) await compare(target);
@@ -1279,6 +1316,14 @@ async function tickOnce(): Promise<void> {
   const targets: Live[] = [];
   for (const target of await live(current)) targets.push(await settleSwitch(current, target));
   await forgetRemoved(current);
+  const newLogins = new Set(
+    targets
+      .filter((target) => {
+        const seen = seenLogins.get(target.connection.id);
+        return seen !== undefined && seen !== loginKey(target.credentials);
+      })
+      .map((target) => target.connection.id),
+  );
   seenLogins = new Map(
     targets.map((target) => [target.connection.id, loginKey(target.credentials)]),
   );
@@ -1288,7 +1333,8 @@ async function tickOnce(): Promise<void> {
   await dropStrayBlocks(targets);
   for (const given of targets) {
     try {
-      await runDue(current, given, starting.has(given.connection.id));
+      const { id } = given.connection;
+      await runDue(current, given, starting.has(id), newLogins.has(id));
       starting.delete(given.connection.id);
     } catch (error) {
       await current.logEvent(

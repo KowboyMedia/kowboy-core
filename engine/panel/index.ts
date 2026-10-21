@@ -20,6 +20,7 @@ import {
 } from './auth.js';
 import { instanceName, signInMail } from './mail.js';
 import { inbox } from './inbox.js';
+import { setupCards } from './progress.js';
 import { panelApp } from './app.js';
 import {
   addWebsite,
@@ -213,7 +214,9 @@ const signOut = anyone(async (request) => {
 });
 
 /** `GET /v1/panel/inbox`: what needs a person now. */
-const inboxRoute = signedIn(async () => answer(200, await inbox()));
+const inboxRoute = signedIn(async () =>
+  answer(200, { ...(await inbox()), setup: await setupCards(base()) }),
+);
 
 // ---- Brokerages, their websites and their CRM connections ----------------------------------------
 
