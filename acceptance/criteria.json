@@ -181,7 +181,7 @@
     },
     {
       "ac": 18,
-      "title": "Pipeline: staging on merge, production on approval",
+      "title": "Pipeline: staging on every change, production on approval",
       "phase": "deploy",
       "tests": [],
       "note": "Waits on the platform Kowboy supplies."

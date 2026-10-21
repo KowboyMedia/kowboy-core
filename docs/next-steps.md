@@ -16,7 +16,8 @@ mail (question 100), the lists (item 31, waits on 198) and the forms (item 29, s
 "Resume next steps" means:
 the first open step of item 33 that waits on nobody. On 2026-10-18 condition 1 was done and Core's
 part of condition 4, and the preview of condition 2 was built. On 2026-10-19 Patric answered 207 a
-(the early release) and 209 a (the forms); the rest waits on 210 and 211, on the threads, or on
+(the early release) and 209 a (the forms), and on 2026-10-21 210 a, 211 a and 217 a: the preview
+goes into staging's deploys and the restore drill runs now; the rest waits on the threads or on
 the seven days.
 
 ## Agent setup (from the 2026-09-27 review of how agents and Patric work together)
