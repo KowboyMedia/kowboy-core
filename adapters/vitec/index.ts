@@ -1313,15 +1313,27 @@ async function runDue(
 
 /**
  * Whether a newly saved login gets its office check now: once an hour at most per connection, so
- * that saving the login again and again never adds up to calls to Vitec (the IP ban rule). A login
- * saved again within the hour is checked at the daily check, or by "Fetch offices". Saving a login
- * needs Vitec to accept it first, so this never asks with a login Vitec refused, and saving the
- * same login again is no change and starts nothing.
+ * that saving logins again and again never adds up to calls to Vitec (the IP ban rule). A login
+ * saved again within the hour is checked when that hour is over, by the one check its saves share,
+ * and the hour after that check starts from it. Saving a login needs Vitec to accept it first, so
+ * this never asks with a login Vitec refused, and saving the same login again starts nothing.
  */
 async function firstNewLoginCheck(connectionId: string): Promise<boolean> {
-  if (!(await aged(connectionId, 'login_check_at', RETRY_AFTER_MS))) return false;
-  await store.setState(connectionId, 'login_check_at', new Date().toISOString());
-  return true;
+  const now = Date.now();
+  const at = async (key: string): Promise<number> =>
+    new Date((await store.getState(connectionId, key)) || 0).getTime();
+  const last = await at('login_check_at');
+  if (now - last >= RETRY_AFTER_MS) {
+    await store.setState(connectionId, 'login_check_at', new Date(now).toISOString());
+    return true;
+  }
+  const next = last > now ? last : last + RETRY_AFTER_MS;
+  await store.setState(connectionId, 'login_check_at', new Date(next).toISOString());
+  const due = next - CHECK_EVERY_MS;
+  if ((await at('offices_check_at')) > due) {
+    await store.setState(connectionId, 'offices_check_at', new Date(due).toISOString());
+  }
+  return false;
 }
 
 async function tickOnce(): Promise<void> {

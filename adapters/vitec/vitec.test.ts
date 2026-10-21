@@ -2059,13 +2059,21 @@ describe('the Vitec adapter', () => {
       const checked = await lastCheck(CONNECTION);
       expect(checked?.at).not.toBe(refused?.at);
 
-      // Another login saved within the hour waits for the daily check: no call adds up.
-      fake.accept('new-key', 'newer-key');
+      // More logins saved within the hour share one check when the hour is over: no call adds up.
+      fake.accept('new-key', 'newer-key', 'newest-key');
       fake.requests.length = 0;
       await save('newer-key');
       await runSchedules();
       expect((await lastCheck(CONNECTION))?.at).toBe(checked?.at);
       expect(fake.requests.filter((request) => request.path.includes('/Office'))).toEqual([]);
+      const hourOver = (await store.getState(CONNECTION, 'login_check_at')) ?? '';
+      expect(Date.parse(hourOver) - Date.now()).toBeGreaterThan(50 * 60_000);
+      const due = Date.parse((await store.getState(CONNECTION, 'offices_check_at')) ?? '');
+      expect(due + 24 * 3_600_000).toBe(Date.parse(hourOver));
+      await save('newest-key');
+      await runSchedules();
+      expect(await store.getState(CONNECTION, 'login_check_at')).toBe(hourOver);
+      expect((await lastCheck(CONNECTION))?.at).toBe(checked?.at);
     });
   });
 });
