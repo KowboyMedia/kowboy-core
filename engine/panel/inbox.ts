@@ -108,6 +108,8 @@ export type SiteCard = Base & {
   /** How the site answered Core's last call: `http 401`, `failed` (no answer), `ok`. */
   lastAnswer: string | null;
   lastAnswerAt: string | null;
+  /** What it said, or why it did not answer, the first 300 characters; null when it said nothing. */
+  lastAnswerSaid: string | null;
 };
 
 /**
@@ -493,8 +495,10 @@ async function siteCards(health: HealthReport, names: Known): Promise<SiteCard[]
     last_bell_at: Date | null;
     last_client: string | null;
     bell_secret: string;
+    last_bell_answer: string | null;
   }>(
-    'select id, last_bell_at, last_client, bell_secret from subscribers where id = any($1::bigint[])',
+    `select id, last_bell_at, last_client, bell_secret, last_bell_answer from subscribers
+     where id = any($1::bigint[])`,
     [sites.map((site) => site.id)],
   );
   const byId = new Map(rows.map((row) => [Number(row.id), row]));
@@ -514,6 +518,7 @@ async function siteCards(health: HealthReport, names: Known): Promise<SiteCard[]
     lastFetchAt: iso(site.lastPullAt),
     lastAnswer: site.lastBellStatus,
     lastAnswerAt: iso(byId.get(site.id)?.last_bell_at),
+    lastAnswerSaid: byId.get(site.id)?.last_bell_answer ?? null,
   }));
 }
 

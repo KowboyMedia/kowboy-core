@@ -62,9 +62,33 @@ export async function flushPendingBells(): Promise<void> {
   await Promise.all(rows.map((row) => send(row, row.kind)));
 }
 
+/** How much of a website's answer, or of the reason it gave none, Core keeps for the Inbox. */
+const ANSWER_CHARACTERS = 300;
+
+/**
+ * A website's answer as a person reads it: an HTML page by its words, every answer on one line,
+ * the first 300 characters. Null when it said nothing.
+ */
+export function answerText(body: string, html: boolean): string | null {
+  const words = html
+    ? body
+        .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#0?39;/g, "'")
+    : body;
+  const line = words.replace(/\s+/g, ' ').trim();
+  return line === '' ? null : line.slice(0, ANSWER_CHARACTERS);
+}
+
 async function send(subscriber: Subscriber, kind: BellKind): Promise<void> {
   const startedAt = Date.now();
   let status: string;
+  let answer: string | null;
   try {
     const response = await fetch(subscriber.bell_url, {
       method: 'POST',
@@ -73,6 +97,8 @@ async function send(subscriber: Subscriber, kind: BellKind): Promise<void> {
       signal: AbortSignal.timeout(10_000),
     });
     status = response.ok ? 'ok' : `http ${response.status}`;
+    const html = (response.headers.get('content-type') ?? '').includes('html');
+    answer = answerText(await response.text().catch(() => ''), html);
   } catch (error) {
     // A site Core cannot reach is that site's state, shown on its row and in the alerts, not a
     // fault in Core: it is logged with the reason, and never goes to the error tracker.
@@ -86,11 +112,12 @@ async function send(subscriber: Subscriber, kind: BellKind): Promise<void> {
       }),
     );
     status = 'failed';
+    answer = answerText(String(reason), false);
   }
-  await db().query('update subscribers set last_bell_status = $2 where id = $1', [
-    subscriber.id,
-    status,
-  ]);
+  await db().query(
+    'update subscribers set last_bell_status = $2, last_bell_answer = $3 where id = $1',
+    [subscriber.id, status, answer],
+  );
   await logEvent({
     type: 'bell',
     tenantId: subscriber.tenant_id,

@@ -186,18 +186,20 @@ function leavingWords(card: LoginCard, now: Date): string {
 /** Why a website stopped updating, from how it last answered Core's change notice. */
 function siteCause(card: SiteCard, now: Date): string {
   const at = card.lastAnswerAt ? ` at ${when(card.lastAnswerAt, now)}` : '';
+  // The website's own words, or why it gave none, quoted after the answer code.
+  const said = card.lastAnswerSaid ? `: “${card.lastAnswerSaid}”` : '';
   const code = /^http (\d+)$/.exec(card.lastAnswer ?? '')?.[1];
   if (code === '401' || code === '403') {
-    return `The website refuses Core’s change notices (it answered ${code}${at}): its bell secret doesn’t match Core’s.`;
+    return `The website refuses Core’s change notices (it answered ${code}${at}${said}): its bell secret doesn’t match Core’s.`;
   }
   if (code === '404') {
-    return `The website has nothing at the bell address Core sends change notices to (it answered 404${at}): the part of the website that takes them may be switched off, or the website may have been added with a wrong bell address.`;
+    return `The website has nothing at the bell address Core sends change notices to (it answered 404${at}${said}): the part of the website that takes them may be switched off, or the website may have been added with a wrong bell address.`;
   }
   if (code) {
-    return `The website answers Core’s change notices with an error (it answered ${code}${at}). The fault is at the website, not in Core or a CRM: whoever runs the website finds the reason in its error log.`;
+    return `The website answers Core’s change notices with an error (it answered ${code}${at}${said}). The fault is at the website, not in Core or a CRM: whoever runs the website finds the reason in its error log.`;
   }
   if (card.lastAnswer === 'failed') {
-    return `The website doesn’t answer Core’s change notices (no answer${at}): it is down or slow, or the bell address it was added with is wrong. Check that the website opens in a browser.`;
+    return `The website doesn’t answer Core’s change notices (no answer${at}${said}): it is down or slow, or the bell address it was added with is wrong. Check that the website opens in a browser.`;
   }
   if (card.lastAnswer === 'ok') {
     return `The website takes Core’s change notices (the last${at}) but doesn’t fetch the changes: the tenant token it uses may not be Core’s. Compare it with the tenant token on the tenant’s page.`;

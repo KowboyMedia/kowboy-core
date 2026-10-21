@@ -222,7 +222,8 @@ describe('the Inbox lists what needs a person now', () => {
     });
     await db().query(
       `update subscribers set last_pull_at = now() - interval '3 hours',
-         last_bell_at = now() - interval '2 hours', last_bell_status = 'http 401' where id = $1`,
+         last_bell_at = now() - interval '2 hours', last_bell_status = 'http 401',
+         last_bell_answer = 'Wrong secret.' where id = $1`,
       [site],
     );
     const { cards } = await read();
@@ -234,6 +235,7 @@ describe('the Inbox lists what needs a person now', () => {
       site: 'ekdahlfastighet.se',
       tenant: { id: other, name: 'Granstedt Bostad' },
       lastAnswer: 'http 401',
+      lastAnswerSaid: 'Wrong secret.',
     });
     expect(card.lastAnswerAt).toBe(card.since);
     expect(Date.parse(card.lastFetchAt ?? '')).toBeLessThan(Date.parse(card.since ?? ''));
