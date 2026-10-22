@@ -10,48 +10,18 @@ declare(strict_types=1);
  */
 function kowboy_property_label(array $item): string
 {
-    return kowboy_property_label_steps($item)[0][1];
-}
-
-/**
- * The label's words over time: each viewing ahead with its start (a Unix time), soonest first,
- * then the status with none. A kept page (the page cache) outlives a viewing, so the label carries
- * them all and the browser shows the first whose viewing has not begun (assets/kowboy-2026.js).
- *
- * @param array<string, mixed> $item the record as Core delivered it
- * @return non-empty-list<array{0: int|null, 1: string}>
- */
-function kowboy_property_label_steps(array $item): array
-{
     $label = (string) ($item['status']['name'] ?? '');
     if (isset($item['display']['final_price'])) {
-        return [[null, $label]];
+        return $label;
     }
-    $starts = [];
+    $next_viewing = null;
     foreach (is_array($item['viewings'] ?? null) ? $item['viewings'] : [] as $viewing) {
-        $start = is_string($viewing['starts_at'] ?? null) ? strtotime($viewing['starts_at']) : false;
-        if ($start !== false && $start >= time()) {
-            $starts[$start] = true;
+        $starts = is_string($viewing['starts_at'] ?? null) ? strtotime($viewing['starts_at']) : false;
+        if ($starts !== false && $starts >= time() && ($next_viewing === null || $starts < $next_viewing)) {
+            $next_viewing = $starts;
         }
     }
-    ksort($starts);
-    $steps = [];
-    foreach (array_keys($starts) as $start) {
-        $steps[] = [$start, 'Visning ' . wp_date('D j M H:i', $start)];
-    }
-    $steps[] = [null, $label];
-    return $steps;
-}
-
-/**
- * The label's steps as an attribute for the browser, or nothing when no viewing is ahead.
- *
- * @param array<string, mixed> $item the record as Core delivered it
- */
-function kowboy_property_label_attribute(array $item): string
-{
-    $steps = kowboy_property_label_steps($item);
-    return count($steps) < 2 ? '' : ' data-label-steps="' . esc_attr((string) wp_json_encode($steps)) . '"';
+    return $next_viewing === null ? $label : 'Visning ' . wp_date('D j M H:i', $next_viewing);
 }
 
 /**

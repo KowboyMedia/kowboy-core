@@ -42,7 +42,7 @@ $sizes = '(min-width: 1024px) 1150px, (min-width: 640px) 100vw, 150vw';
         <?php elseif ($images !== []) : ?>
             <?php echo kowboy_image($images[0], $sizes, $street, ['class' => 'k-card__image']); ?>
         <?php endif; ?>
-        <?php if ($label !== '') : ?><span class="k-card__status"<?php echo kowboy_property_label_attribute($item); ?>><?php echo esc_html($label); ?></span><?php endif; ?>
+        <?php if ($label !== '') : ?><span class="k-card__status"><?php echo esc_html($label); ?></span><?php endif; ?>
     </div>
     <a class="k-card__link" href="<?php echo esc_url($url); ?>"><span class="k-visually-hidden"><?php echo esc_html($street); ?></span></a>
     <span class="k-card__body">

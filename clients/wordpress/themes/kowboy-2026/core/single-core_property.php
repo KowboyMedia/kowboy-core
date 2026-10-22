@@ -151,7 +151,7 @@ $hero_content = '<div class="k-hero__head">'
     . '<h1 class="k-hero__title k-hero__title--left">' . esc_html($street_title) . '</h1>'
     . '</div>'
     . '<ul class="k-hero__facts">'
-    . ($label !== '' ? '<li class="k-pill"' . kowboy_property_label_attribute($item) . '>' . esc_html($label) . '</li>' : '')
+    . ($label !== '' ? '<li class="k-pill">' . esc_html($label) . '</li>' : '')
     . ($price !== null ? '<li class="k-pill">' . esc_html((string) $price) . ($sold ? ' <span class="k-hero__price-label">Slutpris</span>' : '') . '</li>' : '')
     . (isset($display['rooms']) ? '<li class="k-pill">' . esc_html((string) $display['rooms']) . '</li>' : '')
     . (isset($display['living_space']) ? '<li class="k-pill">' . esc_html((string) $display['living_space']) . '</li>' : '')

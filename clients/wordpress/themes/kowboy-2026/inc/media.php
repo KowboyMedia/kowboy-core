@@ -172,18 +172,11 @@ function kowboy_hero(array $media, string $content, array $options = []): string
 {
     $fallback = is_array($options['fallback'] ?? null) ? $options['fallback'] : [];
     unset($options['fallback']);
-    $every_listing = false;
     if ($media['type'] === 'none') {
         $media = kowboy_hero_media([], kowboy_listing_photos(5, $fallback));
-        $every_listing = $fallback === [];
     }
     if ($media['type'] === 'none' && $fallback !== []) {
         $media = kowboy_hero_media([], kowboy_listing_photos(5));
-        $every_listing = true;
-    }
-    // Every listing's photos change with any home: the page cache must hear of it.
-    if ($every_listing && function_exists('core_client_page_shows_any')) {
-        core_client_page_shows_any();
     }
     return kowboy_part('hero', ['media' => $media, 'content' => $content] + $options);
 }

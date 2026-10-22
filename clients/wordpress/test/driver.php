@@ -16,7 +16,6 @@
 //   php driver.php typed '{"datatype":"agent","post":{"post_title":"…","post_status":"publish"},"fields":{...}}'   a record the site types itself
 //   php driver.php inside '{"lat":59.3,"lng":18.0,"polygon":[[[[lng,lat],...]]]}'   whether the point lies in the outline
 //   php driver.php links   the home-to-area links as the plugin holds them
-//   php driver.php kept <unix time>   whether the page cache may keep a page whose building began then
 
 declare(strict_types=1);
 
@@ -83,27 +82,20 @@ function core_driver_reset(): array
 }
 
 /**
- * Run a sync and count the WordPress actions it fired, the ones cache plugins listen for, and list
- * the addresses it told the page cache to purge, each with whether a transaction was open then.
- * Listening on Cache Enabler's action is what a site with Cache Enabler active looks like.
+ * Run a sync and count the WordPress actions it fired, the ones cache plugins listen for.
  *
  * @return array<string, mixed>
  */
 function core_driver_sync(string $kind): array
 {
-    global $wpdb;
     $hooks = ['save_post' => 0, 'deleted_post' => 0, 'clean_post_cache' => 0, 'core_item_updated' => 0, 'core_item_deleted' => 0];
     foreach (array_keys($hooks) as $hook) {
         add_action($hook, function () use (&$hooks, $hook): void {
             $hooks[$hook] += 1;
         });
     }
-    $purged = [];
-    add_action('cache_enabler_clear_page_cache_by_url', function (string $url) use (&$purged, $wpdb): void {
-        $purged[] = ['url' => $url, 'in_transaction' => $wpdb->get_var('SELECT @@in_transaction') === '1'];
-    });
     $status = core_client_sync($kind);
-    return ['status' => $status, 'hooks' => $hooks, 'purged' => $purged];
+    return ['status' => $status, 'hooks' => $hooks];
 }
 
 /** @return array<string, mixed> */
@@ -342,18 +334,6 @@ function core_driver_picks(string $argument): array
     return ['status' => $response->get_status(), 'rows' => $response->get_data()];
 }
 
-/**
- * `kept <unix time>`: whether Cache Enabler may keep a page whose building began then, by the
- * filter it asks before it keeps one.
- *
- * @return array<string, mixed>
- */
-function core_driver_kept(string $argument): array
-{
-    $_SERVER['REQUEST_TIME_FLOAT'] = (float) $argument;
-    return ['kept' => !apply_filters('cache_enabler_bypass_cache', false)];
-}
-
 $result = match ($command) {
     'configure' => core_driver_configure((array) json_decode($argument, true)),
     'reset' => core_driver_reset(),
@@ -375,7 +355,6 @@ $result = match ($command) {
     'rebuild' => ['linked' => core_client_rebuild_links(0, max(1, (int) $argument))],
     'picks' => core_driver_picks($argument),
     'places' => core_client_places((array) json_decode($argument, true)),
-    'kept' => core_driver_kept($argument),
     default => null,
 };
 if ($result === null) {
