@@ -1,8 +1,10 @@
 // The load test (AC 27; Patric, 210 a): a temporary copy of staging, its own database server and
 // app, deleted after. The server is the size of the one live and staging share, the app's web part
-// the size of theirs, and the app runs staging's version. Its job (scripts/load-test-job.mjs)
+// the size of theirs, and the app runs staging's version. Its load part (scripts/load-test-job.mjs)
 // fills the empty database with ten times launch and pulls pages through the app's public
-// address while it measures them.
+// address while it measures them. It is a worker, not a deploy's job: DigitalOcean stops a job
+// after 30 minutes and keeps no log of it, and filling ten times launch with its page parts takes
+// longer (four runs lost on 2026-10-22).
 //
 //   DIGITALOCEAN_ACCESS_TOKEN=… node scripts/load-test.mjs           about an hour
 //   DIGITALOCEAN_ACCESS_TOKEN=… node scripts/load-test.mjs --undo    after a run that was cut off
@@ -29,13 +31,15 @@ import {
   logbook,
   MINUTE,
   until,
-  wait,
   words,
 } from './lib/digitalocean.mjs';
 
 const STAGING = '57498bcc-59a5-4812-aa1f-ed65c83a5b2f';
 const CLUSTER = 'kowboy-core-production';
 const TAG = 'load-test';
+/** The load part's last line: its result, or that it failed. */
+const RESULT = 'load-test result ';
+const JOB_FAILED = 'load-test job failed';
 /**
  * Room for 400,000 records of a real record's size, with the writes' log beside them. DigitalOcean
  * takes this size's disk from 15 GiB up in steps of 10.
@@ -72,10 +76,11 @@ const appNamed = async (name) =>
 
 /**
  * The copy's settings: staging's web part and source, and the temporary server alone. With the
- * job only from the second deploy on: a new app's address is not found until its first deploy is
- * done, and the job pulls through that address.
+ * load part only from the second deploy on: a new app's address is not found until its first
+ * deploy is done, and the load part pulls through that address. Once done, it waits to be deleted,
+ * so it never starts again.
  */
-async function specFor(key, withJob) {
+async function specFor(key, withLoad) {
   const staging = (await api(`/apps/${STAGING}`)).app.spec;
   const web = staging.services?.find((service) => service.name === 'web');
   if (!web?.github) throw new Error("staging's web part or its source is not where it was");
@@ -108,18 +113,16 @@ async function specFor(key, withJob) {
         envs: [...shared, { key: 'SENTRY_ENVIRONMENT', value: 'load-test', scope: 'RUN_TIME' }],
       },
     ],
-    jobs: withJob
+    workers: withLoad
       ? [
           {
             name: 'load',
-            kind: 'POST_DEPLOY',
             github: source,
             source_dir: web.source_dir,
             environment_slug: web.environment_slug,
             build_command: web.build_command,
             // The server's own CA, as scripts/start.sh hands it to Node.
-            run_command:
-              'printf "%s\\n" "$DATABASE_CA_CERT" > /tmp/database-ca.crt && NODE_EXTRA_CA_CERTS=/tmp/database-ca.crt node scripts/load-test-job.mjs',
+            run_command: `printf "%s\\n" "$DATABASE_CA_CERT" > /tmp/database-ca.crt && (NODE_EXTRA_CA_CERTS=/tmp/database-ca.crt node scripts/load-test-job.mjs || echo "${JOB_FAILED}"); sleep infinity`,
             instance_size_slug: 'apps-s-1vcpu-1gb',
             envs: [...shared, { key: 'APP_URL', value: '${APP_URL}', scope: 'RUN_TIME' }],
           },
@@ -130,37 +133,31 @@ async function specFor(key, withJob) {
 }
 
 /**
- * The job's lines from its log, read in this process and never printed but for its own lines.
- * Just after the deploy ends, DigitalOcean can still be putting the job's log away and refuse it
- * (400 "in phase deleting", 404 "component not found", seen on 2026-10-22), so it is asked again
- * for a few minutes.
+ * The load part's lines from its log so far, read in this process and never printed but for its
+ * own lines; none while DigitalOcean does not yet give the log.
  */
 async function jobLines(appId, deploymentId) {
-  let refused = null;
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    if (attempt > 0) await wait(30_000);
-    try {
-      const { historic_urls: urls, live_url: live } = await api(
-        `/apps/${appId}/deployments/${deploymentId}/components/load/logs?type=RUN`,
-      );
-      const url = urls?.[0] ?? live;
-      if (!url) continue;
-      const text = await (await fetch(url)).text();
-      return text.split('\n').map((line) => line.replace(/^load \S+ /, ''));
-    } catch (error) {
-      refused = error;
-    }
+  try {
+    const { historic_urls: urls, live_url: live } = await api(
+      `/apps/${appId}/deployments/${deploymentId}/components/load/logs?type=RUN`,
+    );
+    const texts = await Promise.all(
+      (urls?.length ? urls : [live]).filter(Boolean).map(async (url) => (await fetch(url)).text()),
+    );
+    return texts
+      .join('\n')
+      .split('\n')
+      .map((line) => line.replace(/^load \S+ /, ''));
+  } catch {
+    return [];
   }
-  if (refused) throw refused;
-  return [];
 }
 
 /**
- * Wait for the app's deploy created at or after `since` to be live, one with the job when `job`;
- * its job's lines if it fails. A deploy without the job can follow the one with it (seen on
- * 2026-10-22, when the job's lines were then asked of a deploy that had none).
+ * Wait for the app's deploy created at or after `since` to be live, one with the load part when
+ * `withLoad`; the load part's lines if it fails. A deploy without it can follow the one with it.
  */
-async function deployed(appId, since, what, job = false) {
+async function deployed(appId, since, what, withLoad = false) {
   return until(
     what,
     async () => {
@@ -168,7 +165,8 @@ async function deployed(appId, since, what, job = false) {
       const deployment = (deployments ?? [])
         .filter((candidate) => Date.parse(candidate.created_at) >= since - MINUTE)
         .filter(
-          (candidate) => !job || (candidate.spec?.jobs ?? []).some((one) => one.name === 'load'),
+          (candidate) =>
+            !withLoad || (candidate.spec?.workers ?? []).some((one) => one.name === 'load'),
         )
         .at(since === 0 ? -1 : 0);
       if (!deployment) return null;
@@ -248,14 +246,22 @@ async function run() {
     method: 'PUT',
     body: JSON.stringify({ spec: await specFor(key, true) }),
   });
-  say('The app has its address; its job is added, and runs after the next deploy.');
-  const deployment = await deployed(app.id, since, 'the job done', true);
+  say('The app has its address; its load part is added, and starts with the next deploy.');
+  const deployment = await deployed(app.id, since, 'the load part started', true);
 
-  const lines = await jobLines(app.id, deployment);
+  const lines = await until(
+    'the load part done',
+    async () => {
+      const now = await jobLines(app.id, deployment);
+      return now.some((line) => line.startsWith(RESULT) || line === JOB_FAILED) ? now : null;
+    },
+    MINUTE,
+    120 * MINUTE,
+  );
   for (const line of lines.filter((line) => /^\d\d:\d\d:\d\d /.test(line))) say(`Job: ${line}`);
-  const result = lines.find((line) => line.startsWith('load-test result '));
-  if (!result) throw new Error('the job left no result in its log');
-  return JSON.parse(result.slice('load-test result '.length));
+  const result = lines.find((line) => line.startsWith(RESULT));
+  if (!result) throw new Error('the load part failed; its last lines are above');
+  return JSON.parse(result.slice(RESULT.length));
 }
 
 if (process.argv.includes('--undo')) {
