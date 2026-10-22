@@ -92,7 +92,8 @@ export async function ingest(
       seq,
       old_hash: existing?.content_hash ?? null,
       new_hash: hash,
-      changed: changedFields(existing?.data ?? null, data),
+      // A first write logs no values: the record holds them, and no reader shows them (228).
+      ...(existing && { changed: changedFields(existing.data, data) }),
       rules_version: RULES_VERSION,
     },
   });

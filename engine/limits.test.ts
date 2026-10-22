@@ -30,9 +30,9 @@ const LIMITS = {
   siteBytesPerPage: 385_000,
   /**
    * What one of these homes takes in Core's tables once written: its row, its values, its part,
-   * its indexes and its lines in the event log (21,709).
+   * its indexes and its lines in the event log (15,442; 21,709 when a first write logged every value).
    */
-  bytesPerHome: 24_000,
+  bytesPerHome: 17_000,
 };
 
 const PROVIDER = 'limits-test';
