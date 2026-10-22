@@ -9,48 +9,6 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 228. `[core]` A lean change log: no values on a first write, long values cut to 200 characters
-
-- 2026-10-22 · From Patric's "ensure that new updates we make don't cause [...] database growth",
-  and his "propose a lean solution". The event log is required (AC 16; strategy §8's event table,
-  "changed fields with before/after values"): one look shows a record's whole history, and the
-  record page's Changes box shows each change before and after. Each write logs one line with
-  the changed fields and both values, kept 30 days. On a first write every field counts as
-  changed, so the line copies the whole record: about 11 KB a home next to its own 17 KB, after a
-  first load at launch about 0.4 GB, at ten times launch about 4 GB. A later change holds only
-  what changed, but a new long text or image list is stored twice, old and new, with no limit.
-- Blocked: nothing; it decides how much room the log takes.
-- a) **Lean log** (recommended): a first write is one line, "first written", with the rules
-  version and no fields; a change keeps the changed field names with before and after, and a
-  value longer than 200 characters is kept as its first 200 characters and its length. Price,
-  status and dates stay whole.
-- b) **First write only**: a first write is one line; a change keeps its full values.
-- c) **As now**.
-
-## 227. `[core]` Store each record ready to send, so a page costs about a tenth of today's work
-
-- 2026-10-22 · Patric: "Attempt to optimize the load, we should optimize first and only after
-  throw resources on the problem." The load test at ten times launch fails (a page's first byte
-  p95 0.9 s against 0.1 s). A trial on an 8 GB database server with two larger web parts failed
-  as well (first byte p95 1.0 s), so bigger servers alone do not reach the target. Measured on
-  records of a real home's size: each page makes the database turn 100 stored records into 3.6 MB
-  of text (27 ms a page here), sends all of it to Core, and Core compresses it again (about 25 ms
-  more). Stored ready to send and already compressed, the same page takes 3 ms to read and is
-  only put together, never compressed again.
-- New, each its own line:
-  1. One more column on the records table: each record's part of a page, compressed, written with
-     the record. About 7 KB a record next to today's 17 KB, so records take about 40% more space
-     (ten times launch: about 2.8 GB more). With it, a rule in the database that empties a
-     record's part when its raw or data change without it, so an older version of Core (the one
-     still running during a deploy, or one rolled back to) can never send a record as it was.
-  2. A one-time fill for the records already stored, run in the background by the worker after
-     the deploy (staging holds about 38,000 records, live none). A record without its part is
-     sent as today until it has one.
-- Blocked: the load test's rerun (AC 27), and with it the final release.
-- a) **Yes** (recommended): build both lines, then run the load test again on today's servers.
-- b) **No**: pages stay as they are, and the load target is met with bigger servers, which the
-  trial shows is not enough on its own.
-
 ## 225. `[client-wordpress]` Does a home that is not for sale, coming or sold get a page on the website?
 
 - 2026-10-20 · Found while comparing norbanmakleri.se with the Norban demo (the thread "Norban:

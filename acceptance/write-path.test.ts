@@ -124,12 +124,13 @@ describe('ingest', () => {
     const after = await pull(running.baseUrl, 'property');
     expect(Number(after.items[0]?.['seq'])).toBeGreaterThan(Number(before.items[0]?.['seq']));
 
+    // The log names the fields a write changed and keeps no values, the first write none
+    // (question 228): the record holds them.
     const events = await queryEvents({ type: 'entity.written', limit: 10 });
+    expect(events[0]?.fields).not.toHaveProperty('changed');
     const latest = events[events.length - 1];
-    const changed = (
-      latest?.fields as Record<string, Record<string, { from: unknown; to: unknown }>>
-    )['changed'];
-    expect(changed?.['price']).toEqual({ from: 4950000, to: 4750000 });
+    expect(latest?.fields['changed']).toContain('price');
+    expect(JSON.stringify(events.map((event) => event.fields))).not.toMatch(/4950000|4750000/);
   });
 
   it('drops a record from an unlicensed office and says why (AC 9)', async () => {

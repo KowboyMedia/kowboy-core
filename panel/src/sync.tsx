@@ -176,14 +176,6 @@ function namedList(named: { name: string }[], total: number): string {
     : listed(names);
 }
 
-/** A value in a sentence: "Värmdö", "Bromma, Solna", "none". */
-function valueWords(value: unknown): string {
-  if (value === null || value === undefined) return 'none';
-  if (Array.isArray(value)) return value.length === 0 ? 'none' : value.map(valueWords).join(', ');
-  if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
-}
-
 function fetchedText(view: SyncView, kept: Kept): string[] {
   const fetched = view.fetched;
   if (!fetched) return [];
@@ -193,10 +185,6 @@ function fetchedText(view: SyncView, kept: Kept): string[] {
     named.length === total
       ? countedTypes(named.map((record) => record.datatype))
       : counted(total, 'record', 'records');
-  const common = fetched.common[0];
-  const change = common
-    ? ` (${common.key} ${valueWords(common.from)} → ${valueWords(common.to)})`
-    : '';
   const said: string[] = [];
   if (fetched.asked !== null) {
     if (fetched.removedCount > 0)
@@ -219,8 +207,8 @@ function fetchedText(view: SyncView, kept: Kept): string[] {
         fetched.changed === 0
           ? 'nothing had changed'
           : fetched.changed >= kept_
-            ? `${kept_ === 1 ? 'it' : `all ${String(kept_)}`} had changed${change}`
-            : `${String(fetched.changed)} had changed${change}, the others hadn’t`;
+            ? `${kept_ === 1 ? 'it' : `all ${String(kept_)}`} had changed`
+            : `${String(fetched.changed)} had changed, the others hadn’t`;
       said.push(`Asked ${crm} again for ${asked} through ${throughWords(kept.target)}: ${how}.`);
     }
     return said;

@@ -16,7 +16,7 @@ import {
   recordHealth,
 } from './health.js';
 import { deliverLifecycleEvents } from './lifecycle.js';
-import { deleteExpiredEvents, logEvent } from './events.js';
+import { deleteExpiredEvents, logEvent, stripChangeValues } from './events.js';
 import { failStaleJobs, runNextJob } from './jobs.js';
 import { checkAlerts } from './alerts.js';
 import { fillPageParts, purgeTombstones } from './storage/items.js';
@@ -215,6 +215,12 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
         'housekeeping',
         async () => {
           await deleteExpiredEvents(config.eventRetentionDays);
+          const stripped = await stripChangeValues(() => stopping);
+          if (stripped.lines > 0) {
+            console.log(
+              `kept only the names of the changed fields in ${String(stripped.lines)} log lines: ${String(stripped.bytesBefore)} bytes before, ${String(stripped.bytesAfter)} after`,
+            );
+          }
           await deleteExpiredSubmissions(config.eventRetentionDays);
           await purgeTombstones(TOMBSTONE_RETENTION_DAYS);
           await deleteExpiredSessions();

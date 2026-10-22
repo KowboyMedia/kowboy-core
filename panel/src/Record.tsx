@@ -193,24 +193,7 @@ function Changes({ page }: { page: RecordPage }) {
             <span className="k-muted">{kindWords(change)}</span>
           </p>
           {change.fields.length > 0 && (
-            <dl className="k-change-fields">
-              {change.fields.map((field) => (
-                <div key={field.key} className="k-change-field">
-                  <dt className="k-code">{field.key}</dt>
-                  <dd>
-                    {field.from !== null && (
-                      <>
-                        <del>
-                          <Value value={field.from} />
-                        </del>{' '}
-                        →{' '}
-                      </>
-                    )}
-                    <Value value={field.to} />
-                  </dd>
-                </div>
-              ))}
-            </dl>
+            <p className="k-change-fields k-code">{change.fields.join(', ')}</p>
           )}
         </div>
       ))}

@@ -8,7 +8,7 @@
 // Adding an event type anywhere in Core means adding its line here. The one at the bottom keeps a
 // type nobody described readable rather than silent.
 import { db } from './storage/db.js';
-import type { EventFields, EventRow } from './events.js';
+import { changedNames, type EventFields, type EventRow } from './events.js';
 import { aboutCheck } from './health.js';
 import { NOT_LIVE } from './registry.js';
 import { TOMBSTONE_RETENTION_DAYS } from './version.js';
@@ -65,12 +65,6 @@ const strings = (fields: EventFields, key: string): string[] => {
 /** A detail the CRM's code or a site wrote, quoted and kept to a line. */
 const quoted = (value: string, limit = 300): string =>
   `“${value.length > limit ? `${value.slice(0, limit - 1)}…` : value}”`;
-
-/** The names of the fields a write changed, which is what a person wants from `entity.written`. */
-const changedNames = (fields: EventFields): string[] => {
-  const changed = fields['changed'];
-  return changed && typeof changed === 'object' ? Object.keys(changed as object) : [];
-};
 
 const theSite = (named: Named): string => (named.site ? `the site ${named.site}` : 'a site');
 const theCrm = (named: Named): string => named.crm ?? 'the CRM';

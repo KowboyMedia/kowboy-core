@@ -92,8 +92,9 @@ export async function ingest(
       seq,
       old_hash: existing?.content_hash ?? null,
       new_hash: hash,
-      // A first write logs no values: the record holds them, and no reader shows them (228).
-      ...(existing && { changed: changedFields(existing.data, data) }),
+      // The names of the fields that changed, never their values: the record holds those (228).
+      // A first write names none.
+      ...(existing && { changed: Object.keys(changedFields(existing.data, data)) }),
       rules_version: RULES_VERSION,
     },
   });
@@ -219,7 +220,7 @@ function isLicensed(connection: Connection, officeId: string | null): boolean {
   return connection.licensedOffices.includes(officeId);
 }
 
-/** Top-level and display fields that changed, with before and after (strategy §8.2). */
+/** Top-level and display fields that changed, with before and after: the log keeps their names. */
 export function changedFields(
   before: Canonical | null,
   after: Canonical,

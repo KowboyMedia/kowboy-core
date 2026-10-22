@@ -18,18 +18,9 @@ import { queueLifecycle } from '../lifecycle.js';
 import { createJob, getJob } from '../jobs.js';
 import { ring } from '../bells.js';
 import { adminFor } from '../registry.js';
-import { canonicalJson } from '../json.js';
 import type { AdminRecord, Datatype } from '../adapter-api/types.js';
 import { crmName } from './inbox.js';
-import {
-  fieldsFromRaw,
-  linksIn,
-  nameIn,
-  namesOf,
-  RECORD_TYPES,
-  scopeOf,
-  type RecordFilter,
-} from './recordlist.js';
+import { fieldsFromRaw, nameIn, RECORD_TYPES, scopeOf, type RecordFilter } from './recordlist.js';
 
 export type SyncWhat = 'fetch' | 'recompute' | 'send';
 
@@ -91,8 +82,6 @@ export type SyncView = {
     removed: { datatype: Datatype; name: string }[];
     removedCount: number;
     changed: number;
-    /** The changes every changed record shares, with the records a field names by name. */
-    common: { key: string; from: unknown; to: unknown }[];
   } | null;
   recomputed: { examined: number; changed: number; unchanged: number; failed: number } | null;
   /** When Core wrote the sync's last change; null while it works or when it wrote nothing. */
@@ -401,55 +390,6 @@ type Written = {
   provider: string;
 };
 
-/** Each change every changed record shares, the records a field names written by their names. */
-async function commonChanges(
-  changes: { connection: string; changed: Record<string, { from: unknown; to: unknown }> }[],
-): Promise<{ key: string; from: unknown; to: unknown }[]> {
-  const first = changes[0];
-  if (!first) return [];
-  const shared = Object.entries(first.changed).filter(
-    ([key, change]) =>
-      !key.startsWith('display.') &&
-      changes.every((other) => {
-        const same = other.changed[key];
-        return (
-          same !== undefined &&
-          canonicalJson(same.from) === canonicalJson(change.from) &&
-          canonicalJson(same.to) === canonicalJson(change.to)
-        );
-      }),
-  );
-  const wanted = shared.flatMap(([key, change]) => [
-    ...linksIn(key, change.from),
-    ...linksIn(key, change.to),
-  ]);
-  const names = await namesOf(first.connection, wanted);
-  const named = (key: string, value: unknown): unknown => {
-    const links = linksIn(key, value);
-    if (links.length === 0) return value;
-    const words = links.map((one) => names.get(`${one.datatype} ${one.id}`) ?? one.id);
-    return Array.isArray(value) ? words : words[0];
-  };
-  // Those that name records first, then plain values, then values with parts: the panel words the
-  // first, and a name reads better than an id or a block of JSON.
-  const rank = ([key, change]: [string, { from: unknown; to: unknown }]): number => {
-    if (linksIn(key, change.from).length + linksIn(key, change.to).length > 0) return 0;
-    const plain = (value: unknown) =>
-      typeof value !== 'object' ||
-      value === null ||
-      (Array.isArray(value) && value.every((one) => typeof one !== 'object' || one === null));
-    return plain(change.from) && plain(change.to) ? 1 : 2;
-  };
-  return shared
-    .map((entry, index) => ({ entry, index }))
-    .sort((a, b) => rank(a.entry) - rank(b.entry) || a.index - b.index)
-    .map(({ entry: [key, change] }) => ({
-      key,
-      from: named(key, change.from),
-      to: named(key, change.to),
-    }));
-}
-
 /** What a fetch wrote: the records that came, went and changed since it started, in its part. */
 async function fetchedSince(
   at: string,
@@ -515,15 +455,6 @@ async function fetchedSince(
       .map((one) => ({ datatype: one.event.datatype, name: nameOf(one.event) })),
     removedCount: removed.length,
     changed: changed.length,
-    common: await commonChanges(
-      changed.map((one) => ({
-        connection: one.event.connection_id,
-        changed: (one.event.fields['changed'] ?? {}) as Record<
-          string,
-          { from: unknown; to: unknown }
-        >,
-      })),
-    ),
   };
 }
 

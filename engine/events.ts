@@ -131,3 +131,53 @@ export async function deleteExpiredEvents(retentionDays: number): Promise<number
   );
   return rowCount ?? 0;
 }
+
+/** The names of the fields a write changed: a list, or an older line's fields with their values. */
+export function changedNames(fields: EventFields): string[] {
+  const changed = fields['changed'];
+  if (Array.isArray(changed)) return changed.map(String);
+  return changed && typeof changed === 'object' ? Object.keys(changed) : [];
+}
+
+const STRIP_BATCH = 1000;
+/** The last write line looked at, so a later round reads only the lines written since. */
+let strippedUpTo = 0;
+
+/**
+ * The write lines written before the log kept no values (question 228) keep only the names of the
+ * fields they changed, in batches, while `stop` is false. It runs with the housekeeping, so the
+ * lines an older version still writes during a deploy follow at the next round. Returns how many
+ * lines it changed and their bytes before and after. A release clean-up step: it goes once
+ * production has run it.
+ */
+export async function stripChangeValues(
+  stop = () => false,
+): Promise<{ lines: number; bytesBefore: number; bytesAfter: number }> {
+  const done = { lines: 0, bytesBefore: 0, bytesAfter: 0 };
+  while (!stop()) {
+    const { rows } = await db().query<{ id: string; with_values: boolean; bytes: number }>(
+      `select id, jsonb_typeof(fields->'changed') = 'object' as with_values,
+         pg_column_size(fields) as bytes
+       from events where type = 'entity.written' and id > $1 order by id limit $2`,
+      [strippedUpTo, STRIP_BATCH],
+    );
+    const last = rows.at(-1);
+    if (!last) break;
+    const stale = rows.filter((row) => row.with_values);
+    if (stale.length > 0) {
+      const { rows: after } = await db().query<{ bytes: number }>(
+        `update events set fields = jsonb_set(fields, '{changed}',
+           (select coalesce(jsonb_agg(name), '[]'::jsonb)
+            from jsonb_object_keys(fields->'changed') as name))
+         where id = any($1::bigint[]) and jsonb_typeof(fields->'changed') = 'object'
+         returning pg_column_size(fields) as bytes`,
+        [stale.map((row) => row.id)],
+      );
+      done.lines += after.length;
+      done.bytesBefore += stale.reduce((sum, row) => sum + row.bytes, 0);
+      done.bytesAfter += after.reduce((sum, row) => sum + row.bytes, 0);
+    }
+    strippedUpTo = Number(last.id);
+  }
+  return done;
+}

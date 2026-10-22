@@ -216,7 +216,7 @@ async function store(
       cause: 'recompute',
       old_hash: item.content_hash,
       new_hash: outcome.hash,
-      changed: changedFields(item.data, outcome.data),
+      changed: Object.keys(changedFields(item.data, outcome.data)),
       rules_version: RULES_VERSION,
     },
   });

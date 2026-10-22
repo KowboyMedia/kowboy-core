@@ -21,7 +21,7 @@ import type {
   MappedRecord,
 } from '../adapter-api/types.js';
 import { COOKIE } from './auth.js';
-import { differences, type RecordList, type RecordPage } from './recordlist.js';
+import type { RecordList, RecordPage } from './recordlist.js';
 import type { SyncStarted, SyncView } from './sync.js';
 
 let core: Harness;
@@ -384,33 +384,12 @@ describe("a record's page", () => {
     expect(page.raw).toMatchObject({ id: 'P1', price: 4500000 });
     expect(page.changeDays).toBe(core.engine.config.eventRetentionDays);
     expect(page.changes.map((one) => one.kind)).toEqual(['fetched', 'first']);
-    expect(page.changes[0]?.fields).toContainEqual({ key: 'price', from: 4950000, to: 4500000 });
+    // A change names its fields and keeps no values (question 228).
+    expect(page.changes[0]?.fields).toContain('price');
     // An object opens into one row per part, and a website text keeps its own name.
     expect(page.fields.find((one) => one.key === 'address.street')?.value).toBe('Brommaplan 4');
     expect(page.fields.some((one) => one.key === 'address')).toBe(false);
-    expect(
-      page.changes[0]?.fields.every((one) => one.key !== 'price' || one.from === 4950000),
-    ).toBe(true);
-    expect(page.changes[0]?.fields.some((one) => one.key.startsWith('display.'))).toBe(true);
-  });
-
-  it('lists only the parts of a changed field that differ, each by its path', () => {
-    expect(
-      differences(
-        'display.sections',
-        [{ header: 'Fee', items: [{ label: 'Fee', value: '3 350 kr' }] }],
-        [{ header: 'Fee', items: [{ label: 'Fee', value: '3 412 kr' }] }],
-      ),
-    ).toEqual([{ key: 'display.sections[0].items[0].value', from: '3 350 kr', to: '3 412 kr' }]);
-    expect(differences('fee', { amount: 3350, type: null }, { amount: 3412, type: null })).toEqual([
-      { key: 'fee.amount', from: 3350, to: 3412 },
-    ]);
-    expect(differences('office_ids', ['BR'], ['SO'])).toEqual([
-      { key: 'office_ids', from: ['BR'], to: ['SO'] },
-    ]);
-    expect(differences('fee', null, { amount: 1 })).toEqual([
-      { key: 'fee', from: null, to: { amount: 1 } },
-    ]);
+    expect(page.changes[0]?.fields.some((one) => one.startsWith('display.'))).toBe(true);
   });
 
   it('shows a removed record from what its CRM last sent, and until when Core keeps it', async () => {
@@ -488,13 +467,6 @@ describe('manual sync', () => {
       removed: [{ datatype: 'property', name: 'Kopparbergsvägen 8' }],
       changed: 2,
     });
-    // The change that names records comes first, before the same change as a list with parts.
-    expect(done.fetched?.common[0]).toEqual({
-      key: 'office_ids',
-      from: ['Bromma'],
-      to: ['Solna'],
-    });
-    expect(done.fetched?.common.map((one) => one.key)).toContain('offices');
     expect(done.writtenAt).not.toBeNull();
     expect(done.sites.every((site) => !site.current)).toBe(true);
 

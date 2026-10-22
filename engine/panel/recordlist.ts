@@ -2,6 +2,7 @@
 // tenant, office, type and the CRM's id, and one record's page with its fields, its website text,
 // what its CRM sent and its changes. The engine sends facts and the panel words them; a CRM is
 // named only as its code names itself. Nothing here calls a CRM.
+import { changedNames } from '../events.js';
 import { db } from '../storage/db.js';
 import { OFFICE_IDS, scopeWhere, type ScopeFilter } from '../storage/items.js';
 import { mapperFor } from '../registry.js';
@@ -479,7 +480,8 @@ export type RecordChange = {
   /** Fetched from its CRM, prepared again with new rules, written the first time, or removed. */
   kind: 'fetched' | 'recomputed' | 'first' | 'removed';
   rules: string | null;
-  fields: { key: string; from: unknown; to: unknown }[];
+  /** The names of the fields it changed; the log keeps no values (question 228). */
+  fields: string[];
 };
 
 export type RecordPage = {
@@ -585,31 +587,6 @@ function rowsOf(key: string, value: unknown): { key: string; value: unknown }[] 
   return [{ key, value: value ?? null }];
 }
 
-/**
- * The parts of a changed field that differ, each by its path, `fee.amount` or
- * `display.sections[2].items[0].value`: an object or a list of objects is opened where both sides
- * have one, so a change lists what changed and not the whole value twice.
- */
-export function differences(
-  key: string,
-  from: unknown,
-  to: unknown,
-): { key: string; from: unknown; to: unknown }[] {
-  if (isPlain(from) && isPlain(to)) {
-    return [...new Set([...Object.keys(from), ...Object.keys(to)])].flatMap((part) =>
-      differences(`${key}.${part}`, from[part] ?? null, to[part] ?? null),
-    );
-  }
-  const listOfObjects = (value: unknown): value is unknown[] =>
-    Array.isArray(value) && value.some((one) => typeof one === 'object' && one !== null);
-  if (Array.isArray(from) && Array.isArray(to) && (listOfObjects(from) || listOfObjects(to))) {
-    return Array.from({ length: Math.max(from.length, to.length) }, (_, index) =>
-      differences(`${key}[${String(index)}]`, from[index] ?? null, to[index] ?? null),
-    ).flat();
-  }
-  return JSON.stringify(from) === JSON.stringify(to) ? [] : [{ key, from, to }];
-}
-
 function fieldsOf(
   connection: string,
   datatype: Datatype,
@@ -661,16 +638,11 @@ async function changesOf(
       return { at: row.at.toISOString(), kind: 'removed', rules: null, fields: [] };
     }
     const first = row.fields['old_hash'] === null || row.fields['old_hash'] === undefined;
-    const changed = (row.fields['changed'] ?? {}) as Record<string, { from: unknown; to: unknown }>;
     return {
       at: row.at.toISOString(),
       kind: first ? 'first' : row.fields['cause'] === 'recompute' ? 'recomputed' : 'fetched',
       rules: typeof row.fields['rules_version'] === 'string' ? row.fields['rules_version'] : null,
-      fields: first
-        ? []
-        : Object.entries(changed).flatMap(([key, change]) =>
-            differences(key, change.from ?? null, change.to ?? null),
-          ),
+      fields: first ? [] : changedNames(row.fields),
     };
   });
 }
