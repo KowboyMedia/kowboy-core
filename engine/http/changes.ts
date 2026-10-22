@@ -1,30 +1,12 @@
-import { changesPage, type ChangeRow } from '../storage/items.js';
+import { changesPage } from '../storage/items.js';
 import { recordPull, tenantForToken } from '../storage/connections.js';
 import { logEvent } from '../events.js';
+import { gzipPage, itemHead, pagePart } from '../pages.js';
 import { DATATYPES, type Datatype } from '../adapter-api/types.js';
-import { jsonResponse, type Request, type Response } from './server.js';
+import { gzipLevel, jsonResponse, type Request, type Response } from './server.js';
 
 /** Default and maximum page size (strategy AC 27). */
 export const PAGE_SIZE = 100;
-
-/**
- * The item envelope as a subscriber receives it (schemas/item.v1.json), as JSON: `raw` and `data`
- * are the database's own JSON text, set in unchanged.
- */
-export const envelopeJson = (row: ChangeRow): string => {
-  const fields = JSON.stringify({
-    datatype: row.datatype,
-    connection_id: row.connection_id,
-    remote_id: row.remote_id,
-    office_id: row.office_id,
-    seq: Number(row.seq),
-    deleted: row.deleted,
-    schema_version: row.schema_version,
-    content_hash: row.content_hash,
-    remote_updated_at: row.remote_updated_at?.toISOString() ?? null,
-  });
-  return `${fields.slice(0, -1)},"raw":${row.raw ?? 'null'},"data":${row.data ?? 'null'}}`;
-};
 
 /**
  * `GET /v1/changes` (SRS §8): everything for this tenant and datatype after `seq`, tombstones
@@ -54,16 +36,23 @@ export async function changes(request: Request): Promise<Response> {
     });
   }
 
-  // The page in parts, an item each, so it is sent as it is compressed.
+  // The page from the records' parts as they are stored, compressed already; a record that has
+  // no part yet gets one made now.
   const last = rows[rows.length - 1];
   const nextAfter = last ? Number(last.seq) : after;
   return {
     status: 200,
-    parts: [
-      '{"items":[',
-      ...rows.map((row, index) => (index === 0 ? '' : ',') + envelopeJson(row)),
-      `],"next_after":${String(nextAfter)},"has_more":${String(rows.length === limit)}}`,
-    ],
+    gzipped: gzipPage(
+      [
+        '{"items":[',
+        ...rows.flatMap((row, index) => [
+          (index === 0 ? '' : ',') + itemHead(Number(row.seq), row.remote_updated_at),
+          row.page_part ?? pagePart(row),
+        ]),
+        `],"next_after":${String(nextAfter)},"has_more":${String(rows.length === limit)}}`,
+      ],
+      gzipLevel(),
+    ),
   };
 }
 

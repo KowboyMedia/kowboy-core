@@ -1,6 +1,7 @@
 import { db, takeWriteLock, transaction } from './db.js';
 import type { PoolClient } from 'pg';
 import type { Canonical, Datatype } from '../adapter-api/types.js';
+import { pagePart, type PartFields } from '../pages.js';
 
 export type ItemRow = {
   tenant_id: number;
@@ -18,6 +19,8 @@ export type ItemRow = {
   rules_version: string;
   updated_at: Date;
   tombstoned_at: Date | null;
+  /** Its part of a changes page, ready to send (engine/pages.ts); null until it has one. */
+  page_part: Buffer | null;
 };
 
 export type ItemKey = {
@@ -49,11 +52,13 @@ export type WriteItem = ItemKey & {
 
 /** Insert or update one item with a fresh `seq`. Caller holds the write lock. */
 export async function writeItem(client: PoolClient, item: WriteItem): Promise<number> {
+  const raw = item.raw === undefined ? null : JSON.stringify(item.raw);
+  const data = item.data === null ? null : JSON.stringify(item.data);
   const { rows } = await client.query<{ seq: string }>(
     `insert into items (tenant_id, connection_id, datatype, remote_id, office_id, seq, deleted,
                         schema_version, content_hash, raw, data, remote_updated_at, rules_version,
-                        updated_at, tombstoned_at)
-     values ($1,$2,$3,$4,$5, nextval('item_seq'), $6,$7,$8,$9,$10,$11,$12, now(), $13)
+                        updated_at, tombstoned_at, page_part)
+     values ($1,$2,$3,$4,$5, nextval('item_seq'), $6,$7,$8,$9,$10,$11,$12, now(), $13, $14)
      on conflict (tenant_id, connection_id, datatype, remote_id) do update set
        office_id = excluded.office_id,
        seq = nextval('item_seq'),
@@ -65,7 +70,8 @@ export async function writeItem(client: PoolClient, item: WriteItem): Promise<nu
        remote_updated_at = excluded.remote_updated_at,
        rules_version = excluded.rules_version,
        updated_at = now(),
-       tombstoned_at = excluded.tombstoned_at
+       tombstoned_at = excluded.tombstoned_at,
+       page_part = excluded.page_part
      returning seq`,
     [
       item.tenantId,
@@ -76,11 +82,25 @@ export async function writeItem(client: PoolClient, item: WriteItem): Promise<nu
       item.deleted,
       item.schemaVersion,
       item.contentHash,
-      item.raw === undefined ? null : JSON.stringify(item.raw),
-      item.data === null ? null : JSON.stringify(item.data),
+      raw,
+      data,
       item.remoteUpdatedAt,
       item.rulesVersion,
       item.deleted ? new Date() : null,
+      // Without its raw a live record's part cannot be made here; the fill makes it.
+      raw === null && !item.deleted
+        ? null
+        : pagePart({
+            datatype: item.datatype,
+            connection_id: item.connectionId,
+            remote_id: item.remoteId,
+            office_id: item.officeId,
+            deleted: item.deleted,
+            schema_version: item.schemaVersion,
+            content_hash: item.contentHash,
+            raw,
+            data,
+          }),
     ],
   );
   return Number(rows[0]?.seq);
@@ -94,9 +114,9 @@ export type ChangesQuery = {
 };
 
 /**
- * One item of a changes page, with `raw` and `data` as the JSON text the database holds: a page
- * goes to a site as it is stored, never parsed and written out again here, which took most of a
- * page's time with records of a real record's size (AC 27). A tombstone's `raw` is null.
+ * One item of a changes page with its part ready to send (engine/pages.ts). A record without one
+ * yet has `raw` and `data` instead, as the JSON text the database holds, and gets its part made
+ * as it is sent; with a part, both are null.
  */
 export type ChangeRow = Pick<
   ItemRow,
@@ -109,14 +129,16 @@ export type ChangeRow = Pick<
   | 'schema_version'
   | 'content_hash'
   | 'remote_updated_at'
+  | 'page_part'
 > & { raw: string | null; data: string | null };
 
 /** The subscriber read (SRS §8): everything for this tenant and datatype after `seq`. */
 export async function changesPage(query: ChangesQuery): Promise<ChangeRow[]> {
   const { rows } = await db().query<ChangeRow>(
     `select datatype, connection_id, remote_id, office_id, seq, deleted, schema_version,
-       content_hash, remote_updated_at,
-       case when deleted then null else raw::text end as raw, data::text as data
+       content_hash, remote_updated_at, page_part,
+       case when page_part is null then raw::text end as raw,
+       case when page_part is null then data::text end as data
      from items
      where tenant_id = $1 and datatype = $2 and seq > $3
      order by seq
@@ -124,6 +146,41 @@ export async function changesPage(query: ChangesQuery): Promise<ChangeRow[]> {
     [query.tenantId, query.datatype, query.after, query.limit],
   );
   return rows;
+}
+
+/** How many records the fill makes parts for at a time. */
+const FILL_BATCH = 200;
+
+/**
+ * Make the parts of the records stored before parts were (question 227), a batch at a time in
+ * `seq` order, until none is left or `stop` says so, and tell how many. A record written meanwhile
+ * has a new `seq` and its own part, and is left alone.
+ */
+export async function fillPageParts(stop: () => boolean = () => false): Promise<number> {
+  let filled = 0;
+  for (let after = '0'; !stop();) {
+    // The next batch picked first, so only its records are turned into text.
+    const { rows } = await db().query<PartFields & { seq: string }>(
+      `select i.seq, i.datatype, i.connection_id, i.remote_id, i.office_id, i.deleted,
+         i.schema_version, i.content_hash, i.raw::text as raw, i.data::text as data
+       from (select seq from items where page_part is null and seq > $1
+             order by seq limit ${String(FILL_BATCH)}) as batch
+       join items i on i.seq = batch.seq
+       order by i.seq`,
+      [after],
+    );
+    if (rows.length === 0) break;
+    const made = rows.filter((row) => row.deleted || row.raw !== null);
+    const { rowCount } = await db().query(
+      `update items set page_part = part.page_part
+       from unnest($1::bigint[], $2::bytea[]) as part(seq, page_part)
+       where items.seq = part.seq and items.page_part is null`,
+      [made.map((row) => row.seq), made.map((row) => pagePart(row))],
+    );
+    filled += rowCount ?? 0;
+    after = rows[rows.length - 1]?.seq ?? after;
+  }
+  return filled;
 }
 
 /** Live (not tombstoned) remote ids in a scope, for presentIds comparison. */

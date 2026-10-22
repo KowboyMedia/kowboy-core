@@ -1,6 +1,6 @@
-// A changes page of records the size of real ones (AC 27): it goes out as the database holds it,
-// in parts compressed as they are sent, and reads back as the stored JSON; a site that hangs up
-// halfway leaves Core answering the next one.
+// A changes page of records the size of real ones (AC 27): it is put together from the records'
+// parts, compressed already (question 227), and reads back as the stored JSON, whether a record
+// has its part yet or not; a site that hangs up halfway leaves Core answering the next one.
 import { request } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -8,6 +8,7 @@ import { truncate } from '../../acceptance/harness.js';
 import { startEngine, type Engine } from '../index.js';
 import { createTenant, upsertConnection } from '../storage/connections.js';
 import { closeDb, db } from '../storage/db.js';
+import { fillPageParts } from '../storage/items.js';
 import { PAGE_SIZE } from './changes.js';
 
 const TOKEN = 'changes-test-token';
@@ -24,7 +25,7 @@ afterEach(async () => {
   await closeDb();
 });
 
-/** Core with one tenant and `count` properties of that size. */
+/** Core with one tenant and `count` properties of that size, stored as before parts were. */
 async function coreWith(count: number): Promise<string> {
   engine = await startEngine({ port: 0 });
   await truncate();
@@ -40,21 +41,29 @@ async function coreWith(count: number): Promise<string> {
   return `http://127.0.0.1:${String((server.address() as AddressInfo).port)}`;
 }
 
+type Page = {
+  items: { remote_id: string; seq: number; deleted: boolean; raw: unknown; data: unknown }[];
+  next_after: number;
+  has_more: boolean;
+};
+
+const pageOf = async (baseUrl: string, after = 0): Promise<{ page: Page; response: Response }> => {
+  const response = await fetch(`${baseUrl}/v1/changes?datatype=property&after=${String(after)}`, {
+    headers: { authorization: `Bearer ${TOKEN}`, 'accept-encoding': 'gzip' },
+  });
+  return { page: (await response.json()) as Page, response };
+};
+
 describe('a changes page', () => {
-  it('sends records of a real size as the database holds them, compressed as they go', async () => {
+  it('sends records of a real size, the same before and after they have their parts', async () => {
     const baseUrl = await coreWith(PAGE_SIZE + 1);
 
-    const response = await fetch(`${baseUrl}/v1/changes?datatype=property`, {
-      headers: { authorization: `Bearer ${TOKEN}`, 'accept-encoding': 'gzip' },
-    });
-    const page = (await response.json()) as {
-      items: { remote_id: string; raw: unknown; data: unknown }[];
-      next_after: number;
-      has_more: boolean;
-    };
+    const before = await pageOf(baseUrl);
+    expect(await fillPageParts()).toBe(PAGE_SIZE + 1);
+    const { page, response } = await pageOf(baseUrl);
 
     expect(response.headers.get('content-encoding')).toBe('gzip');
-    expect(response.headers.get('content-length')).toBeNull();
+    expect(page).toEqual(before.page);
     expect(page.items).toHaveLength(PAGE_SIZE);
     expect(page.has_more).toBe(true);
     expect(page.items[0]?.raw).toEqual(RECORD);
@@ -64,6 +73,22 @@ describe('a changes page', () => {
     });
     expect(plain.headers.get('content-encoding')).toBeNull();
     expect(((await plain.json()) as { items: unknown[] }).items).toHaveLength(1);
+  });
+
+  it('never sends a part a version of Core without parts left behind', async () => {
+    const baseUrl = await coreWith(1);
+    await fillPageParts();
+
+    // As an older version writes: the record changes, its part is not touched.
+    await db().query(
+      `update items set data = $1, content_hash = 'changed', seq = nextval('item_seq')`,
+      [JSON.stringify({ heading: 'Changed' })],
+    );
+    const { page } = await pageOf(baseUrl);
+
+    expect(page.items[0]?.data).toEqual({ heading: 'Changed' });
+    const { rows } = await db().query<{ page_part: Buffer | null }>('select page_part from items');
+    expect(rows[0]?.page_part).toBeNull();
   });
 
   it('answers the next site when one hangs up halfway through a page', async () => {

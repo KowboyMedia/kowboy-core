@@ -37,7 +37,9 @@ conversation of the same day counted 30 to 49 in chat; none of those are registe
 - New, each its own line:
   1. One more column on the records table: each record's part of a page, compressed, written with
      the record. About 7 KB a record next to today's 17 KB, so records take about 40% more space
-     (ten times launch: about 2.8 GB more).
+     (ten times launch: about 2.8 GB more). With it, a rule in the database that empties a
+     record's part when its raw or data change without it, so an older version of Core (the one
+     still running during a deploy, or one rolled back to) can never send a record as it was.
   2. A one-time fill for the records already stored, run in the background by the worker after
      the deploy (staging holds about 38,000 records, live none). A record without its part is
      sent as today until it has one.

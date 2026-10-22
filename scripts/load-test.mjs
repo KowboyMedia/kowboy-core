@@ -8,10 +8,11 @@
 //   DIGITALOCEAN_ACCESS_TOKEN=… node scripts/load-test.mjs --undo    after a run that was cut off
 //   … node scripts/load-test.mjs --size db-s-2vcpu-4gb --disk 40960   a trial on another server size
 //   … --web apps-s-2vcpu-4gb --web-count 2                            and another web part
+//   … --branch claude/some-branch                                     another branch's version
 //
-// A trial answers what sizes the criterion needs: it changes only the database server's size and
-// disk and the web part's size and count, and goes to .do/trials/, which the acceptance report
-// does not read.
+// A trial answers what sizes or which version the criterion needs: it changes only the database
+// server's size and disk, the web part's size and count, or the branch the app is built from, and
+// goes to .do/trials/, which the acceptance report does not read.
 //
 // Nothing of staging or live is read or changed but the size of staging's web part: the copy has
 // no CRM connection and no setting of theirs, only a key of its own. Whatever fails, the app and the
@@ -49,7 +50,10 @@ const SIZE = option('--size');
 const DISK = option('--disk');
 const WEB = option('--web');
 const WEB_COUNT = Number(option('--web-count') ?? 1);
-const TRIAL = [SIZE, WEB && `${WEB}x${WEB_COUNT}`].filter(Boolean).join('-');
+const BRANCH = option('--branch');
+const TRIAL = [SIZE, WEB && `${WEB}x${WEB_COUNT}`, BRANCH?.replaceAll('/', '-')]
+  .filter(Boolean)
+  .join('-');
 const RECORD = TRIAL
   ? join(import.meta.dirname, '..', '.do', 'trials', `load-test-${TRIAL}.json`)
   : join(import.meta.dirname, '..', '.do', 'drills', 'load-test.json');
@@ -69,7 +73,11 @@ async function specFor(key, withJob) {
   const staging = (await api(`/apps/${STAGING}`)).app.spec;
   const web = staging.services?.find((service) => service.name === 'web');
   if (!web?.github) throw new Error("staging's web part or its source is not where it was");
-  const source = { repo: web.github.repo, branch: web.github.branch, deploy_on_push: false };
+  const source = {
+    repo: web.github.repo,
+    branch: BRANCH ?? web.github.branch,
+    deploy_on_push: false,
+  };
   const secret = (name, value) => ({ key: name, value, type: 'SECRET', scope: 'RUN_TIME' });
   const shared = [
     { key: 'DATABASE_URL', value: '${db.DATABASE_URL}', scope: 'RUN_TIME' },
@@ -243,7 +251,7 @@ const outcome = measured?.passed ? 'passed' : 'failed';
 mkdirSync(join(RECORD, '..'), { recursive: true });
 writeFileSync(
   RECORD,
-  `${JSON.stringify({ ran: new Date().toISOString(), databaseSize: SIZE ?? CLUSTER, web: WEB ? `${WEB} x ${WEB_COUNT}` : 'as staging', tests: { [TEST]: outcome }, measured, steps }, null, 2)}\n`,
+  `${JSON.stringify({ ran: new Date().toISOString(), databaseSize: SIZE ?? CLUSTER, web: WEB ? `${WEB} x ${WEB_COUNT}` : 'as staging', branch: BRANCH ?? 'staging', tests: { [TEST]: outcome }, measured, steps }, null, 2)}\n`,
 );
 say(`The load test ${outcome}; recorded in ${RECORD.slice(RECORD.indexOf('.do/'))}.`);
 process.exit(measured && cleaned ? 0 : 1);

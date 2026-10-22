@@ -21,15 +21,18 @@ const LIMITS = {
   callsPerPull: 4,
   /** And for one that brings nothing, which leaves no line. */
   callsPerEmptyPull: 3,
-  /** What the database hands Core for a page of 100 of these homes (2,576,743 on 2026-10-22). */
-  databaseBytesPerPage: 2_800_000,
-  /** What a site receives for that page, compressed (317,384). */
-  siteBytesPerPage: 350_000,
   /**
-   * What one of these homes takes in Core's tables once written: its row, its values, its indexes
-   * and its lines in the event log (18,514).
+   * What the database hands Core for a page of 100 of these homes: their parts, ready to send
+   * (356,075 on 2026-10-22; 2,576,743 as text before parts).
    */
-  bytesPerHome: 20_500,
+  databaseBytesPerPage: 400_000,
+  /** What a site receives for that page, compressed (349,351). */
+  siteBytesPerPage: 385_000,
+  /**
+   * What one of these homes takes in Core's tables once written: its row, its values, its part,
+   * its indexes and its lines in the event log (21,709).
+   */
+  bytesPerHome: 24_000,
 };
 
 const PROVIDER = 'limits-test';

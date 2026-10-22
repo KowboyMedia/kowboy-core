@@ -25,7 +25,7 @@ import { join } from 'node:path';
 import { gunzip } from 'node:zlib';
 import { promisify } from 'node:util';
 import { closeDb, db } from '../dist/engine/storage/db.js';
-import { changesPage } from '../dist/engine/storage/items.js';
+import { changesPage, fillPageParts } from '../dist/engine/storage/items.js';
 import {
   configureCredentials,
   createTenant,
@@ -86,6 +86,13 @@ async function seed() {
     tenants.push({ id, token, count, last: Number(rows[0].last) });
     if (n === 0 || (n + 1) % 50 === 0) say(`Seeded ${n + 1} of ${TENANTS} tenants.`);
   }
+  // Written straight into the table, the records have no page parts yet: made as the worker makes
+  // them after a deploy, so pages are measured as they are once it is done.
+  const started = Date.now();
+  const filled = await fillPageParts();
+  say(
+    `Made the page parts of ${filled} records in ${Math.round((Date.now() - started) / 1000)} s.`,
+  );
   const { rows } = await db().query(
     `select count(*) as items, pg_size_pretty(pg_database_size(current_database())) as size from items`,
   );

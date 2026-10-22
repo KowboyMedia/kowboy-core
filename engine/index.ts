@@ -19,7 +19,7 @@ import { deliverLifecycleEvents } from './lifecycle.js';
 import { deleteExpiredEvents, logEvent } from './events.js';
 import { failStaleJobs, runNextJob } from './jobs.js';
 import { checkAlerts } from './alerts.js';
-import { purgeTombstones } from './storage/items.js';
+import { fillPageParts, purgeTombstones } from './storage/items.js';
 import { changes } from './http/changes.js';
 import { applied } from './http/applied.js';
 import { siteError } from './http/errors.js';
@@ -181,6 +181,15 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
         timer.unref?.();
         timers.push(timer);
       };
+      // The parts of the records stored before parts were (question 227), made once, in the
+      // background; until a record has its part, pages make it as they are sent.
+      const fill: Promise<void> = fillPageParts(() => stopping)
+        .then((filled) => {
+          if (filled > 0) console.log(`made the page parts of ${String(filled)} stored records`);
+        })
+        .catch((error: unknown) => report(error, { where: 'page parts' }))
+        .finally(() => running.delete(fill));
+      running.add(fill);
       tick('heartbeat', () => heartbeat(), HEARTBEAT_MS);
       tick('bells', () => flushPendingBells(), BELL_FLUSH_MS);
       tick('lifecycle events', () => deliverLifecycleEvents(), LIFECYCLE_MS);

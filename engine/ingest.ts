@@ -5,7 +5,8 @@ import { manifestFor, mapperFor } from './registry.js';
 import { logEvent } from './events.js';
 import { ring } from './bells.js';
 import { db, takeWriteLock, transaction } from './storage/db.js';
-import { readItem, writeItem, liveRemoteIds } from './storage/items.js';
+import { liveRemoteIds, readItem, writeItem } from './storage/items.js';
+import { pagePart } from './pages.js';
 import type { Canonical, Connection, Datatype, IngestResult } from './adapter-api/types.js';
 
 /**
@@ -39,17 +40,30 @@ export async function ingest(
 
   if (unchanged(existing, hash)) {
     // Same content: no seq, no bell, nothing reaches a site. Keep raw current for replay, and keep
-    // when the record last changed, which the panel's records list shows as "Updated".
+    // when the record last changed, which the panel's records list shows as "Updated". Its part
+    // carries the raw too, for a site that fetches the record later.
+    const rawJson = JSON.stringify(raw);
     await db().query(
-      `update items set raw = $5, remote_updated_at = $6
+      `update items set raw = $5, remote_updated_at = $6, page_part = $7
        where tenant_id = $1 and connection_id = $2 and datatype = $3 and remote_id = $4`,
       [
         key.tenantId,
         key.connectionId,
         key.datatype,
         key.remoteId,
-        JSON.stringify(raw),
+        rawJson,
         remoteUpdatedAt,
+        pagePart({
+          datatype,
+          connection_id: connection.id,
+          remote_id: remoteId,
+          office_id: existing?.office_id ?? null,
+          deleted: false,
+          schema_version: existing?.schema_version ?? SCHEMA_VERSION,
+          content_hash: hash,
+          raw: rawJson,
+          data: JSON.stringify(existing?.data ?? null),
+        }),
       ],
     );
     await logEvent({ ...context, type: 'entity.unchanged', fields: { content_hash: hash } });
