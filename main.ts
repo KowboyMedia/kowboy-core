@@ -5,6 +5,8 @@
 //   node dist/main.js worker   the adapters' background work, bells, housekeeping
 //   node dist/main.js preview  the release impact preview, the release's first step: every
 //                              stored record through this version, nothing written
+//   node dist/main.js smoke    the smoke suite, a deploy's last step: a few requests to the
+//                              version now live at APP_URL, nothing read that is private
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { pathToFileURL } from 'node:url';
@@ -16,6 +18,7 @@ import { removeLoginFields } from './engine/admin/login.js';
 import { closeErrorReporting, report } from './engine/errors.js';
 import { databaseUrl } from './engine/config.js';
 import { previewInWords, previewRelease } from './engine/preview.js';
+import { smoke, smokeInWords } from './engine/smoke.js';
 import type { Adapter } from './engine/adapter-api/types.js';
 import { vitecAdapter } from './adapters/vitec/index.js';
 
@@ -98,7 +101,7 @@ export async function main(role: string): Promise<{ engine: Engine; server: Serv
     return { engine, server: null };
   }
   await engine.stop();
-  throw new Error(`unknown role "${role}"; expected web, worker or preview`);
+  throw new Error(`unknown role "${role}"; expected web, worker, preview or smoke`);
 }
 
 // Run when started as the program, not when a test imports it.
@@ -110,6 +113,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         return 1;
       }),
     );
+  }
+  if (process.argv[2] === 'smoke') {
+    // App Platform gives a job the app's address as APP_URL (.do/app.staging.yaml).
+    const baseUrl = process.env['APP_URL'] ?? '';
+    if (!baseUrl) {
+      console.error('The smoke suite needs APP_URL, the address of the version it checks.');
+      process.exit(1);
+    }
+    const failures = await smoke(baseUrl);
+    for (const line of smokeInWords(baseUrl, failures)) console.log(line);
+    process.exit(failures.length === 0 ? 0 : 1);
   }
   const { engine } = await main(process.argv[2] ?? 'web').catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : String(error));
