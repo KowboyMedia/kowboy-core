@@ -1,0 +1,67 @@
+{
+  "ran": "2026-10-22T17:14:30.897Z",
+  "tests": {
+    "the load test at ten times launch answers 100-item pages within 100 ms to the first byte and 300 ms in full, p95": "failed"
+  },
+  "measured": {
+    "tenants": 200,
+    "big": 300000,
+    "others": 500,
+    "pages": {
+      "count": 3606,
+      "ttfb": {
+        "p50": 476,
+        "p95": 907
+      },
+      "total": {
+        "p50": 876,
+        "p95": 1367
+      }
+    },
+    "partial": {
+      "count": 477,
+      "ttfb": {
+        "p50": 107,
+        "p95": 394
+      },
+      "total": {
+        "p50": 113,
+        "p95": 402
+      }
+    },
+    "deltas": {
+      "count": 11891,
+      "ttfb": {
+        "p50": 164,
+        "p95": 603
+      },
+      "total": {
+        "p50": 181,
+        "p95": 616
+      }
+    },
+    "failed": 0,
+    "firstFailures": [],
+    "target": {
+      "ttfb": 100,
+      "total": 300
+    },
+    "passed": false
+  },
+  "steps": [
+    "16:36:08 The database server core-load-test is being made, the size of kowboy-core-production.",
+    "16:40:11 The app core-load-test is being made from staging's version, its server reachable from it alone.",
+    "16:43:36 The app has its address; its job is added, and runs after the next deploy.",
+    "17:14:17 Job: 16:50:40 Seeded 1 of 200 tenants.",
+    "17:14:17 Job: 16:51:09 Seeded 50 of 200 tenants.",
+    "17:14:17 Job: 16:51:29 Seeded 100 of 200 tenants.",
+    "17:14:17 Job: 16:52:11 Seeded 150 of 200 tenants.",
+    "17:14:17 Job: 16:52:42 Seeded 200 of 200 tenants.",
+    "17:14:17 Job: 16:52:43 The database holds 399500 records, 6464 MB in all.",
+    "17:14:17 Job: 16:52:44 Pulling: the big tenant from 0, two other sites from 0, 10 delta pulls a second.",
+    "17:14:17 Job: 17:12:45 100-item pages: 3606, first byte p95 907 ms (target under 100), whole page p95 1367 ms (target under 300).",
+    "17:14:17 Job: 17:12:45 Delta pulls: 11891, first byte p95 603 ms, whole p95 616 ms. Failed requests: 0.",
+    "17:14:18 The app core-load-test deleted.",
+    "17:14:30 The database server core-load-test deleted."
+  ]
+}

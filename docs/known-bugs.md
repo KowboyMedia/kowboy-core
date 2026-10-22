@@ -93,7 +93,9 @@ the worker removes exactly those eight keys from every stored Vitec login when i
 (`main.ts`, `removeLoginFields` in `engine/admin/login.ts`) and logs "removed the old forms fields
 and CRM password from N stored login(s)". Staging logged 0 for the seven on 2026-10-06; the CRM
 password was added after. The step ships with the next release and comes out in the first commit
-after production's worker log shows that line.
+after production's worker log shows that line. Production's worker logged it on 2026-10-22 at the
+early release: 0 stored logins, since live holds no CRM login yet; the step and this entry leave
+with the final release (release/final-release-plan.md, step 6).
 
 ## 4. `[core]` The forms' bot check lets every form through when its keys are missing
 

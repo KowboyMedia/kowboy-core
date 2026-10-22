@@ -1,0 +1,20 @@
+{
+  "ran": "2026-10-22T16:43:45.881Z",
+  "tests": {
+    "the restore drill on staging ends with subscribers converged": "passed"
+  },
+  "steps": [
+    "16:20:58 Before: staging fails vitec.retries; 12 lists read on 2 sites.",
+    "16:21:17 core-restore-drill is being made from kowboy-core-production's latest backup.",
+    "16:26:28 core-restore-drill is online and reachable from staging alone.",
+    "16:26:50 Staging's settings now name core-restore-drill; waiting for that deploy, the preview first.",
+    "16:31:34 Staging runs on core-restore-drill (deploy 1a69ddae-e483-453c-a600-9dfaa53a91da): the preview read the restored records.",
+    "16:34:39 On core-restore-drill staging fails vitec.retries, as before or fewer.",
+    "16:34:47 The sites' lists on core-restore-drill are as before (12 lists).",
+    "16:35:09 Staging's settings now name kowboy-core-production; waiting for that deploy, the preview first.",
+    "16:40:19 Staging runs on kowboy-core-production again (deploy 236d5497-b0d3-421c-827f-fae8d1719b7b).",
+    "16:43:24 Back on kowboy-core-production staging fails vitec.retries, as before or fewer.",
+    "16:43:32 The sites' lists back on kowboy-core-production are as before (12 lists).",
+    "16:43:45 core-restore-drill deleted."
+  ]
+}

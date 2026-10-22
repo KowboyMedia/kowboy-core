@@ -18,7 +18,9 @@ the first open step of item 33 that waits on nobody. On 2026-10-18 condition 1 w
 part of condition 4, and the preview of condition 2 was built. On 2026-10-19 Patric answered 207 a
 (the early release) and 209 a (the forms), and on 2026-10-21 210 a, 211 a and 217 a: the preview
 goes into staging's deploys and the restore drill runs now; the rest waits on the threads or on
-the seven days.
+the seven days. On 2026-10-22 the early release went out (live runs staging's version with its
+new settings), the restore drill passed by script (AC 24), and the load test failed (AC 27):
+finding where its time goes is the next open step.
 
 ## Agent setup (from the 2026-09-27 review of how agents and Patric work together)
 
@@ -1007,16 +1009,21 @@ the seven days.
          Built and tested 2026-10-18 (`node dist/main.js preview`, the job "preview" in
          `.do/app.staging.yaml`). Done on staging 2026-10-21 (211 a): the job runs before every
          staging deploy, and one made to fail stopped the deploy with the running version kept.
-         Live gets the same job in its own settings at the early release (condition 6).
+         Live gets the same job in its own settings at the early release (condition 6). Done
+         2026-10-22: live's preview ran before its release deploy (0 records, live holds none).
       3. The four criteria still pending, after 210 for AC 18 and AC 27: AC 18 (a smoke suite run
          automatically after every staging deploy, and a test that reads both apps from the
          platform: the line of work each deploys, the health-gated deploy, the old version kept on
          a failed check), AC 24 (the restore drill: the cluster's backup restored onto a temporary
          cluster, staging pointed at it until its subscribers converge, then back, and the copy
          deleted; run by hand through DigitalOcean's API on 2026-10-21 (217 a), see `decisions.md`;
-         AC 24 turns green once a script does the same and names its test), AC 27 and AC 32 (load and latency at 10× launch on a temporary database server
+         AC 24 turns green once a script does the same and names its test; green 2026-10-22,
+         `scripts/restore-drill.mjs`), AC 27 and AC 32 (load and latency at 10× launch on a temporary database server
          and app of their own, so the shared cluster, 1 vCPU, 1 GB and 15 GB of disk, is never
-         loaded; deleted the same day, well under $1).
+         loaded; deleted the same day, well under $1). AC 27 failed on 2026-10-22
+         (`scripts/load-test.mjs`): full pages p95 907 ms to the first byte and 1,367 ms in full
+         against 100 and 300; the next run times the database's share (`decisions.md`). AC 32 is
+         not built yet.
       4. Seven days on staging with no unresolved Sentry issue (strategy §9, phase 7): 57 open on
          2026-10-18, 52 of them resolved that day, each checked against the code: the connection
          slots (fixed 2026-10-06), the dropped `active` column, the deleted events page, a database
@@ -1032,7 +1039,8 @@ the seven days.
          live's `/v1/health` (173), asked of him once the final release is out.
       6. Live's settings at the release, in the live app's own spec: the pool `live` (12 by 167 c,
          kept by 206 a), `SENTRY_DSN`, `ADMIN_SECRET` removed, the worker's mail settings,
-         and the job "preview" as `.do/app.staging.yaml` has it, with live's database.
+         and the job "preview" as `.do/app.staging.yaml` has it, with live's database. Done
+         2026-10-22 with the early release, `ALERT_EMAIL` on live's worker included.
       7. The first go-live list: the domain and its certificate answer; personal data and
          credentials only where the design says, checked once and named in the release note; who
          is told and in which words, written before the switch.
