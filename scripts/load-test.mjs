@@ -6,6 +6,10 @@
 //
 //   DIGITALOCEAN_ACCESS_TOKEN=… node scripts/load-test.mjs           about an hour
 //   DIGITALOCEAN_ACCESS_TOKEN=… node scripts/load-test.mjs --undo    after a run that was cut off
+//   … node scripts/load-test.mjs --size db-s-2vcpu-4gb --disk 40960   a trial on another server size
+//
+// A trial answers what size of database server the criterion needs: it changes only the server's
+// size and disk, and goes to .do/trials/, which the acceptance report does not read.
 //
 // Nothing of staging or live is read or changed but the size of staging's web part: the copy has
 // no CRM connection and no setting of theirs, only a key of its own. Whatever fails, the app and the
@@ -35,7 +39,15 @@ const TAG = 'load-test';
 const STORAGE_MIB = 35_840;
 const TEST =
   'the load test at ten times launch answers 100-item pages within 100 ms to the first byte and 300 ms in full, p95';
-const RECORD = join(import.meta.dirname, '..', '.do', 'drills', 'load-test.json');
+const option = (name) => {
+  const at = process.argv.indexOf(name);
+  return at === -1 ? null : (process.argv[at + 1] ?? null);
+};
+const SIZE = option('--size');
+const DISK = option('--disk');
+const RECORD = SIZE
+  ? join(import.meta.dirname, '..', '.do', 'trials', `load-test-${SIZE}.json`)
+  : join(import.meta.dirname, '..', '.do', 'drills', 'load-test.json');
 
 accessToken();
 const { lines: steps, say } = logbook();
@@ -160,13 +172,17 @@ async function run() {
       engine: original.engine,
       version: original.version,
       region: original.region,
-      size: original.size,
+      size: SIZE ?? original.size,
       num_nodes: 1,
-      storage_size_mib: STORAGE_MIB,
+      storage_size_mib: DISK ? Number(DISK) : STORAGE_MIB,
       tags: [TAG],
     }),
   });
-  say(`The database server ${NAME} is being made, the size of ${CLUSTER}.`);
+  say(
+    SIZE
+      ? `The database server ${NAME} is being made, of the size ${SIZE}.`
+      : `The database server ${NAME} is being made, the size of ${CLUSTER}.`,
+  );
   await until(
     `${NAME} online`,
     async () => (await api(`/databases/${cluster.id}`)).database.status === 'online',
@@ -222,7 +238,7 @@ const outcome = measured?.passed ? 'passed' : 'failed';
 mkdirSync(join(RECORD, '..'), { recursive: true });
 writeFileSync(
   RECORD,
-  `${JSON.stringify({ ran: new Date().toISOString(), tests: { [TEST]: outcome }, measured, steps }, null, 2)}\n`,
+  `${JSON.stringify({ ran: new Date().toISOString(), databaseSize: SIZE ?? CLUSTER, tests: { [TEST]: outcome }, measured, steps }, null, 2)}\n`,
 );
-say(`The load test ${outcome}; recorded in .do/drills/load-test.json.`);
+say(`The load test ${outcome}; recorded in ${RECORD.slice(RECORD.indexOf('.do/'))}.`);
 process.exit(measured && cleaned ? 0 : 1);

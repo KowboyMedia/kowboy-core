@@ -1,5 +1,5 @@
 {
-  "ran": "2026-10-22T17:14:30.897Z",
+  "ran": "2026-10-22T17:57:58.297Z",
   "tests": {
     "the load test at ten times launch answers 100-item pages within 100 ms to the first byte and 300 ms in full, p95": "failed"
   },
@@ -8,40 +8,61 @@
     "big": 300000,
     "others": 500,
     "pages": {
-      "count": 3606,
+      "count": 2866,
       "ttfb": {
-        "p50": 476,
-        "p95": 907
+        "p50": 478,
+        "p95": 1941
       },
       "total": {
-        "p50": 876,
-        "p95": 1367
+        "p50": 841,
+        "p95": 2306
       }
     },
     "partial": {
-      "count": 477,
+      "count": 370,
       "ttfb": {
-        "p50": 107,
-        "p95": 394
+        "p50": 94,
+        "p95": 507
       },
       "total": {
-        "p50": 113,
-        "p95": 402
+        "p50": 98,
+        "p95": 509
       }
     },
     "deltas": {
-      "count": 11891,
+      "count": 11788,
       "ttfb": {
-        "p50": 164,
-        "p95": 603
+        "p50": 189,
+        "p95": 1425
       },
       "total": {
-        "p50": 181,
-        "p95": 616
+        "p50": 204,
+        "p95": 1437
       }
     },
     "failed": 0,
     "firstFailures": [],
+    "alone": {
+      "query": {
+        "p50": 479,
+        "p95": 1216
+      },
+      "pulled": {
+        "count": 30,
+        "ttfb": {
+          "p50": 185,
+          "p95": 733
+        },
+        "total": {
+          "p50": 337,
+          "p95": 826
+        }
+      }
+    },
+    "queryUnderLoad": {
+      "p50": 513,
+      "p95": 1542
+    },
     "target": {
       "ttfb": 100,
       "total": 300
@@ -49,19 +70,21 @@
     "passed": false
   },
   "steps": [
-    "16:36:08 The database server core-load-test is being made, the size of kowboy-core-production.",
-    "16:40:11 The app core-load-test is being made from staging's version, its server reachable from it alone.",
-    "16:43:36 The app has its address; its job is added, and runs after the next deploy.",
-    "17:14:17 Job: 16:50:40 Seeded 1 of 200 tenants.",
-    "17:14:17 Job: 16:51:09 Seeded 50 of 200 tenants.",
-    "17:14:17 Job: 16:51:29 Seeded 100 of 200 tenants.",
-    "17:14:17 Job: 16:52:11 Seeded 150 of 200 tenants.",
-    "17:14:17 Job: 16:52:42 Seeded 200 of 200 tenants.",
-    "17:14:17 Job: 16:52:43 The database holds 399500 records, 6464 MB in all.",
-    "17:14:17 Job: 16:52:44 Pulling: the big tenant from 0, two other sites from 0, 10 delta pulls a second.",
-    "17:14:17 Job: 17:12:45 100-item pages: 3606, first byte p95 907 ms (target under 100), whole page p95 1367 ms (target under 300).",
-    "17:14:17 Job: 17:12:45 Delta pulls: 11891, first byte p95 603 ms, whole p95 616 ms. Failed requests: 0.",
-    "17:14:18 The app core-load-test deleted.",
-    "17:14:30 The database server core-load-test deleted."
+    "17:23:28 The database server core-load-test is being made, the size of kowboy-core-production.",
+    "17:26:29 The app core-load-test is being made from staging's version, its server reachable from it alone.",
+    "17:31:01 The app has its address; its job is added, and runs after the next deploy.",
+    "17:57:45 Job: 17:34:36 Seeded 1 of 200 tenants.",
+    "17:57:45 Job: 17:34:47 Seeded 50 of 200 tenants.",
+    "17:57:45 Job: 17:34:59 Seeded 100 of 200 tenants.",
+    "17:57:45 Job: 17:35:18 Seeded 150 of 200 tenants.",
+    "17:57:45 Job: 17:35:39 Seeded 200 of 200 tenants.",
+    "17:57:45 Job: 17:35:39 The database holds 399500 records, 6465 MB in all.",
+    "17:57:45 Job: 17:36:15 Alone: the database 479 ms a page (p95 1216); through the app first byte 185 ms, whole 337 ms (p95 733 and 826).",
+    "17:57:45 Job: 17:36:15 Pulling: the big tenant from 0, two other sites from 0, 10 delta pulls a second.",
+    "17:57:45 Job: 17:56:16 100-item pages: 2866, first byte p95 1941 ms (target under 100), whole page p95 2306 ms (target under 300).",
+    "17:57:45 Job: 17:56:16 Under load the database took 513 ms a page (p95 1542).",
+    "17:57:45 Job: 17:56:16 Delta pulls: 11788, first byte p95 1425 ms, whole p95 1437 ms. Failed requests: 0.",
+    "17:57:46 The app core-load-test deleted.",
+    "17:57:58 The database server core-load-test deleted."
   ]
 }
