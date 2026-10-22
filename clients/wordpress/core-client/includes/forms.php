@@ -275,9 +275,7 @@ function core_client_forms_answer(array|WP_Error $response, string $failure): WP
 /**
  * The bot check's public key for the form window, as Core gives it (`provider` and `site_key`),
  * or null while Core has none or cannot be reached. Asked of Core once an hour, and a failed read
- * again after five minutes, so a page waits on Core at most once in that time. A page built while
- * Core could not be asked is not kept by a page cache (`DONOTCACHEPAGE`, which every cache plugin
- * reads): its forms would lack the key until the copy went.
+ * again after five minutes, so a page waits on Core at most once in that time.
  *
  * @return array{provider: string, site_key: string}|null
  */
@@ -291,7 +289,6 @@ function core_client_human_check(): ?array
     $transient = 'core_client_human_check_' . md5($settings['url'] . '|' . $settings['token']);
     $cached = get_transient($transient);
     if (is_array($cached)) {
-        core_client_human_check_answered(($cached['answered'] ?? true) !== false);
         return $cached['human'] ?? null;
     }
     $response = wp_remote_get($settings['url'] . '/v1/submissions/bot-check', [
@@ -304,15 +301,6 @@ function core_client_human_check(): ?array
     $human = $given !== null && is_string($given['provider'] ?? null) && is_string($given['site_key'] ?? null)
         ? ['provider' => $given['provider'], 'site_key' => $given['site_key']]
         : null;
-    set_transient($transient, ['human' => $human, 'answered' => is_array($answer)], is_array($answer) ? HOUR_IN_SECONDS : 5 * MINUTE_IN_SECONDS);
-    core_client_human_check_answered(is_array($answer));
+    set_transient($transient, ['human' => $human], is_array($answer) ? HOUR_IN_SECONDS : 5 * MINUTE_IN_SECONDS);
     return $human;
-}
-
-/** A page whose bot check Core did not answer is built for this visitor only. */
-function core_client_human_check_answered(bool $answered): void
-{
-    if (!$answered && !defined('DONOTCACHEPAGE')) {
-        define('DONOTCACHEPAGE', true);
-    }
 }

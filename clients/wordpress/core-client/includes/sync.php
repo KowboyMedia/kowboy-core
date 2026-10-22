@@ -86,8 +86,6 @@ function core_client_pull(string $datatype, bool $rewrite_all): string
             }
             core_client_put_state("after.$datatype", (string) $page->next_after);
             $wpdb->query('COMMIT');
-            // Only now may the page cache build those pages again (includes/page-cache.php).
-            core_client_purge_stale();
         } catch (Throwable $error) {
             $wpdb->query('ROLLBACK');
             // The page was rolled back: every record on it failed here, and Core is told so.
