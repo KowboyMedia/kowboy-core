@@ -14,14 +14,20 @@ export function accessToken() {
   return token;
 }
 
-/** One call to the API: its JSON answer, or an error naming the call and the status. */
+/** One call to the API: its JSON answer, or an error naming the call, the status and DigitalOcean's reason. */
 export async function api(path, init = {}) {
   const response = await fetch(`${API}${path}`, {
     ...init,
     headers: { authorization: `Bearer ${accessToken()}`, 'content-type': 'application/json' },
   });
   if (!response.ok) {
-    throw new Error(`DigitalOcean answered ${response.status} to ${init.method ?? 'GET'} ${path}`);
+    const reason = await response
+      .json()
+      .then((body) => (body?.message ? `: ${body.message}` : ''))
+      .catch(() => '');
+    throw new Error(
+      `DigitalOcean answered ${response.status} to ${init.method ?? 'GET'} ${path}${reason}`,
+    );
   }
   return response.status === 204 ? null : response.json();
 }

@@ -28,8 +28,11 @@ const STAGING = '57498bcc-59a5-4812-aa1f-ed65c83a5b2f';
 const CLUSTER = 'kowboy-core-production';
 const NAME = 'core-load-test';
 const TAG = 'load-test';
-/** Room for 400,000 records of a real record's size, with the writes' log beside them. */
-const STORAGE_MIB = 30_720;
+/**
+ * Room for 400,000 records of a real record's size, with the writes' log beside them. DigitalOcean
+ * takes this size's disk from 15 GiB up in steps of 10.
+ */
+const STORAGE_MIB = 35_840;
 const TEST =
   'the load test at ten times launch answers 100-item pages within 100 ms to the first byte and 300 ms in full, p95';
 const RECORD = join(import.meta.dirname, '..', '.do', 'drills', 'load-test.json');
