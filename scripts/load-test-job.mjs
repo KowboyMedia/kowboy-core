@@ -37,6 +37,14 @@ const TENANTS = Number(process.env['LOAD_TENANTS'] ?? 200);
 const BIG = Number(process.env['LOAD_BIG'] ?? 300_000);
 const OTHERS = Number(process.env['LOAD_OTHERS'] ?? 500);
 const MINUTES = Number(process.env['LOAD_MINUTES'] ?? 20);
+/**
+ * DigitalOcean stops a deploy's job after 30 minutes, its build of about 4 included, and keeps no
+ * log of a job it stopped (three runs lost on 2026-10-22). So the load runs for what is left of 24
+ * minutes once the database is filled and its parts are made, and never less than 5.
+ */
+const BUDGET_MINUTES = 24;
+const MIN_MINUTES = 5;
+const began = Date.now();
 const BATCH = 2_000;
 const DELTAS_PER_SECOND = 10;
 const PAGE = 100;
@@ -223,7 +231,9 @@ function sampleQueries(big, samples) {
 }
 
 async function load(tenants) {
-  const stop = Date.now() + MINUTES * 60_000;
+  const left = BUDGET_MINUTES - (Date.now() - began) / 60_000;
+  const minutes = Math.min(MINUTES, Math.max(MIN_MINUTES, Math.floor(left)));
+  const stop = Date.now() + minutes * 60_000;
   const [big, ...others] = tenants;
   let finished = false;
   const deltas = [];
@@ -244,7 +254,7 @@ async function load(tenants) {
   };
   const sampler = sampleQueries(big, measured.queryUnderLoad);
   say(
-    `Pulling: the big tenant from 0, two other sites from 0, ${DELTAS_PER_SECOND} delta pulls a second.`,
+    `Pulling for ${minutes} minutes: the big tenant from 0, two other sites from 0, ${DELTAS_PER_SECOND} delta pulls a second.`,
   );
   await Promise.all([
     fullSync(big, stop).then(() => {
