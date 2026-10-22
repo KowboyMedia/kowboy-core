@@ -4,10 +4,47 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 227 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 229 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 228. `[core]` A record's first write: keep "first written" without a copy of every value
+
+- 2026-10-22 · From Patric's "ensure that new updates we make don't cause [...] database growth".
+  When Core writes a record for the first time, the event log keeps every field with its value
+  as the change, and the record page's Changes box lists them all under "first written". Measured
+  on real homes, that copy takes about 11 KB a record next to the record's own 17 KB, for the 30
+  days the log keeps it: after a first load at launch about 0.4 GB, at ten times launch about
+  4 GB. The record page shows the same values in the record itself.
+- Changes to a record that exists keep their fields with before and after values, as now.
+- Blocked: nothing; it decides how much room a first load takes.
+- a) **"First written" alone** (recommended, the smallest): the line names the rules version and
+  lists no fields; the record's values are on the same page.
+- b) **The field names without values**: the line lists which fields the record has.
+- c) **As now**: every field with its value.
+
+## 227. `[core]` Store each record ready to send, so a page costs about a tenth of today's work
+
+- 2026-10-22 · Patric: "Attempt to optimize the load, we should optimize first and only after
+  throw resources on the problem." The load test at ten times launch fails (a page's first byte
+  p95 0.9 s against 0.1 s). A trial on an 8 GB database server with two larger web parts failed
+  as well (first byte p95 1.0 s), so bigger servers alone do not reach the target. Measured on
+  records of a real home's size: each page makes the database turn 100 stored records into 3.6 MB
+  of text (27 ms a page here), sends all of it to Core, and Core compresses it again (about 25 ms
+  more). Stored ready to send and already compressed, the same page takes 3 ms to read and is
+  only put together, never compressed again.
+- New, each its own line:
+  1. One more column on the records table: each record's part of a page, compressed, written with
+     the record. About 7 KB a record next to today's 17 KB, so records take about 40% more space
+     (ten times launch: about 2.8 GB more).
+  2. A one-time fill for the records already stored, run in the background by the worker after
+     the deploy (staging holds about 38,000 records, live none). A record without its part is
+     sent as today until it has one.
+- Blocked: the load test's rerun (AC 27), and with it the final release.
+- a) **Yes** (recommended): build both lines, then run the load test again on today's servers.
+- b) **No**: pages stay as they are, and the load target is met with bigger servers, which the
+  trial shows is not enough on its own.
 
 ## 225. `[client-wordpress]` Does a home that is not for sale, coming or sold get a page on the website?
 

@@ -320,7 +320,7 @@ Every event is one row in `events`. Each row carries a **correlation id** that l
 | `schedule.run`                                      | adapter    | catch-up window, records listed, queued, outcome                                                                                                  |
 | `entity.written`                                    | engine     | entity, `seq`, old and new hash, **changed fields with before/after values**, `rules_version`; or `unchanged` / `dropped` (reason) / `tombstoned` |
 | `bell.sent`                                         | engine     | subscriber, sent or throttled, status, duration                                                                                                   |
-| `pull`                                              | engine     | subscriber, client version, datatype, `after`, items returned, duration                                                                           |
+| `pull`                                              | engine     | subscriber, client version, datatype, `after`, items returned, duration; only a pull that returned items (an empty one sets the last pull alone)  |
 | `site.applied` / `site.failed`                      | engine     | what a site reported after a page (question 37): entity, `seq`, client version, and the reason when it could not apply the record                 |
 | `admin.call` / `lifecycle.sent`                     | engine     | endpoint or event, parameters                                                                                                                     |
 
