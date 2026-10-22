@@ -55,7 +55,7 @@ export type SyncTarget = {
   fetch:
     | { kind: 'records'; names: string[]; types: Datatype[] }
     | { kind: 'list'; tenants: string[]; types: Datatype[]; everyConnection: boolean };
-  /** The CRMs, by the names their code gives them. */
+  /** "the CRM", or "the CRMs" when the records come from several; never a CRM's name. */
   crm: string;
   /** The connections a fetch goes through, by their names. */
   connections: string[];
@@ -111,10 +111,10 @@ function sitesWords(sites: string[], capitalised = false): string {
 
 const one = (sites: string[]): boolean => sites.length === 1;
 
-/** The connection's name, or "all 8 <CRM> connections". */
+/** The connection's name, or "all 8 connections". */
 function throughWords(target: Omit<SyncTarget, 'choice'>): string {
   if (target.fetch.kind === 'list' && target.fetch.everyConnection && target.connections.length > 1)
-    return `all ${String(target.connections.length)} ${target.crm} connections`;
+    return `all ${String(target.connections.length)} connections`;
   return listed(target.connections);
 }
 
@@ -136,13 +136,13 @@ function fetchText(target: SyncTarget): string {
   }
   const through = throughWords(target);
   if (fetch.types.length === 0) {
-    return `${crm} lists ${listedWhat(fetch)} afresh through ${through}, and Core fetches it all in full. What hasn’t changed stays as it is; whatever ${crm} no longer lists is removed.`;
+    return `${capital(crm)} lists ${listedWhat(fetch)} afresh through ${through}, and Core fetches it all in full. What hasn’t changed stays as it is; whatever ${crm} no longer lists is removed.`;
   }
   if (fetch.types.length === 1) {
     const plural = pluralOf(fetch.types);
-    return `${crm} lists ${listedWhat(fetch)} afresh through ${through}, and Core fetches them in full, new ones too. ${capital(plural)} that haven’t changed stay as they are; those ${crm} no longer lists are removed.`;
+    return `${capital(crm)} lists ${listedWhat(fetch)} afresh through ${through}, and Core fetches them in full, new ones too. ${capital(plural)} that haven’t changed stay as they are; those ${crm} no longer lists are removed.`;
   }
-  return `${crm} lists ${listedWhat(fetch)} afresh through ${through}, and Core fetches them in full. Those that haven’t changed stay as they are; any ${crm} no longer lists are removed.`;
+  return `${capital(crm)} lists ${listedWhat(fetch)} afresh through ${through}, and Core fetches them in full. Those that haven’t changed stay as they are; any ${crm} no longer lists are removed.`;
 }
 
 /** The first line of a sync under way. */
@@ -158,7 +158,7 @@ function startedText(kept: Kept): string {
         : countedTypes(target.fetch.types);
     return `Asking ${target.crm} again for ${names} through ${through}; the recompute follows in the background.`;
   }
-  return `${target.crm} lists ${listedWhat(target.fetch)} afresh through ${through}; the recompute follows in the background.`;
+  return `${capital(target.crm)} lists ${listedWhat(target.fetch)} afresh through ${through}; the recompute follows in the background.`;
 }
 
 /** "Hjortronet Fastighetsbyrå and Norrsken Mäkleri are switched off: …". */
@@ -201,11 +201,11 @@ function fetchedText(view: SyncView, kept: Kept): string[] {
   if (fetched.asked !== null) {
     if (fetched.removedCount > 0)
       said.push(
-        `${crm} no longer has ${namedList(fetched.removed, fetched.removedCount)}, so Core removed ${it(fetched.removedCount)}.`,
+        `${capital(crm)} no longer has ${namedList(fetched.removed, fetched.removedCount)}, so Core removed ${it(fetched.removedCount)}.`,
       );
     if (fetched.addedCount > 0)
       said.push(
-        `${crm} has ${namedList(fetched.added, fetched.addedCount)} again, so Core fetched ${it(fetched.addedCount)}.`,
+        `${capital(crm)} has ${namedList(fetched.added, fetched.addedCount)} again, so Core fetched ${it(fetched.addedCount)}.`,
       );
     const kept_ = fetched.asked - fetched.removedCount - fetched.addedCount;
     if (kept_ > 0) {
@@ -227,16 +227,16 @@ function fetchedText(view: SyncView, kept: Kept): string[] {
   }
   if (fetched.addedCount > 0)
     said.push(
-      `${crm} listed ${typed(fetched.added, fetched.addedCount)} Core didn’t have, and Core fetched ${it(fetched.addedCount)}: ${namedList(fetched.added, fetched.addedCount)}.`,
+      `${capital(crm)} listed ${typed(fetched.added, fetched.addedCount)} Core didn’t have, and Core fetched ${it(fetched.addedCount)}: ${namedList(fetched.added, fetched.addedCount)}.`,
     );
   if (fetched.removedCount > 0)
     said.push(
-      `${crm} no longer lists ${typed(fetched.removed, fetched.removedCount)}, so Core removed ${it(fetched.removedCount)}: ${namedList(fetched.removed, fetched.removedCount)}.`,
+      `${capital(crm)} no longer lists ${typed(fetched.removed, fetched.removedCount)}, so Core removed ${it(fetched.removedCount)}: ${namedList(fetched.removed, fetched.removedCount)}.`,
     );
   else if (fetched.addedCount > 0) said.push('Nothing was removed.');
   if (fetched.changed > 0)
     said.push(`${capital(counted(fetched.changed, 'record', 'records'))} had changed.`);
-  if (said.length === 0) said.push(`${crm} lists what Core had, and nothing had changed.`);
+  if (said.length === 0) said.push(`${capital(crm)} lists what Core had, and nothing had changed.`);
   return said;
 }
 

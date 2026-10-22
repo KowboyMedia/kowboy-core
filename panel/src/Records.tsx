@@ -20,7 +20,7 @@ import { Picker } from './picker';
 import { Badge, Loading, Switch, useNote } from './ui';
 import { capital, counted, listed, listTime } from './time';
 import { pluralOf, SyncBanner, SyncWindow, useSync, type SyncTarget } from './sync';
-import { crmOf, idWord, recordPath } from './records';
+import { crmOf, ID_WORD, recordPath } from './records';
 
 type Datatype = RecordRow['datatype'];
 
@@ -100,7 +100,7 @@ export function targetOf(
         names: picked.length <= 3 ? picked.map((row) => row.name) : [],
         types: picked.map((row) => row.datatype),
       },
-      crm: crmOf([...new Set(connections.map((connection) => connection.crm))]) || crm,
+      crm: crmOf([...new Set(connections.map((connection) => connection.crm))]),
       connections: connections.map((connection) => connection.name),
       sites: tenants.filter((tenant) => tenant.active).flatMap((tenant) => tenant.sites),
       everyTenant: false,
@@ -117,7 +117,7 @@ export function targetOf(
     filter.types.length === 0
       ? 'all record types'
       : filter.types.map((datatype) => capital(datatype)).join(', '),
-    ...(filter.id ? [`${idWord(crms)} ${filter.id}`] : []),
+    ...(filter.id ? [`${ID_WORD} ${filter.id}`] : []),
   ].join(' · ');
   const named = filter.offices.length > 0 || filter.id !== '';
   return {
@@ -158,7 +158,7 @@ function Filters({
   filter: RecordFilter;
   onChange: (next: RecordFilter) => void;
 }) {
-  const word = idWord(list.crms);
+  const word = ID_WORD;
   const [typed, setTyped] = useState(filter.id);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => setTyped(filter.id), [filter.id]);
@@ -294,7 +294,7 @@ function Empty({
   onClearId: () => void;
 }) {
   const crm = crmOf(list.crms);
-  const word = idWord(list.crms);
+  const word = ID_WORD;
   if (filter.id) {
     return (
       <div className="k-records-empty">
@@ -391,6 +391,8 @@ function RecordsView() {
   /** A list is on its way: the first one, or the next after a filter, a page or a sync. */
   const [loading, setLoading] = useState(true);
   const [picked, setPicked] = useState<Map<string, RecordRow>>(new Map());
+  /** Every record the filters keep is picked, on every page, not only those picked one by one. */
+  const [everything, setEverything] = useState(false);
   const [syncing, setSyncing] = useState<SyncTarget | null>(null);
   const filterKey = recordQuery(filter).toString();
 
@@ -416,7 +418,10 @@ function RecordsView() {
 
   useEffect(() => load(), [load]);
   // A new filter starts the picking again.
-  useEffect(() => setPicked(new Map()), [filterKey]);
+  useEffect(() => {
+    setPicked(new Map());
+    setEverything(false);
+  }, [filterKey]);
 
   const sync = useSync('records', load);
 
@@ -430,6 +435,14 @@ function RecordsView() {
     setQuery(next);
   };
   const toggle = (row: RecordRow) => {
+    if (everything) {
+      // Unpicking one of every record keeps the rest of this page picked.
+      setEverything(false);
+      setPicked(
+        new Map(rows.filter((one) => rowKey(one) !== rowKey(row)).map((one) => [rowKey(one), one])),
+      );
+      return;
+    }
     setPicked((was) => {
       const next = new Map(was);
       if (next.has(rowKey(row))) next.delete(rowKey(row));
@@ -445,16 +458,14 @@ function RecordsView() {
   const crms = list?.crms ?? [];
   const crm = crmOf(crms);
   const rows = list?.rows ?? [];
-  const allPicked = rows.length > 0 && rows.every((row) => picked.has(rowKey(row)));
 
   return (
     <main className="k-page">
       <h1 className="k-page-title">Records</h1>
       <p className="k-page-sub">
         Properties, projects, agents, offices, areas and associations, as {crm}{' '}
-        {crms.length === 1 ? 'lists' : 'list'} them. Core updates them by itself as {crm}{' '}
-        {crms.length === 1 ? 'changes' : 'change'} them; sync here when a website can’t wait for
-        that.
+        {crms.length > 1 ? 'list' : 'lists'} them. Core updates them by itself as {crm}{' '}
+        {crms.length > 1 ? 'change' : 'changes'} them; sync here when a website can’t wait for that.
       </p>
       <SyncBanner kept={sync.kept} view={sync.view} removedHint={!filter.removed} />
       {!list && failed && (
@@ -472,7 +483,28 @@ function RecordsView() {
             aria-busy={loading}
           >
             <header className="k-box-head">
-              {picked.size > 0 ? (
+              {everything ? (
+                <>
+                  <p className="k-records-count">
+                    <strong>All {counted(list.total, 'record', 'records')} picked</strong>
+                    <button
+                      type="button"
+                      className="k-textlink"
+                      onClick={() => setEverything(false)}
+                    >
+                      Clear
+                    </button>
+                  </p>
+                  <button
+                    type="button"
+                    className="k-button k-button-primary k-button-small"
+                    onClick={() => setSyncing(targetOf(list, filter, []))}
+                  >
+                    <RefreshIcon size={16} />
+                    Sync {counted(list.total, 'record', 'records')}…
+                  </button>
+                </>
+              ) : picked.size > 0 ? (
                 <>
                   <p className="k-records-count">
                     <strong>{picked.size} picked</strong>
@@ -524,33 +556,27 @@ function RecordsView() {
                         <input
                           type="checkbox"
                           className="k-tick"
-                          aria-label="Pick every record on this page"
-                          checked={allPicked}
-                          onChange={() =>
-                            setPicked((was) => {
-                              const next = new Map(was);
-                              if (allPicked) rows.forEach((row) => next.delete(rowKey(row)));
-                              else
-                                rows.forEach((row) => {
-                                  if (next.size < MOST_PICKED) next.set(rowKey(row), row);
-                                });
-                              return next;
-                            })
-                          }
+                          aria-label="Pick every record"
+                          checked={everything}
+                          ref={(box) => {
+                            if (box) box.indeterminate = !everything && picked.size > 0;
+                          }}
+                          onChange={() => {
+                            setPicked(new Map());
+                            setEverything(!everything);
+                          }}
                         />
                       </th>
                       <th>Record</th>
                       <th className="k-wide-only">Type</th>
-                      <th className="k-wide-only">
-                        {crms.length === 1 ? `${crms[0] ?? ''} ID` : 'CRM ID'}
-                      </th>
+                      <th className="k-wide-only">{ID_WORD}</th>
                       <th>Updated</th>
                       <th aria-hidden="true" />
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((row) => {
-                      const on = picked.has(rowKey(row));
+                      const on = everything || picked.has(rowKey(row));
                       return (
                         <tr
                           key={rowKey(row)}
@@ -610,6 +636,7 @@ function RecordsView() {
           onStarted={(kept) => {
             setSyncing(null);
             setPicked(new Map());
+            setEverything(false);
             sync.start(kept);
             if (kept.started.what === 'send') load();
           }}

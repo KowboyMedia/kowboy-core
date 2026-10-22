@@ -11,7 +11,7 @@ import { failureWords } from './failure';
 import { CheckIcon, ChevronLeftIcon, CopyIcon, InfoCircleIcon, RefreshIcon } from './icons';
 import { Badge } from './ui';
 import { capital, factTime, fullDate } from './time';
-import { recordPath } from './records';
+import { crmOf, ID_WORD, recordPath } from './records';
 import { SyncBanner, SyncWindow, useSync, type SyncTarget } from './sync';
 
 type Tab = 'fields' | 'texts' | 'raw';
@@ -113,12 +113,11 @@ function CopyJson({ text }: { text: string }) {
 
 function Tabs({ page }: { page: RecordPage }) {
   const [tab, setTab] = useState<Tab>('fields');
-  const crm = page.connection.crm;
   const raw = JSON.stringify(page.raw, null, 2);
   const tabs: { id: Tab; label: string }[] = [
     { id: 'fields', label: 'Core fields' },
     { id: 'texts', label: 'Website text' },
-    { id: 'raw', label: `${crm} data` },
+    { id: 'raw', label: 'CRM data' },
   ];
   return (
     <section className="k-box k-record-tabs">
@@ -157,7 +156,7 @@ function Tabs({ page }: { page: RecordPage }) {
         {tab === 'raw' && (
           <>
             <p className="k-tab-help k-tab-help-line">
-              <span>Exactly what {crm} sent, as JSON.</span>
+              <span>Exactly what the CRM sent, as JSON.</span>
               <CopyJson text={raw} />
             </p>
             <pre className="k-json">{raw}</pre>
@@ -168,12 +167,12 @@ function Tabs({ page }: { page: RecordPage }) {
   );
 }
 
-function kindWords(change: RecordChange, crm: string): string {
+function kindWords(change: RecordChange): string {
   const rules = change.rules ? ` · rules ${change.rules}` : '';
-  if (change.kind === 'removed') return `removed: ${crm} no longer has it`;
+  if (change.kind === 'removed') return 'removed: the CRM no longer has it';
   if (change.kind === 'first') return `first written${rules}`;
   if (change.kind === 'recomputed') return `recomputed${rules}`;
-  return `fetched from ${crm}${rules}`;
+  return `fetched from the CRM${rules}`;
 }
 
 function Changes({ page }: { page: RecordPage }) {
@@ -191,7 +190,7 @@ function Changes({ page }: { page: RecordPage }) {
         <div key={`${change.at} ${String(index)}`} className="k-change">
           <p className="k-change-head">
             <strong>{factTime(change.at, now)}</strong>
-            <span className="k-muted">{kindWords(change, page.connection.crm)}</span>
+            <span className="k-muted">{kindWords(change)}</span>
           </p>
           {change.fields.length > 0 && (
             <dl className="k-change-fields">
@@ -221,9 +220,8 @@ function Changes({ page }: { page: RecordPage }) {
 
 function Facts({ page }: { page: RecordPage }) {
   const now = new Date(page.now);
-  const crm = page.connection.crm;
   const facts: { label: string; value: ReactNode; code?: boolean }[] = [
-    { label: `${crm} ID`, value: page.id, code: true },
+    { label: ID_WORD, value: page.id, code: true },
     { label: 'Came through', value: page.connection.name },
     {
       label: 'Rules version',
@@ -233,7 +231,7 @@ function Facts({ page }: { page: RecordPage }) {
           : `${page.rulesVersion} (current ${page.currentRules})`,
     },
     {
-      label: `Last changed in ${crm}`,
+      label: 'Last changed in the CRM',
       value: page.remoteUpdatedAt ? factTime(page.remoteUpdatedAt, now) : 'not given',
     },
     { label: 'Saved in Core', value: factTime(page.savedAt, now) },
@@ -301,7 +299,7 @@ function RecordView({
   if (!page) return null;
 
   const now = new Date(page.now);
-  const crm = page.connection.crm;
+  const crm = crmOf([page.connection.crm]);
   const target: SyncTarget = {
     chosen: `${page.name} (${page.datatype}, ${page.tenant.name})`,
     count: 1,
@@ -350,7 +348,7 @@ function RecordView({
               Removed {page.removedAt ? factTime(page.removedAt, now) : ''}
             </p>
             <p className="k-banner-text">
-              {crm} no longer has this {page.datatype}. Core keeps it, marked as removed
+              The CRM no longer has this {page.datatype}. Core keeps it, marked as removed
               {page.keptUntil ? `, until ${fullDate(page.keptUntil)}` : ''} so that every website
               learns it is gone; then Core deletes it for good.
             </p>

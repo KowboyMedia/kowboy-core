@@ -34,12 +34,14 @@ export const loadedList = (counts: ConnectionView['counts']): string[] =>
     records(counts[datatype], datatype),
   );
 
-/** The one CRM's name, as its code gives it, or "the CRMs" when Core reads several or none. */
-export const crmOf = (crms: string[]): string => (crms.length === 1 ? (crms[0] ?? '') : 'the CRMs');
+/**
+ * "the CRM", or "the CRMs" when the records come from several. Records are Core's, whatever CRM
+ * listed them, so their pages never name one; a CRM's name belongs to its own screens.
+ */
+export const crmOf = (crms: string[]): string => (crms.length > 1 ? 'the CRMs' : 'the CRM');
 
-/** "<CRM> id" for the one CRM Core reads, or "CRM id" when it reads several. */
-export const idWord = (crms: string[]): string =>
-  crms.length === 1 ? `${crms[0] ?? ''} id` : 'CRM id';
+/** What a record's id in its CRM is called. */
+export const ID_WORD = 'CRM ID';
 
 /** A record's page in the panel. */
 export const recordPath = (record: { connection: string; datatype: string; id: string }): string =>
