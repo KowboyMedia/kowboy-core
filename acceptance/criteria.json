@@ -188,7 +188,7 @@
         "the smoke suite fails every check, with its address, when nothing answers",
         "the release path deploys staging on every change to its branch, the preview before and the smoke suite after",
         "the release path deploys live from main only, behind a health check that keeps the running version",
-        "the release path takes a change to main only through an approved pull request"
+        "the release path takes a change to main only through a pull request whose checks pass"
       ],
       "note": "Read from App Platform and GitHub themselves (`npm run test:platform`, which needs DIGITALOCEAN_ACCESS_TOKEN). The smoke suite runs as the last step of every staging deploy (the job \"smoke\"); a failed live health check leaves the running version in place."
     },

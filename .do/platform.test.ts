@@ -2,7 +2,7 @@
 // staging deploys every change saved to its branch, with the release preview before and the smoke
 // suite after; live deploys main only, and its web part has the health check that keeps the
 // version running when a new one fails it; and main takes a change only through a pull request
-// someone approved, which is what makes live's deploy wait for approval. It needs
+// whose checks pass, so nothing reaches live but what an agent merges on Patric's word. It needs
 // DIGITALOCEAN_ACCESS_TOKEN (`npm run test:platform`), reads each app's settings in this process
 // and prints none of them. GitHub answers for this public repository without a token.
 import { describe, expect, it } from 'vitest';
@@ -67,25 +67,30 @@ describe('the release path', () => {
     expect(web?.health_check?.http_path).toBe('/v1/ready');
   });
 
-  it('takes a change to main only through an approved pull request', async () => {
-    const answer = async (path: string): Promise<unknown> => {
-      const response = await fetch(`${REPOSITORY}${path}`, {
-        headers: { accept: 'application/vnd.github+json' },
-      });
-      if (!response.ok) throw new Error(`GitHub answered ${String(response.status)} for ${path}`);
-      return response.json();
-    };
-    const branch = (await answer('/branches/main')) as { protected: boolean };
-    const rules = (await answer('/rules/branches/main')) as {
+  it('takes a change to main only through a pull request whose checks pass', async () => {
+    const response = await fetch(`${REPOSITORY}/rules/branches/main`, {
+      headers: { accept: 'application/vnd.github+json' },
+    });
+    if (!response.ok) throw new Error(`GitHub answered ${String(response.status)}`);
+    const rules = (await response.json()) as {
       type: string;
-      parameters?: { required_approving_review_count?: number };
+      parameters?: { required_status_checks?: { context: string }[] };
     }[];
 
-    // Either GitHub's older branch protection or a ruleset may hold the rule; a ruleset says how
-    // many approvals it asks for, and the older protection answers only that it is on.
-    const review = rules.find((rule) => rule.type === 'pull_request');
-    expect(
-      branch.protected || (review?.parameters?.required_approving_review_count ?? 0) >= 1,
-    ).toBe(true);
+    // A ruleset on main holds the rule, since GitHub shows a ruleset's rules to anyone and the
+    // older branch protection does not say whether it asks for a pull request. The approval
+    // itself is Patric's word, on which an agent merges (strategy §4).
+    expect(rules.map((rule) => rule.type)).toEqual(
+      expect.arrayContaining(['pull_request', 'required_status_checks', 'non_fast_forward']),
+    );
+    const checks = rules.flatMap(
+      (rule) => rule.parameters?.required_status_checks?.map((check) => check.context) ?? [],
+    );
+    expect(checks).toEqual(
+      expect.arrayContaining([
+        'Enforced checks (block merge)',
+        'WordPress client tests (block merge)',
+      ]),
+    );
   });
 });
