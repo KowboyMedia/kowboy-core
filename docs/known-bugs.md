@@ -12,7 +12,11 @@ what waits on its fetch list, expecting one entry. The fake adapter drains that 
 its own every 50 ms. On a busy machine the hundred notifications take longer than that, the list
 has been drained by the time the test counts, and the test fails although Core did exactly the
 right thing: one fetch, not a hundred. Seen once on 2026-09-21 under the full parallel run; every
-run after passed.
+run after passed. Vitec's tests race its own 250 ms drain timer the same way where they count fetches
+between two notifications: "brings a record back on an Update after a Remove … (AC 33)" and
+"follows no connection whose offices were checked before …" each failed once in the full run on
+2026-10-22 (two of four runs after the given-up retry of question 226, none of three before it; no
+link to that change was found, and both pass alone).
 
 **Why.** Both adapters already collapse a burst: the fake keeps a record listed twice once (a map
 keyed by the record), and Vitec does the same in its `vitec_fetch_list` table (one row per record,
