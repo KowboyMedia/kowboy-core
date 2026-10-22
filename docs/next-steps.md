@@ -1060,10 +1060,13 @@ finding where its time goes is the next open step.
 34. **A page cache on the WordPress sites** (Patric, 2026-10-22: "Suggest the best plugin for
     this", and then: "We need universal cache support, there should be no custom purge calls -
     any theme, market leading cache plugins hooks wp somehow and listens to changes"). Component:
-    `[client-wordpress]`. Suggestions only; nothing is installed until he picks one. A build the
-    same day was reverted (`docs/decisions.md`). 229 answered: any plugin that works, never a full
-    purge. Waits on 230 (removal through the trash, then Breeze) and 231 (the home page's parts
-    from other records made live like the lists).
+    `[client-wordpress]`. Done 2026-10-22: 230 a and 231 a built (plugin 0.10.2, theme 1.4.1), and
+    Breeze 2.6.3 runs on both demos with its own defaults (page cache, compression, browser
+    cache). Seen on both demos: a create, an edit, a move to a new address and a delete each
+    purge only their own pages, the front page and the archives; lists and live parts refresh in
+    one request on a cached page. Server time per cached page about 0.12 s (was about 0.41 s);
+    the rest is PHP serving the stored page, which the host's Varnish could take over (a
+    Cloudways setting no session reaches).
 
 ## Later, when Patric supplies them
 
