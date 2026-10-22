@@ -330,6 +330,56 @@ describe('the Vitec adapter', () => {
     }
   });
 
+  it('fetches each record given up on once more at every start: given up again at once if it fails, loaded if not', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const restart = async (): Promise<void> => {
+      await running.restart();
+      await runSchedules();
+      await drainFetchList();
+    };
+    try {
+      fake.put(
+        OFFICE,
+        'property',
+        estate('OBJ1', OFFICE, { address: { streetAddress: 'Storgatan 9' } }),
+      );
+      fake.failNext(6);
+      await notify('OBJ1');
+      for (let attempt = 1; attempt <= 6; attempt += 1) {
+        await drainFetchList();
+        await store.expedite();
+        await store.setState(CONNECTION, 'failures', '0');
+      }
+      await drainFetchList();
+      expect(fetchesOf('OBJ1')).toBe(7);
+      expect(await store.depth()).toBe(1);
+
+      // The first start fetches it once; it fails again and is given up on again, with no more tries.
+      fake.failRecord('OBJ1', 1);
+      await restart();
+      expect(fetchesOf('OBJ1')).toBe(8);
+      await store.expedite();
+      await drainFetchList();
+      expect(fetchesOf('OBJ1')).toBe(8);
+      expect(await store.depth()).toBe(1);
+      expect((await health())['vitec.retries']).toMatchObject({ ok: false });
+
+      // The next start fetches it once more, and this time it loads.
+      await restart();
+      expect(fetchesOf('OBJ1')).toBe(9);
+      expect(await store.depth()).toBe(0);
+      expect((await item('property', 'OBJ1'))?.['data']).toMatchObject({
+        address: { street: 'Storgatan 9' },
+      });
+      expect((await health())['vitec.retries']).toEqual({ ok: true });
+    } finally {
+      errors.mockRestore();
+    }
+  });
+
   it('names each record that keeps failing, and retries a list of them once more each, clearing only once all have loaded', async () => {
     seed(fake);
     fake.put(OFFICE, 'property', estate('OBJ2'));

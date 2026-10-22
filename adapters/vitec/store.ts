@@ -611,6 +611,20 @@ export async function tryOnceMore(
   return rowCount ?? 0;
 }
 
+/**
+ * One more fetch for every record given up on, at each start of the adapter: due now, its count of
+ * failed tries kept and at least on its last try, so one that fails again is given up on again at
+ * once. A record parked for a refused office is never given up on, so it stays as it is.
+ */
+export async function retryGivenUpOnce(): Promise<void> {
+  await (
+    await db()
+  ).query(
+    'update vitec_fetch_list set next_at = now(), attempts = greatest(attempts, $1) where next_at is null',
+    [MAX_ATTEMPTS - 1],
+  );
+}
+
 /** An operator's "drop it": off the list, nothing else changes. */
 export async function drop(office: Office, datatype: Datatype, remoteId: string): Promise<void> {
   await (

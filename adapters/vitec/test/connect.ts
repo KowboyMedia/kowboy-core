@@ -26,6 +26,8 @@ export type FakeConnect = {
   unlist(officeId: string, datatype: string, id: string): void;
   /** Answer the next `times` requests with HTTP 500. */
   failNext(times: number): void;
+  /** Answer the next `times` fetches of this record by its id with HTTP 500, every other call as usual. */
+  failRecord(id: string, times: number): void;
   /** Answer 403 for this office from now on, its form calls too, as Connect does for a closed one. */
   forbid(officeId: string): void;
   allow(officeId: string): void;
@@ -77,6 +79,7 @@ export function startFakeConnect(): Promise<FakeConnect> {
   const unlisted = new Set<string>();
   const forbidden = new Set<string>();
   let failures = 0;
+  const failingRecords = new Map<string, number>();
   let broken = 0;
   let retryAfter = 0;
   let inFlight = 0;
@@ -89,6 +92,7 @@ export function startFakeConnect(): Promise<FakeConnect> {
     remove: (officeId, datatype, id) => bucket(officeId, datatype).delete(id),
     unlist: (officeId, datatype, id) => unlisted.add(`${officeId}/${datatype}/${id}`),
     failNext: (times) => (failures = times),
+    failRecord: (id, times) => failingRecords.set(id, times),
     forbid: (officeId) => forbidden.add(officeId),
     allow: (officeId) => forbidden.delete(officeId),
     accept: (...passwords) => (accepted = new Set(passwords.map(basic))),
@@ -285,6 +289,11 @@ export function startFakeConnect(): Promise<FakeConnect> {
         if (forbidden.has(officeId)) return reply(403, { message: 'forbidden' });
         const records = bucket(officeId, datatype);
         if (id) {
+          const failing = failingRecords.get(id) ?? 0;
+          if (failing > 0) {
+            failingRecords.set(id, failing - 1);
+            return reply(500, { message: 'broken' });
+          }
           const record = records.get(id);
           return record ? reply(200, record) : reply(404, { message: 'not found' });
         }

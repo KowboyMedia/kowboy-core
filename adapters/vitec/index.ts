@@ -1672,6 +1672,12 @@ export const vitecAdapter: Adapter = {
     given.healthCheck(`${PROVIDER}.offices`, () => refusedHealth(given));
     given.healthCheck(`${PROVIDER}.connect`, () => pausedHealth(given));
 
+    // A record given up on gets one more fetch at each start, before the first drain (question 226).
+    const retried = store
+      .retryGivenUpOnce()
+      .catch((error: unknown) => given.report(error, { where: 'vitec given-up retry' }));
+    for (const environment of connect.ENVIRONMENTS)
+      draining[environment] = serial(() => retried, draining[environment]);
     drainTimer = setInterval(() => inBackground(scheduleDrain, 'vitec fetch list'), DRAIN_MS);
     drainTimer.unref?.();
     inBackground(scheduleTick, 'vitec schedule');
