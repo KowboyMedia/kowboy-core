@@ -9,6 +9,7 @@
 //   … node scripts/load-test.mjs --size db-s-2vcpu-4gb --disk 40960   a trial on another server size
 //   … --web apps-s-2vcpu-4gb --web-count 2                            and another web part
 //   … --branch claude/some-branch                                     another branch's version
+//   … --name 2                                                       its servers named core-load-test-2
 //
 // A trial answers what sizes or which version the criterion needs: it changes only the database
 // server's size and disk, the web part's size and count, or the branch the app is built from, and
@@ -33,7 +34,6 @@ import {
 
 const STAGING = '57498bcc-59a5-4812-aa1f-ed65c83a5b2f';
 const CLUSTER = 'kowboy-core-production';
-const NAME = 'core-load-test';
 const TAG = 'load-test';
 /**
  * Room for 400,000 records of a real record's size, with the writes' log beside them. DigitalOcean
@@ -46,6 +46,11 @@ const option = (name) => {
   const at = process.argv.indexOf(name);
   return at === -1 ? null : (process.argv[at + 1] ?? null);
 };
+/**
+ * The temporary app's and server's name. `--name` gives another, `core-load-test-<word>`: a deleted
+ * server's name stays taken for an hour or more (2026-10-22). `--undo` takes the same option.
+ */
+const NAME = option('--name') ? `core-load-test-${String(option('--name'))}` : 'core-load-test';
 const SIZE = option('--size');
 const DISK = option('--disk');
 const WEB = option('--web');
