@@ -43,8 +43,12 @@ const { lines: steps, say } = logbook();
 const appNamed = async (name) =>
   ((await api('/apps?per_page=100')).apps ?? []).find((app) => app.spec?.name === name) ?? null;
 
-/** The copy's settings: staging's web part and source, a job, and the temporary server alone. */
-async function specFor(key) {
+/**
+ * The copy's settings: staging's web part and source, and the temporary server alone. With the
+ * job only from the second deploy on: a new app's address is not found until its first deploy is
+ * done, and the job pulls through that address.
+ */
+async function specFor(key, withJob) {
   const staging = (await api(`/apps/${STAGING}`)).app.spec;
   const web = staging.services?.find((service) => service.name === 'web');
   if (!web?.github) throw new Error("staging's web part or its source is not where it was");
@@ -73,21 +77,23 @@ async function specFor(key) {
         envs: [...shared, { key: 'SENTRY_ENVIRONMENT', value: 'load-test', scope: 'RUN_TIME' }],
       },
     ],
-    jobs: [
-      {
-        name: 'load',
-        kind: 'POST_DEPLOY',
-        github: source,
-        source_dir: web.source_dir,
-        environment_slug: web.environment_slug,
-        build_command: web.build_command,
-        // The server's own CA, as scripts/start.sh hands it to Node.
-        run_command:
-          'printf "%s\\n" "$DATABASE_CA_CERT" > /tmp/database-ca.crt && NODE_EXTRA_CA_CERTS=/tmp/database-ca.crt node scripts/load-test-job.mjs',
-        instance_size_slug: 'apps-s-1vcpu-1gb',
-        envs: [...shared, { key: 'APP_URL', value: '${APP_URL}', scope: 'RUN_TIME' }],
-      },
-    ],
+    jobs: withJob
+      ? [
+          {
+            name: 'load',
+            kind: 'POST_DEPLOY',
+            github: source,
+            source_dir: web.source_dir,
+            environment_slug: web.environment_slug,
+            build_command: web.build_command,
+            // The server's own CA, as scripts/start.sh hands it to Node.
+            run_command:
+              'printf "%s\\n" "$DATABASE_CA_CERT" > /tmp/database-ca.crt && NODE_EXTRA_CA_CERTS=/tmp/database-ca.crt node scripts/load-test-job.mjs',
+            instance_size_slug: 'apps-s-1vcpu-1gb',
+            envs: [...shared, { key: 'APP_URL', value: '${APP_URL}', scope: 'RUN_TIME' }],
+          },
+        ]
+      : [],
     databases: [{ name: 'db', cluster_name: NAME, engine: 'PG', production: true }],
   };
 }
@@ -101,6 +107,27 @@ async function jobLines(appId, deploymentId) {
   if (!url) return [];
   const text = await (await fetch(url)).text();
   return text.split('\n').map((line) => line.replace(/^load \S+ /, ''));
+}
+
+/** Wait for the app's deploy created at or after `since` to be live; its job's lines if it fails. */
+async function deployed(appId, since, what) {
+  return until(
+    what,
+    async () => {
+      const { deployments } = await api(`/apps/${appId}/deployments?per_page=5`);
+      const deployment = (deployments ?? [])
+        .filter((candidate) => Date.parse(candidate.created_at) >= since - MINUTE)
+        .at(since === 0 ? -1 : 0);
+      if (!deployment) return null;
+      if (deployment.phase === 'ERROR' || deployment.phase === 'CANCELED') {
+        for (const line of (await jobLines(appId, deployment.id)).slice(-20)) say(`Job: ${line}`);
+        throw new Error(`the app's deploy ${deployment.id} ended ${deployment.phase}`);
+      }
+      return deployment.phase === 'ACTIVE' ? deployment.id : null;
+    },
+    MINUTE,
+    120 * MINUTE,
+  );
 }
 
 /** Delete the app and the server, only ever the ones by the test's name (and the server's tag). */
@@ -150,29 +177,22 @@ async function run() {
   const key = randomBytes(32).toString('base64');
   const { app } = await api('/apps', {
     method: 'POST',
-    body: JSON.stringify({ spec: await specFor(key) }),
+    body: JSON.stringify({ spec: await specFor(key, false) }),
   });
   await api(`/databases/${cluster.id}/firewall`, {
     method: 'PUT',
     body: JSON.stringify({ rules: [{ type: 'app', value: app.id }] }),
   });
   say(`The app ${NAME} is being made from staging's version, its server reachable from it alone.`);
+  await deployed(app.id, 0, 'the app deployed');
 
-  const deployment = await until(
-    'the app deployed and its job done',
-    async () => {
-      const { deployments } = await api(`/apps/${app.id}/deployments?per_page=5`);
-      const first = deployments?.[deployments.length - 1];
-      if (!first) return null;
-      if (first.phase === 'ERROR' || first.phase === 'CANCELED') {
-        for (const line of (await jobLines(app.id, first.id)).slice(-20)) say(`Job: ${line}`);
-        throw new Error(`the app's deploy ${first.id} ended ${first.phase}`);
-      }
-      return first.phase === 'ACTIVE' ? first.id : null;
-    },
-    MINUTE,
-    120 * MINUTE,
-  );
+  const since = Date.now();
+  await api(`/apps/${app.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ spec: await specFor(key, true) }),
+  });
+  say('The app has its address; its job is added, and runs after the next deploy.');
+  const deployment = await deployed(app.id, since, 'the job done');
 
   const lines = await jobLines(app.id, deployment);
   for (const line of lines.filter((line) => /^\d\d:\d\d:\d\d /.test(line))) say(`Job: ${line}`);

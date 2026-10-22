@@ -217,7 +217,26 @@ async function load(tenants) {
   await Promise.all(deltas);
 }
 
+/** Wait, for at most five minutes, until the app answers at its public address as sites reach it. */
+async function reachable() {
+  const end = Date.now() + 5 * 60_000;
+  for (;;) {
+    const answered = await new Promise((resolve) => {
+      client
+        .get(new URL('/v1/ready', base), { agent }, (response) => {
+          response.resume();
+          resolve(response.statusCode === 200);
+        })
+        .on('error', () => resolve(false));
+    });
+    if (answered) return;
+    if (Date.now() > end) throw new Error(`${base.host} did not answer in five minutes`);
+    await new Promise((resolve) => setTimeout(resolve, 10_000));
+  }
+}
+
 const tenants = await seed();
+await reachable();
 await load(tenants);
 const result = {
   tenants: TENANTS,
