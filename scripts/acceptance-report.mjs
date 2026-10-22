@@ -7,11 +7,12 @@ import { join } from 'node:path';
 
 const { criteria } = JSON.parse(readFileSync('acceptance/criteria.json', 'utf8'));
 
-// Two vitest runs: the default one, and the WordPress client suite, which has its own config
-// because it needs a WordPress install (clients/wordpress/test/setup.sh). Then the browser
-// journeys, which drive the admin area (admin/playwright.config.ts) and the WordPress client's
-// site (clients/wordpress/playwright.config.ts) as a person does.
-const CONFIGS = ['vitest.config.ts', 'vitest.wordpress.config.ts'];
+// Three vitest runs: the default one; the WordPress client suite, which has its own config
+// because it needs a WordPress install (clients/wordpress/test/setup.sh); and the release path as
+// App Platform runs it, which reads both apps and needs DIGITALOCEAN_ACCESS_TOKEN. Then the
+// browser journeys, which drive the admin area (admin/playwright.config.ts) and the WordPress
+// client's site (clients/wordpress/playwright.config.ts) as a person does.
+const CONFIGS = ['vitest.config.ts', 'vitest.wordpress.config.ts', 'vitest.platform.config.ts'];
 const JOURNEY_CONFIGS = ['admin/playwright.config.ts', 'clients/wordpress/playwright.config.ts'];
 
 // The journeys serve the admin area and the WordPress site from dist, so the report builds first,

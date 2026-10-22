@@ -183,8 +183,14 @@
       "ac": 18,
       "title": "Pipeline: staging on every change, production on approval",
       "phase": "deploy",
-      "tests": [],
-      "note": "Waits on the platform Kowboy supplies."
+      "tests": [
+        "the smoke suite passes against a Core whose database, worker, admin app and sites’ API answer",
+        "the smoke suite fails every check, with its address, when nothing answers",
+        "the release path deploys staging on every change to its branch, the preview before and the smoke suite after",
+        "the release path deploys live from main only, behind a health check that keeps the running version",
+        "the release path takes a change to main only through an approved pull request"
+      ],
+      "note": "Read from App Platform and GitHub themselves (`npm run test:platform`, which needs DIGITALOCEAN_ACCESS_TOKEN). The smoke suite runs as the last step of every staging deploy (the job \"smoke\"); a failed live health check leaves the running version in place."
     },
     {
       "ac": 19,
