@@ -182,13 +182,29 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
         timers.push(timer);
       };
       // The parts of the records stored before parts were (question 227), made once, in the
-      // background; until a record has its part, pages make it as they are sent.
+      // background; until a record has its part, pages make it as they are sent. Then the values
+      // leave the log lines written before it kept none (question 228). One after the other, so
+      // they hold one of the worker's two connections at a time and every other task keeps one.
+      let cleaned = false;
+      const strip = async (): Promise<void> => {
+        const stripped = await stripChangeValues(() => stopping);
+        if (stripped.lines > 0) {
+          console.log(
+            `kept only the names of the changed fields in ${String(stripped.lines)} log lines: ${String(stripped.bytesBefore)} bytes before, ${String(stripped.bytesAfter)} after`,
+          );
+        }
+      };
       const fill: Promise<void> = fillPageParts(() => stopping)
         .then((filled) => {
           if (filled > 0) console.log(`made the page parts of ${String(filled)} stored records`);
         })
         .catch((error: unknown) => report(error, { where: 'page parts' }))
-        .finally(() => running.delete(fill));
+        .then(() => strip())
+        .catch((error: unknown) => report(error, { where: 'log values' }))
+        .finally(() => {
+          cleaned = true;
+          running.delete(fill);
+        });
       running.add(fill);
       tick('heartbeat', () => heartbeat(), HEARTBEAT_MS);
       tick('bells', () => flushPendingBells(), BELL_FLUSH_MS);
@@ -215,12 +231,8 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
         'housekeeping',
         async () => {
           await deleteExpiredEvents(config.eventRetentionDays);
-          const stripped = await stripChangeValues(() => stopping);
-          if (stripped.lines > 0) {
-            console.log(
-              `kept only the names of the changed fields in ${String(stripped.lines)} log lines: ${String(stripped.bytesBefore)} bytes before, ${String(stripped.bytesAfter)} after`,
-            );
-          }
+          // The lines an older version still wrote during the deploy, once the first round is done.
+          if (cleaned) await strip();
           await deleteExpiredSubmissions(config.eventRetentionDays);
           await purgeTombstones(TOMBSTONE_RETENTION_DAYS);
           await deleteExpiredSessions();

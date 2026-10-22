@@ -149,7 +149,7 @@ export async function changesPage(query: ChangesQuery): Promise<ChangeRow[]> {
 }
 
 /** How many records the fill makes parts for at a time. */
-const FILL_BATCH = 200;
+const FILL_BATCH = 100;
 
 /**
  * Make the parts of the records stored before parts were (question 227), a batch at a time in

@@ -139,14 +139,15 @@ export function changedNames(fields: EventFields): string[] {
   return changed && typeof changed === 'object' ? Object.keys(changed) : [];
 }
 
-const STRIP_BATCH = 1000;
+const STRIP_BATCH = 200;
 /** The last write line looked at, so a later round reads only the lines written since. */
 let strippedUpTo = 0;
 
 /**
  * The write lines written before the log kept no values (question 228) keep only the names of the
- * fields they changed, in batches, while `stop` is false. It runs with the housekeeping, so the
- * lines an older version still writes during a deploy follow at the next round. Returns how many
+ * fields they changed, in short batches, while `stop` is false. The worker runs it at start and
+ * then with the housekeeping, so the lines an older version still writes during a deploy follow
+ * at the next round. Returns how many
  * lines it changed and their bytes before and after. A release clean-up step: it goes once
  * production has run it.
  */
