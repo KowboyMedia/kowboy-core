@@ -1,7 +1,10 @@
 // Deploy the WordPress client and the theme (the template set) to a site over HTTPS, the way a person
 // would through the WordPress admin: sign in, upload each package's zip (replacing what is there),
-// activate it, and write the plugin's settings. Nothing but web traffic leaves the machine, so an
-// agent's session can run it against any host (docs/staging-site.md, "Access, the whole workflow").
+// activate it, and write the plugin's settings. Then the page cache: Cache Enabler is installed from
+// wordpress.org when the site lacks it and activated (the plugin tells it what to purge,
+// core-client/includes/page-cache.php), and emptied, since new views change every page. Nothing but
+// web traffic leaves the machine, so an agent's session can run it against any host
+// (docs/staging-site.md, "Access, the whole workflow").
 //
 //   SITE_URL=https://… WP_USER=… WP_PASSWORD=… node scripts/deploy-site.mjs [--settings <json>]
 //
@@ -236,6 +239,50 @@ async function activateTheme(pkg) {
   console.log(`${pkg.name}: activated`);
 }
 
+/** The page cache the plugin purges: Cache Enabler, from wordpress.org when the site lacks it. */
+const PAGE_CACHE = { name: 'cache-enabler', file: 'cache-enabler/cache-enabler.php' };
+
+async function installPageCache() {
+  const plugin = PAGE_CACHE.file.replace(/\.php$/, '');
+  const current = await rest(`/plugins/${plugin}`);
+  if (current.status === 404) {
+    const installed = await rest('/plugins', {
+      method: 'POST',
+      body: JSON.stringify({ slug: PAGE_CACHE.name, status: 'active' }),
+    });
+    if (installed.body?.status !== 'active')
+      throw new Error(`${PAGE_CACHE.name}: the install was refused (http ${installed.status})`);
+    console.log(`${PAGE_CACHE.name} ${installed.body.version}: installed and activated`);
+    return;
+  }
+  await activate(PAGE_CACHE);
+}
+
+/** Empty the page cache, by the link Cache Enabler puts in the admin bar. */
+async function clearPageCache() {
+  const html = await pageHtml('/wp-admin/');
+  const nonce = nonceIn(
+    html,
+    /_cache=cache-enabler&(?:amp;|#038;)?_action=clear&(?:amp;|#038;)?_wpnonce=([0-9a-f]+)/,
+  );
+  const response = await call(`/wp-admin/?_cache=cache-enabler&_action=clear&_wpnonce=${nonce}`);
+  if (![302, 303].includes(response.status))
+    throw new Error(`the page cache was not emptied (http ${response.status})`);
+  console.log('page cache: emptied');
+}
+
+/**
+ * Whether WordPress hands pages to the cache at all: wp-config.php must set WP_CACHE to true, and
+ * Cache Enabler's settings page warns, naming that line, while it does not.
+ */
+async function checkPageCacheOn() {
+  const html = await pageHtml('/wp-admin/options-general.php?page=cache-enabler');
+  if (html.includes("define( 'WP_CACHE', true );"))
+    console.log(
+      'page cache: NOT ON. wp-config.php does not set WP_CACHE to true, so no kept page is served',
+    );
+}
+
 const TEXT_SETTINGS = [
   'core_client_url',
   'core_client_token',
@@ -326,4 +373,7 @@ for (const pkg of packages) {
   }
 }
 if (settings) await writeSettings(settings);
+await installPageCache();
+await clearPageCache();
+await checkPageCacheOn();
 console.log(`deployed to ${site}`);
