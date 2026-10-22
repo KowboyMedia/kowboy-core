@@ -93,10 +93,31 @@ export type ChangesQuery = {
   limit: number;
 };
 
+/**
+ * One item of a changes page, with `raw` and `data` as the JSON text the database holds: a page
+ * goes to a site as it is stored, never parsed and written out again here, which took most of a
+ * page's time with records of a real record's size (AC 27). A tombstone's `raw` is null.
+ */
+export type ChangeRow = Pick<
+  ItemRow,
+  | 'datatype'
+  | 'connection_id'
+  | 'remote_id'
+  | 'office_id'
+  | 'seq'
+  | 'deleted'
+  | 'schema_version'
+  | 'content_hash'
+  | 'remote_updated_at'
+> & { raw: string | null; data: string | null };
+
 /** The subscriber read (SRS §8): everything for this tenant and datatype after `seq`. */
-export async function changesPage(query: ChangesQuery): Promise<ItemRow[]> {
-  const { rows } = await db().query<ItemRow>(
-    `select * from items
+export async function changesPage(query: ChangesQuery): Promise<ChangeRow[]> {
+  const { rows } = await db().query<ChangeRow>(
+    `select datatype, connection_id, remote_id, office_id, seq, deleted, schema_version,
+       content_hash, remote_updated_at,
+       case when deleted then null else raw::text end as raw, data::text as data
+     from items
      where tenant_id = $1 and datatype = $2 and seq > $3
      order by seq
      limit $4`,
