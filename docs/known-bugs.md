@@ -133,3 +133,29 @@ failing in the visitor's browser) stops the form with a clear message and logs i
 delivered, with the cause and the site, which alerts (`engine/human.ts`,
 `engine/http/submissions.ts`). The trap field is gone from the window. What remains is
 production: the two keys in its environment and this code on it; then the entry leaves.
+
+## 8. `[core]` The shared database server drops or stalls connections for seconds, a few times a day
+
+**What happens.** Three times in 24 hours, Core's processes got no database connection for a few
+seconds, and then everything worked again by itself: 2026-10-21 02:33 UTC, staging's worker only;
+2026-10-22 00:44 UTC, staging's new worker and web during a deploy, with connections closed while
+they were being opened; 2026-10-22 00:56 UTC, staging's web lost an idle connection and timed out
+on the next, and live's worker restarted the same minute, its only restart since 2026-10-06 (live's
+version ends on an unanswered database error; staging's reports it and goes on). Nothing was lost:
+each task ran again on its next tick. Each time, Sentry gets new error reports, which stops the
+release's seven days without an open report from starting.
+
+**Why.** Not known. Live and staging share one database server of 1 vCPU and 1 GB of memory;
+staging reaches it through its pool `staging` (6 connections), live directly. No session can see
+that server's own metrics or logs: DigitalOcean's API keeps no database history, and its metrics
+address only answers the two apps. Seen from the apps: no restart, deploy, CPU or memory change
+of theirs at 02:33, and no cluster event or DigitalOcean incident at any of the three. A drop on
+both apps at once fits the server restarting its connections, for example after running out of
+memory, but that is inferred, not seen.
+
+**What fixing it takes.** The load tests (acceptance criteria 27 and 32) run on a temporary
+server and say what size of server live needs; the server's size, and whether staging keeps
+sharing it (question 206 c, "revisit if staging's load is seen slowing live"), then goes to
+Patric as one question with those numbers. Until then each episode is checked and its reports
+closed with what was seen; live's restart ends at the early release, whose version reports such
+an error and goes on.
