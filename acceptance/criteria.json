@@ -296,8 +296,10 @@
       "ac": 27,
       "title": "Scale and read latency at 10x launch",
       "phase": "deploy",
-      "tests": [],
-      "note": "Needs staging."
+      "tests": [
+        "the load test at ten times launch answers 100-item pages within 100 ms to the first byte and 300 ms in full, p95"
+      ],
+      "note": "`scripts/load-test.mjs` runs it (210 a): a temporary database server the size of the one live and staging share, and an app with staging's version and web part, deleted after. Its job fills the database with 200 tenants, one with 300,000 properties and the others 500 each, made from Vitec's golden property cases, and pulls through the app's public address: the big tenant's site syncing from 0 to its end, two other sites syncing from 0 at the same time, and ten delta pulls a second across all tenants. The criterion is read on the full 100-item pages. Its last run is recorded in `.do/drills/load-test.json`."
     },
     {
       "ac": 28,

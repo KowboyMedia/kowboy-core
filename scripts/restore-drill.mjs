@@ -15,8 +15,16 @@
 // which the acceptance report reads. It prints no setting and no secret.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import {
+  accessToken,
+  api,
+  clusterNamed,
+  logbook,
+  MINUTE,
+  until,
+  words,
+} from './lib/digitalocean.mjs';
 
-const API = 'https://api.digitalocean.com/v2';
 const STAGING = '57498bcc-59a5-4812-aa1f-ed65c83a5b2f';
 const CLUSTER = 'kowboy-core-production';
 const COPY = 'core-restore-drill';
@@ -30,46 +38,8 @@ const ENTITIES = ['property', 'project', 'agent', 'office', 'area', 'association
 const TEST = 'the restore drill on staging ends with subscribers converged';
 const RECORD = join(import.meta.dirname, '..', '.do', 'drills', 'restore-drill.json');
 
-const MINUTE = 60_000;
-
-const token = process.env['DIGITALOCEAN_ACCESS_TOKEN'];
-if (!token) {
-  console.error('DIGITALOCEAN_ACCESS_TOKEN must be set');
-  process.exit(1);
-}
-
-const steps = [];
-const say = (line) => {
-  const stamped = `${new Date().toISOString().slice(11, 19)} ${line}`;
-  steps.push(stamped);
-  console.log(stamped);
-};
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-async function api(path, init = {}) {
-  const response = await fetch(`${API}${path}`, {
-    ...init,
-    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-  });
-  if (!response.ok) {
-    throw new Error(`DigitalOcean answered ${response.status} to ${init.method ?? 'GET'} ${path}`);
-  }
-  return response.status === 204 ? null : response.json();
-}
-
-/** Ask `test` every `everyMs` until it gives a value, for at most `forMs`. */
-async function until(what, test, everyMs, forMs) {
-  const end = Date.now() + forMs;
-  for (;;) {
-    const value = await test();
-    if (value) return value;
-    if (Date.now() > end) throw new Error(`${what}: not so after ${forMs / MINUTE} minutes`);
-    await wait(everyMs);
-  }
-}
-
-const clusterNamed = async (name) =>
-  ((await api('/databases')).databases ?? []).find((cluster) => cluster.name === name) ?? null;
+accessToken();
+const { lines: steps, say } = logbook();
 
 /** Where staging's one database binding points. */
 const stagingCluster = async () => {
@@ -266,8 +236,6 @@ async function drill() {
   );
   await sameLists(listsBefore, `back on ${CLUSTER}`);
 }
-
-const words = (error) => (error instanceof Error ? error.message : String(error));
 
 if (process.argv.includes('--undo')) {
   await undo();
