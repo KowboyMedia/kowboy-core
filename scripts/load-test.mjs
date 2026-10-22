@@ -9,7 +9,7 @@
 //   … node scripts/load-test.mjs --size db-s-2vcpu-4gb --disk 40960   a trial on another server size
 //   … --web apps-s-2vcpu-4gb --web-count 2                            and another web part
 //   … --branch claude/some-branch                                     another branch's version
-//   … --name 2                                                       its servers named core-load-test-2
+//   … --name 2                                                        its servers named core-load-test-2
 //
 // A trial answers what sizes or which version the criterion needs: it changes only the database
 // server's size and disk, the web part's size and count, or the branch the app is built from, and
