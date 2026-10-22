@@ -96,12 +96,30 @@ describe('the WordPress client', () => {
       expect(phone).toEqual(expect.arrayContaining([agentPage, home, office, front]));
       expect(phone).not.toContain(otherHome);
 
-      // The home is sold: its address changes, and the old one goes with the new.
+      // The home is sold: its address changes, and the old one goes with the new. A page whose
+      // building began before that purge may hold the old data: it is not kept.
+      const kept = async (began: number): Promise<boolean> =>
+        (await driver<{ kept: boolean }>('kept', String(began))).kept;
+      const began = Date.now() / 1000;
+      expect(await kept(began)).toBe(true);
       crm.put('property', 'P-1', { ...fakeProperty('P-1'), staff: ['A-1'], stage: 'done' });
       const sold = await sync();
       const soldHome = await pageOf('property', 'P-1');
       expect(soldHome).not.toBe(home);
       expect(sold).toEqual(expect.arrayContaining([home, soldHome, agentPage]));
+      expect(await kept(began)).toBe(false);
+      expect(await kept(Date.now() / 1000)).toBe(true);
+
+      // The other home has no pictures, so its hero shows the newest homes': once its page is
+      // built, any change purges it.
+      await driver('plugin', 'activate page-cache-fixture/page-cache-fixture.php');
+      try {
+        expect((await fetch(otherHome)).status).toBe(200);
+        crm.put('agent', 'A-1', agent('070-3'));
+        expect(await sync()).toContain(otherHome);
+      } finally {
+        await driver('plugin', 'deactivate page-cache-fixture/page-cache-fixture.php');
+      }
 
       // The other home is removed: its page goes.
       crm.remove('property', 'P-2');

@@ -9,9 +9,13 @@
 // address), and the pages of every record it names or that names it, before and after; and once
 // committed, those pages go together with every page that is no single record's (the front page,
 // the site's own pages, the archives), which may list or pick any record. A change that reaches
-// every page (the plugin's settings, the Customizer, a menu) empties the cache. The lists refresh in
-// the browser from the reload endpoint, which no page cache keeps, and an address with a query (a
-// list's later page, a filter) is never kept either. Without Cache Enabler on the site, none of this runs.
+// every page (the plugin's settings, the Customizer, a menu) empties the cache. A record's page that
+// shows records picked from all of a kind (the theme's hero without pictures of its own shows the
+// newest homes') says so, and goes with every purge. A page whose building began before a purge may
+// hold what the purge cleared (it read the records before the commit): it is served but not kept.
+// The lists refresh in the browser from the reload endpoint, which no page cache keeps, and an
+// address with a query other than an ad's tracking (a list's later page, a filter) is never kept
+// (scripts/deploy-site.mjs sets that rule). Without Cache Enabler on the site, none of this runs.
 
 declare(strict_types=1);
 
@@ -114,8 +118,53 @@ function core_client_related_posts(int $post_id): array
 }
 
 /**
+ * For the theme: the record's page being built shows records picked from all of a kind, so any
+ * change may change it. Any other page goes with every purge anyway.
+ */
+function core_client_page_shows_any(): void
+{
+    $post_id = is_singular() ? get_queried_object_id() : 0;
+    if ($post_id < 1 || !core_client_page_cache() || !str_starts_with((string) get_post_type($post_id), 'core_')) {
+        return;
+    }
+    global $wpdb;
+    $wpdb->query($wpdb->prepare('INSERT IGNORE INTO ' . core_client_state_table() . " (name, value) VALUES (%s, '')", "shows_any:$post_id"));
+}
+
+/**
+ * The pages of the records that said they show records picked from all of a kind; a record no
+ * longer published is forgotten.
+ *
+ * @return list<string>
+ */
+function core_client_pages_showing_any(): array
+{
+    global $wpdb;
+    $state = core_client_state_table();
+    $urls = [];
+    foreach ($wpdb->get_col("SELECT name FROM $state WHERE name LIKE 'shows\\_any:%'") as $name) {
+        $post_id = (int) substr((string) $name, strlen('shows_any:'));
+        $url = get_post_status($post_id) === 'publish' ? get_permalink($post_id) : false;
+        if (is_string($url) && $url !== '') {
+            $urls[] = $url;
+        } else {
+            $wpdb->delete($state, ['name' => $name]);
+        }
+    }
+    return $urls;
+}
+
+/** Mark the moment of a purge: no page whose building began before it is kept. */
+function core_client_mark_purge(): void
+{
+    core_client_put_state('page_cache_purged_at', sprintf('%.6F', microtime(true)));
+}
+
+/**
  * Purge what the committed changes made stale, and with it every page that is no single record's:
- * the front page, the site's own pages and each kind's archive with its numbered pages.
+ * the front page, the site's own pages and each kind's archive with its numbered pages, and the
+ * pages that show records picked from all. A purge that fails is reported, never thrown: the
+ * changes are committed by then.
  */
 function core_client_purge_stale(): void
 {
@@ -123,7 +172,19 @@ function core_client_purge_stale(): void
     if ($urls === [] || !core_client_page_cache()) {
         return;
     }
+    try {
+        core_client_mark_purge();
+        core_client_purge($urls);
+    } catch (Throwable $error) {
+        core_client_report('The page cache was not purged: ' . $error->getMessage(), ['where' => 'core_client_purge_stale']);
+    }
+}
+
+/** @param list<string> $urls */
+function core_client_purge(array $urls): void
+{
     global $wp_rewrite;
+    $urls = array_merge($urls, core_client_pages_showing_any());
     $urls[] = home_url('/');
     foreach (get_posts(['post_type' => 'page', 'post_status' => 'publish', 'numberposts' => -1, 'fields' => 'ids']) as $page) {
         $urls[] = (string) get_permalink((int) $page);
@@ -148,9 +209,20 @@ function core_client_purge_stale(): void
 function core_client_clear_page_cache(): void
 {
     if (core_client_page_cache()) {
+        core_client_mark_purge();
         do_action('cache_enabler_clear_site_cache');
     }
 }
+
+// Whether to keep the page just built: not when a purge came after its building began. Read from
+// the table each time, so a purge in another request counts.
+add_filter('cache_enabler_bypass_cache', function (bool $bypass): bool {
+    if ($bypass) {
+        return true;
+    }
+    $began = (float) ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true));
+    return $began < (float) (core_client_state('page_cache_purged_at') ?? '0');
+});
 
 // A record's page as it stands before WordPress writes the post (its old address, its old links);
 // after the write, core_item_updated notes it again. The sync's deletions note theirs in

@@ -1063,11 +1063,15 @@ finding where its time goes is the next open step.
     best plugin for this."). Component: `[client-wordpress]`. What changes for the product: a
     visitor gets every page of the site from a stored copy at once, the lists still show the
     current cards, and a change in the CRM reaches every page that shows it.
-    - **Built 2026-10-22** (plugin 0.11.0; `docs/decisions.md` names the plugins weighed): Cache
-      Enabler keeps the pages, the plugin tells it which pages each committed change made stale
-      (`includes/page-cache.php`), and `scripts/deploy-site.mjs` installs, turns on and empties it.
-      Test: `clients/wordpress/sync.test.ts`, "tells the page cache, once a change is committed,
-      every page that shows the changed record".
+    - **Built 2026-10-22** (plugin 0.11.1, theme 1.4.1; `docs/decisions.md` names the plugins
+      weighed): Cache Enabler keeps the pages, the plugin tells it which pages each committed
+      change made stale (`includes/page-cache.php`), and `scripts/deploy-site.mjs` installs, sets
+      and empties it. Test: `clients/wordpress/sync.test.ts`, "tells the page cache, once a change
+      is committed, every page that shows the changed record". Deployed to both demos.
+    - **Not done:** the cache serves no page yet on either demo: their `wp-config.php` sets
+      `WP_CACHE` to false (`docs/staging-site.md`), which waits on Patric's word. Then the load
+      times after, and the checks on the live sites (lists live, forms never kept, purge on a
+      change) with their numbers.
     - Size: one session.
 
 ## Later, when Patric supplies them

@@ -1129,6 +1129,22 @@
     );
   }
 
+  /**
+   * A home's label names its next viewing, and a kept page outlives it: the label carries each
+   * viewing ahead with its start, then the status, and shows the first whose viewing has not begun.
+   */
+  function refreshLabel(label) {
+    var steps = JSON.parse(label.dataset.labelSteps || '[]');
+    var now = Date.now() / 1000;
+    for (var index = 0; index < steps.length; index += 1) {
+      if (steps[index][0] === null || steps[index][0] >= now) {
+        if (label.textContent !== steps[index][1]) label.textContent = steps[index][1];
+        label.hidden = steps[index][1] === '';
+        return;
+      }
+    }
+  }
+
   function setup() {
     each('[data-menu-toggle]', setupMenu);
     each('a[href^="#"]:not([href="#"])', setupAnchor);
@@ -1140,6 +1156,7 @@
     each('[data-gallery]', setupGallery);
     each('[data-photo-slider]', setupPhotoSlider);
     each('[data-viewings]', setupViewings);
+    each('[data-label-steps]', refreshLabel);
     each('.k-hero[data-lightbox]', setupHeroLightbox);
     each('[data-map]', setupMap);
     each('dialog.k-form', setupFormWindow);
@@ -1148,7 +1165,11 @@
   // New cards from the plugin's list script, after a refresh, a tab, a filter or "Visa fler".
   document.addEventListener('core-list:cards', function (event) {
     event.detail.cards.querySelectorAll('[data-card-slider]').forEach(setupCardSlider);
+    event.detail.cards.querySelectorAll('[data-label-steps]').forEach(refreshLabel);
   });
+  window.setInterval(function () {
+    each('[data-label-steps]', refreshLabel);
+  }, 60000);
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
   else setup();

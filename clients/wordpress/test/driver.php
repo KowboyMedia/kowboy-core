@@ -16,6 +16,7 @@
 //   php driver.php typed '{"datatype":"agent","post":{"post_title":"…","post_status":"publish"},"fields":{...}}'   a record the site types itself
 //   php driver.php inside '{"lat":59.3,"lng":18.0,"polygon":[[[[lng,lat],...]]]}'   whether the point lies in the outline
 //   php driver.php links   the home-to-area links as the plugin holds them
+//   php driver.php kept <unix time>   whether the page cache may keep a page whose building began then
 
 declare(strict_types=1);
 
@@ -341,6 +342,18 @@ function core_driver_picks(string $argument): array
     return ['status' => $response->get_status(), 'rows' => $response->get_data()];
 }
 
+/**
+ * `kept <unix time>`: whether Cache Enabler may keep a page whose building began then, by the
+ * filter it asks before it keeps one.
+ *
+ * @return array<string, mixed>
+ */
+function core_driver_kept(string $argument): array
+{
+    $_SERVER['REQUEST_TIME_FLOAT'] = (float) $argument;
+    return ['kept' => !apply_filters('cache_enabler_bypass_cache', false)];
+}
+
 $result = match ($command) {
     'configure' => core_driver_configure((array) json_decode($argument, true)),
     'reset' => core_driver_reset(),
@@ -362,6 +375,7 @@ $result = match ($command) {
     'rebuild' => ['linked' => core_client_rebuild_links(0, max(1, (int) $argument))],
     'picks' => core_driver_picks($argument),
     'places' => core_client_places((array) json_decode($argument, true)),
+    'kept' => core_driver_kept($argument),
     default => null,
 };
 if ($result === null) {

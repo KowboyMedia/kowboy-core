@@ -1,7 +1,7 @@
 // Deploy the WordPress client and the theme (the template set) to a site over HTTPS, the way a person
 // would through the WordPress admin: sign in, upload each package's zip (replacing what is there),
 // activate it, and write the plugin's settings. Then the page cache: Cache Enabler is installed from
-// wordpress.org when the site lacks it and activated (the plugin tells it what to purge,
+// wordpress.org when the site lacks it, activated and set (the plugin tells it what to purge,
 // core-client/includes/page-cache.php), and emptied, since new views change every page. Nothing but
 // web traffic leaves the machine, so an agent's session can run it against any host
 // (docs/staging-site.md, "Access, the whole workflow").
@@ -258,6 +258,54 @@ async function installPageCache() {
   await activate(PAGE_CACHE);
 }
 
+/**
+ * Cache Enabler's settings, as a person sets them on its page. A kept page is built anew after 24
+ * hours at the latest, for what no purge covers (the year in the footer, the site's title). An
+ * address with a query other than an ad's tracking is never kept: Cache Enabler's own rule looks
+ * only at the first key and keeps a page under its address without the query, so
+ * `?utm_source=x&q=Lund` would be kept as the unfiltered list. The rest stays as Cache Enabler ships it.
+ */
+const PAGE_CACHE_SETTINGS = {
+  cache_expires: '1',
+  cache_expiry_time: '24',
+  excluded_query_strings:
+    '/(?:^|&)(?!(?:utm_(?:source|medium|campaign|term|content|expid)|fbclid|gclid|ref|mc_(?:cid|eid)|fb_(?:action_ids|action_types|source)|_ga|_ke)(?:=|&|$))[^&]/',
+};
+
+async function writePageCacheSettings() {
+  const path = '/wp-admin/options-general.php?page=cache-enabler';
+  const page = await pageHtml(path);
+  const form = page.slice(page.indexOf('action="options.php"'));
+  const body = new URLSearchParams({
+    option_page: 'cache_enabler',
+    action: 'update',
+    _wpnonce: nonceIn(form, /name="_wpnonce" value="([^"]+)"/),
+    _wp_http_referer: path,
+  });
+  for (const [name, value] of Object.entries(PAGE_CACHE_SETTINGS))
+    body.set(`cache_enabler[${name}]`, value);
+  const response = await call('/wp-admin/options.php', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  if (![302, 303].includes(response.status))
+    throw new Error(`Cache Enabler's settings were refused (http ${response.status})`);
+  // The proof is the settings page's word on each value: a box ticked, or a field's text.
+  const saved = await pageHtml(path);
+  for (const [name, value] of Object.entries(PAGE_CACHE_SETTINGS)) {
+    const input =
+      new RegExp(`<input[^>]*name="cache_enabler\\[${name}\\]"[^>]*>`).exec(saved)?.[0] ?? '';
+    const shown = /type="checkbox"/.test(input)
+      ? /checked/.test(input)
+        ? '1'
+        : '0'
+      : (/value="([^"]*)"/.exec(input)?.[1] ?? '').replace(/&#0?39;/g, "'").replace(/&amp;/g, '&');
+    if (shown !== value) throw new Error(`Cache Enabler's ${name} is not what was written`);
+  }
+  console.log('page cache: settings written');
+}
+
 /** Empty the page cache, by the link Cache Enabler puts in the admin bar. */
 async function clearPageCache() {
   const html = await pageHtml('/wp-admin/');
@@ -374,6 +422,7 @@ for (const pkg of packages) {
 }
 if (settings) await writeSettings(settings);
 await installPageCache();
+await writePageCacheSettings();
 await clearPageCache();
 await checkPageCacheOn();
 console.log(`deployed to ${site}`);

@@ -102,21 +102,28 @@ or `wp action-scheduler run`.
   `deleted_post`), and the plugin adds `core_item_updated($post_id, $datatype)` and
   `core_item_deleted($post_id, $datatype)` for anything that wants the item itself.
 - **The page cache** (Patric, 2026-10-22, `includes/page-cache.php`). The site keeps whole pages
-  with Cache Enabler (KeyCDN's, from wordpress.org; `scripts/deploy-site.mjs` installs it, turns it
-  on and empties it on every deploy), so a visitor gets a stored copy instead of a page WordPress
+  with Cache Enabler (KeyCDN's, from wordpress.org; `scripts/deploy-site.mjs` installs it, sets it
+  and empties it on every deploy), so a visitor gets a stored copy instead of a page WordPress
   builds. The plugin tells it which pages a change made stale, after the sync's page of changes is
   committed (before, a visitor could have the page built again from the old data): the record's
   page at its address before and after the change (a new status moves a home to a new address),
   the pages of the records it names and of the records that name it (a home's page shows its
   agents, its area and its association; an agent's page lists the agent's homes; an office's
   lists its agents), and every page that is no single record's: the front page, the site's own
-  pages and each kind's archive with its numbered pages. The plugin's settings, the forms switch,
-  the Customizer and a menu reach every page and empty the cache. A page built while Core's bot
-  check could not be asked is not kept (`DONOTCACHEPAGE`), or its forms would lack the check until
-  the copy went. Cache Enabler never keeps an address with a query (a list's `?sida=2`, a filter,
-  `?nocache=`), a POST, a call to the WordPress API (the list reload, the forms) or a signed-in
-  visitor's page, and every list refreshes from the reload endpoint on load anyway. Without Cache
-  Enabler active, none of this runs.
+  pages and each kind's archive with its numbered pages, and the record pages that show records
+  picked from all of a kind (the theme calls `core_client_page_shows_any()` when a hero without
+  pictures of its own shows the newest homes'). The plugin's settings, the forms switch, the
+  Customizer and a menu reach every page and empty the cache. A page whose building began before a
+  purge is served but not kept, since it may have read the records before the commit; a page built
+  while Core's bot check could not be asked is not kept either (`DONOTCACHEPAGE`), or its forms
+  would lack the check until the copy went. A home's label carries each viewing ahead, and the
+  theme's script shows the next one, so a kept page never names a viewing that is over. Cache
+  Enabler keeps no address with a query other than an ad's tracking (`utm_…`, `fbclid`, `gclid`;
+  so not a list's `?sida=2`, a filter or `?nocache=`), no POST, no call to the WordPress API (the
+  list reload, the forms) and no signed-in visitor's page, and every list refreshes from the reload
+  endpoint on load anyway. A kept page is built anew after 24 hours at the latest, for whatever no
+  purge covers (the year in the footer, the site's title). Without Cache Enabler active, none of
+  this runs.
 - The admin lists every kind of record under one menu, Kowboy Estates, with the settings as its
   last item. A CRM record is the sync's: a row opens as its page (View) or its data (Data,
   `?debugpl`), nothing adds, edits or deletes one from the admin, and the list's Source column

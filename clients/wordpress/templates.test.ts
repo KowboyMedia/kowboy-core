@@ -89,7 +89,8 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).not.toContain('Avgift');
     expect(body).toContain('<span class="k-card__area">Södermalm</span>');
     expect(body).toContain('82 kvm');
-    expect(body).toContain('<span class="k-card__status">Visning ');
+    // The next viewing, carrying what comes after it, so a kept page never names a viewing that is over.
+    expect(body).toMatch(/<span class="k-card__status" data-label-steps="[^"]+">Visning /);
     // The theme's assets, and no font from a third party: Manrope is self-hosted.
     expect(body).toContain('kowboy-2026.css');
     expect(body).toContain('kowboy-2026-vendor.css');
@@ -539,10 +540,26 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     expect(body).toContain('Utgångspris');
     expect(body).toContain('5 000 000 kr');
     expect(body).toContain('k-label--bright">Vasastan</p>');
-    // The list's status label is the first pill: the next viewing ahead (Patric, 2026-10-07).
-    expect(body).toMatch(
-      /<ul class="k-hero__facts"><li class="k-pill">Visning [^<]+<\/li><li class="k-pill">5 000 000 kr<\/li>/,
-    );
+    // The list's status label is the first pill: the next viewing ahead (Patric, 2026-10-07). It
+    // carries each viewing ahead with its start and then the status, for the script to pick from.
+    const pill =
+      /<ul class="k-hero__facts"><li class="k-pill" data-label-steps="([^"]+)">Visning [^<]+<\/li><li class="k-pill">5 000 000 kr<\/li>/.exec(
+        body,
+      );
+    const steps = JSON.parse((pill?.[1] ?? '[]').replace(/&quot;/g, '"')) as [
+      number | null,
+      string,
+    ][];
+    expect(steps.length).toBeGreaterThan(1);
+    expect(
+      steps
+        .slice(0, -1)
+        .every(
+          ([start, words]) =>
+            typeof start === 'number' && start * 1000 > Date.now() && words.startsWith('Visning '),
+        ),
+    ).toBe(true);
+    expect(steps.at(-1)?.[0]).toBeNull();
     expect(body).toContain('Ljus trea med balkong.');
     expect(body).toContain('<li class="k-chip">4 rum</li>');
     expect(body).toContain('<li class="k-chip">Bostadsrätt</li>');
