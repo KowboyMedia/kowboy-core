@@ -9,20 +9,23 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 228. `[core]` A record's first write: keep "first written" without a copy of every value
+## 228. `[core]` A lean change log: no values on a first write, long values cut to 200 characters
 
-- 2026-10-22 · From Patric's "ensure that new updates we make don't cause [...] database growth".
-  When Core writes a record for the first time, the event log keeps every field with its value
-  as the change, and the record page's Changes box lists them all under "first written". Measured
-  on real homes, that copy takes about 11 KB a record next to the record's own 17 KB, for the 30
-  days the log keeps it: after a first load at launch about 0.4 GB, at ten times launch about
-  4 GB. The record page shows the same values in the record itself.
-- Changes to a record that exists keep their fields with before and after values, as now.
-- Blocked: nothing; it decides how much room a first load takes.
-- a) **"First written" alone** (recommended, the smallest): the line names the rules version and
-  lists no fields; the record's values are on the same page.
-- b) **The field names without values**: the line lists which fields the record has.
-- c) **As now**: every field with its value.
+- 2026-10-22 · From Patric's "ensure that new updates we make don't cause [...] database growth",
+  and his "propose a lean solution". The event log is required (AC 16; strategy §8's event table,
+  "changed fields with before/after values"): one look shows a record's whole history, and the
+  record page's Changes box shows each change before and after. Each write logs one line with
+  the changed fields and both values, kept 30 days. On a first write every field counts as
+  changed, so the line copies the whole record: about 11 KB a home next to its own 17 KB, after a
+  first load at launch about 0.4 GB, at ten times launch about 4 GB. A later change holds only
+  what changed, but a new long text or image list is stored twice, old and new, with no limit.
+- Blocked: nothing; it decides how much room the log takes.
+- a) **Lean log** (recommended): a first write is one line, "first written", with the rules
+  version and no fields; a change keeps the changed field names with before and after, and a
+  value longer than 200 characters is kept as its first 200 characters and its length. Price,
+  status and dates stay whole.
+- b) **First write only**: a first write is one line; a change keeps its full values.
+- c) **As now**.
 
 ## 227. `[core]` Store each record ready to send, so a page costs about a tenth of today's work
 
