@@ -164,37 +164,6 @@ last to load, and a phone pays for 6 MB per agent shown. Smaller: the adapter bu
 picture at width 1024 (a field-table change for `image` on an agent, approval needed), the
 listings' photos stay at 1920. Or keep 1920 everywhere. Answer "1024" or "keep".
 
-## 100. `[core]` kowboy.se has no email authentication for Postmark, so Gmail delays Core's mail (parked: Patric, 2026-09-28, "save this for later, this session is for template 2026 only"; his lead is to send from kowboy.cloud instead)
-
-Postmark's page for the sign-in mail of 2026-09-28 says: "we recommend that you set up email
-authentication for kowboy.se". Without it Gmail's server refuses Core's mail at first and takes
-it minutes later (98). The fix is two DNS records on kowboy.se, which Postmark shows under Sender
-Signatures, kowboy.se (a DKIM record and a Return-Path record). Only someone with access to
-kowboy.se's DNS can add them; the agents have no such access.
-
-**Patric, 2026-09-28:** mail must arrive, a delay is acceptable; "do I need to add the headers?"
-The answer: yes, and they are DNS records, not headers, and nothing in Core changes. Without
-them Google now takes the mail and shows it nowhere (98), so the records are what makes the mail
-arrive at all, delayed or not. In Postmark, open Sender Signatures, kowboy.se, and it shows two
-records (a DKIM record and a Return-Path record) to add at kowboy.se's DNS provider (Cloudflare
-runs `dev.kowboy.se`'s names, most likely the whole domain); add them, then say "added". Or give
-an agent a Cloudflare token limited to DNS for kowboy.se in the session environment's settings
-as `CLOUDFLARE_DNS_TOKEN`, then say "token saved", and the agent adds them.
-
-- 2026-10-18 · Patric: "email must work, solve that first" (after the Ahre demo's sign-in link,
-  question 187, never arrived). Checked: Postmark accepts every mail (Core answers an error when it
-  does not), yet no mail from Core has reached his inbox, spam or trash since 2026-10-03; public
-  DNS shows kowboy.se's names at Cloudflare, no Return-Path record (`pm-bounces.kowboy.se`) and
-  DMARC at `p=none`, so Google still receives mail signed for kowboy.se by nobody. No connector
-  reaches Cloudflare's DNS or Postmark, and a token saved in the environment reaches only a new
-  session. Options: a) added (recommended, the fewest steps for him): in Postmark open Sender
-  Signatures, kowboy.se, copy the DKIM record (a TXT record) and the Return-Path record (a CNAME
-  `pm-bounces` to `pm.mtasv.net`) into Cloudflare's DNS for kowboy.se, the CNAME set to "DNS only"
-  (grey cloud), press Verify in Postmark, then say "added"; the agent then checks the records,
-  asks for a sign-in link and finds it in his inbox. b) token: he saves a Cloudflare token that may
-  edit kowboy.se's DNS as `CLOUDFLARE_DNS_TOKEN` and pastes the DKIM record's name and value here
-  (public, not secret); a new session adds both records.
-
 ## 105. `[client-wordpress]` The two forms in the design: where a submission goes
 
 "Ska du sälja din bostad?" (every page) and "Är du intresserad av bostaden?" (the single page)
