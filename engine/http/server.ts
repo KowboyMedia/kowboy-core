@@ -133,6 +133,21 @@ function readBody(incoming: IncomingMessage): Promise<Buffer> {
   });
 }
 
+/** A body as bytes, with the type it is sent as unless the handler named one. */
+function bytesOf(body: unknown, headers: Record<string, string>): Buffer {
+  if (body === undefined) return Buffer.alloc(0);
+  if (Buffer.isBuffer(body)) {
+    headers['content-type'] ??= 'application/octet-stream';
+    return body;
+  }
+  if (typeof body === 'string') {
+    headers['content-type'] ??= 'text/plain; charset=utf-8';
+    return Buffer.from(body, 'utf8');
+  }
+  headers['content-type'] ??= 'application/json; charset=utf-8';
+  return Buffer.from(JSON.stringify(body), 'utf8');
+}
+
 async function write(
   incoming: IncomingMessage,
   outgoing: ServerResponse,
@@ -146,17 +161,8 @@ async function write(
     payload = accepts ? response.gzipped : await gunzip(response.gzipped);
     if (accepts) headers['content-encoding'] = 'gzip';
     headers['content-type'] ??= 'application/json; charset=utf-8';
-  } else if (response.body === undefined) {
-    payload = Buffer.alloc(0);
-  } else if (Buffer.isBuffer(response.body)) {
-    payload = response.body;
-    headers['content-type'] ??= 'application/octet-stream';
-  } else if (typeof response.body === 'string') {
-    payload = Buffer.from(response.body, 'utf8');
-    headers['content-type'] ??= 'text/plain; charset=utf-8';
   } else {
-    payload = Buffer.from(JSON.stringify(response.body), 'utf8');
-    headers['content-type'] ??= 'application/json; charset=utf-8';
+    payload = bytesOf(response.body, headers);
   }
 
   // gzip at a low, fast level (strategy §2, AC 40); a large body off the event loop, so it does

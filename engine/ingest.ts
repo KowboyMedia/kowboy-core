@@ -5,7 +5,7 @@ import { manifestFor, mapperFor } from './registry.js';
 import { logEvent } from './events.js';
 import { ring } from './bells.js';
 import { db, takeWriteLock, transaction } from './storage/db.js';
-import { liveRemoteIds, readItem, writeItem } from './storage/items.js';
+import { liveRemoteIds, readItem, writeItem, type ItemRow } from './storage/items.js';
 import { pagePart } from './pages.js';
 import type { Canonical, Connection, Datatype, IngestResult } from './adapter-api/types.js';
 
@@ -38,7 +38,7 @@ export async function ingest(
   const key = { tenantId: connection.tenantId, connectionId: connection.id, datatype, remoteId };
   const existing = await readItem(key);
 
-  if (unchanged(existing, hash)) {
+  if (existing !== null && unchanged(existing, hash)) {
     // Same content: no seq, no bell, nothing reaches a site. Keep raw current for replay, and keep
     // when the record last changed, which the panel's records list shows as "Updated". Its part
     // carries the raw too, for a site that fetches the record later.
@@ -57,12 +57,12 @@ export async function ingest(
           datatype,
           connection_id: connection.id,
           remote_id: remoteId,
-          office_id: existing?.office_id ?? null,
+          office_id: existing.office_id,
           deleted: false,
-          schema_version: existing?.schema_version ?? SCHEMA_VERSION,
+          schema_version: existing.schema_version,
           content_hash: hash,
           raw: rawJson,
-          data: JSON.stringify(existing?.data ?? null),
+          data: JSON.stringify(existing.data),
         }),
       ],
     );
@@ -147,11 +147,8 @@ async function prepare(
 }
 
 /** A stored row that already holds this content, produced by the rules running today. */
-const unchanged = (existing: Awaited<ReturnType<typeof readItem>>, hash: string): boolean =>
-  existing !== null &&
-  !existing.deleted &&
-  existing.content_hash === hash &&
-  existing.rules_version === RULES_VERSION;
+const unchanged = (existing: ItemRow, hash: string): boolean =>
+  !existing.deleted && existing.content_hash === hash && existing.rules_version === RULES_VERSION;
 
 /** The CRM confirmed the record is gone: tombstone it (SRS §7). */
 export async function notFound(
