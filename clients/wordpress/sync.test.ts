@@ -43,8 +43,25 @@ describe('the WordPress client', () => {
       crm.put('property', 'P-2', { ...fakeProperty('P-2'), price: 6900000 });
       await poll();
       const updated = await driver<{ hooks: Record<string, number> }>('sync', 'delta');
-      expect(updated.hooks).toMatchObject({ pre_post_update: 1, core_item_updated: 1 });
+      expect(updated.hooks).toMatchObject({
+        pre_post_update: 1,
+        publish_to_draft: 0,
+        core_item_updated: 1,
+      });
       expect(updated.hooks['save_post']).toBeGreaterThanOrEqual(1);
+
+      // A new address (the street is in it) is taken down and put up again, so a cache plugin that
+      // purges an old address only when a page leaves the site purges it too.
+      crm.put('property', 'P-2', {
+        ...fakeProperty('P-2'),
+        price: 6900000,
+        street: 'Drottninggatan 2',
+      });
+      await poll();
+      const moved = await driver<{ hooks: Record<string, number> }>('sync', 'delta');
+      expect(moved.hooks).toMatchObject({ publish_to_draft: 1, core_item_updated: 1 });
+      const items = await driver<{ remote_id: string; permalink: string }[]>('items', 'property');
+      expect(items.find((one) => one.remote_id === 'P-2')?.permalink).toContain('drottninggatan-2');
 
       // A removed record goes to the trash and is then deleted, as WordPress's admin removes one,
       // so a cache plugin that purges on the trash hears it too (230 a).
