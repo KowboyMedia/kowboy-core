@@ -29,6 +29,7 @@ import {
   logbook,
   MINUTE,
   until,
+  wait,
   words,
 } from './lib/digitalocean.mjs';
 
@@ -128,15 +129,30 @@ async function specFor(key, withJob) {
   };
 }
 
-/** The job's lines from its log, read in this process and never printed but for its own lines. */
+/**
+ * The job's lines from its log, read in this process and never printed but for its own lines.
+ * Just after the deploy ends, DigitalOcean can still be putting the job's log away and refuse it
+ * (400 "in phase deleting", 404 "component not found", seen on 2026-10-22), so it is asked again
+ * for a few minutes.
+ */
 async function jobLines(appId, deploymentId) {
-  const { historic_urls: urls, live_url: live } = await api(
-    `/apps/${appId}/deployments/${deploymentId}/components/load/logs?type=RUN`,
-  );
-  const url = urls?.[0] ?? live;
-  if (!url) return [];
-  const text = await (await fetch(url)).text();
-  return text.split('\n').map((line) => line.replace(/^load \S+ /, ''));
+  let refused = null;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    if (attempt > 0) await wait(30_000);
+    try {
+      const { historic_urls: urls, live_url: live } = await api(
+        `/apps/${appId}/deployments/${deploymentId}/components/load/logs?type=RUN`,
+      );
+      const url = urls?.[0] ?? live;
+      if (!url) continue;
+      const text = await (await fetch(url)).text();
+      return text.split('\n').map((line) => line.replace(/^load \S+ /, ''));
+    } catch (error) {
+      refused = error;
+    }
+  }
+  if (refused) throw refused;
+  return [];
 }
 
 /**
