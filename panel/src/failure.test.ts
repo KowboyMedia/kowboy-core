@@ -9,7 +9,7 @@ import { failureWords, GONE } from './failure';
 describe('what the panel says went wrong', () => {
   it('shows Core’s own words for what failed inside it', () => {
     const said =
-      'The part of Core that talks to Vitec failed, and its error said “relation "vitec_fetch_list" does not exist”. This is a fault in Core, not at Vitec or in the login, so pass these words on to Core’s developers.';
+      'The part of Core that talks to Somecrm failed, and its error said “relation "somecrm_fetch_list" does not exist”. This is a fault in Core, not at Somecrm or in the login, so pass these words on to Core’s developers.';
     expect(failureWords(new Refused(502, 'crm', said))).toBe(said);
   });
 
@@ -45,16 +45,16 @@ describe('what the panel says went wrong', () => {
 describe('why a login was not saved', () => {
   it('shows the CRM’s code’s own sentences under “Nothing is saved.”, adding no claim of its own', () => {
     const said =
-      'Vitec was not asked, because the field “Customer or group id” is empty. Without the id, nothing reaches the sites. Type the id Vitec issued the login for, such as M30011 or G2, and try again.';
-    expect(loginRefusal(new Refused(422, 'login', said), 'Vitec')).toEqual({
+      'Somecrm was not asked, because the field “Customer or group id” is empty. Without the id, nothing reaches the sites. Type the id Somecrm issued the login for, such as A100 or B2, and try again.';
+    expect(loginRefusal(new Refused(422, 'login', said), 'Somecrm')).toEqual({
       text: 'Nothing is saved.',
       answer: said,
     });
   });
 
   it('says the CRM refused only when its code gave no words', () => {
-    expect(loginRefusal(new Refused(422, 'login'), 'Vitec')).toEqual({
-      text: 'Vitec refused this login, so nothing is saved. Check the fields and try again.',
+    expect(loginRefusal(new Refused(422, 'login'), 'Somecrm')).toEqual({
+      text: 'Somecrm refused this login, so nothing is saved. Check the fields and try again.',
       answer: null,
     });
   });
