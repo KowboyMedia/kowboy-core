@@ -7,9 +7,11 @@
 //   DIGITALOCEAN_ACCESS_TOKEN=… node scripts/load-test.mjs           about an hour
 //   DIGITALOCEAN_ACCESS_TOKEN=… node scripts/load-test.mjs --undo    after a run that was cut off
 //   … node scripts/load-test.mjs --size db-s-2vcpu-4gb --disk 40960   a trial on another server size
+//   … --web apps-s-2vcpu-4gb --web-count 2                            and another web part
 //
-// A trial answers what size of database server the criterion needs: it changes only the server's
-// size and disk, and goes to .do/trials/, which the acceptance report does not read.
+// A trial answers what sizes the criterion needs: it changes only the database server's size and
+// disk and the web part's size and count, and goes to .do/trials/, which the acceptance report
+// does not read.
 //
 // Nothing of staging or live is read or changed but the size of staging's web part: the copy has
 // no CRM connection and no setting of theirs, only a key of its own. Whatever fails, the app and the
@@ -45,8 +47,11 @@ const option = (name) => {
 };
 const SIZE = option('--size');
 const DISK = option('--disk');
-const RECORD = SIZE
-  ? join(import.meta.dirname, '..', '.do', 'trials', `load-test-${SIZE}.json`)
+const WEB = option('--web');
+const WEB_COUNT = Number(option('--web-count') ?? 1);
+const TRIAL = [SIZE, WEB && `${WEB}x${WEB_COUNT}`].filter(Boolean).join('-');
+const RECORD = TRIAL
+  ? join(import.meta.dirname, '..', '.do', 'trials', `load-test-${TRIAL}.json`)
   : join(import.meta.dirname, '..', '.do', 'drills', 'load-test.json');
 
 accessToken();
@@ -83,8 +88,8 @@ async function specFor(key, withJob) {
         build_command: web.build_command,
         run_command: web.run_command,
         http_port: web.http_port,
-        instance_size_slug: web.instance_size_slug,
-        instance_count: 1,
+        instance_size_slug: WEB ?? web.instance_size_slug,
+        instance_count: WEB_COUNT,
         health_check: web.health_check,
         envs: [...shared, { key: 'SENTRY_ENVIRONMENT', value: 'load-test', scope: 'RUN_TIME' }],
       },
@@ -238,7 +243,7 @@ const outcome = measured?.passed ? 'passed' : 'failed';
 mkdirSync(join(RECORD, '..'), { recursive: true });
 writeFileSync(
   RECORD,
-  `${JSON.stringify({ ran: new Date().toISOString(), databaseSize: SIZE ?? CLUSTER, tests: { [TEST]: outcome }, measured, steps }, null, 2)}\n`,
+  `${JSON.stringify({ ran: new Date().toISOString(), databaseSize: SIZE ?? CLUSTER, web: WEB ? `${WEB} x ${WEB_COUNT}` : 'as staging', tests: { [TEST]: outcome }, measured, steps }, null, 2)}\n`,
 );
 say(`The load test ${outcome}; recorded in ${RECORD.slice(RECORD.indexOf('.do/'))}.`);
 process.exit(measured && cleaned ? 0 : 1);
