@@ -267,8 +267,8 @@
       "ac": 24,
       "title": "Restore drill ends with subscribers converged",
       "phase": "deploy",
-      "tests": [],
-      "note": "The engine half of the drill is proved as AC 41; the scripted drill on staging waits for the platform."
+      "tests": ["the restore drill on staging ends with subscribers converged"],
+      "note": "The engine half of the drill is proved as AC 41. `scripts/restore-drill.mjs` runs the drill on staging (217 a): a new database server from the latest backup, reachable from staging alone; staging pointed at it, whose deploy runs the preview over every restored record; staging's checks back as before and each staging site's lists, counted and fingerprinted, as before; then staging pointed back, checked the same way, and the copy deleted. Its last run is recorded in `.do/drills/restore-drill.json`."
     },
     {
       "ac": 25,

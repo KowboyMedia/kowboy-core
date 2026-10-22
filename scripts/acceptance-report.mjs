@@ -1,7 +1,7 @@
 // Generates acceptance/report.md from the acceptance criteria map and a real test run.
 // The report is never edited by hand: if a criterion is green here, a named test proved it.
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -77,6 +77,19 @@ function collectJourneys(config) {
 
 for (const config of JOURNEY_CONFIGS) collectJourneys(config);
 
+// The drills change staging and take most of an hour, so this run does not repeat them: each
+// records its last run in .do/drills/ (scripts/restore-drill.mjs), and the report takes that
+// result and says when it ran.
+const DRILLS = '.do/drills';
+const recorded = [];
+for (const file of existsSync(DRILLS)
+  ? readdirSync(DRILLS).filter((name) => name.endsWith('.json'))
+  : []) {
+  const { ran, tests } = JSON.parse(readFileSync(join(DRILLS, file), 'utf8'));
+  for (const [name, status] of Object.entries(tests)) results.set(name, status);
+  recorded.push(`${file.replace(/\.json$/, '')} on ${ran.slice(0, 10)}`);
+}
+
 const PHASE_LABEL = {
   engine: 'engine (now)',
   clients: 'Phase 4, clients',
@@ -110,6 +123,9 @@ const lines = [
   '',
   'The authoritative wording of each criterion is strategy §10, which amends SRS §13.',
   '',
+  ...(recorded.length > 0
+    ? [`Recorded runs, not repeated by this one: ${recorded.join(', ')} (\`.do/drills/\`).`, '']
+    : []),
   '| AC | Criterion | Status | Proved by |',
   '|---|---|---|---|',
 ];
