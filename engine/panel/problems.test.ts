@@ -57,8 +57,6 @@ const somecrm: Adapter = {
       { key: 'account', label: 'Account', required: true },
       { key: 'password', label: 'Password', secret: true, required: true },
     ],
-    directions: () => ({ steps: [], settings: [] }),
-    panel: () => Promise.resolve([]),
     connection: () => Promise.resolve([]),
     act: (action, params, connections) => {
       asked.acts.push({ action, params, connections: connections.map((one) => one.id) });

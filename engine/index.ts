@@ -35,10 +35,9 @@ import {
 import { deleteExpiredSubmissions } from './storage/submissions.js';
 import { configureCompression, jsonResponse, startServer, type RouteTable } from './http/server.js';
 import { SEQUENCE_JUMP, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
-import { adminRoutes, configureAdmin } from './admin/index.js';
 import { configurePanel, panelRoutes } from './panel/index.js';
 import { readListNames } from './panel/recordlist.js';
-import { deleteExpiredSessions } from './admin/auth.js';
+import { deleteExpiredSessions } from './panel/auth.js';
 
 export { SEQUENCE_JUMP, STARTED_AT, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
 
@@ -92,7 +91,6 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
       ? postmark(config.postmarkServerToken, config.mailFrom)
       : null,
   );
-  configureAdmin(config);
   configurePanel(config);
   const alerts = {
     environment: config.environment,
@@ -122,7 +120,6 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
   const routes: RouteTable = [
     // The admin panel (design B): its API under /v1/panel/, its app under /admin.
     ...panelRoutes(),
-    ...adminRoutes(),
     { method: 'GET', path: '/v1/changes', handler: changes },
     { method: 'POST', path: '/v1/applied', handler: applied },
     { method: 'POST', path: '/v1/errors', handler: siteError },

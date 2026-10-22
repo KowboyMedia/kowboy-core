@@ -1,5 +1,9 @@
 # Admin panel: the rebuild (register questions 59 to 61, answered 2026-09-20)
 
+> **History.** The admin area this file describes was removed on 2026-10-22 on Patric's word, and
+> design B replaced it. What the admin panel is and does now:
+> [`docs/new-admin/b-build-list.md`](new-admin/b-build-list.md).
+
 Patric, 2026-09-20: the panel as first built worked but read as a hobby project: full-page
 reloads, no word after a save, a search that could not sort, inconsistent panels, journeys that
 took thought, and core functions missing (recompute everything, an office, a tenant, a CRM). This

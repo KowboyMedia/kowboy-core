@@ -10,12 +10,12 @@ const { criteria } = JSON.parse(readFileSync('acceptance/criteria.json', 'utf8')
 // Three vitest runs: the default one; the WordPress client suite, which has its own config
 // because it needs a WordPress install (clients/wordpress/test/setup.sh); and the release path as
 // App Platform runs it, which reads both apps and needs DIGITALOCEAN_ACCESS_TOKEN. Then the
-// browser journeys, which drive the admin area (admin/playwright.config.ts) and the WordPress
-// client's site (clients/wordpress/playwright.config.ts) as a person does.
+// browser journeys, which drive the WordPress client's site (clients/wordpress/playwright.config.ts)
+// as a person does.
 const CONFIGS = ['vitest.config.ts', 'vitest.wordpress.config.ts', 'vitest.platform.config.ts'];
-const JOURNEY_CONFIGS = ['admin/playwright.config.ts', 'clients/wordpress/playwright.config.ts'];
+const JOURNEY_CONFIGS = ['clients/wordpress/playwright.config.ts'];
 
-// The journeys serve the admin area and the WordPress site from dist, so the report builds first,
+// The journeys serve the WordPress site from dist, so the report builds first,
 // as GitHub's checks do: on a dist left by an older version the journeys failed (known bug 6).
 execFileSync('npm', ['run', 'build'], { stdio: 'inherit' });
 

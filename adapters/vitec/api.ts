@@ -78,7 +78,7 @@ export const concurrency = (): number =>
   Math.max(1, Number(process.env['VITEC_FETCH_CONCURRENCY'] ?? 5));
 
 /** Requests per second at most, lists included, so a load never looks like an attack. */
-export const requestsPerSecond = (): number =>
+const requestsPerSecond = (): number =>
   Math.max(1, Number(process.env['VITEC_REQUESTS_PER_SECOND'] ?? 10));
 
 /** How long a Retry-After is honoured at most. */
@@ -140,7 +140,7 @@ const QA_URL = 'https://connect-qa.maklare.vitec.net';
 let qaUrl = QA_URL;
 
 /** Where a system's Connect is: the live one from VITEC_BASE_URL, QA's at its own address. */
-export const baseUrlOf = (environment: Environment): string =>
+const baseUrlOf = (environment: Environment): string =>
   environment === 'qa'
     ? qaUrl
     : (process.env['VITEC_BASE_URL'] ?? 'https://connect.maklare.vitec.net').replace(/\/$/, '');

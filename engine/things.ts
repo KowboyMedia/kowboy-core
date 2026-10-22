@@ -2,19 +2,27 @@
 // one of its records, in the admin area's words and linked to their places. The CRM's code knows
 // neither a tenant's name nor an address in the admin area, so Core writes both, the same on every
 // page and current after a rename, as it does for the CRM's events (attention.ts).
-import type {
-  AdminDirections,
-  AdminSection,
-  AdminThing,
-  AdminValue,
-  Canonical,
-} from '../adapter-api/types.js';
-import { connectionsNamed } from '../attention.js';
-import { db } from '../storage/db.js';
-import { currentConfig } from './auth.js';
-import { recordName } from './records.js';
+import type { AdminThing, Canonical } from './adapter-api/types.js';
+import { connectionsNamed } from './attention.js';
+import { db } from './storage/db.js';
 import { namesNow, type Names } from './summary.js';
-import { capital, entity, inSentence, officeNamed } from './words.js';
+import { entity, inSentence, officeNamed } from './words.js';
+
+const read = (data: Canonical | null, key: string): string | null => {
+  const value = data?.[key];
+  return typeof value === 'string' && value !== '' ? value : null;
+};
+
+const displayLine = (data: Canonical | null): string | null => {
+  const display = data?.['display'];
+  if (!display || typeof display !== 'object') return null;
+  const line = (display as Record<string, unknown>)['address_line'];
+  return typeof line === 'string' && line !== '' ? line : null;
+};
+
+/** A record by the name a person knows it by: its address, else its name. */
+const recordName = (data: Canonical | null): string | null =>
+  displayLine(data) ?? read(data, 'name');
 
 /** A name and its place in the admin area, a path under /admin; no place for a record Core does not hold. */
 export type Linked = { label: string; to: string | null };
@@ -72,18 +80,6 @@ function recordLinked(
   };
 }
 
-/** Records by their addresses or names, each opening its page, with the names already read. */
-export async function recordsLinked(
-  records: { connection: string; datatype: string; id: string }[],
-  known: Names,
-): Promise<Linked[]> {
-  const held = await heldNames(
-    records.map(({ connection, datatype, id }) => ({ connection, record: { datatype, id } })),
-    known,
-  );
-  return records.map((record) => recordLinked(record.connection, record, held));
-}
-
 /** An office by its tenant and name, then the CRM's id for it, opening its records. */
 function officeLinked(connection: string, office: string, held: Held, known: Names): Linked {
   const data = held.get(keyOf(connection, 'office', office));
@@ -91,7 +87,7 @@ function officeLinked(connection: string, office: string, held: Held, known: Nam
   const tenantId = known.connections.get(connection)?.tenantId;
   const scope = [
     ...(tenantId === undefined ? [] : [`tenant=${String(tenantId)}`]),
-    `office=${encodeURIComponent(office)}`,
+    `office=${encodeURIComponent(`${connection}:${office}`)}`,
   ];
   return {
     label: officeNamed(office, name, tenantId === undefined ? null : known.tenants.get(tenantId)),
@@ -123,73 +119,4 @@ export async function namedThings(names: readonly (string | AdminThing)[]): Prom
         : connection;
     return name.note ? { ...linked, label: `${linked.label}, ${name.note}` } : linked;
   });
-}
-
-/** A value as the browser draws it: a thing is its name with its place, an address the whole one. */
-export type ShownValue =
-  Exclude<AdminValue, AdminThing | { address: string }> | { text: string; to: string | null };
-
-type Table = NonNullable<AdminSection['table']>;
-
-/** A block of a CRM's page as the browser draws it. */
-export type ShownSection = Omit<AdminSection, 'items' | 'table'> & {
-  items?: { label: string; value: ShownValue }[];
-  table?: Omit<Table, 'rows'> & {
-    rows: { cells: ShownValue[]; actions?: Table['rows'][number]['actions'] }[];
-  };
-};
-
-/** The directions as the browser draws them. */
-export type ShownDirections = Omit<AdminDirections, 'settings'> & {
-  settings: { key: string; value: ShownValue; help: string }[];
-};
-
-/**
- * Each value of a CRM's page as the browser draws it: a thing its code names becomes its name with
- * its place, and an address on Core the whole address others reach it at, when Core knows its own.
- */
-async function shownValues(values: AdminValue[]): Promise<(value: AdminValue) => ShownValue> {
-  const things = values.filter(isThing);
-  const named = new Map(
-    (await namedThings(things)).map((linked, index) => [things[index], linked] as const),
-  );
-  const publicUrl = currentConfig().publicUrl;
-  return (value) => {
-    if (isThing(value)) {
-      const linked = named.get(value);
-      return { text: capital(linked?.label ?? value.connection), to: linked?.to ?? null };
-    }
-    if (value !== null && typeof value === 'object' && 'address' in value) {
-      return publicUrl
-        ? `${publicUrl}${value.address}`
-        : `Core’s own address, followed by ${value.address}`;
-    }
-    return value;
-  };
-}
-
-/** A CRM's page, or its part on a tenant's page, as the browser draws it. */
-export async function shownSections(sections: AdminSection[]): Promise<ShownSection[]> {
-  const shown = await shownValues(
-    sections.flatMap((section) => [
-      ...(section.items ?? []).map((item) => item.value),
-      ...(section.table?.rows ?? []).flatMap((row) => row.cells),
-    ]),
-  );
-  return sections.map(({ items, table, ...section }) => ({
-    ...section,
-    ...(items && { items: items.map((item) => ({ ...item, value: shown(item.value) })) }),
-    ...(table && {
-      table: { ...table, rows: table.rows.map((row) => ({ ...row, cells: row.cells.map(shown) })) },
-    }),
-  }));
-}
-
-/** A CRM's directions as the browser draws them. */
-export async function shownDirections(directions: AdminDirections): Promise<ShownDirections> {
-  const shown = await shownValues(directions.settings.map((setting) => setting.value));
-  return {
-    ...directions,
-    settings: directions.settings.map((setting) => ({ ...setting, value: shown(setting.value) })),
-  };
 }

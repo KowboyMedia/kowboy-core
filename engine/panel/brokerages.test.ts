@@ -60,8 +60,6 @@ const somecrm: Adapter = {
         options: [{ value: 'live', label: 'Live system' }, { value: 'test' }],
       },
     ],
-    directions: () => ({ steps: [], settings: [] }),
-    panel: () => Promise.resolve([]),
     describe: (connection: Connection) => {
       const login = JSON.parse(connection.credentials ?? '{}') as Record<string, string>;
       return `Live system · ${login['account'] ?? ''}`;

@@ -23,11 +23,11 @@ npm run start:worker          # adapter background work, bells, housekeeping
 Migrations run at startup. `GET /v1/health` is public, for an uptime monitor: 500 only while
 Core is down for every customer (a P0 check fails), 200 otherwise, each check explained in counts
 and plain words. The admin area
-is `/admin` on the web process, built into `dist/admin` by the same `npm run build`
-([docs/admin-panel.md](docs/admin-panel.md)); `ADMIN_EMAILS` (addresses) and
+is `/admin` on the web process, built into `dist/panel` by the same `npm run build`
+([docs/new-admin/b-build-list.md](docs/new-admin/b-build-list.md)); `ADMIN_EMAILS` (addresses) and
 `ADMIN_EMAIL_DOMAINS` (whole domains) say who may open it, and a sign-in link is mailed to an
-address that may. For work on the app alone, `npm run dev:admin` serves it
-on port 5173 against a Core running beside it.
+address that may. For work on the app alone, `npm run dev:panel` serves it
+on port 5174 against a Core running beside it on port 3000.
 Optional: `SENTRY_ENVIRONMENT` names the environment (staging, production, local) in alerts and
 to Sentry, `PUBLIC_URL` is where Core is reached for the link in alerts, `ALERT_EMAIL` (mailed
 through Postmark: `MAIL_FROM`, `POSTMARK_SERVER_TOKEN`) and `ALERT_SLACK_WEBHOOK_URL` are where an

@@ -251,10 +251,10 @@ export type AdapterApi = {
   report(error: unknown, context?: Record<string, unknown>): void;
 };
 
-// ---- The admin panel (docs/admin-panel.md): an adapter describes what it shows as data ---------
+// ---- The admin panel (docs/new-admin/b-build-list.md): an adapter describes what it shows as data
 //
-// The panel is a browser app the engine serves; it draws every adapter's pages, directions and
-// actions from these descriptions with the same components as its own pages, and never runs
+// The panel is a browser app the engine serves; it draws what an adapter shows under a connection
+// and its actions from these descriptions with the same components as its own pages, and never runs
 // adapter code in the browser. Approved 2026-09-20 (register questions 57 and 61 with the rebuild).
 
 /** A field the panel asks a person to fill: a connection's login, or an action's parameters. */
@@ -317,12 +317,6 @@ export type AdminSection = {
     empty?: string;
   };
   actions?: AdminAction[];
-};
-
-/** Setup directions: what a cold reader does, in order, and the settings as they are. */
-export type AdminDirections = {
-  steps: { title: string; text: string }[];
-  settings: { key: string; value: AdminValue; help: string }[];
 };
 
 /** A record on an adapter's own fetch list, for the panel's live activity list. */
@@ -409,10 +403,6 @@ export type ConnectionProgress = {
 export type AdapterAdmin = {
   /** The login form of a connection; the values become one JSON document, never shown back. */
   credentials: AdminField[];
-  /** The directions at the top of the adapter's page, built from what the adapter reads. */
-  directions(): AdminDirections;
-  /** The adapter's page: what it knows and can do, given its connections as the engine holds them. */
-  panel(connections: Connection[]): Promise<AdminSection[]>;
   /** What the adapter knows about one connection, shown on its tenant's page. */
   connection?(connection: Connection): Promise<AdminSection[]>;
   /**
@@ -429,11 +419,6 @@ export type AdapterAdmin = {
   ): Promise<{ message: string }>;
   /** Try the CRM with a login before it is saved: yes or no, and why. */
   probe?(credentials: string, officeIds: string[]): Promise<{ ok: boolean; detail: string }>;
-  /** Fetch one record and map it, writing nothing; null when the CRM has no such record. */
-  inspect?(
-    connection: Connection,
-    record: AdminRecord,
-  ): Promise<{ raw: unknown; mapped: MappedRecord | null } | null>;
   /** What waits on the adapter's own fetch list, oldest first. */
   queue?(connections: Connection[]): Promise<AdminQueued[]>;
   /**

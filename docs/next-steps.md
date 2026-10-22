@@ -903,8 +903,10 @@ the seven days.
       brokerage) the same day, with thirteen lines asked in question 201; part 3 (the Inbox's windows,
       maintenance and "Reload all data") the same day, with ten lines asked in question 202; the check again, his approval on
       staging, then the current admin is deleted with everything only it used.
-    - Ownership: nothing edits the current admin (`admin/`) until it is deleted. Size: many
-      sessions.
+    - Done 2026-10-22: Patric approved B on staging ("1 yes, 2 yes": Records and Flow load at
+      once, and B replaces the old admin), and the old admin left with everything only it used:
+      `admin/`, `engine/admin/`, its tests and journeys, the adapter API's page, directions and
+      record look, the Vitec page's actions, the old admin's libraries and `docs/old-admin/`.
 
 31. **Lists built on the server first, then refreshed in the browser, with page addresses search
     engines can follow** (Patric, 2026-10-15: "Lists of entities needs to be server side rendered
@@ -1043,7 +1045,7 @@ the seven days.
       staging is green and the preview has run; then condition 3; the threads' work in the plan's
       table; the alerts seen arriving; the final release on Patric's "release". After it: the
       one-time clean-up of known bug 3 leaves `main.ts` once live's log shows it ran, the old admin
-      leaves with item 30, and a `decisions.md` line "Release <date>" is written. Then the first
+      left with item 30 on 2026-10-22, and a `decisions.md` line "Release <date>" is written. Then the first
       brokerage, and the project is done.
     - Size: several sessions, most of them waiting on the threads in the table.
 

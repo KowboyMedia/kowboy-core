@@ -1,6 +1,6 @@
-// Long operations run as jobs (docs/admin-panel.md): the panel or the admin API queues one, the
-// worker takes it, and the row carries its progress, its result and its history. Today one kind:
-// a recompute of a scope, as a dry run (the impact preview, AC 36) or for real.
+// Long operations run as jobs: the admin panel queues one, the worker takes it, and the row carries
+// its progress, its result and its history. Today one kind: a recompute of a scope, as a dry run
+// (the impact preview, AC 36) or for real.
 import { db } from './storage/db.js';
 import { logEvent } from './events.js';
 import { report } from './errors.js';
@@ -51,14 +51,6 @@ export async function createJob(input: {
 export async function getJob(id: number): Promise<JobRow | null> {
   const { rows } = await db().query<JobRow>('select * from jobs where id = $1', [id]);
   return rows[0] ?? null;
-}
-
-/** Jobs still queued or running, for the live stream. */
-export async function openJobs(): Promise<JobRow[]> {
-  const { rows } = await db().query<JobRow>(
-    'select * from jobs where finished_at is null order by id',
-  );
-  return rows;
 }
 
 /** Take the oldest queued job and run it to the end. The worker's tick; true when one ran. */

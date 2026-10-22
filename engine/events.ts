@@ -123,12 +123,6 @@ export async function queryEvents(query: EventQuery): Promise<EventRow[]> {
   return (await db().query<EventRow>(sql, values)).rows;
 }
 
-/** The newest event's number, where a live tail starts. */
-export async function latestEventId(): Promise<number> {
-  const { rows } = await db().query<{ id: string | null }>('select max(id) as id from events');
-  return Number(rows[0]?.id ?? 0);
-}
-
 /** Delete events outside the retention window (strategy §8.2). */
 export async function deleteExpiredEvents(retentionDays: number): Promise<number> {
   const { rowCount } = await db().query(

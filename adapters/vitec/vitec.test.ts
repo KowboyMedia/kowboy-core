@@ -693,22 +693,18 @@ describe('the Vitec adapter', () => {
     expect(fetchesOf('OBJ3')).toBe(0);
     expect(await store.depth()).toBe(2);
 
-    // Nor by anything else: the door in front of every request keeps back a person's "compare
-    // with the CRM", "fetch again" and "check the login", and a form, so no call leaves.
+    // Nor by anything else: the door in front of every request keeps back a call for the office,
+    // a person's "fetch again" and "check the login", and a form, so no call leaves.
     const sent = fake.requests.length;
-    await expect(
-      required(vitecAdmin.inspect, 'inspect')(await connection(), {
-        datatype: 'property',
-        remoteId: 'OBJ2',
-        officeId: OFFICE,
-      }),
-    ).rejects.toThrow(`office id ${OFFICE}`);
+    const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
+    await expect(connect.getOne(auth, 'property', OFFICE, 'OBJ2')).rejects.toThrow(
+      `office id ${OFFICE}`,
+    );
     await queueLifecycle(CONNECTION, 'refetch', {
       records: [{ datatype: 'property', remoteId: 'OBJ2', officeId: OFFICE }],
     });
     await running.deliver();
     await drainFetchList();
-    const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
     await expect(
       connect.post(auth, OFFICE, `v2/Advertising/Form/${OFFICE}/Valuation`, {}),
     ).rejects.toThrow('Fetch offices');
@@ -760,18 +756,18 @@ describe('the Vitec adapter', () => {
     expect(told).toContain('office.unblocked');
   });
 
-  it('blocks an office that a person’s button meets refused, and tells its connection at the next tick; a typed login and a CRM refusal block nothing', async () => {
+  it('blocks an office that a call outside the worker meets refused, and tells its connection at the next tick; a typed login and a CRM refusal block nothing', async () => {
     seed(fake);
     await start();
     await drainFetchList();
     fake.forbid(OFFICE);
     fake.requests.length = 0;
-    const inspect = required(vitecAdmin.inspect, 'inspect');
-    const record = { datatype: 'property' as const, remoteId: 'OBJ1', officeId: OFFICE };
+    const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
+    const read = () => connect.getOne(auth, 'property', OFFICE, 'OBJ1');
 
-    // The first press meets Vitec's refusal; the second is kept back at the door.
-    await expect(inspect(await connection(), record)).rejects.toBeInstanceOf(connect.VitecError);
-    await expect(inspect(await connection(), record)).rejects.toBeInstanceOf(connect.Blocked);
+    // The first call meets Vitec's refusal; the second is kept back at the door.
+    await expect(read()).rejects.toBeInstanceOf(connect.VitecError);
+    await expect(read()).rejects.toBeInstanceOf(connect.Blocked);
     expect(fake.requests.map((request) => request.path)).toEqual([
       `/Advertising/Estate/${OFFICE}/OBJ1`,
     ]);
@@ -1184,32 +1180,12 @@ describe('the Vitec adapter', () => {
     expect((await pull(running.baseUrl, 'property')).items).toHaveLength(1);
   });
 
-  it('describes its panel as data: the directions and settings, the schedules with run-now actions, the fetch list, one record looked at without writing or fetched again, and its queue (AC 42)', async () => {
+  it('describes what it shows as data: its login form, the line under a connection’s name, the offices Vitec lists, a record fetched again, and its queue (AC 42)', async () => {
     seed(fake);
     await start();
     await drainFetchList();
     const connections = [await connection()];
-
-    expect(vitecAdmin.directions().settings.map((setting) => setting.key)).toContain(
-      'VITEC_WEBHOOK_TOKEN',
-    );
-    const page = await vitecAdmin.panel(connections);
-    const url = page.find((section) => section.title === 'Notification addresses and call limits')
-      ?.items?.[0]?.value;
-    expect(url).toEqual({ address: `/v1/hook/vitec/webhook/${TOKEN}` });
-    const schedules = page.find((section) => section.title === 'Connections and schedules');
-    expect(schedules?.table?.rows[0]?.cells[0]).toEqual({ connection: CONNECTION });
-
-    // Look: fetched and mapped, nothing written.
     fake.put(OFFICE, 'property', estate('OBJ9'));
-    const looked = await required(vitecAdmin.inspect, 'inspect')(connections[0] as Connection, {
-      datatype: 'property',
-      remoteId: 'OBJ9',
-      officeId: OFFICE,
-    });
-    expect(looked?.raw).toHaveProperty('id', 'OBJ9');
-    expect(looked?.mapped?.data).toHaveProperty('agent_ids');
-    expect(await item('property', 'OBJ9')).toBeUndefined();
 
     // Fetch again, named outright: the worker hands it to the adapter, which fetches and stores it.
     await queueLifecycle(CONNECTION, 'refetch', {
@@ -1234,10 +1210,7 @@ describe('the Vitec adapter', () => {
     await drainFetchList();
     expect(await item('property', 'OBJ9')).toBeDefined();
 
-    // "Catch up now" makes the next tick run it; under the connection, only the offices Vitec lists.
-    const acted = await vitecAdmin.act('catch_up', { connection: CONNECTION }, connections);
-    expect(acted.message).toContain('within a minute');
-    expect(await store.getState(CONNECTION, 'catch_up_at')).toBe('1970-01-01T00:00:00.000Z');
+    // Under the connection, only the offices Vitec lists.
     expect(vitecAdmin.credentials.map((field) => field.key)).toEqual([
       'qa',
       'customer_id',

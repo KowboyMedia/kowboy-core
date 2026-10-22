@@ -1,5 +1,5 @@
 // The admin area's words for numbers, entity types and CRMs, in one place for the engine's answers
-// and the app's pages alike (docs/admin-panel.md, "The words it uses"; AGENTS.md, definition of
+// and the app's pages alike (docs/new-admin/b-build-list.md; AGENTS.md, definition of
 // done 5: every text is written for a cold reader).
 
 /** A number as Sweden groups it: 12 345. */
@@ -31,10 +31,6 @@ export const anEntity = (datatype: string): string => {
   const word = entity(datatype);
   return `${/^[aeiou]/i.test(word) ? 'an' : 'a'} ${word}`;
 };
-
-/** A number of one entity type: "1 property", "12 properties". */
-export const entities = (value: number, datatype: string): string =>
-  `${number(value)} ${entity(datatype, value !== 1)}`;
 
 /** A CRM by its name: its provider with a capital first letter. */
 export const crmName = (provider: string): string =>

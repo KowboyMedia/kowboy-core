@@ -209,7 +209,7 @@ export async function subscribers(): Promise<SubscriberRow[]> {
   return rows;
 }
 
-// ---- What the admin panel lists and changes (docs/admin-panel.md) --------------------------------
+// ---- What the admin panel lists and changes (docs/new-admin/b-build-list.md) ---------------------
 
 export type TenantRow = {
   id: number;

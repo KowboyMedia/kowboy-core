@@ -1,10 +1,10 @@
 // What needs the super admin's attention (docs/next-steps.md item 26, questions 159, 163 and 164):
-// a few kinds of event, listed on the Overview for seven days and told by their level (alerts.ts):
+// a few kinds of event, listed in the Inbox for seven days and told by their level (alerts.ts):
 // P1 by mail and Slack within a minute, P2 in the mail at 07:00. The event log is the one source:
 // nothing here is kept twice.
 import { db } from './storage/db.js';
 import { aboutCheck, SITES_CHECK, type SiteBehind } from './health.js';
-import { form, namedFor, namesNow, summarise, type Names } from './admin/summary.js';
+import { form, namedFor, namesNow, summarise, type Names } from './summary.js';
 import {
   capital,
   connectionNamed,
@@ -14,7 +14,7 @@ import {
   officeNamed,
   sentence,
   siteNamed,
-} from './admin/words.js';
+} from './words.js';
 import { NOT_LIVE } from './registry.js';
 import type { EventFields } from './events.js';
 import type { Level } from './adapter-api/types.js';
@@ -193,7 +193,7 @@ const STOPPED_OTHERWISE: Kind = {
   onSite: `${NOT_SENT} ${KEPT}`,
 };
 
-/** How long an event stays on the Overview. */
+/** How long an event stays in the Inbox. */
 export const ATTENTION_DAYS = 7;
 
 /** How long before an office is taken off a refusal of it still counts (row 20). */
@@ -386,7 +386,7 @@ function siteBehind(fields: EventFields, known: Names): string {
           (name) => `the site ${name}`,
         );
   const many = names.length > 1;
-  return `${capital(listed(names, names.length) || 'a site')} had not fetched the changes Core told ${many ? 'them' : 'it'} about more than an hour before. When that ended was not recorded; the check “${aboutCheck(SITES_CHECK).title}” on the Overview shows each site still behind.`;
+  return `${capital(listed(names, names.length) || 'a site')} had not fetched the changes Core told ${many ? 'them' : 'it'} about more than an hour before. When that ended was not recorded; the check “${aboutCheck(SITES_CHECK).title}” in the Inbox shows each site still behind.`;
 }
 
 /**
@@ -486,7 +486,7 @@ function connectionWords(id: string, known: Names): string {
   return connectionNamed(connection?.name ?? id, tenant, connection?.provider);
 }
 
-/** Connections by their ids, each as a person knows it and with its block on its tenant's page. */
+/** Connections by their ids, each as a person knows it and with its own page. */
 export async function connectionsNamed(ids: string[]): Promise<{ label: string; to: string }[]> {
   if (ids.length === 0) return [];
   const known = await namesNow();
@@ -494,7 +494,7 @@ export async function connectionsNamed(ids: string[]): Promise<{ label: string; 
     const tenantId = known.connections.get(id)?.tenantId;
     return {
       label: connectionWords(id, known),
-      to: tenantId === undefined ? '/tenants' : `/tenants/${String(tenantId)}#connection:${id}`,
+      to: connectionPlace(id, tenantId ?? null),
     };
   });
 }
@@ -522,10 +522,11 @@ function officesTogether(rows: EventRow[], known: Names): Place {
     const id = text(row.fields, 'office_id');
     return name ? `${name} (the CRM’s office id ${id})` : `the one with the CRM’s office id ${id}`;
   });
-  // Records reads several offices as one list, `office=A,B`; the commas stay readable in a mail.
+  // Records reads each office as `<connection>:<office>`, one `office=` for each.
+  const connection = first?.connection_id ?? '';
   const scope = [
     ...(tenantId === null ? [] : [`tenant=${String(tenantId)}`]),
-    `office=${ids.map(encodeURIComponent).join(',')}`,
+    ...ids.map((id) => `office=${encodeURIComponent(`${connection}:${id}`)}`),
   ];
   return {
     // Every office by name: the alert and the line say which, and the link opens them all.
@@ -601,10 +602,16 @@ function formPlace(row: EventRow, known: Names, formsPages: Map<number, string |
   };
 }
 
-/** A website's place on its tenant's page, or the tenant's page, or Tenants. */
+/** A website's own page, or its tenant's page, or Tenants. */
 function sitePlace(siteId: number | null, tenantId: number | null): string {
-  if (tenantId === null) return '/tenants';
-  return `/tenants/${String(tenantId)}${siteId === null ? '' : `#site:${String(siteId)}`}`;
+  if (tenantId === null) return '/brokerages';
+  return `/brokerages/${String(tenantId)}${siteId === null ? '' : `/websites/${String(siteId)}`}`;
+}
+
+/** A connection's own page, or Tenants. */
+function connectionPlace(id: string, tenantId: number | null): string {
+  if (tenantId === null) return '/brokerages';
+  return `/brokerages/${String(tenantId)}/connections/${encodeURIComponent(id)}`;
 }
 
 /** Which things one event is about, where each is, and its place: one, or one per site. */
@@ -616,8 +623,7 @@ function placesOf(row: EventRow, known: Names, formsPages: Map<number, string | 
   return [
     {
       what: connectionWords(connection, known),
-      link:
-        tenantId === null ? '/tenants' : `/tenants/${String(tenantId)}#connection:${connection}`,
+      link: connectionPlace(connection, tenantId),
       where: null,
       tenantId,
       tenant,
@@ -639,7 +645,7 @@ function sitesOf(fields: EventFields, known: Names): Place[] {
           names.length > 0
             ? `The site ${listed(names, names.length)}, whose tenant this line does not say`
             : 'A site Core did not name',
-        link: '/tenants',
+        link: '/brokerages',
         where: 'Tenants lists every tenant’s sites.',
         tenantId: null,
         tenant: null,
@@ -650,7 +656,7 @@ function sitesOf(fields: EventFields, known: Names): Place[] {
     const tenant = known.tenants.get(site.tenantId) ?? null;
     return {
       what: siteNamed(site.label, tenant),
-      link: `/tenants/${String(site.tenantId)}#site:${String(site.id)}`,
+      link: sitePlace(site.id, site.tenantId),
       where: null,
       tenantId: site.tenantId,
       tenant,

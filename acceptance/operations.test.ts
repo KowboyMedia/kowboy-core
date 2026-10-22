@@ -8,14 +8,14 @@ import { db } from '../engine/storage/db.js';
 import { healthReport, heartbeat } from '../engine/health.js';
 import { checkAlerts } from '../engine/alerts.js';
 import { attention, connectionsNamed, formsPage } from '../engine/attention.js';
-import { summarise } from '../engine/admin/summary.js';
+import { summarise } from '../engine/summary.js';
 import { flushBells, ring } from '../engine/bells.js';
 import { queueLifecycle } from '../engine/lifecycle.js';
 import type { LifecycleEvent } from '../engine/adapter-api/types.js';
 import { logEvent, queryEvents } from '../engine/events.js';
 import { recompute } from '../engine/recompute.js';
 import { NOT_LIVE } from '../engine/registry.js';
-import { clock } from '../engine/admin/words.js';
+import { clock } from '../engine/words.js';
 
 const CONNECTION = 'fake-acme';
 
@@ -343,9 +343,9 @@ describe('alerts', () => {
       [
         'P1 Disrupted · Sites fetching their changes',
         said,
-        'Test tenant’s site test site: https://core.example/admin/tenants/1#site:1',
+        'Test tenant’s site test site: https://core.example/admin/brokerages/1/websites/1',
         '',
-        'What needs attention, on the Overview: https://core.example/admin/',
+        'What needs attention, in the Inbox: https://core.example/admin/',
       ].join('\n'),
     );
 
@@ -464,8 +464,8 @@ describe('alerts', () => {
       "update subscribers set bell_url = 'https://abc.supabase.co/functions/v1/core-bell' where id = 1",
     );
     expect((await attention()).map((line) => line.link)).toEqual([
-      '/tenants/1#site:1',
-      '/tenants/1#site:1',
+      '/brokerages/1/websites/1',
+      '/brokerages/1/websites/1',
     ]);
   });
 
@@ -535,7 +535,7 @@ describe('alerts', () => {
       "update subscribers set bell_url = 'https://abc.supabase.co/functions/v1/core-bell' where id = 1",
     );
     const elsewhere = await attention();
-    expect(new Set(elsewhere.map((line) => line.link))).toEqual(new Set(['/tenants/1#site:1']));
+    expect(new Set(elsewhere.map((line) => line.link))).toEqual(new Set(['/brokerages/1/websites/1']));
     expect(elsewhere.every((line) => !line.said.includes('“Formulär”'))).toBe(true);
   });
 
@@ -596,7 +596,7 @@ describe('alerts', () => {
     );
     expect(running.mails[0]?.text).toContain('Have the worker restarted where Core is hosted.');
     expect(running.mails[0]?.text).toContain(
-      'What needs attention, on the Overview: https://core.example/admin/',
+      'What needs attention, in the Inbox: https://core.example/admin/',
     );
     expect(running.mails[0]?.text).not.toContain('test site');
 
@@ -694,14 +694,14 @@ describe('alerts', () => {
         'P1 Disrupted · Office taken off the sites',
         '2 of Test tenant’s offices were taken off the sites, with their homes and new-build projects. The CRM still refused them at the next daily check. Each office comes back on the sites, with its homes and new-build projects, once the CRM lets the login read it again, which Core checks once a day. Ask the brokerage to check the login’s access to it in the CRM.',
         `Through Test tenant’s Fake-webhook connection “${CONNECTION}”.`,
-        'Test tenant’s offices Lidingö (the CRM’s office id 100) and the one with the CRM’s office id 200: https://core.example/admin/records?tenant=1&office=100,200',
+        'Test tenant’s offices Lidingö (the CRM’s office id 100) and the one with the CRM’s office id 200: https://core.example/admin/records?tenant=1&office=fake-acme%3A100&office=fake-acme%3A200',
         '',
         'P1 Disrupted · A visitor’s form did not reach the CRM',
         'A viewing booking could not be sent to Fake-webhook: it did not answer within 20 seconds. The brokerage does not have it, and Core does not send it again: the visitor was told it was not sent and to contact the brokerage directly.',
         `Through Test tenant’s Fake-webhook connection “${CONNECTION}”.`,
-        'A viewing booking a visitor sent: https://core.example/admin/tenants/1',
+        'A viewing booking a visitor sent: https://core.example/admin/brokerages/1',
         '',
-        'What needs attention, on the Overview: https://core.example/admin/',
+        'What needs attention, in the Inbox: https://core.example/admin/',
       ].join('\n'),
     );
     const sent = await queryEvents({ type: 'alert.sent' });

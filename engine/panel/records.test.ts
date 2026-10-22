@@ -134,8 +134,6 @@ const somecrm: Adapter = {
   },
   admin: {
     credentials: [],
-    directions: () => ({ steps: [], settings: [] }),
-    panel: () => Promise.resolve([]),
     act: () => Promise.resolve({ message: '' }),
     queueCount: (connections, scope) => {
       const ids = new Set(connections.map((one) => one.id));

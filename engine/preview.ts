@@ -4,7 +4,7 @@
 // cannot be mapped or does not fit the schema stops the release. `node dist/main.js preview` runs
 // it as the release's first step, against the database of the app being released (the job
 // "preview" in .do/app.yaml), and its lines go into the release note.
-import { inWords, number } from './admin/words.js';
+import { inWords, number } from './words.js';
 import { recompute, type Progress } from './recompute.js';
 import { closeDb, db } from './storage/db.js';
 

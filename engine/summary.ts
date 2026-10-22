@@ -7,11 +7,11 @@
 //
 // Adding an event type anywhere in Core means adding its line here. The one at the bottom keeps a
 // type nobody described readable rather than silent.
-import { db } from '../storage/db.js';
-import type { EventFields, EventRow } from '../events.js';
-import { aboutCheck } from '../health.js';
-import { NOT_LIVE } from '../registry.js';
-import { TOMBSTONE_RETENTION_DAYS } from '../version.js';
+import { db } from './storage/db.js';
+import type { EventFields, EventRow } from './events.js';
+import { aboutCheck } from './health.js';
+import { NOT_LIVE } from './registry.js';
+import { TOMBSTONE_RETENTION_DAYS } from './version.js';
 import {
   anEntity,
   capital,
@@ -602,13 +602,4 @@ export function namedFor(row: Placed, names: Names): Named {
     crm: connection ? crmName(connection.provider) : null,
     datatype: row.datatype,
   };
-}
-
-/** Each event's sentence, with the names read once: what a timeline or a list shows. */
-export async function sentences(
-  rows: (Placed & Pick<EventRow, 'type' | 'fields'>)[],
-): Promise<string[]> {
-  if (rows.length === 0) return [];
-  const names = await namesNow();
-  return rows.map((row) => summarise(row.type, row.fields, namedFor(row, names)));
 }

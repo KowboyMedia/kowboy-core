@@ -16,8 +16,6 @@ const admin: AdapterAdmin = {
     { key: 'key', label: 'Key' },
     { key: 'pin', label: 'PIN', secret: true },
   ],
-  directions: () => ({ steps: [], settings: [] }),
-  panel: () => Promise.resolve([]),
   act: () => Promise.resolve({ message: '' }),
 };
 

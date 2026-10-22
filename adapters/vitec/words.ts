@@ -1,5 +1,5 @@
 // The words of the Vitec checks and events, for a cold reader (AGENTS.md, definition of done 5).
-// The engine keeps its own in engine/admin/words.ts, which an adapter may not import, so the few
+// The engine keeps its own in engine/words.ts, which an adapter may not import, so the few
 // these need are copied here and read the same: "1 connection", "3 connections", "12 minutes".
 import * as connect from './api.js';
 import type { Office } from './store.js';

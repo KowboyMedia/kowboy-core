@@ -260,7 +260,7 @@ async function noteFailure(current: AdapterApi, live: Live, error: unknown): Pro
   await store.setIfEmpty(id, 'paused_since', new Date().toISOString());
   await store.setState(id, 'pause_ms', String(Math.min(pause.pauseMs * 2, PAUSE_MAX_MS)));
   await store.setState(id, 'probing', '');
-  const detail = `the last call failed because ${failureInWords(error)}. Core asks Vitec nothing for this connection until ${when(until)}, then tries again by itself and waits longer after each new failure, at most ${lasting(PAUSE_MAX_MS)}. Until Vitec answers, the sites keep showing the homes as they are, and changes wait. Nothing needs doing while Vitec is down. Once Vitec answers again, “Ask Vitec again now” on the Vitec page starts at once.`;
+  const detail = `the last call failed because ${failureInWords(error)}. Core asks Vitec nothing for this connection until ${when(until)}, then tries again by itself and waits longer after each new failure, at most ${lasting(PAUSE_MAX_MS)}. Until Vitec answers, the sites keep showing the homes as they are, and changes wait. Nothing needs doing while Vitec is down.`;
   await current.logEvent(
     'connection.paused',
     { connection_id: id, failures, until: until.toISOString(), detail },
@@ -463,7 +463,7 @@ const LATER =
   'The change still reaches the sites with the next catch-up, within 12 hours, and a removal with the next comparison, within a day.';
 const TURNED_AWAY: Record<string, string> = {
   'bad token':
-    'A notification came to Vitec’s address with a wrong secret, so Core turned it away. If Vitec sent it, Vitec holds an old address. Give Vitec the address under “Notification addresses and call limits” on the Vitec page again.',
+    'A notification came to Vitec’s address with a wrong secret, so Core turned it away. If Vitec sent it, Vitec holds an old address. Give Vitec Core’s notification address again, the one shown when a brokerage’s Vitec connection is set up.',
   'malformed body': `Core could not read the notification, so it turned it away. ${LATER}`,
   'type is required': `The notification did not say what kind of record changed, so Core turned it away. ${LATER}`,
   'customerId and id are required': `The notification did not name the office or the record, so Core turned it away. ${LATER}`,
@@ -767,7 +767,7 @@ async function failed(
       datatype: entry.datatype,
       remote_id: entry.remoteId,
       attempts: entry.attempts + 1,
-      detail: `Core gave up fetching this ${recordNamed(entry.datatype)} from Vitec after ${String(entry.attempts + 1)} failed tries. The last try failed because ${failureInWords(error)}. ${whatToDo(error)} The sites show the ${recordNamed(entry.datatype)} as it was before. ${error instanceof NotSaved ? 'Press' : 'Once Vitec answers for it, press'} “Retry now” beside it in the fetch list on the Vitec page.`,
+      detail: `Core gave up fetching this ${recordNamed(entry.datatype)} from Vitec after ${String(entry.attempts + 1)} failed tries. The last try failed because ${failureInWords(error)}. ${whatToDo(error)} The sites show the ${recordNamed(entry.datatype)} as it was before. ${error instanceof NotSaved ? 'Press' : 'Once Vitec answers for it, press'} “Retry” on its card in the Inbox; Core also tries it once more each time it starts.`,
     };
     await current.logEvent('fetch.failed', fields, trace);
     current.report(new Error('vitec fetch given up'), { ...fields, error: String(error) });
@@ -1377,7 +1377,7 @@ async function tickOnce(): Promise<void> {
         'schedule.failed',
         {
           connection_id: given.connection.id,
-          detail: `Core’s regular work for this connection stopped with an error, because ${failureInWords(error)}. Core tries again within a minute. Nothing needs doing unless this repeats every minute. If it does, the Vitec page shows whether Vitec answers.`,
+          detail: `Core’s regular work for this connection stopped with an error, because ${failureInWords(error)}. Core tries again within a minute. Nothing needs doing unless this repeats every minute.`,
         },
         { connectionId: given.connection.id },
       );
@@ -1446,7 +1446,7 @@ async function retriesHealth(current: AdapterApi): Promise<HealthResult> {
   return {
     ok: false,
     level: 'P2',
-    detail: `${counted(count, 'record', 'records')} failed to fetch from Vitec ${String(RETRIES_RED)} times in a row, so the sites show ${them} as before. Core tries each one again, up to ${String(store.MAX_ATTEMPTS)} times. The fetch list on the Vitec page shows ${them}, with “Retry now” and “Drop”.`,
+    detail: `${counted(count, 'record', 'records')} failed to fetch from Vitec ${String(RETRIES_RED)} times in a row, so the sites show ${them} as before. Core tries each one again, up to ${String(store.MAX_ATTEMPTS)} times. The Inbox shows ${them}, with “Retry”.`,
     names,
   };
 }
@@ -1522,7 +1522,7 @@ async function catchUpHealth(current: AdapterApi): Promise<HealthResult> {
   return {
     ok: false,
     level: 'P1',
-    detail: `Core has not caught up ${counted(n, 'connection', 'connections')} with Vitec for over ${lasting(CATCH_UP_LIMIT_MS)}, so a change Vitec did not tell Core about may be missing from ${agree(n, 'its', 'their')} sites. The Vitec page shows each connection’s last catch-up, and “Catch up now” runs one.`,
+    detail: `Core has not caught up ${counted(n, 'connection', 'connections')} with Vitec for over ${lasting(CATCH_UP_LIMIT_MS)}, so a change Vitec did not tell Core about may be missing from ${agree(n, 'its', 'their')} sites. Core keeps trying by itself, and Manual sync fetches a brokerage’s records again now.`,
     names: behind,
   };
 }
@@ -1576,7 +1576,7 @@ async function pausedHealth(current: AdapterApi): Promise<HealthResult> {
   return {
     ok: false,
     level: urgent ? 'P1' : 'P2',
-    detail: `Core stopped asking Vitec for ${counted(n, 'connection', 'connections')} after ${String(PAUSE_AFTER)} failed calls in a row, so ${agree(n, 'its', 'their')} sites get no new changes meanwhile. Core asks Vitec again by itself. Once Vitec answers again, “Ask Vitec again now” on the Vitec page starts at once.`,
+    detail: `Core stopped asking Vitec for ${counted(n, 'connection', 'connections')} after ${String(PAUSE_AFTER)} failed calls in a row, so ${agree(n, 'its', 'their')} sites get no new changes meanwhile. Core asks Vitec again by itself.`,
     names,
   };
 }

@@ -10,7 +10,7 @@ api.ts          Connect over HTTP: basic authentication, list paging, records by
 store.ts        the adapter's own tables: the fetch list, the ids seen per customer, state per connection
 mappers.ts      Connect payloads → the universal model: the universal names, the spine, the rest mirrored (see below)
 test/connect.ts a stand-in Connect for the tests
-admin/index.ts  its panels in the admin panel: webhook URL, schedules, the fetch list, one record looked at or queued
+admin/index.ts  what it shows in the admin panel: its login form, the offices under a connection, a new connection's progress, the fetch list
 vitec.test.ts   the adapter against the real engine and the stand-in
 ```
 
@@ -100,9 +100,8 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   the worker's next tick, which takes every office of the last check off the sites
   (`office.taken_off`, "the login was switched to …"), clears its state, and checks and loads its
   offices in full. An office change from the admin waits for the tick's turn, so nothing is
-  taken off twice. The Vitec page's connections, fetch list and
-  refused offices name a QA office "in Vitec’s QA environment", and so do the names in
-  `vitec.offices`; the tenant's page shows the field ticked instead (question 177). Give a QA login a tenant of
+  taken off twice. The names in `vitec.offices` call a QA office "in Vitec’s QA environment";
+  the tenant's page shows the field ticked instead (question 177). Give a QA login a tenant of
   its own: its records reach that tenant's sites like any other. `qa.test.ts` proves it with two
   stand-ins sharing one office id.
 - **Resync** (`event: resync`, optionally with a datatype) reloads everything listed and removes
@@ -144,12 +143,11 @@ the rules ledger. `mappers.test.ts` holds one Connect-shaped fixture per datatyp
 
 ## Setting up a connection
 
-The directions are data the adapter describes for the admin panel (`admin/directions.ts`),
-built from what the adapter reads and kept true by `admin/directions.test.ts`: the tenant, the
-connection with the Connect key pair and the customer or group id, which offices reach the sites
-(the office group "Webbplats" in Vitec, or every office) and how to tell the brokerage, the
-notification URL and the subscriptions to ask Vitec for, and the health checks to watch. A
-connection with no office to sync fetches nothing and `vitec.catch_up` says so. A connection is
+A new brokerage's setup in the admin panel asks for the tenant, the connection with the Connect
+key pair and the customer or group id, and shows which offices reach the sites (the office group
+"Webbplats" in Vitec, or every office), the notification URL and the subscriptions to ask Vitec
+for (`admin/index.ts`, `noticeSteps`). `drift.test.ts` keeps this README naming every
+environment variable the adapter reads, and every health check titled. A connection with no office to sync fetches nothing and `vitec.catch_up` says so. A connection is
 saved with the engine's `upsertConnection` (the login as one JSON document
 `{"username":"…","password":"…","customer_id":"…"}`, with `"qa":"yes"` for a login to Vitec's
 QA environment, stored encrypted; a save puts the typed

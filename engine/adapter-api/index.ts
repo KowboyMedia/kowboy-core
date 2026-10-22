@@ -23,7 +23,6 @@ export type {
   AdapterAdmin,
   AdapterApi,
   AdminAction,
-  AdminDirections,
   AdminField,
   AdminQueueCount,
   AdminQueued,

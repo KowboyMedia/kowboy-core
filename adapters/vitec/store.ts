@@ -519,27 +519,6 @@ export async function entries(
   return rows.map((row) => ({ ...toEntry(row), nextAt: row.next_at, lastError: row.last_error }));
 }
 
-export type Summary = { waiting: number; retrying: number; givenUp: number };
-
-/** How many records of these offices wait, retry, or were given up on. */
-export async function summary(offices: readonly Office[]): Promise<Summary> {
-  const { rows } = await (
-    await db()
-  ).query<{ waiting: string; retrying: string; given_up: string }>(
-    `select count(*) filter (where next_at is not null and attempts = 0) as waiting,
-            count(*) filter (where next_at is not null and attempts > 0) as retrying,
-            count(*) filter (where next_at is null) as given_up
-     from vitec_fetch_list where office_id = any($1::text[])`,
-    [offices.map(keyOf)],
-  );
-  const row = rows[0];
-  return {
-    waiting: Number(row?.waiting ?? 0),
-    retrying: Number(row?.retrying ?? 0),
-    givenUp: Number(row?.given_up ?? 0),
-  };
-}
-
 /**
  * How many records of these offices wait on the list and how many failed, their last try having
  * failed or the record given up on, of the types named and the one record named when they are.
@@ -578,20 +557,6 @@ export async function waitingByType(
   return Object.fromEntries(rows.map((row) => [row.datatype, Number(row.n)]));
 }
 
-/** An operator's "try again now": due at once, attempts back to zero. */
-export async function expediteOne(
-  office: Office,
-  datatype: Datatype,
-  remoteId: string,
-): Promise<void> {
-  await (
-    await db()
-  ).query(
-    'update vitec_fetch_list set next_at = now(), attempts = 0 where office_id = $1 and datatype = $2 and remote_id = $3',
-    [keyOf(office), datatype, remoteId],
-  );
-}
-
 /**
  * One more try now for a record on the list under any of these offices, its count of failed tries
  * kept: a record given up on that fails again is given up on again at once. How many it found.
@@ -622,16 +587,6 @@ export async function retryGivenUpOnce(): Promise<void> {
   ).query(
     'update vitec_fetch_list set next_at = now(), attempts = greatest(attempts, $1) where next_at is null',
     [MAX_ATTEMPTS - 1],
-  );
-}
-
-/** An operator's "drop it": off the list, nothing else changes. */
-export async function drop(office: Office, datatype: Datatype, remoteId: string): Promise<void> {
-  await (
-    await db()
-  ).query(
-    'delete from vitec_fetch_list where office_id = $1 and datatype = $2 and remote_id = $3',
-    [keyOf(office), datatype, remoteId],
   );
 }
 

@@ -1,5 +1,9 @@
 # The admin area
 
+> **History.** The admin area this file describes was removed on 2026-10-22 on Patric's word, and
+> design B replaced it. What the admin panel is and does now:
+> [`docs/new-admin/b-build-list.md`](new-admin/b-build-list.md).
+
 **This file describes the area as it is.** A change to a page, an action, a setting, a lifecycle
 event or a health check changes this file, the area's own words and the adapter's setup directions
 in the same change (AGENTS.md, definition of done, Patric 2026-09-20). The test

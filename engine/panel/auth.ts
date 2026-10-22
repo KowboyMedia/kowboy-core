@@ -152,3 +152,10 @@ export function sessionCookie(session: Session, settings: AuthSettings): string 
 /** The cookie that forgets the session on this device. */
 export const clearedCookie = (settings: AuthSettings): string =>
   `${COOKIE}=; Path=${COOKIE_PATH}; Max-Age=0; HttpOnly; SameSite=Strict${secure(settings)}`;
+
+/** Sign-in links and sessions past their time, cleared by the worker's housekeeping. */
+export async function deleteExpiredSessions(): Promise<number> {
+  const links = await db().query('delete from admin_logins where expires_at < now()');
+  const sessions = await db().query('delete from admin_sessions where expires_at < now()');
+  return (links.rowCount ?? 0) + (sessions.rowCount ?? 0);
+}

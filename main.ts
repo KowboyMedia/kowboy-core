@@ -14,7 +14,7 @@ import { startEngine, type Engine } from './engine/index.js';
 import { adapterApi, startAdapter } from './engine/adapter-api/index.js';
 import { registerAdmin, registerSubmissions } from './engine/registry.js';
 import { adapterRoutes } from './engine/http/server.js';
-import { removeLoginFields } from './engine/admin/login.js';
+import { removeLoginFields } from './engine/panel/login.js';
 import { closeErrorReporting, report } from './engine/errors.js';
 import { databaseUrl } from './engine/config.js';
 import { previewInWords, previewRelease } from './engine/preview.js';
@@ -39,7 +39,7 @@ function registerAdapters(): void {
   for (const adapter of adapters) {
     adapterApi(adapter.manifest.provider).register(adapter.manifest, adapter.mappers);
     // The admin area runs in the web process while the adapter runs in the worker, so both roles
-    // register what the adapter shows and does there (docs/admin-panel-design.md §3).
+    // register what the adapter shows and does there.
     if (adapter.admin) registerAdmin(adapter.manifest.provider, adapter.admin);
     // A site's form is answered by the web process, which asks the CRM through the adapter and
     // waits inside the request (docs/forms.md, the departure approved with question 130).

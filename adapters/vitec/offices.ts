@@ -90,7 +90,7 @@ export type OfficesCheck = {
 export const NO_SUCH_OFFICE =
   'Vitec lists this office behind the id but answers that it does not exist';
 
-/** What a refused office shows, in the card and among the refused offices on the Vitec page. */
+/** What a refused office shows, in the card under its connection. */
 export const OFFICE_REFUSED = 'Vitec does not let this login read the office';
 
 /**

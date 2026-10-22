@@ -25,17 +25,9 @@ import { logEvent, type EventFields } from './events.js';
 import { mailConfigured, sendMail } from './mail.js';
 import { report } from './errors.js';
 import { attentionBetween, type AttentionRow } from './attention.js';
-import { namesNow } from './admin/summary.js';
-import { namedThings } from './admin/things.js';
-import {
-  capital,
-  clock,
-  counted,
-  firstSentence,
-  lasting,
-  listed,
-  siteNamed,
-} from './admin/words.js';
+import { namesNow } from './summary.js';
+import { namedThings } from './things.js';
+import { capital, clock, counted, firstSentence, lasting, listed, siteNamed } from './words.js';
 
 export type AlertConfig = {
   environment: string;
@@ -62,7 +54,7 @@ const TURN = 'alerts:turn';
 /** A turn not given back within this long belonged to a worker that stopped half way through a round. */
 const TURN_HELD = '2 minutes';
 
-/** A level in the words beside its name (question 172), as the Overview's badges say it. */
+/** A level in the words beside its name (question 172), as the admin area's badges say it. */
 export const LEVEL_WORDS: Record<Level, string> = {
   P0: 'Core down',
   P1: 'Disrupted',
@@ -376,7 +368,7 @@ async function sitesProblems(check: HealthResult, sites: SiteBehind[]): Promise<
       which,
       where: null,
       said,
-      link: `/tenants/${String(site.tenantId)}#site:${String(site.id)}`,
+      link: `/brokerages/${String(site.tenantId)}/websites/${String(site.id)}`,
       place: which,
       fields: {
         name: SITES_CHECK,
@@ -532,9 +524,9 @@ function startedBetween(
 function message(told: Told[], config: AlertConfig, slack: boolean): string {
   const overview = config.publicUrl
     ? slack
-      ? `<${config.publicUrl}/admin/|What needs attention, on the Overview>`
-      : `What needs attention, on the Overview: ${config.publicUrl}/admin/`
-    : 'What needs attention is on the Overview in Core’s admin area.';
+      ? `<${config.publicUrl}/admin/|What needs attention, in the Inbox>`
+      : `What needs attention, in the Inbox: ${config.publicUrl}/admin/`
+    : 'What needs attention is in the Inbox in Core’s admin area.';
   return [...told.map((item) => paragraph(item, config, slack)), overview].join('\n\n');
 }
 

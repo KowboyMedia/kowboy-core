@@ -221,13 +221,6 @@ export function scopeWhere(scope: ScopeFilter, deleted: boolean | null = false):
   return where;
 }
 
-/** The key a page uses for a record. */
-export const itemKey = (row: {
-  connectionId: string;
-  datatype: string;
-  remoteId: string;
-}): string => `${row.connectionId}|${row.datatype}|${row.remoteId}`;
-
 /** Every stored item for a scope, for replay and recompute. */
 export async function itemsForScope(scope: ScopeFilter): Promise<ItemRow[]> {
   const where = scopeWhere(scope);
@@ -363,44 +356,4 @@ export async function resyncTenant(tenantId: number): Promise<void> {
      where id = $1`,
     [tenantId],
   );
-}
-
-// ---- What the admin panel looks at (docs/admin-panel.md) ----------------------------------------
-
-/** Records come in pages of this many: Core holds thousands, more than one page can show. */
-export const RECORDS_PAGE = 500;
-
-export type ItemSearch = ScopeFilter & {
-  /** From 1. */
-  page?: number;
-};
-
-/**
- * Items in a scope, live and removed, the one changed last first: one page, with the count of
- * everything that matches. Records offers no other order (Patric, 2026-10-07).
- */
-export async function searchItems(query: ItemSearch): Promise<{ rows: ItemRow[]; total: number }> {
-  const where = scopeWhere(query, null);
-  const offset = (Math.max(query.page ?? 1, 1) - 1) * RECORDS_PAGE;
-  const [{ rows }, total] = await Promise.all([
-    db().query<ItemRow>(
-      `select * from items where ${where.clauses.join(' and ')} order by updated_at desc, seq desc limit ${RECORDS_PAGE} offset ${offset}`,
-      where.values,
-    ),
-    countItems(query, null),
-  ]);
-  return { rows, total };
-}
-
-export type ItemCount = { tenant_id: number; datatype: string; live: string; tombstoned: string };
-
-/** Live and tombstoned items per tenant and datatype. */
-export async function itemCounts(): Promise<ItemCount[]> {
-  const { rows } = await db().query<ItemCount>(
-    `select tenant_id, datatype,
-            count(*) filter (where not deleted) as live,
-            count(*) filter (where deleted) as tombstoned
-     from items group by tenant_id, datatype order by tenant_id, datatype`,
-  );
-  return rows;
 }

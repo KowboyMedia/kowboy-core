@@ -4,7 +4,7 @@ import { unknownMigrations } from './storage/migrate.js';
 import { undeliveredLifecycleEvents } from './lifecycle.js';
 import { connectionsWithFailingSubmissions } from './storage/submissions.js';
 import { report } from './errors.js';
-import { capital, crmName, inWords, lasting } from './admin/words.js';
+import { capital, crmName, inWords, lasting } from './words.js';
 import type { HealthResult, Level } from './adapter-api/types.js';
 
 /**
@@ -53,17 +53,6 @@ export const detailOf = (check: HealthResult): string | undefined => {
   return failure ? `${check.detail ?? ''} ${failure}`.trim() : check.detail;
 };
 
-/** The report as the admin area reads it: each sentence with what failed. */
-export const forAdmins = (report: HealthReport): HealthReport => ({
-  ok: report.ok,
-  checks: Object.fromEntries(
-    Object.entries(report.checks).map(([name, check]) => {
-      const detail = detailOf(check);
-      return [name, { ...check, ...(detail ? { detail } : {}) }];
-    }),
-  ),
-});
-
 export const WORKER_HEARTBEAT_MS = 2 * 60_000;
 /** A site Core told about changes longer ago than this, and that has not fetched since, is behind. */
 export const SITE_BEHIND_MS = 60 * 60_000;
@@ -94,10 +83,7 @@ export type About = {
 /** The engine's own checks, in words (AGENTS.md, definition of done item 5). */
 const ABOUT: Record<string, About> = {
   database: { title: 'Core’s database' },
-  schema: {
-    title: 'Core’s version and its database',
-    page: { to: '/settings', label: 'Settings' },
-  },
+  schema: { title: 'Core’s version and its database' },
   worker: { title: 'Core’s background worker' },
   [SITES_CHECK]: { title: 'Sites fetching their changes' },
   lifecycle: { title: 'Tasks asked for in the admin area' },
@@ -105,7 +91,7 @@ const ABOUT: Record<string, About> = {
 };
 
 /**
- * A check in words. A CRM's check is put right on its CRM's page, and its name starts with the
+ * A check in words. A CRM's check is shown in the Inbox, and its name starts with the
  * CRM's short name ("somecrm.catch_up"); its words are the ones the CRM's code gave it (question
  * 184), and a check it gave none is about fetching from the CRM.
  */
@@ -116,7 +102,7 @@ export function aboutCheck(name: string): About {
   const words = adminFor(provider)?.checks?.[name];
   return {
     title: words?.title ?? `Fetching from ${crmName(provider)}`,
-    page: { to: `/crms/${provider}`, label: `the ${crmName(provider)} page` },
+    page: { to: '/', label: 'the Inbox' },
   };
 }
 
@@ -133,7 +119,7 @@ export type SiteBehind = {
   lastBellStatus: string | null;
 };
 
-/** The sites a failing sites check found, kept with its result, so the alerts and the Overview read the same ones. */
+/** The sites a failing sites check found, kept with its result, so the alerts and the Inbox read the same ones. */
 const behindOf = new WeakMap<HealthResult, SiteBehind[]>();
 
 /** The sites a sites check found behind, or null when it found none or could not run. */

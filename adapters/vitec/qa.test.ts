@@ -259,11 +259,6 @@ describe('Vitec’s QA environment', () => {
         note: expect.stringMatching(/^in Vitec’s QA environment, refused /),
       },
     ]);
-    const page = await vitecAdmin.panel([await connection(LIVE), await connection(QA)]);
-    const refused = page.find((section) => section.title === 'Refused offices');
-    expect(refused?.table?.rows.map((row) => row.cells[0])).toEqual([
-      { connection: QA, office: OFFICE, note: 'in Vitec’s QA environment' },
-    ]);
   });
 
   it('answers the forms guard that a QA connection is Vitec’s test system, and a live or unreadable one is not (question 181)', async () => {
@@ -323,7 +318,7 @@ describe('Vitec’s QA environment', () => {
     expect(live.forms).toEqual([]);
   });
 
-  it('marks QA on the Vitec page: the second notification address, and its fetch list rows, retried and dropped as QA’s', async () => {
+  it('keeps QA’s fetch list rows apart: each connection’s queue lists its own system’s, and a retry touches only QA’s', async () => {
     // The same home fails once in each system, so each waits on the fetch list for its retry.
     qa.failNext(1);
     await hook('qa', update('OBJ1'));
@@ -333,29 +328,6 @@ describe('Vitec’s QA environment', () => {
     await drainFetchList();
 
     const connections = [await connection(LIVE), await connection(QA)];
-    const page = await vitecAdmin.panel(connections);
-    const items =
-      page.find((section) => section.title === 'Notification addresses and call limits')?.items ??
-      [];
-    const valueOf = (label: string): unknown => items.find((item) => item.label === label)?.value;
-    expect(valueOf('Address for live Vitec')).toEqual({
-      address: `/v1/hook/vitec/webhook/${HOOK_TOKEN}`,
-    });
-    expect(valueOf('Address for Vitec’s QA')).toEqual({
-      address: `/v1/hook/vitec/qa/${HOOK_TOKEN}`,
-    });
-    const schedules = page.find((section) => section.title === 'Connections and schedules');
-    // Each office is named under the connection that fetches it, QA's marked as QA's.
-    const liveOffice = { connection: LIVE, office: OFFICE };
-    const qaOffice = { connection: QA, office: OFFICE, note: 'in Vitec’s QA environment' };
-    expect(schedules?.table?.rows.map((row) => row.cells.slice(0, 2))).toEqual([
-      [{ connection: LIVE }, liveOffice],
-      [{ connection: QA }, qaOffice],
-    ]);
-    const list = page.find((section) => section.title === 'Fetch list');
-    const listed = list?.table?.rows.map((row) => row.cells[0]) ?? [];
-    expect(listed).toHaveLength(2);
-    expect(listed).toEqual(expect.arrayContaining([liveOffice, qaOffice]));
     const queue = vitecAdmin.queue;
     if (!queue) throw new Error('the Vitec adapter has no queue');
     expect((await queue(connections)).map((row) => row.connectionId).sort()).toEqual([LIVE, QA]);
@@ -365,19 +337,18 @@ describe('Vitec’s QA environment', () => {
     expect(await waitingFor(LIVE)).toEqual([LIVE]);
     expect(await waitingFor(QA)).toEqual([QA]);
 
-    // Retry and Drop carry the system: they touch QA's row and leave live Vitec's alone.
-    const qaRow = { office: OFFICE, environment: 'qa', datatype: 'property', id: 'OBJ1' };
-    await vitecAdmin.act('retry', qaRow, connections);
-    const attempts = (await store.entries()).map((entry) => [entry.environment, entry.attempts]);
-    expect(attempts.sort()).toEqual([
-      ['live', 1],
-      ['qa', 0],
+    // A retry carries the connection's system: it makes QA's row due and leaves live Vitec's alone.
+    const records = JSON.stringify([{ connection: QA, datatype: 'property', id: 'OBJ1' }]);
+    const retried = await vitecAdmin.act('retry_records', { records }, connections);
+    expect(retried.message).toBe('1 record is fetched again now.');
+    const due = (await store.entries()).map((entry) => [
+      entry.environment,
+      entry.nextAt !== null && entry.nextAt.getTime() <= Date.now(),
     ]);
-    const dropped = await vitecAdmin.act('drop', qaRow, connections);
-    expect(dropped.message).toBe(
-      'This home is off the fetch list. The sites keep it as they show it now.',
-    );
-    expect((await store.entries()).map((entry) => entry.environment)).toEqual(['live']);
+    expect(due.sort()).toEqual([
+      ['live', false],
+      ['qa', true],
+    ]);
   });
 
   it('takes everything QA gave off the sites when a saved login is switched to live Vitec, and loads live Vitec’s offices in its place', async () => {
