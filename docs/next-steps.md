@@ -11,8 +11,8 @@ The project is closing. Item 33 is the final release; its plan for Patric is
 when the first brokerage runs on live; every other open item is moved to "Later" by the plan's
 table (Default 208).
 Threads at work on the way: the new admin (item 30, waits on 199 to 205), the clear error
-messages and the five records Core cannot store (staging's health is red until they load), Core's
-mail (question 100), the lists (item 31, waits on 198) and the forms (item 29, started on 209 a, 2026-10-19).
+messages and the five records Core cannot store (staging's health is red until they load), the
+lists (item 31, waits on 198) and the forms (item 29, started on 209 a, 2026-10-19).
 "Resume next steps" means:
 the first open step of item 33 that waits on nobody. On 2026-10-18 condition 1 was done and Core's
 part of condition 4, and the preview of condition 2 was built. On 2026-10-19 Patric answered 207 a
@@ -1026,7 +1026,7 @@ the seven days.
          resolved; the cluster's pending maintenance (Tuesdays 08:49 UTC) may add a few.
       5. Alerts in place on both apps and one seen arriving: `ALERT_EMAIL` (the address in
          `ADMIN_EMAILS`), and `MAIL_FROM` with `POSTMARK_SERVER_TOKEN` in each worker, where
-         `checkAlerts` runs; mail first arrives with question 100. Patric's own uptime monitor on
+         `checkAlerts` runs; Core's mail reaches kowboy.se inboxes since 2026-10-22. Patric's own uptime monitor on
          live's `/v1/health` (173), asked of him once the final release is out.
       6. Live's settings at the release, in the live app's own spec: the pool `live` (12 by 167 c,
          kept by 206 a), `SENTRY_DSN`, `ADMIN_SECRET` removed, the worker's mail settings,
