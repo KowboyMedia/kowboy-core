@@ -10,7 +10,9 @@
 //
 // It measures every request's time to the first byte and to the last, and prints them per kind
 // with a last line `load-test result {json}` for the orchestrator. The criterion is read on the
-// full 100-item pages; the delta pulls are the load they share the app with.
+// full 100-item pages; the delta pulls are the load they share the app with. To tell where the
+// time goes, it first times pages with nothing else running, straight from the database and
+// through the app, and times one page straight from the database every 3 seconds under the load.
 //
 //   DATABASE_URL=… CREDENTIALS_KEY=… APP_URL=… node scripts/load-test-job.mjs
 //
@@ -23,6 +25,7 @@ import { join } from 'node:path';
 import { gunzip } from 'node:zlib';
 import { promisify } from 'node:util';
 import { closeDb, db } from '../dist/engine/storage/db.js';
+import { changesPage } from '../dist/engine/storage/items.js';
 import {
   configureCredentials,
   createTenant,
@@ -80,7 +83,7 @@ async function seed() {
     const { rows } = await db().query('select max(seq) as last from items where tenant_id = $1', [
       id,
     ]);
-    tenants.push({ token, count, last: Number(rows[0].last) });
+    tenants.push({ id, token, count, last: Number(rows[0].last) });
     if (n === 0 || (n + 1) % 50 === 0) say(`Seeded ${n + 1} of ${TENANTS} tenants.`);
   }
   const { rows } = await db().query(
@@ -88,7 +91,6 @@ async function seed() {
   );
   say(`The database holds ${rows[0].items} records, ${rows[0].size} in all.`);
   await db().query('analyze items');
-  await closeDb();
   return tenants;
 }
 
@@ -137,7 +139,7 @@ function pull(token, after) {
   });
 }
 
-const measured = { full: [], partial: [], delta: [], failed: [] };
+const measured = { full: [], partial: [], delta: [], failed: [], queryUnderLoad: [] };
 const keep = (kind, result) => {
   if (result.status !== 200) measured.failed.push(result.error ?? `HTTP ${result.status}`);
   else measured[kind].push(result);
@@ -184,6 +186,35 @@ const summary = (results) => ({
   },
 });
 
+/** How long the database takes for one of the big tenant's 100-item pages, as /v1/changes asks it. */
+async function queryTime(tenant, after) {
+  const started = performance.now();
+  await changesPage({ tenantId: tenant.id, datatype: 'property', after, limit: PAGE });
+  return performance.now() - started;
+}
+
+/**
+ * The same pages with nothing else running: 30 pages straight from the database, then the next
+ * 30 through the app, so each part is measured on pages neither has read before.
+ */
+async function alone(big) {
+  const first = big.last - big.count;
+  const query = [];
+  for (let n = 0; n < 30; n += 1) query.push({ total: await queryTime(big, first + n * PAGE) });
+  const pulled = [];
+  for (let n = 30; n < 60; n += 1) pulled.push(await pull(big.token, first + n * PAGE));
+  return { query, pulled };
+}
+
+/** The database's time for a page now and then while the load runs. */
+function sampleQueries(big, samples) {
+  const first = big.last - big.count;
+  return setInterval(() => {
+    const after = first + Math.floor(Math.random() * (big.count / PAGE - 1)) * PAGE;
+    void queryTime(big, after).then((total) => samples.push({ total }));
+  }, 3_000);
+}
+
 async function load(tenants) {
   const stop = Date.now() + MINUTES * 60_000;
   const [big, ...others] = tenants;
@@ -204,6 +235,7 @@ async function load(tenants) {
       await fullSync(others[n], stop);
     }
   };
+  const sampler = sampleQueries(big, measured.queryUnderLoad);
   say(
     `Pulling: the big tenant from 0, two other sites from 0, ${DELTAS_PER_SECOND} delta pulls a second.`,
   );
@@ -214,6 +246,7 @@ async function load(tenants) {
     ...(others.length > 0 ? [othersSync(0), othersSync(1)] : []),
   ]);
   clearInterval(ticker);
+  clearInterval(sampler);
   await Promise.all(deltas);
 }
 
@@ -237,7 +270,12 @@ async function reachable() {
 
 const tenants = await seed();
 await reachable();
+const quiet = await alone(tenants[0]);
+say(
+  `Alone: the database ${summary(quiet.query).total.p50} ms a page (p95 ${summary(quiet.query).total.p95}); through the app first byte ${summary(quiet.pulled).ttfb.p50} ms, whole ${summary(quiet.pulled).total.p50} ms (p95 ${summary(quiet.pulled).ttfb.p95} and ${summary(quiet.pulled).total.p95}).`,
+);
 await load(tenants);
+await closeDb();
 const result = {
   tenants: TENANTS,
   big: BIG,
@@ -247,6 +285,8 @@ const result = {
   deltas: summary(measured.delta),
   failed: measured.failed.length,
   firstFailures: measured.failed.slice(0, 5),
+  alone: { query: summary(quiet.query).total, pulled: summary(quiet.pulled) },
+  queryUnderLoad: summary(measured.queryUnderLoad).total,
   target: TARGET,
 };
 result.passed =
@@ -256,6 +296,9 @@ result.passed =
   result.pages.total.p95 < TARGET.total;
 say(
   `100-item pages: ${result.pages.count}, first byte p95 ${result.pages.ttfb.p95} ms (target under ${TARGET.ttfb}), whole page p95 ${result.pages.total.p95} ms (target under ${TARGET.total}).`,
+);
+say(
+  `Under load the database took ${result.queryUnderLoad.p50} ms a page (p95 ${result.queryUnderLoad.p95}).`,
 );
 say(
   `Delta pulls: ${result.deltas.count}, first byte p95 ${result.deltas.ttfb.p95} ms, whole p95 ${result.deltas.total.p95} ms. Failed requests: ${result.failed}.`,
