@@ -223,48 +223,17 @@ function referencesOf(payload: Record<string, unknown>): [Datatype, string][] {
   ];
 }
 
-/** What this adapter shows in the panel: its login, its fetch list, and one action. */
+/** What this adapter shows under a connection: its fetch list and one action; and its login. */
 const admin: AdapterAdmin = {
+  checks: {
+    [`${PROVIDER}.webhook_lag`]: { title: 'Changes the fake CRM told Core about' },
+  },
   credentials: [
     {
       key: 'key',
       label: 'Pretend key',
       help: 'This CRM is a stand-in; any key it is given is accepted, and every office it knows answers.',
       required: true,
-    },
-  ],
-  directions: () => ({
-    steps: [
-      {
-        title: 'Tenant',
-        text: 'On Tenants, make a tenant with the CRM fake-webhook and its offices; no login is needed, and every record is loaded on save (the event connection_added).',
-      },
-      {
-        title: 'Notifications',
-        text: 'POST /v1/hook/fake-webhook/webhook with the connection, datatype and record id; the record is fetched and written. offices_added, resync and refetch are handled as for any CRM.',
-      },
-      { title: 'Check', text: 'fake-webhook.webhook_lag is green on the dashboard.' },
-    ],
-    settings: [],
-  }),
-  panel: async (connections) => [
-    {
-      title: 'Fetch list',
-      help: 'Records waiting to be fetched from the fake CRM, and the connections that would fetch them.',
-      items: [
-        { label: 'Waiting', value: fetchList.size },
-        {
-          label: 'Connections',
-          value: connections.map((connection) => connection.id).join(', ') || null,
-        },
-      ],
-      actions: [
-        {
-          id: 'drain',
-          label: 'Fetch everything waiting now',
-          help: 'Fetches every record on this CRM’s list at once instead of waiting for the next tick.',
-        },
-      ],
     },
   ],
   connection: async (connection) => [
@@ -305,16 +274,10 @@ const admin: AdapterAdmin = {
     }
     const unknownOffices = officeIds.filter((officeId) => crm.get('office', officeId) === null);
     return unknownOffices.length === 0
-      ? { ok: true, detail: `The CRM answers for ${officeIds.length} office(s).` }
+      ? { ok: true, detail: 'The CRM takes the key and knows every office picked.' }
       : { ok: false, detail: `The CRM has no office ${unknownOffices.join(', ')}.` };
   },
-  /** One record fetched from the CRM and mapped on the spot, writing nothing. */
-  inspect: async (_connection, record) => {
-    const raw = crm.get(record.datatype, record.remoteId);
-    if (raw === null) return null;
-    const mapper = mappers[record.datatype];
-    return { raw, mapped: mapper ? mapper(raw) : null };
-  },
+  // Every record on the list is due at once, until its third failure takes it off the list.
   queue: async () =>
     [...fetchList.values()].map((queued) => ({
       connectionId: queued.connectionId,
@@ -324,9 +287,18 @@ const admin: AdapterAdmin = {
       queuedAt: new Date(queued.queuedAt).toISOString(),
       reason: 'webhook',
       attempts: queued.attempts,
-      nextAt: null,
+      nextAt: new Date(queued.queuedAt).toISOString(),
       lastError: null,
     })),
+  queueCount: async (connections, scope) => ({
+    waiting: [...fetchList.values()].filter(
+      (queued) =>
+        connections.some((connection) => connection.id === queued.connectionId) &&
+        (!scope.datatypes?.length || scope.datatypes.includes(queued.datatype)) &&
+        (scope.remoteId === undefined || scope.remoteId === queued.remoteId),
+    ).length,
+    failed: 0,
+  }),
 };
 
 export const fakeWebhookAdapter: Adapter = {

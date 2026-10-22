@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/POST-v2-Advertising-Form-customerId-Estate-estateId-Viewing-Attend, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/POST-v2-Advertising-Form-customerId-Estate-estateId-Viewing-Attend, fetched 2026-10-04 -->
 
 # POST v2/Advertising/Form/{customerId}/Estate/{estateId}/Viewing/Attend
 
@@ -34,9 +34,9 @@ Anmälningsuppgifter [ViewingAttendeeApplication](https://connect.maklare.vitec.
 
 ### Request Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json574)
+- [application/json, text/json](https://connect.maklare.vitec.net#json338)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml574)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml338)
 
 ```
 {
@@ -108,9 +108,9 @@ Lägg till en visningsdeltagare [AttendViewingResult](https://connect.maklare.vi
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json574)
+- [application/json, text/json](https://connect.maklare.vitec.net#json338)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml574)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml338)
 
 ```
 {

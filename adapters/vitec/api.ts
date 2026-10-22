@@ -1,10 +1,48 @@
 // Vitec Connect over HTTP: basic authentication, the advertising endpoints and their paging.
 // Documented in docs/inputs/vitec/ (technical-information.md and api/). Nothing here knows the
 // engine, and nothing outside this adapter knows these shapes.
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Datatype, EventContext } from '../../engine/adapter-api/index.js';
+import { isBlocked, noteRefusal } from './store.js';
 
-/** The Connect key pair from the partner portal (technical-information.md). */
-export type Auth = { username: string; password: string };
+/**
+ * Vitec's systems a login can be for (question 169 a): `live`, the Connect the brokerages work in,
+ * and `qa`, Vitec's QA environment, a test copy of it at its own address. Nothing else differs.
+ */
+export const ENVIRONMENTS = ['live', 'qa'] as const;
+export type Environment = (typeof ENVIRONMENTS)[number];
+
+/** The Connect key pair from the partner portal (technical-information.md), and its system. */
+export type Auth = { username: string; password: string; environment: Environment };
+
+/**
+ * A connection's login as its page stores it: one username and one password for every call (Patric,
+ * 2026-10-06), the customer or group id Vitec issued it for, and the system, QA when the field `qa`
+ * says yes and live otherwise.
+ */
+export type Login = Auth & { customerId: string | null };
+
+/** The stored login, or null when it holds no key pair. */
+export function loginOf(stored: string | null): Login | null {
+  try {
+    const parsed = JSON.parse(stored ?? '') as Record<string, unknown>;
+    const text = (key: string): string | null => {
+      const value = parsed[key];
+      return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+    };
+    if (typeof parsed['username'] !== 'string' || typeof parsed['password'] !== 'string') {
+      return null;
+    }
+    return {
+      username: parsed['username'],
+      password: parsed['password'],
+      environment: text('qa')?.toLowerCase() === 'yes' ? 'qa' : 'live',
+      customerId: text('customer_id'),
+    };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * One row of a list endpoint: identity and change date only, named as Connect names them. The
@@ -40,55 +78,81 @@ export const concurrency = (): number =>
   Math.max(1, Number(process.env['VITEC_FETCH_CONCURRENCY'] ?? 5));
 
 /** Requests per second at most, lists included, so a load never looks like an attack. */
-export const requestsPerSecond = (): number =>
+const requestsPerSecond = (): number =>
   Math.max(1, Number(process.env['VITEC_REQUESTS_PER_SECOND'] ?? 10));
 
 /** How long a Retry-After is honoured at most. */
 const HOLD_MAX_MS = 5 * 60_000;
 
-let inFlight = 0;
-const waiting: (() => void)[] = [];
-let nextStartAt = 0;
-let holdUntil = 0;
+/** One system's traffic: requests running and waiting, the next start, and Vitec's own hold. */
+type Limiter = {
+  inFlight: number;
+  waiting: (() => void)[];
+  nextStartAt: number;
+  holdUntil: number;
+};
+
+const idle = (): Limiter => ({ inFlight: 0, waiting: [], nextStartAt: 0, holdUntil: 0 });
+
+/**
+ * Each system has its own limits (question 169 a): the requests at once, the requests per second
+ * and a Retry-After Vitec asked for. With each system's own turn at the fetch list (index.ts), a
+ * slow or busy QA never holds up live Vitec's fetches.
+ */
+const limiters: Record<Environment, Limiter> = { live: idle(), qa: idle() };
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Wait for the speed limit, and for any Retry-After Vitec asked for. */
-async function pace(): Promise<void> {
+async function pace(limiter: Limiter): Promise<void> {
   const interval = 1000 / requestsPerSecond();
   const now = Date.now();
-  const at = Math.max(now, nextStartAt, holdUntil);
-  nextStartAt = at + interval;
+  const at = Math.max(now, limiter.nextStartAt, limiter.holdUntil);
+  limiter.nextStartAt = at + interval;
   if (at > now) await sleep(at - now);
 }
 
 /** Honour a Retry-After header (seconds, or a date), for at most HOLD_MAX_MS. */
-function hold(header: string | null): void {
+function hold(limiter: Limiter, header: string | null): void {
   if (!header) return;
   const seconds = Number(header);
   const ms = Number.isFinite(seconds) ? seconds * 1000 : new Date(header).getTime() - Date.now();
-  if (ms > 0) holdUntil = Date.now() + Math.min(ms, HOLD_MAX_MS);
+  if (ms > 0) limiter.holdUntil = Date.now() + Math.min(ms, HOLD_MAX_MS);
 }
 
 /** Run `send` once a slot is free and the speed limit allows. */
-async function slot<T>(send: () => Promise<T>): Promise<T> {
-  if (inFlight >= concurrency()) await new Promise<void>((resolve) => waiting.push(resolve));
-  inFlight += 1;
+async function slot<T>(limiter: Limiter, send: () => Promise<T>): Promise<T> {
+  if (limiter.inFlight >= concurrency()) {
+    await new Promise<void>((resolve) => limiter.waiting.push(resolve));
+  }
+  limiter.inFlight += 1;
   try {
-    await pace();
+    await pace(limiter);
     return await send();
   } finally {
-    inFlight -= 1;
-    waiting.shift()?.();
+    limiter.inFlight -= 1;
+    limiter.waiting.shift()?.();
   }
 }
 
-export const baseUrl = (): string =>
-  (process.env['VITEC_BASE_URL'] ?? 'https://connect.maklare.vitec.net').replace(/\/$/, '');
+/** Vitec's QA environment, at the address Patric remembered (question 169 a). */
+const QA_URL = 'https://connect-qa.maklare.vitec.net';
+let qaUrl = QA_URL;
+
+/** Where a system's Connect is: the live one from VITEC_BASE_URL, QA's at its own address. */
+const baseUrlOf = (environment: Environment): string =>
+  environment === 'qa'
+    ? qaUrl
+    : (process.env['VITEC_BASE_URL'] ?? 'https://connect.maklare.vitec.net').replace(/\/$/, '');
+
+/** Test use: QA at a stand-in, or back at Vitec's own address with null. */
+export function pointQaAt(url: string | null): void {
+  qaUrl = url ?? QA_URL;
+}
 
 /** One request as it went, for the event log: what was asked, what came back, how long it took. */
 export type Call = {
-  method: 'GET';
+  method: 'GET' | 'POST';
   endpoint: string;
   query: Record<string, string>;
   status: number | null;
@@ -110,6 +174,10 @@ export class VitecError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** An answer that is not JSON, which Core cannot read. */
+    readonly broken = false,
+    /** Vitec's own words for the error, when it gave words rather than a web page. */
+    readonly said: string | null = null,
   ) {
     super(message);
     this.name = 'VitecError';
@@ -117,16 +185,39 @@ export class VitecError extends Error {
 }
 
 /**
- * What a failed call means for the adapter's guards: `forbidden` is 401 or 403 (a closed office,
- * a licence gone), `unavailable` is Vitec down, busy or unreachable, `broken` is an answer that is
- * not JSON, and `other` is anything else.
+ * A request that never left: Vitec refuses the office it is about, so Core does not ask (the door
+ * below). Nothing was sent, so it is no new refusal and no failure of Vitec.
  */
-export type FailureKind = 'forbidden' | 'unavailable' | 'broken' | 'other';
+export class Blocked extends Error {
+  constructor(
+    readonly environment: Environment,
+    readonly officeId: string,
+    /** For a new login's test held back because another was tested within the hour: when it may. */
+    testsFrom: Date | null = null,
+  ) {
+    const office = `the office with Vitec’s office id ${officeId}${environment === 'qa' ? ' in its QA environment' : ''}`;
+    super(
+      testsFrom
+        ? `Core did not ask Vitec, because Vitec refuses to let the saved login read ${office}, and a new login for it was tested less than an hour ago. Core tests one new login an hour for a refused office, so Vitec never sees repeated tries from Core. Try again in ${String(Math.max(1, Math.ceil((testsFrom.getTime() - Date.now()) / 60_000)))} minutes.`
+        : `Core did not ask Vitec, because Vitec refuses to let this login read ${office}. Core asks Vitec about the office again only at the daily office check. Once the brokerage has sorted it out with Vitec, press “Fetch offices” on the tenant’s page, and Core checks within a minute. After a changed password, type the new one in the login on the tenant’s page instead: Core tests it at once.`,
+    );
+    this.name = 'Blocked';
+  }
+}
+
+/**
+ * What a failed call means for the adapter's guards: `forbidden` is 401 or 403 (a closed office,
+ * a licence gone), `blocked` is a request the door kept back because Vitec already refuses its
+ * office, `unavailable` is Vitec down, busy or unreachable, `broken` is an answer that is not
+ * JSON, and `other` is anything else.
+ */
+export type FailureKind = 'forbidden' | 'blocked' | 'unavailable' | 'broken' | 'other';
 
 export function kindOf(error: unknown): FailureKind {
+  if (error instanceof Blocked) return 'blocked';
   if (error instanceof VitecError) {
     if (error.status === 401 || error.status === 403) return 'forbidden';
-    if (error.message.includes('broken JSON')) return 'broken';
+    if (error.broken) return 'broken';
     if (error.status === 429 || error.status >= 500) return 'unavailable';
     return 'other';
   }
@@ -134,6 +225,19 @@ export function kindOf(error: unknown): FailureKind {
   return name === 'TimeoutError' || name === 'AbortError' || name === 'TypeError'
     ? 'unavailable'
     : 'other';
+}
+
+/**
+ * Whether a failure is Vitec's side, or the door keeping a call back, and not Core's own fault:
+ * Vitec refused, broke, was busy or down, or did not answer in time. A TypeError counts only as
+ * fetch's own "fetch failed", the network, never a TypeError in Core's code.
+ */
+export function outside(error: unknown): boolean {
+  if (error instanceof Blocked) return true;
+  if (error instanceof VitecError) return kindOf(error) !== 'other';
+  const name = error instanceof Error ? error.name : '';
+  if (name === 'TimeoutError' || name === 'AbortError') return true;
+  return name === 'TypeError' && (error as Error).message === 'fetch failed';
 }
 
 /**
@@ -150,13 +254,112 @@ export type Page = {
 /** The start of an answer, for an error message: enough to see what Vitec sent, never the lot. */
 const snippet = (text: string): string => text.replace(/\s+/g, ' ').slice(0, 200);
 
+/**
+ * Vitec's own words in an error answer, for a person: the message of a JSON answer, or a short
+ * plain text, never a web page.
+ */
+function saidIn(text: string): string | null {
+  const trimmed = text.trim();
+  if (trimmed === '' || trimmed.startsWith('<')) return null;
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown> | null;
+    const words =
+      parsed && typeof parsed === 'object'
+        ? (parsed['message'] ?? parsed['Message'] ?? parsed['title'])
+        : null;
+    return typeof words === 'string' && words.trim() !== '' ? snippet(words) : null;
+  } catch {
+    return snippet(trimmed);
+  }
+}
+
+/** Who is passing the door, when it is not an ordinary request with a saved login. */
+type Passing = 'office check' | 'login trial';
+const passing = new AsyncLocalStorage<Passing>();
+
+/**
+ * Run the office check (offices.ts) through the door: the one caller that asks Vitec about an
+ * office it refuses, once a day or when a person presses "Fetch offices" (question 161 a). It
+ * settles its own refusals.
+ */
+export const asOfficeCheck = <T>(run: () => Promise<T>): Promise<T> =>
+  passing.run('office check', run);
+
+/**
+ * Run "Check login" through the door: a refusal it meets is the typed login's, which nothing has
+ * saved, so it blocks no office. A refused office lets one test through an hour (newTestAt), so
+ * a brokerage's changed password can be typed and saved at once.
+ */
+export const asLoginTrial = <T>(run: () => Promise<T>): Promise<T> =>
+  passing.run('login trial', run);
+
+/** When a new login was last tested for each refused office, in this process's memory only. */
+const newLoginTests = new Map<string, number>();
+
+/** Test use: no new login was tested for any refused office. */
+export function forgetNewLoginTests(): void {
+  newLoginTests.clear();
+}
+
+/**
+ * Whether a typed login may test a refused office now: once an hour per office, so a changed
+ * password is fixed in a minute and Vitec never sees repeated tries (Patric, 2026-10-21). The
+ * admin panel tests only a login that differs from the saved one.
+ */
+function newTestAt(environment: Environment, officeId: string): Date | null {
+  const key = `${environment} ${officeId}`;
+  const next = (newLoginTests.get(key) ?? 0) + 3_600_000;
+  if (next > Date.now()) return new Date(next);
+  newLoginTests.set(key, Date.now());
+  return null;
+}
+
+/**
+ * The one door every request to Vitec passes, `get` and `post` alike (Patric, 2026-10-06: the
+ * circuit breaker is central and does not rely on finding every use). A request about an office
+ * Vitec refuses is never sent, whoever asks: the fetch list, a listing, a person's button, a form
+ * or its "Send again"; the office check, and one new login's test an hour, are the exceptions.
+ * Each request names the office or the customer or group id it is about.
+ */
+async function door(environment: Environment, officeId: string): Promise<void> {
+  const who = passing.getStore();
+  if (who === 'office check') return;
+  if (!(await isBlocked({ environment, officeId }))) return;
+  const testsFrom = who === 'login trial' ? newTestAt(environment, officeId) : null;
+  if (who !== 'login trial' || testsFrom) throw new Blocked(environment, officeId, testsFrom);
+}
+
+/**
+ * On the way back through the door: a 401 or 403 to an advertising request with a saved login
+ * means Vitec will not let it read the office, so the door keeps that office's requests back from
+ * now on, and the worker's next tick blocks it and checks the offices (index.ts). Vitec's CRM
+ * category answers 401 when its function group is not granted, which says nothing of the office.
+ */
+async function refusedAt(
+  environment: Environment,
+  officeId: string,
+  path: string,
+  error: VitecError,
+): Promise<void> {
+  if (error.status !== 401 && error.status !== 403) return;
+  if (passing.getStore() || !/^(v2\/)?Advertising\//.test(path)) return;
+  try {
+    await noteRefusal({ environment, officeId }, error.message);
+  } catch {
+    // The refusal itself still reaches the caller; the fetch list blocks at its next refusal.
+  }
+}
+
 async function get(
   auth: Auth,
+  officeId: string,
   path: string,
   query: Record<string, string>,
   trace?: EventContext,
 ): Promise<unknown | null> {
-  const url = new URL(`${baseUrl()}/${path}`);
+  await door(auth.environment, officeId);
+  const url = new URL(`${baseUrlOf(auth.environment)}/${path}`);
+  const limiter = limiters[auth.environment];
   for (const [name, value] of Object.entries(query)) url.searchParams.set(name, value);
   const startedAt = Date.now();
   const call: Call = {
@@ -169,7 +372,7 @@ async function get(
     trace,
   };
   try {
-    const response = await slot(() =>
+    const response = await slot(limiter, () =>
       fetch(url, {
         headers: {
           authorization: `Basic ${Buffer.from(`${auth.username}:${auth.password}`).toString('base64')}`,
@@ -180,17 +383,113 @@ async function get(
     );
     call.status = response.status;
     if (response.status === 429 || response.status === 503)
-      hold(response.headers.get('retry-after'));
+      hold(limiter, response.headers.get('retry-after'));
     const text = await response.text();
     call.response_bytes = Buffer.byteLength(text);
     if (response.status === 404) return null;
     if (!response.ok) {
-      throw new VitecError(response.status, `${path}: HTTP ${response.status} ${snippet(text)}`);
+      const error = new VitecError(
+        response.status,
+        `${path}: HTTP ${response.status} ${snippet(text)}`,
+        false,
+        saidIn(text),
+      );
+      await refusedAt(auth.environment, officeId, path, error);
+      throw error;
     }
     try {
       return JSON.parse(text) as unknown;
     } catch {
-      throw new VitecError(response.status, `${path}: broken JSON: ${snippet(text)}`);
+      throw new VitecError(response.status, `${path}: broken JSON: ${snippet(text)}`, true);
+    }
+  } catch (error) {
+    call.error = String(error);
+    throw error;
+  } finally {
+    call.duration_ms = Date.now() - startedAt;
+    observer?.(call);
+  }
+}
+
+/**
+ * A text with no e-mail address and no long run of digits left in it: what Vitec says about a
+ * form may echo a field the visitor typed, and that must reach neither the event log nor the
+ * error tracker (docs/forms.md, "Security": Core logs ids and outcomes, never the person).
+ */
+export const scrub = (text: string): string =>
+  text
+    .replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, '[e-mail]')
+    .replace(/[+\d][\d\s-]{5,}\d/g, '[number]');
+
+/**
+ * One POST with a JSON body, as the form calls are made (docs/forms.md): the answer parsed, null
+ * when Connect answers with no body (204), and a `VitecError` with Vitec's words for anything
+ * else, 404 included. The body is never in the event log; the status, size and time are.
+ * `until` is when the form's time runs out: no call starts after it and none outlasts it, so
+ * nothing reaches Vitec after the visitor was told the form was not sent.
+ */
+export async function post(
+  auth: Auth,
+  officeId: string,
+  path: string,
+  body: unknown,
+  trace?: EventContext,
+  until = Number.POSITIVE_INFINITY,
+): Promise<unknown | null> {
+  await door(auth.environment, officeId);
+  const url = new URL(`${baseUrlOf(auth.environment)}/${path}`);
+  const limiter = limiters[auth.environment];
+  const startedAt = Date.now();
+  const call: Call = {
+    method: 'POST',
+    endpoint: `/${path}`,
+    query: {},
+    status: null,
+    duration_ms: 0,
+    response_bytes: null,
+    trace,
+  };
+  try {
+    const response = await slot(limiter, () => {
+      // The wait for a free slot, the speed limit or Vitec's Retry-After may have used it up.
+      const left = until - Date.now();
+      if (left <= 0) {
+        throw Object.assign(new Error(`${path}: not sent, the form's time ran out`), {
+          name: 'TimeoutError',
+        });
+      }
+      return fetch(url, {
+        method: 'POST',
+        headers: {
+          authorization: `Basic ${Buffer.from(`${auth.username}:${auth.password}`).toString('base64')}`,
+          accept: 'application/json',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(Math.min(REQUEST_TIMEOUT_MS, left)),
+      });
+    });
+    call.status = response.status;
+    if (response.status === 429 || response.status === 503)
+      hold(limiter, response.headers.get('retry-after'));
+    const text = await response.text();
+    call.response_bytes = Buffer.byteLength(text);
+    if (!response.ok) {
+      const said = saidIn(text);
+      const error = new VitecError(
+        response.status,
+        `${path}: HTTP ${String(response.status)} ${scrub(snippet(text))}`,
+        false,
+        said === null ? null : scrub(said),
+      );
+      await refusedAt(auth.environment, officeId, path, error);
+      throw error;
+    }
+    if (!text.trim()) return null;
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      throw new VitecError(response.status, `${path}: broken JSON: ${scrub(snippet(text))}`, true);
     }
   } catch (error) {
     call.error = String(error);
@@ -203,6 +502,25 @@ async function get(
 
 const segment = encodeURIComponent;
 
+/**
+ * What the form endpoint knows about a home: its viewings with their time slots, as a booking
+ * needs them (`GET v2/Advertising/Form/{customerId}/Estate/{estateId}`), or null on 404.
+ */
+export function form(
+  auth: Auth,
+  officeId: string,
+  estateId: string,
+  trace?: EventContext,
+): Promise<unknown | null> {
+  return get(
+    auth,
+    officeId,
+    `v2/Advertising/Form/${segment(officeId)}/Estate/${segment(estateId)}`,
+    {},
+    trace,
+  );
+}
+
 /** One record as Vitec publishes it, or null when Vitec answers 404: the record is gone. */
 export function getOne(
   auth: Auth,
@@ -214,10 +532,36 @@ export function getOne(
   const query: Record<string, string> = datatype === 'property' ? { extend: ESTATE_EXTEND } : {};
   return get(
     auth,
+    officeId,
     `Advertising/${RESOURCE[datatype]}/${segment(officeId)}/${segment(id)}`,
     query,
     trace,
   );
+}
+
+/** One office group as Vitec's CRM keeps it: its name and the ids of the offices in it. */
+export type OfficeGroup = { id: string; name: string; officeIds: string[] };
+
+/**
+ * The office groups a brokerage keeps in Vitec (`GET CRM/Officegroups/{customerId}`, the
+ * version 1 CRM category, docs/inputs/vitec/api/). Answered with the CRM function group's rights;
+ * an empty list when Connect answers 404.
+ */
+export async function officeGroups(
+  auth: Auth,
+  customerId: string,
+  trace?: EventContext,
+): Promise<OfficeGroup[]> {
+  const answer = await get(auth, customerId, `CRM/Officegroups/${segment(customerId)}`, {}, trace);
+  if (!Array.isArray(answer)) return [];
+  const text = (value: unknown): string => (typeof value === 'string' ? value : '');
+  return answer.map((group: Record<string, unknown>) => ({
+    id: text(group['id']),
+    name: text(group['name']),
+    officeIds: (Array.isArray(group['offices']) ? group['offices'] : [])
+      .map((office: Record<string, unknown>) => text(office['id']))
+      .filter((id) => id !== ''),
+  }));
 }
 
 /** One page of a list endpoint, or null when Connect answers 404. */
@@ -237,6 +581,7 @@ export function page(
   if (changedSince) query['criteria.changedAtMinValue'] = changedSince.toISOString();
   return get(
     auth,
+    officeId,
     `Advertising/${RESOURCE[datatype]}/${segment(officeId)}`,
     query,
     trace,

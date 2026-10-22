@@ -1,0 +1,87 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "kowboy/page-hero",
+  "title": "Hjältebild",
+  "description": "Sidans topp: en bild, flera bilder, bostädernas bilder, en Vimeo-länk eller en uppladdad film, med rubrik, ingress och knappar. Samma komponent som objektsidans topp.",
+  "category": "kowboy",
+  "icon": "cover-image",
+  "editorScript": "core-client-editor",
+  "render": "file:./render.php",
+  "supports": { "html": false, "anchor": true },
+  "attributes": {
+    "mediaType": {
+      "type": "string",
+      "default": "images",
+      "control": "select",
+      "label": "Media",
+      "options": {
+        "images": "Bild eller bilder",
+        "properties": "Bostädernas bilder",
+        "vimeo": "Vimeo-länk",
+        "video": "Uppladdad film"
+      },
+      "help": "Bostädernas bilder: upp till fem foton från de senaste bostäderna till salu, som bildspel. Utan egna bilder visas de ändå."
+    },
+    "images": {
+      "type": "array",
+      "default": [],
+      "control": "images",
+      "label": "Bilder",
+      "help": "En bild visas stilla, flera visas som bildspel med långsam zoom."
+    },
+    "vimeoUrl": {
+      "type": "string",
+      "default": "",
+      "control": "url",
+      "label": "Vimeo-länk",
+      "help": "Till exempel https://vimeo.com/123456789. Spelas ljudlöst i bakgrunden."
+    },
+    "video": {
+      "type": "object",
+      "default": {},
+      "control": "video",
+      "label": "Film",
+      "help": "En MP4 från mediabiblioteket. Spelas ljudlöst i bakgrunden."
+    },
+    "title": { "type": "string", "default": "", "control": "text", "label": "Rubrik" },
+    "lead": { "type": "string", "default": "", "control": "textarea", "label": "Ingress" },
+    "buttons": {
+      "type": "array",
+      "default": [],
+      "control": "repeater",
+      "label": "Knappar",
+      "max": 2,
+      "fields": {
+        "label": { "control": "text", "label": "Text" },
+        "url": { "control": "url", "label": "Länk" }
+      }
+    },
+    "searchForm": {
+      "type": "boolean",
+      "default": false,
+      "control": "toggle",
+      "label": "Sökformulär",
+      "help": "Sökrutan för bostäder längs hjältebildens nederkant, som på sidan Till salu."
+    },
+    "placeSearch": {
+      "type": "string",
+      "default": "places",
+      "control": "select",
+      "label": "Platssök i sökformuläret",
+      "help": "Sökrutan föreslår bara platser där det finns bostäder till salu eller kommande.",
+      "options": {
+        "none": "Inget, fritext",
+        "areas": "Områden",
+        "places": "Områden, kommuner och län"
+      }
+    },
+    "height": {
+      "type": "string",
+      "default": "default",
+      "control": "select",
+      "label": "Höjd",
+      "options": { "default": "Standard (500 px)", "tall": "Till vikningen (startsidan)" }
+    }
+  }
+}

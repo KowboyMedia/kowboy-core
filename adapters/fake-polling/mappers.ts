@@ -1,13 +1,31 @@
 import type { Mappers, MappedRecord } from '../../engine/adapter-api/index.js';
 
 // A second fake CRM, speaking snake_case, to prove the engine depends on neither vocabulary:
-// it maps onto the same universal names (docs/field-tables.md) as the first.
+// it maps onto the same universal names (docs/field-tables.md) as the first. It carries enough
+// of a listing (sizes, fee, images, viewings, dates, an agent's contact) for the client
+// templates to be proved against it.
 
 type Raw = Record<string, unknown>;
 
 const text = (value: unknown): string | null => (typeof value === 'string' && value ? value : null);
 const number = (value: unknown): number | null =>
   typeof value === 'number' ? value : typeof value === 'string' && value ? Number(value) : null;
+const strings = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
+const flag = (value: unknown): boolean | null => (typeof value === 'boolean' ? value : null);
+const named = (value: unknown): { id: string; name: string } | null =>
+  typeof value === 'string' && value ? { id: value, name: value } : null;
+
+// The office's own labels on a home, by kind (how it is sold, a feature), as the universal `tags`:
+// one entry per kind, with the kind's label as the type's name and the words as the names.
+const tags = (value: unknown): Raw[] =>
+  (Array.isArray(value) ? value : []).map((label) => {
+    const one = (label ?? {}) as Raw;
+    const kind = text(one['kind']) ?? '';
+    return {
+      type: { id: kind, name: text(one['kind_label']) ?? kind },
+      names: strings(one['values']),
+    };
+  });
 
 const STAGES = new Set(['pre', 'active', 'done', 'cancelled']);
 
@@ -17,11 +35,24 @@ const require_ = (record: Raw, field: string): string => {
   return id;
 };
 
+// An image is a URL, or a record with `url` and the office's `category` (a floor plan, say).
+const image = (value: unknown, order: number): Raw => ({
+  id: `img-${order}`,
+  url: typeof value === 'string' ? value : String((value as Raw)['url'] ?? ''),
+  category: typeof value === 'string' ? null : text((value as Raw)['category']),
+  name: null,
+  description: typeof value === 'string' ? null : text((value as Raw)['description']),
+  extension: 'jpg',
+  changed_at: null,
+  order,
+});
+
 const property = (raw: unknown): MappedRecord => {
   const record = raw as Raw;
   const id = require_(record, 'object_id');
   const stage = String(record['stage']);
   if (!STAGES.has(stage)) throw new Error(`unknown stage "${stage}"`);
+  const fee = number(record['fee']);
 
   return {
     officeId: text(record['branch_id']),
@@ -29,35 +60,86 @@ const property = (raw: unknown): MappedRecord => {
     data: {
       id,
       office_id: text(record['branch_id']),
-      agent_ids: Array.isArray(record['staff']) ? record['staff'].map(String) : [],
-      area_ids: Array.isArray(record['districts']) ? record['districts'].map(String) : [],
+      agent_ids: strings(record['staff']),
+      area_ids: strings(record['districts']),
       association_id: text(record['coop_id']),
-      project_id: null,
-      status: { id: stage, name: stage },
+      project_id: text(record['project_id']),
+      status: { id: stage, name: text(record['stage_label']) ?? stage },
       type: null,
       subtype: null,
-      tenure: null,
+      tenure: named(record['tenure']),
+      tags: tags(record['labels']),
+      price_text: text(record['price_text']),
       address: {
         street: text(record['street']),
-        postal_code: null,
-        city: null,
-        area_name: null,
+        postal_code: text(record['postal_code']),
+        city: text(record['city']),
+        area_name: text(record['district_name']),
+        area_id: strings(record['districts'])[0] ?? null,
         municipality: null,
         country_code: null,
+        county_municipality_code: text(record['lkf']),
       },
-      lat: null,
-      lng: null,
+      lat: number(record['lat']),
+      lng: number(record['lng']),
+      short_text: text(record['blurb']),
+      heading: text(record['heading']),
       price: number(record['price']),
-      final_price: null,
+      final_price: number(record['final_price']),
+      sold_at: text(record['sold_at']),
+      published_at: text(record['published_at']),
       currency: 'SEK',
-      fee: null,
-      living_space: null,
+      fee: fee === null ? null : { amount: fee, frequency: 'Monthly', type: null, comment: null },
+      living_space: number(record['living_space']),
       additional_space: null,
-      rooms: null,
+      rooms: number(record['rooms']),
       buildings: [],
-      images: [],
-      viewings: [],
-      bidding: { is_active: null, is_verified: null, bids: [] },
+      // The documents and the links the office lists for the website: `{name, url}` records.
+      documents: (Array.isArray(record['documents']) ? record['documents'] : []).map((value) => ({
+        id: null,
+        name: text((value as Raw)['name']),
+        extension: null,
+        category: null,
+        url: text((value as Raw)['url']),
+        changed_at: null,
+      })),
+      links: (Array.isArray(record['links']) ? record['links'] : []).map((value) => ({
+        name: text((value as Raw)['name']),
+        category: null,
+        url: text((value as Raw)['url']),
+      })),
+      images: (Array.isArray(record['images']) ? record['images'] : []).map((value, index) =>
+        image(value, index + 1),
+      ),
+      viewings: (Array.isArray(record['viewings']) ? record['viewings'] : []).map(
+        (viewing, index) => ({
+          id: `viewing-${index + 1}`,
+          starts_at: text((viewing as Raw)['starts_at']),
+          ends_at: text((viewing as Raw)['ends_at']),
+          comment: text((viewing as Raw)['comment']),
+          is_digital: null,
+          self_registration:
+            typeof (viewing as Raw)['bookable'] === 'boolean'
+              ? ((viewing as Raw)['bookable'] as boolean)
+              : null,
+          is_project_viewing: null,
+        }),
+      ),
+      viewing_settings: { visible_limit: null, empty_text: null },
+      exterior_features: [],
+      bidding: {
+        is_active: typeof record['bidding_active'] === 'boolean' ? record['bidding_active'] : null,
+        is_verified: null,
+        bids: (Array.isArray(record['bids']) ? record['bids'] : []).map((bid) => ({
+          placed_at: text((bid as Raw)['placed_at']),
+          amount: number((bid as Raw)['amount']),
+          is_cancelled:
+            typeof (bid as Raw)['is_cancelled'] === 'boolean'
+              ? ((bid as Raw)['is_cancelled'] as boolean)
+              : null,
+          alias: text((bid as Raw)['alias']),
+        })),
+      },
       display: {},
       provider_extras: { 'fake-polling': { object_type: String(record['object_type']) } },
     },
@@ -73,11 +155,11 @@ const office = (raw: unknown): MappedRecord => {
     data: {
       id,
       name: text(record['branch_name']),
-      address: { street: null, postal_code: null, city: null },
+      address: { street: text(record['street']), postal_code: null, city: text(record['city']) },
       phone: null,
-      email: null,
-      lat: null,
-      lng: null,
+      email: text(record['email']),
+      lat: number(record['lat']),
+      lng: number(record['lng']),
       display: {},
       provider_extras: {},
     },
@@ -88,6 +170,8 @@ const agent = (raw: unknown): MappedRecord => {
   const record = raw as Raw;
   const id = require_(record, 'staff_id');
   const officeId = text(record['branch_id']);
+  const mobile = text(record['mobile']);
+  const photo = text(record['photo']);
   return {
     officeId,
     remoteUpdatedAt: text(record['changed_at']),
@@ -95,20 +179,34 @@ const agent = (raw: unknown): MappedRecord => {
       id,
       office_ids: officeId ? [officeId] : [],
       name: text(record['full_name']),
-      title: null,
-      email: null,
-      phones: { mobile: null, public: null },
-      image: null,
+      title: text(record['title']),
+      description: text(record['bio']),
+      email: text(record['email']),
+      // The CRM's two staff-list toggles: on the record (`visible`) and on the office (`office_visible`).
+      is_visible_in_staff_list: flag(record['visible']),
+      phones: { mobile: mobile ? { number: mobile, display: mobile } : null, public: null },
+      image: photo ? image(photo, 1) : null,
       offices: officeId
-        ? [{ office_id: officeId, order: null, is_visible_in_staff_list: null, phone: null }]
+        ? [
+            {
+              office_id: officeId,
+              order: number(record['order']),
+              is_visible_in_staff_list: flag(record['office_visible']),
+              phone: null,
+            },
+          ]
         : [],
+      reviews: (Array.isArray(record['reviews']) ? record['reviews'] : []).map((review) => ({
+        text: text((review as Raw)['text']),
+        author: text((review as Raw)['author']),
+      })),
       display: {},
       provider_extras: {},
     },
   };
 };
 
-const named =
+const namedRecord =
   (idField: string, nameField: string, extra: Raw): ((raw: unknown) => MappedRecord) =>
   (raw: unknown): MappedRecord => {
     const record = raw as Raw;
@@ -116,7 +214,14 @@ const named =
     return {
       officeId: null,
       remoteUpdatedAt: text(record['changed_at']),
-      data: { id, name: text(record[nameField]), ...extra, display: {}, provider_extras: {} },
+      data: {
+        id,
+        name: text(record[nameField]),
+        office_id: text(record['branch_id']),
+        ...extra,
+        display: {},
+        provider_extras: {},
+      },
     };
   };
 
@@ -124,6 +229,43 @@ export const mappers: Mappers = {
   property,
   office,
   agent,
-  area: named('district_id', 'district_name', { polygon: null, images: [] }),
-  association: named('coop_id', 'coop_name', { contact: null }),
+  area: (raw: unknown): MappedRecord => {
+    const record = raw as Raw;
+    // The outline as the office draws it (GeoJSON MultiPolygon coordinates), when it has one.
+    const polygon = Array.isArray(record['outline']) ? record['outline'] : null;
+    const base = namedRecord('district_id', 'district_name', { polygon, images: [] })(raw);
+    // The LKF code (län, kommun, församling) as the office keys the district, when it has one.
+    return { ...base, data: { ...base.data, county_municipality_code: text(record['lkf']) } };
+  },
+  association: (raw: unknown): MappedRecord => {
+    const record = raw as Raw;
+    const base = namedRecord('coop_id', 'coop_name', { contact: null })(raw);
+    // The association's texts, numbers and documents as the office writes them, for a site's association page.
+    return {
+      ...base,
+      data: {
+        ...base.data,
+        contact:
+          typeof record['contact'] === 'object' && record['contact'] ? record['contact'] : null,
+        organizational_form: text(record['form']),
+        corporate_number: text(record['corporate_number']),
+        home_page: text(record['home_page']),
+        number_of_apartments: number(record['apartments']),
+        descriptions:
+          typeof record['descriptions'] === 'object' && record['descriptions']
+            ? record['descriptions']
+            : null,
+        economy:
+          typeof record['economy'] === 'object' && record['economy'] ? record['economy'] : null,
+        documents: (Array.isArray(record['documents']) ? record['documents'] : []).map((value) => ({
+          id: null,
+          name: text((value as Raw)['name']),
+          extension: null,
+          category: null,
+          url: text((value as Raw)['url']),
+          changed_at: null,
+        })),
+      },
+    };
+  },
 };

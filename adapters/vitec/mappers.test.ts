@@ -530,7 +530,17 @@ describe('the other Vitec datatypes on the universal names', () => {
       numberOfRentalApartments: null,
       numberOfPremises: null,
       descriptions: { generalAboutAssociation: 'Bra förening' },
-      economy: { transferFee: 1200 },
+      economy: { transferFee: 1200, transferFeePaidBy: 'Buyer', allowLegalPersonAsBuyer: 'Maybe' },
+      documents: [
+        {
+          id: '_F_1',
+          name: 'Stadgar',
+          extension: '.pdf',
+          category: null,
+          url: 'https://connect.maklare.vitec.net/File/GetFile?customerId=M1&fileId=_F_1',
+          dateChangedData: '2024-05-16T11:00:28',
+        },
+      ],
       publicContact: {
         name: 'Ordförande',
         cellPhone: null,
@@ -549,6 +559,28 @@ describe('the other Vitec datatypes on the universal names', () => {
       email: 'ordf@example.se',
     });
     expect(association).not.toHaveProperty('public_contact');
+    // Question 93: the codes keep their id and gain Vitec's documented name; an unknown code has none.
+    expect(association['genuine_association']).toEqual({ id: 'Undetermined', name: 'Ej angivet' });
+    expect(at(association, 'economy.transfer_fee_paid_by')).toEqual({
+      id: 'Buyer',
+      name: 'Köpare',
+    });
+    expect(at(association, 'economy.allow_legal_person_as_buyer')).toEqual({
+      id: 'Maybe',
+      name: null,
+    });
+    expect(at(association, 'economy.transfer_fee')).toBe(1200);
+    // Question 94: documents of one shape, addressed on the CDN under the customer Connect's address names.
+    expect(association['documents']).toEqual([
+      {
+        id: '_F_1',
+        name: 'Stadgar',
+        extension: '.pdf',
+        category: null,
+        url: 'https://cdn-realestate.kowboy.se/v310/vitec/files/M1/F1/_F_1.pdf',
+        changed_at: '2024-05-16T09:00:28.000Z',
+      },
+    ]);
   });
 
   it('maps a project with its ranges and texts', () => {

@@ -11,9 +11,22 @@ No section is chosen by the property's type: a farm's rows appear because the fa
 fields are there. Headers and labels are Swedish and live in the definition, so a
 change is an edit there, a release and the automatic recompute, never a client
 release (Patric, 2026-09-19, question 42).
-Sections: Bostaden, Interiör, Byggnad, Våning och hiss, Energideklaration, Balkong uteplats
-och parkering, Tomt, Avgift och driftskostnader, Andelstal och ekonomi, Taxering,
-Pantbrev och inskrivningar, Gård, Fastigheten, Lokalen, Utlandsbostaden, Omgivning,
-Övrigt.
+Sections, headers, rows and order follow norbanmakleri.se, the master of the default set (Patric,
+2026-10-03, question 92, "same as norbanmakleri.se"): Grundinformation (Upplåtelseform, Bostadstyp,
+Adress as street, postal code and city with spaces only, Område, Fastighetsbeteckning), Interiör
+(Boarea, Antal rum as a bare number, Areakälla), Beskrivning (the long selling text, else the
+short one), Byggnad (Byggnadstyp, Byggår, the architecture entries), Ventilation (Typ),
+Energideklaration (Energideklaration per R-011, Energiprestanda primärenergital in kWh per kvm
+och år, Energiklass), "Andelstal, avgifter och insats" (Andel i förening, Andel av årsavgift, the
+fee per R-016 labelled by its type, Kommentar till månadsavgift, Bostadens indirekta
+nettoskuldsättning with its comment on the same line after a comma), Våning/hiss (Våning per
+R-017), Driftskostnader (one row per operating cost, Personer i hushållet, Kommentar
+driftskostnader, Summa per år per R-009). Rows the master has the data for and does not show
+(Objektnummer, Kommun, Lägenhetsnummer, the exterior features) are left out of the tables. After
+those come the sections for facts the master's pages never carried, kept so a home of another kind
+still shows them: Tomt, Taxering, Pantbrev och inskrivningar, Gård, Fastigheten, Lokalen,
+Utlandsbostaden, Omgivning, Övrigt. The association's own rows (Föreningen) and the documents
+(Dokument) come from the association's record and the documents list, so the site renders them
+after these sections (question 94).
 CRMs: all
 Examples: engine/rules/rules.test.ts

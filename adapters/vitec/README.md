@@ -10,7 +10,7 @@ api.ts          Connect over HTTP: basic authentication, list paging, records by
 store.ts        the adapter's own tables: the fetch list, the ids seen per customer, state per connection
 mappers.ts      Connect payloads → the universal model: the universal names, the spine, the rest mirrored (see below)
 test/connect.ts a stand-in Connect for the tests
-admin/index.ts  its panels in the admin panel: webhook URL, schedules, the fetch list, one record looked at or queued
+admin/index.ts  what it shows in the admin panel: its login form, the offices under a connection, a new connection's progress, the fetch list
 vitec.test.ts   the adapter against the real engine and the stand-in
 ```
 
@@ -20,7 +20,8 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   (Patric, 2026-09-17). In the list: on the sites. A `Remove` notification, or an id gone from the
   list: removed, without a fetch. Nothing here reads a field's value.
 - **Webhooks.** Vitec POSTs its notification (`type`, `event`, `customerId`, `id`) to
-  `/v1/hook/vitec/webhook/<VITEC_WEBHOOK_TOKEN>`. The record goes on the fetch list and the answer
+  `/v1/hook/vitec/webhook/<VITEC_WEBHOOK_TOKEN>`, and Vitec's QA environment to
+  `/v1/hook/vitec/qa/<VITEC_WEBHOOK_TOKEN>`. The record goes on the fetch list and the answer
   is 202 at once; nothing is fetched inside the request. Types carried: `Estate`, `Project`,
   `User` (also `Agent`), `Office`, `Area`; any other type is answered 202 and ignored. An `Update`
   is fetched; a `Remove` tombstones the record. The estate subscription at Vitec is limited to
@@ -31,8 +32,12 @@ vitec.test.ts   the adapter against the real engine and the stand-in
   (webhooks and removals) go before loads and catch-ups. Up to five Connect requests run at once (`VITEC_FETCH_CONCURRENCY`),
   lists included. A failed fetch is retried with exponential backoff (10 s, doubling) and never
   treated as a delete; after six failures the record waits for the next signal or an operator, and
-  a `fetch.failed` event is logged and the error reported through the adapter API. A record is
-  fetched once and ingested into every connection that licenses its office.
+  a `fetch.failed` event is logged and the error reported through the adapter API. A record Vitec
+  answered for that Core could not save is retried the same way, and its words say so instead of
+  blaming Vitec. A record is
+  fetched once and ingested into every connection that syncs its office in the same system,
+  live Vitec or QA. A drain runs as long as records are due, so it reads the connections again
+  for each batch of five: a connection removed or changed meanwhile is never written to.
 - **Initial load.** `connection_added` lists everything the connection's offices publish, in
   reference order (offices, agents, areas, projects, properties), and puts it on the list;
   `offices_added` does the same for the added offices only. Associations have no list endpoint: they are fetched when a property names one.
@@ -42,13 +47,83 @@ vitec.test.ts   the adapter against the real engine and the stand-in
 - **Comparison.** Once a day per connection, and at every worker start: Vitec's full id list
   against the ids seen. An id the list no longer holds is removed, without a fetch: the list
   defines what exists for the sites. A `Remove` whose webhook was lost is caught here.
+- **Which offices are synced** (`offices.ts`; questions 147 a and 154, 2026-10-06). Once a day per
+  connection, at every worker start, at the next tick after "Fetch offices", and within seconds
+  after the login's customer or group id is changed and saved on the tenant's page (the adapter
+  looks for a changed id every two seconds and starts a tick; the engine tells it only of a new
+  connection). Ticks run one after another, and a tick that runs long leaves at most one
+  waiting behind it. Vitec's office
+  list for the login's customer or group id (`customer_id` in the login, `M30011` or `G2`), each
+  listed office read on its own under its own customer id (the one its record gives: a group's list
+  rows may leave it out), and the brokerage's office groups
+  (`GET CRM/Officegroups/{id}`, the version 1 CRM category, with the same login: one username
+  and one password for every call, Patric 2026-10-06). The offices that read and sit in the group "webbplats" (any case) are synced; with no
+  such group, or none of its offices readable, every office that reads is. An office that came is
+  loaded; one that went is tombstoned with all its records (`presentIds` per datatype, scoped to the
+  office), so each site deletes it at its next sync. Agents, areas and associations carry no
+  office, so the connection keeps only those `vitec_known` has under an office it still syncs, and
+  tombstones the rest (`presentIds` for the whole connection; Patric, 2026-10-19: "Any orphaned
+  agents are deleted"). A record of no office removed under one office, by the comparison, a
+  `Remove` or a fetch answering 404, stays in a connection while another office it syncs still has
+  it: an agent who works at two offices and leaves one stays. A check Vitec did not answer (down, busy,
+  broken) keeps the last offices and is tried again within the hour. An office Vitec refuses (401
+  or 403, on its own or with its whole id; question 158 b) stays synced for a day of grace
+  (`REFUSAL_GRACE_MS`, the first refusal's time carried from check to check, an office behind an
+  id refused at two checks in a row included) and is taken off when the refusal still stands a day
+  after it began: the worker checks the offices at that time by itself (`leaving`), so a check run
+  meanwhile, after a restart or "Fetch offices", never moves the day. A refusal at any fetch makes
+  the next tick check the offices (`checkSoon`, as the button does). When the connection's own id
+  is refused, `login.refused` carries, besides its `detail`, `offices` (how many synced offices
+  leave the sites if Vitec still refuses then) and `leaves_at` (when, an ISO time; null when none
+  would leave), for the admin panel. A group id (`G12`) is never synced as an
+  office, not even from an answer saved before question 156 a: listing homes, agents or areas
+  under a group is not asking for one office, and Vitec answers its areas with an error. The
+  answer is kept in `vitec_state` and shown on the tenant's page.
+- **A connection deleted in Core** (the admin's Delete, or its tenant deleted) leaves nothing
+  here. The engine tells no CRM's code of a deletion, so the tick finds it (`forgetRemoved`): a
+  connection the last tick saw, or at the first tick one with rows in `vitec_state`, that Core no
+  longer has loses its state, and the fetch list's records and seen ids of every office no other
+  connection syncs go with it. Its records left the sites with the deletion itself.
+- **Vitec's QA environment** (question 169 a, 2026-10-06). A login whose field `qa` is `yes`
+  (any case; any other value, or none, is live Vitec) is for Vitec's QA environment, its test copy
+  of Connect: every call of it, its forms included, goes to `https://connect-qa.maklare.vitec.net`
+  (`api.ts`; the address Patric remembered, unconfirmed until a QA login answers), and its
+  notifications arrive at `/v1/hook/vitec/qa/…`. QA may hold the same office ids as live Vitec, so
+  the adapter's lists keep a QA office as `qa:<office id>` (`store.ts`): a QA notification, fetch,
+  seen id, comparison or refusal never touches live Vitec's office of the same id, and the live
+  rows are as they were. Each system has its own requests at once, requests per second and
+  Retry-After, and drains its own part of the fetch list, so a slow or busy QA never holds up live
+  Vitec's fetches; a connection whose start-up round fails runs it again alone, so a QA that is
+  down never makes live Vitec list everything each minute, and its offices are checked once per
+  start, never on a retry, so a refused office still gets one call a day. Each office check
+  records the system it asked; a saved login switched to the other system syncs no office until
+  the worker's next tick, which takes every office of the last check off the sites
+  (`office.taken_off`, "the login was switched to …"), clears its state, and checks and loads its
+  offices in full. An office change from the admin waits for the tick's turn, so nothing is
+  taken off twice. The names in `vitec.offices` call a QA office "in Vitec’s QA environment";
+  the tenant's page shows the field ticked instead (question 177). Give a QA login a tenant of
+  its own: its records reach that tenant's sites like any other. `qa.test.ts` proves it with two
+  stand-ins sharing one office id.
 - **Resync** (`event: resync`, optionally with a datatype) reloads everything listed and removes
   every id no longer listed.
 - **Health.** `vitec.webhook_lag` (a webhook waiting more than 5 min), `vitec.retries` (a record
-  that failed three fetches in a row), `vitec.catch_up` (red from a worker start until the
-  catch-up, the comparison and their fetches are done; then a connection whose last catch-up is
-  older than 13 h, whose credentials cannot be read, or which has no offices). The checks run in
-  the worker and are recorded for the web process every 30 s.
+  of a synced office that failed three fetches in a row; it names each one as a record of a
+  connection that fetches it, those given up on first, at most 50, each with where it stands,
+  why its last try failed in the words of whoever failed (Vitec's answer code and words, or Core's
+  own error) and whose fault that is with what to do (`whatToDo` in `words.ts`), and keeps naming a record
+  while its next fetch runs, so it clears only once the record has loaded), `vitec.login` (a saved login Core cannot read),
+  `vitec.no_offices` (a checked connection with no office to fetch), `vitec.catch_up` (from a
+  worker start until the catch-up, the comparison and their fetches are done; then a connection
+  whose last catch-up is older than 13 h), `vitec.offices` (an office Vitec refuses) and
+  `vitec.connect` (a connection Core stopped asking after five failed calls). Each has a level,
+  a title (`vitecAdmin.checks`), and names its connections, offices and
+  records by their ids for Core to name and link. The checks run in the worker and are recorded
+  for the web process every 30 s.
+- **Error reports** (`report`, which reaches Sentry) are for Core's own faults. A paused
+  connection, a refused office and a schedule that Vitec failed, refused, did not answer in time
+  or the door kept back (`outside` in `api.ts`) are a `warn` line in the worker's log instead,
+  since the checks and events above already show them; a schedule that failed in Core's own code
+  is reported.
 
 ## Mappers: the universal names, the spine on top, the rest mirrored
 
@@ -68,26 +143,55 @@ the rules ledger. `mappers.test.ts` holds one Connect-shaped fixture per datatyp
 
 ## Setting up a connection
 
-The directions are data the adapter describes for the admin panel (`admin/directions.ts`, shown
-by the panel once it exists), built from what the adapter reads and kept true by
-`admin/directions.test.ts`: the tenant, the connection with the Connect key pair and the offices
-(customer ids, `M30011` and the like), the notification URL and the subscriptions to ask Vitec
-for, and the health checks to watch. A connection without offices fetches nothing and
-`vitec.catch_up` says so. A connection is saved with the engine's `upsertConnection` (the login
-as one JSON document `{"username":"…","password":"…"}`, stored encrypted) and loaded by queueing
-the lifecycle event `connection_added`, which the worker delivers to the adapter. Adding an
-office later: set the connection's offices, then queue `offices_added` with the new ids; only
-those are loaded.
+A new brokerage's setup in the admin panel asks for the tenant, the connection with the Connect
+key pair and the customer or group id, and shows which offices reach the sites (the office group
+"Webbplats" in Vitec, or every office), the notification URL and the subscriptions to ask Vitec
+for (`admin/index.ts`, `noticeSteps`). `drift.test.ts` keeps this README naming every
+environment variable the adapter reads, and every health check titled. A connection with no office to sync fetches nothing and `vitec.catch_up` says so. A connection is
+saved with the engine's `upsertConnection` (the login as one JSON document
+`{"username":"…","password":"…","customer_id":"…"}`, with `"qa":"yes"` for a login to Vitec's
+QA environment, stored encrypted; a save puts the typed
+fields over the stored ones) and loaded by queueing the lifecycle event `connection_added`, which
+the worker delivers to the adapter: the adapter checks its offices with Vitec and loads them. The
+connection's own office list stays empty (the manifest's `officesFromCrm`, question 156 a): the
+tenant page draws no office field for Vitec, and the engine reads the list as empty.
+
+## Forms from the sites (docs/forms.md)
+
+`forms.ts` is the adapter's `submit` and `slots`: the web process hands it a site's form inside
+the request and waits for Vitec's answer. The universal submission is copied onto Connect's own
+calls, nothing read to decide anything: a lead (the free valuation) is
+`POST v2/Advertising/Form/{customerId}/Valuation`, an interest is
+`POST Advertising/Estate/{customerId}/{estateId}/interest`, a viewing booking is
+`POST v2/Advertising/Form/{customerId}/Estate/{estateId}/Viewing/Attend`, and a search profile
+is `POST Contacts/UpdatePerson` (whose duplicate check answers the existing or the new contact's
+id) followed by `POST CRM/Contact/{customerId}/SearchProfile/Residential/{contactId}`, both in
+the CRM function group; a profile that names a home but not its type gets the home's own
+subtype, read with `GET Advertising/Estate/{customerId}/{estateId}` (kedjehus and parhus as
+radhus, none for a type the residential profile lacks). The customer id is the office Core filled in. A ticked "contact me about
+my current home" (question 141 a) sends the valuation too, on the same person. The slots are
+`GET v2/Advertising/Form/{customerId}/Estate/{estateId}` under the universal names, its bare
+Swedish times read in Vitec's zone as the records' are. Nothing about forms is typed on a
+connection (question 155): the lead source, the intake source and an interest's status are left
+to Vitec, and a booking asks for both confirmations, by e-mail and by SMS, and no reminder. Only the live service hands a form for live Vitec to the adapter (question 152); a QA login's form is handed over from staging too, since `testSystem` answers yes for it (question 181). Vitec's 400, 404, 409 and 422 are a refusal with Vitec's words, scrubbed
+of anything that looks like an e-mail address or a number; anything else is a failure. A call
+Vitec could not take (5xx, 429, no connection) is tried twice more, after 1 s and 3 s, within
+15 s of the form's start, and no call starts or lasts after that, so the visitor hears the last
+answer while Core waits and nothing reaches Vitec after they were told it was not sent (question
+165). Every call, each try included, is a `crm.call` event in the form's chain on the home's
+timeline, without the body.
+`forms.test.ts` proves it against the stand-in; the real send waits on a demo or test customer
+Patric has confirmed (question 54 f), never the login in the environment.
 
 ## Environment
 
-| Variable                    | Meaning                                                                                 |
-| --------------------------- | --------------------------------------------------------------------------------------- |
-| `VITEC_WEBHOOK_TOKEN`       | The secret in the webhook URL. Without it the listener answers 503.                     |
-| `VITEC_BASE_URL`            | `https://connect.maklare.vitec.net` unless the tests point it at the stand-in.          |
-| `VITEC_FETCH_CONCURRENCY`   | Connect requests at once, default 5.                                                    |
-| `VITEC_REQUESTS_PER_SECOND` | The speed limit towards Connect, default 10; the tests raise it.                        |
-| `DATABASE_URL`              | Where the adapter's own tables live (`vitec_fetch_list`, `vitec_known`, `vitec_state`). |
+| Variable                    | Meaning                                                                                                           |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `VITEC_WEBHOOK_TOKEN`       | The secret in the webhook URL. Without it the listener answers 503.                                               |
+| `VITEC_BASE_URL`            | `https://connect.maklare.vitec.net` unless the tests point it at the stand-in; QA's address is fixed in `api.ts`. |
+| `VITEC_FETCH_CONCURRENCY`   | Connect requests at once, default 5, for live Vitec and QA each.                                                  |
+| `VITEC_REQUESTS_PER_SECOND` | The speed limit towards Connect, default 10, for live Vitec and QA each; the tests raise it.                      |
+| `DATABASE_URL`              | Where the adapter's own tables live (`vitec_fetch_list`, `vitec_known`, `vitec_state`).                           |
 
 ## Verified against Connect (2026-09-17)
 
@@ -132,16 +236,44 @@ then answers 403 and whose hammering got Core blocked (Patric, 2026-09-18). The 
 itself, all of it inside the adapter:
 
 - **A refused office (401 or 403)** is blocked at the first refusal: nothing more is asked for it,
-  its waiting records are parked, and one probe per cool-down (an hour, doubling to a day) checks
-  whether it is back. Back means unblocked and loaded in full, so nothing that happened meanwhile is
-  missed. Its records stay on the sites as they are until a person removes the office at the panel
-  (question 38). `vitec.offices` is red while an office is blocked; the panel has "Probe now" and
-  "Forget".
+  and its waiting records are parked. The first refusal also holds every other fetch of the same
+  login and has the office check run at the next tick, so a revoked login costs one refused call,
+  not one per office. That check settles the blocks (an office it finds refused, on its own or with
+  the whole id, stays blocked; one that reads again is unblocked and loaded in full, so nothing that
+  happened meanwhile is missed) and releases the hold; a listing the hold cut short runs again, and
+  a load it cut short is finished after the check. From then on the office check, once a day, is
+  the only call that asks about a blocked office, and it asks for the office groups only when the
+  id's own list answered (question 161 a). A cancelled brokerage so costs about six refused calls
+  on the first day and one a day after, which also brings it back by itself when Vitec answers
+  again. A refused office stays on the sites for a day and is then taken off (question 158 b, under
+  "Which offices are synced"). `vitec.offices` is red while an office is blocked, and the panel
+  lists the blocked offices; "Fetch offices" on the tenant's page asks at once. The block is kept
+  at one door: every request to Vitec (`get` and `post` in `api.ts`) names its office, and a
+  request about a blocked office is never sent, whoever asks, the fetch list, a listing, "compare
+  with the CRM", "fetch again", "Check login", a form or its "Send again"; only the office
+  check, run through `asOfficeCheck`, passes it. A 401 or 403 that comes back to an advertising
+  request with a saved login, from a person's button or a form as well as the fetch list, is noted
+  at the same door (`noteRefusal`): the door keeps the office's requests back from then on, and the
+  worker's next tick blocks it, tells each connection that syncs it (`office.blocked`), holds those
+  connections and checks the offices. "Check login" runs as a trial (`asLoginTrial`), so a typed
+  login's refusal blocks nothing, and a refusal from Vitec's CRM category (a function group not
+  granted) says nothing of the office. Each process reads the blocks at most once in five seconds,
+  and its own changes apply at once. A block and its
+  end are logged (`office.blocked`, `office.unblocked`) once for each connection that syncs the
+  office in that system, and a check settles the blocks before it takes offices off. The offices
+  one check takes off for one reason, or one switch takes off, share one correlation id on their
+  `office.taken_off`, so the super admin's notifications tell one cause once.
 - **Vitec down, busy or unreachable** (timeouts, 5xx, 429, network errors) and **broken answers**
   count per connection: after five in a row the connection pauses, two minutes doubling to thirty,
-  and shows red in `vitec.connect`. When the pause runs out the next fetches go through as a probe;
-  one more failure pauses again, a success ends it. Each record is still retried with growing waits
-  and given up after six attempts, for the panel's Retry or Drop.
+  and shows red in `vitec.connect`. A batch of fetches sends no more calls than the failures the
+  connection has left before its pause, so five at once never carry it past five. When the pause
+  runs out, the next tick lets one fetch through as a probe; one more failure pauses again, a
+  success ends it. Each record is still retried with growing waits
+  and given up after six attempts, for the panel's Retry or Drop. The action `retry_records`
+  takes the records `vitec.retries` names, as one parameter `records`, a JSON list of
+  `{ connection, datatype, id }`, and gives each one more try now through the fetch list and the
+  same door as every fetch, its count of failed tries kept: one that fails again is given up on
+  again at once.
 - **A broken answer** keeps the start of what Vitec sent in the `crm.call` event, so the cause can
   be read afterwards; nothing half-parsed is ever written, and the last good version stays.
 - **A speed limit** of ten requests a second (`VITEC_REQUESTS_PER_SECOND`), five at once

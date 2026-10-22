@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Project-customerId-projectId, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Project-customerId-projectId, fetched 2026-10-04 -->
 
 # GET Advertising/Project/{customerId}/{projectId}
 
@@ -64,9 +64,9 @@ Hämta projekt för hemsida.
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json590)
+- [application/json, text/json](https://connect.maklare.vitec.net#json151)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml590)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml151)
 
 ```
 {
@@ -109,26 +109,26 @@ Hämta projekt för hemsida.
     "parking": "sample string 4",
     "other": "sample string 5"
   },
-  "changedAt": "2026-09-16T05:56:30.5443577+02:00",
+  "changedAt": "2026-10-04T13:51:17.7599517+02:00",
   "files": [
     {
       "id": "sample string 1",
       "name": "sample string 2",
       "extension": "sample string 3",
-      "dataChangedAt": "2026-09-16T05:56:30.5443577+02:00"
+      "dataChangedAt": "2026-10-04T13:51:17.7599517+02:00"
     },
     {
       "id": "sample string 1",
       "name": "sample string 2",
       "extension": "sample string 3",
-      "dataChangedAt": "2026-09-16T05:56:30.5443577+02:00"
+      "dataChangedAt": "2026-10-04T13:51:17.7599517+02:00"
     }
   ],
   "viewings": [
     {
       "id": "sample string 1",
-      "startsAt": "2026-09-16T05:56:30.5443577+02:00",
-      "endsAt": "2026-09-16T05:56:30.5443577+02:00",
+      "startsAt": "2026-10-04T13:51:17.7599517+02:00",
+      "endsAt": "2026-10-04T13:51:17.7599517+02:00",
       "comment": "sample string 4",
       "isDigital": true,
       "isSelfRegistrationEnabled": true,
@@ -136,8 +136,8 @@ Hämta projekt för hemsida.
     },
     {
       "id": "sample string 1",
-      "startsAt": "2026-09-16T05:56:30.5443577+02:00",
-      "endsAt": "2026-09-16T05:56:30.5443577+02:00",
+      "startsAt": "2026-10-04T13:51:17.7599517+02:00",
+      "endsAt": "2026-10-04T13:51:17.7599517+02:00",
       "comment": "sample string 4",
       "isDigital": true,
       "isSelfRegistrationEnabled": true,
@@ -147,7 +147,7 @@ Hämta projekt för hemsida.
   "images": [
     {
       "id": "sample string 1",
-      "dataChangedAt": "2026-09-16T05:56:30.5443577+02:00",
+      "dataChangedAt": "2026-10-04T13:51:17.7599517+02:00",
       "description": "sample string 3",
       "name": "sample string 4",
       "category": {
@@ -168,7 +168,7 @@ Hämta projekt för hemsida.
     },
     {
       "id": "sample string 1",
-      "dataChangedAt": "2026-09-16T05:56:30.5443577+02:00",
+      "dataChangedAt": "2026-10-04T13:51:17.7599517+02:00",
       "description": "sample string 3",
       "name": "sample string 4",
       "category": {
@@ -209,7 +209,7 @@ Hämta projekt för hemsida.
   "marketing": {
     "isPublished": true,
     "isPreview": true,
-    "publishedAt": "2026-09-16T05:56:30.5443577+02:00",
+    "publishedAt": "2026-10-04T13:51:17.7599517+02:00",
     "isNewHome": true,
     "viewing": {
       "visibleLimit": 1,
@@ -228,7 +228,7 @@ Hämta projekt för hemsida.
         "sample string 1",
         "sample string 2"
       ],
-      "changedAt": "2026-09-16T05:56:30.5443577+02:00",
+      "changedAt": "2026-10-04T13:51:17.7599517+02:00",
       "telephone": {
         "cell": {
           "msisdn": "sample string 1",
@@ -241,7 +241,7 @@ Hämta projekt för hemsida.
       },
       "image": {
         "id": "sample string 1",
-        "dataChangedAt": "2026-09-16T05:56:30.5443577+02:00",
+        "dataChangedAt": "2026-10-04T13:51:17.7599517+02:00",
         "description": "sample string 3",
         "name": "sample string 4",
         "category": {
@@ -309,7 +309,7 @@ Hämta projekt för hemsida.
         "sample string 1",
         "sample string 2"
       ],
-      "changedAt": "2026-09-16T05:56:30.5443577+02:00",
+      "changedAt": "2026-10-04T13:51:17.7599517+02:00",
       "telephone": {
         "cell": {
           "msisdn": "sample string 1",
@@ -322,7 +322,7 @@ Hämta projekt för hemsida.
       },
       "image": {
         "id": "sample string 1",
-        "dataChangedAt": "2026-09-16T05:56:30.5443577+02:00",
+        "dataChangedAt": "2026-10-04T13:51:17.7599517+02:00",
         "description": "sample string 3",
         "name": "sample string 4",
         "category": {
@@ -409,7 +409,7 @@ Hämta projekt för hemsida.
     "phrase": "sample string 3",
     "heading": "sample string 4",
     "otherInformation": "sample string 5",
-    "startsAt": "2026-09-16T05:56:30.5443577+02:00",
+    "startsAt": "2026-10-04T13:51:17.7599517+02:00",
     "possessionEstimation": "sample string 6"
   },
   "producer": {

@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Estate-customerId-estateId, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Estate-customerId-estateId, fetched 2026-10-04 -->
 
 # GET Advertising/Estate/{customerId}/{estateId}
 
@@ -78,9 +78,9 @@ Hämta bostad för hemsida.
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json324)
+- [application/json, text/json](https://connect.maklare.vitec.net#json791)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml324)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml791)
 
 ```
 {
@@ -124,9 +124,9 @@ Hämta bostad för hemsida.
     "heading": "sample string 4",
     "otherInformation": "sample string 5",
     "possessionEstimation": "sample string 6",
-    "possessionAt": "2026-09-16T05:56:31.3256156+02:00",
-    "contractDate": "2026-09-16T05:56:31.3256156+02:00",
-    "assignmentDate": "2026-09-16T05:56:31.3256156+02:00"
+    "possessionAt": "2026-10-04T10:31:59.8869445+02:00",
+    "contractDate": "2026-10-04T10:31:59.8869445+02:00",
+    "assignmentDate": "2026-10-04T10:31:59.8869445+02:00"
   },
   "surroundings": {
     "service": "sample string 1",
@@ -135,26 +135,26 @@ Hämta bostad för hemsida.
     "parking": "sample string 4",
     "other": "sample string 5"
   },
-  "changedAt": "2026-09-16T05:56:31.3256156+02:00",
+  "changedAt": "2026-10-04T10:31:59.8869445+02:00",
   "files": [
     {
       "id": "sample string 1",
       "name": "sample string 2",
       "extension": "sample string 3",
-      "dataChangedAt": "2026-09-16T05:56:31.3256156+02:00"
+      "dataChangedAt": "2026-10-04T10:31:59.8869445+02:00"
     },
     {
       "id": "sample string 1",
       "name": "sample string 2",
       "extension": "sample string 3",
-      "dataChangedAt": "2026-09-16T05:56:31.3256156+02:00"
+      "dataChangedAt": "2026-10-04T10:31:59.8869445+02:00"
     }
   ],
   "viewings": [
     {
       "id": "sample string 1",
-      "startsAt": "2026-09-16T05:56:31.3256156+02:00",
-      "endsAt": "2026-09-16T05:56:31.3256156+02:00",
+      "startsAt": "2026-10-04T10:31:59.8869445+02:00",
+      "endsAt": "2026-10-04T10:31:59.8869445+02:00",
       "comment": "sample string 4",
       "isDigital": true,
       "isSelfRegistrationEnabled": true,
@@ -162,8 +162,8 @@ Hämta bostad för hemsida.
     },
     {
       "id": "sample string 1",
-      "startsAt": "2026-09-16T05:56:31.3256156+02:00",
-      "endsAt": "2026-09-16T05:56:31.3256156+02:00",
+      "startsAt": "2026-10-04T10:31:59.8869445+02:00",
+      "endsAt": "2026-10-04T10:31:59.8869445+02:00",
       "comment": "sample string 4",
       "isDigital": true,
       "isSelfRegistrationEnabled": true,
@@ -173,7 +173,7 @@ Hämta bostad för hemsida.
   "images": [
     {
       "id": "sample string 1",
-      "dataChangedAt": "2026-09-16T05:56:31.3256156+02:00",
+      "dataChangedAt": "2026-10-04T10:31:59.8869445+02:00",
       "description": "sample string 3",
       "name": "sample string 4",
       "category": {
@@ -194,7 +194,7 @@ Hämta bostad för hemsida.
     },
     {
       "id": "sample string 1",
-      "dataChangedAt": "2026-09-16T05:56:31.3256156+02:00",
+      "dataChangedAt": "2026-10-04T10:31:59.8869445+02:00",
       "description": "sample string 3",
       "name": "sample string 4",
       "category": {
@@ -349,7 +349,7 @@ Hämta bostad för hemsida.
           "id": "sample string 1",
           "name": "sample string 2"
         },
-        "performedAt": "2026-09-16T05:56:31.3256156+02:00"
+        "performedAt": "2026-10-04T10:31:59.8869445+02:00"
       },
       "plot": {
         "description": "sample string 1"
@@ -493,7 +493,7 @@ Hämta bostad för hemsida.
           "id": "sample string 1",
           "name": "sample string 2"
         },
-        "performedAt": "2026-09-16T05:56:31.3256156+02:00"
+        "performedAt": "2026-10-04T10:31:59.8869445+02:00"
       },
       "plot": {
         "description": "sample string 1"
@@ -661,12 +661,12 @@ Hämta bostad för hemsida.
     },
     "leasehold": {
       "fee": 1.1,
-      "term": "2026-09-16T05:56:31.3256156+02:00"
+      "term": "2026-10-04T10:31:59.8869445+02:00"
     },
     "lease": {
       "fee": 1.1,
       "description": "sample string 1",
-      "term": "2026-09-16T05:56:31.3256156+02:00",
+      "term": "2026-10-04T10:31:59.8869445+02:00",
       "owner": {
         "name": "sample string 1"
       }
@@ -691,13 +691,13 @@ Hämta bostad för hemsida.
     "isVerified": true,
     "bids": [
       {
-        "placedAt": "2026-09-16T05:56:31.3256156+02:00",
+        "placedAt": "2026-10-04T10:31:59.8869445+02:00",
         "amount": 2,
         "isCanceled": true,
         "alias": "sample string 4"
       },
       {
-        "placedAt": "2026-09-16T05:56:31.3256156+02:00",
+        "placedAt": "2026-10-04T10:31:59.8869445+02:00",
         "amount": 2,
         "isCanceled": true,
         "alias": "sample string 4"
@@ -707,7 +707,7 @@ Hämta bostad för hemsida.
   "marketing": {
     "isPublished": true,
     "isPreview": true,
-    "publishedAt": "2026-09-16T05:56:31.3256156+02:00",
+    "publishedAt": "2026-10-04T10:31:59.8869445+02:00",
     "isNewHome": true,
     "viewing": {
       "visibleLimit": 1,
@@ -970,7 +970,7 @@ Hämta bostad för hemsida.
       },
       "offer": {
         "isReceiving": true,
-        "deadlineAt": "2026-09-16T05:56:31.3256156+02:00"
+        "deadlineAt": "2026-10-04T10:31:59.8869445+02:00"
       }
     },
     "premises": {
@@ -1018,7 +1018,7 @@ Hämta bostad för hemsida.
         "sample string 1",
         "sample string 2"
       ],
-      "changedAt": "2026-09-16T05:56:31.3256156+02:00",
+      "changedAt": "2026-10-04T10:31:59.8869445+02:00",
       "telephone": {
         "cell": {
           "msisdn": "sample string 1",
@@ -1031,7 +1031,7 @@ Hämta bostad för hemsida.
       },
       "image": {
         "id": "sample string 1",
-        "dataChangedAt": "2026-09-16T05:56:31.3256156+02:00",
+        "dataChangedAt": "2026-10-04T10:31:59.8869445+02:00",
         "description": "sample string 3",
         "name": "sample string 4",
         "category": {
@@ -1099,7 +1099,7 @@ Hämta bostad för hemsida.
         "sample string 1",
         "sample string 2"
       ],
-      "changedAt": "2026-09-16T05:56:31.3256156+02:00",
+      "changedAt": "2026-10-04T10:31:59.8869445+02:00",
       "telephone": {
         "cell": {
           "msisdn": "sample string 1",
@@ -1112,7 +1112,7 @@ Hämta bostad för hemsida.
       },
       "image": {
         "id": "sample string 1",
-        "dataChangedAt": "2026-09-16T05:56:31.3256156+02:00",
+        "dataChangedAt": "2026-10-04T10:31:59.8869445+02:00",
         "description": "sample string 3",
         "name": "sample string 4",
         "category": {

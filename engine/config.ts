@@ -30,6 +30,19 @@ export type Config = {
   adminSessionDays: number;
   /** How long a session lasts when the person asked to be remembered on that device. */
   adminRememberDays: number;
+  /**
+   * The bot check on every form (docs/forms.md, question 138): Turnstile's public site key, which
+   * a site's form window renders the challenge with, and the secret Core verifies its proof with.
+   * Both unset: staging and local use Cloudflare's test keys, and the live service takes no form.
+   */
+  turnstileSiteKey: string | null;
+  turnstileSecret: string | null;
+  /**
+   * Kowboy's Cloudflare account and a key of it that may change Turnstile (question 171 a), with
+   * which a website's address goes on the bot check's list when Core's admin saves the website.
+   */
+  cloudflareAccountId: string | null;
+  cloudflareTurnstileToken: string | null;
 };
 
 const required = (name: string): string => {
@@ -37,6 +50,9 @@ const required = (name: string): string => {
   if (value === undefined || value === '') throw new Error(`${name} is not set`);
   return value;
 };
+
+/** The database alone, for the release preview, which needs no other setting. */
+export const databaseUrl = (): string => required('DATABASE_URL');
 
 /** A setting that may be absent: null when unset or empty. */
 const optional = (name: string): string | null => process.env[name] || null;
@@ -70,5 +86,9 @@ export function loadConfig(): Config {
     adminLinkMinutes: numberOr('ADMIN_LINK_MINUTES', 15),
     adminSessionDays: numberOr('ADMIN_SESSION_DAYS', 14),
     adminRememberDays: numberOr('ADMIN_REMEMBER_DAYS', 30),
+    turnstileSiteKey: optional('TURNSTILE_SITE_KEY'),
+    turnstileSecret: optional('TURNSTILE_SECRET'),
+    cloudflareAccountId: optional('CLOUDFLARE_ACCOUNT_ID'),
+    cloudflareTurnstileToken: optional('CLOUDFLARE_TURNSTILE_TOKEN'),
   };
 }

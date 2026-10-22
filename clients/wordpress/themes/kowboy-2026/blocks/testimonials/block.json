@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "kowboy/testimonials",
+  "title": "Omdömen",
+  "description": "Mäklarnas omdömen från Kowboy Core i ett bildspel, två i bredd. Egna citat visas bara när Core inte har några.",
+  "category": "kowboy",
+  "icon": "format-quote",
+  "editorScript": "core-client-editor",
+  "render": "file:./render.php",
+  "supports": { "html": false, "anchor": true },
+  "attributes": {
+    "title": { "type": "string", "default": "", "control": "text", "label": "Rubrik" },
+    "items": {
+      "type": "array",
+      "default": [],
+      "control": "repeater",
+      "label": "Egna omdömen",
+      "help": "Visas bara när mäklarna i Kowboy Core saknar omdömen.",
+      "max": 20,
+      "fields": {
+        "quote": { "control": "textarea", "label": "Citat" },
+        "author": {
+          "control": "text",
+          "label": "Vem",
+          "help": "Till exempel Säljare på Spannmålsgatan 50A."
+        }
+      }
+    }
+  }
+}

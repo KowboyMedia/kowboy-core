@@ -15,7 +15,7 @@ services:
     environment_slug: node-js
     envs:
       - key: DATABASE_URL
-        value: ${db.DATABASE_URL}
+        value: ${db.staging.DATABASE_URL}
         scope: RUN_TIME
       - key: DATABASE_CA_CERT
         value: ${db.CA_CERT}
@@ -75,7 +75,7 @@ workers:
     environment_slug: node-js
     envs:
       - key: DATABASE_URL
-        value: ${db.DATABASE_URL}
+        value: ${db.staging.DATABASE_URL}
         scope: RUN_TIME
       - key: DATABASE_CA_CERT
         value: ${db.CA_CERT}
@@ -95,6 +95,50 @@ workers:
         value: EV[1:bXCPiQ3i5oZD5/Fpa0u5wNdS+/myat0p:QkNWjoD35n9Rr27BQMbnrndq/yyVbSTvhgkvhS3MCgl5XY2Vz+DCiYoz1VHoRXKDra/3pGqjxmmDQXTA]
         scope: RUN_TIME
         type: SECRET
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+jobs:
+  # The release impact preview (strategy §4, E5, AC 36), the first step of every deploy: the new
+  # version maps every stored record from its raw, with no migration run and nothing written. A
+  # record that cannot be mapped or does not fit the schema fails the job, the deploy stops and
+  # the running version stays. Its log's lines go into the release note.
+  - name: preview
+    kind: PRE_DEPLOY
+    github:
+      repo: KowboyMedia/kowboy-core
+      branch: staging
+      deploy_on_push: true
+    build_command: npm run build
+    run_command: sh scripts/start.sh preview
+    source_dir: /
+    environment_slug: node-js
+    envs:
+      - key: DATABASE_URL
+        value: ${db.staging.DATABASE_URL}
+        scope: RUN_TIME
+      - key: DATABASE_CA_CERT
+        value: ${db.CA_CERT}
+        scope: RUN_TIME
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+  # The smoke suite (AC 18), the last step of every deploy: a few requests to the version now live
+  # say it answers as a whole (the database and its layout, no check down for every customer, the
+  # admin app, the sites' API guarding its door). Its lines go into the deploy's log; it reads
+  # nothing private and changes nothing.
+  - name: smoke
+    kind: POST_DEPLOY
+    github:
+      repo: KowboyMedia/kowboy-core
+      branch: staging
+      deploy_on_push: true
+    build_command: npm run build
+    run_command: sh scripts/start.sh smoke
+    source_dir: /
+    environment_slug: node-js
+    envs:
+      - key: APP_URL
+        value: ${APP_URL}
+        scope: RUN_TIME
     instance_size_slug: apps-s-1vcpu-0.5gb
     instance_count: 1
 databases:

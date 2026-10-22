@@ -1,3 +1,9 @@
+> **2026-09-28:** the set built on the 2025 package is gone (question 107), and the default set
+> "Kowboy 2026" is the theme in `clients/wordpress/themes/kowboy-2026/`, described in
+> [kowboy-2026.md](kowboy-2026.md). What follows is the scaffolding and the history that led
+> there; where it names `clients/wordpress/templates/`, a set plugin or `new-template-set`, the
+> theme and a copy of its folder have taken their place.
+
 # The default templates: one package, three ways to use it, parity with the reference site
 
 Step 2 of two. Proposed 2026-09-20 and revised the same day for Patric's answers: a separate
@@ -100,21 +106,28 @@ scaffolding" means here, and every set follows it:
 - **One file per view.** `single-core_property.php` and its siblings for the single pages, named
   the WordPress way so the theme hierarchy finds them; `list-<entity>.php` for each list wrapper
   (the filter form, the cards' container, "show more"); `card-<entity>.php` for each card; archive
-  pages of a few lines that call the list function. Every file is a PHP block on top that prepares
+  pages of a few lines that call the list function. A list may name a wrapper and a card of its
+  own instead, `wrapper="homepage"` and `card="homepage"` for `list-homepage.php` and
+  `card-homepage.php` (Patric, 2026-10-16). Every file is a PHP block on top that prepares
   the values and plain markup below: a WordPress developer changes a value at the top and the
   layout underneath, and nothing is hidden in helpers, parts or classes.
 - **One loader.** About a hundred lines: it finds a template (theme first, then the set),
-  registers the shortcode and the reload endpoint, and wraps a view in a shadow root when asked.
+  registers the shortcode and the reload endpoint, and wraps a view in a shadow root when style
+  isolation asks for it.
   Nothing else lives outside the view files.
 - **One list function.** The shortcode, the archive page, the reload endpoint and any PHP call the
   same function with one parameter set, passed through untouched, so a parameter added to the
   function is at once available everywhere. The first page of a list is rendered on the server
   (crawlable, no script needed); on load the script hydrates the list with one reload call, and
-  it reloads on filter changes and on "show more".
-- **Shadow DOM as a setting.** One boolean of the site, and a parameter of the list function:
-  declarative, rendered on the server, wrapping the view. The stylesheets stay `.css` files
-  linked in both modes, never CSS inside PHP strings; the scripts query from the shadow root
-  when there is one; a list inside a single page never opens a second root.
+  it reloads on filter changes and on "show more". Every list has page addresses of its own
+  (`?sida=2` for a page's first list, `/page/2/` on an archive with page numbers), each built on
+  the server, and "show more" is a link to the next one (next-steps item 31).
+- **Style isolation as a setting.** One boolean of the site, off unless the site turns it on,
+  and a parameter of the list function, `styleisolation` (Patric, 2026-10-16, who renamed
+  "shadow DOM", on by default until then): a declarative shadow root, rendered on the server,
+  wrapping the view. The stylesheets stay `.css` files linked in both modes, never CSS inside
+  PHP strings; the scripts query from the shadow root when there is one; a list inside a single
+  page never opens a second root.
 - **From the package, on Patric's word (2026-09-23, question 86).** The package's PHP is not
   reused; its markup is flattened to plain HTML and sliced per view file, its CSS and JavaScript
   go into the set's assets.
@@ -226,21 +239,88 @@ admin works. Decided (an agent's decision, within the rules):
    and no secret sits in GitHub; the tag workflow keeps attaching the files to the GitHub Release
    as the record.
 
+## Built on 2026-09-24: the set, the machinery, the drafted strings
+
+Steps 1 to 3 of next-steps item 17, and item 18, on the local WordPress of the test suite (the
+Cloudways site waits on questions 87 and 88). What stands:
+
+- **The sync plugin** (`clients/wordpress/core-client`, version 0.2.1): the query function
+  (`includes/query.php`), the sets' registry, the override rule, the one list function, the
+  shortcode `[core_list]`, the reload endpoint `GET /wp-json/core/v1/list`, the routing of single
+  pages and archives through `includes/view-page.php`, shadow DOM as a setting, and the installer:
+  the updater placed on activation, one option the updater watches (the channel and every
+  package), the sets on offer with an Install button, three settings naming which of the CRM's
+  status ids the site lists as for sale, as coming and as sold (`for_sale`, `coming`, `sold` in
+  every parameter set, until item 14's `state` replaces them). The loader lives in the plugin,
+  once, not in every set: a second set would otherwise carry a copy of it, and a custom-design
+  theme gets the list function without any set.
+- **The set** (`clients/wordpress/templates/kowboy-2026`, package
+  `core-client-templates-kowboy-2026`): one file per view (`single-core_property.php`,
+  `single-core_agent.php`, `single-core_office.php`, `single-core_area.php`,
+  `archive-core_property.php`, `archive-core_agent.php`, `list-property.php`, `list-agent.php`,
+  `card-property.php`, `card-agent.php`). Since 2026-09-28 the markup, the stylesheet
+  (`assets/kowboy-2026.css`: the package's Tailwind build and component stylesheets) and the
+  behaviours (`assets/kowboy-2026.js`, with Swiper and the Ken Burns carousel vendored under
+  `assets/vendor/`) come from the "kowboy-templates-v2-v3" package Patric attached, its 2025
+  template, on his word (question 89 closed; before that the markup was written from the site).
+  The package's stylesheet is written for a shadow root, so the set registers with shadow DOM on;
+  its typeface Manrope comes from Google Fonts. One registration line in its main file.
+  `npm run new-template-set <slug>` copies it into a new set.
+- **The release** (`release.php`, `.github/workflows/release.yml`): every `v*` tag packages the
+  plugin and every set, each with its release JSON under `<channel>/<package>/`, plus `sets.json`,
+  and the plugin's zip carries `channel.json` so a fresh install knows its channel.
+- **The tests** (`clients/wordpress/templates.test.ts`, 9 cases on a real WordPress with a classic
+  theme): the archive as the for-sale list rendered on the server, the reload endpoint, every
+  filter and sort, the property, agent, office and area pages, the theme override, shadow DOM, the
+  selector. AC 20's search half and AC 28 name them (`acceptance/criteria.json`).
+- **The drafted strings** (item 18): R-015 to R-019 in `rules-ledger/`, implemented in
+  `engine/rules/` with tests, shown by the set, and `golden/vitec/` with eight cases from the test
+  account's real records, the same objects the master shows. All for question 90.
+
+### The comparison, page by page
+
+Read on 2026-09-24 from norbanmakleri.se over HTTPS (its lists come from its reload endpoint, its
+single pages carry their markup in a script), laid against the set's pages rendered from the same
+records on the local WordPress. Matching: the cards (label, images, street, price, tenure, rooms,
+size, "Avgift <amount>"), the property hero (street, price wording, status badge, price, area,
+rooms, size, fee), the selling text, the fact list (price, Område on a sold home, Rum, Avgift,
+Boarea, Byggnadsår, Våning with the elevator, Balkong/Uteplats/Bilplats, Typ), the floor plans,
+the viewings (date and time in the site's own zone and language), the agents at the side, the
+gallery with "Visa fler bilder", the map, a sold home without fact tables and with "Slutpris", the
+agent page (card, reviews, "Ett urval av mina objekt"), the office page (contact, map, agents,
+properties), the area page (name, "Experter på", agents, properties). The site's own rules, kept
+in the templates: the card's label is the next viewing when one is ahead, else the status; a
+floor plan is an image filed under "Planritning"; a sold home shows no fact tables; "Kontakta oss
+för visning." when no viewing is set and the office wrote no text.
+
+The gaps, each one register question: 91 decimals (the master's "1.5 rum" against the ledger's
+comma), 92 the fact tables (the master's eleven sections against R-013's seventeen; the
+"Föreningen" rows the set renders itself from the association's record), 93 enumerations Vitec
+sends as bare ids ("Buyer", "Undetermined", "PrivateHousingCompany") the master shows as words,
+94 the documents the master lists (not in the advertising payload), 95 the viewing's "Boka här"
+and the interest form (both post to the CRM; a Core capability), 96 an energy value the payload
+does not carry. Not ported, by design: the master's blocks outside the templates (the hero with
+buttons, the agents block on the home page, the lead form in the footer) are the site's pages, and
+its "Bor du redan här?" button leads to that lead form.
+
 ## What it needs from Patric
 
-- **85** the master among the four versions, once the comparison of the three apps and norban is
-  in front of him.
+- ~~**90** to **96**: the drafted strings and the gaps of the comparison, above.~~ Answered
+  2026-10-03 (`docs/decisions.md`); 119 (the decimals of an association's share) is what remains
+  from that round.
+- **120**: the Cloudways token (87 and 88 are closed; `v4.dev.kowboy.se` is not needed).
 - Already open: 54 (a) to (e) as the templates need them; 52 is untouched (golden masters come
   from the test account).
 
 ## Order of work
 
-Now, needing no answer: the three apps on `dev.kowboy.se` through the Cloudways API (the token
-of a wider scope reaches the next session), the comparison for question 85, the set package's
-skeleton (`kowboy-2026`), the selector, the override rule, the installer's four parts and the
-release per set, and the query function in the sync plugin. With 85: the loop, master against
-`v4.dev.kowboy.se`, until every page matches or is raised → AC 28 and AC 20's search half in
-`acceptance/criteria.json`, the report regenerated. Next-steps item 17 holds the order.
+Done on 2026-09-24 (above): the set, the selector, the override rule, the installer's four parts,
+the release per set, the query function, the drafted strings, the comparison against the master
+on the local WordPress, AC 28 and AC 20's search half, the report. Next: the loop on the staging site (`wordpress-1545003-6698706.cloudwaysapps.com`, the plugin
+and the set installed there on 2026-09-28 by `scripts/deploy-site.mjs`, records once the site
+is joined to staging Core, question 98), the page-by-page diff there with screenshots from the
+live site (Patric, 2026-09-28: the set "does not look correct at all", so the loop moves to a real
+site). Next-steps item 17 holds the order.
 
 Not in this step: the Lovable example site (item 10's other half, the same universal names, later),
 a site's custom design, and which sites auto-update (WordPress's own per-site setting, which the

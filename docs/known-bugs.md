@@ -12,7 +12,11 @@ what waits on its fetch list, expecting one entry. The fake adapter drains that 
 its own every 50 ms. On a busy machine the hundred notifications take longer than that, the list
 has been drained by the time the test counts, and the test fails although Core did exactly the
 right thing: one fetch, not a hundred. Seen once on 2026-09-21 under the full parallel run; every
-run after passed.
+run after passed. Vitec's tests race its own 250 ms drain timer the same way where they count fetches
+between two notifications: "brings a record back on an Update after a Remove … (AC 33)" and
+"follows no connection whose offices were checked before …" each failed once in the full run on
+2026-10-22 (two of four runs after the given-up retry of question 226, none of three before it; no
+link to that change was found, and both pass alone).
 
 **Why.** Both adapters already collapse a burst: the fake keeps a record listed twice once (a map
 keyed by the record), and Vitec does the same in its `vitec_fetch_list` table (one row per record,
@@ -28,3 +32,134 @@ counts. The test then holds the window, sends the burst, counts one, releases th
 one fetch. Four lines in the test, a handful in each adapter; `acceptance/` is a protected path, so
 the change goes through review like any other. Out of scope of the admin-area session that found
 it (Patric, 2026-09-21).
+
+## 2. `[crm-vitec]` The homes' areas are missing from the areas the adapter lists, so their area pages do not exist
+
+**What happens.** On the staging site (2026-10-04) the nine homes for sale name areas in Malmö
+and Lund (Elinegård, Värnhem, Brunnshög, with ids like `SOM9918AD86…`), and none of those areas
+is among the 56 areas the site holds; the area pages for them answer with the Områden index, and
+until plugin 0.5.3 the search box offered no area at all, since it offered only areas with a
+record.
+
+**Why.** The adapter lists areas per office (`adapters/vitec/api.ts`, `list`), and the test
+office's area list holds Ekerö, Helsingborg and a few Malmö areas, not the ones its marketed
+estates name. Whether Vitec lists an estate's area under another office or customer, or the
+test account's data is simply mixed, is not known.
+
+**What fixing it takes.** Find out from Vitec Connect where an estate's area is listed when it
+is not in its office's list (a question to Vitec, or a look at the list endpoints of the test
+account), and fetch it from there; then the area pages exist and the box names the areas from
+their records. The box and the pills already work without the records (plugin 0.5.3).
+
+## 3. `[core]` Saving one forms field on a Vitec connection erases the connection's Vitec login
+
+**What happens.** On the tenant page, the eight forms fields of a Vitec connection ("Send forms
+to Vitec", the six Vitec choices, "CRM password") start empty, never show what is stored, and
+draw their yes-or-no choices as free text. Typing one of them and saving replaces the stored
+login with only what was typed: a test on 2026-10-05 stored a username and a password, typed
+"yes" in "Send forms to Vitec" and saved, and what remained was `{"send_forms":"yes"}`. The
+connection then can no longer read Vitec. It works the other way too: typing a new Vitec password
+erases all eight forms fields and quietly turns "Send forms to Vitec" back to no. "Yes" with a
+capital letter counts as no, and "nej" or a typo in "Confirm a booking by e-mail" counts as yes.
+
+**Why.** The admin area never sends a stored login to the browser, and a save keeps only the
+fields that were typed (`engine/admin/tenants.ts`, `credentialsOf`), replacing the whole stored
+document. That was already true before the forms: typing only a new Vitec password lost the
+username. The forms build put its eight settings into the same document
+(`adapters/vitec/forms.ts`, `settingsOf`).
+
+**Fixed on staging 2026-10-06** (the Vitec office build, `engine/admin/login.ts`): a save, and
+"Check the login", put the typed fields over the stored ones, so typing one field no longer loses
+the others; `acceptance/admin.test.ts` proves it. What remains is the forms fields' own: they show
+nothing stored, draw their choices as free text and read "Yes" with a capital as no. The entry
+leaves this file when the fix is on production.
+
+**What fixing it took.** A save keeps every stored field that was not typed. With question 144
+a, seven of the eight fields go and only the CRM password stays in the login; with b, the
+settings also leave the login, show their stored values and draw their choices. Until then,
+nobody types into those fields.
+
+**The rest fixed on staging 2026-10-06** (the forms' first version, question 155 line 5): the
+seven forms fields left the Vitec connection, so nothing about forms is typed there and the
+fields that showed nothing stored and read "Yes" as no are gone. The CRM password left the
+connection too on 2026-10-06 (Patric: a Vitec connection has one username and one password, used
+for every call). The guard of question 152
+replaces "Send forms to Vitec": only the live service hands a form to a live CRM. The entry leaves
+this file when the fix is on production.
+
+**The stored values of the seven fields and the CRM password** (questions 174 and 179, yes). A
+save drops a stored field the login form no longer has, but a login nobody saves keeps them. So
+the worker removes exactly those eight keys from every stored Vitec login when it starts
+(`main.ts`, `removeLoginFields` in `engine/admin/login.ts`) and logs "removed the old forms fields
+and CRM password from N stored login(s)". Staging logged 0 for the seven on 2026-10-06; the CRM
+password was added after. The step ships with the next release and comes out in the first commit
+after production's worker log shows that line.
+
+## 4. `[core]` The forms' bot check lets every form through when its keys are missing
+
+**What happens.** With `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` unset, which is the case on
+staging and live on 2026-10-05, Core accepts a form without any bot check (`engine/human.ts`,
+`verifyHuman` answers true when no check is set up). Patric decided the check is on from the first
+form, with a hidden trap field, a minimum time and the limits always on as Core's own measures
+(138). A program posting straight to Core then meets only the limits: the build checks the trap
+field and the minimum time only in the form window, not in Core, so such a program skips them; the
+limit per visitor reads the first address of the `X-Forwarded-For` header, which a sender can write
+to, and whether the hosting platform cleans that header is not checked (`engine/http/forms.ts`,
+`addressOf`); and a program can use up the customer's 60 forms a minute, so real visitors are
+refused. The Settings page of the admin area does not list the two keys, so nobody sees that they
+are missing.
+
+**Why.** The build made "no keys" mean "no check", so the local tests need no Cloudflare
+account, and the same rule holds in every environment.
+
+**What fixing it takes.** Core refuses a form while the keys are missing (the tests give Core a
+stand-in check instead), checks the trap field and the minimum time itself as 138 decided, without
+changing the form's data shape, reads the visitor's address the way the hosting platform documents,
+and the Settings page lists the two keys; the two keys go into the staging and live environments
+before the first form goes live. Done with question 144's answer.
+
+**Fixed on staging 2026-10-06** (the forms' first version, `engine/http/submissions.ts`): the live
+service refuses every form while the keys are missing (503, reported to the error tracker), and
+with the keys every form needs the proof its window earned (403 without it), checked before
+Core's limit, so a program without a proof neither reaches the CRM nor uses up the customer's 60 a
+minute; the tests give Core a stand-in check. The browser's door is gone, and with it the limit
+per visitor address and the header it read. What remains: the two keys are in no environment yet
+(they come with each site's address on Cloudflare's list), and the Settings page does not list
+them, which needs a question before it is built. The trap field and the minimum time stay in the
+window only; a program that skips them still needs the bot check's proof. The entry leaves this
+file when the fix is on production.
+
+**Since 2026-10-19** (209 a, the forms list's "never fails silently"): no Core takes a form
+unchecked. Without its keys, staging and local use Cloudflare's published test keys, whose check
+always passes, so their forms run the whole path; production without them stops every form. A
+check that cannot run (no keys, Cloudflare refusing Core's secret or not answering, the check
+failing in the visitor's browser) stops the form with a clear message and logs it as not
+delivered, with the cause and the site, which alerts (`engine/human.ts`,
+`engine/http/submissions.ts`). The trap field is gone from the window. What remains is
+production: the two keys in its environment and this code on it; then the entry leaves.
+
+## 8. `[core]` The shared database server drops or stalls connections for seconds, a few times a day
+
+**What happens.** Three times in 24 hours, Core's processes got no database connection for a few
+seconds, and then everything worked again by itself: 2026-10-21 02:33 UTC, staging's worker only;
+2026-10-22 00:44 UTC, staging's new worker and web during a deploy, with connections closed while
+they were being opened; 2026-10-22 00:56 UTC, staging's web lost an idle connection and timed out
+on the next, and live's worker restarted the same minute, its only restart since 2026-10-06 (live's
+version ends on an unanswered database error; staging's reports it and goes on). Nothing was lost:
+each task ran again on its next tick. Each time, Sentry gets new error reports, which stops the
+release's seven days without an open report from starting.
+
+**Why.** Not known. Live and staging share one database server of 1 vCPU and 1 GB of memory;
+staging reaches it through its pool `staging` (6 connections), live directly. No session can see
+that server's own metrics or logs: DigitalOcean's API keeps no database history, and its metrics
+address only answers the two apps. Seen from the apps: no restart, deploy, CPU or memory change
+of theirs at 02:33, and no cluster event or DigitalOcean incident at any of the three. A drop on
+both apps at once fits the server restarting its connections, for example after running out of
+memory, but that is inferred, not seen.
+
+**What fixing it takes.** The load tests (acceptance criteria 27 and 32) run on a temporary
+server and say what size of server live needs; the server's size, and whether staging keeps
+sharing it (question 206 c, "revisit if staging's load is seen slowing live"), then goes to
+Patric as one question with those numbers. Until then each episode is checked and its reports
+closed with what was seen; live's restart ends at the early release, whose version reports such
+an error and goes on.

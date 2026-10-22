@@ -1,0 +1,548 @@
+// `POST /v1/submissions`, `GET /v1/submissions/slots` and `GET /v1/submissions/bot-check`
+// (docs/forms.md, approved with question 130; the bot check's key with 155): a site's form reaches
+// the brokerage's CRM through Core, and the CRM's answer reaches the visitor while they wait. The
+// site's own server calls these with its token; the visitor's browser never does. Core
+// authenticates, checks the bot check's proof, validates, finds the connection and hands the
+// submission to that connection's adapter inside the request; it stores and logs the id and the
+// outcome, never keeps or writes the person anywhere, and sends no form again (218: the visitor
+// is told it was not sent and whom to contact), and reads nothing out of the submission to decide
+// anything.
+import { authenticate } from './changes.js';
+import { validateSlots, validateSubmission } from '../contract.js';
+import { connectionById, subscriberByBellUrl } from '../storage/connections.js';
+import { readItem } from '../storage/items.js';
+import {
+  claimSubmission,
+  officesOfTenant,
+  REPEAT_WINDOW_MS,
+  settleSubmission,
+  submissionById,
+  type SubmissionRow,
+} from '../storage/submissions.js';
+import { logEvent } from '../events.js';
+import { report } from '../errors.js';
+import { humanCheck, verifyHuman, type Verdict } from '../human.js';
+import { manifestFor, NOT_LIVE, submissionsFor } from '../registry.js';
+import { jsonResponse, type Request, type Response } from './server.js';
+import type {
+  Adapter,
+  Connection,
+  Slots,
+  Submission,
+  SubmissionResult,
+} from '../adapter-api/types.js';
+
+/** More than this from one tenant in a minute is answered 429 (strategy §13). */
+export const SUBMISSIONS_PER_MINUTE = 60;
+/** How long Core waits for the CRM before the submission counts as failed (strategy §13). */
+export const SUBMISSION_TIMEOUT_MS = 20_000;
+const MINUTE_MS = 60_000;
+/** How often a repeated id still in flight looks for the first request's answer. */
+const WAIT_STEP_MS = 50;
+/**
+ * A form still waiting this long after its send began lost its answer: Core stopped before the
+ * CRM answered. It counts as not answered.
+ */
+export const UNANSWERED_MS = 2 * SUBMISSION_TIMEOUT_MS;
+
+/** Who came in: the tenant, and the site when it is known. */
+type Door = { tenantId: number; subscriberId: number | null };
+
+const recent = new Map<number, number[]>();
+
+/** The limit per tenant, in this process: a sliding minute. */
+function overLimit(tenantId: number): boolean {
+  const now = Date.now();
+  const times = (recent.get(tenantId) ?? []).filter((at) => now - at < MINUTE_MS);
+  const over = times.length >= SUBMISSIONS_PER_MINUTE;
+  if (!over) times.push(now);
+  recent.set(tenantId, times);
+  return over;
+}
+
+/** Test helper: a fresh engine has taken nothing. */
+export function resetSubmissionLimits(): void {
+  recent.clear();
+}
+
+/**
+ * A form: the tenant token, the bot check's proof, and the site named by `X-Core-Site`. A form
+ * Core already holds gets its first answer before anything else (166), so the site's retry hears
+ * it although the proof was spent, and nothing goes twice. A form that could not be sent is sent
+ * again by nobody (Patric, 2026-10-19): the window tells the visitor whom to contact instead.
+ */
+export async function submit(request: Request): Promise<Response> {
+  const auth = await authenticate(request);
+  if ('error' in auth) return jsonResponse(auth.status, { error: auth.error });
+  const proof = (): Promise<Verdict> => verifyHuman(request.headers['x-core-human'] ?? null);
+  const parsed = parseSubmission(request);
+  const door: Door = {
+    tenantId: auth.tenantId,
+    subscriberId: await subscriberByBellUrl(auth.tenantId, request.headers['x-core-site'] ?? null),
+  };
+  if ('response' in parsed) return notAForm(request, parsed, door, proof());
+  const { submission } = parsed;
+
+  const known = await heldAlready(submission.id);
+  if (known) return answerKnown(known, submission, door);
+
+  const verdict = await proof();
+  if (verdict.kind === 'refused') return notHuman();
+  if (overLimit(door.tenantId)) return tooMany();
+  if (verdict.kind === 'broken') return checkBroken(request, submission, door, verdict.cause);
+  return submitThrough(request, submission, door);
+}
+
+/**
+ * Not a form: the proof first all the same, so a program without one uses up no limit. A body
+ * with a form's id is a form the site's window made that Core cannot read: logged as not sent, so
+ * it never goes unseen, and answered with its id, so the site keeps it.
+ */
+async function notAForm(
+  request: Request,
+  parsed: Unread,
+  door: Door,
+  proof: Promise<Verdict>,
+): Promise<Response> {
+  if ((await proof).kind === 'refused') return notHuman();
+  if (overLimit(door.tenantId)) return tooMany();
+  if (parsed.id) {
+    await loggedNotSent(
+      request,
+      door,
+      { id: parsed.id, kind: parsed.kind, connectionId: null },
+      {
+        detail: `Core could not read the form: ${parsed.errors.slice(0, 3).join('; ')}`,
+        stopped: 'unreadable',
+      },
+    );
+  }
+  return parsed.response;
+}
+
+/** Where a form that stopped in Core is logged: its id, its kind, the connection when known. */
+type Stopped = {
+  id: string;
+  kind: string | null;
+  connectionId: string | null;
+  record?: Submission['record'];
+};
+
+/**
+ * A form that stopped in Core before any CRM call, logged as received and not delivered, with
+ * why, so it alerts, shows under "Needs attention" and names the site; the site keeps the form
+ * itself. Ids and outcomes only, never the person.
+ */
+async function loggedNotSent(
+  request: Request,
+  door: Door,
+  form: Stopped,
+  why: Record<string, unknown>,
+): Promise<void> {
+  const where = {
+    correlationId: form.id,
+    tenantId: door.tenantId,
+    connectionId: form.connectionId,
+    datatype: form.record?.datatype ?? null,
+    remoteId: form.record?.remote_id ?? null,
+    subscriberId: door.subscriberId,
+  };
+  await logEvent({
+    type: 'submission.received',
+    ...where,
+    fields: { kind: form.kind, client: request.headers['x-core-client'] ?? null },
+  });
+  await logEvent({ type: 'submission.failed', ...where, fields: { kind: form.kind, ...why } });
+}
+
+const notHuman = (): Response => jsonResponse(403, { error: 'the bot check did not pass' });
+
+const tooMany = (): Response =>
+  jsonResponse(429, {
+    error: `more than ${String(SUBMISSIONS_PER_MINUTE)} submissions in a minute; try again shortly`,
+  });
+
+/** A form Core holds: its first answer, once it is in. An id of another tenant's names no form of this one's. */
+async function answerKnown(
+  known: SubmissionRow,
+  submission: Submission,
+  door: Door,
+): Promise<Response> {
+  if (known.tenant_id !== door.tenantId) {
+    return jsonResponse(400, { id: submission.id, error: 'this id was used by another tenant' });
+  }
+  return answerFrom(await settled(known));
+}
+
+/** The row of a form Core holds under this id, inside the window a repeated id is answered in. */
+async function heldAlready(id: string): Promise<SubmissionRow | null> {
+  const row = await submissionById(id);
+  return row && Date.now() - row.received_at.getTime() < REPEAT_WINDOW_MS ? row : null;
+}
+
+/**
+ * The bot check could not run (no keys, Cloudflare refusing Core's secret or not answering, or
+ * the check failing in the visitor's browser): the form stops, the visitor reads why, and the
+ * form is logged as not delivered with the cause, which alerts and shows under "Needs attention"
+ * and names the site. Never a pass without a check, never a refusal nobody hears of. A cause on
+ * Core's side goes to the error tracker too.
+ */
+async function checkBroken(
+  request: Request,
+  submission: Submission,
+  door: Door,
+  cause: string,
+): Promise<Response> {
+  if (!request.headers['x-core-human']?.startsWith('unavailable:')) {
+    report(new Error(`a form was stopped: ${cause}`), { where: 'submission' });
+  }
+  const routed = await route(door.tenantId, submission);
+  await loggedNotSent(
+    request,
+    door,
+    {
+      id: submission.id,
+      kind: submission.kind,
+      connectionId: 'error' in routed ? null : routed.connection.id,
+      record: submission.record,
+    },
+    { detail: `the bot check could not run: ${cause}`, bot_check: cause },
+  );
+  return jsonResponse(503, {
+    id: submission.id,
+    status: 'failed',
+    bot_check: 'broken',
+    error: 'The form was not sent: the bot check could not run. Kowboy has been told.',
+  });
+}
+
+/**
+ * `GET /v1/submissions/bot-check`: the bot check's public key, which the site's window renders
+ * the challenge with, or null while there is no check.
+ */
+export async function botCheck(request: Request): Promise<Response> {
+  const auth = await authenticate(request);
+  if ('error' in auth) return jsonResponse(auth.status, { error: auth.error });
+  return jsonResponse(200, { human: humanCheck() });
+}
+
+async function submitThrough(
+  request: Request,
+  submission: Submission,
+  door: Door,
+): Promise<Response> {
+  const routed = await route(door.tenantId, submission);
+  if ('error' in routed) {
+    await loggedNotSent(
+      request,
+      door,
+      { id: submission.id, kind: submission.kind, connectionId: null, record: submission.record },
+      { detail: routed.error, stopped: routed.why },
+    );
+    return jsonResponse(routed.status, { id: submission.id, error: routed.error });
+  }
+  const { connection, send } = routed;
+
+  const where = {
+    tenantId: door.tenantId,
+    connectionId: connection.id,
+    datatype: submission.record?.datatype ?? null,
+    remoteId: submission.record?.remote_id ?? null,
+  };
+
+  const claim = await claimSubmission({
+    id: submission.id,
+    ...where,
+    kind: submission.kind,
+    officeId: submission.office_id ?? null,
+  });
+  if (!claim.claimed) {
+    // The same id again: a double click or a retried request. The first request's answer is the
+    // answer, once it is in; nothing is sent twice.
+    if (claim.existing.tenant_id !== door.tenantId) {
+      return jsonResponse(400, { id: submission.id, error: 'this id was used by another tenant' });
+    }
+    return answerFrom(await settled(claim.existing));
+  }
+
+  const subscriberId = door.subscriberId;
+  await logEvent({
+    type: 'submission.received',
+    correlationId: submission.id,
+    ...where,
+    subscriberId,
+    fields: { kind: submission.kind, client: request.headers['x-core-client'] ?? null },
+  });
+  const result = await deliver(send, connection, submission);
+  await settleSubmission(submission.id, result);
+  await logEvent({
+    type: `submission.${result.outcome}`,
+    correlationId: submission.id,
+    ...where,
+    subscriberId,
+    fields: { kind: submission.kind, ...said(result) },
+  });
+  return answerFrom(toAnswer(submission.id, result));
+}
+
+/** A body Core could not read as a form: the answer, and the form's id and kind when it has them. */
+type Unread = { response: Response; id: string | null; kind: string | null; errors: string[] };
+type Parsed = { submission: Submission } | Unread;
+
+/** The JSON and the schema: the answers given before any lookup. */
+function parseSubmission(request: Request): Parsed {
+  let body: unknown;
+  try {
+    body = request.json<unknown>();
+  } catch {
+    return {
+      response: jsonResponse(400, { error: 'the body is not JSON' }),
+      id: null,
+      kind: null,
+      errors: [],
+    };
+  }
+  const checked = validateSubmission(body);
+  if (!checked.valid) {
+    const fields = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const id = typeof fields['id'] === 'string' && UUID.test(fields['id']) ? fields['id'] : null;
+    const kind = typeof fields['kind'] === 'string' ? fields['kind'].slice(0, 20) : null;
+    return {
+      response: jsonResponse(400, {
+        ...(id ? { id } : {}),
+        error: 'not a submission',
+        detail: checked.errors,
+      }),
+      id,
+      kind,
+      errors: checked.errors,
+    };
+  }
+  return { submission: body as Submission };
+}
+
+/** Why a form cannot go, as a key, so the admin area can say it in its own words. */
+export type Refusal = 'foreign' | 'gone' | 'office' | 'which-office' | 'no-office' | 'kind';
+
+type Routed =
+  | { connection: Connection; send: NonNullable<Adapter['submit']> }
+  | { status: number; error: string; why: Refusal };
+
+/** The connection the submission goes through, and the adapter that takes this kind. */
+async function route(tenantId: number, submission: Submission): Promise<Routed> {
+  const found = await findConnection(tenantId, submission);
+  if ('error' in found) return { status: 400, error: found.error, why: found.why };
+  if (found.officeId && !submission.office_id) submission.office_id = found.officeId;
+
+  const { connection } = found;
+  const manifest = manifestFor(connection.provider);
+  const handlers = submissionsFor(connection.provider);
+  if (!manifest?.submissions?.includes(submission.kind) || !handlers?.submit) {
+    return {
+      status: 501,
+      error: `this tenant's CRM takes no ${submission.kind.replace('_', ' ')}`,
+      why: 'kind',
+    };
+  }
+  return { connection, send: handlers.submit };
+}
+
+type Found = { connection: Connection; officeId?: string } | { error: string; why: Refusal };
+
+/**
+ * Which connection the submission goes through: the record's for an interest or a viewing; for a
+ * lead, the office's, or the tenant's only office. A lookup, never a judgement.
+ */
+async function findConnection(tenantId: number, submission: Submission): Promise<Found> {
+  if (submission.record) {
+    const connection = await connectionById(submission.record.connection_id);
+    if (!connection || connection.tenantId !== tenantId) {
+      return { error: 'the record is not one of this tenant’s', why: 'foreign' };
+    }
+    const item = await readItem({
+      tenantId,
+      connectionId: connection.id,
+      datatype: submission.record.datatype,
+      remoteId: submission.record.remote_id,
+    });
+    if (!item || item.deleted) return { error: 'no such record', why: 'gone' };
+    return item.office_id ? { connection, officeId: item.office_id } : { connection };
+  }
+  return submission.office_id
+    ? connectionForOffice(tenantId, submission.office_id)
+    : connectionForOnlyOffice(tenantId);
+}
+
+/** A lead to a named office: the connection that licenses it, or holds its record. */
+async function connectionForOffice(tenantId: number, officeId: string): Promise<Found> {
+  const offices = await officesOfTenant(tenantId);
+  const match = offices.find((office) => office.officeId === officeId);
+  const connection = match ? await connectionById(match.connectionId) : null;
+  if (!connection) return { error: 'the office is not one of this tenant’s', why: 'office' };
+  return { connection };
+}
+
+/** A lead with no office named: fine for a tenant with one office, which is filled in. */
+async function connectionForOnlyOffice(tenantId: number): Promise<Found> {
+  const offices = await officesOfTenant(tenantId);
+  const distinct = new Set(offices.map((office) => office.officeId));
+  if (distinct.size > 1)
+    return { error: 'office_id is required: this tenant has several offices', why: 'which-office' };
+  const only = offices[0];
+  const connection = only ? await connectionById(only.connectionId) : null;
+  if (!only || !connection)
+    return { error: 'this tenant has no office to receive it', why: 'no-office' };
+  return { connection, officeId: only.officeId };
+}
+
+/**
+ * Ask the adapter, and count no answer in time, or an error, as a failure. Never throws. The send
+ * is the one the registry keeps, which outside the live service refuses before the adapter is
+ * asked, unless the adapter says the connection is its own test system (the guard,
+ * `registerSubmissions` in engine/registry.ts).
+ */
+async function deliver(
+  send: NonNullable<Adapter['submit']>,
+  connection: Connection,
+  submission: Submission,
+): Promise<SubmissionResult> {
+  try {
+    return await withinTime(send(connection, submission), SUBMISSION_TIMEOUT_MS);
+  } catch (error) {
+    report(error, {
+      where: 'submission',
+      provider: connection.provider,
+      connectionId: connection.id,
+      kind: submission.kind,
+    });
+    return { outcome: 'failed', detail: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/** How the cause Core keeps begins when the CRM did not answer in time. */
+export const NO_ANSWER = 'the CRM did not answer within';
+
+function withinTime<T>(work: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${NO_ANSWER} ${String(ms / 1000)} s`)), ms);
+    timer.unref?.();
+    work.then(resolve, reject).finally(() => clearTimeout(timer));
+  });
+}
+
+/** What the event log says of the CRM's answer: the reference, the reason or the cause. */
+const said = (result: SubmissionResult): Record<string, unknown> =>
+  result.outcome === 'delivered'
+    ? { reference: result.reference ?? null }
+    : result.outcome === 'refused'
+      ? { reason: result.reason }
+      : { detail: result.detail };
+
+/** Wait for the first request with this id to get its answer, up to the CRM timeout. */
+async function settled(row: SubmissionRow): Promise<SubmissionRow> {
+  const deadline = Date.now() + SUBMISSION_TIMEOUT_MS;
+  let current: SubmissionRow | null = row;
+  while (current && current.outcome === 'received' && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, WAIT_STEP_MS));
+    current = await submissionById(row.id);
+  }
+  return current ?? row;
+}
+
+/** An outcome as the table holds it: `detail` is the refusal's reason or the failure's cause. */
+export type Answer = {
+  id: string;
+  outcome: string;
+  reference?: string | null;
+  detail?: string | null;
+};
+
+const toAnswer = (id: string, result: SubmissionResult): Answer => ({
+  id,
+  outcome: result.outcome,
+  reference: result.outcome === 'delivered' ? (result.reference ?? null) : null,
+  detail:
+    result.outcome === 'refused'
+      ? result.reason
+      : result.outcome === 'failed'
+        ? result.detail
+        : null,
+});
+
+/** The six answers of docs/forms.md, the four after the CRM answered. */
+function answerFrom(answer: Answer): Response {
+  switch (answer.outcome) {
+    case 'delivered':
+      return jsonResponse(200, {
+        id: answer.id,
+        status: 'delivered',
+        reference: answer.reference ?? null,
+      });
+    case 'refused':
+      // The guard's dry run says so, so the site's page "Formulär" shows it as held, not refused.
+      return jsonResponse(409, {
+        id: answer.id,
+        status: 'refused',
+        reason: answer.detail ?? '',
+        ...(answer.detail === NOT_LIVE ? { held: true } : {}),
+      });
+    default:
+      // Failed, or still unanswered after the timeout: the visitor is asked to contact the brokerage.
+      return jsonResponse(502, { id: answer.id, status: 'failed' });
+  }
+}
+
+/** A form's id is a UUID (schemas/submission.v1.json); anything else names no form. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * `GET /v1/submissions/slots?connection_id=…&remote_id=…`: the home's viewings and slots as the
+ * CRM sees them now, one live read per booking attempt (docs/forms.md, "Reading the slots").
+ */
+export async function slots(request: Request): Promise<Response> {
+  const auth = await authenticate(request);
+  if ('error' in auth) return jsonResponse(auth.status, { error: auth.error });
+  return slotsThrough(request, { tenantId: auth.tenantId, subscriberId: null });
+}
+
+async function slotsThrough(request: Request, door: Door): Promise<Response> {
+  const connectionId = request.query.get('connection_id');
+  const remoteId = request.query.get('remote_id');
+  if (!connectionId || !remoteId) {
+    return jsonResponse(400, { error: 'connection_id and remote_id are required' });
+  }
+  const connection = await connectionById(connectionId);
+  if (!connection || connection.tenantId !== door.tenantId) {
+    return jsonResponse(400, { error: 'the record is not one of this tenant’s' });
+  }
+  const item = await readItem({
+    tenantId: door.tenantId,
+    connectionId,
+    datatype: 'property',
+    remoteId,
+  });
+  if (!item || item.deleted) return jsonResponse(400, { error: 'no such record' });
+
+  const handlers = submissionsFor(connection.provider);
+  if (!handlers?.slots) return jsonResponse(501, { error: "this tenant's CRM gives no slots" });
+
+  let answer: Slots;
+  try {
+    answer = await withinTime(
+      handlers.slots(connection, { datatype: 'property', remoteId, officeId: item.office_id }),
+      SUBMISSION_TIMEOUT_MS,
+    );
+  } catch (error) {
+    report(error, { where: 'slots', provider: connection.provider, connectionId, remoteId });
+    return jsonResponse(502, { error: 'the CRM did not answer' });
+  }
+  const checked = validateSlots(answer);
+  if (!checked.valid) {
+    report(
+      new Error(`the slots do not match schemas/slots.v1.json: ${checked.errors.join('; ')}`),
+      { where: 'slots', provider: connection.provider, connectionId },
+    );
+    return jsonResponse(502, { error: 'the CRM’s answer could not be read' });
+  }
+  return jsonResponse(200, answer);
+}

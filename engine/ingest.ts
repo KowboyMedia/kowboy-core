@@ -1,7 +1,7 @@
-import { contentHash } from './json.js';
+import { canonicalJson, contentHash, storable } from './json.js';
 import { validateData, SCHEMA_VERSION } from './contract.js';
 import { applyRules, RULES_VERSION } from './rules/run.js';
-import { mapperFor } from './registry.js';
+import { manifestFor, mapperFor } from './registry.js';
 import { logEvent } from './events.js';
 import { ring } from './bells.js';
 import { db, takeWriteLock, transaction } from './storage/db.js';
@@ -11,14 +11,16 @@ import type { Canonical, Connection, Datatype, IngestResult } from './adapter-ap
 /**
  * The write path, identical for every adapter (strategy §5.2):
  * map → rules and display → licensed-office filter → hash → unchanged? stop → write, log, bell.
+ * The payload is kept as the CRM sent it, less what Postgres cannot store (`storable`).
  */
 export async function ingest(
   connection: Connection,
   datatype: Datatype,
   remoteId: string,
-  raw: unknown,
+  payload: unknown,
   options: { correlationId?: string } = {},
 ): Promise<IngestResult> {
+  const raw = storable(payload);
   const context = {
     correlationId: options.correlationId ?? null,
     tenantId: connection.tenantId,
@@ -36,9 +38,10 @@ export async function ingest(
   const existing = await readItem(key);
 
   if (unchanged(existing, hash)) {
-    // Same content: no seq, no bell, nothing reaches a site. Keep raw current for replay.
+    // Same content: no seq, no bell, nothing reaches a site. Keep raw current for replay, and keep
+    // when the record last changed, which the panel's records list shows as "Updated".
     await db().query(
-      `update items set raw = $5, remote_updated_at = $6, updated_at = now()
+      `update items set raw = $5, remote_updated_at = $6
        where tenant_id = $1 and connection_id = $2 and datatype = $3 and remote_id = $4`,
       [
         key.tenantId,
@@ -93,7 +96,7 @@ type Context = {
 
 type Prepared =
   | { data: Canonical; officeId: string | null; remoteUpdatedAt: string | null }
-  | { reason: 'unlicensed' | 'malformed' | 'unknown-datatype' | 'inactive' };
+  | { reason: 'unlicensed' | 'malformed' | 'unknown-datatype' };
 
 /** Map, apply rules, filter by licence and check the contract. Every refusal is logged here. */
 async function prepare(
@@ -106,8 +109,6 @@ async function prepare(
     await logEvent({ ...context, type: 'entity.dropped', fields: { reason, ...fields } });
     return { reason };
   };
-
-  if (!connection.active) return drop('inactive');
 
   const mapper = mapperFor(connection.provider, datatype);
   if (!mapper) return drop('unknown-datatype');
@@ -195,8 +196,12 @@ export async function presentIds(
   return { tombstoned: missing };
 }
 
-/** Empty `licensed_offices` means every office the credential can see (SRS §3). */
+/**
+ * Empty `licensed_offices` means every office the credential can see (SRS §3). An adapter that
+ * takes its offices from the CRM chose them itself, and the list is read as empty.
+ */
 function isLicensed(connection: Connection, officeId: string | null): boolean {
+  if (manifestFor(connection.provider)?.officesFromCrm) return true;
   if (connection.licensedOffices.length === 0) return true;
   if (officeId === null) return true; // tenant-wide record
   return connection.licensedOffices.includes(officeId);
@@ -226,7 +231,10 @@ export function changedFields(
   const from = flatten(before);
   const to = flatten(after);
   for (const key of new Set([...Object.keys(from), ...Object.keys(to)])) {
-    if (JSON.stringify(from[key]) !== JSON.stringify(to[key])) {
+    // A field that comes or goes is a change, even to or from null, as it is to the content hash.
+    // Keys in sorted order: the database hands objects back in its own key order.
+    const cameOrWent = (from[key] === undefined) !== (to[key] === undefined);
+    if (cameOrWent || canonicalJson(from[key]) !== canonicalJson(to[key])) {
       changed[key] = { from: from[key] ?? null, to: to[key] ?? null };
     }
   }

@@ -1,5 +1,6 @@
 #!/bin/sh
-# Starts one role on App Platform: `sh scripts/start.sh web` or `worker` (.do/app.yaml).
+# Starts one role on App Platform: `sh scripts/start.sh web`, `worker`, `preview` or `smoke`
+# (.do/app.yaml).
 #
 # The managed cluster signs with its own CA, which the platform hands over as the value of
 # DATABASE_CA_CERT. Node trusts an extra CA from a file, so the value goes through one; `pg` then

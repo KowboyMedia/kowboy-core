@@ -1,7 +1,5 @@
 import { db } from './storage/db.js';
 import { logEvent } from './events.js';
-import { report } from './errors.js';
-import { inMaintenance } from './storage/settings.js';
 
 /**
  * Bells tell a subscriber "there is something new, pull". They carry no data (SRS §8).
@@ -31,60 +29,32 @@ const window = (): string => `${throttleMs} milliseconds`;
 /** A site is rung only while its tenant's licence is active (Patric, 2026-09-18): otherwise it keeps what it shows. */
 const LICENSED = 'exists (select 1 from tenants where id = subscribers.tenant_id and active)';
 
-/**
- * While Core is in maintenance nothing is rung: the changes are remembered as pending bells and
- * go out in one round when the switch is turned off (docs/admin-panel.md, Settings).
- */
-async function holdForMaintenance(
-  tenantId: number,
-  kind: BellKind,
-  onlyId?: number,
-): Promise<void> {
-  await db().query(
-    `update subscribers
-     set bell_pending = case when bell_pending = 'forcerefresh' then bell_pending else $2 end
-     where tenant_id = $1 and active = true and ${LICENSED} and ($3::bigint is null or id = $3)`,
-    [tenantId, kind, onlyId ?? null],
-  );
-}
-
-/**
- * Ring every active subscriber of a tenant, or one of them: at once if outside the window,
- * otherwise queued.
- */
-export async function ring(
-  tenantId: number,
-  kind: BellKind = 'delta',
-  onlySubscriberId?: number,
-): Promise<void> {
-  if (await inMaintenance()) return holdForMaintenance(tenantId, kind, onlySubscriberId);
+/** Ring every subscriber of a tenant: at once if outside the window, otherwise queued. */
+export async function ring(tenantId: number, kind: BellKind = 'delta'): Promise<void> {
   // The update is the claim: only one process wins the leading edge for a subscriber.
   const { rows: due } = await db().query<Subscriber>(
     `update subscribers set last_bell_at = now()
-     where tenant_id = $1 and active = true and ${LICENSED}
-       and ($3::bigint is null or id = $3)
+     where tenant_id = $1 and ${LICENSED}
        and (last_bell_at is null or last_bell_at < now() - $2::interval)
      returning id, tenant_id, bell_url, bell_secret`,
-    [tenantId, window(), onlySubscriberId ?? null],
+    [tenantId, window()],
   );
   // Everyone else is inside the window: collapse into one trailing bell. forcerefresh outranks delta.
   await db().query(
     `update subscribers
      set bell_pending = case when bell_pending = 'forcerefresh' then bell_pending else $2 end
-     where tenant_id = $1 and active = true and ${LICENSED} and last_bell_at >= now() - $3::interval
-       and ($5::bigint is null or id = $5)
+     where tenant_id = $1 and ${LICENSED} and last_bell_at >= now() - $3::interval
        and id <> all($4::bigint[])`,
-    [tenantId, kind, window(), due.map((row) => row.id), onlySubscriberId ?? null],
+    [tenantId, kind, window(), due.map((row) => row.id)],
   );
   await Promise.all(due.map((subscriber) => send(subscriber, kind)));
 }
 
 /** Send the trailing bells whose window has passed. The worker calls this once a second. */
 export async function flushPendingBells(): Promise<void> {
-  if (await inMaintenance()) return;
   const { rows } = await db().query<Subscriber & { kind: BellKind }>(
     `update subscribers set last_bell_at = now(), bell_pending = null
-     where bell_pending is not null and active = true and ${LICENSED}
+     where bell_pending is not null and ${LICENSED}
        and (last_bell_at is null or last_bell_at < now() - $1::interval)
      returning id, tenant_id, bell_url, bell_secret, bell_pending as kind`,
     [window()],
@@ -92,9 +62,33 @@ export async function flushPendingBells(): Promise<void> {
   await Promise.all(rows.map((row) => send(row, row.kind)));
 }
 
+/** How much of a website's answer, or of the reason it gave none, Core keeps for the Inbox. */
+const ANSWER_CHARACTERS = 300;
+
+/**
+ * A website's answer as a person reads it: an HTML page by its words, every answer on one line,
+ * the first 300 characters. Null when it said nothing.
+ */
+export function answerText(body: string, html: boolean): string | null {
+  const words = html
+    ? body
+        .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#0?39;/g, "'")
+    : body;
+  const line = words.replace(/\s+/g, ' ').trim();
+  return line === '' ? null : line.slice(0, ANSWER_CHARACTERS);
+}
+
 async function send(subscriber: Subscriber, kind: BellKind): Promise<void> {
   const startedAt = Date.now();
   let status: string;
+  let answer: string | null;
   try {
     const response = await fetch(subscriber.bell_url, {
       method: 'POST',
@@ -103,14 +97,27 @@ async function send(subscriber: Subscriber, kind: BellKind): Promise<void> {
       signal: AbortSignal.timeout(10_000),
     });
     status = response.ok ? 'ok' : `http ${response.status}`;
+    const html = (response.headers.get('content-type') ?? '').includes('html');
+    answer = answerText(await response.text().catch(() => ''), html);
   } catch (error) {
-    report(error, { where: 'bell', subscriber: subscriber.id });
+    // A site Core cannot reach is that site's state, shown on its row and in the alerts, not a
+    // fault in Core: it is logged with the reason, and never goes to the error tracker.
+    const reason = error instanceof Error && error.cause ? error.cause : error;
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        where: 'bell',
+        subscriber: subscriber.id,
+        message: String(reason),
+      }),
+    );
     status = 'failed';
+    answer = answerText(String(reason), false);
   }
-  await db().query('update subscribers set last_bell_status = $2 where id = $1', [
-    subscriber.id,
-    status,
-  ]);
+  await db().query(
+    'update subscribers set last_bell_status = $2, last_bell_answer = $3 where id = $1',
+    [subscriber.id, status, answer],
+  );
   await logEvent({
     type: 'bell',
     tenantId: subscriber.tenant_id,

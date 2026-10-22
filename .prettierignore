@@ -9,3 +9,9 @@ acceptance/report.md
 clients/wordpress/core-client/lib
 docs/data-model-reference.md
 admin/e2e/report.json
+
+# The theme's vendor folder is third-party code.
+clients/wordpress/themes/*/assets/vendor
+
+# The old admin's drafts, kept as moved until they are deleted with it.
+docs/old-admin

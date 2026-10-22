@@ -1,0 +1,566 @@
+{
+  "address": {
+    "area": {
+      "id": "SOM384562414DA2468284C236FE507E55BD",
+      "name": "Hyllie"
+    },
+    "countryCode": "SE",
+    "countyMunicipalityCode": "1280",
+    "directions": null,
+    "municipality": "Malmö",
+    "postalTown": "Malmö",
+    "streetAddress": "Cyklopgatan 35B",
+    "wgs84Coordinate": {
+      "latitude": 55.56841,
+      "longitude": 12.978617
+    },
+    "zipCode": {
+      "numerical": 21625,
+      "value": "216 25"
+    }
+  },
+  "bidding": {
+    "bids": [],
+    "isActive": false,
+    "isVerified": false
+  },
+  "buildings": [
+    {
+      "architecture": [
+        {
+          "description": "Fjärrvärme",
+          "type": {
+            "id": "Heating",
+            "name": "Uppvärmning"
+          }
+        },
+        {
+          "description": "3-glas",
+          "type": {
+            "id": "Windows",
+            "name": "Fönster"
+          }
+        }
+      ],
+      "area": {
+        "building": null,
+        "description": null,
+        "grossFloor": null,
+        "living": 31,
+        "source": "Föreningens information"
+      },
+      "bedrooms": null,
+      "compiledRoomList": null,
+      "description": null,
+      "electricity": null,
+      "elevator": {
+        "description": null,
+        "isAvailable": true
+      },
+      "energyDeclaration": {
+        "class": "C",
+        "consumption": null,
+        "performedAt": "2023-06-13T16:22:33",
+        "status": {
+          "id": "Performed",
+          "name": "Utförd"
+        }
+      },
+      "expenses": null,
+      "exterior": [],
+      "floor": {
+        "description": null,
+        "number": 2,
+        "total": 4
+      },
+      "interior": null,
+      "name": null,
+      "numberOfBathRooms": null,
+      "numberOfRooms": 1,
+      "otherInformation": null,
+      "plot": null,
+      "renovation": {
+        "description": null
+      },
+      "rooms": [],
+      "services": [],
+      "type": "Flerbostadshus",
+      "ventilation": {
+        "inspection": null,
+        "type": "FTX"
+      },
+      "yearBuilt": {
+        "description": null,
+        "numeric": 2023,
+        "text": "2023"
+      }
+    }
+  ],
+  "changedAt": "2026-07-10T21:23:49.57",
+  "currency": "SEK",
+  "electricity": {
+    "company": null,
+    "consumption": null,
+    "distributor": null
+  },
+  "enrollments": null,
+  "expenses": {
+    "operation": {
+      "description": "Individuell mätning och debitering av hushållsel och uppvärmning av vatten. Angivna kostnader är enligt föreningens ekonomiska plan, dvs en ungefärligt uppskattad kostnad för bostadens storlek. Kostnad för försäkring tillkommer.",
+      "entries": [
+        {
+          "type": {
+            "id": "WaterAndSewage",
+            "name": "VA"
+          },
+          "value": 690
+        },
+        {
+          "type": {
+            "id": "Electricity",
+            "name": "El"
+          },
+          "value": 2730
+        }
+      ],
+      "householdSize": 1,
+      "sum": 3420
+    }
+  },
+  "extensions": {
+    "commercialProperty": null,
+    "condominium": null,
+    "farm": null,
+    "foreignProperty": null,
+    "housingCooperative": {
+      "apartmentNumber": "B12A (1101)",
+      "apartmentRegistrationNumber": null,
+      "association": {
+        "id": "ORGBRF281706F1BCB046948BD84E5A8FB93A0D",
+        "overrideDescription": null,
+        "overrideEconomy": null
+      },
+      "description": null,
+      "finances": {
+        "annualFeeShare": 1.1515,
+        "indirectNetDebt": 499640,
+        "indirectNetDebtComment": "Beräknad utifrån uppgifter från årsredovisning 2024",
+        "isPledged": null,
+        "repairFundBalance": 0,
+        "shares": 1.151,
+        "sharesComment": null
+      },
+      "includedLand": {
+        "description": null,
+        "size": null
+      }
+    },
+    "premises": null,
+    "primaryAgent": null,
+    "secondaryAgent": null
+  },
+  "exterior": {
+    "buildingPermission": null,
+    "buildingsDescription": null,
+    "entries": [
+      {
+        "description": null,
+        "isAvailable": false,
+        "size": null,
+        "type": {
+          "id": "Balcony",
+          "name": "Balkong"
+        }
+      },
+      {
+        "description": null,
+        "isAvailable": false,
+        "size": null,
+        "type": {
+          "id": "Patio",
+          "name": "Uteplats"
+        }
+      },
+      {
+        "description": null,
+        "isAvailable": false,
+        "size": null,
+        "type": {
+          "id": "Parking",
+          "name": "Parkering"
+        }
+      }
+    ],
+    "plot": {
+      "description": null,
+      "size": null,
+      "type": null
+    }
+  },
+  "fees": {
+    "lease": null,
+    "leasehold": null,
+    "recurring": {
+      "description": "Inkl. kallvatten, värme, bostadsrättstillägg och sophämtning. Oblig. tillägg 170 kr/mån för bredband och TV tillkommer.",
+      "frequency": "Monthly",
+      "type": "Månadsavgift",
+      "value": 2882
+    }
+  },
+  "files": [],
+  "id": "OBJ31529_2041198534",
+  "images": [
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:10.14",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDCC86F7B16B31420E9681586792237C89",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:09.7",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED90D2EA053FFA41359CC3448F14AA79A6",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:11.31",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDF27191C98D2941DE954F10E0084CCBB6",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:11.623",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDD39EFF58F8684FD2B75C1D4DC3C1793F",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:12.733",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDD2FBCDEC719E40C0B02B08E159D7ED23",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:11.653",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDC86C40BAE9934F8E9E7D07ECA15C29B6",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:10.797",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDFF5D858B1EB24C2DB7C316AC92891716",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:10.17",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED600C43003D774287A2D08D9FBF16B487",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:12.14",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED4841FD093B594CCFB6EE7448CC7C5345",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:10.81",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED2D226AAFD1824014837435CF2D38EAB2",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:11.06",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDB57DDD8975E3412BA4D0E68CC7919D1C",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:09.843",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED3C964028287D44CC94851687B370D294",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:10.64",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED350A989ECF19482F89EF8CE3B2848656",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:10.56",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDDB4AC95E6A754C98ACF38801E8374486",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:10.25",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED56A273F9010948C9B8298CBFD8765E07",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:10.81",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDE80C117A07FD4004918995D804127D54",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:12.547",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED081E51BF715342518C2C99CDFE18D741",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:12.653",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED49FC1170737D49D4BC036BBA4DEF28FC",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2023-12-12T15:00:12.7",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED1632DC793E4244CFA56A078F2FB7B263",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2024-05-15T15:37:04.3",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDC32E7EE4D08A492C88006E02F0A01037",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2024-05-15T15:37:04.287",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDEDA73F02CCAF40479125C560C06A77D3",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Övrigt"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2024-05-15T15:37:04.3",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDF0A516E31CFC44BA897F60D8105BAA4E",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Planritning"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2024-05-15T15:50:34.197",
+      "description": null,
+      "extension": "jpg",
+      "id": "MEDDB922D886C824DE58E3AF95FAC3F362F",
+      "name": null
+    }
+  ],
+  "inspection": {
+    "hasBeenPerformed": false
+  },
+  "links": [],
+  "marketing": {
+    "isNewHome": false,
+    "isPreview": false,
+    "isPublished": true,
+    "publishedAt": "2024-05-24T10:42:42",
+    "viewing": {
+      "emptyText": null,
+      "visibleLimit": null
+    }
+  },
+  "office": {
+    "customerId": "M31529",
+    "id": "FIR31529"
+  },
+  "pledges": [],
+  "price": {
+    "finalPrice": null,
+    "startingPrice": 1200000,
+    "startingPriceInOtherCurrency": null,
+    "text": "utgångspris"
+  },
+  "primaryAgentId": "HAN348516190DD143E99771DE27DA5E0AB0",
+  "projectId": null,
+  "referenceId": "15165",
+  "sale": {
+    "assignmentDate": "2026-07-10T00:00:00",
+    "contractDate": null,
+    "description": null,
+    "heading": null,
+    "otherInformation": null,
+    "phrase": null,
+    "possessionAt": null,
+    "possessionEstimation": null,
+    "shortDescription": "Välkomna till denna ljusa etta med fransk balkong! Öppen planlösning mellan kök och allrum med gott om plats för både säng och sällskapsmöblemang. Det stora badrummet är utrustat med dusch och vask med kommod samt bekvämligheter som handdukstork och kombimaskin. Köket har rostfria vitvaror och är utrustat med integrerad diskmaskin, kyl/frys, fläkt, spishäll och integrerad ugn. Intill entrén i hallen finns plats för avhängning samt  ett förråd för god förvaring. Området kring Hyllie är optimalt för den som uppskattar stadslivet med närhet till både grönområden och exceptionella pendelmöjligheter. Här finns shoppingcenter, restauranger och kulturutbud inom bekvämt avstånd."
+  },
+  "secondaryAgentId": null,
+  "status": {
+    "id": "ForSale",
+    "name": "Till salu"
+  },
+  "subtype": {
+    "id": "Apartment",
+    "name": "Lägenhet"
+  },
+  "surroundings": {
+    "area": null,
+    "communication": null,
+    "other": null,
+    "parking": null,
+    "service": null
+  },
+  "tags": [],
+  "taxation": {
+    "buildingValue": null,
+    "isPreliminary": false,
+    "landValue": null,
+    "propertyDesignations": [
+      "Snorkeln 1"
+    ],
+    "taxFee": null,
+    "totalValue": null,
+    "units": null
+  },
+  "tenure": {
+    "id": "TenantOwnership",
+    "name": "Bostadsrätt"
+  },
+  "type": {
+    "id": "HousingCooperative",
+    "name": "Bostadsrätt"
+  },
+  "viewings": []
+}

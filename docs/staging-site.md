@@ -35,8 +35,10 @@ repository; agents drive it over HTTPS (the WordPress API, the plugin's update c
 staging-only driver), so nothing needs a console or a shell; secrets never leave DigitalOcean; and
 the site runs the branch's own plugin through the real update channel, so what is tested is what
 a customer gets. Nothing here is specific to a host. What the plugin needs from any host is PHP
-8.3, MySQL or MariaDB, WordPress 6.8 or later, outbound HTTPS to Core and a cron tick, and that is
-all the loop needs too.
+8.2 or later (question 99, 2026-09-28: the lowest version PHP still supports, so the plugin
+serves every host that keeps up with security fixes; the code uses nothing newer, and PHPStan
+holds it to 8.2), MySQL or MariaDB, WordPress 6.8 or later, outbound HTTPS to Core and a cron
+tick, and that is all the loop needs too.
 
 1. **Where it runs.** On the porting server of [template-porting.md](template-porting.md)
    (question 78): the test site is the target of a client's pair, a copy of the client's site
@@ -47,7 +49,7 @@ all the loop needs too.
    and the admin login is enough.
 
 2. **How code reaches it: the update channel, the customer's own path.** The plugin's updater
-   exists (`mu-plugins/core-client-updater.php`, AC 21): WordPress asks a release JSON on the
+   exists (`core-client/updater/core-client-updater.php`, placed into `mu-plugins/` by the plugin on activation, AC 21): WordPress asks a release JSON on the
    DigitalOcean Space for a newer version and swaps the plugin itself. The staging site listens to
    a **staging channel** on the same Space (`core-client/staging/core-client.json`): every change
    that lands on staging is packaged with a build number appended to its version, so the site
@@ -125,17 +127,57 @@ all the loop needs too.
 What an agent needs to run this end to end on any host, and the one thing that is Patric's
 (question 79, the Cloudways API key):
 
-| What                             | Why                                                                                                                | How the agent gets in                                                   | Patric's part                                                                  |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| The repository                   | the code, the checks, the releases; the template sets too                                                          | has it (`GITHUB_TOKEN`)                                                 | nothing                                                                        |
-| DigitalOcean                     | staging Core's job and admin API, the Space                                                                        | has it (`DIGITALOCEAN_ACCESS_TOKEN`); the Space and its key are its own | nothing                                                                        |
-| The site's WordPress admin       | the first install of the plugin and the driver, and the settings; afterwards the REST API with a password it makes | the admin login, from the host's API, over HTTPS                        | nothing, once the host's API key is in hand                                    |
-| The update channel               | every change after the first install                                                                               | the job publishes, the site pulls                                       | nothing                                                                        |
-| The host's git deployment        | an alternative to the login for the first install and for every change                                             | a build branch of plugin folders, pulled by the host                    | a deploy key on GitHub, which only an admin can add; not needed with the login |
-| SFTP or SSH                      | not used: port 22 is blocked from where agents run (verified 2026-09-20); a person can still use it                | —                                                                       | nothing                                                                        |
-| The host's API, where it has one | convenience: the login, the cron, a Varnish purge, logs                                                            | an API key                                                              | optional                                                                       |
-| The source site (step 2)         | read its pages and its theme's template files for the port                                                         | a copy the agent makes; its WordPress admin from the host's API         | nothing                                                                        |
-| Staging Core's admin secret      | ring, resync, read the timeline                                                                                    | set anew by an agent through the DigitalOcean API                       | nothing                                                                        |
+| What                             | Why                                                                                                                                             | How the agent gets in                                                   | Patric's part                                                                  |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| The repository                   | the code, the checks, the releases; the template sets too                                                                                       | has it (`GITHUB_TOKEN`)                                                 | nothing                                                                        |
+| DigitalOcean                     | staging Core's job and admin API, the Space                                                                                                     | has it (`DIGITALOCEAN_ACCESS_TOKEN`); the Space and its key are its own | nothing                                                                        |
+| The site's WordPress admin       | the first install of the plugin and every set, and the settings, by `scripts/deploy-site.mjs`; afterwards the REST API with a password it makes | the admin login, from the host's API, over HTTPS                        | nothing, once the host's API key is in hand                                    |
+| The update channel               | every change after the first install                                                                                                            | the job publishes, the site pulls                                       | nothing                                                                        |
+| The host's git deployment        | an alternative to the login for the first install and for every change                                                                          | a build branch of plugin folders, pulled by the host                    | a deploy key on GitHub, which only an admin can add; not needed with the login |
+| SFTP or SSH                      | not used: port 22 is blocked from where agents run (verified 2026-09-20); a person can still use it                                             | —                                                                       | nothing                                                                        |
+| The host's API, where it has one | convenience: the login, the cron, a Varnish purge, logs                                                                                         | an API key                                                              | optional                                                                       |
+| The source site (step 2)         | read its pages and its theme's template files for the port                                                                                      | a copy the agent makes; its WordPress admin from the host's API         | nothing                                                                        |
+| Staging Core's admin secret      | ring, resync, read the timeline                                                                                                                 | set anew by an agent through the DigitalOcean API                       | nothing                                                                        |
+
+**The deploy script** (2026-09-28). `scripts/deploy-site.mjs` is the first install and every
+iteration until the channel's job exists: with `SITE_URL`, `WP_USER` and `WP_PASSWORD` it signs
+in to the site's WordPress admin, packages the plugin and the theme under `clients/wordpress/themes/` with `release.php`, uploads each package (WordPress's own "replace
+current with uploaded" when it is there already), activates it, and with `--settings '{…}'`
+writes any of the plugin's settings while keeping the rest. It is plain web traffic, so it runs
+from a session against any host. Proved 2026-09-28 on a copy of the local test install: install,
+replace, activate, the updater placed, the settings kept across a partial write.
+
+**Where it stands** (2026-09-28, night). The site stands and is joined: the app "v4-staging"
+on Kowboy's Cloudways dev server (application 6698706 on server 1545003, created through the API
+on Patric's word) answers at `https://wordpress-1545003-6698706.cloudwaysapps.com/`, runs the
+plugin and the set `kowboy-2026` installed by `scripts/deploy-site.mjs`, and is site 1 of tenant
+1 ("Kowboy test account", the Vitec test office `M31529`) on staging Core, with the tenant's
+token and its bell secret in its settings and Core's address `https://staging.core.kowboy.cloud`.
+The first ring pulled every record (640 properties, 6 agents, 1 office, 56 areas, 427
+associations, 3 projects). Its WordPress admin login lives in Cloudways (the app's access
+details), never here. `*.dev.kowboy.se` points at that server, but the site is used under its own
+address (question 88 closed). Staging Core's admin API is entered by a mailed sign-in link; Google
+takes those mails and shows them nowhere until kowboy.se's DNS carries the records Postmark asks
+for (question 100), so until then Patric pastes the link from Postmark's message page and the
+agent signs in with it.
+
+**The loop as it runs** (2026-09-28, night). Two scripts and one sign-in, all from a session:
+
+1. `SITE_URL=… WP_USER=… WP_PASSWORD=… node scripts/deploy-site.mjs [--settings '{…}']` puts the
+   branch's plugin and the theme on the site (the packages' versions are checked through the
+   WordPress REST API afterwards, so the site's language plays no part), and writes settings.
+2. `SITE_URL=… node scripts/shoot-site.mjs <folder> [path …]` screenshots the property list, the
+   first property it links to and the agent list at desktop and phone widths; an agent reads the
+   files and compares them with the master's pages.
+3. Staging Core's admin API, for the tenant page, a ring and the timeline: `POST /v1/admin/sign-in`
+   with Patric's address mails a link; until question 100 is answered Patric pastes it from
+   Postmark's message page and the agent opens it once to get its session cookie.
+
+The site's own settings, set once on 2026-09-28 through its admin and recorded here: language
+Swedish (`sv_SE`, so dates and weekdays read as on the master), time zone Europe/Stockholm,
+permalinks `/%postname%/`. The plugin registers its post types before it rebuilds the rewrite
+rules on activation and again once after an update (version 0.2.1), so record pages answer
+without a permalink save.
 
 ## Cache invalidation: the WordPress way, and nothing else
 

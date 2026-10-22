@@ -39,11 +39,15 @@ services:
         value: EV[1:N71KfGweIKlzf42ES3sufrtrqQJ013Mh:I0ZD7+OARrP/BbYy68T9PHSqYa4n1BluG/nbSgXQdNQNG7W0/lWyQfH4WVTve0F4Fh1EBKRdvGN92ytY]
         scope: RUN_TIME
         type: SECRET
-      # The admin area (docs/admin-panel.md). Staging has these since 2026-09-21; production gets
-      # the area itself with the release. PUBLIC_URL is here from 2026-09-21, the day production
-      # took its own address: it is where the sign-in link and the links in alerts point. The
-      # Postmark token that mails them is still staging's alone, so production cannot send the
-      # sign-in link yet; it goes on with the release.
+      # The admin area (docs/admin-panel.md). PUBLIC_URL is here from 2026-09-21, the day production
+      # took its own address: it is where the sign-in link and the links in alerts point. The mail
+      # settings and the lists of who may open the area reached the live app on 2026-10-03 (Patric,
+      # closing question 87); before that the app carried none of them, whatever this file said.
+      # The Postmark token is set on the app, encrypted by DigitalOcean; its encrypted value comes
+      # into this file the next time it is refreshed from the app (`doctl apps spec get`).
+      - key: POSTMARK_SERVER_TOKEN
+        scope: RUN_TIME
+        type: SECRET
       - key: ADMIN_EMAILS
         value: patric@kowboy.se
         scope: RUN_TIME

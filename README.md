@@ -3,7 +3,7 @@
 Kowboy Core is the central service that reads real estate CRMs, normalizes their data into one
 model and serves it to thin website clients.
 
-- Plan: [docs/strategy.md](docs/strategy.md) · Agent instructions: [AGENTS.md](AGENTS.md)
+- Plan: [docs/strategy.md](docs/strategy.md) · Agent instructions: [AGENTS.md](AGENTS.md) (the company handbook reaches sessions from the account, not from a file here)
 - Decisions: [docs/decisions.md](docs/decisions.md) · Open questions: [docs/open-questions.md](docs/open-questions.md)
 - Contract: [schemas/](schemas/) and [docs/field-tables.md](docs/field-tables.md)
 - Acceptance: [acceptance/report.md](acceptance/report.md)
@@ -20,17 +20,27 @@ npm run start:web             # subscriber API, health, adapter endpoints
 npm run start:worker          # adapter background work, bells, housekeeping
 ```
 
-Migrations run at startup. `GET /v1/health` is public, for an uptime monitor: 200 when every
-check passes, 500 when any fails, each check explained in counts and plain words. The admin area
-is `/admin` on the web process, built into `dist/admin` by the same `npm run build`
-([docs/admin-panel.md](docs/admin-panel.md)); `ADMIN_EMAILS` (addresses) and
+Migrations run at startup. `GET /v1/health` is public, for an uptime monitor: 500 only while
+Core is down for every customer (a P0 check fails), 200 otherwise, each check explained in counts
+and plain words. The admin area
+is `/admin` on the web process, built into `dist/panel` by the same `npm run build`
+([docs/new-admin/b-build-list.md](docs/new-admin/b-build-list.md)); `ADMIN_EMAILS` (addresses) and
 `ADMIN_EMAIL_DOMAINS` (whole domains) say who may open it, and a sign-in link is mailed to an
-address that may. For work on the app alone, `npm run dev:admin` serves it
-on port 5173 against a Core running beside it.
+address that may. For work on the app alone, `npm run dev:panel` serves it
+on port 5174 against a Core running beside it on port 3000.
 Optional: `SENTRY_ENVIRONMENT` names the environment (staging, production, local) in alerts and
 to Sentry, `PUBLIC_URL` is where Core is reached for the link in alerts, `ALERT_EMAIL` (mailed
 through Postmark: `MAIL_FROM`, `POSTMARK_SERVER_TOKEN`) and `ALERT_SLACK_WEBHOOK_URL` are where an
-alert goes when a health check changes state.
+alert goes when a health check changes state or an event needs attention (an office taken off
+the sites, a connection paused, a login refused; `engine/attention.ts`). `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` are the forms'
+bot check (Cloudflare Turnstile, docs/forms.md): a site's window renders the challenge with the
+public key, which the site's server reads from `GET /v1/submissions/bot-check`, and Core checks
+every form's proof with the secret. Unset, the live service (`SENTRY_ENVIRONMENT=production`)
+takes no form at all and says so in an alert; staging and local use Cloudflare's published test
+keys, whose check always passes, and send no form to a live CRM. `CLOUDFLARE_ACCOUNT_ID` and
+`CLOUDFLARE_TURNSTILE_TOKEN` (a Cloudflare key that may change Turnstile) let Core put a
+website's address on the bot check's list when its admin saves the website (`listOnBotCheck` in
+`engine/human.ts`).
 
 The Vitec adapter's connection format, webhook URL and settings (`VITEC_WEBHOOK_TOKEN`,
 `VITEC_FETCH_CONCURRENCY`) are in [adapters/vitec/README.md](adapters/vitec/README.md).
@@ -57,7 +67,11 @@ one fails. GitHub's branch protection (below) makes the checks the only way in, 
 agent merges on Patric's word, a dev with the merge button. `.github/workflows/deploy.yml` is a
 manual button that deploys `main` again without a merge, for a retry. Each app is a `web`
 service with its readiness probe on `/v1/ready` and a `worker`; the cluster is bound as
-`DATABASE_URL` with its CA as `DATABASE_CA_CERT`, which `scripts/start.sh` hands to Node. A spec
+`DATABASE_URL` with its CA as `DATABASE_CA_CERT`, which `scripts/start.sh` hands to Node. Staging's
+`DATABASE_URL` is `${db.staging.DATABASE_URL}`, the address of the cluster's connection pool
+`staging` (DigitalOcean's PgBouncer, transaction mode, 6 connections), which lends the database's
+connections to whichever process has a query; live connects directly until the next release gives
+it a pool of its own, `live` with 12 connections, set in the live app's own spec. A spec
 is changed by editing it and updating the app through the API; what DigitalOcean returns is
 committed back, secrets encrypted. Vitec is given each app's notification URL,
 `https://<app domain>/v1/hook/vitec/webhook/<that app's VITEC_WEBHOOK_TOKEN>`.
@@ -71,8 +85,8 @@ pushes, then Create. From then on nobody, agent or human, gets code into `stagin
 except through a pull request with green checks.
 
 **Restoring the database:** restore it in DigitalOcean, restart the app, nothing else (strategy
-§7.2). `/v1/health` stays red until every adapter has caught up; send no `forcerefresh` to a site
-while it is red. The platform's own probe is `/v1/ready`, which only asks whether the process can
+§7.2). Until every adapter has caught up, `/v1/health` answers `ok: false` with an adapter's check
+saying it is catching up; send no `forcerefresh` to a site until that check passes. The platform's own probe is `/v1/ready`, which only asks whether the process can
 serve, so a deploy is never held up by a site or an adapter.
 
 ## Checking it

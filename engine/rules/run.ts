@@ -1,5 +1,5 @@
 import { RULES_VERSION } from './version.js';
-import { officeStrings, projectStrings, propertyStrings } from './strings.js';
+import { associationStrings, officeStrings, projectStrings, propertyStrings } from './strings.js';
 import { PROPERTY_SECTIONS, renderSections } from './sections.js';
 import type { Canonical, Datatype } from '../adapter-api/types.js';
 
@@ -26,6 +26,8 @@ function strings(datatype: Datatype, input: Canonical): Record<string, string> {
       return projectStrings(input);
     case 'office':
       return officeStrings(input);
+    case 'association':
+      return associationStrings(input);
     default:
       return {};
   }

@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/GET-v2-Advertising-Form-customerId-Estate-estateId, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/GET-v2-Advertising-Form-customerId-Estate-estateId, fetched 2026-10-04 -->
 
 # GET v2/Advertising/Form/{customerId}/Estate/{estateId}
 
@@ -43,9 +43,9 @@ Hämtar bostadsinformation som behövs för kontaktformulär [AdvertisingFormCon
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json220)
+- [application/json, text/json](https://connect.maklare.vitec.net#json21)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml220)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml21)
 
 ```
 {
@@ -81,46 +81,46 @@ Hämtar bostadsinformation som behövs för kontaktformulär [AdvertisingFormCon
   "viewings": [
     {
       "id": "sample string 1",
-      "startsAt": "2026-09-16T06:05:11.2050353+02:00",
-      "endsAt": "2026-09-16T06:05:11.2050353+02:00",
-      "deadlineAt": "2026-09-16T06:05:11.2050353+02:00",
+      "startsAt": "2026-10-04T05:48:20.0779558+02:00",
+      "endsAt": "2026-10-04T05:48:20.0779558+02:00",
+      "deadlineAt": "2026-10-04T05:48:20.0779558+02:00",
       "isSelfRegistrationEnabled": true,
       "isVisible": true,
       "comment": "sample string 4",
       "timeSlots": [
         {
           "id": "sample string 1",
-          "startsAt": "2026-09-16T06:05:11.2050353+02:00",
-          "endsAt": "2026-09-16T06:05:11.2050353+02:00",
+          "startsAt": "2026-10-04T05:48:20.0779558+02:00",
+          "endsAt": "2026-10-04T05:48:20.0779558+02:00",
           "isRegistrationAvailable": true
         },
         {
           "id": "sample string 1",
-          "startsAt": "2026-09-16T06:05:11.2050353+02:00",
-          "endsAt": "2026-09-16T06:05:11.2050353+02:00",
+          "startsAt": "2026-10-04T05:48:20.0779558+02:00",
+          "endsAt": "2026-10-04T05:48:20.0779558+02:00",
           "isRegistrationAvailable": true
         }
       ]
     },
     {
       "id": "sample string 1",
-      "startsAt": "2026-09-16T06:05:11.2050353+02:00",
-      "endsAt": "2026-09-16T06:05:11.2050353+02:00",
-      "deadlineAt": "2026-09-16T06:05:11.2050353+02:00",
+      "startsAt": "2026-10-04T05:48:20.0779558+02:00",
+      "endsAt": "2026-10-04T05:48:20.0779558+02:00",
+      "deadlineAt": "2026-10-04T05:48:20.0779558+02:00",
       "isSelfRegistrationEnabled": true,
       "isVisible": true,
       "comment": "sample string 4",
       "timeSlots": [
         {
           "id": "sample string 1",
-          "startsAt": "2026-09-16T06:05:11.2050353+02:00",
-          "endsAt": "2026-09-16T06:05:11.2050353+02:00",
+          "startsAt": "2026-10-04T05:48:20.0779558+02:00",
+          "endsAt": "2026-10-04T05:48:20.0779558+02:00",
           "isRegistrationAvailable": true
         },
         {
           "id": "sample string 1",
-          "startsAt": "2026-09-16T06:05:11.2050353+02:00",
-          "endsAt": "2026-09-16T06:05:11.2050353+02:00",
+          "startsAt": "2026-10-04T05:48:20.0779558+02:00",
+          "endsAt": "2026-10-04T05:48:20.0779558+02:00",
           "isRegistrationAvailable": true
         }
       ]

@@ -1,5 +1,9 @@
 # Admin area v3: the design
 
+> **History.** The admin area this file describes was removed on 2026-10-22 on Patric's word, and
+> design B replaced it. What the admin panel is and does now:
+> [`docs/new-admin/b-build-list.md`](new-admin/b-build-list.md).
+
 The third panel, designed from the requirement sheets alone: the use cases of
 `docs/admin-panel-rebuild.md` §1, the rated functions of §3 (every Must and every Should), the
 rules of §8, and the patterns of comparable consoles read fresh on 2026-09-20 and cited below.

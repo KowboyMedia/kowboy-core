@@ -1,0 +1,53 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import '@tabler/core/dist/css/tabler.min.css';
+import './panel.css';
+import { LinkPage, SignInPage } from './SignIn';
+import { InboxPage } from './Inbox';
+import { BrokeragesPage } from './Brokerages';
+import { BrokeragePage } from './Brokerage';
+import { NewBrokeragePage, NewBrokerageStep } from './NewBrokerage';
+import { EditTenantPage } from './EditTenant';
+import { AddWebsitePage, EditWebsitePage } from './WebsitePage';
+import { AddCrmPage, EditCrmPage } from './CrmPage';
+import { FlowPage } from './Flow';
+import { RecordsPage } from './Records';
+import { RecordPagePage } from './Record';
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/sign-in" element={<SignInPage />} />
+      <Route path="/link" element={<LinkPage />} />
+      <Route path="/" element={<InboxPage />} />
+      <Route path="/brokerages" element={<BrokeragesPage />} />
+      <Route path="/brokerages/:id" element={<BrokeragePage />} />
+      <Route path="/brokerages/:id/edit" element={<EditTenantPage />} />
+      <Route path="/brokerages/:id/websites/new" element={<AddWebsitePage />} />
+      <Route path="/brokerages/:id/websites/:site" element={<EditWebsitePage />} />
+      <Route path="/brokerages/:id/crms/new" element={<AddCrmPage />} />
+      <Route path="/brokerages/:id/connections/:connection" element={<EditCrmPage />} />
+      <Route path="/records" element={<RecordsPage />} />
+      <Route path="/records/:connection/:datatype/:id" element={<RecordPagePage />} />
+      <Route path="/flow" element={<FlowPage />} />
+      <Route path="/new" element={<NewBrokeragePage />} />
+      <Route path="/new/:id" element={<NewBrokeragePage />} />
+      <Route path="/new/:id/crm" element={<NewBrokerageStep step="crm" />} />
+      <Route path="/new/:id/website" element={<NewBrokerageStep step="website" />} />
+      <Route path="/new/:id/check" element={<NewBrokerageStep step="check" />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+const root = document.getElementById('root');
+if (root) {
+  createRoot(root).render(
+    <StrictMode>
+      <BrowserRouter basename="/admin">
+        <App />
+      </BrowserRouter>
+    </StrictMode>,
+  );
+}

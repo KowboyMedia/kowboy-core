@@ -22,9 +22,17 @@ if (!is_blog_installed()) {
     echo "WordPress installed\n";
 }
 
-$result = activate_plugin('core-client/core-client.php');
-if (is_wp_error($result)) {
-    fwrite(STDERR, 'could not activate core-client: ' . $result->get_error_message() . "\n");
-    exit(1);
+// The theme "Kowboy 2026" is the set under test; the tests switch to twentytwentyone for the
+// set-plugin cases.
+if (get_option('stylesheet') !== 'kowboy-2026') {
+    switch_theme('kowboy-2026');
 }
-echo "core-client active\n";
+
+foreach (['core-client/core-client.php', 'core-client-templates-fixture/core-client-templates-fixture.php'] as $plugin) {
+    $result = activate_plugin($plugin);
+    if (is_wp_error($result)) {
+        fwrite(STDERR, "could not activate $plugin: " . $result->get_error_message() . "\n");
+        exit(1);
+    }
+    echo "$plugin active\n";
+}

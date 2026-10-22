@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Brand-List-customerId, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Brand-List-customerId, fetched 2026-10-04 -->
 
 # GET Advertising/Brand/List/{customerId}
 
@@ -46,9 +46,9 @@ Hämta lista av varumärken för hemsida.
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json261)
+- [application/json, text/json](https://connect.maklare.vitec.net#json244)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml261)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml244)
 
 ```
 {
@@ -59,40 +59,40 @@ Hämta lista av varumärken för hemsida.
     {
       "id": "sample string 1",
       "name": "sample string 2",
-      "createdAt": "2026-09-16T05:56:25.1218646+02:00",
-      "changedAt": "2026-09-16T05:56:25.1218646+02:00",
+      "createdAt": "2026-10-04T13:51:12.8536693+02:00",
+      "changedAt": "2026-10-04T13:51:12.8536693+02:00",
       "segments": [
         {
           "id": "sample string 1",
           "name": "sample string 2",
-          "createdAt": "2026-09-16T05:56:25.1218646+02:00",
-          "changedAt": "2026-09-16T05:56:25.1218646+02:00"
+          "createdAt": "2026-10-04T13:51:12.8536693+02:00",
+          "changedAt": "2026-10-04T13:51:12.8536693+02:00"
         },
         {
           "id": "sample string 1",
           "name": "sample string 2",
-          "createdAt": "2026-09-16T05:56:25.1218646+02:00",
-          "changedAt": "2026-09-16T05:56:25.1218646+02:00"
+          "createdAt": "2026-10-04T13:51:12.8536693+02:00",
+          "changedAt": "2026-10-04T13:51:12.8536693+02:00"
         }
       ]
     },
     {
       "id": "sample string 1",
       "name": "sample string 2",
-      "createdAt": "2026-09-16T05:56:25.1218646+02:00",
-      "changedAt": "2026-09-16T05:56:25.1218646+02:00",
+      "createdAt": "2026-10-04T13:51:12.8536693+02:00",
+      "changedAt": "2026-10-04T13:51:12.8536693+02:00",
       "segments": [
         {
           "id": "sample string 1",
           "name": "sample string 2",
-          "createdAt": "2026-09-16T05:56:25.1218646+02:00",
-          "changedAt": "2026-09-16T05:56:25.1218646+02:00"
+          "createdAt": "2026-10-04T13:51:12.8536693+02:00",
+          "changedAt": "2026-10-04T13:51:12.8536693+02:00"
         },
         {
           "id": "sample string 1",
           "name": "sample string 2",
-          "createdAt": "2026-09-16T05:56:25.1218646+02:00",
-          "changedAt": "2026-09-16T05:56:25.1218646+02:00"
+          "createdAt": "2026-10-04T13:51:12.8536693+02:00",
+          "changedAt": "2026-10-04T13:51:12.8536693+02:00"
         }
       ]
     }

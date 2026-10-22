@@ -1,5 +1,8 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { gzipSync } from 'node:zlib';
+import type { Writable } from 'node:stream';
+import { finished, pipeline } from 'node:stream/promises';
+import { promisify } from 'node:util';
+import { createGzip, gzip as gzipCallback, gzipSync } from 'node:zlib';
 import { report } from '../errors.js';
 import type { Route } from '../adapter-api/types.js';
 import { adapterApi } from '../adapter-api/index.js';
@@ -24,6 +27,8 @@ export type Response =
       status: number;
       /** JSON, a string, or a Buffer sent as is (a file). */
       body?: unknown;
+      /** A large body instead, in parts sent as they are compressed (`stream`). */
+      parts?: string[];
       headers?: Record<string, string>;
     }
   /** A handler that writes the response itself: a stream that stays open, such as the panel's live feed. */
@@ -32,6 +37,9 @@ export type Response =
 export type RouteTable = { method: string; path: string; handler: Handler }[];
 
 let gzipLevel = 3;
+const gzip = promisify(gzipCallback);
+/** A body this large is compressed off the event loop; a smaller one at once, quicker than a hand-off. */
+const GZIP_OFF_LOOP_BYTES = 64 * 1024;
 
 export function configureCompression(level: number): void {
   gzipLevel = level;
@@ -81,7 +89,7 @@ async function handle(
   );
 
   if (!route) {
-    write(incoming, outgoing, { status: 404, body: { error: 'not found' } });
+    await write(incoming, outgoing, { status: 404, body: { error: 'not found' } });
     return;
   }
 
@@ -99,10 +107,12 @@ async function handle(
     };
     const response = await route.handler(request);
     if ('raw' in response) response.raw(outgoing);
-    else write(incoming, outgoing, response);
+    else await write(incoming, outgoing, response);
   } catch (error) {
     report(error, { where: 'http', path: url.pathname });
-    write(incoming, outgoing, { status: 500, body: { error: 'internal error' } });
+    // A body cut off after its head went out can only end there; the site's parser sees it.
+    if (outgoing.headersSent) outgoing.destroy();
+    else await write(incoming, outgoing, { status: 500, body: { error: 'internal error' } });
   }
 }
 
@@ -121,12 +131,16 @@ function readBody(incoming: IncomingMessage): Promise<Buffer> {
   });
 }
 
-function write(
+async function write(
   incoming: IncomingMessage,
   outgoing: ServerResponse,
   response: Exclude<Response, { raw: unknown }>,
-): void {
+): Promise<void> {
   const headers: Record<string, string> = { ...response.headers };
+  if (response.parts) {
+    await stream(incoming, outgoing, response.status, headers, response.parts);
+    return;
+  }
   let payload: Buffer;
 
   if (response.body === undefined) {
@@ -142,10 +156,14 @@ function write(
     headers['content-type'] ??= 'application/json; charset=utf-8';
   }
 
-  // gzip at a low, fast level (strategy §2, AC 40).
+  // gzip at a low, fast level (strategy §2, AC 40); a large body off the event loop, so it does
+  // not hold up the requests that arrive while it is compressed.
   const accepts = (incoming.headers['accept-encoding'] ?? '').includes('gzip');
   if (accepts && payload.length > 0) {
-    payload = gzipSync(payload, { level: gzipLevel });
+    payload =
+      payload.length < GZIP_OFF_LOOP_BYTES
+        ? gzipSync(payload, { level: gzipLevel })
+        : await gzip(payload, { level: gzipLevel });
     headers['content-encoding'] = 'gzip';
   }
   headers['vary'] = 'accept-encoding';
@@ -153,4 +171,37 @@ function write(
 
   outgoing.writeHead(response.status, headers);
   outgoing.end(payload);
+}
+
+/**
+ * A large body sent as it is compressed: the head goes at once and each part follows as gzip gives
+ * it, so a site gets a page's first bytes while the rest is still being compressed, and sending
+ * overlaps compressing (AC 27). JSON unless the handler says otherwise. The parts are in memory
+ * already, so they are handed over whole. A site that goes away mid-body is no fault of Core's:
+ * the body ends there, unreported.
+ */
+async function stream(
+  incoming: IncomingMessage,
+  outgoing: ServerResponse,
+  status: number,
+  headers: Record<string, string>,
+  parts: string[],
+): Promise<void> {
+  headers['content-type'] ??= 'application/json; charset=utf-8';
+  headers['vary'] = 'accept-encoding';
+  const accepts = (incoming.headers['accept-encoding'] ?? '').includes('gzip');
+  if (accepts) headers['content-encoding'] = 'gzip';
+  outgoing.writeHead(status, headers);
+  outgoing.flushHeaders();
+
+  const compressor = accepts ? createGzip({ level: gzipLevel }) : null;
+  const target: Writable = compressor ?? outgoing;
+  const sent = compressor ? pipeline(compressor, outgoing) : finished(outgoing);
+  for (const part of parts) target.write(part);
+  target.end();
+  try {
+    await sent;
+  } catch {
+    outgoing.destroy();
+  }
 }

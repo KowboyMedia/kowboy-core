@@ -7,6 +7,7 @@ export default defineConfig({
       'adapters/**/*.test.ts',
       'acceptance/**/*.test.ts',
       'clients/lovable-kit/**/*.test.ts',
+      'panel/**/*.test.ts',
     ],
     setupFiles: ['acceptance/setup.ts'],
     testTimeout: 30_000,

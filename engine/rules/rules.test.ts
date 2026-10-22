@@ -74,6 +74,9 @@ describe('R-001 money and numbers', () => {
     expect(formatNumber(4950000)).toBe(`4${N}950${N}000`);
     expect(formatNumber(45.5)).toBe('45,5');
     expect(formatNumber(1.005)).toBe('1,01');
+    // A percentage keeps every decimal the CRM sends (question 119).
+    expect(formatNumber(1.1515, true)).toBe('1,1515');
+    expect(withUnit(1.151, '%', true)).toBe(`1,151${N}%`);
     expect(money(4950000, 'SEK')).toBe(`4${N}950${N}000${N}kr`);
     expect(money(400000, 'EUR')).toBe(`400${N}000${N}EUR`);
     expect(money(0, 'SEK')).toBeNull();
@@ -150,6 +153,26 @@ describe('the property strings (R-001 to R-012)', () => {
     expect(display['location']).toBe('Vasastan');
   });
 
+  it('validated for the default set (R-015 to R-018, question 90): price wording, fee amount, floor with elevator, exterior features', () => {
+    expect(display['price_text']).toBe('Utgångspris');
+    expect(display['fee_amount']).toBe(`3${N}500${N}kr`);
+    expect(display['floor_and_elevator']).toBe('3 av 5, hiss finns');
+    expect(display['exterior_features']).toBe('Balkong finns');
+    const plain = applyRules('property', {
+      ...home(),
+      price_text: 'utgångspris',
+      elevator: false,
+      exterior_features: [{ type: { id: 'Pool', name: 'Pool' }, is_available: false }],
+    })['display'] as Record<string, unknown>;
+    expect(plain['price_text']).toBe('Utgångspris');
+    expect(plain['floor_and_elevator']).toBe('3 av 5');
+    expect(plain).not.toHaveProperty('exterior_features');
+    const noFloor = applyRules('property', { ...home(), floor: null, floors_total: null })[
+      'display'
+    ] as Record<string, unknown>;
+    expect(noFloor).not.toHaveProperty('floor_and_elevator');
+  });
+
   it('never invents a string: an empty record shows nothing but its sections', () => {
     const empty = applyRules('property', { id: 'X', display: {}, provider_extras: {} });
     expect(empty['display']).toEqual({ sections: [] });
@@ -163,9 +186,13 @@ describe('R-013 sections', () => {
       sections: { header: string; items: { label: string; value: string }[] }[];
     };
     const byHeader = Object.fromEntries(sections.sections.map((s) => [s.header, s.items]));
+    expect(byHeader['Grundinformation']).toEqual([
+      { label: 'Adress', value: 'Storgatan 1 111 22 Stockholm' },
+      { label: 'Område', value: 'Vasastan' },
+    ]);
     expect(byHeader['Interiör']).toEqual([
-      { label: 'Antal rum', value: `3${N}rum, varav 2 – 3${N}sovrum` },
       { label: 'Boarea', value: `82${N}kvm` },
+      { label: 'Antal rum', value: '3' },
       { label: 'Biarea', value: `12${N}kvm` },
       { label: 'Kök', value: 'Renoverat 2020' },
     ]);
@@ -173,15 +200,21 @@ describe('R-013 sections', () => {
       { label: 'Byggår', value: '1936' },
       { label: 'Uppvärmning', value: 'Fjärrvärme' },
     ]);
-    expect(byHeader['Balkong, uteplats och parkering']).toEqual([
-      { label: 'Balkong', value: `Ja, 8${N}kvm, Söder` },
-      { label: 'Pool', value: 'Nej' },
-    ]);
     expect(byHeader['Energideklaration']).toEqual([
       { label: 'Energideklaration', value: 'Utförd 2021-02-26' },
+      { label: 'Energiprestanda primärenergital', value: `92${N}kWh per kvm och år` },
       { label: 'Energiklass', value: 'C' },
-      { label: 'Energiförbrukning', value: `92${N}kWh/m² och år` },
     ]);
+    expect(byHeader['Andelstal, avgifter och insats']).toEqual([
+      { label: 'Månadsavgift', value: `3${N}500${N}kr` },
+      { label: 'Kommentar till månadsavgift', value: 'inkl. värme' },
+      { label: 'Tomträttsavgäld', value: `6${N}646${N}kr/år (löper till 2029-12-31)` },
+    ]);
+    expect(byHeader['Våning/hiss']).toEqual([{ label: 'Våning', value: '3 av 5, hiss finns' }]);
+    expect(byHeader['Driftskostnader']).toEqual([
+      { label: 'Summa per år', value: `28${N}500${N}kr/år` },
+    ]);
+    expect(byHeader).not.toHaveProperty('Balkong, uteplats och parkering');
     expect(byHeader).not.toHaveProperty('Gård');
     expect(byHeader).not.toHaveProperty('Taxering');
     expect(renderSections({}, PROPERTY_SECTIONS)).toEqual([]);
@@ -209,5 +242,23 @@ describe('R-014 project ranges', () => {
     })['display'] as Record<string, unknown>;
     expect(display['fee_range']).toBe(`2${N}000 – 3${N}000${N}kr/mån`);
     expect(display['rooms_range']).toBe(`2 – 4${N}rum`);
+  });
+});
+
+describe('R-019 association fees (validated 2026-10-03, question 90)', () => {
+  it('writes the transfer fee and the pledge fee in kr, and nothing when they are missing', () => {
+    const display = applyRules('association', {
+      id: 'BRF-1',
+      name: 'Brf Solen',
+      economy: { transfer_fee: 1480, pledge_fee: 592 },
+      display: {},
+      provider_extras: {},
+    })['display'] as Record<string, unknown>;
+    expect(display['transfer_fee']).toBe(`1${N}480${N}kr`);
+    expect(display['pledge_fee']).toBe(`592${N}kr`);
+    const bare = applyRules('association', { id: 'BRF-2', display: {}, provider_extras: {} })[
+      'display'
+    ] as Record<string, unknown>;
+    expect(bare).toEqual({});
   });
 });

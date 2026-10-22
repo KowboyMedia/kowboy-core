@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Association-customerId-associationId, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Association-customerId-associationId, fetched 2026-10-04 -->
 
 # GET Advertising/Association/{customerId}/{associationId}
 
@@ -53,14 +53,14 @@ Hämtar bostadsrättsförening [AdvertisingAssociation](https://connect.maklare.
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json402)
+- [application/json, text/json](https://connect.maklare.vitec.net#json182)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml402)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml182)
 
 ```
 {
   "id": "sample string 1",
-  "changedAt": "2026-09-16T05:56:27.3094809+02:00",
+  "changedAt": "2026-10-04T07:49:59.1595579+02:00",
   "name": "sample string 3",
   "corporateNumber": "sample string 4",
   "organizationalForm": "TenantOwnedAssociation",
@@ -103,7 +103,7 @@ Hämtar bostadsrättsförening [AdvertisingAssociation](https://connect.maklare.
       "id": "sample string 2",
       "extension": "sample string 3",
       "url": "sample string 4",
-      "dateChangedData": "2026-09-16T05:56:27.3094809+02:00",
+      "dateChangedData": "2026-10-04T07:49:59.1595579+02:00",
       "category": "sample string 5"
     },
     {
@@ -111,7 +111,7 @@ Hämtar bostadsrättsförening [AdvertisingAssociation](https://connect.maklare.
       "id": "sample string 2",
       "extension": "sample string 3",
       "url": "sample string 4",
-      "dateChangedData": "2026-09-16T05:56:27.3094809+02:00",
+      "dateChangedData": "2026-10-04T07:49:59.1595579+02:00",
       "category": "sample string 5"
     }
   ]

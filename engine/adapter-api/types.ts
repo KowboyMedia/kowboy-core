@@ -23,12 +23,104 @@ export type Connection = {
   credentials: string | null;
   /** Empty means every office the credential can see (SRS §3). */
   licensedOffices: string[];
-  active: boolean;
 };
 
 export type Manifest = {
   provider: string;
   datatypes: Datatype[];
+  /**
+   * The kinds of form submission this CRM takes (docs/forms.md, approved with question 130). A
+   * kind not listed is answered 501 before any adapter call; absent means the CRM takes none.
+   */
+  submissions?: SubmissionKind[];
+  /**
+   * This adapter takes its offices from the CRM itself (question 156 a): the tenant page leaves
+   * out "Offices it may see", a save stores the connection's office list empty, and ingest reads
+   * the list as empty, so every office the adapter chose passes.
+   */
+  officesFromCrm?: boolean;
+};
+
+// ---- Form submissions (docs/forms.md): a site's form reaches the CRM through Core -------------
+
+export type SubmissionKind = 'lead' | 'interest' | 'viewing' | 'search_profile';
+
+export const SUBMISSION_KINDS: readonly SubmissionKind[] = [
+  'lead',
+  'interest',
+  'viewing',
+  'search_profile',
+] as const;
+
+/** The search profile's criteria (question 139), each one of the whitelist or null for no requirement. */
+export type SearchCriteria = {
+  object_type: 'apartment' | 'house' | 'holiday_house' | 'plot' | null;
+  rooms_min: number | null;
+  living_area_min: number | null;
+  /** Chosen from the site's own area list: ids the CRM already knows. */
+  areas: { id: string; name: string; county_municipality_code: string | null }[];
+  county_municipality_code: string | null;
+};
+
+/**
+ * A form submission as a site posted it, validated against `schemas/submission.v1.json` before
+ * the adapter sees it. The person is the adapter's to send and never to keep: Core stores and
+ * logs the id and the outcome only.
+ */
+export type Submission = {
+  id: string;
+  kind: SubmissionKind;
+  /** The home; always there on an interest and a viewing. */
+  record?: { datatype: Datatype; connection_id: string; remote_id: string };
+  /**
+   * The office this goes to: the home's office for a submission on a record, the office named on
+   * a lead, or the tenant's only office. Core fills it in from its store when the site sent none.
+   */
+  office_id?: string;
+  /** The slot booked, on a viewing. */
+  slot_id?: string;
+  person: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+    address?: { street: string; postal_code: string; city: string };
+  };
+  message?: string;
+  consent: { given: true; at: string };
+  source?: { page?: string; utm?: Record<string, string> };
+  criteria?: SearchCriteria;
+  /** "Kontakta mig om min nuvarande bostad" (question 141 a): the adapter makes a seller lead too. */
+  contact_about_current_home?: boolean;
+};
+
+/**
+ * What the CRM said. `reference` is the CRM's own id for what it made (a contact, a booking).
+ * `reason` reaches the visitor and `detail` the event log, so both are the CRM's words about the
+ * submission and never the person's data.
+ */
+export type SubmissionResult =
+  | { outcome: 'delivered'; reference?: string }
+  | { outcome: 'refused'; reason: string }
+  | { outcome: 'failed'; detail: string };
+
+/** A home's viewings and their bookable slots, the shape of `schemas/slots.v1.json`. */
+export type Slots = {
+  viewings: {
+    id: string;
+    starts_at: string | null;
+    ends_at: string | null;
+    deadline_at: string | null;
+    self_registration: boolean | null;
+    visible: boolean | null;
+    slots: {
+      id: string;
+      starts_at: string | null;
+      ends_at: string | null;
+      available: boolean | null;
+      free_spots: number | null;
+    }[];
+  }[];
 };
 
 /** A mapper is a pure translation: no I/O, no clock, no side effects (SRS §4). */
@@ -47,7 +139,7 @@ export type Mappers = Partial<Record<Datatype, Mapper>>;
 export type IngestResult =
   | { outcome: 'written'; seq: number }
   | { outcome: 'unchanged' }
-  | { outcome: 'dropped'; reason: 'unlicensed' | 'malformed' | 'unknown-datatype' | 'inactive' };
+  | { outcome: 'dropped'; reason: 'unlicensed' | 'malformed' | 'unknown-datatype' };
 
 export type LifecycleEvent =
   | { type: 'connection_added'; connection: Connection }
@@ -61,12 +153,42 @@ export type LifecycleEvent =
 export type LifecycleHandler = (event: LifecycleEvent) => Promise<void> | void;
 
 /**
+ * How much a failing check matters (questions 164 and 172): P0, Core is down for every customer;
+ * P1, one customer is disrupted; P2, someone should look at it; P3, it is only recorded.
+ */
+export type Level = 'P0' | 'P1' | 'P2' | 'P3';
+
+/**
+ * A thing the CRM's code names by its ids, in a check's `names` or as a value on its pages:
+ * Core writes its name as the admin area writes it everywhere (its tenant, its name, a record's
+ * address) and links it to its place, so the CRM's code needs neither a tenant's name nor an
+ * address in the admin area, and a name stays current when a tenant or a connection is renamed
+ * (question 184). With neither `office` nor `record` the thing is the connection itself.
+ */
+export type AdminThing = {
+  /** The connection, by Core's id for it (`Connection.id`), which no page shows. */
+  connection: string;
+  /** An office the connection reads, by the CRM's id for it. */
+  office?: string;
+  /** A record of the connection, by its entity type and the CRM's id for it. */
+  record?: { datatype: Datatype; id: string };
+  /** What the CRM's code says about it, after its name: "last caught up 3 hours ago". */
+  note?: string;
+};
+
+/**
  * One health check's answer. `detail` is for anyone: counts and plain words, never a customer's
  * name, a connection or an office id, because `/v1/health` is public (Patric, 2026-09-20,
  * question 62). What the detail counts goes in `names`, which the public answer leaves out and
- * the alerts and the panel carry.
+ * the alerts and the panel carry: a thing, which Core names and links, or a text. `level` says
+ * how much a failing check matters; a failing check without one counts as P1 (question 172).
  */
-export type HealthResult = { ok: boolean; detail?: string; names?: string[] };
+export type HealthResult = {
+  ok: boolean;
+  detail?: string;
+  names?: (string | AdminThing)[];
+  level?: Level;
+};
 
 /** One HTTP route an adapter mounts itself (strategy §5.1). The engine never inspects the body. */
 export type Route = {
@@ -129,10 +251,10 @@ export type AdapterApi = {
   report(error: unknown, context?: Record<string, unknown>): void;
 };
 
-// ---- The admin panel (docs/admin-panel.md): an adapter describes what it shows as data ---------
+// ---- The admin panel (docs/new-admin/b-build-list.md): an adapter describes what it shows as data
 //
-// The panel is a browser app the engine serves; it draws every adapter's pages, directions and
-// actions from these descriptions with the same components as its own pages, and never runs
+// The panel is a browser app the engine serves; it draws what an adapter shows under a connection
+// and its actions from these descriptions with the same components as its own pages, and never runs
 // adapter code in the browser. Approved 2026-09-20 (register questions 57 and 61 with the rebuild).
 
 /** A field the panel asks a person to fill: a connection's login, or an action's parameters. */
@@ -148,14 +270,20 @@ export type AdminField = {
   required?: boolean;
 };
 
-/** A value the panel shows. A state colours it; a moment is an ISO time the panel formats. */
+/**
+ * A value the panel shows. A state colours it; a moment is an ISO time the panel formats; a thing
+ * is shown by its name and opens its place; an address is a path on Core, shown as the whole
+ * address others reach it at ("https://…/v1/hook/somecrm/…").
+ */
 export type AdminValue =
   | string
   | number
   | boolean
   | null
   | { text: string; state: 'ok' | 'bad' | 'warn' | 'muted' }
-  | { moment: string | null };
+  | { moment: string | null }
+  | AdminThing
+  | { address: string };
 
 /** A button on a section or on a row: the panel hands `id` and `params` to the adapter's `act`. */
 export type AdminAction = {
@@ -191,12 +319,6 @@ export type AdminSection = {
   actions?: AdminAction[];
 };
 
-/** Setup directions: what a cold reader does, in order, and the settings as they are. */
-export type AdminDirections = {
-  steps: { title: string; text: string }[];
-  settings: { key: string; value: AdminValue; help: string }[];
-};
-
 /** A record on an adapter's own fetch list, for the panel's live activity list. */
 export type AdminQueued = {
   connectionId: string | null;
@@ -210,19 +332,85 @@ export type AdminQueued = {
   lastError: string | null;
 };
 
+/** What part of an adapter's fetch list to count: a list left out takes every value. */
+export type AdminQueueScope = { officeIds?: string[]; datatypes?: Datatype[]; remoteId?: string };
+
+/** The records on an adapter's own fetch list: not tried yet or tried without an error, and failed. */
+export type AdminQueueCount = { waiting: number; failed: number };
+
 /** One record named for a fetch that writes nothing, or for a fetch again. */
 export type AdminRecord = { datatype: Datatype; remoteId: string; officeId: string | null };
+
+/**
+ * One numbered step a person asks of someone at the CRM, such as the brokerage's admin there, in
+ * the CRM's code's words. A value the step hands over, such as the address the CRM sends its
+ * notices to, shows under it; a secret one is masked, with a way to show and copy it.
+ */
+export type AdminStep = {
+  text: string;
+  value?: AdminValue;
+  secret?: boolean;
+  /** One line under the value. */
+  help?: string;
+  /** What the CRM's code already knows of the step being done, coloured by its state. */
+  note?: { text: string; state: 'ok' | 'bad' | 'warn' | 'muted' };
+};
+
+/**
+ * How a connection is coming along, as the CRM's code knows it (question 199 a): whether the CRM
+ * has sent its first notice, how far the first load has come, and what the last office check found
+ * and changed. The admin area shows it while a tenant is set up, on the tenant's page and in the
+ * Inbox. A part the code leaves out, or gives as null, is not shown.
+ */
+export type ConnectionProgress = {
+  /**
+   * Set while the CRM has sent Core no notice for the connection: since when Core waits for one,
+   * the steps that make the CRM send them, in order, and how changes reach the websites until it
+   * does, as the end of the sentence "Until the first one comes, changes reach the websites …".
+   * Null once a notice came, and for a connection the code does not follow.
+   */
+  firstNotice?: { since: string; steps: AdminStep[]; meanwhile: string } | null;
+  /**
+   * The first load of everything the CRM lists for the connection: how many records of each type
+   * it listed, how many of them still wait to be fetched, and whether the load is done. `listed`
+   * is empty while the CRM is still being asked. Null before it began, and for a connection that
+   * existed before the code followed it.
+   */
+  firstLoad?: {
+    listed: Partial<Record<Datatype, number>>;
+    waiting: Partial<Record<Datatype, number>>;
+    done: boolean;
+  } | null;
+  /**
+   * The last check of which of the CRM's offices reach the websites, for a CRM that checks: when it
+   * finished; the offices on the websites, by the CRM's ids, with the name the CRM gave and when a
+   * later check added the office; the offices it left off, with why as the end of the sentence
+   * "<office> stays off: …"; and what that check changed, the offices added by id and those taken
+   * off by name. Null before the first check.
+   */
+  officeCheck?: {
+    at: string;
+    on: { office: string; name: string | null; addedAt: string | null }[];
+    off: { name: string; why: string }[];
+    added: string[];
+    removed: string[];
+  } | null;
+  /** Since when the CRM's code holds back the connection's changes, as when the CRM refuses its login. */
+  heldSince?: string | null;
+};
 
 /** What an adapter shows and does in the admin panel. */
 export type AdapterAdmin = {
   /** The login form of a connection; the values become one JSON document, never shown back. */
   credentials: AdminField[];
-  /** The directions at the top of the adapter's page, built from what the adapter reads. */
-  directions(): AdminDirections;
-  /** The adapter's page: what it knows and can do, given its connections as the engine holds them. */
-  panel(connections: Connection[]): Promise<AdminSection[]>;
   /** What the adapter knows about one connection, shown on its tenant's page. */
   connection?(connection: Connection): Promise<AdminSection[]>;
+  /**
+   * One connection in one line, shown under its name: which of the CRM's systems it reads and
+   * with which id, never a secret. Any CRM may give it; the panel then holds none of its words
+   * (Patric, 204 a, 2026-10-19).
+   */
+  describe?(connection: Connection): string;
   /** Run an action a section declared. The message goes to the person who pressed it. */
   act(
     action: string,
@@ -231,13 +419,21 @@ export type AdapterAdmin = {
   ): Promise<{ message: string }>;
   /** Try the CRM with a login before it is saved: yes or no, and why. */
   probe?(credentials: string, officeIds: string[]): Promise<{ ok: boolean; detail: string }>;
-  /** Fetch one record and map it, writing nothing; null when the CRM has no such record. */
-  inspect?(
-    connection: Connection,
-    record: AdminRecord,
-  ): Promise<{ raw: unknown; mapped: MappedRecord | null } | null>;
   /** What waits on the adapter's own fetch list, oldest first. */
   queue?(connections: Connection[]): Promise<AdminQueued[]>;
+  /**
+   * How many records wait on the adapter's own fetch list for these connections, in the part the
+   * scope names: those whose last try failed or that were given up are failed, the rest waiting.
+   * The panel shows these totals beside the newest of the records, which is all `queue` answers.
+   */
+  queueCount?(connections: Connection[], scope: AdminQueueScope): Promise<AdminQueueCount>;
+  /** How the connection is coming along: its first notice, its first load, its last office check. */
+  progress?(connection: Connection): Promise<ConnectionProgress>;
+  /**
+   * Each health check the adapter registers, by its name, in words: its title. The admin area and
+   * the alerts show it, never the check's name; a check that passes is not shown.
+   */
+  checks?: Record<string, { title: string }>;
 };
 
 /** What an adapter directory exports. */
@@ -252,4 +448,22 @@ export type Adapter = {
   start(api: AdapterApi): Promise<void> | void;
   /** Called on shutdown, so timers stop cleanly. */
   stop?(): Promise<void> | void;
+  /**
+   * Send one form submission to the CRM and answer what it said (docs/forms.md). Runs in the
+   * web process, inside the site's request, while the visitor waits; Core gives up after its
+   * own timeout and counts the submission as failed. A thrown error is a failure too.
+   */
+  submit?(connection: Connection, submission: Submission): Promise<SubmissionResult>;
+  /**
+   * Whether the connection's login is for the CRM's own test system, whose forms a Core that is
+   * not the live service, such as staging, sends too (question 181). Answered from the connection
+   * alone, and only exactly true counts. Absent, false or a thrown error means a live CRM, whose
+   * forms only the live service sends.
+   */
+  testSystem?(connection: Connection): boolean;
+  /** A home's viewings and their slots as the CRM sees them now, copied onto the universal names. */
+  slots?(
+    connection: Connection,
+    record: { datatype: Datatype; remoteId: string; officeId: string | null },
+  ): Promise<Slots>;
 };

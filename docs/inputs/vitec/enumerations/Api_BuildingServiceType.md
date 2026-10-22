@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/EnumerationReference?modelName=Api_BuildingServiceType, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/EnumerationReference?modelName=Api_BuildingServiceType, fetched 2026-10-04 -->
 
 # BuildingServiceType
 

@@ -1,8 +1,14 @@
-// Mail the engine sends: today only the alerts. One sender, configured at
+// Mail the engine sends: the alerts and the admin panel's sign-in links. One sender, configured at
 // start from the environment; the tests replace it with one that keeps the mail. The sender is
 // Postmark's HTTP API (question 31): the platform blocks SMTP ports, so no mail server can be
 // spoken to directly, and Kowboy's own domain is locked to a stranger's Elastic Email account.
-export type Mail = { to: string; subject: string; text: string };
+export type Mail = {
+  to: string;
+  subject: string;
+  text: string;
+  /** An HTML copy, for a mail that needs a button (the panel's sign-in link); the text goes too. */
+  html?: string;
+};
 export type Sender = (mail: Mail) => Promise<void>;
 
 let sender: Sender | null = null;
@@ -19,7 +25,7 @@ export async function sendMail(mail: Mail): Promise<void> {
   await sender(mail);
 }
 
-/** Postmark's single-email endpoint, plain text only. */
+/** Postmark's single-email endpoint: the text, and the HTML copy when the mail has one. */
 export const postmark =
   (serverToken: string, from: string): Sender =>
   async (mail) => {
@@ -35,6 +41,7 @@ export const postmark =
         To: mail.to,
         Subject: mail.subject,
         TextBody: mail.text,
+        ...(mail.html ? { HtmlBody: mail.html } : {}),
         MessageStream: 'outbound',
       }),
     });

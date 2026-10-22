@@ -1,0 +1,764 @@
+{
+  "address": {
+    "area": {
+      "id": "SOM9918AD862C214E438EF2CF81370AE255",
+      "name": "Elinegård"
+    },
+    "countryCode": "SE",
+    "countyMunicipalityCode": "1280",
+    "directions": null,
+    "municipality": "Malmö",
+    "postalTown": "Limhamn",
+    "streetAddress": "Piggränd 3",
+    "wgs84Coordinate": {
+      "latitude": 55.567425,
+      "longitude": 12.944708
+    },
+    "zipCode": {
+      "numerical": 21634,
+      "value": "216 34"
+    }
+  },
+  "bidding": {
+    "bids": [],
+    "isActive": false,
+    "isVerified": false
+  },
+  "buildings": [
+    {
+      "architecture": [
+        {
+          "description": "Fjärrvärme",
+          "type": {
+            "id": "Heating",
+            "name": "Uppvärmning"
+          }
+        }
+      ],
+      "area": {
+        "building": null,
+        "description": null,
+        "grossFloor": null,
+        "living": 103,
+        "source": "föreningens information"
+      },
+      "bedrooms": null,
+      "compiledRoomList": null,
+      "description": null,
+      "electricity": null,
+      "elevator": {
+        "description": null,
+        "isAvailable": false
+      },
+      "energyDeclaration": {
+        "class": "C",
+        "consumption": null,
+        "performedAt": "2024-02-01T11:17:25.037",
+        "status": {
+          "id": "Performed",
+          "name": "Utförd"
+        }
+      },
+      "expenses": null,
+      "exterior": [],
+      "floor": null,
+      "interior": null,
+      "name": null,
+      "numberOfBathRooms": null,
+      "numberOfRooms": 5,
+      "otherInformation": null,
+      "plot": null,
+      "renovation": {
+        "description": null
+      },
+      "rooms": [
+        {
+          "description": "Välkomnande hall med ljust klinkergolv och vitmålade väggar samt platsbyggd garderob som erbjuder bra förvaringsmöjligheter. En praktisk entré som på ett naturligt sätt leder vidare in i bostadens övriga delar.",
+          "name": "Hall"
+        },
+        {
+          "description": "Stilrent kök från Marbodal med vita fronter, bänkskiva och stänkskydd i kompositsten tillför en exklusiv känsla och skapar en vacker kontrast mot de vita snickerierna. Köket är utrustat med vitvaror från Siemens. Intill köket finns en generös matplats med plats för ca 6 personer.",
+          "name": "Kök"
+        },
+        {
+          "description": "Ljust vardagsrum i öppen planlösning mot köket, vilket skapar en social och inbjudande miljö. Från vardagsrummet nås uteplatsen, som blir en självklar förlängning av bostadens sociala ytor under årets varmare månader. Här finns gott om plats för en loungemöblering och grill.",
+          "name": "Vardagsrum"
+        },
+        {
+          "description": "Praktiskt helkaklat badrum med wc, dusch och tvättställ samt både tvättmaskin och torktumlare. De platsbyggda garderoberna erbjuder dessutom generösa förvaringsmöjligheter.",
+          "name": "Badrum"
+        },
+        {
+          "description": "Trivsamt allrum med ett härligt ljusinsläpp från takfönstren som ger rummet en luftig känsla. Ett flexibelt rum som passar utmärkt som familjens gemensamma yta, lekrum, arbetsplats eller extra tv-rum.",
+          "name": "Allrum"
+        },
+        {
+          "description": "Bostaden erbjuder tre rymliga och lättmöblerade sovrum, samtliga med ljusa parkettgolv och vita väggar.",
+          "name": "Sovrum"
+        },
+        {
+          "description": "Helkaklat badrum med wc, tvättställ och ett badkar som bjuder in till avkopplande stunder.",
+          "name": "Badrum"
+        },
+        {
+          "description": "PAX-garderob i ett av rummen på plan 2.",
+          "name": "Ingår ej i köpet"
+        }
+      ],
+      "services": [],
+      "type": "Radhus",
+      "ventilation": {
+        "inspection": null,
+        "type": "FTX"
+      },
+      "yearBuilt": {
+        "description": null,
+        "numeric": 2022,
+        "text": "2022"
+      }
+    }
+  ],
+  "changedAt": "2026-09-18T11:15:12.84",
+  "currency": "SEK",
+  "electricity": {
+    "company": null,
+    "consumption": null,
+    "distributor": null
+  },
+  "enrollments": null,
+  "expenses": {
+    "operation": {
+      "description": "Föreningen har IMD-debitering av el och varmvatten.",
+      "entries": [
+        {
+          "type": {
+            "id": "WaterAndSewage",
+            "name": "VA"
+          },
+          "value": 3000
+        },
+        {
+          "type": {
+            "id": "Electricity",
+            "name": "El"
+          },
+          "value": 4800
+        }
+      ],
+      "householdSize": 3,
+      "sum": 7800
+    }
+  },
+  "extensions": {
+    "commercialProperty": null,
+    "condominium": null,
+    "farm": null,
+    "foreignProperty": null,
+    "housingCooperative": {
+      "apartmentNumber": "R8",
+      "apartmentRegistrationNumber": null,
+      "association": {
+        "id": "ORGBRF3941B47C52354854A36EBD214690A9CC",
+        "overrideDescription": null,
+        "overrideEconomy": null
+      },
+      "description": null,
+      "finances": {
+        "annualFeeShare": 1.13476,
+        "indirectNetDebt": 1424171,
+        "indirectNetDebtComment": "Beräknad av ekonomisk förvaltare.",
+        "isPledged": true,
+        "repairFundBalance": 0,
+        "shares": 1.13476,
+        "sharesComment": null
+      },
+      "includedLand": {
+        "description": null,
+        "size": null
+      }
+    },
+    "premises": null,
+    "primaryAgent": null,
+    "secondaryAgent": null
+  },
+  "exterior": {
+    "buildingPermission": null,
+    "buildingsDescription": null,
+    "entries": [
+      {
+        "description": null,
+        "isAvailable": false,
+        "size": null,
+        "type": {
+          "id": "Balcony",
+          "name": "Balkong"
+        }
+      },
+      {
+        "description": null,
+        "isAvailable": true,
+        "size": null,
+        "type": {
+          "id": "Patio",
+          "name": "Uteplats"
+        }
+      },
+      {
+        "description": null,
+        "isAvailable": false,
+        "size": null,
+        "type": {
+          "id": "Parking",
+          "name": "Parkering"
+        }
+      }
+    ],
+    "plot": {
+      "description": null,
+      "size": null,
+      "type": null
+    }
+  },
+  "fees": {
+    "lease": null,
+    "leasehold": null,
+    "recurring": {
+      "description": "inkl. kallvatten, värme och bostadsrättstillägg. Ett obligatoriskt tillägg om 197 kr/månad tillkommer för kabel-TV/bredband.",
+      "frequency": "Monthly",
+      "type": "Månadsavgift",
+      "value": 6177
+    }
+  },
+  "files": [],
+  "id": "OBJ5PTF5LR3G83MJQ2MBT",
+  "images": [
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:15.59",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7T3G83TTC8Z6E",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:16.533",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7V3G83TTC9458",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:17.747",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7W3G83TTC9875",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:19.357",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7Z3G83TTC9G3V",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:15.857",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7T3G83TTC928P",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:18.313",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7X3G83TTC9B3M",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:16.82",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7V3G83TTC958J",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:17.14",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7W3G83TTC961F",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:20.287",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF823G83TTC9K3W",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:21.717",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF833G83TTC9P76",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:24.527",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF863G83TTC9S5H",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:20.98",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF833G83TTC9M0S",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:24.907",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF863G83TTC9T9P",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:25.557",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF873G83TTC9W5N",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:25.887",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF873G83TTC9X9M",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:15.26",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7T3G83TTC8X2Y",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:14.637",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7S3G83TTC8V6M",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:13.27",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7R3G83TTC8P20",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:13.793",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7R3G83TTC8R8Q",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:13.503",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7R3G83TTC8Q56",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:09.87",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7M3G83TTC8C9C",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:09.323",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7M3G83TTC8B37",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:10.947",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7N3G83TTC8G93",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:11.61",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7P3G83TTC8J6H",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:12.29",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7Q3G83TTC8L30",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:12.693",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF7Q3G83TTC8M7C",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:26.233",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF883G83TTC9Z2F",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:26.63",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF883G83TTCB267",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:26.93",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF883G83TTCB39J",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:27.263",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF893G83TTCB42K",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:27.7",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF893G83TTCB57T",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:28.077",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF8B3G83TTCB616",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:28.443",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF8B3G83TTCB74F",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Interiör"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-08T10:15:33.403",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXCF8H3G83TTCBB48",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Association",
+        "name": "Förening"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-02-26T15:16:06.04",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PTF5RL3G83MJQ2V4Y",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Planritning"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-09T09:09:02.6",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXH6CN3G83RMJJL6V",
+      "name": null
+    },
+    {
+      "category": {
+        "id": "Other",
+        "name": "Planritning"
+      },
+      "cdnReferences": [],
+      "dataChangedAt": "2026-09-09T09:09:02.343",
+      "description": null,
+      "extension": "jpg",
+      "id": "MED5PXH6CN3G83RMJJK4V",
+      "name": null
+    }
+  ],
+  "inspection": {
+    "hasBeenPerformed": false
+  },
+  "links": [],
+  "marketing": {
+    "isNewHome": false,
+    "isPreview": false,
+    "isPublished": true,
+    "publishedAt": "2026-09-15T12:31:40.38",
+    "viewing": {
+      "emptyText": null,
+      "visibleLimit": null
+    }
+  },
+  "office": {
+    "customerId": "M31529",
+    "id": "FIR31529"
+  },
+  "pledges": [],
+  "price": {
+    "finalPrice": null,
+    "startingPrice": 4595000,
+    "startingPriceInOtherCurrency": null,
+    "text": null
+  },
+  "primaryAgentId": "HAN348516190DD143E99771DE27DA5E0AB0",
+  "projectId": null,
+  "referenceId": "AV06691",
+  "sale": {
+    "assignmentDate": "2026-09-08T00:00:00",
+    "contractDate": null,
+    "description": null,
+    "heading": null,
+    "otherInformation": "Till bostaden hör ett förråd och en uteplats. Förrådet  och uteplatsen är upplåtet med bostadsrätten.\r\n\r\nFöreningen har IMD-debitering av hushållsel och varmvatten utefter faktisk förbrukning.",
+    "phrase": null,
+    "possessionAt": null,
+    "possessionEstimation": null,
+    "shortDescription": "Välkommen till ett hem med ett av Elinegårds mest eftertraktade lägen. Här bor du alldeles intill det vackra kalkbrottet – en placering som ger radhuset en alldeles särskild känsla av avskildhet och närhet till naturen. Just dessa radhus tillhör de få i området som har denna unika position, med kalkbrottet som närmaste granne och en fantastisk utsikt som ständigt skiftar med årstiderna.\r\n\r\nHär kan du njuta av den rofyllda omgivningen och den öppna vy som kalkbrottet erbjuder. Ett extra plus är möjligheten att följa dagens första och sista ljus – med vackra soluppgångar och solnedgångar som en naturlig del av boendemiljön.\r\n\r\nHuset är dessutom omsorgsfullt planerat med familjelivet i fokus. De sociala ytorna återkommer på både entréplan och övre plan och skapar fina möjligheter för familjen att samlas, umgås och samtidigt ha utrymme för vardagens olika behov. På övre plan är rummens placering genomtänkt på ett sätt som gör planlösningen både praktisk och social, samtidigt som den känns varm och trivsam.\r\n\r\nDet här är ett hem där det unika läget verkligen får stå i centrum – kombinerat med en genomtänkt planlösning som passar livet som familj."
+  },
+  "secondaryAgentId": null,
+  "status": {
+    "id": "Coming",
+    "name": "Kommande"
+  },
+  "subtype": {
+    "id": "TownHouse",
+    "name": "Radhus"
+  },
+  "surroundings": {
+    "area": null,
+    "communication": null,
+    "other": null,
+    "parking": null,
+    "service": null
+  },
+  "tags": [],
+  "taxation": {
+    "buildingValue": null,
+    "isPreliminary": false,
+    "landValue": null,
+    "propertyDesignations": [],
+    "taxFee": null,
+    "totalValue": null,
+    "units": null
+  },
+  "tenure": {
+    "id": "TenantOwnership",
+    "name": "Bostadsrätt"
+  },
+  "type": {
+    "id": "HousingCooperative",
+    "name": "Bostadsrätt"
+  },
+  "viewings": [
+    {
+      "comment": "Föranmälan krävs",
+      "endsAt": "2026-10-04T11:30:00",
+      "id": "VIS5PZCBXL3G83ZMR7Z07",
+      "isDigital": false,
+      "isProjectViewing": false,
+      "isSelfRegistrationEnabled": true,
+      "startsAt": "2026-10-04T11:00:00"
+    }
+  ]
+}

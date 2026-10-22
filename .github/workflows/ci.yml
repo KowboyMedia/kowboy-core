@@ -41,10 +41,6 @@ jobs:
         run: npm run build
       - name: Tests
         run: npm test
-      - name: A browser for the admin area's journeys
-        run: npx playwright install --with-deps chromium
-      - name: The admin area's user journeys
-        run: npm run test:journeys
 
   wordpress:
     name: WordPress client tests (block merge)
@@ -88,6 +84,12 @@ jobs:
         run: bash clients/wordpress/test/setup.sh
       - name: WordPress client tests
         run: npm run test:wordpress
+      - name: Build (the journeys' site runs from dist)
+        run: npm run build
+      - name: A browser for the client's journeys
+        run: npx playwright install --with-deps chromium
+      - name: The WordPress client's user journeys
+        run: npm run test:journeys:wordpress
 
   warnings:
     name: Warnings (never block)
@@ -105,6 +107,9 @@ jobs:
         continue-on-error: true
       - name: Formatting
         run: npm run format:check
+        continue-on-error: true
+      - name: Registers consistent
+        run: npm run check:register
         continue-on-error: true
       - name: PHPStan (WordPress client)
         run: |

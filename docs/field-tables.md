@@ -108,6 +108,7 @@ Unchanged: `datatype`, `connection_id`, `remote_id`, `office_id`, `seq`, `delete
 | `operating_cost_description` | string \| null             | Note on the operating costs                           | `expenses.operation.description`                       |
 | `household_size`             | number \| null             | Persons the operating costs assume                    | `expenses.operation.householdSize`                     |
 | `images`                     | list                       | See below                                             | `images[]`                                             |
+| `documents`                  | list                       | See below                                             | `files[]`                                              |
 | `viewings`                   | list                       | See below                                             | `viewings[]`                                           |
 | `viewing_settings`           | object                     | `{visible_limit, empty_text}`                         | `marketing.viewing`                                    |
 | `bidding`                    | object                     | See below                                             | `bidding`                                              |
@@ -173,6 +174,20 @@ The universal building. Other CRMs with one or several buildings map into the sa
 | `extension`   | `extension`                                      |
 | `changed_at`  | `dataChangedAt`                                  |
 | `order`       | position in the CRM's list, from 1               |
+
+### `documents[]` (property, association)
+
+The documents the CRM lists for the website (question 94, Patric 2026-10-03: they exist on the
+property and on its association, a site reads both and deduplicates). One shape on both records.
+
+| Field        | Vitec source                                                                        |
+| ------------ | ----------------------------------------------------------------------------------- |
+| `id`         | `id`                                                                                |
+| `name`       | `name`                                                                              |
+| `extension`  | `extension`, as sent (`pdf` on a property, `.pdf` on an association)                |
+| `category`   | `category` (association only; null on a property)                                   |
+| `url`        | `url` as the CRM sends it (association only; needs the CRM's API key, question 118) |
+| `changed_at` | `dataChangedAt` (property), `dateChangedData` (association)                         |
 
 ### `viewings[]` (property, project)
 
@@ -256,13 +271,15 @@ lists a project's homes by that id and keeps them out of its other lists (Patric
 
 ## Association
 
-| Field                                                                                          | Vitec source                                                                                                                                                                                        |
-| ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`, `corporate_number`, `organizational_form`, `email`, `home_page`, `genuine_association` | the same names, snake_case                                                                                                                                                                          |
-| `number_of_apartments`, `number_of_rental_apartments`, `number_of_premises`                    | the same names                                                                                                                                                                                      |
-| `descriptions`                                                                                 | `{general_about_association, renovations, parking, tv_and_broadband, courtyard, shared_spaces, insurance, other}`                                                                                   |
-| `economy`                                                                                      | `{monthly_fee_information, finances, subletting_policy, the_association_own_the_ground, transfer_fee, transfer_fee_paid_by, pledge_fee, allow_legal_person_as_buyer, allows_shared_ownership_info}` |
-| `contact`                                                                                      | `{name, mobile, phone, email}` from `publicContact`                                                                                                                                                 |
+| Field                                                                       | Vitec source                                                                                                                                                                                                                                                                                                                      |
+| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`, `corporate_number`, `organizational_form`, `email`, `home_page`     | the same names, snake_case                                                                                                                                                                                                                                                                                                        |
+| `genuine_association`                                                       | `{id, name}`: the code as sent, the name from Vitec's documentation (`Association_AssociationTaxation`; question 93)                                                                                                                                                                                                              |
+| `number_of_apartments`, `number_of_rental_apartments`, `number_of_premises` | the same names                                                                                                                                                                                                                                                                                                                    |
+| `descriptions`                                                              | `{general_about_association, renovations, parking, tv_and_broadband, courtyard, shared_spaces, insurance, other}`                                                                                                                                                                                                                 |
+| `economy`                                                                   | `{monthly_fee_information, finances, subletting_policy, the_association_own_the_ground, transfer_fee, transfer_fee_paid_by, pledge_fee, allow_legal_person_as_buyer, allows_shared_ownership_info}`; `transfer_fee_paid_by` and `allow_legal_person_as_buyer` are `{id, name}`, the name from Vitec's documentation (question 93) |
+| `documents`                                                                 | See `documents[]` above, from `documents[]`                                                                                                                                                                                                                                                                                       |
+| `contact`                                                                   | `{name, mobile, phone, email}` from `publicContact`                                                                                                                                                                                                                                                                               |
 
 ## `display`
 
@@ -289,3 +306,8 @@ may show, ignore or replace any of them.
 | `energy_declaration`                                                     | property                                   | R-011        |
 | `address_line`, `location`                                               | property, project, office (`address_line`) | R-012        |
 | `sections`                                                               | property                                   | R-013        |
+| `price_text`                                                             | property                                   | R-015        |
+| `fee_amount`                                                             | property                                   | R-016        |
+| `floor_and_elevator`                                                     | property                                   | R-017        |
+| `exterior_features`                                                      | property                                   | R-018        |
+| `transfer_fee`, `pledge_fee`                                             | association                                | R-019        |

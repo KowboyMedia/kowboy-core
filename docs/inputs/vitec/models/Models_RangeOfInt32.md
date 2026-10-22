@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/ResourceModel?modelName=Models_RangeOfInt32, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/ResourceModel?modelName=Models_RangeOfInt32, fetched 2026-10-04 -->
 
 # RangeOfInt32
 

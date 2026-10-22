@@ -4,19 +4,41 @@ The standing to-do for any session. When Patric says **"Resume next steps"**, re
 the first item that is not done, and keep the file current. Decisions and open questions live in
 `docs/decisions.md` and `docs/open-questions.md`; this file is only the order of work.
 
-## Where to pick up (convergence point, 2026-09-23)
+## Where to pick up (2026-10-18)
 
-Everything up to 2026-09-23 is combined into staging; no other saved session holds work. The one
-task in progress is **the default template set "Kowboy 2026"**, item 17, with item 18 inside it.
-"Resume next steps", "continue the templates" or "what remains" all mean item 17: read
-`docs/default-templates.md` (what the set is, the scaffolding, the master), `docs/field-tables.md`
-(the universal names and `display`), `rules-ledger/` (the fourteen display rules that exist), and
-`clients/wordpress/README.md` (the plugin the set plugs into). The strategy in one breath: the set
-is a separate WordPress plugin per style, one file per view with the logic on top, reading only
-`display` and `data` from the sync plugin; it must show what norbanmakleri.se shows, page by page,
-and every display string it needs that Core does not prepare yet is a ledger entry drafted for
-Patric's validation. Items 6, 11, 13, 14 and 16 wait on the things named in them and are not
-picked up by "resume". After the set: the client ports (item 16, first client by question 80).
+The project is closing. Item 33 is the final release; its plan for Patric is
+`/mnt/project-files/release/final-release-plan.md`, with questions 206 to 211. The project is done
+when the first brokerage runs on live; every other open item is moved to "Later" by the plan's
+table (Default 208).
+Threads at work on the way: the new admin (item 30, waits on 199 to 205), the clear error
+messages and the five records Core cannot store (staging's health is red until they load), the
+lists (item 31, waits on 198) and the forms (item 29, started on 209 a, 2026-10-19).
+"Resume next steps" means:
+the first open step of item 33 that waits on nobody. On 2026-10-18 condition 1 was done and Core's
+part of condition 4, and the preview of condition 2 was built. On 2026-10-19 Patric answered 207 a
+(the early release) and 209 a (the forms), and on 2026-10-21 210 a, 211 a and 217 a: the preview
+goes into staging's deploys and the restore drill runs now; the rest waits on the threads or on
+the seven days.
+
+## Agent setup (from the 2026-09-27 review of how agents and Patric work together)
+
+- ~~**Environment health at session start.**~~ Done 2026-09-27: `scripts/check-environment.mjs`
+  asks DigitalOcean, Cloudways, the Vitec test account and Postmark whether their credentials still
+  answer, and `.claude/hooks/context.sh` prints the result at session start.
+- ~~**Skills for the repeated procedures**~~ Done 2026-09-27 as the playbook, which since
+  2026-10-03 comes with the handbook plugin instead of living here; the template port of
+  `docs/template-porting.md` becomes a skill when the first port runs.
+- ~~**The handbook comes from the account, not from a copy**~~ (decision of 2026-10-01, question
+  117). Done 2026-10-03: `KOWBOY-HANDBOOK.md`, `PLAYBOOK.md`, `.handbook/` and the nine skill
+  folders under `.claude/skills/` are deleted, `CLAUDE.md` imports only `AGENTS.md`, and
+  `AGENTS.md` and `README.md` no longer name the handbook file. Core's own hooks and
+  `.claude/settings.json` stay. Patric chose to combine it into staging at once (question 118,
+  2026-10-03), so the account's plugin is the only path for the shared rules from here on.
+- **If register numbers collide again** after the register check, move the counter out of the
+  files: each question becomes a GitHub issue and takes its number, the register file stays the
+  readable view. Not before a collision is seen with the check in place.
+- **Unattended sessions**, later: a scheduled "resume next steps" run when the gates are quiet, so
+  work continues without Patric; the closed-gate rule already keeps such a run from inventing.
 
 ## Now
 
@@ -283,10 +305,39 @@ picked up by "resume". After the set: the client ports (item 16, first client by
        cards, the object pages and the agent pages first, then the rest; every gap in the model
        or the helpers as one row of the numbered table in chat.
     5. AC 28 and AC 20's search half, the report regenerated.
-       **Resuming in a new session:** the token in the session of 2026-09-21 22:00 was still the
-       limited one (`GET /api/v2/server` answers `insufficient_scope`); a new session checks it
-       first, finds the server behind 165.22.87.59, makes `v4.dev.kowboy.se`, and writes id,
-       address and where the login lives into `docs/default-templates.md`; never a secret.
+       **State 2026-09-24:** steps 1, 2, 3 and 5 done, step 4 done against the master on the
+       local WordPress (the gaps are questions 91 to 96); `v4.dev.kowboy.se` waits on the
+       Cloudways token (question 88: the token in the environment still answers
+       `insufficient_scope`, most likely because the two tokens sit in each other's slot, 87). A
+       new session with a working token finds the server behind 165.22.87.59, makes
+       `v4.dev.kowboy.se`, installs the plugin and the set from the branch, links it to staging's
+       tenant `kowboy-test`, runs the comparison there, and writes id, address and where the login
+       lives into `docs/default-templates.md`; never a secret.
+       **State 2026-09-28:** Patric: the set "does not look correct at all", the fields might be
+       right, and the loop is to run on a real site so an agent can iterate on the look. The
+       app "v4-staging" was made on the dev server (application 6698706 on server 1545003), and
+       `scripts/deploy-site.mjs` installs the plugin and every set on any site through its
+       WordPress admin (proved on a local copy). The same evening Patric pasted the app's
+       address (`wordpress-1545003-6698706.cloudwaysapps.com`) and its login, and Postmark's
+       record: the sign-in mail arrives, nine minutes late (98 closed, 100 registered). The
+       plugin's PHP requirement is now 8.2, Patric's pick of compatibility over a newer floor
+       (99 closed), and the plugin and the set are installed and active on the site, the settings
+       written. `v4.dev.kowboy.se` is not needed (88 closed). Staging Core's sign-in mail is
+       taken by Google and shown nowhere (98; the fix is the DNS records of 100), so the site is
+       joined to `kowboy-test` as soon as Patric pastes a sign-in link from Postmark's message
+       page: add the site, write token and bell secret into its settings with the deploy script,
+       ring it: all done the same night, with the pasted link. The site holds every record of
+       the test office, speaks Swedish, and its pages answer (`docs/staging-site.md`, "The loop
+       as it runs"). Next: the page-by-page loop against norbanmakleri.se with
+       `scripts/shoot-site.mjs`, and question 101 (the slug rule) when Patric answers it.
+       **State 2026-10-03:** Patric answered 90 to 96: the drafted strings and the golden
+       masters are validated, the comma stays, the fact tables follow the master's sections
+       (R-013 rewritten, the three property golden masters regenerated), the three coded
+       association values carry their names, documents come from both the home and its
+       association with their CDN address and the set lists them under "Dokument", the energy
+       row shows only with a value, and the booking button and the lead form are item 21. Open
+       from this round: 119 (the decimals of an association's share). Next: the page-by-page
+       loop on the staging site.
 
 18. **The display fields, first attempt** (Patric, 2026-09-23): for every value
     norbanmakleri.se shows on a card, a list or a single page, the prepared string `display`
@@ -294,12 +345,709 @@ picked up by "resume". After the set: the client ports (item 16, first client by
     another set, the intention is the same). An agent drafts the whole list from the site's
     output against staging's records for the same objects, as ledger entries and golden
     masters (`golden/vitec/`, question 52), and Patric validates every one himself, in one
-    review. Done together with item 17 step 3.
+    review. Done together with item 17 step 3. **Drafted 2026-09-24:** R-015 to R-019, eight
+    golden cases, question 90. **Validated 2026-10-03** (Patric, "90 a"): done.
 
 19. **A porting factory, exploration only** (Patric, 2026-09-23): whether a skill or workflow
     inside Claude Code can run a port from two inputs, a source and a target, asking its
     questions, approvals and assumptions in batches and reporting the differences a client must
     know; how it would be packaged. Planned when Patric says so, after items 17 and 18.
+
+20. **The set "Kowboy 2026.2" from the Figma design** (Patric, 2026-09-28; supersedes item 17's
+    look): `docs/kowboy-2026.md` holds the pages, the sections, the shape (one theme) and the
+    order of work. **State 2026-09-28, night:** built, set to the file's values, reviewed by a
+    second agent and fixed, combined into staging (the change #61); the review's fixes wait on
+    the session's line for the next combine. The phone layout checked against the file's phone frames
+    and fixed. Open: 105 (the forms are dummies, and the phone frames draw the sell form's fields
+    differently from the desktop frames) and the site's own content (pictures, logotype,
+    address).
+
+21. **The booking button and the interest form** (Patric, 2026-10-03, question 95: "separate, add
+    them to todo list"): on norbanmakleri.se a viewing has a "Boka här" button that opens the
+    CRM's booking page for that viewing, and every property page ends in a form that posts a lead
+    to the CRM. Neither is data the adapter copies: the booking address is built from the CRM's
+    ids, and the lead needs a Core endpoint that forwards to the CRM (Connect has `POST
+…/interest`), an adapter capability nothing in `engine/adapter-api/` offers yet. Plan first
+    (a generic engine capability any adapter could use, approval needed), then build; the set
+    shows viewings without a button and no form until then. Question 105 (the design's two forms)
+    is settled in the same item. **Planned 2026-10-04** in `docs/forms.md` (the discover phase:
+    what Vitec and Mspecs offer, three options for where it lives, the design, the plan): waits
+    on nothing since 2026-10-04: 129 (inside Core), 130 (the design, without cancelling a
+    booking), 137 (one widget served by Core), 138 (Turnstile), 139 (the wizard, the search
+    profile last), 131 (Vitec's version 1 search profile) and 141 a (the current-home checkbox,
+    a seller lead too) are answered. Its three items, Core,
+    the Vitec adapter, the widget, one session each, in that order; Lovable and Mspecs follow;
+    the Vitec search profile's real send waits on the CRM function group (54 f). **Core's part built
+    2026-10-04** (Patric: "Go"): `schemas/submission.v1.json` and `schemas/slots.v1.json`, the
+    optional `submit` and `slots` on `Adapter` with `manifest.submissions`, `POST /v1/submissions`
+    and `GET /v1/submissions/slots`, the `submissions` table, the four events, the check
+    `submissions.failing`, the limit of 60 a minute per token, the counts on the tenant page; proved
+    by AC 43 to 47 and 49 against the fake polling CRM. Patric, 21:08Z: the three entries are
+    buttons that open the wizard (booking, interest, free valuation) and the two inline forms
+    become a button each (docs/forms.md, "The clients' part"); asked whether it is ready for
+    release: not before the Vitec adapter's part, the widget, and a confirmed test customer for
+    the real send (54 f). The theme's side is built the same evening (theme 1.1.7, on the
+    staging site): the three buttons with the widget's marks, the two inline forms replaced by
+    a button each, each button leading to a contact until the widget is on the page. **The Vitec
+    adapter's part built 2026-10-04** against the stand-in Connect (`adapters/vitec/forms.ts`,
+    five tests under AC 43, 44, 47 and 49; docs/forms.md, "Built 2026-10-04: the Vitec adapter's
+    part"): the four kinds mapped onto Connect's calls, the seven connection settings typed on
+    the connection's page with their directions, the slots from the form endpoint; the real send
+    waits on a confirmed test customer (54 f). **The widget built 2026-10-04** (docs/forms.md,
+    "Built 2026-10-04: the widget"): `clients/forms-widget/` served at `/widget/forms.js`, the
+    browser's door `/v1/forms/*` with a public site key per site and the site's origin, Turnstile
+    behind one interface (no gate until its keys are set), the wizard of 139, and plugin 0.5.7
+    with the "Site key" setting and the script tag; proved by the door's tests and a browser
+    journey through the real theme and plugin (AC 48 locally). Left: the theme's optional
+    `data-viewing` mark and the deploy of plugin 0.5.7 with the key pasted into the staging site
+    (the theme thread), Turnstile's keys in the environments, the lead office for a site with
+    several offices, and the real Vitec send (54 f). Question 105 is settled by it. **Reviewed
+    2026-10-05** (`docs/forms-review.md`, Patric: "you should have asked me about those"): most of
+    the admin fields came through two documents answered as a whole (130 and the "Go" plan), four
+    things were added during the build with no question, and two defects were found (known bugs 3
+    and 4). **From zero, 2026-10-05** (Patric, answering 144): the forms are rebuilt from zero,
+    not cut down; in concept the build is reverted and only what is necessary comes back, every
+    part asked first (`AGENTS.md`, "Stop and ask", 145). The first step is question 146, the list
+    of what a site must be able to configure; nothing is removed from staging or built for the
+    forms until it stands. **146 answered 2026-10-05** (`docs/decisions.md`): every setting is the
+    site's own or automatic, apart from the bot check's keys, one global setting where the forms are
+    received. **150 answered 2026-10-06** (`docs/decisions.md`): the forms live in the default
+    template, drawn by the theme, and Core sends them; the plugin only passes them on with the
+    site's token. **The proof built 2026-10-06** (Patric, 12:36Z: "build it like explained
+    above"; docs/forms.md, "Built 2026-10-06: the proof"): theme 1.1.9 draws the interest window
+    and posts it to plugin 0.5.8's receiver on the site, which sends it to Core with the site's
+    token; proved by the browser journey `clients/wordpress/e2e/forms-theme.spec.ts` against the
+    fake CRM. **155 and 160 answered 2026-10-06, 18:12Z** (`docs/decisions.md`): the first
+    version is 155's list (the three forms in the theme, the plugin's two receivers, Core's three
+    addresses, the guard of 152, Turnstile with each site's address put on Cloudflare's list, the
+    seven Vitec forms fields, the widget, the browser door and the site keys gone), and failed
+    forms are kept and listed with "Send again" (160 a). Built in that order: the first version,
+    then failed forms. 165 was answered no at 20:58: no retry for a day; the Vitec code tries a
+    call again within the form's 15 s, and a form that still fails reaches the visitor as an
+    error. Open: 151 (the forms are built without "Söker du bostad?", as recommended, until it is
+    answered). 166 was answered yes at 21:43: when the site cannot reach Core, the plugin tries
+    the form again briefly with the same form id, then the visitor reads the error. The idea of drawing the bot check in a frame from Core's address is set aside by 155's
+    line 6.
+    **Built 2026-10-06** (docs/forms.md, "Built 2026-10-06: the first version"): the guard, the
+    bot check, the three windows in theme 1.2.0 with plugin 0.6.0's two receivers, and the
+    widget, the browser door and the site keys removed from Core, the plugin and the admin area;
+    the seven Vitec forms fields removed; and, of 160 a, a form's details kept encrypted until the
+    CRM has them (30 days when it refused or did not answer) and the admin page Failed forms
+    with "Send again", and the short retry in the Vitec code. Patric closed the forms session at
+    21:50 to save tokens; what it left, in order:
+    - Build 166 yes. In `core_client_forms_receive`, the plugin tries twice more, after 1 s and
+      3 s, when Core did not answer (a WP_Error, or a 502, 503 or 504 whose body is not a JSON
+      object, which every answer of Core's is), and only while the form is under 5 s old, so the
+      visitor waits at most about 30 s; the body goes again unchanged, so the form id is the same.
+      Core then answers a form id it already holds for that tenant with the first answer, before
+      the bot check, since the check's proof is spent after one use (`submit` in
+      engine/http/submissions.ts). A plugin version, the site deploy and the docs go with it.
+    - Check the forms against the one-password change (`d2627bd`): docs/forms.md corrected on
+      2026-10-07 (one username and one password for every call); the run of
+      `adapters/vitec/forms.test.ts` goes with item 29's check.
+    - Each site's address on Cloudflare's list (waits on 171), and the alert for a failed form
+      under 172's levels.
+      The Failed forms page's texts and data are now edited by the admin rewrite directly, and QA
+      forms sent from staging wait on Patric's word (the QA work builds the guard side if he says yes).
+
+22. ~~**Offices and agents typed on the site**~~ (Patric, 2026-10-03: "add offices and agents
+    inside the wp admin, not fetched from the CRM"; the strategy with both homes in
+    `docs/site-records.md`). Done 2026-10-03, plugin 0.4.0 and theme 1.0.14: Patric answered 125
+    (a, on the site), 126 (no matching, own id format) and 127 (a CRM record is edited only in
+    the CRM, said in the admin), and the Default 128 stood. Left for later: responsive sizes for
+    a library portrait; the Lovable kit when a Lovable site needs typed records.
+    - **Component:** `[client-wordpress]`, the sync plugin. With 125 (b) the item is reshaped into
+      a `[core]` item (a manual adapter) and a plugin item, in that order.
+    - **What changes for the product:** an administrator adds an office or an agent the CRM does
+      not carry, in the Kowboy Estates menu, and the site shows it in the same lists and pages as
+      the CRM's, ordered and hidden by the same staff-list rule; CRM records stay read-only.
+    - **The test that proves it** (`clients/wordpress/templates.test.ts`, against the real
+      WordPress, one test): a typed agent lists among the CRM agents by its order number and on
+      its office's page; a typed agent hidden by its staff-list switch is in no list and on its
+      own page; a rebuild and a plugin update keep every typed record; an administrator and an
+      editor add and edit a typed agent and nobody edits a CRM agent (the admin's capabilities,
+      the edit screen's 403); a deleted typed record is gone from the index; the address follows
+      the name. The acceptance criterion is proposed with the item and numbered on approval.
+    - **Interface touched:** none of Core's. The plugin's index gains no column: the site's own
+      rows use the connection `site`, and the rebuild's sweep skips them.
+    - **Unknowns, a time-boxed spike first:** whether WordPress's capability map lets a type allow
+      "Add New" while every CRM post of the same type stays locked per post (`create_posts` is per
+      type, `edit_post` per post through `map_meta_cap`); proved by the admin test above before the
+      form is built.
+    - **Visible, agreed before it is built:** the form is WordPress's own edit screen with the
+      fields listed in `docs/site-records.md` ("The form"), and the list's "Source" column is
+      WordPress's own list table: a change inside an existing pattern, so no design loop; the
+      Default 128 is the "build it with these fields?" question.
+    - **Decides:** 125, 126. **Defaults:** 128 (the form's fields, the office's address as one
+      field, any office for a typed agent, the typed order number places the agent among the CRM
+      agents, administrators and editors edit, draft means not shown).
+    - **Does not do:** a CRM record changed on the site (127, later); the Lovable kit; responsive
+      sizes for a library portrait (one size first, WordPress's own sizes a few lines later);
+      typed properties, areas, associations or projects.
+    - **Size:** one session.
+
+23. **Search by place, and the list blocks in the plugin** (Patric, 2026-10-04, "discuss before
+    building"; the design in `docs/search.md`). Patric answered 133 with a and let 134 stand on
+    2026-10-04; session 1 (the query and the data) is done the same day, plugin 0.5.0 and theme
+    1.0.18: the query takes `lkf`, `areas`, `q` and lists for `agent`, `office` and `area_id`,
+    the index carries the code, the point and an area's outline bounds, the link table holds
+    which areas a home is in, rebuilt in the background on a plugin update, and the fake CRM
+    sends outlines and codes so the suite proves it. Session 2 is done the same day, plugin 0.5.1
+    and theme 1.1.0: the two list blocks "Bostäder" and "Mäklare" live in the plugin with the
+    settings of the ask (the picks by name through the pick endpoint, for editors), the editor
+    builder moved there with the pick control, and the theme's two list blocks are wrappers of
+    the plugin's settings. Session 3 is done the same day, plugin 0.5.2 and theme 1.1.1: the
+    search box with pills, drawn by one plugin function on the Till salu card, the hero and the
+    archive and fed from the page's own markup, reloads the list in place and writes the address,
+    with a browser journey (`npm run test:journeys:wordpress`) in CI. Deployed to the staging
+    site on 2026-10-04 from the environment's login (121 a), the plugin before the theme since
+    the theme's blocks and card lean on it. Patric's first look gave two fixes the same day,
+    plugin 0.5.3 and theme 1.1.2: the box offers an area its homes name even when the site has
+    no record of it (the staging homes' areas are not in the CRM's area list, known bug 2), and
+    the pills grow the form downward instead of pushing the field up; both on the staging site
+    the same day. His second look found the box itself immature (the list under the cards'
+    labels, no close on a click outside, an unreliable open, doubt about phones), question 140,
+    answered a: the box is the library Tom Select, plugin 0.5.4 and theme 1.1.3, with a phone
+    journey, on the staging site the same day; his third look put the pills back under the field
+    (plugin 0.5.5, theme 1.1.4); his look on a phone found the footer's menu invisible and asked
+    the contact button of a home without a viewing to lead to the agent (theme 1.1.5,
+    docs/kowboy-2026.md); his fourth ask was a list filter by marketing method ("Underhand"),
+    question 143, answered a: the list block's pick "Visa bara med dessa taggar" and the `tags=`
+    parameter over the tags the CRM sends, no schema change (plugin 0.5.6, theme 1.1.6 for the
+    archive's address, docs/search.md). Next:
+    nothing of this item; Patric's next look decides.
+    Default 135 (the tests under criterion 20) waits; the acceptance list is edited when it stands.
+    - **Component:** `[client-wordpress]`, the plugin first, the theme's two list blocks after.
+    - **What changes for the product:** the list search takes an LKF code or its län or kommun
+      part, a free text matches the beginning of a street, an area, a town, a kommun or a län
+      name, a home counts in every area whose outline holds it, and an editor places a property
+      list or an agent list from the plugin with "show only from these agents, areas, offices"
+      and a place search that offers only places with homes, as pills.
+    - **The plan:** three sessions, in `docs/search.md` ("Order of building"): the query and the
+      data (plugin 0.5.0), the blocks (the editor builder moves into the plugin), the search box.
+    - **The tests that prove it:** `docs/search.md` ("Tests, all automatic"); AC 20's search half
+      names them.
+    - **Interface touched:** none of Core's. The plugin's index gains three columns and one link
+      table, rebuilt by the reindex on a plugin update.
+    - **Decides:** 133 (a home inside two outlines is in both areas, recommended a) and the
+      Default 134 (free text narrows the pills). The outline test and the combo box are the
+      plugin's own code, with the reasons stated in the design.
+
+24. **A Vitec connection's offices come from Vitec** (Patric, 2026-10-06, closes question 147 with
+    a: "Do A, but you need to do a poc before writing everything. Check schedule is once per day
+    but we need to have ability to manually check a tenant").
+    - **Step 1, the proof, done 2026-10-06:** `adapters/vitec/offices.ts` asks Vitec's office list
+      for each id a connection names and reads each listed office on its own, under its own
+      customer id; once a day, at every worker start, and at the next tick after "Check offices
+      now" on the tenant's page, which shows the answer as "Offices Vitec lists". It changes
+      nothing synced. Proved against the stand-in (a group id listing offices of two customers,
+      one of them refused; an id the login may not use). A run against Vitec from this session
+      with the environment's login was refused by the session's permission check on 2026-10-06
+      and is not retried, so the real answer is the one staging Core shows on each tenant's page,
+      the svenskamaklarhuset.se tenant's above all. Patric, 2026-10-06 09:32 (UTC): with `G12`
+      added on that tenant, "it says 'Yes' on all offices": the group lists its offices and each
+      one reads. He then asked whether Vitec's office groups could pick the site's offices
+      (question 154).
+    - **Step 2, done 2026-10-06** (Patric's answer to 154: "I want to use every office belonging
+      to the group "webbplats", if zero or the group doesnt exist, use all offices by listing as
+      above"): the field "Customer or group id" next to the Connect password; the offices synced
+      are those in the office group "webbplats" in Vitec, or every office that reads; an office
+      that came is loaded and one that went is tombstoned with its records; a check Vitec did not
+      answer keeps the last offices; the save's rule that a connection names an office is
+      reversed; known bug 3's erasing is fixed; the card "Offices Vitec lists" and the Vitec setup
+      steps say it in plain words (Patric: "Put a note in the admin panel explaining this in simple
+      terms").
+    - **Step 3, done 2026-10-06** (156 a): the tenant page leaves out "Offices it may see" for
+      Vitec (the manifest's `officesFromCrm`), a save stores the list empty, and the engine reads
+      it as empty, so a list typed before (the svenskamaklarhuset.se tenant's `G12`, which had kept
+      every record out as unlicensed) no longer counts; the card's note was rewritten in plainer
+      words (Patric: "This description doesnt make sense at all").
+    - **Step 4, done 2026-10-06** (157 and 158 b): the card loses "Reaches the sites" and names
+      the column "Synced to the sites"; an office Vitec refuses stays synced for a day of grace,
+      its row saying since when, and is taken off when the refusal still stands at the next daily
+      check; a refusal at any fetch makes the worker check within a minute. Telling the super
+      admin is item 26.
+    - **Step 5, done 2026-10-06** (161 a, against an address ban at Vitec): the probes are gone. A
+      refusal at a fetch blocks the office and holds every other fetch of the login until the
+      office check at the next tick has run; that check settles the blocks (refused stays blocked,
+      read again is unblocked and loaded in full), finishes a load the hold cut short, and from
+      then on, once a day, is the only call that asks about a blocked office. The check asks for
+      the office groups only when the id's own list answered. The panel's "Probe now", "Forget"
+      and probe columns are gone.
+    - **Component:** `[crm-vitec]`, and `[core]` for the reversed save rule.
+
+25. **Check that every admin button explains itself beside it** (Patric, 2026-10-06: "make note of
+    this, and add todo to check current ui"; AGENTS.md, definition of done 4). Go through every
+    page of the admin area and every button an adapter reports, and list each one whose
+    explanation is missing or only on hover. Known already: the buttons in a table's rows
+    (`admin/src/components/adapter-sections.tsx`, `SectionTable`) show their help only as a
+    hover title, and the confirm dialogs show it only once opened. The fix for the table rows is
+    a change to what a person sees, so it is asked as its own line before it is built.
+
+26. **Notifications for the super admin** (Patric, 2026-10-06, closes question 159 with a: "Make
+    sure we have some kind of notification system, with sufficient high level results in an
+    alert. This is a new feature, add it outside of this scope."). An event for every office taken
+    off the sites (the tenant, the office, why: it left the group "Webbplats", or Vitec refuses
+    it); a section "Needs attention" on the Overview listing the important events of the last
+    seven days (an office taken off, a connection paused after failures, a login refused, a site
+    that stopped pulling, and a form submit that failed, once the forms thread's log of submits
+    exists: Patric, 2026-10-06 12:36 UTC, asked that thread for "submit visibility / log in Core,
+    and retry logic + fail with error logging", so failed submits are one more source of this
+    list, not a mechanism of their own), each with a link; and each such event sent once by mail
+    and Slack where
+    `ALERT_EMAIL` and `ALERT_SLACK_WEBHOOK_URL` are set, as the red checks are today
+    (`engine/alerts.ts`). Its own thread: what counts as important beyond those four, the words of
+    each line and of the alert, and any line beyond 159 a's list are asked before they are built.
+    Until it is built, an office taken off the sites shows only on the tenant's page, in the card
+    "Offices Vitec lists".
+    - **Step 1, the engine and the Overview, built 2026-10-06:** `engine/attention.ts` names the
+      kinds of event that need attention (`office.taken_off`, `connection.paused`,
+      `login.refused`, and the `subscribers` check turning red); the Overview's card "Needs
+      attention" lists them for seven days with the tenant and a link to its page; each adapter
+      event is mailed and Slacked once the moment it is written (`engine/alerts.ts` listens to the
+      event log; a check's change goes with the checks' message as before, and is now also a
+      `check.failed` or `check.recovered` event). Proved by `acceptance/operations.test.ts`
+      ("alerts") and `acceptance/admin.test.ts` with the fake adapter. Answered: 162 a (the four
+      kinds) and 163 (the words stay; every line names the exact thing, where, and links to it).
+      Asked: 164, the colour per system (red is an alert, yellow is to be looked at), row by row;
+      Patric answered rows 5, 18 and 23 at 19:22 UTC and asked for less noise with his P0 to P3
+      levels, so 164 proposed the levels, five noise rules and a level per row; approved in concept
+      at 19:34 UTC (Step 3).
+    - **Step 1b, names and links (163), built 2026-10-06:** each line of the card and each alert
+      names the exact office, connection or site, its tenant (and an office's connection), and
+      links to it: an office to its removed records on Records, a connection or a site to its
+      block on the tenant's page (`#connection:<id>`, `#site:<id>`, scrolled to once and ringed).
+      The `check.failed` event of the sites check carries the sites in `sites`. An office is named
+      by `office_name` on its event, which the Vitec code sends since b0c36e6 (the name Vitec last
+      gave, kept from the previous check when Vitec refuses the office); without it, by its id. Known gap: a second site that stops pulling while
+      the check is already red is neither told nor listed, because the check changes once; 164's
+      rule A, built per thing, closes it.
+    - **Step 3, the levels P0 to P3 (164 in concept; 172 ok and 173 answered 2026-10-06, 20:56 and
+      20:57 UTC; the engine's part built on staging the same evening, except what waits on 178):**
+      the levels, the rules A to E, 164's rows, 172's checks and 173's outside ping are in
+      `docs/decisions.md`. Each line and each alert says what happened, what it means for the
+      sites and what to do (AGENTS.md, definition of done item 5); an alert tells each thing as its
+      level and title, "Which:", "Where:", "What happened:" and "Open it:". Waiting on 178: the
+      `level` column (until then the web process shows a CRM's failing check as P1, while the
+      worker's alerts use its level), the level on `check.failed` and its new event when a problem
+      moves up a level, the level on each line of "Needs attention", and the P2 problems that
+      ended before 07:00 in that mail. The plan, engine first (this thread):
+      - A check's result carries its `level`, the adapter interface's one optional word; a failing
+        check without one counts as P1. The engine's own: database, schema and worker P0;
+        subscribers P1, red only for a site rung more than an hour ago that has not pulled since
+        (the first ring after its last pull, from the `bell` events); lifecycle P2, P1 once an
+        event has waited an hour; submissions.failing P2. A check that throws or has no report is
+        P2, P1 after 15 minutes (rule E), and counts under a worker that is down (rule B).
+      - A problem is a failing check, or each thing it names (a site by its id, else each name),
+        with its own start: one `alert_state` row per open problem (`since`, `notified_at` when
+        its start was mailed), deleted when it ends. Its start is a `check.failed` event with its
+        level, written again when it moves up a level; its end a `check.recovered`.
+      - Rule A: a P0 problem is mailed (and sent to Slack) once it has lasted 5 minutes, a P1
+        once 15; a problem that ends first is told nowhere but the event log, and a P2 counts
+        only once it has lasted 15 minutes. Rule B: the starts due in one round go in one mail,
+        and while a P0 is open nothing else is mailed. Rule D: a problem is mailed at most once,
+        when it reaches P0 or P1, and its end once, if its start was. Rule C, for now: the end
+        is told in the start's words, marked resolved; one mail conversation per problem (mail
+        headers) comes later.
+      - The events that need attention (`office.taken_off`, `connection.paused`,
+        `login.refused`, and the forms' `submission.failed` and `submission.refused`, rows 22 and
+        23, P1, linked to Failed forms) are read by the worker's round from the event log, after
+        the last one it read and up to ten seconds ago, instead of being told by the process that
+        wrote them: `office.taken_off` is P1
+        when still refused (row 20, the `office.blocked` rule below), else P2; `connection.paused`
+        P2 (the mail at the pause stops; the Vitec check `vitec.connect` makes it P1 after an
+        hour); `login.refused` P1. The offices of one correlation id are one line, at the
+        highest level among them.
+      - One mail at 07:00 Stockholm time of the P2 problems and events that started since the
+        last one, none when nothing is new; the round keeps when it last sent it in
+        `alert_state`.
+      - The Overview: each failing check's tile in its level's colour with its level, the line
+        above counting P0 and P1 only; "Needs attention" lists the problems and events of P0 to
+        P2 of seven days, each with its level (question 178).
+      - `/v1/health` answers 500 only while a P0 check fails; the body is unchanged.
+      - Tested in `acceptance/operations.test.ts` ("health", "alerts") and
+        `acceptance/admin.test.ts`; AC 17's tests renamed in `acceptance/criteria.json`.
+      - Asks: 178 (a `level` column in `health_results`, the level on `check.failed`, the level
+        on each line of "Needs attention").
+      - Then, by spec through the coordinator: the Vitec code gives each check its level, splits
+        `vitec.catch_up` in three and makes catching up after a restart P3 (172); the forms code
+        keeps `submissions.failing` as it is (P2 in the engine), and rows 22 and 23 are the forms'
+        own events (built with 165 no, 417d91b).
+        Rows (164): 1 database P0; 2 database version
+        P0; 3 worker P0; 4 loading queue (the `lifecycle` check) P2, P1 after an hour; 5 alerts not
+        sent P1, told through the other channel; 6 manual sync failed P3; 7 site not pulling P1; 8
+        site could not take records P2 per site per day; 9 site bell P3; 10 site errors P3 (Sentry);
+        11 CRM refuses the login P1; 12 stored login unreadable P1; 13 CRM not answering P2, P1 after
+        an hour; 14 CRM notifications waiting P2, P1 after an hour; 15 record failed 3 fetches P2 per
+        connection per day; 16 not caught up for 12 h P1; 17 connection with no offices P2; 18 record
+        still malformed after 3 fetches an hour apart P2 per connection per day; 19 office refused,
+        in its day of grace P2; 20 office taken off, still refused P1; 21 office taken off by choice
+        P2; 22 form not taken after a day of retries P1; 23 form refused by the CRM P1; 24 a check
+        that cannot run P2, P1 after 15 minutes.
+      - **One cause, many offices (rule B), a case raised 2026-10-06:** a login switched between
+        live Vitec and its QA environment takes every office of its last check off the sites at
+        once (`settleSwitch`, d8f24cc), and so can a login Vitec still refuses at the daily check
+        or an id on the connection that no longer lists the offices. Each would be one alert per
+        office. The fix: the CRM's code gives every office it takes off for one reason in one go
+        the same correlation id (a spec sent to the office thread through the coordinator,
+        2026-10-06, 20:45 UTC), and the engine tells each correlation id once, as one line naming
+        every office, its link opening Records on those offices' removed records. Rows 20 and 21
+        are told apart from events Core already writes, so nothing new shows: an office taken off
+        within a week after an `office.blocked` for the same office and connection, with no
+        `office.unblocked` after it, is row 20 (still refused); any other is row 21 (by choice;
+        the switch is one). A block belongs to an office in one system, so the Vitec code logs
+        `office.blocked` and `office.unblocked` once per connection that syncs the office, and
+        settles the blocks before taking offices off (agreed with the office thread, 20:50 UTC). A
+        line's level is the highest of its offices, so a switch made while one of its offices is
+        in its day of grace goes out as P1. Built on staging with the levels.
+    - **Step 2, the Vitec side, built 2026-10-06 by the office thread** (item 24): the adapter
+      logs `office.taken_off` in `takeOff` with the reason in plain words, `login.refused` once
+      when a check first finds the connection's id refused, and `connect.paused` and
+      `connect.resumed` are renamed `connection.paused` and `connection.resumed`
+      (`adapters/vitec/vitec.test.ts` asserts each).
+    - **Later:** a form the CRM did not take (row 22) and a form it refused (row 23) as kinds,
+      linking to the Failed forms page (`/admin/forms`, built by the forms thread for 160 a). Their
+      `submission.failed` and `submission.refused` events carry the form's id as correlation id,
+      the connection and the record, never the visitor's details. Any kind beyond 164's rows is
+      asked first.
+    - **Component:** `[core]`, `[admin]`.
+
+27. **Debloat the admin area** (Patric, 2026-10-06, 18:51 UTC: "We need to debloat admin";
+    in progress 2026-10-06, the "Debloat admin" thread). Component: `[core]`, the admin area
+    (`admin/src`, `engine/admin`). What changes for the product, in his words: **Flow** shows
+    "Queued at" first, filters on tenant and office, sorts by "Queued at", the top 100, updated
+    every second. **Records** is built from zero with the same scope as Manual sync (tenants,
+    offices, entity types, one id), the old page and every remnant deleted. **Manual sync** is
+    built from zero beside the old page, then the old one goes: three levels, each also a scope
+    (fetch from the CRM, recompute and send to the sites; recompute and send; send only),
+    default the full one; scope tenants, offices, entity types, one id; "Housekeeping now" goes
+    (the worker runs it every hour); "Runs" becomes an instance of the Flow component, the same
+    code path, scoped to the run. **Events** is answered first (question 168: what the log is
+    for, who reads it, what would be lost) and rebuilt only on his answer. The handbook gained
+    the rule for deletions (version 2026-10-06): inventory the code and the data of a deleted
+    feature and delete what nothing else uses.
+    - Tests: `acceptance/admin.test.ts` (Flow by tenant and office; Records by the shared scope;
+      the three levels of Manual sync) and the browser journeys U3, U4, U5 in
+      `admin/e2e/journeys.spec.ts`, rewritten for the new pages.
+    - Interface: none. `engine/adapter-api` is untouched; the admin API changes are its own
+      (`GET /flow`, `GET /scope`, `GET /records`, the runs calls), which only the app calls.
+    - Defaults taken: Flow's "Queued at first" is read as the first column and the sort key,
+      newest first; the Flow component takes a scope, so the Manual sync page renders it with its
+      own; the Removed filter stays on Records because "Needs attention"
+      links an office to its removed homes (question 163).
+    - Decides: 168 (Events) and 176 (the new Manual sync, shown in screenshots, approved so the
+      old one goes).
+    - Not in it: the record's own page (its three faces and its timeline, decided 2026-09-21),
+      the Overview, the tenant page (the forms and office threads edit it), the CRM pages,
+      Settings.
+    - **Built on staging 2026-10-06:** Flow, Records and the new Manual sync as above, the
+      shared scope (`engine/admin/scope.ts`, `admin/src/components/scope-picker.tsx`), the
+      `POST /runs/sync` call with its three levels, and "send" as new places for a scope's live
+      records (`renumber` in `engine/storage/items.ts`). Gone with the old Records page: the
+      search by words and its full-text index (migration 013), ticking rows, "select all", the
+      columns call; gone from the area: housekeeping's button and call. The old Manual sync page
+      went on Patric's word ("Remove manual sync (old)", 2026-10-06, 176 a) with what only it
+      used: its page and navigation entry, `POST /runs/preview` and `preview()`, the jobs list,
+      a job's own call and its stop (`GET /jobs`, `GET /jobs/:id`, `POST /jobs/:id/cancel`,
+      `listJobs`, `cancelJob` and the worker's reading of a stop request), the connections in
+      `GET /scope`, the one-of-each scope fields and "only records an older rules version made";
+      the new page took the address `/manual-sync`.
+    - **Reviewed 2026-10-06** by a second agent, and fixed on staging: Records' "Both" showed the
+      live records only; Flow narrowed to a tenant could miss records waiting on a busy adapter
+      (an adapter now reports only for the connections it is asked about; the Vitec adapter's
+      `queue` reads its fetch list by their offices) and read the database side by side (now one
+      read after another, at most a hundred rows); the record id box could lose keys typed fast
+      (the router runs without transitions); a run's scope is checked like the address's; an
+      office two tenants hold is named once and by each tenant's own name; the send level says a
+      site leaves a record it already holds unchanged as it is (decision of 2026-10-06).
+
+28. **Vitec's QA environment** (Patric, 2026-10-06, 18:51 UTC: "We need to add a CRM: vitec-qa.
+    It's a functional clone of Vitec, but it uses another base url for the calls"; then a switch on
+    a Vitec connection instead, question 169 a; its forms, question 170 yes, from the live service
+    only). Component: `[crm-vitec]`.
+    - **Built on staging 2026-10-06:** the login field "Vitec's QA environment" (yes, else live
+      Vitec) sends every call of the login to `https://connect-qa.maklare.vitec.net` with its own
+      requests at once, requests per second and Retry-After, and its own drain of the fetch list;
+      QA's notifications arrive at `/v1/hook/vitec/qa/<token>`; the adapter's lists keep a QA
+      office as `qa:<office id>`; a saved login switched to the other system has the first one's
+      offices taken off the sites and is loaded again in full; a connection whose start-up round
+      fails runs it again alone; the Vitec page's fetch list and refused offices, and
+      `vitec.offices`, mark a QA office "(QA)"; the setup steps say all of it.
+    - **Renamed on staging 2026-10-06** (Patric, 21:29 UTC, in his rebuild of the tenant page: "is
+      supposed to be a toggle/checkbox "Use Vitec's QA environment". If checked, use Vitecs test
+      accounts"): the field reads "Use Vitec’s QA environment" and declares the fixed values no
+      and yes, which the new tenant page (question 180) will draw as a tickbox, so the field
+      description every CRM shares is unchanged; its help and the setup steps say "tick". His
+      same message says the switch "allows form submissions even in staging", against his 19:29
+      UTC rule that staging only dry-runs forms; nothing is built on that until he answers
+      question 181.
+    - **Built on staging 2026-10-07** (Patric's answer to question 181 the same day: "staging dry
+      run unless qa"): the adapter interface has one optional
+      answer, `testSystem(connection)`, "is this connection's login for the CRM's own test
+      system?"; the Vitec code answers yes for a login with "Use Vitec’s QA environment" ticked;
+      the central forms guard hands such a connection's forms to the adapter from any Core, so
+      staging sends them to Vitec's QA, and holds every other form outside production as before.
+      No answer, no, or an error holds the form.
+    - Tests: `adapters/vitec/qa.test.ts` (two stand-in Connects sharing office M1: loads,
+      notifications, the daily comparison, a refusal and the office check after it, a switch from
+      QA to live, a start-up round QA fails, Retry-After, "Check the login", a form, the page's
+      marks and row actions, the forms guard's answer) and `adapters/vitec/admin/directions.test.ts`
+      (the field and the QA path named); `acceptance/submissions.test.ts` (a Core that is not the
+      live service sends a form to a CRM's own test system and holds every other one).
+    - Question 177 closed on 2026-10-07 as a clear winner: the Vitec page's connections, fetch list
+      and refused offices mark a QA office "(QA)", and the tenant's page shows the ticked field
+      instead of a mark.
+    - Interface: the optional `testSystem(connection)` of question 181; the engine reads it only
+      in the forms guard (`registerSubmissions` in `engine/registry.ts`).
+    - Open: the QA address is as Patric remembered it; on 2026-10-06 it cut off a cloud session's
+      secure handshake while live Vitec answered. A QA login and "Check the login" show whether it
+      answers Core; if it is another address, the constant in `adapters/vitec/api.ts` changes.
+
+29. **Confirm the forms’ features with Patric before checking the build** (Patric, 2026-10-06,
+    21:54 UTC: "Confirm with me the high level features of all the different forms, and
+    requirements/tests, and let me verify it before you will verify that it is correctly built and
+    working"). Components: `[core]`, `[crm-vitec]`, `[client-wordpress]`.
+    - First, a list for Patric: every form (book a viewing, interest, valuation, and any other the
+      theme or plugin carries), its high-level features, its requirements and the tests that prove
+      each one. Patric verifies that list. Only then is the build checked against the list he
+      approved, form by form, and nothing is called working before that.
+    - His reason: the session "Forms build review for production" "went complete apeshit, I dont
+      trust a character of code from that session", so all of its forms code is re-checked against
+      the approved list. What that session built is in its memory file
+      `forms-build-review-2026-10-05` and in `docs/forms.md` under "Built 2026-10-06". The
+      re-check also covers what other threads changed in that code since: "Vitec office
+      whitelist" (37d0358) made `call` in `adapters/vitec/forms.ts` pass the office to the send,
+      so a form to an office Vitec refuses fails at once, with no retry, and the visitor sees the
+      error; and (f5e7779) a form whose advertising call gets a 401 or 403 blocks that office at
+      the worker's next tick, while the search profile's CRM calls block nothing. Two lines on
+      that list are for Patric to settle: what a visitor reads when Vitec refuses a form without
+      giving words (`wordsOf` in forms.ts), and what happens to a form with no office.
+    - **The list is verified** (Patric, 2026-10-07, 12:41 UTC, seven changes and "No other
+      comments/changes"): `/mnt/project-files/strategy/forms-list.md`, with the decisions of
+      2026-10-07 on 151, 171, the details kept on the site and the list. Development is ready:
+      on his go, first what the list marks as not built or to remove, then every forms file is
+      checked against the list, line by line, with the tests green, and reported file by file.
+    - **In progress since 2026-10-19** (209 a; the thread "Confirm forms features and tests"),
+      with item 21's leftovers and item 32, in this order:
+      1. Done 2026-10-19 (theme 1.3.2): `[client-wordpress]` The hidden trap field goes from the
+         window; the browser journey proves there is none.
+      2. Done 2026-10-19: `[client-wordpress]` A test proves "Skicka" cannot be pressed and reads
+         "Skickar…" while a form is on its way.
+      3. Done 2026-10-19: `[crm-vitec]` A booking asks Vitec for the SMS confirmation as well as
+         the e-mail.
+      4. Done 2026-10-19 (theme 1.3.2): `[client-wordpress]` The theme's privacy page picker goes;
+         the consent links WordPress's own privacy page.
+      5. Done 2026-10-19 (plugin 0.9.0, theme 1.3.3): `[client-wordpress]` The plugin's page
+         "Formulär": the switch "forms on" (the window shows only when it is on) and every form
+         the site sent, failed or not, with the visitor's details and the outcome, kept 30 days,
+         with "Send again" beside a failed one. Core takes the site's own "Send again" with no
+         bot proof, under the form's id, also for a form it never received (a form lost while
+         Core could not be reached), since only the site's server sends it. "Send again" and its
+         way into Core were removed with 218 (step 10).
+      6. Done 2026-10-19: `[core]` `[client-wordpress]` 166: Core answers a form id it already
+         holds before the bot check; the plugin tries twice more, after 1 s and 3 s, when Core
+         did not answer.
+      7. Done 2026-10-19 but the words of the alert: `[core]` `[client-wordpress]` The bot check
+         never fails silently: Core tells a visitor's failed check from a broken one (no keys,
+         Cloudflare refusing the secret, Cloudflare not answering), the window sends a check that
+         could not load or run with the form, and a broken check stops the form with a clear
+         message and is logged as a form not delivered, which alerts and shows under "Needs
+         attention". Outside production Core uses Cloudflare's published test keys when its own
+         are missing, so staging needs no setting. The alert's and "Needs attention"'s words for
+         it, and their link to the site's page "Formulär", are the thread "Notification system"'s
+         (`engine/attention.ts`), sent to it on 2026-10-19.
+      8. Done in the engine 2026-10-19 (`listOnBotCheck`): `[core]` 171 a: each site's address on
+         the check's list at Cloudflare when the site is saved; on the free plan an eleventh site
+         is refused with a clear message, since paying is asked then (146). The new admin's
+         website save calls it: the thread "New admin panel from the spec"'s, sent to it.
+      9. Done 2026-10-19 (plugin 0.9.1, theme 1.3.4; its look approved with 221, and on the Ahre
+         demo with 222): `[client-wordpress]` "Söker du bostad?" in the theme; the Vitec code
+         adds the home's type (docs/forms.md, "Built 2026-10-19").
+      10. Done 2026-10-19: `[core]` `[admin]` 218: nothing sends a form again; the window tells
+          the visitor it was not sent and whom to contact instead. Plugin 0.9.3, theme 1.3.6:
+          the window, the site's "Skicka igen", the old page "Failed forms" and Core's
+          `X-Core-Resend`; then the new admin's "Resend" (the thread "New admin panel from the
+          spec", d495a0e), the "Needs attention" words (the thread "Notification system",
+          1c1abaa), and Core's copy of the details with its send again (migration 023).
+      11. Done 2026-10-19 (5a42439, 97f7d90): item 32's tests; every forms file checked against
+          the list with the tests green, a fresh review, and the report file by file
+          (`/mnt/project-files/forms/check-report.md`).
+30. **A new admin area from scratch** (Patric, 2026-10-13: "How can I get you to create a nice
+    admin panel, without trying to fix the current one?", then "Tabler looks good. Use that. ...
+    MVP features only.", then "MVP Greenfield"; in progress 2026-10-13, the "New admin panel"
+    thread). Component: `[admin]`. What changes for the product: an admin area in Tabler's look,
+    optimal for what an admin must configure for Core to run, replacing the current one, which
+    the item 27 debloat could not make coherent.
+    - Five designs drawn on 2026-10-13 by sessions that had read the current admin inherited from
+      it, and the last was reworded to pass the inheritance check; Patric rejected that approach.
+      The design now comes from a clean room, per the strategy of question 193 (the Claude Doc
+      "Admin panel: clean-room strategy"): a session with no repository and no memory of the
+      current admin, fed only by a brief of Patric's own words and Core's facts, draws three
+      candidates; sessions that have seen the current admin never design, write panel text or
+      edit a design; a candidate that fails the inheritance check is dropped whole.
+    - Steps: (1) Patric approves the strategy (193); (2) the current admin's descriptions and the
+      rejected drafts leave the shared memory and the shared folder, the brief is written and
+      scanned; (3) Patric reads the brief; (4) the clean room's candidates, the check, his pick;
+      steps 1 to 3 done 2026-10-15 (the brief, `/mnt/project-files/clean-room/brief.md`, approved
+      "lgtm"), and the clean room was handed to the coordinator to start the same day; its three
+      candidates, tested over three rounds, and the three inheritance checks
+      (`docs/old-admin/clean-room-check/`) were done the same day; Patric picked B on 2026-10-16
+      and approved it row by row the same day (question 197; `docs/new-admin/b-build-list.md`),
+      except the eight rows that wait on question 199, and asked for the manual sync and a record
+      browser and viewer, which the clean room adds to B in a second round
+      (`clean-room/brief-2.md`, out in `clean-room/out/b2/`), each new line approved before it is
+      built; (5) the build from the chosen images only: B at `/admin` on staging and the current
+      admin moved to `/admin-old` there, for comparison only; its first part (signing in, the account menu and the Inbox) went up
+      on 2026-10-16, built by a session that had not seen the current admin, with eleven lines
+      beyond B's images asked in question 200; part 2 (the brokerages list, a brokerage's page and adding a
+      brokerage) the same day, with thirteen lines asked in question 201; part 3 (the Inbox's windows,
+      maintenance and "Reload all data") the same day, with ten lines asked in question 202; the check again, his approval on
+      staging, then the current admin is deleted with everything only it used.
+    - Done 2026-10-22: Patric approved B on staging ("1 yes, 2 yes": Records and Flow load at
+      once, and B replaces the old admin), and the old admin left with everything only it used:
+      `admin/`, `engine/admin/`, its tests and journeys, the adapter API's page, directions and
+      record look, the Vitec page's actions, the old admin's libraries and `docs/old-admin/`.
+
+31. **Lists built on the server first, then refreshed in the browser, with page addresses search
+    engines can follow** (Patric, 2026-10-15: "Lists of entities needs to be server side rendered
+    first, then hydrated using ajax, to be compatible with both page cache and not take an seo
+    hit, as seo often reads ssr content"). Component: `[client-wordpress]`, the theme "Kowboy
+    2026" and the plugin's list function. What changes for the product: every list of every
+    entity, homes and projects, agents, offices, areas and associations, today's lists and any
+    added later, shows current content even when the page is served from a page cache (a stored
+    copy of the whole page, such as Breeze, Varnish or Cloudflare keep), and search engines reach
+    every page of every list through ordinary links (Patric, 2026-10-15: "all entity lists need
+    ssr + hydration as well as /2/ pagination somewhere linkable").
+
+    - Refresh on load. Today a property list's first page is built on the server, and the browser
+      fetches new cards only when a visitor switches tab, filters, searches or presses "Visa fler"
+      (`assets/kowboy-2026.js`, `setupList`). `docs/default-templates.md` ("One list function")
+      says the list refreshes itself once when the page loads; that call is missing, so a cached
+      page shows the homes as they were when the copy was made. The agent, area and association
+      lists are built on the server and never refreshed. Every list keeps its server-built first
+      page, which is what search engines read, and replaces it with the current one by one reload
+      call when the page loads.
+    - Page addresses search engines can follow. In another conversation Patric asked whether the
+      sitemap is enough for search engines to find every home, or whether the pages themselves must
+      link to them; the answer was that the pages must link to them, and that a list can carry
+      page addresses of its own (`/page/2/` or similar) even when its cards are loaded by script.
+      So every list longer than one page carries ordinary links to its other pages, each of those
+      addresses answers with that page built on the server, and where the script loads cards in
+      place it keeps the address in step. The areas and associations archives already page this
+      way (`parts/paging.php`, WordPress's own `/page/N/`); the property lists, the archive at
+      `/objekt/` included, page only by "Visa fler", and the agent list shows every card at once.
+    - Where it is built waits on question 198: in the plugin beside the list function, so the
+      list shortcode and blocks refresh, filter and page in any theme, or in the theme as today.
+    - This item states the whole requirement; the other conversation is not needed, and AGENTS.md
+      keeps other conversations out of reach anyway.
+    - Size: one session.
+    - **Built 2026-10-18** (plugin 0.8.0, theme 1.3.0, `docs/kowboy-2026.md`, "Lists on cached
+      pages, with page links"): every list refreshes once on load and replaces its cards only when
+      they changed; every list on a page has its own address parameter (`?sida=2`, `?sida-2=2`),
+      its page N built on the server with its first N pages, "Visa fler" a link to it, the address
+      kept in step and the canonical address keeping it; the areas and associations archives keep
+      `/page/N/`. The browser part is in the theme, as today, until question 198 says otherwise.
+    - **Moved 2026-10-21** (plugin 0.10.0, theme 1.4.0, Patric, 198 a): the browser part is the
+      plugin's (`core-client/assets/list.js`), for every list in any theme.
+
+32. **Forms keep working on pages served from a page cache, and stay protected against bots**
+    (Patric, 2026-10-15: "security codes / bot protection to forms"). Component:
+    `[client-wordpress]`, with `[core]` for the bot check. What changes for the product: a visitor
+    can send every form from any page, also when the page is a stored copy several days old, and
+    every form is protected against bots without anything in the page that expires.
+
+    - Why. WordPress's security codes (nonces) are valid for 12 to 24 hours. A form that prints one
+      into the page and checks it on send is refused for every visitor once a cached copy of the
+      page is older than that, and the leads are lost without anyone noticing.
+    - Today, theme 1.2.4: met. The public forms carry no WordPress security code (the receiver in
+      `core-client/includes/forms.php` checks none), and the bot protection is Cloudflare's check,
+      whose proof the form window earns in the visitor's browser for each send
+      (`assets/kowboy-2026.js`); the page holds only the check's public key, which does not expire.
+      What remains of the bot protection itself is known bug 4: the keys are in no environment yet.
+    - Done 2026-10-19: `clients/wordpress/forms.test.ts`, "carries no WordPress security code on
+      a public page": the home, a list, a home's, an agent's, an office's, an area's and an
+      association's page hold no code, and a form sent from a stored copy of a home's page once
+      WordPress's codes have expired (the test install's `nonce_life` per request) is taken.
+    - The work: automated tests that keep it so. No public page carries a WordPress security code,
+      and a form sent from a page whose HTML was made more than a day earlier is accepted (with
+      the bot check's stand-in). The same rule holds for every form, and every script that sends
+      from a public page, added later; the list reload of item 31 included.
+    - Size: part of a session.
+
+33. **The final release, and closing the project** (Patric, 2026-10-18: "work towards closing
+    this project and getting it production ready"; in progress 2026-10-18, the "Get Core
+    production ready" thread). Components: `[core]`, `[client-wordpress]`. What changes for the
+    product: live runs the finished Core with its settings and alerts, a first brokerage runs on
+    it (strategy §9, Gate 4), and every other open item is moved to "Later". The plan for Patric,
+    with the table of the work left: `/mnt/project-files/release/final-release-plan.md`;
+    questions 206 to 211.
+    - **Three steps:** the early release (207), the final release, the first brokerage on live
+      (its forms, lists, Vitec's notifications and the plugin's update channel); then this file and
+      strategy §9 say the project is done (Default 208).
+    - **The undo.** Migrations 016 and 018 drop `connections.active`, `subscribers.active` and
+      `jobs.cancel_requested`, and make `connections.name` required; live's version at d420ba1 uses
+      all four. After the early release the old version therefore comes back only with live's
+      database restored from its backup (a fork of the shared cluster at the time before the
+      release, live pointed at it); with no customer on live a fault is fixed forward. Every later
+      release keeps a one-step undo: what the old version reads is dropped one release after the
+      code stops reading it (strategy §6).
+    - **The conditions** (handbook "Release and operate" with its first go-live list, strategy §9
+      phase 7), each a step:
+      1. Enforced checks green on staging, `/v1/health` green (red on 2026-10-18:
+         `vitec.retries`, the "Proper error messages in admin" thread), and
+         `acceptance/report.md` made again from a real run: done 2026-10-18 in a cloud session,
+         45 of 49 green, the four left are condition 3 (`npm run report` builds first; the
+         journeys there need `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium`). Made
+         again before each release.
+      2. The release impact preview (enforced check 5, AC 36): nothing has run
+         `recompute(…, { dryRun: true })` over live's data since the old manual sync went (176).
+         It becomes a step of the release that runs the new version's preview on live's records
+         before that version takes over, and stops the release when a record fails the schema or
+         the invariants. Built before the early release, and its result is in every release note.
+         Built and tested 2026-10-18 (`node dist/main.js preview`, the job "preview" in
+         `.do/app.staging.yaml`). Done on staging 2026-10-21 (211 a): the job runs before every
+         staging deploy, and one made to fail stopped the deploy with the running version kept.
+         Live gets the same job in its own settings at the early release (condition 6).
+      3. The four criteria still pending, after 210 for AC 18 and AC 27: AC 18 (a smoke suite run
+         automatically after every staging deploy, and a test that reads both apps from the
+         platform: the line of work each deploys, the health-gated deploy, the old version kept on
+         a failed check), AC 24 (the restore drill: the cluster's backup restored onto a temporary
+         cluster, staging pointed at it until its subscribers converge, then back, and the copy
+         deleted; run by hand through DigitalOcean's API on 2026-10-21 (217 a), see `decisions.md`;
+         AC 24 turns green once a script does the same and names its test), AC 27 and AC 32 (load and latency at 10× launch on a temporary database server
+         and app of their own, so the shared cluster, 1 vCPU, 1 GB and 15 GB of disk, is never
+         loaded; deleted the same day, well under $1).
+      4. Seven days on staging with no unresolved Sentry issue (strategy §9, phase 7): 57 open on
+         2026-10-18, 52 of them resolved that day, each checked against the code: the connection
+         slots (fixed 2026-10-06), the dropped `active` column, the deleted events page, a database
+         connection that dropped once, "Cannot use a pool after calling end on the pool" (the
+         worker's tasks outlived a stop; fixed in 375079c) and a bell to a site that does not exist
+         (no longer reported, a16b3d8). The five left are Vitec's, with "Vitec office whitelist"
+         (1R, 1S, 1F, 1G) and "Proper error messages in admin" (1N; strategy §6 reports a fetch
+         given up, so it closes when those records load). The seven days start once they are
+         resolved; the cluster's pending maintenance (Tuesdays 08:49 UTC) may add a few.
+      5. Alerts in place on both apps and one seen arriving: `ALERT_EMAIL` (the address in
+         `ADMIN_EMAILS`), and `MAIL_FROM` with `POSTMARK_SERVER_TOKEN` in each worker, where
+         `checkAlerts` runs; Core's mail reaches kowboy.se inboxes since 2026-10-22. Patric's own uptime monitor on
+         live's `/v1/health` (173), asked of him once the final release is out.
+      6. Live's settings at the release, in the live app's own spec: the pool `live` (12 by 167 c,
+         kept by 206 a), `SENTRY_DSN`, `ADMIN_SECRET` removed, the worker's mail settings,
+         and the job "preview" as `.do/app.staging.yaml` has it, with live's database.
+      7. The first go-live list: the domain and its certificate answer; personal data and
+         credentials only where the design says, checked once and named in the release note; who
+         is told and in which words, written before the switch.
+    - **Before the first brokerage:** `TURNSTILE_SITE_KEY` with `TURNSTILE_SECRET` on live (known
+      bug 4: live refuses every form without them, by design; Patric creates them in Cloudflare);
+      the update channel for the plugin and the theme, the approved Space (2026-09-16), of which
+      no `v*` tag and no Spaces key exist yet; Vitec's notification address for live, which Patric
+      gives Vitec.
+    - **The order:** conditions 1, 2 and the Sentry triage first; on 207 a (given 2026-10-19), the early release once
+      staging is green and the preview has run; then condition 3; the threads' work in the plan's
+      table; the alerts seen arriving; the final release on Patric's "release". After it: the
+      one-time clean-up of known bug 3 leaves `main.ts` once live's log shows it ran, the old admin
+      left with item 30 on 2026-10-22, and a `decisions.md` line "Release <date>" is written. Then the first
+      brokerage, and the project is done.
+    - Size: several sessions, most of them waiting on the threads in the table.
 
 ## Later, when Patric supplies them
 
@@ -313,7 +1061,7 @@ picked up by "resume". After the set: the client ports (item 16, first client by
 - Sentry: wired into Core 2026-09-18 (question 36); the DSN is on staging, production gets it with the release. The same error leaves once a day whichever process hits it, and at most twenty distinct errors a day per app, for the 5,000-a-month plan; the sites' errors go through the same gate since 2026-09-19 (question 46). Left: an uptime alert on production's `/v1/health` (an auth token for an agent, or a click in Sentry), and projects for the two clients.
 - ~~The universal field names (question 51: drafted for Patric's correction, or sent by him) → item 2, then the Vitec mappers and `schemas/`.~~ Done 2026-09-19 (item 2).
 - Vitec test credentials and a staging deploy → open question 18.
-- Mspecs documentation → second adapter.
+- ~~Mspecs documentation~~ → second adapter. Found 2026-10-04: the marketing provider API's OpenAPI specification is saved under `docs/inputs/mspecs/` (question 132); the adapter waits on a provider agreement with Mspecs that opens its test system.
 - Rules ledger, parity inventory, real golden masters → Phase 5. The ledger's first fourteen entries are approved (2026-09-19, question 53); parity and golden masters wait on question 52.
 
 ## Standing rules for every session

@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Image-customerId-imageId, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Image-customerId-imageId, fetched 2026-10-04 -->
 
 # GET Advertising/Image/{customerId}/{imageId}
 
@@ -41,13 +41,13 @@ Hämtar bilder. Collection of byte
 
 ## Response Formats
 
-- [application/octet-stream](https://connect.maklare.vitec.net#octet-stream277)
+- [application/octet-stream](https://connect.maklare.vitec.net#octet-stream963)
 
-- [text/x-base64](https://connect.maklare.vitec.net#x-base64277)
+- [text/x-base64](https://connect.maklare.vitec.net#x-base64963)
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json277)
+- [application/json, text/json](https://connect.maklare.vitec.net#json963)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml277)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml963)
 
 ```
 @@

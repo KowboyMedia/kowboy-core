@@ -41,23 +41,41 @@ export function redact(fields: EventFields): EventFields {
   return out;
 }
 
+/**
+ * The row as it will be written. The database gives it its id and its time: the time it is
+ * written, on one clock, so a reader that reads up to a few seconds ago never passes over a row
+ * that waited for its connection.
+ */
+const toRow = (event: EventInput): Omit<EventRow, 'id' | 'at'> => ({
+  type: event.type,
+  correlation_id: event.correlationId ?? null,
+  tenant_id: event.tenantId ?? null,
+  connection_id: event.connectionId ?? null,
+  datatype: event.datatype ?? null,
+  remote_id: event.remoteId ?? null,
+  subscriber_id:
+    event.subscriberId === undefined || event.subscriberId === null
+      ? null
+      : String(event.subscriberId),
+  fields: redact(event.fields ?? {}),
+});
+
 /** Write one row to the event log. Never throws into the caller's path. */
 export async function logEvent(event: EventInput): Promise<void> {
-  const at = new Date();
+  const row = toRow(event);
   try {
     await db().query(
-      `insert into events (at, type, correlation_id, tenant_id, connection_id, datatype, remote_id, subscriber_id, fields)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      `insert into events (type, correlation_id, tenant_id, connection_id, datatype, remote_id, subscriber_id, fields)
+       values ($1,$2,$3,$4,$5,$6,$7,$8)`,
       [
-        at,
-        event.type,
-        event.correlationId ?? null,
-        event.tenantId ?? null,
-        event.connectionId ?? null,
-        event.datatype ?? null,
-        event.remoteId ?? null,
-        event.subscriberId ?? null,
-        JSON.stringify(redact(event.fields ?? {})),
+        row.type,
+        row.correlation_id,
+        row.tenant_id,
+        row.connection_id,
+        row.datatype,
+        row.remote_id,
+        row.subscriber_id,
+        JSON.stringify(row.fields),
       ],
     );
   } catch (error) {
@@ -72,13 +90,10 @@ export type EventQuery = {
   subscriberId?: number;
   correlationId?: string;
   type?: string;
-  from?: string;
-  to?: string;
   limit?: number;
-  /** The admin panel reads the latest first. */
+  /** A record's page reads the latest first. */
   newestFirst?: boolean;
-  /** Page older than this event, or tail newer than it. */
-  beforeId?: number;
+  /** The live tail: only events newer than this one. */
   afterId?: number;
 };
 
@@ -93,9 +108,6 @@ export async function queryEvents(query: EventQuery): Promise<EventRow[]> {
     ['subscriber_id = ?', query.subscriberId],
     ['correlation_id = ?', query.correlationId],
     ['type = ?', query.type],
-    ['at >= ?', query.from],
-    ['at <= ?', query.to],
-    ['id < ?', query.beforeId],
     ['id > ?', query.afterId],
   ];
   const where: string[] = [];
@@ -109,12 +121,6 @@ export async function queryEvents(query: EventQuery): Promise<EventRow[]> {
   const order = query.newestFirst ? 'id desc' : 'id';
   const sql = `select * from events ${where.length ? `where ${where.join(' and ')}` : ''} order by ${order} limit ${limit}`;
   return (await db().query<EventRow>(sql, values)).rows;
-}
-
-/** The newest event's number, where a live tail starts. */
-export async function latestEventId(): Promise<number> {
-  const { rows } = await db().query<{ id: string | null }>('select max(id) as id from events');
-  return Number(rows[0]?.id ?? 0);
 }
 
 /** Delete events outside the retention window (strategy §8.2). */

@@ -1,0 +1,60 @@
+{
+  "category": null,
+  "description": "Sara har varit verksam som mäklare i Lund/Malmö med omnejd sedan 2011 och har under 14 år förmedlat både villor, bostadsrätter och nyproduktion. Genom hela försäljningsprocessen ligger fokus på trygghet, tydlig kommunikation och ett slutresultat som överträffar förväntningarna. Saras kunder beskriver henne som lugn, pålitlig och alltid tillgänglig, vilket skapar en trygg affär från start till mål. Sara är en mäklare som värdesätter återkoppling och transparens, och många säljare lyfter särskilt fram hennes tydliga kommunikation, stora engagemang och goda marknadskännedom. Med ett personligt och strukturerat arbetssätt anpassas varje försäljning efter kundens behov, oavsett om det gäller villa, bostadsrätt eller nyproduktion. De starka rekommendationerna handlar inte bara om slutpriset, utan också om den personliga omsorgen och det professionella stöd som erbjuds genom hela processen.\nMålet är alltid att göra bostadsförsäljningen så smidig, trygg och framgångsrik som möjligt – från första mötet till avslutad affär.",
+  "email": "sara@norbanmakleri.se",
+  "id": "HAN99DA69AB26B54D82B499E19CD3F5F340",
+  "image": {
+    "category": "Övrigt",
+    "changed_at": "2026-02-18T10:26:40.647Z",
+    "description": null,
+    "extension": "png",
+    "id": "MED5NWXQ363G83TKBFR6S",
+    "name": "Sara Gustavsson - kvadrat png 16MB",
+    "order": 1,
+    "url": "https://cdn-realestate.kowboy.se/r2/M31529/HAN99DA69AB26B54D82B499E19CD3F5F340/MED5NWXQ363G83TKBFR6S_1920.png"
+  },
+  "is_visible_in_staff_list": true,
+  "languages": [
+    "en",
+    "sv"
+  ],
+  "name": "Sara Gustavsson",
+  "office_ids": [
+    "M31529"
+  ],
+  "offices": [
+    {
+      "is_visible_in_staff_list": true,
+      "office_id": "M31529",
+      "order": 1717388575,
+      "phone": null
+    }
+  ],
+  "phones": {
+    "mobile": {
+      "display": "079-100 77 46",
+      "number": "46791007746"
+    },
+    "public": null
+  },
+  "provider_extras": {},
+  "reviews": [
+    {
+      "author": "Säljare på Svanegatan 5C",
+      "text": "Väldigt trevlig, flexibel och professionell mäklare. Ansvarat för våra två senaste försäljningar och vi är supernöjda."
+    },
+    {
+      "author": "Säljare på Spannmålsgatan 50A",
+      "text": "Sara är professionell, engagerad och kunnig!\nVi anlitade Sara för försäljningen av vår bostad och kunde inte vara mer nöjda. Från första mötet visade hon stor kunskap om marknaden, lyhördhet för våra önskemål och ett starkt engagemang. Kommunikation och återkoppling har varit tydlig och snabb genom hela processen, vilket har gjort att vi känt oss trygga från början till slut. Vi kan varmt rekommendera Sara till alla som vill ha en smidig och framgångsrik bostadsaffär."
+    },
+    {
+      "author": "Säljare på Järnåkravägen 15C",
+      "text": "Otroligt duktig!!!!\nRekommenderar stark, Sara får en att känna stort förtroende och lugn.\nSkulle välja Sara återigen!"
+    },
+    {
+      "author": "Säljare på Sofiaparken 4C",
+      "text": "Väldigt nöjd med Sara som var aktiv och vi hade bra kontakt och uppföljning tills den blev såld på kort tid, möten och avslutningen gick snabbt o lätt. Toppen!!"
+    }
+  ],
+  "title": "Fastighetsmäklare | Norban Mäkleri"
+}

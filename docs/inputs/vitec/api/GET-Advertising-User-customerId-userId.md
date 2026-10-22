@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-User-customerId-userId, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-User-customerId-userId, fetched 2026-10-04 -->
 
 # GET Advertising/User/{customerId}/{userId}
 
@@ -53,9 +53,9 @@ Hämta användare för hemsida.
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json48)
+- [application/json, text/json](https://connect.maklare.vitec.net#json865)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml48)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml865)
 
 ```
 {
@@ -69,7 +69,7 @@ Hämta användare för hemsida.
     "sample string 1",
     "sample string 2"
   ],
-  "changedAt": "2026-09-16T06:05:10.0488004+02:00",
+  "changedAt": "2026-10-04T06:01:55.2275826+02:00",
   "telephone": {
     "cell": {
       "msisdn": "sample string 1",
@@ -82,7 +82,7 @@ Hämta användare för hemsida.
   },
   "image": {
     "id": "sample string 1",
-    "dataChangedAt": "2026-09-16T06:05:10.0488004+02:00",
+    "dataChangedAt": "2026-10-04T06:01:55.2275826+02:00",
     "description": "sample string 3",
     "name": "sample string 4",
     "category": {

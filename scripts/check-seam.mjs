@@ -4,9 +4,9 @@
 //  - adapters import engine/adapter-api/ only
 //  - main.ts is the only file importing both sides
 //  - "Kore" (the old product name) appears only under docs/inputs/
-//  - no CRM name in the admin area's own app (admin/src), which draws every adapter's page from
-//    the data the adapter reports and must never know what a CRM is. The journeys under admin/e2e
-//    drive a named fake adapter on purpose and are left out, as the acceptance tests are.
+//  - no CRM name in the admin area's own app (the panel of design B, panel/src), which draws what
+//    each adapter reports as data and must never know what a CRM is, and it imports no adapter
+//    code.
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, normalize, join } from 'node:path';
 import { walk } from './lib/walk.mjs';
@@ -24,11 +24,13 @@ const resolve = (file, specifier) =>
 
 const violations = [];
 
-// 1. No CRM name in the engine, the clients or the admin area's app.
+const ADMIN_APPS = ['panel/src'];
+
+// 1. No CRM name in the engine, the clients or the admin area's apps.
 for (const file of [
   ...walk('engine', CODE),
   ...walk('clients', CODE),
-  ...walk('admin/src', [...CODE, '.tsx']),
+  ...ADMIN_APPS.flatMap((dir) => walk(dir, [...CODE, '.tsx'])),
 ]) {
   const lines = readFileSync(file, 'utf8').split('\n');
   lines.forEach((line, index) => {
@@ -41,7 +43,10 @@ for (const file of [
 }
 
 // 2. Imports across the seam.
-for (const file of walk('engine', CODE)) {
+for (const file of [
+  ...walk('engine', CODE),
+  ...ADMIN_APPS.flatMap((dir) => walk(dir, [...CODE, '.tsx'])),
+]) {
   for (const specifier of specifiers(readFileSync(file, 'utf8'))) {
     if (resolve(file, specifier).startsWith('adapters/')) {
       violations.push(`${file} imports adapter code ("${specifier}")`);

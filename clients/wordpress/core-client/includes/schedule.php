@@ -10,6 +10,8 @@ const CORE_CLIENT_BACKSTOP = 'core_client_backstop';
 
 add_action(CORE_CLIENT_BACKSTOP, function (): void {
     core_client_sync('delta');
+    // The kept forms' 30 days end on time on a site that gets no forms (includes/forms.php).
+    core_client_forms_purge();
 });
 
 // Action Scheduler is ready on init. A recurring action stays scheduled once it exists.

@@ -4,10 +4,17 @@ import { startEngine, type Engine } from '../engine/index.js';
 import { startAdapter } from '../engine/adapter-api/index.js';
 import { adapterRoutes } from '../engine/http/server.js';
 import { configureMail, type Mail } from '../engine/mail.js';
+import { configureHumanCheck, type HumanCheck } from '../engine/human.js';
 import { db } from '../engine/storage/db.js';
 import { addSubscriber, createTenant, upsertConnection } from '../engine/storage/connections.js';
 import { deliverLifecycleEvents } from '../engine/lifecycle.js';
-import { clearRegistry, registerAdmin } from '../engine/registry.js';
+import {
+  clearRegistry,
+  configureLiveService,
+  registerAdmin,
+  registerSubmissions,
+} from '../engine/registry.js';
+import { resetSubmissionLimits } from '../engine/http/submissions.js';
 import type { Adapter } from '../engine/adapter-api/types.js';
 
 // The engine's operations an adapter's tests drive, re-exported so those tests import the harness
@@ -16,6 +23,22 @@ export { queueLifecycle } from '../engine/lifecycle.js';
 export { queryEvents } from '../engine/events.js';
 export { connectionById } from '../engine/storage/connections.js';
 export { healthReport, type HealthReport } from '../engine/health.js';
+
+/** Where Core in a test sends its alerts (kept in `mails`) and where its links point. */
+export const ALERTS = { alertEmail: 'ops@example.test', publicUrl: 'https://core.example' };
+
+/**
+ * The bot check in a test: Cloudflare's documented test key, which always passes in a browser and
+ * hands out this dummy token, and a stand-in for Cloudflare's verification that takes only that
+ * token, so no test calls Cloudflare (Turnstile's testing page, updated 2026-05-05).
+ */
+export const HUMAN_TOKEN = 'XXXX.DUMMY.TOKEN.XXXX';
+export const HUMAN_CHECK: HumanCheck = {
+  provider: 'turnstile',
+  siteKey: '1x00000000000000000000AA',
+  secret: '1x0000000000000000000000000000000AA',
+  verify: (token) => Promise.resolve({ kind: token === HUMAN_TOKEN ? 'passed' : 'refused' }),
+};
 
 /** The test tenant's number: the first one made after every reset. */
 export const TENANT = 1;
@@ -57,9 +80,10 @@ export async function harness(options: {
   subscriber?: boolean;
 }): Promise<Harness> {
   clearRegistry();
+  resetSubmissionLimits();
   const adapters = options.adapters ?? [];
 
-  let engine = await startEngine({ port: 0 });
+  let engine = await startEngine({ port: 0, ...ALERTS });
   await truncate();
   const mails: Mail[] = [];
   const keepMail = (): void => {
@@ -68,6 +92,13 @@ export async function harness(options: {
     });
   };
   keepMail();
+  // The stand-in CRMs are no brokerage, so this Core sends forms as the live service does, behind
+  // the stand-in bot check; the guard's own test turns that off (question 152).
+  const asLive = (): void => {
+    configureLiveService({ live: true });
+    configureHumanCheck(HUMAN_CHECK);
+  };
+  asLive();
 
   const bells: Bell[] = [];
   const bellServer = await listen((request, respond) => {
@@ -107,8 +138,10 @@ export async function harness(options: {
 
   for (const adapter of adapters) {
     await startAdapter(adapter);
-    // As the entrypoint does for both roles: the admin area draws the adapter's own panel.
+    // As the entrypoint does for both roles: the admin area draws the adapter's own panel, and a
+    // site's form is handed to the adapter inside the request.
     if (adapter.admin) registerAdmin(adapter.manifest.provider, adapter.admin);
+    registerSubmissions(adapter.manifest.provider, adapter);
   }
 
   const running: Harness = {
@@ -125,8 +158,9 @@ export async function harness(options: {
       await new Promise<void>((resolve) => server.close(() => resolve()));
       await during?.();
       await engine.stop();
-      engine = await startEngine({ port });
+      engine = await startEngine({ port, ...ALERTS });
       keepMail();
+      asLive();
       running.engine = engine;
       server = engine.listen(routes);
       for (const adapter of adapters) await startAdapter(adapter);
@@ -141,7 +175,7 @@ export async function harness(options: {
 }
 
 const TABLES =
-  'tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results, error_reports, jobs, alert_state, settings, admin_logins, admin_sessions';
+  'tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results, error_reports, jobs, alert_state, admin_logins, admin_sessions, submissions';
 
 /**
  * Every table empty and the sequence at 1: what the harness does before a test, and what a test

@@ -1,16 +1,23 @@
 // Generates acceptance/report.md from the acceptance criteria map and a real test run.
 // The report is never edited by hand: if a criterion is green here, a named test proved it.
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const { criteria } = JSON.parse(readFileSync('acceptance/criteria.json', 'utf8'));
 
-// Two vitest runs: the default one, and the WordPress client suite, which has its own config
-// because it needs a WordPress install (clients/wordpress/test/setup.sh). Then the browser
-// journeys, which drive the admin area as a person does (admin/playwright.config.ts).
-const CONFIGS = ['vitest.config.ts', 'vitest.wordpress.config.ts'];
+// Three vitest runs: the default one; the WordPress client suite, which has its own config
+// because it needs a WordPress install (clients/wordpress/test/setup.sh); and the release path as
+// App Platform runs it, which reads both apps and needs DIGITALOCEAN_ACCESS_TOKEN. Then the
+// browser journeys, which drive the WordPress client's site (clients/wordpress/playwright.config.ts)
+// as a person does.
+const CONFIGS = ['vitest.config.ts', 'vitest.wordpress.config.ts', 'vitest.platform.config.ts'];
+const JOURNEY_CONFIGS = ['clients/wordpress/playwright.config.ts'];
+
+// The journeys serve the WordPress site from dist, so the report builds first,
+// as GitHub's checks do: on a dist left by an older version the journeys failed (known bug 6).
+execFileSync('npm', ['run', 'build'], { stdio: 'inherit' });
 
 const results = new Map();
 const outDir = mkdtempSync(join(tmpdir(), 'core-report-'));
@@ -34,19 +41,17 @@ for (const config of CONFIGS) {
 
 // The browser journeys: Playwright's own JSON report, flattened to "title → status", so a
 // criterion may name a journey exactly as it names a test.
-function collectJourneys() {
-  const resultsFile = join(outDir, 'journeys.json');
+function collectJourneys(config) {
+  const resultsFile = join(outDir, `${config.replaceAll('/', '-')}.json`);
   try {
-    execFileSync(
-      'npx',
-      ['playwright', 'test', '--config', 'admin/playwright.config.ts', '--reporter=json'],
-      {
-        stdio: 'inherit',
-        env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_NAME: resultsFile },
-      },
-    );
+    execFileSync('npx', ['playwright', 'test', '--config', config, '--reporter=json'], {
+      stdio: 'inherit',
+      env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_NAME: resultsFile },
+    });
   } catch {
-    console.error('the browser journeys failed or could not run; the report below records that');
+    console.error(
+      `the browser journeys under ${config} failed or could not run; the report below records that`,
+    );
   }
   let report;
   try {
@@ -70,7 +75,20 @@ function collectJourneys() {
   walk(report.suites);
 }
 
-collectJourneys();
+for (const config of JOURNEY_CONFIGS) collectJourneys(config);
+
+// The drills change staging and take most of an hour, so this run does not repeat them: each
+// records its last run in .do/drills/ (scripts/restore-drill.mjs), and the report takes that
+// result and says when it ran.
+const DRILLS = '.do/drills';
+const recorded = [];
+for (const file of existsSync(DRILLS)
+  ? readdirSync(DRILLS).filter((name) => name.endsWith('.json'))
+  : []) {
+  const { ran, tests } = JSON.parse(readFileSync(join(DRILLS, file), 'utf8'));
+  for (const [name, status] of Object.entries(tests)) results.set(name, status);
+  recorded.push(`${file.replace(/\.json$/, '')} on ${ran.slice(0, 10)}`);
+}
 
 const PHASE_LABEL = {
   engine: 'engine (now)',
@@ -105,6 +123,9 @@ const lines = [
   '',
   'The authoritative wording of each criterion is strategy §10, which amends SRS §13.',
   '',
+  ...(recorded.length > 0
+    ? [`Recorded runs, not repeated by this one: ${recorded.join(', ')} (\`.do/drills/\`).`, '']
+    : []),
   '| AC | Criterion | Status | Proved by |',
   '|---|---|---|---|',
 ];

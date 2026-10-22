@@ -1,0 +1,175 @@
+{
+  "address_line": "Cyklopgatan 35B, 216 25 Malmö",
+  "area": "31 kvm",
+  "elevator": "Ja",
+  "energy_class": "C",
+  "energy_declaration": "Utförd 2023-06-13",
+  "fee": "2 882 kr/mån",
+  "fee_amount": "2 882 kr",
+  "fee_comment": "Inkl. kallvatten, värme, bostadsrättstillägg och sophämtning. Oblig. tillägg 170 kr/mån för bredband och TV tillkommer.",
+  "floor": "2 av 4",
+  "floor_and_elevator": "2 av 4, hiss finns",
+  "living_space": "31 kvm",
+  "location": "Hyllie",
+  "operating_cost": "3 420 kr/år",
+  "price": "1 200 000 kr",
+  "price_text": "Utgångspris",
+  "rooms": "1 rum",
+  "rooms_and_bedrooms": "1 rum",
+  "sections": [
+    {
+      "header": "Grundinformation",
+      "items": [
+        {
+          "label": "Upplåtelseform",
+          "value": "Bostadsrätt"
+        },
+        {
+          "label": "Bostadstyp",
+          "value": "Lägenhet"
+        },
+        {
+          "label": "Adress",
+          "value": "Cyklopgatan 35B 216 25 Malmö"
+        },
+        {
+          "label": "Område",
+          "value": "Hyllie"
+        },
+        {
+          "label": "Fastighetsbeteckning",
+          "value": "Snorkeln 1"
+        }
+      ]
+    },
+    {
+      "header": "Interiör",
+      "items": [
+        {
+          "label": "Boarea",
+          "value": "31 kvm"
+        },
+        {
+          "label": "Antal rum",
+          "value": "1"
+        },
+        {
+          "label": "Areakälla",
+          "value": "Föreningens information"
+        }
+      ]
+    },
+    {
+      "header": "Beskrivning",
+      "items": [
+        {
+          "label": "Beskrivning",
+          "value": "Välkomna till denna ljusa etta med fransk balkong! Öppen planlösning mellan kök och allrum med gott om plats för både säng och sällskapsmöblemang. Det stora badrummet är utrustat med dusch och vask med kommod samt bekvämligheter som handdukstork och kombimaskin. Köket har rostfria vitvaror och är utrustat med integrerad diskmaskin, kyl/frys, fläkt, spishäll och integrerad ugn. Intill entrén i hallen finns plats för avhängning samt  ett förråd för god förvaring. Området kring Hyllie är optimalt för den som uppskattar stadslivet med närhet till både grönområden och exceptionella pendelmöjligheter. Här finns shoppingcenter, restauranger och kulturutbud inom bekvämt avstånd."
+        }
+      ]
+    },
+    {
+      "header": "Byggnad",
+      "items": [
+        {
+          "label": "Byggnadstyp",
+          "value": "Flerbostadshus"
+        },
+        {
+          "label": "Byggår",
+          "value": "2023"
+        },
+        {
+          "label": "Uppvärmning",
+          "value": "Fjärrvärme"
+        },
+        {
+          "label": "Fönster",
+          "value": "3-glas"
+        }
+      ]
+    },
+    {
+      "header": "Ventilation",
+      "items": [
+        {
+          "label": "Typ",
+          "value": "FTX"
+        }
+      ]
+    },
+    {
+      "header": "Energideklaration",
+      "items": [
+        {
+          "label": "Energideklaration",
+          "value": "Utförd 2023-06-13"
+        },
+        {
+          "label": "Energiklass",
+          "value": "C"
+        }
+      ]
+    },
+    {
+      "header": "Andelstal, avgifter och insats",
+      "items": [
+        {
+          "label": "Andel i förening",
+          "value": "1,151 %"
+        },
+        {
+          "label": "Andel av årsavgift",
+          "value": "1,1515 %"
+        },
+        {
+          "label": "Månadsavgift",
+          "value": "2 882 kr"
+        },
+        {
+          "label": "Kommentar till månadsavgift",
+          "value": "Inkl. kallvatten, värme, bostadsrättstillägg och sophämtning. Oblig. tillägg 170 kr/mån för bredband och TV tillkommer."
+        },
+        {
+          "label": "Bostadens indirekta nettoskuldsättning",
+          "value": "499 640 kr, Beräknad utifrån uppgifter från årsredovisning 2024"
+        }
+      ]
+    },
+    {
+      "header": "Våning/hiss",
+      "items": [
+        {
+          "label": "Våning",
+          "value": "2 av 4, hiss finns"
+        }
+      ]
+    },
+    {
+      "header": "Driftskostnader",
+      "items": [
+        {
+          "label": "VA",
+          "value": "690 kr/år"
+        },
+        {
+          "label": "El",
+          "value": "2 730 kr/år"
+        },
+        {
+          "label": "Personer i hushållet",
+          "value": "1"
+        },
+        {
+          "label": "Kommentar driftskostnader",
+          "value": "Individuell mätning och debitering av hushållsel och uppvärmning av vatten. Angivna kostnader är enligt föreningens ekonomiska plan, dvs en ungefärligt uppskattad kostnad för bostadens storlek. Kostnad för försäkring tillkommer."
+        },
+        {
+          "label": "Summa per år",
+          "value": "3 420 kr/år"
+        }
+      ]
+    }
+  ],
+  "year_built": "2023"
+}

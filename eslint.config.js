@@ -10,6 +10,7 @@ export default tseslint.config(
       'node_modules/**',
       'clients/lovable-kit/supabase/**',
       'clients/wordpress/core-client/lib/**',
+      'clients/wordpress/themes/**/assets/vendor/**',
     ],
   },
   js.configs.recommended,
@@ -31,12 +32,17 @@ export default tseslint.config(
     // Node control flow says how hard it is to follow; in JSX every conditional piece a page
     // renders counts too, so it says how much the page shows instead. The rule stays on for the
     // app's own code (.ts), where it means what it was set for.
-    files: ['admin/src/**/*.tsx'],
+    files: ['panel/src/**/*.tsx'],
     languageOptions: { globals: { ...globals.browser } },
     rules: { complexity: 'off' },
   },
   {
-    files: ['admin/src/**/*.ts', 'admin/e2e/**/*.ts'],
+    files: ['clients/wordpress/e2e/**/*.ts', 'panel/src/**/*.ts'],
     languageOptions: { globals: { ...globals.browser } },
+  },
+  {
+    // The theme's and the plugin's scripts run in the visitor's browser and the editor, without a build step.
+    files: ['clients/wordpress/themes/**/assets/*.js', 'clients/wordpress/core-client/assets/*.js'],
+    languageOptions: { globals: { ...globals.browser }, sourceType: 'script' },
   },
 );

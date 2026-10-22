@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/AdvertisingPreview, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/AdvertisingPreview, fetched 2026-10-04 -->
 
 ## Förhandsgranska bostäder på hemsida
 

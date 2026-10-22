@@ -256,7 +256,12 @@ function core_client_rebuild(): void
         }
     }
     $index = core_client_index_table();
-    $stale = $wpdb->get_results($wpdb->prepare("SELECT datatype, connection_id, remote_id FROM $index WHERE synced_at < %s", $started));
+    // The site's own records (includes/site-records.php) are not Core's: the sweep leaves them.
+    $stale = $wpdb->get_results($wpdb->prepare(
+        "SELECT datatype, connection_id, remote_id FROM $index WHERE synced_at < %s AND connection_id <> %s",
+        $started,
+        core_client_site_connection(),
+    ));
     foreach ($stale as $row) {
         core_client_delete_item($row->datatype, $row->connection_id, $row->remote_id);
     }

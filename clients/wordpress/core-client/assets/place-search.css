@@ -1,0 +1,76 @@
+/* The place search box (includes/place-search.php): the structure only, over the library's own
+   stylesheet (lib/tom-select), in the page's font and colours; a set's stylesheet gives it the
+   set's look. Linked on the page and inside the shadow roots the plugin opens. */
+.core-place-search {
+  position: relative;
+  min-width: 0;
+}
+.core-place-search__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+/* The plain select, before the script turns it into the box: its place kept, nothing painted (the
+   library copies the select's classes onto its wrapper, hence the element name). */
+select.core-place-search__select:not(.tomselected) {
+  width: 100%;
+  height: 2.75em;
+  visibility: hidden;
+}
+.core-place-search .ts-wrapper {
+  width: 100%;
+}
+/* The field first, on a line of its own, the chosen places as pills under it (Patric, 2026-10-04:
+   the pills below the field, as they were, not inside it). The library puts its pills before the
+   field in one flowing row; the order is turned here and a pseudo-element between them is the
+   field's own line, for a set to draw. A pill the visitor highlights hides the field in the
+   library's own stylesheet; it keeps its place here, so nothing jumps. */
+.core-place-search .ts-wrapper .ts-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 0 !important;
+}
+.core-place-search .ts-wrapper .ts-control > input {
+  order: -1;
+  flex: 0 0 100%;
+  width: 100%;
+  margin: 0 !important;
+}
+.core-place-search .ts-wrapper.input-hidden .ts-control > input {
+  position: static;
+  left: auto;
+}
+.core-place-search .ts-wrapper .ts-control::before {
+  content: '';
+  flex: 0 0 100%;
+  height: 0;
+}
+.core-place-search .ts-wrapper.multi .ts-control > div {
+  margin: 8px 6px 0 0;
+}
+.core-place-search .ts-control,
+.core-place-search .ts-control input,
+.core-place-search .ts-dropdown {
+  font: inherit;
+  color: inherit;
+}
+.core-place-search .ts-dropdown {
+  z-index: 20;
+  text-align: left;
+}
+.core-place-search .ts-dropdown-content {
+  max-height: 320px;
+}
+.core-place-search .ts-dropdown .optgroup-header {
+  font-size: 0.75em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.core-place-search .ts-dropdown .no-results {
+  opacity: 0.7;
+}

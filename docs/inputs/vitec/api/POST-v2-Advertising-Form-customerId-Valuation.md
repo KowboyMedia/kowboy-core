@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/POST-v2-Advertising-Form-customerId-Valuation, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/POST-v2-Advertising-Form-customerId-Valuation, fetched 2026-10-04 -->
 
 # POST v2/Advertising/Form/{customerId}/Valuation
 
@@ -30,9 +30,9 @@ Anmälningsuppgifter [ValuationApplication](https://connect.maklare.vitec.net/He
 
 ### Request Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json939)
+- [application/json, text/json](https://connect.maklare.vitec.net#json646)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml939)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml646)
 
 ```
 {
@@ -98,9 +98,9 @@ Värderingsförfrågan [ValuationResult](https://connect.maklare.vitec.net/Help/
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json939)
+- [application/json, text/json](https://connect.maklare.vitec.net#json646)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml939)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml646)
 
 ```
 {

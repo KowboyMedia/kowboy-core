@@ -12,15 +12,12 @@ import {
   type ItemRow,
   type ScopeFilter,
 } from './storage/items.js';
-import { connectionById } from './storage/connections.js';
+import { providerOf } from './storage/connections.js';
 import { changedFields } from './ingest.js';
 import type { Canonical, Datatype } from './adapter-api/types.js';
 
-/**
- * What to recompute: everything, a CRM, a tenant, a connection, an office, a datatype, one
- * record, a selection, or only the rows an older rules version produced (SRS §3).
- */
-export type Scope = Omit<ScopeFilter, 'rulesVersionBefore'> & { staleRulesOnly?: boolean };
+/** What to recompute: everything, tenants, offices, datatypes, a connection, one record or a selection. */
+export type Scope = ScopeFilter;
 
 export type ImpactReport = {
   examined: number;
@@ -59,12 +56,8 @@ const BATCH = 200;
 export async function recompute(scope: Scope, options: RecomputeOptions = {}): Promise<Progress> {
   const exampleLimit = options.exampleLimit ?? 10;
   const failureLimit = options.failureLimit ?? 200;
-  const filter: ScopeFilter = {
-    ...scope,
-    rulesVersionBefore: scope.staleRulesOnly ? RULES_VERSION : undefined,
-  };
   const report: Progress = {
-    total: await countItems(filter),
+    total: await countItems(scope),
     examined: 0,
     changed: 0,
     unchanged: 0,
@@ -88,16 +81,12 @@ export async function recompute(scope: Scope, options: RecomputeOptions = {}): P
   // Two passes: the records not sold first, the sold ones last (question 74).
   let goOn = true;
   for (const sold of [false, true]) {
-    let afterSeq = 0;
-    let more = true;
-    while (goOn && more) {
-      const items = await scopeBatch(filter, sold, afterSeq, BATCH);
-      for (const item of items) {
-        afterSeq = Number(item.seq);
-        await examine(item);
-      }
+    let afterSeq: number | null = 0;
+    while (goOn && afterSeq !== null) {
+      const { items, next } = await scopeBatch(scope, sold, afterSeq, BATCH);
+      for (const item of items) await examine(item);
       const wanted = items.length > 0 ? await options.onProgress?.(report) : undefined;
-      more = items.length === BATCH;
+      afterSeq = next;
       goOn = wanted !== false;
     }
   }
@@ -156,10 +145,13 @@ type MapperOf =
   | ((raw: unknown) => { data: Canonical; officeId: string | null; remoteUpdatedAt: string | null })
   | null;
 
-/** The mapper for a connection's datatypes, found once per connection. */
+/**
+ * The mapper for a connection's datatypes, found once per connection. Only the provider is read:
+ * mapping stored raw needs no login, so the release preview runs without the key that opens one.
+ */
 async function mapperOf(connectionId: string): Promise<(datatype: Datatype) => MapperOf> {
-  const connection = await connectionById(connectionId);
-  return (datatype) => (connection ? mapperFor(connection.provider, datatype) : null);
+  const provider = await providerOf(connectionId);
+  return (datatype) => (provider ? mapperFor(provider, datatype) : null);
 }
 
 /** One stored row, put back through the current mappers and rules. */

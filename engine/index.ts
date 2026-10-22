@@ -1,12 +1,13 @@
 import type { Server } from 'node:http';
 import { loadConfig, type Config } from './config.js';
-import { initErrorReporting } from './errors.js';
+import { initErrorReporting, report } from './errors.js';
 import { closeDb, db } from './storage/db.js';
 import { migrate } from './storage/migrate.js';
 import { configureCredentials } from './storage/connections.js';
 import { configureBells, flushPendingBells } from './bells.js';
 import { configureMail, postmark } from './mail.js';
 import {
+  down,
   forViewers,
   heartbeat,
   healthReport,
@@ -22,10 +23,21 @@ import { purgeTombstones } from './storage/items.js';
 import { changes } from './http/changes.js';
 import { applied } from './http/applied.js';
 import { siteError } from './http/errors.js';
+import { botCheck, slots, submit } from './http/submissions.js';
+import { configureLiveService } from './registry.js';
+import {
+  configureBotCheckList,
+  configureHumanCheck,
+  TEST_SECRET,
+  TEST_SITE_KEY,
+  turnstile,
+} from './human.js';
+import { deleteExpiredSubmissions } from './storage/submissions.js';
 import { configureCompression, jsonResponse, startServer, type RouteTable } from './http/server.js';
 import { SEQUENCE_JUMP, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
-import { adminRoutes, configureAdmin } from './admin/index.js';
-import { deleteExpiredSessions } from './admin/auth.js';
+import { configurePanel, panelRoutes } from './panel/index.js';
+import { readListNames } from './panel/recordlist.js';
+import { deleteExpiredSessions } from './panel/auth.js';
 
 export { SEQUENCE_JUMP, STARTED_AT, TOMBSTONE_RETENTION_DAYS, VERSION } from './version.js';
 
@@ -38,6 +50,8 @@ const JOBS_MS = 2_000;
 const HEALTH_RECORD_MS = 30_000;
 /** How often the worker compares the health checks with their last state and tells a change. */
 const ALERTS_MS = 60_000;
+/** How long a stop waits for the worker's running tasks, so a stuck one never holds up a deploy. */
+const STOP_WAIT_MS = 10_000;
 
 export type Engine = {
   config: Config;
@@ -77,20 +91,49 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
       ? postmark(config.postmarkServerToken, config.mailFrom)
       : null,
   );
-  configureAdmin(config);
+  configurePanel(config);
+  const alerts = {
+    environment: config.environment,
+    publicUrl: config.publicUrl,
+    email: config.alertEmail,
+    slackWebhookUrl: config.alertSlackWebhookUrl,
+  };
+  // The bot check's keys; outside production, without them, Cloudflare's test keys, so the check
+  // runs there too and never silently not at all. Production without them refuses every form.
+  configureHumanCheck(
+    config.turnstileSiteKey && config.turnstileSecret
+      ? turnstile(config.turnstileSiteKey, config.turnstileSecret)
+      : config.environment === 'production'
+        ? null
+        : turnstile(TEST_SITE_KEY, TEST_SECRET),
+  );
+  configureBotCheckList(
+    config.cloudflareAccountId && config.cloudflareTurnstileToken
+      ? { accountId: config.cloudflareAccountId, token: config.cloudflareTurnstileToken }
+      : null,
+  );
+  // Only the live service writes to a live CRM (question 152); staging and local stop before it,
+  // in the registry, the one place the engine gets an adapter's send, unless the adapter says the
+  // connection is its own test system (question 181).
+  configureLiveService({ live: config.environment === 'production' });
 
   const routes: RouteTable = [
-    ...adminRoutes(),
+    // The admin panel (design B): its API under /v1/panel/, its app under /admin.
+    ...panelRoutes(),
     { method: 'GET', path: '/v1/changes', handler: changes },
     { method: 'POST', path: '/v1/applied', handler: applied },
     { method: 'POST', path: '/v1/errors', handler: siteError },
+    { method: 'POST', path: '/v1/submissions', handler: submit },
+    { method: 'GET', path: '/v1/submissions/slots', handler: slots },
+    { method: 'GET', path: '/v1/submissions/bot-check', handler: botCheck },
     {
       method: 'GET',
       path: '/v1/health',
       handler: async () => {
-        // Public, for an uptime monitor: 500 while any check fails, counts and plain words only.
-        const health = forViewers(await healthReport());
-        return jsonResponse(health.ok ? 200 : 500, { ...health, version: VERSION });
+        // Public, for an outside monitor: 500 only while Core is down for every customer (a P0
+        // check fails, question 173), with counts and plain words only.
+        const health = await healthReport();
+        return jsonResponse(down(health) ? 500 : 200, { ...forViewers(health), version: VERSION });
       },
     },
     {
@@ -105,51 +148,74 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
 
   let server: Server | null = null;
   const timers: NodeJS.Timeout[] = [];
+  /** The worker's tasks running now: a stop lets them finish before it closes the database. */
+  const running = new Set<Promise<void>>();
+  let stopping = false;
 
   return {
     config,
     routes,
     listen(extraRoutes: RouteTable = []): Server {
       server = startServer([...routes, ...extraRoutes], config.port);
+      // The records list's names, read once now so the list's first load needs no wait. A stop
+      // waits for it as for the worker's tasks.
+      const names: Promise<void> = readListNames()
+        .catch((error: unknown) => report(error, { where: 'panel record names' }))
+        .finally(() => running.delete(names));
+      running.add(names);
       return server;
     },
     startWorker(): void {
-      const tick = (fn: () => Promise<unknown>, everyMs: number) => {
-        void fn();
-        const timer = setInterval(() => void fn(), everyMs);
+      // A task's failure is reported where it happened, so it never ends the process and goes
+      // through the error tracker's daily gate like every other report.
+      const tick = (where: string, fn: () => Promise<unknown>, everyMs: number) => {
+        const run = () => {
+          const task: Promise<void> = fn()
+            .then(() => undefined)
+            .catch((error: unknown) => report(error, { where }))
+            .finally(() => running.delete(task));
+          running.add(task);
+        };
+        run();
+        const timer = setInterval(run, everyMs);
         timer.unref?.();
         timers.push(timer);
       };
-      tick(() => heartbeat(), HEARTBEAT_MS);
-      tick(() => flushPendingBells(), BELL_FLUSH_MS);
-      tick(() => deliverLifecycleEvents(), LIFECYCLE_MS);
-      tick(async () => {
-        while (await runNextJob()) {
-          // one job after another, until the queue is empty
-        }
-      }, JOBS_MS);
+      tick('heartbeat', () => heartbeat(), HEARTBEAT_MS);
+      tick('bells', () => flushPendingBells(), BELL_FLUSH_MS);
+      tick('lifecycle events', () => deliverLifecycleEvents(), LIFECYCLE_MS);
       tick(
-        () =>
-          checkAlerts({
-            environment: config.environment,
-            publicUrl: config.publicUrl,
-            email: config.alertEmail,
-            slackWebhookUrl: config.alertSlackWebhookUrl,
-          }),
-        ALERTS_MS,
+        'jobs',
+        async () => {
+          while (!stopping && (await runNextJob())) {
+            // one job after another, until the queue is empty or Core stops
+          }
+        },
+        JOBS_MS,
       );
-      tick(async () => {
-        await recordHealth();
-        await pruneHealth();
-      }, HEALTH_RECORD_MS);
-      tick(async () => {
-        await deleteExpiredEvents(config.eventRetentionDays);
-        await purgeTombstones(TOMBSTONE_RETENTION_DAYS);
-        await deleteExpiredSessions();
-      }, HOUSEKEEPING_MS);
-      tick(() => failStaleJobs(), ALERTS_MS);
+      tick('alerts', () => checkAlerts(alerts), ALERTS_MS);
+      tick(
+        'health record',
+        async () => {
+          await recordHealth();
+          await pruneHealth();
+        },
+        HEALTH_RECORD_MS,
+      );
+      tick(
+        'housekeeping',
+        async () => {
+          await deleteExpiredEvents(config.eventRetentionDays);
+          await deleteExpiredSubmissions(config.eventRetentionDays);
+          await purgeTombstones(TOMBSTONE_RETENTION_DAYS);
+          await deleteExpiredSessions();
+        },
+        HOUSEKEEPING_MS,
+      );
+      tick('stale jobs', () => failStaleJobs(), ALERTS_MS);
     },
     async stop(): Promise<void> {
+      stopping = true;
       for (const timer of timers) clearInterval(timer);
       await new Promise<void>((resolve) => {
         if (!server) return resolve();
@@ -157,6 +223,12 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
         // A page's live feed never ends on its own; a stop must not wait for it.
         server.closeAllConnections();
       });
+      // A task already running finishes first, so none meets a closed database (seen on staging
+      // at every deploy, 2026-10-06 to 2026-10-18), and one that hangs is left after a while.
+      await Promise.race([
+        Promise.all(running),
+        new Promise((resolve) => setTimeout(resolve, STOP_WAIT_MS).unref()),
+      ]);
       await closeDb();
     },
   };

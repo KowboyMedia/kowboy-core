@@ -59,7 +59,6 @@ describe('the web process as deployed', () => {
         provider: 'vitec',
         credentials: null,
         licensedOffices: [OFFICE],
-        active: true,
       },
       'property',
       estate.id,

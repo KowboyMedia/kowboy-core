@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Brand-customerId, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Brand-customerId, fetched 2026-10-04 -->
 
 # GET Advertising/Brand/{customerId}
 
@@ -44,28 +44,28 @@ Hämta varumärke för hemsida.
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json642)
+- [application/json, text/json](https://connect.maklare.vitec.net#json599)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml642)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml599)
 
 ```
 {
   "id": "sample string 1",
   "name": "sample string 2",
-  "createdAt": "2026-09-16T05:55:35.3844471+02:00",
-  "changedAt": "2026-09-16T05:55:35.3844471+02:00",
+  "createdAt": "2026-10-04T06:01:54.8369475+02:00",
+  "changedAt": "2026-10-04T06:01:54.8369475+02:00",
   "segments": [
     {
       "id": "sample string 1",
       "name": "sample string 2",
-      "createdAt": "2026-09-16T05:55:35.3844471+02:00",
-      "changedAt": "2026-09-16T05:55:35.3844471+02:00"
+      "createdAt": "2026-10-04T06:01:54.8369475+02:00",
+      "changedAt": "2026-10-04T06:01:54.8369475+02:00"
     },
     {
       "id": "sample string 1",
       "name": "sample string 2",
-      "createdAt": "2026-09-16T05:55:35.3844471+02:00",
-      "changedAt": "2026-09-16T05:55:35.3844471+02:00"
+      "createdAt": "2026-10-04T06:01:54.8369475+02:00",
+      "changedAt": "2026-10-04T06:01:54.8369475+02:00"
     }
   ]
 }

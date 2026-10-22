@@ -1,6 +1,8 @@
 // The Vitec adapter against the real engine and a stand-in Connect (test/connect.ts): webhooks,
 // the fetch list, both schedules, licensing by office and the health checks. Vitec's behaviour
 // beyond its documentation waits for a test account on staging (strategy §9, Phase 6).
+import { randomUUID } from 'node:crypto';
+import pg from 'pg';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   connectionById,
@@ -11,11 +13,14 @@ import {
   queueLifecycle,
   type Harness,
   type HealthReport,
+  until,
 } from '../../acceptance/harness.js';
 import { drainFetchList, runSchedules, vitecAdapter } from './index.js';
 import { vitecAdmin } from './admin/index.js';
-import type { Connection, LifecycleEvent } from '../../engine/adapter-api/index.js';
+import { checkOffices, lastCheck } from './offices.js';
+import type { AdminSection, Connection, LifecycleEvent } from '../../engine/adapter-api/index.js';
 import * as store from './store.js';
+import * as connect from './api.js';
 import { PASSWORD, USERNAME, startFakeConnect, type FakeConnect } from './test/connect.js';
 
 const CONNECTION = 'vitec-acme';
@@ -23,7 +28,9 @@ const OFFICE = 'M1';
 const TOKEN = 'hook-token';
 const CHANGED = '2026-09-10T08:00:00.1234567+02:00';
 
-const credentials = JSON.stringify({ username: USERNAME, password: PASSWORD });
+const credentials = JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: OFFICE });
+/** The office in live Vitec, as the adapter's lists keep it. */
+const LIVE_OFFICE = { environment: 'live' as const, officeId: OFFICE };
 
 const estate = (id: string, officeId = OFFICE, extra: Record<string, unknown> = {}) => ({
   id,
@@ -116,10 +123,10 @@ const timelineOf = (
 const notify = (id: string): Promise<Response> =>
   hook({ type: 'Estate', event: 'Update', customerId: OFFICE, id });
 
-async function start(licensedOffices: string[] = [OFFICE]): Promise<void> {
+async function start(login = credentials): Promise<void> {
   running = await harness({
     adapters: [vitecAdapter],
-    connections: [{ id: CONNECTION, provider: 'vitec', credentials, licensedOffices }],
+    connections: [{ id: CONNECTION, provider: 'vitec', credentials: login, licensedOffices: [] }],
   });
   // The adapter's first tick catches up every connection it has never seen; wait for it.
   await runSchedules();
@@ -129,6 +136,7 @@ beforeEach(async () => {
   fake = await startFakeConnect();
   process.env['VITEC_BASE_URL'] = fake.url;
   process.env['VITEC_WEBHOOK_TOKEN'] = TOKEN;
+  connect.forgetNewLoginTests();
   await store.reset();
 });
 
@@ -237,7 +245,7 @@ describe('the Vitec adapter', () => {
 
     expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
     expect(fetchesOf('OBJ1')).toBe(0);
-    expect(await store.isKnown(OFFICE, 'property', 'OBJ1')).toBe(false);
+    expect(await store.isKnown(LIVE_OFFICE, 'property', 'OBJ1')).toBe(false);
   });
 
   it('brings a record back on an Update after a Remove, and removes it on a Remove after an Update (AC 33)', async () => {
@@ -322,6 +330,160 @@ describe('the Vitec adapter', () => {
     }
   });
 
+  it('fetches each record given up on once more at every start: given up again at once if it fails, loaded if not', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const restart = async (): Promise<void> => {
+      await running.restart();
+      await runSchedules();
+      await drainFetchList();
+    };
+    try {
+      fake.put(
+        OFFICE,
+        'property',
+        estate('OBJ1', OFFICE, { address: { streetAddress: 'Storgatan 9' } }),
+      );
+      fake.failNext(6);
+      await notify('OBJ1');
+      for (let attempt = 1; attempt <= 6; attempt += 1) {
+        await drainFetchList();
+        await store.expedite();
+        await store.setState(CONNECTION, 'failures', '0');
+      }
+      await drainFetchList();
+      expect(fetchesOf('OBJ1')).toBe(7);
+      expect(await store.depth()).toBe(1);
+
+      // The first start fetches it once; it fails again and is given up on again, with no more tries.
+      fake.failRecord('OBJ1', 1);
+      await restart();
+      expect(fetchesOf('OBJ1')).toBe(8);
+      await store.expedite();
+      await drainFetchList();
+      expect(fetchesOf('OBJ1')).toBe(8);
+      expect(await store.depth()).toBe(1);
+      expect((await health())['vitec.retries']).toMatchObject({ ok: false });
+
+      // The next start fetches it once more, and this time it loads.
+      await restart();
+      expect(fetchesOf('OBJ1')).toBe(9);
+      expect(await store.depth()).toBe(0);
+      expect((await item('property', 'OBJ1'))?.['data']).toMatchObject({
+        address: { street: 'Storgatan 9' },
+      });
+      expect((await health())['vitec.retries']).toEqual({ ok: true });
+    } finally {
+      errors.mockRestore();
+    }
+  });
+
+  it('names each record that keeps failing, and retries a list of them once more each, clearing only once all have loaded', async () => {
+    seed(fake);
+    fake.put(OFFICE, 'property', estate('OBJ2'));
+    await start();
+    await drainFetchList();
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const retries = async () => (await health())['vitec.retries'];
+    // Why the last try failed, as the fetch list keeps it, after where the record stands: Vitec's
+    // own words, then whose fault it is and what to do.
+    const DOWN =
+      'Vitec’s service did not work, with Vitec’s answer code 500 and the words “broken”. This is a fault at Vitec, not in Core or the login. If it still fails after a retry, report it to Vitec’s support with the record’s Vitec id and what Vitec answered.';
+    const thing = (id: string, note: string) => ({
+      connection: CONNECTION,
+      record: { datatype: 'property', id },
+      note,
+    });
+    const retry = async (ids: string[]): Promise<string> =>
+      (
+        await vitecAdmin.act(
+          'retry_records',
+          {
+            records: JSON.stringify(
+              ids.map((id) => ({ connection: CONNECTION, datatype: 'property', id })),
+            ),
+          },
+          [await connection()],
+        )
+      ).message;
+    try {
+      // Both fail six times in a row and are given up on.
+      fake.failNext(12);
+      await notify('OBJ1');
+      await notify('OBJ2');
+      for (let attempt = 1; attempt <= 6; attempt += 1) {
+        await drainFetchList();
+        await store.expedite();
+        await store.setState(CONNECTION, 'failures', '0');
+      }
+      await drainFetchList();
+      expect(await retries()).toMatchObject({
+        ok: false,
+        level: 'P2',
+        detail: expect.stringMatching(/^2 records failed to fetch from Vitec 3 times in a row/),
+        names: [
+          thing('OBJ1', `given up after 6 failed tries. ${DOWN}`),
+          thing('OBJ2', `given up after 6 failed tries. ${DOWN}`),
+        ],
+      });
+
+      // One more try each: the one that fails again is given up on again at once.
+      fake.failNext(1);
+      expect(await retry(['OBJ1', 'OBJ2'])).toBe('2 records are fetched again now.');
+      await drainFetchList();
+      const left = (await retries())?.names ?? [];
+      expect(left).toEqual([
+        expect.objectContaining({ note: `given up after 7 failed tries. ${DOWN}` }),
+      ]);
+      const [again] = left as { record: { id: string } }[];
+      expect(await store.depth()).toBe(1);
+
+      // While its fetch runs, the check still names it; once it has loaded, the check clears.
+      fake.delayMs = 300;
+      const before = fake.requests.length;
+      expect(await retry([again?.record.id ?? ''])).toBe('1 record is fetched again now.');
+      const drained = drainFetchList();
+      await until(() => fake.requests.length > before, 'the fetch to reach Vitec');
+      expect((await retries())?.names).toEqual([
+        thing(again?.record.id ?? '', '7 failed tries, fetched again now'),
+      ]);
+      await drained;
+      expect(await retries()).toEqual({ ok: true });
+      expect(await store.depth()).toBe(0);
+
+      // A list with nothing on the fetch list does nothing; a list that cannot be read is refused.
+      expect(await retry(['OBJ1'])).toMatch(/^Nothing was fetched again/);
+      await expect(
+        vitecAdmin.act('retry_records', { records: '[{"id":"OBJ1"}]' }, [await connection()]),
+      ).rejects.toThrow(/did not say which record/);
+    } finally {
+      errors.mockRestore();
+    }
+  });
+
+  it('counts no failing record of an office no connection fetches any more', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    await store.requeue(
+      {
+        environment: 'live',
+        officeId: 'M9',
+        datatype: 'property',
+        remoteId: 'OBJ9',
+        reason: 'webhook',
+        correlationId: randomUUID(),
+        queuedAt: new Date(),
+        attempts: 5,
+      },
+      'Vitec did not answer.',
+    );
+    expect(await store.depth()).toBe(1);
+    expect((await health())['vitec.retries']).toEqual({ ok: true });
+  });
+
   it('turns vitec.webhook_lag red when a webhook has waited five minutes (AC 38)', async () => {
     seed(fake);
     await start();
@@ -372,7 +534,12 @@ describe('the Vitec adapter', () => {
     await store.setState(CONNECTION, 'catch_up_until', until);
     await store.setState(CONNECTION, 'catch_up_at', until);
     await store.setState(CONNECTION, 'compare_at', ago(1));
-    await store.remember(OFFICE, 'property', 'OBJ1', unchanged);
+    await store.setState(
+      CONNECTION,
+      'offices_check',
+      JSON.stringify({ at: until, ids: [], offices: [OFFICE], source: 'all' }),
+    );
+    await store.remember(LIVE_OFFICE, 'property', 'OBJ1', unchanged);
 
     await start();
     await drainFetchList();
@@ -391,7 +558,7 @@ describe('the Vitec adapter', () => {
     fake.delayMs = 150;
     running = await harness({
       adapters: [vitecAdapter],
-      connections: [{ id: CONNECTION, provider: 'vitec', credentials, licensedOffices: [OFFICE] }],
+      connections: [{ id: CONNECTION, provider: 'vitec', credentials, licensedOffices: [] }],
     });
     expect((await health())['vitec.catch_up']).toMatchObject({
       ok: false,
@@ -501,12 +668,13 @@ describe('the Vitec adapter', () => {
     });
   });
 
-  it('blocks an office at the first 403, probes it back and loads it again', async () => {
+  it('blocks an office at the first 403, and only the office check asks about it again (question 161 a)', async () => {
     seed(fake);
     await start();
     await drainFetchList();
     fake.forbid(OFFICE);
     fake.put(OFFICE, 'property', estate('OBJ2'));
+    fake.requests.length = 0;
     await notify('OBJ2');
     await drainFetchList();
     expect(fetchesOf('OBJ2')).toBe(1);
@@ -514,9 +682,10 @@ describe('the Vitec adapter', () => {
     const offices = (await health())['vitec.offices'];
     expect(offices).toMatchObject({
       ok: false,
-      detail: expect.stringContaining('1 office(s) refused by Vitec'),
+      level: 'P2',
+      detail: expect.stringContaining('Vitec refuses to let Core read 1 office.'),
     });
-    expect(offices?.names?.[0]).toContain(OFFICE);
+    expect(offices?.names?.[0]).toMatchObject({ connection: CONNECTION, office: OFFICE });
 
     // Nothing more is asked for the office: a new notification waits, parked.
     await notify('OBJ3');
@@ -524,15 +693,57 @@ describe('the Vitec adapter', () => {
     expect(fetchesOf('OBJ3')).toBe(0);
     expect(await store.depth()).toBe(2);
 
-    // A probe that is refused again means a longer wait.
-    await store.expediteProbe(OFFICE);
-    await runSchedules();
-    expect((await store.blockedOffices())[0]?.probes).toBe(1);
+    // Nor by anything else: the door in front of every request keeps back a call for the office,
+    // a person's "fetch again" and "check the login", and a form, so no call leaves.
+    const sent = fake.requests.length;
+    const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
+    await expect(connect.getOne(auth, 'property', OFFICE, 'OBJ2')).rejects.toThrow(
+      `office id ${OFFICE}`,
+    );
+    await queueLifecycle(CONNECTION, 'refetch', {
+      records: [{ datatype: 'property', remoteId: 'OBJ2', officeId: OFFICE }],
+    });
+    await running.deliver();
+    await drainFetchList();
+    await expect(
+      connect.post(auth, OFFICE, `v2/Advertising/Form/${OFFICE}/Valuation`, {}),
+    ).rejects.toThrow('Fetch offices');
+    expect(fake.requests.length).toBe(sent);
+    expect(fake.forms).toHaveLength(0);
 
-    // The office is back: one probe, then everything of it again, the parked records included.
+    // A new login typed for the office is the exception: one test an hour, then held back.
+    const probe = required(vitecAdmin.probe, 'probe');
+    const login = (password: string) =>
+      JSON.stringify({ username: USERNAME, password, customer_id: OFFICE });
+    expect(await probe(login('a typo'), [])).toMatchObject({
+      ok: false,
+      detail: expect.stringContaining('does not let this username and password read'),
+    });
+    expect(fake.requests.length).toBe(sent + 1);
+    expect(await probe(login('the new one'), [])).toMatchObject({
+      ok: false,
+      detail: expect.stringContaining('Try again in 60 minutes.'),
+    });
+    expect(fake.requests.length).toBe(sent + 1);
+
+    // The office check at the next tick is the one call that asks: the id's own list, refused, so
+    // no office groups. The office stays blocked, and later ticks within the day ask nothing.
+    await runSchedules();
+    await drainFetchList();
+    await runSchedules();
+    await drainFetchList();
+    expect(fake.requests.map((request) => request.path)).toEqual([
+      `/Advertising/Estate/${OFFICE}/OBJ2`,
+      `/Advertising/Office/${OFFICE}`, // the new login's one test
+      `/Advertising/Office/${OFFICE}`,
+    ]);
+    expect((await health())['vitec.offices']?.ok).toBe(false);
+
+    // Vitec answers again: the next check unblocks the office and loads everything of it again,
+    // the parked records included.
     fake.allow(OFFICE);
     fake.put(OFFICE, 'property', estate('OBJ3'));
-    await store.expediteProbe(OFFICE);
+    await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
     await runSchedules();
     expect((await health())['vitec.offices']?.ok).toBe(true);
     await drainFetchList();
@@ -540,6 +751,90 @@ describe('the Vitec adapter', () => {
     expect(await item('property', 'OBJ3')).toBeDefined();
     const types = (await timelineOf('property', 'OBJ2')).map((event) => event.type);
     expect(types).toContain('entity.written');
+    const told = (await queryEvents({ connectionId: CONNECTION })).map((row) => row.type);
+    expect(told.filter((type) => type === 'office.blocked')).toHaveLength(1);
+    expect(told).toContain('office.unblocked');
+  });
+
+  it('blocks an office that a call outside the worker meets refused, and tells its connection at the next tick; a typed login and a CRM refusal block nothing', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    fake.forbid(OFFICE);
+    fake.requests.length = 0;
+    const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
+    const read = () => connect.getOne(auth, 'property', OFFICE, 'OBJ1');
+
+    // The first call meets Vitec's refusal; the second is kept back at the door.
+    await expect(read()).rejects.toBeInstanceOf(connect.VitecError);
+    await expect(read()).rejects.toBeInstanceOf(connect.Blocked);
+    expect(fake.requests.map((request) => request.path)).toEqual([
+      `/Advertising/Estate/${OFFICE}/OBJ1`,
+    ]);
+
+    // The next tick blocks the office, tells the connection once, and checks the offices.
+    await runSchedules();
+    expect((await store.blockedOffices()).map((office) => office.officeId)).toEqual([OFFICE]);
+    expect(await store.refusalsAtDoor()).toEqual([]);
+    const told = (await queryEvents({ connectionId: CONNECTION })).map((row) => row.type);
+    expect(told.filter((type) => type === 'office.blocked')).toHaveLength(1);
+    expect(fake.requests.map((request) => request.path)).toContain(`/Advertising/Office/${OFFICE}`);
+
+    // A typed login on trial, and Vitec's CRM category refusing a function group, block nothing.
+    fake.forbid('M9');
+    const probe = required(vitecAdmin.probe, 'probe');
+    const typed = JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'M9' });
+    expect((await probe(typed, [])).ok).toBe(false);
+    const wrong = { username: USERNAME, password: 'not it', environment: 'live' as const };
+    await expect(connect.post(wrong, 'M8', 'Contacts/UpdatePerson', {})).rejects.toBeInstanceOf(
+      connect.VitecError,
+    );
+    expect(await store.refusalsAtDoor()).toEqual([]);
+    expect((await store.blockedOffices()).map((office) => office.officeId)).toEqual([OFFICE]);
+  });
+
+  it('holds every other fetch of the login until the office check has run, and finishes a load it cut short', async () => {
+    seed(fake);
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
+    await drainFetchList();
+    const fetched = (path: string): number =>
+      fake.requests.filter((request) => request.path === path).length;
+
+    // A refusal for one office holds the other office's notification too.
+    fake.forbid(OFFICE);
+    fake.put(OFFICE, 'property', estate('OBJ2'));
+    fake.put('M2', 'property', estate('OBJ3', 'M2'));
+    await notify('OBJ2');
+    await drainFetchList();
+    await hook({ type: 'Estate', event: 'Update', customerId: 'M2', id: 'OBJ3' });
+    await drainFetchList();
+    expect(fetched('/Advertising/Estate/M2/OBJ3')).toBe(0);
+
+    // The check finds only the one office refused: it stays blocked, the hold ends.
+    await runSchedules();
+    await drainFetchList();
+    expect(await item('property', 'OBJ3')).toBeDefined();
+    expect(await item('property', 'OBJ2')).toBeUndefined();
+    expect((await store.blockedOffices()).map((office) => office.officeId)).toEqual([OFFICE]);
+
+    // A resync meets a newly refused office first: the hold stops it, and the check finishes the
+    // load of the office that still reads.
+    fake.allow(OFFICE);
+    await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+    await runSchedules();
+    await drainFetchList();
+    expect(await store.blockedOffices()).toEqual([]);
+    fake.forbid(OFFICE);
+    fake.put('M2', 'property', estate('OBJ4', 'M2'));
+    fake.requests.length = 0;
+    await event('resync');
+    expect(fake.requests.map((request) => request.path)).toEqual([`/Advertising/Office/${OFFICE}`]);
+    await runSchedules();
+    await drainFetchList();
+    expect(await item('property', 'OBJ4')).toBeDefined();
   });
 
   it('pauses a connection after five failures in a row and resumes it with a probe', async () => {
@@ -550,15 +845,26 @@ describe('the Vitec adapter', () => {
     for (const id of ids) fake.put(OFFICE, 'property', estate(id));
     fake.failNext(100);
     const before = fake.requests.length;
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const logs = vi.spyOn(console, 'log').mockImplementation(() => {});
     for (const id of ids) await notify(id);
     await drainFetchList();
+    // Vitec's side, which the check shows: a line in the log, never an error report.
+    const said = (spy: typeof logs): string[] => spy.mock.calls.map((call) => String(call[0]));
+    expect(said(logs).some((line) => line.includes('vitec connection paused'))).toBe(true);
+    expect(said(errors).some((line) => line.includes('vitec connection paused'))).toBe(false);
+    errors.mockRestore();
+    logs.mockRestore();
     expect(fake.requests.length - before).toBeLessThanOrEqual(5);
     const paused = (await health())['vitec.connect'];
     expect(paused).toMatchObject({
       ok: false,
-      detail: expect.stringContaining('1 connection(s) paused'),
+      level: 'P2',
+      detail: expect.stringContaining(
+        'Core stopped asking Vitec for 1 connection after 5 failed calls in a row',
+      ),
     });
-    expect(paused?.names?.[0]).toContain(CONNECTION);
+    expect(paused?.names?.[0]).toMatchObject({ connection: CONNECTION });
 
     // The pause runs out and Vitec is back: the probe fetches go through, and the rest follow.
     fake.failNext(0);
@@ -569,8 +875,239 @@ describe('the Vitec adapter', () => {
     expect((await health())['vitec.connect']?.ok).toBe(true);
     for (const id of ids) expect(await item('property', id)).toBeDefined();
     const types = (await queryEvents({ connectionId: CONNECTION })).map((row) => row.type);
-    expect(types).toContain('connect.paused');
-    expect(types).toContain('connect.resumed');
+    expect(types).toContain('connection.paused');
+    expect(types).toContain('connection.resumed');
+    const pausedEvent = (await queryEvents({ connectionId: CONNECTION })).find(
+      (row) => row.type === 'connection.paused',
+    );
+    expect(typeof pausedEvent?.fields['failures']).toBe('number');
+    expect(pausedEvent?.fields['detail']).toBeTruthy();
+  });
+
+  it('logs a schedule that Vitec failed or kept back, and reports only Core’s own faults', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const logs = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      // Vitec fails the catch-up's list: the event says so, the log keeps it, nothing is reported.
+      fake.failNext(1);
+      await store.setState(CONNECTION, 'catch_up_at', '1970-01-01T00:00:00.000Z');
+      await runSchedules();
+      const failed = (await queryEvents({ connectionId: CONNECTION })).filter(
+        (row) => row.type === 'schedule.failed',
+      );
+      expect(failed).toHaveLength(1);
+      const lines = (spy: typeof logs): string[] => spy.mock.calls.map((call) => String(call[0]));
+      expect(lines(logs).some((line) => line.includes('"where":"vitec schedule"'))).toBe(true);
+      expect(lines(errors).some((line) => line.includes('vitec schedule'))).toBe(false);
+    } finally {
+      errors.mockRestore();
+      logs.mockRestore();
+    }
+
+    // What counts as Vitec's side: its refusals, failures, silence and the network, and the door.
+    const outside = [
+      new connect.VitecError(500, 'busy'),
+      new connect.VitecError(429, 'slow down'),
+      new connect.VitecError(403, 'no'),
+      new connect.VitecError(200, 'not JSON', true),
+      new connect.Blocked('live', OFFICE),
+      Object.assign(new Error('The operation was aborted due to timeout'), {
+        name: 'TimeoutError',
+      }),
+      new TypeError('fetch failed'),
+    ];
+    expect(outside.map((error) => connect.outside(error))).toEqual(outside.map(() => true));
+    // Core's own faults: a request Vitec calls wrong, a bug in Core's code.
+    const own = [
+      new connect.VitecError(400, 'bad request'),
+      new TypeError("Cannot read properties of undefined (reading 'id')"),
+      new Error('something else'),
+    ];
+    expect(own.map((error) => connect.outside(error))).toEqual(own.map(() => false));
+  });
+
+  it('lets no batch carry a failing connection past its pause, and probes with one call', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    const ids = ['OBJ2', 'OBJ3', 'OBJ4', 'OBJ5', 'OBJ6'];
+    for (const id of ids) fake.put(OFFICE, 'property', estate(id));
+    const fetched = (): number => ids.reduce((sum, id) => sum + fetchesOf(id), 0);
+    const pausedUntil = async (): Promise<number> =>
+      new Date((await store.getState(CONNECTION, 'paused_until')) || 0).getTime();
+    fake.failNext(100);
+
+    // Two failures in a row so far, and five records in one batch: three calls, then the pause.
+    await store.setState(CONNECTION, 'failures', '2');
+    await store.enqueue(
+      ids.map((remoteId) => ({
+        ...LIVE_OFFICE,
+        datatype: 'property' as const,
+        remoteId,
+        reason: 'webhook' as const,
+        correlationId: randomUUID(),
+      })),
+    );
+    await drainFetchList();
+    expect(fetched()).toBe(3);
+    expect(await pausedUntil()).toBeGreaterThan(Date.now());
+
+    // The pause runs out with Vitec still down: nothing goes until the tick, then one probe call.
+    await store.setState(CONNECTION, 'paused_until', new Date(0).toISOString());
+    await store.expedite();
+    await drainFetchList();
+    expect(fetched()).toBe(3);
+    await runSchedules();
+    await drainFetchList();
+    expect(fetched()).toBe(4);
+    expect(await pausedUntil()).toBeGreaterThan(Date.now());
+
+    // Out of calls with no pause at all: the next tick lets a probe through, and the rest follow.
+    fake.failNext(0);
+    await store.setState(CONNECTION, 'paused_until', '');
+    await store.setState(CONNECTION, 'failures', '5');
+    await store.expedite();
+    await drainFetchList();
+    expect(fetched()).toBe(4);
+    await runSchedules();
+    await drainFetchList();
+    for (const id of ids) expect(await item('property', id)).toBeDefined();
+  });
+
+  it('reads the connections again for each batch, so a long drain never writes for a connection that changed', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    const ids = Array.from({ length: 15 }, (_, n) => `OBJ${String(n + 10)}`);
+    for (const id of ids) fake.put(OFFICE, 'property', estate(id));
+    fake.delayMs = 100;
+    const before = fake.requests.length;
+    await store.enqueue(
+      ids.map((remoteId) => ({
+        ...LIVE_OFFICE,
+        datatype: 'property' as const,
+        remoteId,
+        reason: 'webhook' as const,
+        correlationId: randomUUID(),
+      })),
+    );
+    const drained = drainFetchList();
+    await until(() => fake.requests.length > before, 'the first fetch');
+    // The connection loses its login while the first batch runs: the later batches see it.
+    await running.connection({ id: CONNECTION, provider: 'vitec', credentials: 'unreadable' });
+    await drained;
+    expect(ids.filter((id) => fetchesOf(id) > 0).length).toBeLessThanOrEqual(5);
+  });
+
+  it('checks the offices within seconds when the customer or group id is changed on the tenant’s page', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
+    fake.put('M2', 'property', estate('OBJ9', 'M2'));
+    const login = { username: USERNAME, password: PASSWORD, customer_id: 'M2' };
+    await running.connection({
+      id: CONNECTION,
+      provider: 'vitec',
+      credentials: JSON.stringify(login),
+    });
+    // Nothing asks for a tick: the adapter notices the saved id by itself.
+    await until(
+      async () => (await item('property', 'OBJ9')) !== undefined,
+      'the home of the new office',
+      15_000,
+    );
+    expect((await lastCheck(CONNECTION))?.offices).toEqual(['M2']);
+  });
+
+  it('loads a home whose text holds a character Postgres cannot store, without that character', async () => {
+    seed(fake);
+    fake.put(
+      OFFICE,
+      'property',
+      estate('OBJ2', OFFICE, { description: 'Ljus trea\u0000 med balkong' }),
+    );
+    await start();
+    await drainFetchList();
+    expect(await store.entries(10)).toEqual([]);
+    const loaded = JSON.stringify(await item('property', 'OBJ2'));
+    expect(loaded).toContain('Ljus trea med balkong');
+    expect(loaded).not.toContain('\\u0000');
+  });
+
+  it('says Vitec answered when Core could not save what it sent, with Core’s own error and whose fault it is, as when the connection went during the fetch', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    fake.put(OFFICE, 'property', estate('OBJ2'));
+    fake.delayMs = 300;
+    const before = fake.requests.length;
+    await notify('OBJ2');
+    const drained = drainFetchList();
+    await until(() => fake.requests.length > before, 'the fetch');
+    const database = new pg.Client({ connectionString: process.env['DATABASE_URL'] });
+    await database.connect();
+    try {
+      await database.query('delete from connections where id = $1', [CONNECTION]);
+    } finally {
+      await database.end();
+    }
+    await drained;
+    const [waiting] = await store.entries(10);
+    expect(waiting?.lastError).toMatch(
+      /^Vitec answered, but Core could not save what it sent, and Core’s error said “insert or update on table "items" violates foreign key constraint [^”]+”\. This is a fault in Core, not at Vitec or in the login, so pass it on to Core’s developers\.$/,
+    );
+  });
+
+  it('forgets what it kept for a connection deleted in Core, while running and across a restart, and keeps the rest', async () => {
+    seed(fake);
+    const loginFor = (customerId: string): string =>
+      JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: customerId });
+    for (const id of ['M2', 'M3']) {
+      fake.put(id, 'office', { id, customerId: id, name: `Kontor ${id}`, changedAt: CHANGED });
+      fake.put(id, 'property', estate(`OBJ${id}`, id, { projectId: null }));
+    }
+    running = await harness({
+      adapters: [vitecAdapter],
+      connections: [
+        { id: CONNECTION, provider: 'vitec', credentials: credentials, licensedOffices: [] },
+        { id: 'vitec-two', provider: 'vitec', credentials: loginFor('M2'), licensedOffices: [] },
+        { id: 'vitec-three', provider: 'vitec', credentials: loginFor('M3'), licensedOffices: [] },
+      ],
+    });
+    await runSchedules();
+    await drainFetchList();
+    const office = (officeId: string): store.Office => ({ environment: 'live', officeId });
+    expect(await lastCheck('vitec-two')).toMatchObject({ offices: ['M2'] });
+    expect(await store.isKnown(office('M2'), 'property', 'OBJM2')).toBe(true);
+
+    const deleteConnection = async (id: string): Promise<void> => {
+      const database = new pg.Client({ connectionString: process.env['DATABASE_URL'] });
+      await database.connect();
+      try {
+        await database.query('delete from connections where id = $1', [id]);
+      } finally {
+        await database.end();
+      }
+    };
+    // Deleted while the worker runs: the next tick finds it gone.
+    await deleteConnection('vitec-two');
+    await runSchedules();
+    expect(await lastCheck('vitec-two')).toBeNull();
+    expect(await store.isKnown(office('M2'), 'property', 'OBJM2')).toBe(false);
+    expect(await store.isKnown(office('M3'), 'property', 'OBJM3')).toBe(true);
+
+    // Deleted while the worker was down: the first tick after the start finds it.
+    await running.restart(() => deleteConnection('vitec-three'));
+    await runSchedules();
+    expect(await lastCheck('vitec-three')).toBeNull();
+    expect(await store.isKnown(office('M3'), 'property', 'OBJM3')).toBe(false);
+    // The connection that stays keeps everything.
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE] });
+    expect(await store.isKnown(LIVE_OFFICE, 'property', 'OBJ1')).toBe(true);
   });
 
   it('keeps the start of a broken answer and fetches the record at the next try', async () => {
@@ -632,8 +1169,10 @@ describe('the Vitec adapter', () => {
     expect(refused.detail).toContain(OFFICE);
     const accepted = await probe(credentials, [OFFICE]);
     expect(accepted.ok).toBe(true);
-    expect(accepted.detail).toContain('Vitec answers');
-    expect(await probe(credentials, [])).toMatchObject({ ok: false });
+    expect(accepted.detail).toContain('Vitec accepts the login and lists 1 office behind');
+    expect(
+      await probe(JSON.stringify({ username: USERNAME, password: PASSWORD }), []),
+    ).toMatchObject({ ok: false, detail: expect.stringContaining('“Customer or group id”') });
 
     // The worker takes the first load, and the adapter fetches with the saved login.
     await event('connection_added');
@@ -641,31 +1180,12 @@ describe('the Vitec adapter', () => {
     expect((await pull(running.baseUrl, 'property')).items).toHaveLength(1);
   });
 
-  it('describes its panel as data: the directions and settings, the schedules with run-now actions, the fetch list, one record looked at without writing or fetched again, and its queue (AC 42)', async () => {
+  it('describes what it shows as data: its login form, the line under a connection’s name, the offices Vitec lists, a record fetched again, and its queue (AC 42)', async () => {
     seed(fake);
     await start();
     await drainFetchList();
     const connections = [await connection()];
-
-    expect(vitecAdmin.directions().settings.map((setting) => setting.key)).toContain(
-      'VITEC_WEBHOOK_TOKEN',
-    );
-    const page = await vitecAdmin.panel(connections);
-    const url = page.find((section) => section.title === 'Notification URL')?.items?.[0]?.value;
-    expect(url).toContain(`/v1/hook/vitec/webhook/${TOKEN}`);
-    const schedules = page.find((section) => section.title === 'Connections and schedules');
-    expect(schedules?.table?.rows[0]?.cells[0]).toBe(CONNECTION);
-
-    // Look: fetched and mapped, nothing written.
     fake.put(OFFICE, 'property', estate('OBJ9'));
-    const looked = await required(vitecAdmin.inspect, 'inspect')(connections[0] as Connection, {
-      datatype: 'property',
-      remoteId: 'OBJ9',
-      officeId: OFFICE,
-    });
-    expect(looked?.raw).toHaveProperty('id', 'OBJ9');
-    expect(looked?.mapped?.data).toHaveProperty('agent_ids');
-    expect(await item('property', 'OBJ9')).toBeUndefined();
 
     // Fetch again, named outright: the worker hands it to the adapter, which fetches and stores it.
     await queueLifecycle(CONNECTION, 'refetch', {
@@ -674,16 +1194,32 @@ describe('the Vitec adapter', () => {
     await running.deliver();
     const queue = required(vitecAdmin.queue, 'queue');
     expect((await queue(connections)).map((row) => row.remoteId)).toContain('OBJ9');
+    // Only what waits for the connections asked about, so Flow narrowed to one tenant sees its own.
+    expect(await queue([])).toEqual([]);
+    // Counted whole, in the part of the scope asked about: the panel shows these totals beside
+    // the newest rows (Patric, 2026-10-07).
+    const count = required(vitecAdmin.queueCount, 'queueCount');
+    expect(await count(connections, {})).toEqual({ waiting: 1, failed: 0 });
+    expect(await count(connections, { datatypes: ['property'], remoteId: 'OBJ9' })).toEqual({
+      waiting: 1,
+      failed: 0,
+    });
+    expect(await count(connections, { datatypes: ['agent'] })).toEqual({ waiting: 0, failed: 0 });
+    expect(await count(connections, { officeIds: ['M-ELSE'] })).toEqual({ waiting: 0, failed: 0 });
+    expect(await count([], {})).toEqual({ waiting: 0, failed: 0 });
     await drainFetchList();
     expect(await item('property', 'OBJ9')).toBeDefined();
 
-    // "Catch up now" makes the next tick run it; the connection's section says what the adapter knows.
-    const acted = await vitecAdmin.act('catch_up', { connection: CONNECTION }, connections);
-    expect(acted.message).toContain('next tick');
-    expect(await store.getState(CONNECTION, 'catch_up_at')).toBe('1970-01-01T00:00:00.000Z');
-    expect(vitecAdmin.credentials.map((field) => field.label)).toContain('Connect username');
+    // Under the connection, only the offices Vitec lists.
+    expect(vitecAdmin.credentials.map((field) => field.key)).toEqual([
+      'qa',
+      'customer_id',
+      'username',
+      'password',
+    ]);
+    expect(vitecAdmin.describe?.(connections[0] as Connection)).toBe(`Live Vitec · ${OFFICE}`);
     const own = await vitecAdmin.connection?.(connections[0] as Connection);
-    expect(own?.map((section) => section.title)).toContain('What Vitec knows');
+    expect(own?.map((section) => section.title)).toEqual(['Offices Vitec lists']);
   });
 
   it('fetches at most five records at once (proposal point 10)', async () => {
@@ -698,28 +1234,906 @@ describe('the Vitec adapter', () => {
     expect((await pull(running.baseUrl, 'property')).items).toHaveLength(20);
   });
 
-  it('loads an added office without a new seq for the others (AC 14)', async () => {
+  it('loads an office that joined the group “Webbplats” without a new seq for the others (AC 14)', async () => {
     seed(fake);
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
     fake.put('M2', 'property', estate('OBJ2', 'M2'));
-    await start([OFFICE]);
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices: [{ id: OFFICE }] }]);
+    await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
     await drainFetchList();
     const first = await item('property', 'OBJ1');
     expect(first?.['deleted']).toBe(false);
     expect(await item('property', 'OBJ2')).toBeUndefined();
 
-    await running.connection({
-      id: CONNECTION,
-      provider: 'vitec',
-      credentials,
-      licensedOffices: [OFFICE, 'M2'],
-    });
+    fake.setGroups('G1', [
+      { id: 'OG1', name: 'Webbplats', offices: [{ id: OFFICE }, { id: 'M2' }] },
+    ]);
+    await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
     fake.requests.length = 0;
-    await event('offices_added', ['M2']);
+    await runSchedules();
     await drainFetchList();
 
     expect((await item('property', 'OBJ2'))?.['office_id']).toBe('M2');
     expect((await item('property', 'OBJ1'))?.['seq']).toBe(first?.['seq']);
-    // Only the added office was listed and fetched.
-    expect(fake.requests.every((request) => request.path.includes('/M2'))).toBe(true);
+    // The first office was read by the check and nothing of it was listed or fetched again.
+    const ofFirst = fake.requests.filter((request) => request.path.includes(`/${OFFICE}`));
+    expect(ofFirst.map((request) => request.path)).toEqual([
+      `/Advertising/Office/${OFFICE}/${OFFICE}`,
+    ]);
+  });
+
+  it('lists the offices behind a group id and reads each one, naming the ones this login may not read', async () => {
+    // A group lists offices of two customers; the login may read one of them and not the group G9.
+    fake.put('G1', 'office', { id: 'FIR1', customerId: 'M1', changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'FIR2', customerId: 'M2', changedAt: CHANGED });
+    fake.put('M1', 'office', { id: 'FIR1', customerId: 'M1', name: 'Kontor 1' });
+    fake.put('M2', 'office', { id: 'FIR2', customerId: 'M2', name: 'Kontor 2' });
+    fake.forbid('M2');
+    fake.forbid('G9');
+
+    const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
+    const check = await checkOffices(CONNECTION, auth, ['G1', 'G9']);
+
+    expect(check.ids).toEqual([
+      {
+        id: 'G1',
+        error: null,
+        refusedSince: null,
+        groups: [],
+        groupsError: null,
+        offices: [
+          {
+            customerId: 'M1',
+            officeId: 'FIR1',
+            name: 'Kontor 1',
+            readable: true,
+            detail: null,
+            refusedSince: null,
+          },
+          {
+            customerId: 'M2',
+            officeId: 'FIR2',
+            name: null,
+            readable: false,
+            detail: 'Vitec does not let this login read the office',
+            refusedSince: check.at,
+          },
+        ],
+      },
+      {
+        id: 'G9',
+        error: 'Vitec does not let this login read G9',
+        refusedSince: check.at,
+        groups: [],
+        groupsError: null,
+        offices: [],
+      },
+    ]);
+    // Only the office that reads is synced, nothing but reads went to Vitec, and the refused id
+    // was not asked for its groups (question 161 a).
+    expect(check).toMatchObject({ offices: ['M1'], source: 'all' });
+    expect(fake.requests.map((request) => request.path)).toEqual([
+      '/Advertising/Office/G1',
+      '/Advertising/Office/M1/FIR1',
+      '/Advertising/Office/M2/FIR2',
+      '/CRM/Officegroups/G1',
+      '/Advertising/Office/G9',
+    ]);
+    expect(fake.forms).toHaveLength(0);
+    expect(await lastCheck(CONNECTION)).toEqual(check);
+  });
+
+  it('uses one username and one password for every call, whatever else an old login stored', () => {
+    // A login saved before 2026-10-06 may still hold a "CRM password"; nothing reads it any more.
+    const stored = JSON.stringify({
+      username: USERNAME,
+      password: PASSWORD,
+      customer_id: 'G1',
+      crm_password: 'another',
+    });
+    expect(connect.loginOf(stored)).toEqual({
+      username: USERNAME,
+      password: PASSWORD,
+      environment: 'live',
+      customerId: 'G1',
+    });
+  });
+
+  it('takes each office’s customer id from the office itself, and never syncs a group id', async () => {
+    // The group's list rows leave the customer id out; each office's own record names it.
+    fake.put('G1', 'office', {
+      id: 'FIR1',
+      customerId: 'M1',
+      name: 'Kontor 1',
+      changedAt: CHANGED,
+    });
+    fake.put('G1', 'office', {
+      id: 'FIR2',
+      customerId: 'M2',
+      name: 'Kontor 2',
+      changedAt: CHANGED,
+    });
+    fake.bareRows('G1');
+    // An answer saved before that names the group itself as an office (typed before 156 a).
+    const saved = { at: CHANGED, ids: [], offices: ['G1'], source: 'kept' };
+    await store.setState(CONNECTION, 'offices_check', JSON.stringify(saved));
+    expect((await lastCheck(CONNECTION))?.offices).toEqual([]);
+
+    const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
+    const check = await checkOffices(CONNECTION, auth, ['G1']);
+    expect(check).toMatchObject({ offices: ['M1', 'M2'], source: 'all' });
+    expect(check.ids[0]?.offices.map((office) => office.customerId)).toEqual(['M1', 'M2']);
+
+    // Vitec does not answer: what is kept is the offices, never the group.
+    fake.failNext(100);
+    await store.setState(CONNECTION, 'offices_check', JSON.stringify(saved));
+    expect((await checkOffices(CONNECTION, auth, ['G1'])).offices).toEqual([]);
+  });
+
+  it('uses every office when there is no group “Webbplats”, when it holds none of them, or when the login may not read the groups', async () => {
+    fake.put('G1', 'office', { id: 'M1', customerId: 'M1', changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    fake.put('M1', 'office', { id: 'M1', customerId: 'M1', name: 'Kontor 1' });
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2' });
+    const auth = { username: USERNAME, password: PASSWORD, environment: 'live' as const };
+    const check = (): Promise<{ offices: string[]; source: string }> =>
+      checkOffices(CONNECTION, auth, ['G1']);
+
+    expect(await check()).toMatchObject({ offices: ['M1', 'M2'], source: 'all' });
+
+    fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices: [{ id: 'M9' }] }]);
+    expect(await check()).toMatchObject({ offices: ['M1', 'M2'], source: 'all' });
+
+    fake.setGroups('G1', [{ id: 'OG1', name: ' WEBBPLATS ', offices: [{ id: 'M2' }] }]);
+    expect(await check()).toMatchObject({ offices: ['M2'], source: 'group' });
+
+    fake.forbidGroups('G1');
+    const refused = await checkOffices(CONNECTION, auth, ['G1']);
+    expect(refused).toMatchObject({ offices: ['M1', 'M2'], source: 'all' });
+    expect(refused.ids[0]?.groupsError).toContain(
+      'Vitec does not show this login the office groups',
+    );
+  });
+
+  it('syncs the offices of the group “Webbplats” behind the login’s id, takes an office that left off the sites, and keeps them when Vitec does not answer', async () => {
+    seed(fake);
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
+    fake.put('M2', 'property', estate('OBJ2', 'M2'));
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    fake.setGroups('G1', [
+      { id: 'OG1', name: 'Webbplats', offices: [{ id: OFFICE }] },
+      { id: 'OG2', name: 'Övrigt', offices: [{ id: 'M2' }] },
+    ]);
+    const login = JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' });
+    await start(login);
+    await drainFetchList();
+
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE], source: 'group' });
+    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
+    expect(await item('property', 'OBJ2')).toBeUndefined();
+    const own = async (): Promise<AdminSection | undefined> =>
+      (await vitecAdmin.connection?.(await connection()))?.find(
+        (section) => section.title === 'Offices Vitec lists',
+      );
+    expect((await own())?.items?.[1]?.value).toBe(
+      'Webbplats with 1 office and Övrigt with 1 office',
+    );
+
+    // The brokerage moves the website to the other office; "Fetch offices" acts on it.
+    fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices: [{ id: 'M2' }] }]);
+    await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+    await runSchedules();
+    await drainFetchList();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: ['M2'], source: 'group' });
+    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
+    expect((await item('office', OFFICE))?.['deleted']).toBe(true);
+    expect((await item('property', 'OBJ2'))?.['deleted']).toBe(false);
+    // Told once, for the super admin's notifications.
+    const takenOff = (await queryEvents({ connectionId: CONNECTION })).filter(
+      (row) => row.type === 'office.taken_off',
+    );
+    expect(takenOff.map((row) => row.fields)).toEqual([
+      {
+        office_id: OFFICE,
+        office_name: 'Kontor 1',
+        reason: expect.stringMatching(
+          /^the brokerage took the office out of its office group “Webbplats” in Vitec\. The office left the sites with its homes, new-build projects, agents, areas and housing associations, except what another office on the sites also has, such as an agent who works at both\./,
+        ),
+      },
+    ]);
+
+    // Vitec does not answer: the offices stay as they were, and the check is due within the hour.
+    await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+    fake.failNext(1);
+    await runSchedules();
+    await drainFetchList();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: ['M2'], source: 'kept' });
+    expect((await item('property', 'OBJ2'))?.['deleted']).toBe(false);
+    const due = new Date((await store.getState(CONNECTION, 'offices_check_at')) ?? 0).getTime();
+    expect(Date.now() - due).toBeGreaterThan(22 * 3_600_000);
+  });
+
+  it('takes an office’s agents, areas and associations off the sites with it, and keeps those another office on the sites has', async () => {
+    seed(fake);
+    // Bo works at both offices; the second office has its own area and housing association.
+    const bo = {
+      id: 'U2',
+      name: 'Bo',
+      offices: [
+        { id: OFFICE, customerId: OFFICE, orderNumber: 2 },
+        { id: 'M2', customerId: 'M2', orderNumber: 1 },
+      ],
+      changedAt: CHANGED,
+    };
+    fake.put(OFFICE, 'agent', bo);
+    fake.put('M2', 'agent', bo);
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
+    fake.put('M2', 'area', { id: 'A2', name: 'Söder', changedAt: CHANGED });
+    fake.put('M2', 'association', { id: 'F2', name: 'Brf Månen', changedAt: CHANGED });
+    fake.put(
+      'M2',
+      'property',
+      estate('OBJ2', 'M2', {
+        primaryAgentId: 'U2',
+        projectId: null,
+        address: { streetAddress: 'Storgatan 2', area: { id: 'A2', name: 'Söder' } },
+        extensions: { housingCooperative: { association: { id: 'F2' } } },
+      }),
+    );
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
+    await drainFetchList();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE, 'M2'] });
+    const records: [string, string][] = [
+      ['agent', 'U1'],
+      ['area', 'A1'],
+      ['association', 'F1'],
+      ['agent', 'U2'],
+      ['area', 'A2'],
+      ['association', 'F2'],
+    ];
+    for (const [datatype, id] of records)
+      expect((await item(datatype, id))?.['deleted'], id).toBe(false);
+
+    // The brokerage keeps only the second office on its website.
+    fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices: [{ id: 'M2' }] }]);
+    await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+    await runSchedules();
+    await drainFetchList();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: ['M2'], source: 'group' });
+    // Anna, the area Centrum and Brf Solen belonged to the first office only, so they go.
+    for (const [datatype, id] of records.slice(0, 3))
+      expect((await item(datatype, id))?.['deleted'], id).toBe(true);
+    // Bo still works at the second office: never removed, not even for a moment.
+    for (const [datatype, id] of records.slice(3))
+      expect((await item(datatype, id))?.['deleted'], id).toBe(false);
+    expect((await timelineOf('agent', 'U2')).map((row) => row.type)).not.toContain(
+      'entity.tombstoned',
+    );
+  });
+
+  it('keeps an agent who leaves one of two offices on the sites, and removes one who leaves the only one', async () => {
+    seed(fake);
+    const bo = {
+      id: 'U2',
+      name: 'Bo',
+      offices: [
+        { id: OFFICE, customerId: OFFICE },
+        { id: 'M2', customerId: 'M2' },
+      ],
+      changedAt: CHANGED,
+    };
+    fake.put(OFFICE, 'agent', bo);
+    fake.put('M2', 'agent', bo);
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
+    await drainFetchList();
+    expect((await item('agent', 'U2'))?.['deleted']).toBe(false);
+
+    // Bo leaves the first office and Anna leaves her only one: Vitec sends a Remove for each.
+    fake.remove(OFFICE, 'agent', 'U2');
+    fake.remove(OFFICE, 'agent', 'U1');
+    await hook({ type: 'User', event: 'Remove', customerId: OFFICE, id: 'U2' });
+    await hook({ type: 'User', event: 'Remove', customerId: OFFICE, id: 'U1' });
+    await drainFetchList();
+
+    expect((await item('agent', 'U2'))?.['deleted']).toBe(false);
+    expect((await item('agent', 'U1'))?.['deleted']).toBe(true);
+    expect(await store.isKnown(LIVE_OFFICE, 'agent', 'U2')).toBe(false);
+    expect(await store.isKnown({ environment: 'live', officeId: 'M2' }, 'agent', 'U2')).toBe(true);
+
+    // Bo leaves the second office too: now he goes.
+    fake.remove('M2', 'agent', 'U2');
+    await hook({ type: 'User', event: 'Remove', customerId: 'M2', id: 'U2' });
+    await drainFetchList();
+    expect((await item('agent', 'U2'))?.['deleted']).toBe(true);
+  });
+
+  it('ignores offices typed on the connection, and reloads Vitec’s choice when the engine empties the list', async () => {
+    seed(fake);
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
+    fake.put('M2', 'property', estate('OBJ2', 'M2'));
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices: [{ id: 'M2' }] }]);
+    const login = JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' });
+    // A list typed before the field went away: it neither picks offices nor keeps records out.
+    running = await harness({
+      adapters: [vitecAdapter],
+      connections: [
+        { id: CONNECTION, provider: 'vitec', credentials: login, licensedOffices: ['G1'] },
+      ],
+    });
+    await runSchedules();
+    await drainFetchList();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: ['M2'], source: 'group' });
+    const first = await item('property', 'OBJ2');
+    expect(first?.['deleted']).toBe(false);
+    expect(await item('property', 'OBJ1')).toBeUndefined();
+
+    // The save stores the list empty; the engine's event makes the adapter ask Vitec again.
+    await running.connection({
+      id: CONNECTION,
+      provider: 'vitec',
+      credentials: login,
+      licensedOffices: [],
+    });
+    await event('offices_removed', ['G1']);
+    await drainFetchList();
+    expect((await item('property', 'OBJ2'))?.['seq']).toBe(first?.['seq']);
+    expect((await item('property', 'OBJ2'))?.['deleted']).toBe(false);
+    expect(fake.forms).toHaveLength(0);
+  });
+
+  it('keeps an office Vitec refuses for a day of grace, then takes it off, the whole id too; a refusal at a fetch checks within a minute', async () => {
+    seed(fake);
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
+    fake.put('M2', 'property', estate('OBJ2', 'M2'));
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
+    await drainFetchList();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE, 'M2'], source: 'all' });
+    const check = async (): Promise<void> => {
+      await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+      await runSchedules();
+      await drainFetchList();
+    };
+    /** Move the first refusal back in time, as a day's checks would find it. */
+    const age = async (hours: number): Promise<void> => {
+      const stored = JSON.parse((await store.getState(CONNECTION, 'offices_check')) ?? '{}');
+      const since = new Date(Date.now() - hours * 3_600_000).toISOString();
+      for (const id of stored.ids) {
+        if (id.refusedSince) id.refusedSince = since;
+        for (const office of id.offices) if (office.refusedSince) office.refusedSince = since;
+      }
+      await store.setState(CONNECTION, 'offices_check', JSON.stringify(stored));
+    };
+    const cell = async (row: number): Promise<unknown> =>
+      (await vitecAdmin.connection?.(await connection()))?.find(
+        (section) => section.title === 'Offices Vitec lists',
+      )?.table?.rows[row]?.cells[3];
+
+    // Vitec refuses one office: still synced, and the row says since when and what follows.
+    fake.forbid('M2');
+    await check();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE, 'M2'], source: 'all' });
+    expect((await item('property', 'OBJ2'))?.['deleted']).toBe(false);
+    expect(await cell(1)).toMatchObject({
+      text: expect.stringContaining(
+        'stays on the sites until the next daily check, and leaves them if Vitec still refuses it then',
+      ),
+      state: 'warn',
+    });
+
+    // The refusal has stood a day: the office goes, with everything of it.
+    await age(25);
+    await check();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE], source: 'all' });
+    expect((await item('property', 'OBJ2'))?.['deleted']).toBe(true);
+    expect((await item('office', 'M2'))?.['deleted']).toBe(true);
+    expect(await cell(1)).toMatchObject({ state: 'bad' });
+
+    // The whole id is refused (a cancelled subscription): a day of grace, then every office goes.
+    fake.forbid('G1');
+    await check();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE] });
+    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(false);
+    await age(25);
+    await check();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [] });
+    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
+    expect((await item('office', OFFICE))?.['deleted']).toBe(true);
+    expect(fake.forms).toHaveLength(0);
+
+    // For the super admin: each office once as it went, the refused login once as it began.
+    const events = await queryEvents({ connectionId: CONNECTION });
+    expect(
+      events.filter((row) => row.type === 'office.taken_off').map((row) => row.fields),
+    ).toEqual(
+      expect.arrayContaining([
+        // Named as Vitec last gave the name, although Vitec refused to read the office since.
+        {
+          office_id: 'M2',
+          office_name: 'Kontor 2',
+          reason: expect.stringMatching(
+            /^Vitec has refused for a day to let this login read the office\./,
+          ),
+        },
+        {
+          office_id: OFFICE,
+          office_name: 'Kontor 1',
+          reason: expect.stringMatching(
+            /^Vitec has refused for a day to let this login read the office\./,
+          ),
+        },
+      ]),
+    );
+    const refused = events.filter((row) => row.type === 'login.refused');
+    expect(refused).toHaveLength(1);
+    expect(refused[0]?.fields['detail']).toMatch(
+      /^Vitec no longer lets this username and password read G1, the customer or group id on the connection\./,
+    );
+  });
+
+  it('says how many offices a refused login takes off the sites and when, and keeps that time through the checks run meanwhile', async () => {
+    seed(fake);
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
+    fake.put('M2', 'property', estate('OBJ2', 'M2'));
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
+    await drainFetchList();
+    const check = async (): Promise<void> => {
+      await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+      await runSchedules();
+      await drainFetchList();
+    };
+
+    // The whole id is refused: both offices stay for a day, and the event says so as data.
+    fake.forbid('G1');
+    await check();
+    const first = await lastCheck(CONNECTION);
+    const since = first?.ids[0]?.refusedSince ?? '';
+    expect(since).not.toBe('');
+    const refused = (await queryEvents({ connectionId: CONNECTION })).filter(
+      (row) => row.type === 'login.refused',
+    );
+    expect(refused.map((row) => row.fields)).toEqual([
+      {
+        offices: 2,
+        leaves_at: new Date(new Date(since).getTime() + 24 * 3_600_000).toISOString(),
+        detail: expect.any(String),
+      },
+    ]);
+
+    // A check run meanwhile, as after a restart or “Fetch offices”, keeps both, and the day.
+    await check();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE, 'M2'] });
+    expect((await lastCheck(CONNECTION))?.ids[0]?.refusedSince).toBe(since);
+    expect((await item('property', 'OBJ2'))?.['deleted']).toBe(false);
+
+    // The day is over: the worker checks at that time by itself, although its last check was
+    // only just now, and both offices leave.
+    const stored = JSON.parse((await store.getState(CONNECTION, 'offices_check')) ?? '{}');
+    stored.ids[0].refusedSince = new Date(Date.now() - 24 * 3_600_000).toISOString();
+    await store.setState(CONNECTION, 'offices_check', JSON.stringify(stored));
+    const calls = fake.requests.length;
+    await runSchedules();
+    await drainFetchList();
+    expect(fake.requests.length).toBeGreaterThan(calls);
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [] });
+    expect((await item('property', 'OBJ1'))?.['deleted']).toBe(true);
+    expect((await item('property', 'OBJ2'))?.['deleted']).toBe(true);
+
+    // With nothing left to take off, the next tick asks Vitec nothing.
+    const after = fake.requests.length;
+    await runSchedules();
+    expect(fake.requests.length).toBe(after);
+    expect(fake.forms).toHaveLength(0);
+  });
+
+  it('checks once when a refused office’s day is over, and not again when that check keeps it', async () => {
+    seed(fake);
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
+    await drainFetchList();
+    // Vitec lists the one office but refuses to read it: with no office that reads, the check
+    // keeps the last offices, so the office stays after its day too.
+    fake.forbid(OFFICE);
+    await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+    await runSchedules();
+    const stored = JSON.parse((await store.getState(CONNECTION, 'offices_check')) ?? '{}');
+    stored.ids[0].offices[0].refusedSince = new Date(Date.now() - 24 * 3_600_000).toISOString();
+    stored.at = new Date(Date.now() - 3_600_000).toISOString();
+    await store.setState(CONNECTION, 'offices_check', JSON.stringify(stored));
+    await runSchedules();
+    const checked = await lastCheck(CONNECTION);
+    expect(checked?.at).not.toBe(stored.at);
+    expect(checked).toMatchObject({ offices: [OFFICE], source: 'kept' });
+    const calls = fake.requests.length;
+    await runSchedules();
+    await runSchedules();
+    expect((await lastCheck(CONNECTION))?.at).toBe(checked?.at);
+    expect(fake.requests.length).toBe(calls);
+  });
+
+  it('tells every connection that syncs a refused office of its block and of its end, the end before the office is taken off', async () => {
+    seed(fake);
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
+    fake.put('M2', 'property', estate('OBJ2', 'M2'));
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    const login = JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' });
+    const OTHER = 'vitec-other';
+    running = await harness({
+      adapters: [vitecAdapter],
+      connections: [
+        { id: CONNECTION, provider: 'vitec', credentials: login, licensedOffices: [] },
+        { id: OTHER, provider: 'vitec', credentials: login, licensedOffices: [] },
+      ],
+    });
+    await runSchedules();
+    await drainFetchList();
+    const check = async (...ids: string[]): Promise<void> => {
+      for (const id of ids) {
+        const found = await connectionById(id);
+        if (found) await vitecAdmin.act('check_offices', { connection: id }, [found]);
+      }
+      await runSchedules();
+      await drainFetchList();
+    };
+    const told = async (connectionId: string): Promise<string[]> =>
+      (await queryEvents({ connectionId }))
+        .filter((row) => row.type.startsWith('office.') && row.fields['office_id'] === 'M2')
+        .map((row) => row.type);
+
+    // Vitec refuses M2: the block is told once to each connection that syncs it.
+    fake.forbid('M2');
+    await check(CONNECTION, OTHER);
+    expect(await told(CONNECTION)).toEqual(['office.blocked']);
+    expect(await told(OTHER)).toEqual(['office.blocked']);
+
+    // M2 reads again but left the group "Webbplats", seen first by one connection's check: both
+    // are told the block ended, and that connection takes M2 off after it.
+    fake.allow('M2');
+    fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices: [{ id: OFFICE }] }]);
+    await check(CONNECTION);
+    expect(await told(CONNECTION)).toEqual([
+      'office.blocked',
+      'office.unblocked',
+      'office.taken_off',
+    ]);
+    expect(await told(OTHER)).toEqual(['office.blocked', 'office.unblocked']);
+  });
+
+  it('gives the offices one check takes off for one reason a single correlation id', async () => {
+    seed(fake);
+    for (const id of ['M2', 'M3']) {
+      fake.put(id, 'office', { id, customerId: id, name: `Kontor ${id}`, changedAt: CHANGED });
+      fake.put('G1', 'office', { id, customerId: id, changedAt: CHANGED });
+    }
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.setGroups('G1', [
+      { id: 'OG1', name: 'Webbplats', offices: [{ id: OFFICE }, { id: 'M2' }, { id: 'M3' }] },
+    ]);
+    await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
+    await drainFetchList();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE, 'M2', 'M3'] });
+
+    fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices: [{ id: OFFICE }] }]);
+    await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+    await runSchedules();
+    const takenOff = (await queryEvents({ connectionId: CONNECTION })).filter(
+      (row) => row.type === 'office.taken_off',
+    );
+    expect(takenOff.map((row) => row.fields['office_id'])).toEqual(['M2', 'M3']);
+    expect(takenOff[0]?.correlation_id).toEqual(expect.any(String));
+    expect(takenOff[1]?.correlation_id).toBe(takenOff[0]?.correlation_id);
+  });
+
+  it('takes both offices of a login switched to Vitec’s QA environment off under one correlation id', async () => {
+    seed(fake);
+    fake.put('M2', 'office', { id: 'M2', customerId: 'M2', name: 'Kontor 2', changedAt: CHANGED });
+    fake.put('G1', 'office', { id: OFFICE, customerId: OFFICE, changedAt: CHANGED });
+    fake.put('G1', 'office', { id: 'M2', customerId: 'M2', changedAt: CHANGED });
+    const login = { username: USERNAME, password: PASSWORD, customer_id: 'G1' };
+    await start(JSON.stringify(login));
+    await drainFetchList();
+    expect(await lastCheck(CONNECTION)).toMatchObject({ offices: [OFFICE, 'M2'] });
+
+    connect.pointQaAt(fake.url);
+    try {
+      await running.connection({
+        id: CONNECTION,
+        provider: 'vitec',
+        credentials: JSON.stringify({ ...login, qa: 'yes' }),
+        licensedOffices: [],
+      });
+      await runSchedules();
+      // The QA environment's load runs in the background; wait for it, so nothing races it.
+      await drainFetchList();
+    } finally {
+      connect.pointQaAt(null);
+    }
+    const takenOff = (await queryEvents({ connectionId: CONNECTION })).filter(
+      (row) => row.type === 'office.taken_off',
+    );
+    const switched = expect.stringMatching(
+      /^someone switched the connection’s login to Vitec’s QA environment, Vitec’s test system,/,
+    );
+    expect(takenOff.map((row) => row.fields['reason'])).toEqual([switched, switched]);
+    expect(takenOff[0]?.correlation_id).toEqual(expect.any(String));
+    expect(takenOff[1]?.correlation_id).toBe(takenOff[0]?.correlation_id);
+    // Nothing of live Vitec stays, its agents included: removed at the switch, and written again
+    // from the QA environment by its load (a fetch of it repeated meanwhile changes nothing).
+    const history = (await timelineOf('agent', 'U1'))
+      .map((row) => row.type)
+      .filter((type) => type === 'entity.written' || type === 'entity.tombstoned');
+    expect(history).toEqual(['entity.written', 'entity.tombstoned', 'entity.written']);
+    expect((await item('agent', 'U1'))?.['deleted']).toBe(false);
+  });
+
+  it('checks the offices at the next tick after a refusal at a fetch', async () => {
+    seed(fake);
+    await start();
+    await drainFetchList();
+    fake.forbid(OFFICE);
+    fake.put(OFFICE, 'property', estate('OBJ2'));
+    await notify('OBJ2');
+    await drainFetchList();
+    expect(await store.getState(CONNECTION, 'offices_check_at')).toBe(new Date(0).toISOString());
+    await runSchedules();
+    const last = await lastCheck(CONNECTION);
+    expect(last?.ids[0]?.refusedSince).toBeTruthy();
+    expect(last).toMatchObject({ offices: [OFFICE] });
+  });
+
+  it('checks the offices at start and once a day, and "Fetch offices" checks at the next tick', async () => {
+    seed(fake);
+    await start();
+    const first = await lastCheck(CONNECTION);
+    expect(first?.ids[0]?.offices).toEqual([
+      {
+        customerId: OFFICE,
+        officeId: OFFICE,
+        name: 'Kontor 1',
+        readable: true,
+        detail: null,
+        refusedSince: null,
+      },
+    ]);
+    expect(first).toMatchObject({ offices: [OFFICE], source: 'all' });
+
+    // Within the day, a tick does not ask again.
+    const listed = (): number =>
+      fake.requests.filter((request) => request.path === `/CRM/Officegroups/${OFFICE}`).length;
+    fake.requests.length = 0;
+    await runSchedules();
+    expect(listed()).toBe(0);
+
+    // The button makes the next tick ask; the tenant's page shows what Vitec answered.
+    const connections = [await connection()];
+    const acted = await vitecAdmin.act('check_offices', { connection: CONNECTION }, connections);
+    expect(acted.message).toContain('within a minute');
+    await runSchedules();
+    expect(listed()).toBe(1);
+    const own = await vitecAdmin.connection?.(connections[0] as Connection);
+    const section = own?.find((candidate) => candidate.title === 'Offices Vitec lists');
+    expect(section?.table?.rows[0]?.cells).toEqual([
+      OFFICE,
+      OFFICE,
+      'Kontor 1',
+      { text: 'Yes', state: 'ok' },
+      true,
+    ]);
+    expect(section?.actions?.[0]?.help).toBeTruthy();
+  });
+
+  describe('how a new connection comes along (question 199 a)', () => {
+    const progressOf = async () => required(vitecAdmin.progress, 'progress')(await connection());
+
+    it('waits for Vitec’s first notice with the steps that bring it, and counts the first load until it is done', async () => {
+      seed(fake);
+      await start();
+      const loading = await progressOf();
+      expect(loading.firstNotice).toMatchObject({
+        since: expect.any(String),
+        meanwhile: expect.stringContaining('twice-daily catch-up'),
+      });
+      const steps = loading.firstNotice?.steps ?? [];
+      expect(steps).toHaveLength(4);
+      expect(steps[0]).toMatchObject({
+        value: { address: `/v1/hook/vitec/webhook/${TOKEN}` },
+        secret: true,
+      });
+      // The stand-in Connect answers the office groups, so Core can read them.
+      expect(steps[3]?.note).toEqual({
+        text: 'Office groups: Core can already read them.',
+        state: 'ok',
+      });
+      expect(loading.officeCheck).toMatchObject({
+        on: [{ office: OFFICE, name: 'Kontor 1', addedAt: null }],
+        off: [],
+        added: [],
+        removed: [],
+      });
+
+      // The start fetched everything; a record still waiting keeps the load unfinished.
+      const listed = { property: 1, agent: 1, office: 1, area: 1, project: 1 };
+      expect(loading.firstLoad).toEqual({ listed, waiting: {}, done: true });
+      await store.setState(CONNECTION, 'first_load_done', '');
+      fake.put(OFFICE, 'property', estate('OBJ2'));
+      await store.enqueue([
+        {
+          ...LIVE_OFFICE,
+          datatype: 'property',
+          remoteId: 'OBJ2',
+          reason: 'load',
+          correlationId: 'c',
+        },
+      ]);
+      expect((await progressOf()).firstLoad).toEqual({
+        listed,
+        waiting: { property: 1 },
+        done: false,
+      });
+      await drainFetchList();
+      expect((await progressOf()).firstLoad).toEqual({ listed, waiting: {}, done: true });
+
+      // The first notice ends the wait; a record waiting again never makes the load unfinished.
+      await notify('OBJ1');
+      const noticed = await progressOf();
+      expect(noticed.firstNotice).toBeNull();
+      expect(noticed.firstLoad?.done).toBe(true);
+    });
+
+    it('follows no connection whose offices were checked before, and starts again when its login is switched to Vitec’s QA', async () => {
+      seed(fake);
+      await start();
+      await drainFetchList();
+      await store.setState(CONNECTION, 'followed_since', '');
+      await store.setState(CONNECTION, 'first_load', '');
+      expect(await progressOf()).toMatchObject({ firstNotice: null, firstLoad: null });
+
+      const qa = { username: USERNAME, password: PASSWORD, customer_id: OFFICE, qa: 'yes' };
+      connect.pointQaAt(fake.url);
+      await running.connection({
+        id: CONNECTION,
+        provider: 'vitec',
+        credentials: JSON.stringify(qa),
+      });
+      await runSchedules().finally(() => connect.pointQaAt(null));
+      const switched = await progressOf();
+      expect(switched.firstNotice?.steps[0]).toMatchObject({
+        value: { address: `/v1/hook/vitec/qa/${TOKEN}` },
+      });
+      expect(switched.firstLoad).toMatchObject({ done: false });
+    });
+
+    it('names the offices left off and why, and keeps when a check added an office and what it changed', async () => {
+      seed(fake);
+      fake.put('M2', 'office', {
+        id: 'M2',
+        customerId: 'M2',
+        name: 'Kontor 2',
+        changedAt: CHANGED,
+      });
+      fake.put('G1', 'office', {
+        id: OFFICE,
+        customerId: OFFICE,
+        name: 'Kontor 1',
+        changedAt: CHANGED,
+      });
+      fake.put('G1', 'office', {
+        id: 'M2',
+        customerId: 'M2',
+        name: 'Kontor 2',
+        changedAt: CHANGED,
+      });
+      fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices: [{ id: OFFICE }] }]);
+      await start(JSON.stringify({ username: USERNAME, password: PASSWORD, customer_id: 'G1' }));
+      expect((await progressOf()).officeCheck?.off).toEqual([
+        { name: 'Kontor 2', why: 'it isn’t in Vitec’s office group “Webbplats”' },
+      ]);
+
+      const check = async (offices: { id: string }[]) => {
+        fake.setGroups('G1', [{ id: 'OG1', name: 'Webbplats', offices }]);
+        await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+        await runSchedules();
+        return (await progressOf()).officeCheck;
+      };
+      const joined = await check([{ id: OFFICE }, { id: 'M2' }]);
+      const at = (await lastCheck(CONNECTION))?.at;
+      expect(joined).toMatchObject({ at, off: [], added: ['M2'], removed: [] });
+      expect(joined?.on).toEqual([
+        { office: OFFICE, name: 'Kontor 1', addedAt: null },
+        { office: 'M2', name: 'Kontor 2', addedAt: at },
+      ]);
+
+      const left = await check([{ id: 'M2' }]);
+      expect(left).toMatchObject({ added: [], removed: ['Kontor 1'] });
+      expect(left?.on).toEqual([{ office: 'M2', name: 'Kontor 2', addedAt: at }]);
+    });
+
+    it('lets a new password be tested for a refused single office, and saving it brings the office back', async () => {
+      seed(fake);
+      await start();
+      await drainFetchList();
+      // The brokerage changed the password in Vitec: the check meets the refusal, and the office,
+      // which is the login's own id, is blocked.
+      fake.accept('new-key');
+      await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+      await runSchedules();
+      expect((await store.blockedOffices()).map((office) => office.officeId)).toEqual([OFFICE]);
+
+      const typed = JSON.stringify({
+        username: USERNAME,
+        password: 'new-key',
+        customer_id: OFFICE,
+      });
+      expect(await required(vitecAdmin.probe, 'probe')(typed, [])).toMatchObject({ ok: true });
+      await running.connection({ id: CONNECTION, provider: 'vitec', credentials: typed });
+      await until(
+        async () => (await store.blockedOffices()).length === 0,
+        'the saved login bringing the office back',
+        15_000,
+      );
+      expect((await progressOf()).heldSince).toBeNull();
+    });
+
+    it('checks the offices at once when a new password is saved, at most once an hour, and says since when changes were held', async () => {
+      seed(fake);
+      await start();
+      await drainFetchList();
+      expect((await progressOf()).heldSince).toBeNull();
+      const save = (password: string) =>
+        running.connection({
+          id: CONNECTION,
+          provider: 'vitec',
+          credentials: JSON.stringify({ username: USERNAME, password, customer_id: OFFICE }),
+        });
+
+      // The brokerage changed the password in Vitec: the office check meets the refusal.
+      fake.accept('new-key');
+      await vitecAdmin.act('check_offices', { connection: CONNECTION }, [await connection()]);
+      await runSchedules();
+      const refused = await lastCheck(CONNECTION);
+      expect(refused?.ids[0]?.refusedSince).not.toBeNull();
+      expect((await progressOf()).heldSince).not.toBeNull();
+
+      // The new one saved: checked at once, the office reads, and nothing is held any more.
+      await save('new-key');
+      await until(
+        async () => (await progressOf()).heldSince === null,
+        'the new login ending the hold',
+        15_000,
+      );
+      await runSchedules();
+      const checked = await lastCheck(CONNECTION);
+      expect(checked?.at).not.toBe(refused?.at);
+
+      // More logins saved within the hour share one check when the hour is over: no call adds up.
+      fake.accept('new-key', 'newer-key', 'newest-key');
+      fake.requests.length = 0;
+      await save('newer-key');
+      await runSchedules();
+      expect((await lastCheck(CONNECTION))?.at).toBe(checked?.at);
+      expect(fake.requests.filter((request) => request.path.includes('/Office'))).toEqual([]);
+      const hourOver = (await store.getState(CONNECTION, 'login_check_at')) ?? '';
+      expect(Date.parse(hourOver) - Date.now()).toBeGreaterThan(50 * 60_000);
+      const due = Date.parse((await store.getState(CONNECTION, 'offices_check_at')) ?? '');
+      expect(due + 24 * 3_600_000).toBe(Date.parse(hourOver));
+      await save('newest-key');
+      await runSchedules();
+      expect(await store.getState(CONNECTION, 'login_check_at')).toBe(hourOver);
+      expect((await lastCheck(CONNECTION))?.at).toBe(checked?.at);
+    });
   });
 });

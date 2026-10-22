@@ -8,7 +8,6 @@ type ConnectionRow = {
   provider: string;
   credentials: string | null;
   licensed_offices: string[];
-  active: boolean;
 };
 
 let credentialsKey = '';
@@ -24,7 +23,6 @@ const toConnection = (row: ConnectionRow): Connection => ({
   provider: row.provider,
   credentials: row.credentials ? decrypt(row.credentials, credentialsKey) : null,
   licensedOffices: row.licensed_offices,
-  active: row.active,
 });
 
 export async function connectionsForProvider(provider: string): Promise<Connection[]> {
@@ -38,6 +36,15 @@ export async function connectionsForProvider(provider: string): Promise<Connecti
 export async function connectionById(id: string): Promise<Connection | null> {
   const { rows } = await db().query<ConnectionRow>('select * from connections where id = $1', [id]);
   return rows[0] ? toConnection(rows[0]) : null;
+}
+
+/** A connection's provider alone, so what only maps stored records never opens a login. */
+export async function providerOf(id: string): Promise<string | null> {
+  const { rows } = await db().query<{ provider: string }>(
+    'select provider from connections where id = $1',
+    [id],
+  );
+  return rows[0]?.provider ?? null;
 }
 
 /** A new tenant: Core assigns the number, the name is the only thing a person types. */
@@ -63,32 +70,54 @@ export async function tenantForToken(
   return rows[0] ? { id: rows[0].id, purgeWatermark: Number(rows[0].purge_watermark) } : null;
 }
 
+/**
+ * Add or change a connection. Its name is what a person reads it by; one added without a name
+ * takes its id as its name, and one changed without a name keeps the one it has. The forms tick
+ * works the same way: one added without it is unticked, one changed without it keeps its own.
+ */
 export async function upsertConnection(input: {
   id: string;
   tenantId: number;
   provider: string;
+  name?: string;
   credentials?: string | null;
   licensedOffices?: string[];
-  active?: boolean;
+  /** Ticked: Core holds every form through this connection before the CRM (`formsDryRun`). */
+  formsDryRun?: boolean;
 }): Promise<void> {
   await db().query(
-    `insert into connections (id, tenant_id, provider, credentials, licensed_offices, active)
-     values ($1,$2,$3,$4,$5,$6)
+    `insert into connections (id, tenant_id, provider, credentials, licensed_offices, name, forms_dry_run)
+     values ($1,$2,$3,$4,$5, coalesce($6, $1), coalesce($7::boolean, false))
      on conflict (id) do update set
        tenant_id = excluded.tenant_id,
        provider = excluded.provider,
        credentials = coalesce(excluded.credentials, connections.credentials),
        licensed_offices = excluded.licensed_offices,
-       active = excluded.active`,
+       name = coalesce($6, connections.name),
+       forms_dry_run = coalesce($7::boolean, connections.forms_dry_run)`,
     [
       input.id,
       input.tenantId,
       input.provider,
       input.credentials ? encrypt(input.credentials, credentialsKey) : null,
       input.licensedOffices ?? [],
-      input.active ?? true,
+      input.name ?? null,
+      input.formsDryRun ?? null,
     ],
   );
+}
+
+/**
+ * Whether a connection is ticked to dry-run its forms (Patric, 2026-10-07: "prevent hot leads,
+ * only dry run"). The forms guard asks before every send (`registerSubmissions`). A connection
+ * that is not there is not ticked; a database that does not answer throws, so the form fails.
+ */
+export async function formsDryRun(connectionId: string): Promise<boolean> {
+  const { rows } = await db().query<{ forms_dry_run: boolean }>(
+    'select forms_dry_run from connections where id = $1',
+    [connectionId],
+  );
+  return rows[0]?.forms_dry_run === true;
 }
 
 export async function setLicensedOffices(connectionId: string, officeIds: string[]): Promise<void> {
@@ -112,12 +141,14 @@ export type SubscriberRow = {
   bell_url: string;
   /** Stored as sent to the site, so the tenant's page can show it (Patric, 2026-09-20). */
   bell_secret: string;
-  active: boolean;
   last_bell_at: Date | null;
   last_bell_status: string | null;
   last_pull_at: Date | null;
   last_client: string | null;
 };
+
+const SUBSCRIBER_COLUMNS =
+  'id, tenant_id, label, bell_url, bell_secret, last_bell_at, last_bell_status, last_pull_at, last_client';
 
 export async function addSubscriber(input: {
   tenantId: number;
@@ -173,12 +204,12 @@ export async function subscriberByBellUrl(
 
 export async function subscribers(): Promise<SubscriberRow[]> {
   const { rows } = await db().query<SubscriberRow>(
-    'select id, tenant_id, label, bell_url, bell_secret, active, last_bell_at, last_bell_status, last_pull_at, last_client from subscribers order by id',
+    `select ${SUBSCRIBER_COLUMNS} from subscribers order by id`,
   );
   return rows;
 }
 
-// ---- What the admin panel lists and changes (docs/admin-panel.md) --------------------------------
+// ---- What the admin panel lists and changes (docs/new-admin/b-build-list.md) ---------------------
 
 export type TenantRow = {
   id: number;
@@ -226,9 +257,11 @@ export type ConnectionListRow = {
   id: string;
   tenant_id: number;
   provider: string;
+  /** What a person reads it by; the id is Core's own. */
+  name: string;
   licensed_offices: string[];
-  active: boolean;
-  has_credentials: boolean;
+  /** Ticked: Core sends none of this connection's forms to the CRM (`formsDryRun`). */
+  forms_dry_run: boolean;
   last_ingest_at: Date | null;
   last_error: string | null;
 };
@@ -236,21 +269,20 @@ export type ConnectionListRow = {
 /** Every connection, without its credentials. */
 export async function connections(): Promise<ConnectionListRow[]> {
   const { rows } = await db().query<ConnectionListRow>(
-    `select id, tenant_id, provider, licensed_offices, active, credentials is not null as has_credentials,
-            last_ingest_at, last_error
+    `select id, tenant_id, provider, name, licensed_offices, forms_dry_run, last_ingest_at, last_error
      from connections order by tenant_id, id`,
   );
   return rows;
 }
 
-export async function setConnectionActive(id: string, active: boolean): Promise<void> {
-  await db().query('update connections set active = $2 where id = $1', [id, active]);
-}
-
-/** Change a site's label, bell URL or secret, or switch it off. */
+/** Change a site's label, bell URL or secret. */
 export async function updateSubscriber(
   id: number,
-  changes: { label?: string; bellUrl?: string; bellSecret?: string; active?: boolean },
+  changes: {
+    label?: string;
+    bellUrl?: string;
+    bellSecret?: string;
+  },
 ): Promise<void> {
   const sets: string[] = [];
   const values: unknown[] = [id];
@@ -261,7 +293,6 @@ export async function updateSubscriber(
   if (changes.label !== undefined) set('label', changes.label);
   if (changes.bellUrl !== undefined) set('bell_url', changes.bellUrl);
   if (changes.bellSecret !== undefined) set('bell_secret', changes.bellSecret);
-  if (changes.active !== undefined) set('active', changes.active);
   if (sets.length === 0) return;
   await db().query(`update subscribers set ${sets.join(', ')} where id = $1`, values);
 }
@@ -281,20 +312,4 @@ export async function deleteSubscriber(id: number): Promise<void> {
 export async function deleteConnection(id: string): Promise<void> {
   await db().query('delete from lifecycle_events where connection_id = $1', [id]);
   await db().query('delete from connections where id = $1', [id]);
-}
-
-/**
- * "Remove everything" for a tenant: its connections, sites and records go with the row (the
- * foreign keys cascade), and its history in the event log goes too, as a site's does.
- */
-export async function deleteTenant(id: number): Promise<void> {
-  const { rows } = await db().query<{ id: string }>(
-    'select id from connections where tenant_id = $1',
-    [id],
-  );
-  for (const row of rows) {
-    await db().query('delete from lifecycle_events where connection_id = $1', [row.id]);
-  }
-  await db().query('delete from events where tenant_id = $1', [id]);
-  await db().query('delete from tenants where id = $1', [id]);
 }

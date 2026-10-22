@@ -30,7 +30,7 @@
       "$ref": "_shared.v1.json#/$defs/nullableString"
     },
     "genuine_association": {
-      "$ref": "_shared.v1.json#/$defs/nullableString"
+      "$ref": "_shared.v1.json#/$defs/named"
     },
     "number_of_apartments": {
       "$ref": "_shared.v1.json#/$defs/nullableNumber"
@@ -45,7 +45,19 @@
       "type": ["object", "null"]
     },
     "economy": {
-      "type": ["object", "null"]
+      "type": ["object", "null"],
+      "properties": {
+        "transfer_fee_paid_by": {
+          "$ref": "_shared.v1.json#/$defs/named"
+        },
+        "allow_legal_person_as_buyer": {
+          "$ref": "_shared.v1.json#/$defs/named"
+        }
+      },
+      "additionalProperties": true
+    },
+    "documents": {
+      "$ref": "_shared.v1.json#/$defs/documents"
     },
     "contact": {
       "type": ["object", "null"],

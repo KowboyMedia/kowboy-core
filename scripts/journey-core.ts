@@ -47,7 +47,7 @@ process.env['PORT'] = String(port);
 const engine = await startEngine({ port });
 // A journey starts from nothing, so what a person sees is what these tests made.
 await db().query(
-  'truncate tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results, error_reports, jobs, alert_state, settings, admin_logins, admin_sessions restart identity cascade',
+  'truncate tenants, connections, subscribers, items, heartbeats, events, lifecycle_events, health_results, error_reports, jobs, alert_state, admin_logins, admin_sessions restart identity cascade',
 );
 await db().query("select setval('item_seq', 1, false)");
 

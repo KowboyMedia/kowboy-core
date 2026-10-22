@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Area-customerId-areaId, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Area-customerId-areaId, fetched 2026-10-04 -->
 
 # GET Advertising/Area/{customerId}/{areaId}
 
@@ -48,9 +48,9 @@ Hämta område för hemsida.
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json345)
+- [application/json, text/json](https://connect.maklare.vitec.net#json224)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml345)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml224)
 
 ```
 {
@@ -103,7 +103,7 @@ Hämta område för hemsida.
       ]
     ]
   ],
-  "changedAt": "2026-09-16T06:05:09.3300605+02:00",
+  "changedAt": "2026-10-04T06:01:54.8681975+02:00",
   "office": {
     "id": "sample string 1",
     "customerId": "sample string 2"
@@ -118,7 +118,7 @@ Hämta område för hemsida.
   "images": [
     {
       "id": "sample string 1",
-      "dataChangedAt": "2026-09-16T06:05:09.3300605+02:00",
+      "dataChangedAt": "2026-10-04T06:01:54.8681975+02:00",
       "description": "sample string 3",
       "name": "sample string 4",
       "category": {
@@ -139,7 +139,7 @@ Hämta område för hemsida.
     },
     {
       "id": "sample string 1",
-      "dataChangedAt": "2026-09-16T06:05:09.3300605+02:00",
+      "dataChangedAt": "2026-10-04T06:01:54.8681975+02:00",
       "description": "sample string 3",
       "name": "sample string 4",
       "category": {

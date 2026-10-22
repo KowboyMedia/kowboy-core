@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Estate-customerId, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Estate-customerId, fetched 2026-10-04 -->
 
 # GET Advertising/Estate/{customerId}
 
@@ -47,9 +47,9 @@ Hämta bostadslista för publicerade bostäder för hemsida [PageOfAdvertising_A
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json987)
+- [application/json, text/json](https://connect.maklare.vitec.net#json475)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml987)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml475)
 
 ```
 {
@@ -60,12 +60,12 @@ Hämta bostadslista för publicerade bostäder för hemsida [PageOfAdvertising_A
     {
       "id": "sample string 1",
       "customerId": "sample string 2",
-      "changedAt": "2026-09-16T06:05:13.9715872+02:00"
+      "changedAt": "2026-10-04T06:01:56.1347546+02:00"
     },
     {
       "id": "sample string 1",
       "customerId": "sample string 2",
-      "changedAt": "2026-09-16T06:05:13.9715872+02:00"
+      "changedAt": "2026-10-04T06:01:56.1347546+02:00"
     }
   ]
 }

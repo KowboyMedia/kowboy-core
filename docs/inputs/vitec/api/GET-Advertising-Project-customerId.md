@@ -1,4 +1,4 @@
-<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Project-customerId, fetched 2026-09-16 -->
+<!-- https://connect.maklare.vitec.net/Help/Api/GET-Advertising-Project-customerId, fetched 2026-10-04 -->
 
 # GET Advertising/Project/{customerId}
 
@@ -46,9 +46,9 @@ Hämta projektlista för publicerade projekt för hemsida [PageOfAdvertising_Adv
 
 ## Response Formats
 
-- [application/json, text/json](https://connect.maklare.vitec.net#json236)
+- [application/json, text/json](https://connect.maklare.vitec.net#json835)
 
-- [application/xml, text/xml](https://connect.maklare.vitec.net#xml236)
+- [application/xml, text/xml](https://connect.maklare.vitec.net#xml835)
 
 ```
 {
@@ -59,12 +59,12 @@ Hämta projektlista för publicerade projekt för hemsida [PageOfAdvertising_Adv
     {
       "id": "sample string 1",
       "customerId": "sample string 2",
-      "changedAt": "2026-09-16T06:05:13.2362523+02:00"
+      "changedAt": "2026-10-04T06:01:56.0722566+02:00"
     },
     {
       "id": "sample string 1",
       "customerId": "sample string 2",
-      "changedAt": "2026-09-16T06:05:13.2362523+02:00"
+      "changedAt": "2026-10-04T06:01:56.0722566+02:00"
     }
   ]
 }
