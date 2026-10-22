@@ -133,14 +133,14 @@ async function upload(pkg, zipPath) {
   );
   const html = await response.text();
   const replace =
-    /update\.php\?action=upload-plugin&amp;package=([^&"]+)&amp;overwrite=update-plugin&amp;_wpnonce=([^"&]+)/.exec(
+    /update\.php\?action=upload-plugin&amp;package=([^&"]+)&amp;overwrite=((?:update|downgrade)-plugin)&amp;_wpnonce=([^"&]+)/.exec(
       html,
     );
   if (replace) {
-    // The plugin exists: WordPress offers "Replace current with uploaded"; take it.
+    // The plugin exists: WordPress offers "Replace current with uploaded", for an older copy too; take it.
     await follow(
       await call(
-        `/wp-admin/update.php?action=upload-plugin&package=${replace[1]}&overwrite=update-plugin&_wpnonce=${replace[2]}`,
+        `/wp-admin/update.php?action=upload-plugin&package=${replace[1]}&overwrite=${replace[2]}&_wpnonce=${replace[3]}`,
       ),
     );
   }
@@ -193,13 +193,13 @@ async function uploadTheme(pkg, zipPath) {
   );
   const html = await response.text();
   const replace =
-    /update\.php\?action=upload-theme&amp;package=([^&"]+)&amp;overwrite=update-theme&amp;_wpnonce=([^"&]+)/.exec(
+    /update\.php\?action=upload-theme&amp;package=([^&"]+)&amp;overwrite=((?:update|downgrade)-theme)&amp;_wpnonce=([^"&]+)/.exec(
       html,
     );
   if (replace) {
     await follow(
       await call(
-        `/wp-admin/update.php?action=upload-theme&package=${replace[1]}&overwrite=update-theme&_wpnonce=${replace[2]}`,
+        `/wp-admin/update.php?action=upload-theme&package=${replace[1]}&overwrite=${replace[2]}&_wpnonce=${replace[3]}`,
       ),
     );
   }
