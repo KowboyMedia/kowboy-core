@@ -636,6 +636,8 @@ function core_client_delete_item(string $datatype, string $connection_id, string
     if ($post_id === null) {
         return;
     }
+    // Its page and the pages that show it, while the index still says which (includes/page-cache.php).
+    core_client_note_stale((int) $post_id);
     $wpdb->delete($index, ['post_id' => (int) $post_id]);
     core_client_unlink((int) $post_id, $datatype, $remote_id);
     wp_delete_post((int) $post_id, true);

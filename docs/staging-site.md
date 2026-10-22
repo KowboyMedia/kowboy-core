@@ -200,6 +200,18 @@ whatever the host:
   cache plugin its host provides, named under AC 20. No cache matrix, no extra servers, no new
   criterion.
 
+**Superseded 2026-10-22** (Patric asked for a full page cache whose purge works on every change;
+`docs/decisions.md`). WordPress's events alone left pages stale: they fire inside the sync's
+transaction, they name only the record written while a home's page also shows its agent's phone,
+and they miss the address a new status leaves behind. The sites now run Cache Enabler, and the
+plugin tells it which pages each committed change made stale (`includes/page-cache.php`, the
+client README, "The page cache"). The host's Varnish is off for the sites (2026-10-22: every page
+was built anew on every request) and must stay off, since nothing purges it. Cache Enabler serves a
+kept page only while `wp-config.php` sets `WP_CACHE` to true; it writes that line itself unless the
+file sets it already, and on both demos something sets it to false (most likely Breeze, Cloudways'
+own cache plugin, which writes that line when switched off). `scripts/deploy-site.mjs` says "page
+cache: NOT ON" while that holds.
+
 ## What "every test green" means here
 
 | AC  | Proved on the live site by                                                                                                                                                                                      |

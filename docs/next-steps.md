@@ -1057,6 +1057,19 @@ finding where its time goes is the next open step.
       brokerage, and the project is done.
     - Size: several sessions, most of them waiting on the threads in the table.
 
+34. **A full page cache on the WordPress sites** (Patric, 2026-10-22: "install a cache plugin and
+    enable full page cache and make sure it works - meaning near instant load times, lists are
+    still live/non cached (ssr+hydrated), and purging works as expected on entity crud. Suggest the
+    best plugin for this."). Component: `[client-wordpress]`. What changes for the product: a
+    visitor gets every page of the site from a stored copy at once, the lists still show the
+    current cards, and a change in the CRM reaches every page that shows it.
+    - **Built 2026-10-22** (plugin 0.11.0; `docs/decisions.md` names the plugins weighed): Cache
+      Enabler keeps the pages, the plugin tells it which pages each committed change made stale
+      (`includes/page-cache.php`), and `scripts/deploy-site.mjs` installs, turns on and empties it.
+      Test: `clients/wordpress/sync.test.ts`, "tells the page cache, once a change is committed,
+      every page that shows the changed record".
+    - Size: one session.
+
 ## Later, when Patric supplies them
 
 - The platform → Phase 1b. Done 2026-09-17: both apps are live on the cluster and every health
