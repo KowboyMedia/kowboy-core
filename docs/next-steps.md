@@ -1061,7 +1061,9 @@ finding where its time goes is the next open step.
     this", and then: "We need universal cache support, there should be no custom purge calls -
     any theme, market leading cache plugins hooks wp somehow and listens to changes"). Component:
     `[client-wordpress]`. Suggestions only; nothing is installed until he picks one. A build the
-    same day was reverted (`docs/decisions.md`).
+    same day was reverted (`docs/decisions.md`). 229 answered: any plugin that works, never a full
+    purge. Waits on 230 (removal through the trash, then Breeze) and 231 (the home page's parts
+    from other records made live like the lists).
 
 ## Later, when Patric supplies them
 

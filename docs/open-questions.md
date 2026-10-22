@@ -4,40 +4,44 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 230 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 232 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 229. `[client-wordpress]` Which cache plugin should the WordPress sites run?
+## 231. `[client-wordpress]` Should the home page's agents, association and area be live parts, like the lists?
 
-- 2026-10-22 · Patric asked for a full page cache with near instant pages, live lists and purging
-  on every change, then set the rule: "universal cache support, there should be no custom purge
-  calls - any theme, market leading cache plugins hooks wp somehow and listens to changes", and
-  suggestions only, nothing installed. A build of the same day was reverted (`decisions.md`).
-  Read in each plugin's code from wordpress.org (2026-10-22): Core's plugin saves a record with
-  `wp_insert_post`/`wp_update_post` and removes it with `wp_delete_post`, so WordPress fires
-  `save_post`, `edit_post`, `transition_post_status`, `clean_post_cache` and `delete_post`.
-  WP Super Cache 3.1.4 listens to `edit_post`, `clean_post_cache`, `delete_post`; Breeze 2.6.3 to
-  `save_post`, `pre_post_update`, `deleted_post`; W3 Total Cache 2.11.0 to `save_post`,
-  `clean_post_cache`, `delete_post`; WP Fastest Cache 1.5.3 only to `transition_post_status`, so a
-  removed home stays cached; Cache Enabler 1.8.17 to `save_post` and `wp_trash_post`, the same
-  gap; LiteSpeed Cache needs a LiteSpeed server. Both demos' `wp-config.php` sets `WP_CACHE`
-  false (most likely Breeze's line from when it was switched off); WP Super Cache asks for that
-  line to be edited by hand, Breeze rewrites it itself. Whatever the plugin, WordPress fires these
-  events while the plugin's sync is still saving a batch, so a visitor in that moment can have
-  the old page kept until the next change.
+- 2026-10-22 · Patric's rule: lists are rendered on the server and refreshed in the browser, so a
+  kept page never shows a stale list, and a change purges only the changed record's own page
+  (229). The theme renders four parts of a page from other records outside the list function, so
+  nothing refreshes them: on a home's page the agent cards ("Ansvarig mäklare", "Kontakta även",
+  `core_client_items`), the association's facts, documents and links, and the area's name, texts
+  and pictures (`core/single-core_property.php`); and the hero's fallback photos of the newest
+  homes on a home or area without pictures and on the site's pages (`inc/media.php`). A kept page
+  would show an agent's old phone number or a sold home's photos until its own record changes.
+  Every other record page (agent, office, area, association) shows other records only as lists.
+- Blocked: a page cache that is right for every kind of record.
+- a) **Yes** (recommended): each of the four is rendered on the server and refreshed in the browser
+  like a list, the same for every kind of record, so no page needs another record's purge.
+- b) **No**: they stay as they are and can be stale on a kept page until the record itself changes.
+
+## 230. `[client-wordpress]` Should Core's plugin remove a record the WordPress way, to the trash and then deleted?
+
+- 2026-10-22 · Read in each plugin's code (2026-10-22): no cache plugin purges every change Core's
+  plugin makes today. It removes a record with `wp_delete_post(…, true)`, which skips the trash, and
+  Breeze 2.6.3 and Cache Enabler 1.8.17 purge their page files only on a save and on the trash
+  (Breeze's `deleted_post` purges only Varnish), so a removed record's page stays served. A new
+  status gives a home or project a new address: Breeze and Cache Enabler purge the old address
+  before the update, while WP Super Cache 3.1.4 and W3 Total Cache 2.11.0 do not, so the old
+  address keeps serving the old page. With removal through the trash, Breeze purges every change
+  on its own: the record's page at its old and new address, the front page and the archives.
+  Breeze is Cloudways' own plugin and switches WordPress's page cache on and off in
+  `wp-config.php` itself.
 - Blocked: the page cache on both demos.
-- a) **WP Super Cache** (recommended; Automattic, free, about 1 million sites) with "Clear all
-  cache files when a post or page is published or updated" on: every change empties the cache, so
-  no page stays stale, related pages and a home's old address included; the first visit to each
-  page after a change is built anew (about 0.5 to 1 second of server time, as every visit is
-  today).
-- b) **Breeze** (Cloudways' own, free, about 300,000 sites): purges only the changed record's page,
-  the front page and the archives, so a home page showing a changed agent stays stale until the
-  home itself changes; it also drives Cloudways' Varnish.
-- c) **WP Rocket** (a paid licence): its documentation says it clears the changed post, the front
-  page and related archives and builds them again; what it does on a delete is not stated.
+- a) **Yes** (recommended): a removed record goes to the trash and is then deleted, as WordPress
+  does from its admin; every cache plugin hears the trash; Breeze is then the pick.
+- b) **No**: removal stays as it is, and a removed record's page stays in the cache until the cache
+  is emptied.
 
 ## 225. `[client-wordpress]` Does a home that is not for sale, coming or sold get a page on the website?
 
