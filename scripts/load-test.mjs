@@ -134,17 +134,24 @@ async function jobLines(appId, deploymentId) {
   return text.split('\n').map((line) => line.replace(/^load \S+ /, ''));
 }
 
-/** Wait for the app's deploy created at or after `since` to be live; its job's lines if it fails. */
-async function deployed(appId, since, what) {
+/**
+ * Wait for the app's deploy created at or after `since` to be live, one with the job when `job`;
+ * its job's lines if it fails. A deploy without the job can follow the one with it (seen on
+ * 2026-10-22, when the job's lines were then asked of a deploy that had none).
+ */
+async function deployed(appId, since, what, job = false) {
   return until(
     what,
     async () => {
       const { deployments } = await api(`/apps/${appId}/deployments?per_page=5`);
       const deployment = (deployments ?? [])
         .filter((candidate) => Date.parse(candidate.created_at) >= since - MINUTE)
+        .filter(
+          (candidate) => !job || (candidate.spec?.jobs ?? []).some((one) => one.name === 'load'),
+        )
         .at(since === 0 ? -1 : 0);
       if (!deployment) return null;
-      if (deployment.phase === 'ERROR' || deployment.phase === 'CANCELED') {
+      if (['ERROR', 'CANCELED', 'SUPERSEDED'].includes(deployment.phase)) {
         for (const line of (await jobLines(appId, deployment.id)).slice(-20)) say(`Job: ${line}`);
         throw new Error(`the app's deploy ${deployment.id} ended ${deployment.phase}`);
       }
@@ -221,7 +228,7 @@ async function run() {
     body: JSON.stringify({ spec: await specFor(key, true) }),
   });
   say('The app has its address; its job is added, and runs after the next deploy.');
-  const deployment = await deployed(app.id, since, 'the job done');
+  const deployment = await deployed(app.id, since, 'the job done', true);
 
   const lines = await jobLines(app.id, deployment);
   for (const line of lines.filter((line) => /^\d\d:\d\d:\d\d /.test(line))) say(`Job: ${line}`);
