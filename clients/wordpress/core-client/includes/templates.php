@@ -295,17 +295,29 @@ add_shortcode('core_list', function ($attributes): string {
     return core_client_list(is_array($attributes) ? $attributes : [])['html'];
 });
 
-/** The reload endpoint: `GET /wp-json/core/v1/list?<the parameter set>` answers the cards of one page. */
+/**
+ * The reload endpoint: `GET /wp-json/core/v1/list?<the parameter set>` answers the cards of one
+ * page. `?batch=<a JSON list of parameter sets>`, at most twenty, answers `lists`, one such answer
+ * per set in the same order: a page refreshes all its lists on load in one request, so a page
+ * served from a page cache starts WordPress once however many lists it shows.
+ */
 add_action('rest_api_init', function (): void {
     register_rest_route('core/v1', '/list', [
         'methods' => 'GET',
         'permission_callback' => '__return_true',
         'callback' => function (WP_REST_Request $request): WP_REST_Response {
             $started = microtime(true);
-            $result = core_client_list($request->get_query_params() + ['part' => 'cards']);
+            $params = $request->get_query_params();
+            if (isset($params['batch'])) {
+                $sets = json_decode((string) $params['batch'], true);
+                $sets = array_slice(array_values(array_filter(is_array($sets) ? $sets : [], 'is_array')), 0, 20);
+                $result = ['lists' => array_map(fn (array $set): array => core_client_list($set + ['part' => 'cards']), $sets)];
+            } else {
+                $result = core_client_list($params + ['part' => 'cards']);
+            }
             $response = new WP_REST_Response($result);
             // A page may hold the answer for a minute (the cards change by the sync, seldom within a minute),
-            // and the browser's timing panel shows what the list itself took, apart from WordPress's start.
+            // and the browser's timing panel shows what the lists themselves took, apart from WordPress's start.
             $response->header('Cache-Control', 'public, max-age=60');
             $response->header('Server-Timing', sprintf('list;dur=%.1f', (microtime(true) - $started) * 1000));
             return $response;

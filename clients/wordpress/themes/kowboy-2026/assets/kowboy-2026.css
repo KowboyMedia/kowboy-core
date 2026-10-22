@@ -440,6 +440,14 @@ iframe.k-hero__video {
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
+/* A live part (core/list-part.php), and the plugin's plain wrapper around it or around a slider
+   that is a list (a hero's listing photos, the testimonials), add no box of their own: what they
+   hold lays out as if the page had written it in place, and an empty part leaves no gap. */
+.core-view:has(> .k-live, > .k-hero__slider, > .k-testimonials__slider),
+.k-live,
+.k-live__cards {
+  display: contents;
+}
 .k-hero__slider,
 .k-hero__slider .swiper-wrapper,
 .k-hero__slide {

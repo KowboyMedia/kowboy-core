@@ -39,10 +39,23 @@ describe('the WordPress client', () => {
       expect(written.hooks['save_post']).toBeGreaterThanOrEqual(2);
       expect(written.hooks['clean_post_cache']).toBeGreaterThanOrEqual(2);
 
+      // A change is an update of the post, which a cache plugin hears before it (the old address) and after.
+      crm.put('property', 'P-2', { ...fakeProperty('P-2'), price: 6900000 });
+      await poll();
+      const updated = await driver<{ hooks: Record<string, number> }>('sync', 'delta');
+      expect(updated.hooks).toMatchObject({ pre_post_update: 1, core_item_updated: 1 });
+      expect(updated.hooks['save_post']).toBeGreaterThanOrEqual(1);
+
+      // A removed record goes to the trash and is then deleted, as WordPress's admin removes one,
+      // so a cache plugin that purges on the trash hears it too (230 a).
       crm.remove('property', 'P-1');
       await poll();
       const deleted = await driver<{ hooks: Record<string, number> }>('sync', 'delta');
-      expect(deleted.hooks).toMatchObject({ deleted_post: 1, core_item_deleted: 1 });
+      expect(deleted.hooks).toMatchObject({
+        wp_trash_post: 1,
+        deleted_post: 1,
+        core_item_deleted: 1,
+      });
     } finally {
       await stop();
       await core.stop();

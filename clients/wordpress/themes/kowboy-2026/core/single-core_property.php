@@ -2,9 +2,10 @@
 // A property page (the design's Single Property): the hero (a Vimeo link among the links, else
 // the photos; the list's status label, the price, the rooms and the living space as pills,
 // Patric 2026-10-07), the description with fact chips and the floor plan, the viewings, the bids and
-// the agent at the side, the interest card, the photos (parts/gallery.php), the fact tables
+// the agents at the side, the interest card, the photos (parts/gallery.php), the fact tables
 // (`display.sections`, the association's rows added) closed at first (Patric, 2026-10-03), the
-// area with its texts, the map, and the lead form of the footer. Every string is `display`'s or a value shown as sent; this site's own
+// area with its texts, the map, and the lead form of the footer. The agents, the fact tables and
+// the area are live parts (core/card-home-*.php), since they show other records. Every string is `display`'s or a value shown as sent; this site's own
 // rules are named where they apply.
 //
 // In scope: $post_id, $item (the record as Core delivered it), $raw (the CRM payload).
@@ -79,69 +80,16 @@ $bids = !$sold && ($bidding['is_active'] ?? null) === true && is_array($bidding[
 usort($bids, fn (array $a, array $b): int => strcmp((string) ($b['placed_at'] ?? ''), (string) ($a['placed_at'] ?? '')));
 $highest_bid = $display['highest_bid'] ?? null;
 
-$agents = core_client_items('agent', is_array($item['agent_ids'] ?? null) ? $item['agent_ids'] : []);
 // The home as the form window names it on a booking and an interest (docs/forms.md, "The clients' part").
 $record = 'property:' . (string) core_client_connection_of($post_id) . ':' . (string) ($item['id'] ?? '');
 // What the window's step "Söker du bostad?" takes from the home: its rooms and living space to
 // prefill, its areas and kommun code to go with the profile (the plugin's core_client_form_wishes).
 $wishes = function_exists('core_client_form_wishes') ? (string) wp_json_encode(core_client_form_wishes($post_id, $item)) : '';
-// Whom the window names when a form cannot be sent: the responsible agent, else the site.
-$contact = (string) wp_json_encode(kowboy_contact($agents[0]['item'] ?? null));
 
-// This site's rule, as the design shows it: a sold home keeps its text, chips, plan and photos, and shows no fact tables.
-$sections = !$sold && is_array($display['sections'] ?? null) ? $display['sections'] : [];
-$association = $sold ? null : (core_client_items('association', [$item['association_id'] ?? null])[0]['item'] ?? null);
-if ($association !== null) {
-    $rows = kowboy_association_rows($association);
-    if ($rows !== []) {
-        $sections[] = ['header' => 'Föreningen', 'items' => array_map(fn ($label, $value) => ['label' => (string) $label, 'value' => (string) $value], array_keys($rows), $rows)];
-    }
-}
-// The documents and the links the CRM lists on the home and on its association, read from both
-// and deduplicated by address, then by name (question 94, Patric 2026-10-03), each opened from the
-// address Core carries, as one list with an icon per kind (Patric, 2026-10-03: "Dokument och länkar").
-$resources = [];
-$seen = [];
-foreach ([
-    ['document', is_array($item['documents'] ?? null) ? $item['documents'] : []],
-    ['document', is_array($association['documents'] ?? null) ? $association['documents'] : []],
-    ['link', is_array($item['links'] ?? null) ? $item['links'] : []],
-    ['link', is_array($association['links'] ?? null) ? $association['links'] : []],
-] as [$kind, $entries]) {
-    foreach ($entries as $entry) {
-        $name = is_string($entry['name'] ?? null) ? trim($entry['name']) : '';
-        $url = is_string($entry['url'] ?? null) ? trim($entry['url']) : '';
-        $key = $url !== '' ? 'url:' . mb_strtolower($url) : 'name:' . $kind . ':' . mb_strtolower($name);
-        if ($url === '' || isset($seen[$key]) || isset($seen['name:' . $kind . ':' . mb_strtolower($name)])) {
-            continue;
-        }
-        $seen[$key] = true;
-        $seen['name:' . $kind . ':' . mb_strtolower($name)] = true;
-        $resources[] = ['kind' => $kind, 'name' => $name !== '' ? $name : $url, 'url' => $url];
-    }
-}
-$resources_html = '';
-if ($resources !== [] && !$sold) {
-    $icons = [
-        'document' => '<svg class="k-docs__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>',
-        'link' => '<svg class="k-docs__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>',
-    ];
-    foreach ($resources as $resource) {
-        $resources_html .= '<li class="k-docs__item"><a class="k-docs__link" href="' . esc_url($resource['url']) . '" target="_blank" rel="noopener">' . $icons[$resource['kind']] . '<span class="k-docs__name">' . esc_html($resource['name']) . '</span></a></li>';
-    }
-    $resources_html = '<ul class="k-docs">' . $resources_html . '</ul>';
-}
-
-$area = core_client_items('area', is_array($item['area_ids'] ?? null) ? $item['area_ids'] : [])[0]['item'] ?? null;
-$area_texts = array_filter([
-    // The listing's own texts first, the area's where the listing has none; the five the CRM carries.
-    'Läge' => $item['surroundings']['area'] ?? ($area['surroundings']['area'] ?? null),
-    'Kommunikation' => $item['surroundings']['communication'] ?? ($area['surroundings']['communication'] ?? null),
-    'Skolor och service' => $item['surroundings']['service'] ?? ($area['surroundings']['service'] ?? null),
-    'Parkering' => $item['surroundings']['parking'] ?? ($area['surroundings']['parking'] ?? null),
-    'Övrigt' => $item['surroundings']['other'] ?? ($area['surroundings']['other'] ?? null),
-], fn (mixed $value): bool => is_string($value) && $value !== '');
-$area_images = array_slice(is_array($area['images'] ?? null) ? $area['images'] : [], 0, 2);
+// What the page shows from other records is a live part, a list of this home with a card that
+// renders it (core/list-part.php, Patric 231 a): rendered here and refreshed in the browser like
+// every list, so a kept page never shows an agent, the association or the area as they were.
+$part = fn (string $card): string => core_client_list(['entity' => 'property', 'ids' => (string) ($item['id'] ?? ''), 'per_page' => 1, 'page' => 1, 'wrapper' => 'part', 'card' => $card, 'styleisolation' => false])['html'];
 $lat = is_numeric($item['lat'] ?? null) ? (float) $item['lat'] : null;
 $lng = is_numeric($item['lng'] ?? null) ? (float) $item['lng'] : null;
 
@@ -192,7 +140,7 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
                                 <?php if ($viewing['comment'] !== '') : ?><span class="k-viewing__comment"><?php echo esc_html($viewing['comment']); ?></span><?php endif; ?>
                             </div>
                             <?php // Opens the booking window on this viewing (data-viewing shows its times); without the window, the agent's card. ?>
-                            <?php if ($viewing['bookable']) : ?><a class="k-button" href="#k-agents" data-k-form="viewing" data-record="<?php echo esc_attr($record); ?>"<?php echo $viewing['id'] === '' ? '' : ' data-viewing="' . esc_attr($viewing['id']) . '"'; ?> data-home="<?php echo esc_attr($street_title); ?>"<?php echo $wishes === '' ? '' : ' data-wishes="' . esc_attr($wishes) . '"'; ?> data-contact="<?php echo esc_attr($contact); ?>">Boka här</a><?php endif; ?>
+                            <?php if ($viewing['bookable']) : ?><a class="k-button" href="#k-agents" data-k-form="viewing" data-record="<?php echo esc_attr($record); ?>"<?php echo $viewing['id'] === '' ? '' : ' data-viewing="' . esc_attr($viewing['id']) . '"'; ?> data-home="<?php echo esc_attr($street_title); ?>"<?php echo $wishes === '' ? '' : ' data-wishes="' . esc_attr($wishes) . '"'; ?>>Boka här</a><?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                     <div class="k-viewing k-viewing--empty" data-viewings-empty <?php echo $upcoming > 0 ? 'hidden' : ''; ?>>
@@ -222,60 +170,19 @@ echo kowboy_hero($hero, $hero_content, ['variant' => 'property', 'alt' => $stree
                     </div>
                 <?php endif; ?>
             <?php endif; ?>
-            <?php if ($agents !== []) : ?>
-                <div class="k-property__contact" id="k-agents">
-                    <?php foreach (['Ansvarig mäklare' => array_slice($agents, 0, 1), 'Kontakta även' => array_slice($agents, 1)] as $agents_title => $agents_group) : ?>
-                        <?php if ($agents_group !== []) : ?>
-                            <div class="k-property__agents">
-                                <h2 class="k-heading"><?php echo esc_html($agents_title); ?></h2>
-                                <?php foreach ($agents_group as $agent) : ?><?php echo kowboy_part('agent-card', ['item' => $agent['item'], 'post_id' => $agent['post_id']]); ?><?php endforeach; ?>
-                            </div>
-                        <?php endif; ?>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
+            <?php echo $part('home-agents'); ?>
         </aside>
     </div>
 
     <?php if (!$sold) : ?>
-        <div class="k-container k-property__interest"><?php echo kowboy_part('form-card', ['title' => 'Är du intresserad av bostaden?', 'text' => 'Anmäl ditt intresse så kontaktar vi dig.', 'label' => 'Anmäl intresse', 'form' => 'interest', 'record' => $record, 'href' => '#k-agents', 'home' => $street_title, 'wishes' => $wishes, 'contact' => $contact]); ?></div>
+        <div class="k-container k-property__interest"><?php echo kowboy_part('form-card', ['title' => 'Är du intresserad av bostaden?', 'text' => 'Anmäl ditt intresse så kontaktar vi dig.', 'label' => 'Anmäl intresse', 'form' => 'interest', 'record' => $record, 'href' => '#k-agents', 'home' => $street_title, 'wishes' => $wishes]); ?></div>
     <?php endif; ?>
 
     <?php echo kowboy_part('gallery', ['photos' => $gallery, 'alt' => $street]); ?>
 
-    <?php
-    // Every fact table as one accordion item: a definition list of its rows.
-    $tables = [];
-    foreach ($sections as $section) {
-        $items = is_array($section['items'] ?? null) ? $section['items'] : [];
-        if ($items === []) {
-            continue;
-        }
-        $rows = '';
-        foreach ($items as $row) {
-            $rows .= '<div class="k-kv__row"><dt>' . esc_html((string) ($row['label'] ?? '')) . '</dt><dd>' . (!empty($row['html']) ? wp_kses_post((string) $row['value']) : esc_html((string) ($row['value'] ?? ''))) . '</dd></div>';
-        }
-        $tables[] = ['label' => (string) ($section['header'] ?? ''), 'html' => '<dl class="k-kv">' . $rows . '</dl>'];
-    }
-    if ($resources_html !== '') {
-        $tables[] = ['label' => 'Dokument och länkar', 'html' => $resources_html];
-    }
-    ?>
-    <?php if ($tables !== []) : ?>
-        <div class="k-container k-property__tables"><?php echo kowboy_part('accordion', ['items' => $tables]); ?></div>
-    <?php endif; ?>
+    <?php echo $part('home-tables'); ?>
 
-    <?php if ($area_texts !== [] || $area_images !== []) : ?>
-        <section class="k-area">
-            <div class="k-container">
-                <h2 class="k-section__title"><?php echo esc_html(is_string($area['name'] ?? null) && $area['name'] !== '' ? $area['name'] : 'Område'); ?></h2>
-                <?php if ($area_images !== []) : ?>
-                    <div class="k-area__images"><?php foreach ($area_images as $image) : ?><figure><?php echo kowboy_image($image, '(min-width: 1024px) 588px, 100vw', (string) ($area['name'] ?? '')); ?></figure><?php endforeach; ?></div>
-                <?php endif; ?>
-                <?php if ($area_texts !== []) : ?><?php echo kowboy_part('accordion', ['items' => kowboy_text_items($area_texts)]); ?><?php endif; ?>
-            </div>
-        </section>
-    <?php endif; ?>
+    <?php echo $part('home-area'); ?>
 
     <?php if ($lat !== null && $lng !== null) : ?>
         <div class="k-map" data-map data-lat="<?php echo esc_attr((string) $lat); ?>" data-lng="<?php echo esc_attr((string) $lng); ?>" data-title="<?php echo esc_attr($street); ?>"></div>

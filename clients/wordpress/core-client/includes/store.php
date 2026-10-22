@@ -622,7 +622,11 @@ function core_client_search_columns(object $data): array
     ];
 }
 
-/** A tombstone: the post and its index row go, through wp_delete_post (deleted_post fires). */
+/**
+ * A tombstone: the post and its index row go. The post goes to the trash first and is then
+ * deleted, as WordPress's own admin removes one (Patric, 230 a): a cache plugin purges a page on
+ * the trash (wp_trash_post), and several never hear a delete that skips it. deleted_post fires too.
+ */
 function core_client_delete_item(string $datatype, string $connection_id, string $remote_id): void
 {
     global $wpdb;
@@ -636,6 +640,8 @@ function core_client_delete_item(string $datatype, string $connection_id, string
     if ($post_id === null) {
         return;
     }
+    // While the index row still names it as the CRM's, so the site's own save handler leaves it.
+    wp_trash_post((int) $post_id);
     $wpdb->delete($index, ['post_id' => (int) $post_id]);
     core_client_unlink((int) $post_id, $datatype, $remote_id);
     wp_delete_post((int) $post_id, true);

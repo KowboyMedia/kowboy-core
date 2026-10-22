@@ -4,10 +4,11 @@
 // against the reload endpoint with the same parameter set. The look stays the set's: it finds the
 // parts by their attributes, `[data-cards]`, `[data-more]` (a link to the next page),
 // `[data-empty]`, `[data-tab]` and `form[data-filters]`, and puts `is-loading` on the list while
-// cards load. After new cards go in it sends `core-list:cards` from the list, with the cards'
-// element as `detail.cards`, so the set can start what its cards need (Kowboy 2026: the photo
-// sliders). Plain JavaScript, on the page and inside every shadow root the plugin opens; no build
-// step.
+// cards load. After each load it sends `core-list:cards` from the list, with the cards' element as
+// `detail.cards` and whether they changed as `detail.changed`, so the set can start what its cards
+// need (Kowboy 2026: the photo sliders). The refresh on load asks for every list of the page in
+// one request. Plain JavaScript, on the page and inside every shadow root the plugin opens; no
+// build step.
 (function () {
   'use strict';
 
@@ -26,11 +27,12 @@
    * they changed. "Visa fler" is a link to the next page, which the script loads in place
    * instead, keeping the list's own parameter in the address in step, so a reload or the back
    * button finds the list as it was left; a tab, a filter or a search starts again from the
-   * first page.
+   * first page. It hands back its refresh on load, for start() to send with the other lists'.
    */
   function setup(list) {
-    if (list.dataset.ready) return;
-    list.dataset.ready = '1';
+    // A flag of its own, since a set may start its own script on the same element (a slider that is a list).
+    if (list.dataset.listReady) return null;
+    list.dataset.listReady = '1';
     var params = JSON.parse(list.dataset.params || '{}');
     var cards = list.querySelector('[data-cards]');
     var more = list.querySelector('[data-more]');
@@ -40,7 +42,7 @@
     var perPage = parseInt(list.dataset.perPage || '10', 10);
     var key = list.dataset.key || '';
     var queue = Promise.resolve();
-    if (!cards) return;
+    if (!cards) return null;
 
     /** The address with the list's own parameter at `shown` pages, none for the first. */
     function address(shown) {
@@ -50,29 +52,40 @@
       return url;
     }
 
-    /**
-     * Pages `from` to `to` (more than one only from the first, as the server builds them), after
-     * any load before it; `busy` dims the cards meanwhile.
-     */
-    function load(from, to, busy, show) {
-      var url = new URL(list.dataset.reload, window.location.href);
+    /** The parameter set of pages `from` to `to` (more than one only from the first, as the server builds them). */
+    function query(from, to) {
+      var set = {};
       Object.keys(params).forEach(function (name) {
         if (params[name] !== '' && params[name] !== null && params[name] !== undefined) {
-          url.searchParams.set(name, params[name]);
+          set[name] = params[name];
         }
       });
-      url.searchParams.set('page', String(to > from ? 1 : from));
-      url.searchParams.set('per_page', String(perPage * (to - from + 1)));
+      set.page = String(to > from ? 1 : from);
+      set.per_page = String(perPage * (to - from + 1));
+      return set;
+    }
+
+    /**
+     * Pages `from` to `to`, after any load before it; `busy` dims the cards meanwhile. `show`
+     * puts the answer in and returns false when it left the cards as they were; `answer` is the
+     * answer when it was already asked for (the refresh on load).
+     */
+    function load(from, to, busy, show, answer) {
       queue = queue
         .then(function () {
           if (busy) list.classList.add('is-loading');
-          return fetch(url.toString());
-        })
-        .then(function (response) {
-          return response.json();
+          if (answer) return answer;
+          var url = new URL(list.dataset.reload, window.location.href);
+          var set = query(from, to);
+          Object.keys(set).forEach(function (name) {
+            url.searchParams.set(name, set[name]);
+          });
+          return fetch(url.toString()).then(function (response) {
+            return response.json();
+          });
         })
         .then(function (result) {
-          show(result);
+          var changed = show(result) !== false;
           if (empty) empty.hidden = result.total > 0;
           if (more) {
             more.hidden = !result.has_more;
@@ -82,7 +95,7 @@
             new CustomEvent('core-list:cards', {
               bubbles: true,
               composed: true,
-              detail: { cards: cards },
+              detail: { cards: cards, changed: changed },
             }),
           );
         })
@@ -145,15 +158,66 @@
     }
     // The refresh on load, quietly: the cards change only when the list did.
     var hash = list.dataset.hash || '';
-    load(first, page, false, function (result) {
-      if (result.hash !== hash) cards.innerHTML = result.html;
-    });
+    return {
+      reload: list.dataset.reload,
+      query: query(first, page),
+      refresh: function (answer) {
+        load(
+          first,
+          page,
+          false,
+          function (result) {
+            if (result.hash === hash) return false;
+            cards.innerHTML = result.html;
+          },
+          answer,
+        );
+      },
+    };
   }
 
+  /**
+   * Every list of the page, and its refresh on load: one request for all of them (twenty at a
+   * time, as the endpoint answers), so a page with several lists starts WordPress once.
+   */
   function start() {
+    var refreshes = [];
     roots().forEach(function (root) {
-      root.querySelectorAll('[data-list]').forEach(setup);
+      root.querySelectorAll('[data-list]').forEach(function (list) {
+        var refresh = setup(list);
+        if (refresh) refreshes.push(refresh);
+      });
     });
+    for (var at = 0; at < refreshes.length; at += 20) {
+      var group = refreshes.slice(at, at + 20);
+      if (group.length === 1) {
+        group[0].refresh(null);
+        continue;
+      }
+      var url = new URL(group[0].reload, window.location.href);
+      url.searchParams.set(
+        'batch',
+        JSON.stringify(
+          group.map(function (one) {
+            return one.query;
+          }),
+        ),
+      );
+      var answers = fetch(url.toString())
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (body) {
+          return body.lists;
+        });
+      group.forEach(function (one, index) {
+        one.refresh(
+          answers.then(function (lists) {
+            return lists[index];
+          }),
+        );
+      });
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);

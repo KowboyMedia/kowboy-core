@@ -482,6 +482,11 @@ rendered first, then hydrated using ajax", with "/2/ pagination somewhere linkab
   198 a) in the plugin (`core-client/assets/list.js`), for every list in any theme whose wrapper
   carries the list's attributes; the theme keeps the look and starts the photo sliders of the
   cards the plugin's script puts in (`core-list:cards`).
+- **What a page shows from other records is live too** (plugin 0.10.1, theme 1.4.1, 2026-10-22,
+  Patric, 231 a): a home's agents, its fact tables with the association, its area, a hero's
+  photos of the newest homes and the testimonials are lists (a home's parts list the home itself
+  by `ids`, with a card that renders the part), so a page cache needs only a changed record's own
+  page purged. The refresh on load asks for all of a page's lists in one request (`?batch=`).
 
 ## Sharper card photos, 2026-10-21
 

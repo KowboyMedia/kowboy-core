@@ -10,7 +10,7 @@
 // $home (the home's street, shown in the window's heading; '' or unset for a lead), $wishes
 // (what the window's step "Söker du bostad?" takes from the home, as JSON; '' or unset for a lead)
 // and $contact (whom the window names when the form cannot be sent, as JSON; '' or unset for the
-// site's own).
+// agent of the page's agents part, or else the site's own).
 
 declare(strict_types=1);
 

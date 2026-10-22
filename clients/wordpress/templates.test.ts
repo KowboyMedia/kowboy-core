@@ -121,6 +121,16 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     });
     expect(second.has_more).toBe(false);
     expect(second.html).toContain('Kungsgatan 1');
+    // A page's lists in one request, as the browser refreshes them on load: one answer per set, in order.
+    const sets = [
+      { entity: 'property', status: 'active,pre', per_page: '2', page: '1' },
+      { entity: 'property', status: 'active,pre', per_page: '2', page: '2' },
+    ];
+    const batch = await fetch(
+      `${siteUrl}/?${new URLSearchParams({ rest_route: '/core/v1/list', batch: JSON.stringify(sets) }).toString()}`,
+    );
+    const { lists } = (await batch.json()) as { lists: { html: string; hash: string }[] };
+    expect(lists.map((one) => one.html.replace(/\u00a0/g, ' '))).toEqual([first.html, second.html]);
   });
 
   it('hands the reload the card a home list names, and not its wrapper', async () => {
@@ -555,11 +565,12 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     // step "Söker du bostad?" takes from the home; without the window, the agent's card.
     expect(
       body.match(
-        /<a class="k-button" href="#k-agents" data-k-form="viewing" data-record="property:[^":]+:P-3" data-viewing="[^"]+" data-home="Kungsgatan 3" data-wishes="[^"]+" data-contact="[^"]+">Boka här<\/a>/g,
+        /<a class="k-button" href="#k-agents" data-k-form="viewing" data-record="property:[^":]+:P-3" data-viewing="[^"]+" data-home="Kungsgatan 3" data-wishes="[^"]+">Boka här<\/a>/g,
       ),
     ).toHaveLength(1);
-    // A form that could not be sent names the home's agent to contact instead (218).
-    const contact = /data-k-form="viewing"[^>]* data-contact="([^"]+)"/.exec(body)?.[1] ?? '';
+    // A form that could not be sent names the home's agent to contact instead (218), as the live
+    // agents part shows them now: the window reads it from there.
+    const contact = /id="k-agents" data-contact="([^"]+)"/.exec(body)?.[1] ?? '';
     expect(JSON.parse(contact.replaceAll('&quot;', '"'))).toEqual({
       phone: '070-123 45 67',
       tel: '0701234567',
@@ -574,7 +585,37 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     });
     // Without a viewing, the box's button takes the visitor to the agent's contact (Patric, 2026-10-04).
     expect(body).toContain('<a class="k-button" href="#k-agents">Kontakta oss</a>');
-    expect(body).toContain('<div class="k-property__contact" id="k-agents">');
+    expect(body).toContain('<div class="k-property__contact" id="k-agents" data-contact="');
+    // What the page shows from other records is a live part, a list of the home itself refreshed
+    // in the browser like every list (231 a): the agents, the fact tables and the area.
+    for (const card of ['home-agents', 'home-tables', 'home-area']) {
+      expect(body).toMatch(
+        new RegExp(
+          `<div class="k-live" data-list="property" [^>]*data-params="[^"]*&quot;ids&quot;:&quot;P-3&quot;[^"]*&quot;card&quot;:&quot;${card}&quot;`,
+        ),
+      );
+    }
+    // The browser's refresh renders each part as the page did, so an unchanged part is left as it is.
+    const lives = [
+      ...body.matchAll(
+        /<div class="k-live" data-list="property" [^>]*data-params="([^"]+)"[^>]* data-hash="([0-9a-f]+)"/g,
+      ),
+    ];
+    expect(lives).toHaveLength(3);
+    for (const [, params, hash] of lives) {
+      const set = JSON.parse(params!.replaceAll('&quot;', '"')) as Record<string, string>;
+      const fresh = (await reload({ ...set, page: '1' })) as unknown as { hash: string };
+      expect(fresh.hash, set['card']).toBe(hash);
+    }
+    const parts = await reload({
+      entity: 'property',
+      ids: 'P-3',
+      per_page: '1',
+      card: 'home-agents',
+    });
+    expect(parts.total).toBe(1);
+    expect(parts.html).toContain('<div class="k-property__contact" id="k-agents" data-contact="');
+    expect(parts.html.indexOf('Anna Andersson')).toBeLessThan(parts.html.indexOf('Bertil Berg'));
     // The bids, latest first, the cancelled one marked, and the highest standing bid from display (R-008).
     expect(body).toContain('<span class="k-label">Högsta bud</span><strong>5 100 000 kr</strong>');
     expect(body.indexOf('5 300 000 kr')).toBeLessThan(body.indexOf('5 050 000 kr'));
@@ -638,7 +679,7 @@ describe('the set Kowboy 2026 on the WordPress client', () => {
     // which talks to the plugin's receivers on the site, never to Core or a CRM, and carries the
     // bot check's public key as Core gives it.
     expect(body).toMatch(
-      /<a class="k-button k-button--light k-lead__button" href="#k-agents" data-k-form="interest" data-record="property:[^":]+:P-3" data-home="Kungsgatan 3" data-wishes="[^"]+" data-contact="[^"]+">Anmäl intresse<\/a>/,
+      /<a class="k-button k-button--light k-lead__button" href="#k-agents" data-k-form="interest" data-record="property:[^":]+:P-3" data-home="Kungsgatan 3" data-wishes="[^"]+">Anmäl intresse<\/a>/,
     );
     expect(body).toMatch(
       /<dialog class="k-form" data-endpoint="[^"]*core\/v1\/forms" data-slots="[^"]*core\/v1\/forms\/slots" data-contact="[^"]+" data-human-key="1x00000000000000000000AA"/,
@@ -1248,11 +1289,25 @@ describe('the plugin’s set machinery, with a set plugin', () => {
       await driver('option', 'core_client_template_set ""');
       await driver('theme', 'kowboy-2026');
     }
-    // Kowboy 2026's lists run on it too, and a page without a list loads none.
+    // Kowboy 2026's lists run on it too, a home's live parts among them, and a page without a list loads none.
     expect((await page('/?post_type=core_property')).body).toContain('core-client/assets/list.js');
-    expect((await page(await permalink('property', 'P-3'))).body).not.toContain(
+    expect((await page(await permalink('property', 'P-3'))).body).toContain(
       'core-client/assets/list.js',
     );
+    const { stdout: plain } = await wp(
+      'post',
+      'create',
+      '--post_type=page',
+      '--post_status=publish',
+      '--post_title=Utan listor',
+      '--porcelain',
+    );
+    try {
+      const url = (await wp('post', 'url', plain.trim())).stdout.trim();
+      expect((await page(pathOf(url))).body).not.toContain('core-client/assets/list.js');
+    } finally {
+      await wp('post', 'delete', plain.trim(), '--force');
+    }
   });
 
   it('registers the two list blocks in the plugin, renders them through the set’s views restricted to the picks, serves the picks to an editor only, and leaves the theme’s wrappers their background and text card', async () => {
