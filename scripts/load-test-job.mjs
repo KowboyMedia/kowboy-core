@@ -126,7 +126,13 @@ function pull(token, after) {
         response.on('end', async () => {
           const total = performance.now() - started;
           let body = Buffer.concat(chunks);
-          if (response.headers['content-encoding'] === 'gzip') body = await inflate(body);
+          try {
+            if (response.headers['content-encoding'] === 'gzip') body = await inflate(body);
+          } catch (error) {
+            // A page that does not unpack is a failed request, named in the result.
+            resolve({ status: 0, ttfb, total, error: `unreadable page: ${String(error)}` });
+            return;
+          }
           // The page's end says where the next starts; reading only the end keeps this process light.
           const tail = body.subarray(Math.max(0, body.length - 200)).toString();
           const next = Number(/"next_after":(\d+)/.exec(tail)?.[1] ?? after);
@@ -218,7 +224,10 @@ function sampleQueries(big, samples) {
   const first = big.last - big.count;
   return setInterval(() => {
     const after = first + Math.floor(Math.random() * (big.count / PAGE - 1)) * PAGE;
-    void queryTime(big, after).then((total) => samples.push({ total }));
+    void queryTime(big, after).then(
+      (total) => samples.push({ total }),
+      (error) => say(`A timed page from the database failed: ${String(error)}`),
+    );
   }, 3_000);
 }
 
@@ -274,6 +283,16 @@ async function reachable() {
     await new Promise((resolve) => setTimeout(resolve, 10_000));
   }
 }
+
+// Whatever stops this process is said on a line of its own, so the orchestrator shows it.
+process.on('uncaughtException', (error) => {
+  say(`Stopped: ${String(error)}`);
+  process.exit(1);
+});
+process.on('unhandledRejection', (error) => {
+  say(`Stopped: ${String(error)}`);
+  process.exit(1);
+});
 
 const tenants = await seed();
 await reachable();

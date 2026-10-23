@@ -260,7 +260,12 @@ async function run() {
   );
   for (const line of lines.filter((line) => /^\d\d:\d\d:\d\d /.test(line))) say(`Job: ${line}`);
   const result = lines.find((line) => line.startsWith(RESULT));
-  if (!result) throw new Error('the load part failed; its last lines are above');
+  if (!result) {
+    // Its last words, a crash's included, with any address cut so no setting is printed.
+    const last = lines.filter((line) => line.trim() !== '' && !/^\d\d:\d\d:\d\d /.test(line));
+    for (const line of last.slice(-8)) say(`Job: ${line.replace(/\w+:\/\/\S+/g, '<address>')}`);
+    throw new Error('the load part failed; its last lines are above');
+  }
   return JSON.parse(result.slice(RESULT.length));
 }
 
