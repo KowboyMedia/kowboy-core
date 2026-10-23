@@ -117,55 +117,39 @@ function kowboy_hero_media(array $links, array $images, string $vimeo_url = '', 
 }
 
 /**
- * Photos of the newest listings for sale, up to `$count`: the first photo of each listing, then
- * their second photos, and so on, so a slider shows different homes. The pictures a hero shows
- * when the page or the area has none of its own (Patric, 2026-10-03: up to five, sliding).
- * `$params` narrows the query (an area's listings).
+ * The newest listings' photos as a hero's media: up to five homes for sale, the first photo of
+ * each, sliding (Patric, 2026-10-03), what a page shows when it has no media of its own. A live
+ * part (core/list-hero-photos.php), so a kept page never shows a sold home's photo. `$params`
+ * narrows the homes (an area's) while any is for sale there; every listing's otherwise.
  *
  * @param array<string, mixed> $params
- * @return list<string>
+ * @return array{type: string, params: array<string, mixed>}
  */
-function kowboy_listing_photos(int $count, array $params = []): array
+function kowboy_hero_listings(array $params = []): array
 {
-    if (!function_exists('core_client_query') || $count < 1) {
-        return [];
+    if ($params !== [] && function_exists('core_client_query') && core_client_query($params + ['entity' => 'property', 'status' => 'for_sale', 'per_page' => 1])['total'] === 0) {
+        $params = [];
     }
-    $result = core_client_query($params + ['entity' => 'property', 'status' => 'for_sale', 'per_page' => $count]);
-    $rows = [];
-    foreach ($result['items'] as $row) {
-        $photos = [];
-        foreach (is_array($row['item']['images'] ?? null) ? $row['item']['images'] : [] as $photo) {
-            if (($photo['category'] ?? null) !== 'Planritning' && is_string($photo['url'] ?? null) && $photo['url'] !== '') {
-                $photos[] = $photo['url'];
-            }
-        }
-        if ($photos !== []) {
-            $rows[] = $photos;
-        }
-    }
-    $urls = [];
-    for ($index = 0; $rows !== [] && count($urls) < $count; $index++) {
-        $found = false;
-        foreach ($rows as $photos) {
-            if (isset($photos[$index]) && count($urls) < $count) {
-                $urls[] = $photos[$index];
-                $found = true;
-            }
-        }
-        if (!$found) {
-            break;
-        }
-    }
-    return $urls;
+    return ['type' => 'listings', 'params' => $params];
+}
+
+/**
+ * Where a hero slide stands among the hero's slides, from 0 (core/card-hero-photo.php): the first
+ * loads at once, and each has its own motion.
+ */
+function kowboy_hero_slide(): int
+{
+    static $index = -1;
+    return ++$index;
 }
 
 /**
  * The one hero, for a page, a property and an area (parts/hero.php): `$media` as
  * kowboy_hero_media gives it; when the page has no media of its own, the listings' photos
- * (`$options['fallback']` narrows them to an area's, with every listing's as the last resort),
- * so no page opens on a bare colour. The rest of `$options` goes to the part.
+ * (kowboy_hero_listings; `$options['fallback']` narrows them to an area's), so no page opens on
+ * a bare colour. The rest of `$options` goes to the part.
  *
- * @param array{type: string, id?: string, src?: string, images?: list<string>} $media
+ * @param array{type: string, id?: string, src?: string, images?: list<string>, params?: array<string, mixed>} $media
  * @param array<string, mixed> $options
  */
 function kowboy_hero(array $media, string $content, array $options = []): string
@@ -173,10 +157,7 @@ function kowboy_hero(array $media, string $content, array $options = []): string
     $fallback = is_array($options['fallback'] ?? null) ? $options['fallback'] : [];
     unset($options['fallback']);
     if ($media['type'] === 'none') {
-        $media = kowboy_hero_media([], kowboy_listing_photos(5, $fallback));
-    }
-    if ($media['type'] === 'none' && $fallback !== []) {
-        $media = kowboy_hero_media([], kowboy_listing_photos(5));
+        $media = kowboy_hero_listings($fallback);
     }
     return kowboy_part('hero', ['media' => $media, 'content' => $content] + $options);
 }

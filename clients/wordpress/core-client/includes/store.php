@@ -412,7 +412,8 @@ function core_client_index_row(string $datatype, string $connection_id, string $
  *
  * The post goes through wp_insert_post and wp_update_post, so WordPress fires what cache plugins
  * listen for (save_post, transition_post_status, clean_post_cache), and core_item_updated says
- * which item it was.
+ * which item it was. A new address goes through a draft first (above), as a page taken down and
+ * put up again.
  */
 function core_client_upsert_item(string $datatype, object $item, ?object $existing): int
 {
@@ -435,6 +436,12 @@ function core_client_upsert_item(string $datatype, object $item, ?object $existi
     }
     core_client_sync_writing(true);
     try {
+        // A record that moves to a new address (a home's status is in its address) is taken down and
+        // put up again at the new one, as an editor would, so a cache plugin purges the old address
+        // too: several purge an old address only when a page leaves the site, Breeze among them.
+        if ($existing !== null && get_post_status((int) $existing->post_id) === 'publish' && get_post_field('post_name', (int) $existing->post_id) !== $post['post_name']) {
+            wp_update_post(['ID' => (int) $existing->post_id, 'post_status' => 'draft']);
+        }
         $post_id = $existing !== null ? wp_update_post($post, true) : wp_insert_post($post, true);
     } finally {
         core_client_sync_writing(false);
@@ -622,7 +629,11 @@ function core_client_search_columns(object $data): array
     ];
 }
 
-/** A tombstone: the post and its index row go, through wp_delete_post (deleted_post fires). */
+/**
+ * A tombstone: the post and its index row go. The post goes to the trash first and is then
+ * deleted, as WordPress's own admin removes one (Patric, 230 a): a cache plugin purges a page on
+ * the trash (wp_trash_post), and several never hear a delete that skips it. deleted_post fires too.
+ */
 function core_client_delete_item(string $datatype, string $connection_id, string $remote_id): void
 {
     global $wpdb;
@@ -636,6 +647,8 @@ function core_client_delete_item(string $datatype, string $connection_id, string
     if ($post_id === null) {
         return;
     }
+    // While the index row still names it as the CRM's, so the site's own save handler leaves it.
+    wp_trash_post((int) $post_id);
     $wpdb->delete($index, ['post_id' => (int) $post_id]);
     core_client_unlink((int) $post_id, $datatype, $remote_id);
     wp_delete_post((int) $post_id, true);

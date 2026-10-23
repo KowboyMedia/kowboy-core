@@ -10,7 +10,7 @@ $media = match ((string) ($attributes['mediaType'] ?? 'images')) {
     'vimeo' => kowboy_hero_media([], [], (string) ($attributes['vimeoUrl'] ?? '')),
     'video' => kowboy_hero_media([], [], '', (string) ($attributes['video']['url'] ?? '')),
     // The listings' photos: up to five, sliding (Patric, 2026-10-03); also what a hero without media of its own shows.
-    'properties' => kowboy_hero_media([], kowboy_listing_photos(5)),
+    'properties' => kowboy_hero_listings(),
     default => kowboy_hero_media([], $images),
 };
 $buttons = '';

@@ -3,7 +3,7 @@
 // image, or several in a Swiper slider with a slight Ken Burns motion), the dark overlay, and
 // the content over it. A page's hero and a property's hero are this part with different content.
 //
-// In scope: $media (kowboy_hero_media), $content (HTML), $variant ('page' or 'property'),
+// In scope: $media (kowboy_hero_media, or kowboy_hero_listings), $content (HTML), $variant ('page' or 'property'),
 // $wrapper (the opening tag's attributes, optional), $eager (the first image loads at once),
 // $extra (HTML placed on the hero itself, after the content: the search card on its lower edge),
 // $swipe (the slider slides on a swipe instead of fading by itself; the slides carry their index).
@@ -26,6 +26,9 @@ $sizes = '(max-width: 767px) 250vw, 100vw';
             <video class="k-hero__video" src="<?php echo esc_url((string) $media['src']); ?>" autoplay muted loop playsinline></video>
         <?php elseif ($media['type'] === 'images' && count($media['images']) === 1) : ?>
             <?php echo kowboy_image($media['images'][0], $sizes, $alt, ['class' => 'k-hero__image'], $eager); ?>
+        <?php elseif ($media['type'] === 'listings' && function_exists('core_client_list')) : ?>
+            <?php // The newest listings' photos, a live part (kowboy_hero_listings): the slider is the list, each home a slide. ?>
+            <?php echo core_client_list(['entity' => 'property', 'status' => 'for_sale', 'per_page' => 5, 'page' => 1, 'wrapper' => 'hero-photos', 'card' => 'hero-photo', 'styleisolation' => false, 'swipe' => $swipe ? '1' : '', 'alt' => $alt] + $media['params'])['html']; ?>
         <?php elseif ($media['type'] === 'images') : ?>
             <div class="swiper k-hero__slider" data-hero-slider<?php echo $swipe ? ' data-hero-swipe' : ''; ?>>
                 <div class="swiper-wrapper">

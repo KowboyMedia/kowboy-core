@@ -7,7 +7,8 @@
 // editor code. The two list blocks are thin wrappers of the plugin's list settings
 // (`coreClientList` in their block.json names which, and the plugin merges its settings into
 // theirs as they register): the plugin's one render function, the theme's section around it.
-// The plugin must be 0.5.1 or newer before this theme version goes on a site.
+// The plugin must be 0.10.1 or newer before this theme version goes on a site (the live parts name
+// their records by `ids`).
 
 declare(strict_types=1);
 
@@ -33,4 +34,39 @@ add_filter('block_categories_all', function (array $categories): array {
 function kowboy_section_open(string $class, array $extra = []): string
 {
     return '<section ' . get_block_wrapper_attributes(['class' => 'k-section ' . $class] + $extra) . '>';
+}
+
+/**
+ * Quotes as the testimonials' slides: a quote and its author each.
+ *
+ * @param list<array{quote: string, author?: string}> $items
+ */
+function kowboy_testimonial_slides(array $items): string
+{
+    $html = '';
+    foreach ($items as $item) {
+        $html .= '<div class="swiper-slide"><blockquote class="k-testimonial"><p class="k-testimonial__quote">' . esc_html($item['quote']) . '</p>';
+        if (($item['author'] ?? '') !== '') {
+            $html .= '<footer class="k-testimonial__author">' . esc_html((string) $item['author']) . '</footer>';
+        }
+        $html .= '</blockquote></div>';
+    }
+    return $html;
+}
+
+/**
+ * The quotes the testimonials block's editor wrote, for its slider to show while Core carries no
+ * review (core/list-testimonials.php): the block names them before it renders the list, and
+ * the list's wrapper reads them.
+ *
+ * @param list<array{quote: string, author?: string}>|null $set
+ * @return list<array{quote: string, author?: string}>
+ */
+function kowboy_testimonial_quotes(?array $set = null): array
+{
+    static $quotes = [];
+    if ($set !== null) {
+        $quotes = $set;
+    }
+    return $quotes;
 }

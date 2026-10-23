@@ -734,13 +734,27 @@
       }
     }
 
+    /**
+     * Whom the window names when the form cannot be sent: the button's own, else for a home the
+     * agent its page's live agents part shows now (core/card-home-agents.php), else the site.
+     */
+    function contactFor(button) {
+      var agents =
+        button.dataset.kForm === 'lead' ? null : button.getRootNode().getElementById('k-agents');
+      return (
+        parsed(button.dataset.contact) ||
+        parsed(agents && agents.dataset.contact) ||
+        parsed(dialog.dataset.contact)
+      );
+    }
+
     function open(button) {
       kind = button.dataset.kForm;
       record = kind === 'lead' ? null : recordRef(button.dataset.record || '');
       home = button.dataset.home || '';
       viewingId = button.dataset.viewing || '';
       wishes = kind === 'lead' ? null : parsed(button.dataset.wishes);
-      contact = parsed(button.dataset.contact) || parsed(dialog.dataset.contact);
+      contact = contactFor(button);
       sentWith = null;
       retryStep = 'person';
       viewings = [];
@@ -1145,9 +1159,24 @@
     each('dialog.k-form', setupFormWindow);
   }
 
-  // New cards from the plugin's list script, after a refresh, a tab, a filter or "Visa fler".
+  /** A slider whose slides a list replaced: the old one goes, and it starts again on the new slides. */
+  function resetSlider(container, setupSlider) {
+    if (container.swiper) container.swiper.destroy(true, true);
+    delete container.dataset.ready;
+    setupSlider(container);
+  }
+
+  // New cards from the plugin's list script, after a refresh, a tab, a filter or "Visa fler": what
+  // the cards hold starts (a live part's accordions and links too), and a slider that is itself a
+  // list (a hero's listing photos, the testimonials) starts again when its slides changed.
   document.addEventListener('core-list:cards', function (event) {
-    event.detail.cards.querySelectorAll('[data-card-slider]').forEach(setupCardSlider);
+    var cards = event.detail.cards;
+    cards.querySelectorAll('[data-card-slider]').forEach(setupCardSlider);
+    cards.querySelectorAll('[data-accordion-button]').forEach(setupAccordion);
+    cards.querySelectorAll('a[href^="#"]:not([href="#"])').forEach(setupAnchor);
+    if (!event.detail.changed || !(event.target instanceof Element)) return;
+    if (event.target.matches('[data-hero-slider]')) resetSlider(event.target, setupHeroSlider);
+    if (event.target.matches('[data-testimonials]')) resetSlider(event.target, setupTestimonials);
   });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);

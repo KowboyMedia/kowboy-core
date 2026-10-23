@@ -23,6 +23,12 @@ function core_client_query_condition(array $params): array
     // A draft (the site's own records, includes/site-records.php) is not on the site; a CRM record is always published.
     $where = ['i.datatype = %s', "p.post_status = 'publish'"];
     $args = [$entity];
+    // Exactly the records a page names (a home's agents, its association, its area): no other filter applies.
+    $ids = core_client_query_list($params['ids'] ?? null);
+    if ($ids !== []) {
+        $where[] = 'i.remote_id IN (' . implode(',', array_fill(0, count($ids), '%s')) . ')';
+        return [implode(' AND ', $where), [...$args, ...$ids]];
+    }
 
     foreach (['status' => 'status_id', 'type' => 'type_id', 'tenure' => 'tenure_id'] as $param => $column) {
         $values = core_client_query_list($params[$param] ?? null);
@@ -134,6 +140,8 @@ function core_client_query_condition(array $params): array
  *                   token is the pick's id (includes/blocks.php). A name with a comma in it is not indexed, since
  *                   the comma is the list's own mark; the type id is an enum id, without a colon
  *   project, association   the id of the project or association the items belong to
+ *   ids             exactly these records, comma-separated or a list, in this order, as a page names them
+ *                   (a home's agents, its association, its area); every other filter is left out
  *   include_project_homes         properties that name a project are otherwise kept out (question 55)
  *   include_hidden                agents the CRM keeps out of the staff list (on the record or an office) are otherwise kept out
  *   sort            newest (default for properties), sold, price_asc, price_desc, updated, name (default
@@ -149,7 +157,11 @@ function core_client_query(array $params): array
     [$condition, $args] = core_client_query_condition($params);
     $per_page = max(1, (int) ($params['per_page'] ?? CORE_CLIENT_PER_PAGE));
     $page = max(1, (int) ($params['page'] ?? 1));
-    $order = core_client_query_order((string) ($params['sort'] ?? ''), $entity);
+    $ids = core_client_query_list($params['ids'] ?? null);
+    // Named records come in the order named (a home's responsible agent first).
+    $order = $ids !== []
+        ? 'FIELD(i.remote_id, ' . implode(', ', array_map(fn (string $id): string => (string) $wpdb->prepare('%s', $id), $ids)) . ')'
+        : core_client_query_order((string) ($params['sort'] ?? ''), $entity);
 
     $total = (int) $wpdb->get_var($wpdb->prepare(
         "SELECT COUNT(*) FROM $index i JOIN {$wpdb->posts} p ON p.ID = i.post_id WHERE $condition",

@@ -88,7 +88,7 @@ function core_driver_reset(): array
  */
 function core_driver_sync(string $kind): array
 {
-    $hooks = ['save_post' => 0, 'deleted_post' => 0, 'clean_post_cache' => 0, 'core_item_updated' => 0, 'core_item_deleted' => 0];
+    $hooks = ['save_post' => 0, 'pre_post_update' => 0, 'publish_to_draft' => 0, 'wp_trash_post' => 0, 'deleted_post' => 0, 'clean_post_cache' => 0, 'core_item_updated' => 0, 'core_item_deleted' => 0];
     foreach (array_keys($hooks) as $hook) {
         add_action($hook, function () use (&$hooks, $hook): void {
             $hooks[$hook] += 1;

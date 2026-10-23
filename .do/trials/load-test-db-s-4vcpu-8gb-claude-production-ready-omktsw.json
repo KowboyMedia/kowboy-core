@@ -1,0 +1,94 @@
+{
+  "ran": "2026-10-23T02:14:16.023Z",
+  "databaseSize": "db-s-4vcpu-8gb",
+  "web": "as staging",
+  "branch": "claude/production-ready-omktsw",
+  "tests": {
+    "the load test at ten times launch answers 100-item pages within 100 ms to the first byte and 300 ms in full, p95": "failed"
+  },
+  "measured": {
+    "tenants": 200,
+    "big": 300000,
+    "others": 500,
+    "pages": {
+      "count": 8725,
+      "ttfb": {
+        "p50": 69,
+        "p95": 448
+      },
+      "total": {
+        "p50": 251,
+        "p95": 707
+      }
+    },
+    "partial": {
+      "count": 1146,
+      "ttfb": {
+        "p50": 20,
+        "p95": 106
+      },
+      "total": {
+        "p50": 21,
+        "p95": 106
+      }
+    },
+    "deltas": {
+      "count": 9221,
+      "ttfb": {
+        "p50": 24,
+        "p95": 192
+      },
+      "total": {
+        "p50": 24,
+        "p95": 195
+      }
+    },
+    "failed": 0,
+    "firstFailures": [],
+    "alone": {
+      "query": {
+        "p50": 228,
+        "p95": 647
+      },
+      "pulled": {
+        "count": 30,
+        "ttfb": {
+          "p50": 52,
+          "p95": 256
+        },
+        "total": {
+          "p50": 246,
+          "p95": 499
+        }
+      }
+    },
+    "queryUnderLoad": {
+      "p50": 234,
+      "p95": 456
+    },
+    "target": {
+      "ttfb": 100,
+      "total": 300
+    },
+    "passed": false
+  },
+  "steps": [
+    "00:58:44 The database server core-load-test-10 is being made, of the size db-s-4vcpu-8gb.",
+    "01:02:27 The app core-load-test-10 is being made from staging's version, its server reachable from it alone.",
+    "01:05:33 The app has its address; its load part is added, and starts with the next deploy.",
+    "02:14:13 Job: 01:08:00 Seeded 1 of 200 tenants.",
+    "02:14:13 Job: 01:08:11 Seeded 50 of 200 tenants.",
+    "02:14:13 Job: 01:08:21 Seeded 100 of 200 tenants.",
+    "02:14:13 Job: 01:08:32 Seeded 150 of 200 tenants.",
+    "02:14:13 Job: 01:08:43 Seeded 200 of 200 tenants.",
+    "02:14:13 Job: 01:58:12 Made the page parts of 399500 records in 2969 s.",
+    "02:14:13 Job: 01:58:12 The database holds 399500 records, 9314 MB in all.",
+    "02:14:13 Job: 01:58:29 Alone: the database 228 ms a page (p95 647); through the app first byte 52 ms, whole 246 ms (p95 256 and 499).",
+    "02:14:13 Job: 01:58:29 Pulling: the big tenant from 0, two other sites from 0, 10 delta pulls a second.",
+    "02:14:13 Job: 02:13:59 100-item pages: 8725, first byte p95 448 ms (target under 100), whole page p95 707 ms (target under 300).",
+    "02:14:13 Job: 02:13:59 Under load the database took 234 ms a page (p95 456).",
+    "02:14:13 Job: 02:13:59 Delta pulls: 9221, first byte p95 192 ms, whole p95 195 ms. Failed requests: 0.",
+    "02:14:14 The app core-load-test-10 deleted.",
+    "02:14:16 The database server core-load-test-10 deleted."
+  ]
+}
