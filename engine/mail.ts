@@ -29,6 +29,13 @@ export async function sendMail(mail: Mail): Promise<void> {
 
 export type SesKeys = { accessKeyId: string; secretAccessKey: string; region: string };
 
+/**
+ * Who mail comes from: the service's name, with the environment outside production so a staging
+ * alert never reads as live's (Patric, 2026-10-24: the service as the name, no subject prefix).
+ */
+export const from = (environment: string, address: string): string =>
+  `${environment === 'production' ? 'Kowboy Core' : `Kowboy Core ${environment}`} <${address}>`;
+
 /** SES's single-email endpoint (API v2): the text, and the HTML copy when the mail has one. */
 export const ses =
   (keys: SesKeys, from: string): Sender =>
