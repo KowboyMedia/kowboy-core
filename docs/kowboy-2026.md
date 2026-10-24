@@ -487,6 +487,10 @@ rendered first, then hydrated using ajax", with "/2/ pagination somewhere linkab
   photos of the newest homes and the testimonials are lists (a home's parts list the home itself
   by `ids`, with a card that renders the part), so a page cache needs only a changed record's own
   page purged. The refresh on load asks for all of a page's lists in one request (`?batch=`).
+  Since plugin 0.10.3 and theme 1.4.2 (2026-10-24) a hero's photos are again up to five, the
+  first photo of each home and then their second ones (a card gets its place in the list and the
+  list's rows), and the search box drives the first list of homes a visitor pages through, never
+  a hero's photos or a part of a home's page.
 
 ## Sharper card photos, 2026-10-21
 

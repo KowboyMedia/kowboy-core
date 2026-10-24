@@ -189,11 +189,15 @@ function core_client_list(array $params): array
     $result['key'] = $key;
     $card = core_client_list_view('card', $params['card'] ?? null, $params['entity']);
     $cards = '';
-    foreach ($result['items'] as $row) {
+    // Each card also gets its place in the answer and the answer's rows, for a card that shares
+    // something out among the records (a hero's photos, a few from each home).
+    foreach ($result['items'] as $position => $row) {
         $cards .= core_client_render($card, [
             'post_id' => $row['post_id'],
             'item' => $row['item'],
             'params' => $params,
+            'position' => $position,
+            'neighbours' => $result['items'],
         ]);
     }
     // The cards' fingerprint, so a page's refresh replaces them only when they changed.

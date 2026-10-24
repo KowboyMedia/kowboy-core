@@ -117,8 +117,9 @@ function kowboy_hero_media(array $links, array $images, string $vimeo_url = '', 
 }
 
 /**
- * The newest listings' photos as a hero's media: up to five homes for sale, the first photo of
- * each, sliding (Patric, 2026-10-03), what a page shows when it has no media of its own. A live
+ * The newest listings' photos as a hero's media: up to five photos of the homes for sale, the
+ * first photo of each, then their second photos, and so on, sliding (Patric, 2026-10-03), what a
+ * page shows when it has no media of its own. A live
  * part (core/list-hero-photos.php), so a kept page never shows a sold home's photo. `$params`
  * narrows the homes (an area's) while any is for sale there; every listing's otherwise.
  *
@@ -131,16 +132,6 @@ function kowboy_hero_listings(array $params = []): array
         $params = [];
     }
     return ['type' => 'listings', 'params' => $params];
-}
-
-/**
- * Where a hero slide stands among the hero's slides, from 0 (core/card-hero-photo.php): the first
- * loads at once, and each has its own motion.
- */
-function kowboy_hero_slide(): int
-{
-    static $index = -1;
-    return ++$index;
 }
 
 /**
