@@ -7,8 +7,8 @@
 // editor code. The two list blocks are thin wrappers of the plugin's list settings
 // (`coreClientList` in their block.json names which, and the plugin merges its settings into
 // theirs as they register): the plugin's one render function, the theme's section around it.
-// The plugin must be 0.10.1 or newer before this theme version goes on a site (the live parts name
-// their records by `ids`).
+// The plugin must be 0.10.3 or newer before this theme version goes on a site (the live parts name
+// their records by `ids`, and a hero's photos card reads its place among the list's rows).
 
 declare(strict_types=1);
 

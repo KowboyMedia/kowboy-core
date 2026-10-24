@@ -70,13 +70,17 @@
       });
       window.history.replaceState(window.history.state, '', url.toString());
     }
-    /** The list the box drives: the one around it, else the first list of homes on the page. */
+    /**
+     * The list the box drives: the one around it, else the first list of homes on the page that a
+     * visitor pages through, which has its own address parameter. A list whose caller names its
+     * page (a hero's photos, a part of a home's page) shows what it was made for and is not one.
+     */
     function target() {
       var around = box.closest('[data-list]');
       if (around) return around;
       var found = null;
       roots().forEach(function (root) {
-        if (!found) found = root.querySelector('[data-list="property"]');
+        if (!found) found = root.querySelector('[data-list="property"]:not([data-key=""])');
       });
       return found;
     }

@@ -93,9 +93,25 @@
    * out of view waits at the start of its motion, so it shows that first moment as it fades in or
    * is dragged in; it moves from the moment it is the photo shown, and goes back to the start only
    * once it has faded out completely, so nothing jumps. A hero marked `data-hero-swipe` (a
-   * property's) also moves on a swipe or a drag, with the same fade.
+   * property's) also moves on a swipe or a drag, with the same fade. The slides go in the order
+   * their indexes give: a hero of listings' photos has each home's photos together, and takes
+   * one of each home in turn.
    */
   function setupHeroSlider(container) {
+    var wrapper = container.querySelector('.swiper-wrapper');
+    if (wrapper) {
+      Array.prototype.slice
+        .call(wrapper.children)
+        .sort(function (a, b) {
+          return (
+            (parseInt(a.dataset.index || '0', 10) || 0) -
+            (parseInt(b.dataset.index || '0', 10) || 0)
+          );
+        })
+        .forEach(function (slide) {
+          wrapper.appendChild(slide);
+        });
+    }
     var instance = swiper(container, {
       loop: container.querySelectorAll('.swiper-slide').length > 1,
       effect: 'fade',
