@@ -29,9 +29,6 @@ services:
       - key: DATABASE_CA_CERT
         value: ${db.CA_CERT}
         scope: RUN_TIME
-      - key: MAIL_FROM
-        value: patric@kowboy.se
-        scope: RUN_TIME
       - key: SENTRY_ENVIRONMENT
         value: production
         scope: RUN_TIME
@@ -43,11 +40,21 @@ services:
       # took its own address: it is where the sign-in link and the links in alerts point. The mail
       # settings and the lists of who may open the area reached the live app on 2026-10-03 (Patric,
       # closing question 87); before that the app carried none of them, whatever this file said.
-      # The Postmark token is set on the app, encrypted by DigitalOcean; its encrypted value comes
-      # into this file the next time it is refreshed from the app (`doctl apps spec get`).
-      - key: POSTMARK_SERVER_TOKEN
+      # Mail through Amazon SES (Patric, 2026-10-24), set on the live app at the final release in
+      # place of Postmark's MAIL_FROM and POSTMARK_SERVER_TOKEN; the secrets are encrypted by
+      # DigitalOcean and come into this file the next time it is refreshed from the app.
+      - key: AWS_SES_AWS_ACCESS_KEY_ID
         scope: RUN_TIME
         type: SECRET
+      - key: AWS_SES_SECRET_ACCESS_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: AWS_SES_AWS_REGION
+        value: eu-north-1
+        scope: RUN_TIME
+      - key: AWS_SES_SENDER
+        value: noreply@mail.kowboy.se
+        scope: RUN_TIME
       - key: ADMIN_EMAILS
         value: patric@kowboy.se
         scope: RUN_TIME

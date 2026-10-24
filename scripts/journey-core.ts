@@ -17,8 +17,8 @@ process.env['CREDENTIALS_KEY'] ??= Buffer.alloc(32).toString('base64');
 process.env['ADMIN_EMAILS'] = 'tester@kowboy.se';
 process.env['BELL_THROTTLE_MS'] ??= '50';
 // No mail sender, so the sign-in link comes back in the answer: the only way in on a machine
-// with no Postmark token, and what the journey's sign-in page shows.
-delete process.env['POSTMARK_SERVER_TOKEN'];
+// with no SES keys, and what the journey's sign-in page shows.
+delete process.env['AWS_SES_AWS_ACCESS_KEY_ID'];
 delete process.env['SENTRY_ENVIRONMENT'];
 
 /** A few records to onboard against, enough for a grid, a record page and a recompute. */

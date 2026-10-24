@@ -64,13 +64,11 @@ if (env.VITEC_USERNAME && env.VITEC_PASSWORD && env.VITEC_OFFICE_ID) {
     'Vitec partner login (VITEC_USERNAME, VITEC_PASSWORD, VITEC_OFFICE_ID; reads the production office of a client, never a write target): not set',
   );
 
-if (env.POSTMARK_SERVER_TOKEN) {
-  checks.push(
-    probe('Postmark (POSTMARK_SERVER_TOKEN)', 'https://api.postmarkapp.com/server', {
-      headers: { accept: 'application/json', 'x-postmark-server-token': env.POSTMARK_SERVER_TOKEN },
-    }),
-  );
-} else checks.push('Postmark (POSTMARK_SERVER_TOKEN): not set');
+// SES's sending keys may send and nothing else, so no call can ask whether they answer without
+// sending a mail; only whether they are set is told.
+checks.push(
+  `Amazon SES (AWS_SES_*): ${env.AWS_SES_AWS_ACCESS_KEY_ID && env.AWS_SES_SECRET_ACCESS_KEY && env.AWS_SES_AWS_REGION && env.AWS_SES_SENDER ? 'set' : 'not set'}`,
+);
 
 console.log('Credentials in this environment:');
 for (const line of await Promise.all(checks)) console.log(`- ${line}`);

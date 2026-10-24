@@ -357,7 +357,7 @@ drive directly.
   `problem`, and for a site its number, tenant and name in `sites`; the end also the first
   sentence of its start in `said` and how long it lasted in `lasted_ms`). A P0
   problem is told once it has lasted five minutes and a P1 once it has lasted 15, by mail
-  (`ALERT_EMAIL`, through Postmark: `POSTMARK_SERVER_TOKEN`, `MAIL_FROM`) and to a Slack incoming
+  (`ALERT_EMAIL`, through Amazon SES: the `AWS_SES_*` settings) and to a Slack incoming
   webhook (`ALERT_SLACK_WEBHOOK_URL`), once, and its end once if its start was told; one that ends
   sooner is only in the event log (rules A and D). While a P0 is open only P0 problems are told,
   and the rest wait until it ends (rule B). A P1 event on "Needs attention" is told at the next
@@ -520,4 +520,4 @@ it right. Any other event an adapter logs stays in the log.
   holds one connection and every page follows along.
 - **Settings it reads**: `ADMIN_EMAILS` and `ADMIN_EMAIL_DOMAINS` (who may open it),
   `ADMIN_LINK_MINUTES`, `ADMIN_SESSION_DAYS`, `ADMIN_REMEMBER_DAYS`, and the engine's own
-  `PUBLIC_URL`, `MAIL_FROM` and `POSTMARK_SERVER_TOKEN` for the sign-in mail.
+  `PUBLIC_URL` and the `AWS_SES_*` settings for the sign-in mail.

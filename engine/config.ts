@@ -2,9 +2,8 @@
 export type Config = {
   databaseUrl: string;
   port: number;
-  /** The alert mail's sender and the token of the service that sends it; unset means no mail. */
-  mailFrom: string | null;
-  postmarkServerToken: string | null;
+  /** Amazon SES's sending keys and the mail's sender (`AWS_SES_*`); any of them unset means no mail. */
+  ses: { accessKeyId: string; secretAccessKey: string; region: string; sender: string } | null;
   credentialsKey: string;
   sentryDsn: string | null;
   /** What this Core is: staging, production, local. Named in alerts, told to Sentry. */
@@ -66,12 +65,22 @@ const list = (name: string): string[] =>
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
 
+/** SES's keys and sender, by the names Kowboy's environments give them; null unless all four are set. */
+function sesKeys(): Config['ses'] {
+  const accessKeyId = optional('AWS_SES_AWS_ACCESS_KEY_ID');
+  const secretAccessKey = optional('AWS_SES_SECRET_ACCESS_KEY');
+  const region = optional('AWS_SES_AWS_REGION');
+  const sender = optional('AWS_SES_SENDER');
+  return accessKeyId && secretAccessKey && region && sender
+    ? { accessKeyId, secretAccessKey, region, sender }
+    : null;
+}
+
 export function loadConfig(): Config {
   return {
     databaseUrl: required('DATABASE_URL'),
     port: numberOr('PORT', 3000),
-    mailFrom: optional('MAIL_FROM'),
-    postmarkServerToken: optional('POSTMARK_SERVER_TOKEN'),
+    ses: sesKeys(),
     credentialsKey: required('CREDENTIALS_KEY'),
     sentryDsn: optional('SENTRY_DSN'),
     environment: optional('SENTRY_ENVIRONMENT') ?? 'local',

@@ -20,13 +20,20 @@ services:
       - key: DATABASE_CA_CERT
         value: ${db.CA_CERT}
         scope: RUN_TIME
-      - key: MAIL_FROM
-        value: patric@kowboy.se
-        scope: RUN_TIME
-      - key: POSTMARK_SERVER_TOKEN
-        value: EV[1:HDWQpFCri0z9Z/jh4WauuteSPvDZ45Li:v0tHUwi3muaRBba4D3QCv3uSYKie1NiAoac39ySuKnv46m9+7su8NfF8apgULpn/6qxCAw==]
+      # Mail (alerts, sign-in links) through Amazon SES, Kowboy's sending keys for mail.kowboy.se
+      # (Patric, 2026-10-24); the secrets are set on the app, encrypted by DigitalOcean.
+      - key: AWS_SES_AWS_ACCESS_KEY_ID
         scope: RUN_TIME
         type: SECRET
+      - key: AWS_SES_SECRET_ACCESS_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: AWS_SES_AWS_REGION
+        value: eu-north-1
+        scope: RUN_TIME
+      - key: AWS_SES_SENDER
+        value: noreply@mail.kowboy.se
+        scope: RUN_TIME
       - key: SENTRY_DSN
         value: EV[1:TC95QipSafbeZ7bRSp0ego7jH3veGtTo:ZDpqKlVH+M7+HlgX3et+HuV67WZ28xaaD/m+rUloNZOD7QpU0XpNZ5M8I5Pp6B5CWwqggvSjOaL0pq1Zto4FGviKcDNT6XlSriMYi1PC5f+ZwHUSgPv5M8XayIzyTH0MWAKWvuSnmL+GDaRpZeqB]
         scope: RUN_TIME
@@ -90,6 +97,24 @@ workers:
       # Where Core is reached, for the links in the alerts this worker sends.
       - key: PUBLIC_URL
         value: https://staging.core.kowboy.cloud
+        scope: RUN_TIME
+      # Mail (alerts, sign-in links) through Amazon SES, Kowboy's sending keys for mail.kowboy.se
+      # (Patric, 2026-10-24); the secrets are set on the app, encrypted by DigitalOcean.
+      - key: AWS_SES_AWS_ACCESS_KEY_ID
+        scope: RUN_TIME
+        type: SECRET
+      - key: AWS_SES_SECRET_ACCESS_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: AWS_SES_AWS_REGION
+        value: eu-north-1
+        scope: RUN_TIME
+      - key: AWS_SES_SENDER
+        value: noreply@mail.kowboy.se
+        scope: RUN_TIME
+      # Where the alerts go (final release, condition 5).
+      - key: ALERT_EMAIL
+        value: patric@kowboy.se
         scope: RUN_TIME
       - key: CREDENTIALS_KEY
         value: EV[1:bXCPiQ3i5oZD5/Fpa0u5wNdS+/myat0p:QkNWjoD35n9Rr27BQMbnrndq/yyVbSTvhgkvhS3MCgl5XY2Vz+DCiYoz1VHoRXKDra/3pGqjxmmDQXTA]

@@ -30,7 +30,8 @@ address that may. For work on the app alone, `npm run dev:panel` serves it
 on port 5174 against a Core running beside it on port 3000.
 Optional: `SENTRY_ENVIRONMENT` names the environment (staging, production, local) in alerts and
 to Sentry, `PUBLIC_URL` is where Core is reached for the link in alerts, `ALERT_EMAIL` (mailed
-through Postmark: `MAIL_FROM`, `POSTMARK_SERVER_TOKEN`) and `ALERT_SLACK_WEBHOOK_URL` are where an
+through Amazon SES: `AWS_SES_AWS_ACCESS_KEY_ID`, `AWS_SES_SECRET_ACCESS_KEY`, `AWS_SES_AWS_REGION`,
+`AWS_SES_SENDER`) and `ALERT_SLACK_WEBHOOK_URL` are where an
 alert goes when a health check changes state or an event needs attention (an office taken off
 the sites, a connection paused, a login refused; `engine/attention.ts`). `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` are the forms'
 bot check (Cloudflare Turnstile, docs/forms.md): a site's window renders the challenge with the
