@@ -40,7 +40,8 @@ const MINUTES = Number(process.env['LOAD_MINUTES'] ?? 20);
 const BATCH = 2_000;
 const DELTAS_PER_SECOND = 10;
 const PAGE = 100;
-const TARGET = { ttfb: 100, total: 300 };
+/** AC 27 in full, p95 (question 232 a): a pull of a few changes, and a page of 100. */
+const TARGET = { delta: 500, page: 1_000 };
 
 const root = join(import.meta.dirname, '..');
 const base = new URL(process.env['APP_URL'] ?? 'http://127.0.0.1:3000');
@@ -318,16 +319,17 @@ const result = {
 result.passed =
   result.failed === 0 &&
   result.pages.count > 0 &&
-  result.pages.ttfb.p95 < TARGET.ttfb &&
-  result.pages.total.p95 < TARGET.total;
+  result.deltas.count > 0 &&
+  result.pages.total.p95 < TARGET.page &&
+  result.deltas.total.p95 < TARGET.delta;
 say(
-  `100-item pages: ${result.pages.count}, first byte p95 ${result.pages.ttfb.p95} ms (target under ${TARGET.ttfb}), whole page p95 ${result.pages.total.p95} ms (target under ${TARGET.total}).`,
+  `100-item pages: ${result.pages.count}, first byte p95 ${result.pages.ttfb.p95} ms, whole page p95 ${result.pages.total.p95} ms (target under ${TARGET.page}).`,
 );
 say(
   `Under load the database took ${result.queryUnderLoad.p50} ms a page (p95 ${result.queryUnderLoad.p95}).`,
 );
 say(
-  `Delta pulls: ${result.deltas.count}, first byte p95 ${result.deltas.ttfb.p95} ms, whole p95 ${result.deltas.total.p95} ms. Failed requests: ${result.failed}.`,
+  `Delta pulls: ${result.deltas.count}, first byte p95 ${result.deltas.ttfb.p95} ms, whole p95 ${result.deltas.total.p95} ms (target under ${TARGET.delta}). Failed requests: ${result.failed}.`,
 );
 console.log(`load-test result ${JSON.stringify(result)}`);
 agent.destroy();

@@ -19,8 +19,8 @@ part of condition 4, and the preview of condition 2 was built. On 2026-10-19 Pat
 (the early release) and 209 a (the forms), and on 2026-10-21 210 a, 211 a and 217 a: the preview
 goes into staging's deploys and the restore drill runs now; the rest waits on the threads.
 On 2026-10-22 the early release went out (live runs staging's version with its
-new settings), the restore drill passed by script (AC 24), and the load test failed (AC 27):
-finding where its time goes is the next open step.
+new settings), the restore drill passed by script (AC 24), and the load test failed (AC 27).
+On 2026-10-24 Patric accepted the speed reached since and AC 27 was reworded to it (232 a): green.
 
 ## Agent setup (from the 2026-09-27 review of how agents and Patric work together)
 
@@ -1022,7 +1022,9 @@ finding where its time goes is the next open step.
          and app of their own, so the shared cluster, 1 vCPU, 1 GB and 15 GB of disk, is never
          loaded; deleted the same day, well under $1). AC 27 failed on 2026-10-22
          (`scripts/load-test.mjs`): full pages p95 907 ms to the first byte and 1,367 ms in full
-         against 100 and 300; the next run times the database's share (`decisions.md`). AC 32 is
+         against 100 and 300. Reworded on 2026-10-24 (232 a) to a pull of a few changes under 500 ms
+         and a page of 100 under 1 s in full, p95: green on the run of 2026-10-23, 290 ms and
+         602 ms. AC 32 is
          green since 2026-10-24 (`acceptance/near-instant.test.ts`): notification to bell p95
          505 ms, less Vitec's time, while a 30,000-record load waits at the live speed limit.
       4. No unresolved Sentry issue when the release goes out (strategy §9, phase 7; the seven days
