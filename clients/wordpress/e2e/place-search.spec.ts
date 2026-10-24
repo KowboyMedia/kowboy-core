@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
-// The search box with pills on the Till salu page (docs/search.md, test 5), walked as a visitor
-// walks it: open the list by a click and close it by a click outside, type, pick a place, see the
+// The plugin's search box with pills in a list's filters (docs/search.md, test 5), on the property
+// archive of the plugin's test theme, walked as a visitor walks it: open the list by a click and close it by a click outside, type, pick a place, see the
 // pill and the cards change without a page load, pick one more by keyboard, take a pill away by
 // its cross and by Backspace, and search words with and without a pill (Default 134), on the page
 // and drawn again from the address; then the same box under a thumb on a phone. The names start
@@ -8,7 +8,7 @@
 import { devices, expect, test, type Locator, type Page } from '@playwright/test';
 
 /** The streets on the cards the list shows, in order. */
-const streets = (page: Page): Locator => page.locator('[data-cards] .k-card__street');
+const streets = (page: Page): Locator => page.locator('[data-cards] .t-card__street');
 
 /** The box's parts: the library's control (the field with the pills), its list and its options. */
 const parts = (page: Page) => {
@@ -47,8 +47,8 @@ async function paintedOnTop(page: Page, list: Locator): Promise<boolean> {
 test('journey: a visitor narrows Till salu to places, takes them away again and searches words', async ({
   page,
 }) => {
-  await page.goto('/?pagename=till-salu');
-  await expect(page.getByRole('heading', { name: 'Hitta din nya bostad' })).toBeVisible();
+  await page.goto('/?post_type=core_property');
+  await expect(page.getByRole('heading', { name: 'Till salu' })).toBeVisible();
   await expect(streets(page)).toHaveText(['Kungsgatan 3', 'Kungsgatan 2', 'Kungsgatan 1']);
   const { box, control, field, list, options, pills } = parts(page);
 
@@ -60,7 +60,7 @@ test('journey: a visitor narrows Till salu to places, takes them away again and 
   await expect(list).toBeVisible();
   expect(await paintedOnTop(page, list)).toBe(true);
   await expect(box.locator('.optgroup-header')).toHaveText(['Områden', 'Kommuner', 'Län']);
-  await page.getByRole('heading', { name: 'Hitta din nya bostad' }).click();
+  await page.getByRole('heading', { name: 'Till salu' }).click();
   await expect(list).toBeHidden();
   await control.click();
   await expect(list).toBeVisible();
@@ -76,32 +76,19 @@ test('journey: a visitor narrows Till salu to places, takes them away again and 
   await expect(options).toHaveText(['Norrmalm · Stockholm']);
 
   // Choosing with the mouse: a pill under the field, the address, and the cards reloaded without
-  // a page load. The pill grows the form downward: the field, the other fields and the button
-  // keep their place on the page (Patric, 2026-10-04: the pills must not push the field up).
-  const form = page.locator('.k-hero > form.k-search');
-  await expect(form).toHaveCount(1);
+  // a page load (Patric, 2026-10-04: the pills must not push the field up).
   const button = page.getByRole('button', { name: 'Sök' });
-  const price = form.locator('select[name="max_price"]');
   const measure = async () => ({
     control: (await control.boundingBox())!,
     field: (await field.boundingBox())!,
-    price: (await price.boundingBox())!,
-    button: (await button.boundingBox())!,
-    form: (await form.boundingBox())!,
   });
   const before = await measure();
-  expect(Math.abs(before.control.height - before.price.height)).toBeLessThan(1);
   await options.first().click();
   await expect(pills).toHaveText(['Norrmalm · Stockholm×']);
   await expect(field).toHaveValue('');
   await expect(list).toBeHidden();
   const after = await measure();
-  expect(Math.abs(before.price.y - before.control.y)).toBeLessThan(1);
   expect(Math.abs(after.control.y - before.control.y)).toBeLessThan(1);
-  expect(Math.abs(after.price.y - before.price.y)).toBeLessThan(1);
-  expect(Math.abs(after.button.y - before.button.y)).toBeLessThan(1);
-  expect(Math.abs(after.form.y - before.form.y)).toBeLessThan(1);
-  expect(after.form.height).toBeGreaterThanOrEqual(before.form.height);
   // The pill sits under the field (Patric, 2026-10-04: below, as before, not inside), so the field
   // itself keeps its place and the control grows by one line of pills.
   expect(Math.abs(after.field.y - before.field.y)).toBeLessThan(1);
@@ -142,7 +129,7 @@ test('journey: a visitor narrows Till salu to places, takes them away again and 
     'Ingen plats matchar. Enter söker orden som text.',
   );
   await field.press('Enter');
-  await expect(page).toHaveURL(/[?&]pagename=till-salu(&|$)/);
+  await expect(page).toHaveURL(/[?&]post_type=core_property(&|$)/);
   await expect(page).toHaveURL(/[?&]q=Kungsgatan\+1(&|$)/);
   await expect(streets(page)).toHaveText(['Kungsgatan 1']);
   await expect(field).toHaveValue('Kungsgatan 1');
@@ -164,7 +151,7 @@ test('journey: a visitor narrows Till salu to places, takes them away again and 
   await expect(streets(page)).toHaveText(['Kungsgatan 2']);
   await expect(field).toHaveValue('Kungsgatan 2');
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Hitta din nya bostad' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Till salu' })).toBeVisible();
   await expect(parts(page).pills).toHaveText(['Vasastan · Stockholm×']);
   await expect(parts(page).field).toHaveValue('Kungsgatan 2');
   await expect(streets(page)).toHaveText(['Kungsgatan 2']);
@@ -179,8 +166,8 @@ test.describe('on a phone', () => {
   test('journey: under a thumb, a tap opens the box, a tap outside closes it and a tap chooses a place', async ({
     page,
   }) => {
-    await page.goto('/?pagename=till-salu');
-    await expect(page.getByRole('heading', { name: 'Hitta din nya bostad' })).toBeVisible();
+    await page.goto('/?post_type=core_property');
+    await expect(page.getByRole('heading', { name: 'Till salu' })).toBeVisible();
     await expect(streets(page)).toHaveText(['Kungsgatan 3', 'Kungsgatan 2', 'Kungsgatan 1']);
     const { control, list, options, pills } = parts(page);
 
@@ -193,7 +180,7 @@ test.describe('on a phone', () => {
       'Stockholm',
       'Stockholms län',
     ]);
-    await page.getByRole('heading', { name: 'Hitta din nya bostad' }).tap();
+    await page.getByRole('heading', { name: 'Till salu' }).tap();
     await expect(list).toBeHidden();
     await control.tap();
     await expect(list).toBeVisible();

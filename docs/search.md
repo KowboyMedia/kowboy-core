@@ -42,8 +42,8 @@ only from these offices", with no visitor-facing box on the agent list.
   records out. The archive page, the shortcode, the reload endpoint and every block call it with
   the same parameter set. **The search method** of the ask is this function.
 - **A set** is the files that give the records their look: one file per card, list wrapper and
-  page, which the plugin renders through. **The theme** "Kowboy 2026"
-  (`clients/wordpress/themes/kowboy-2026/`) is the default set, with the design's sections as
+  page, which the plugin renders through. **The theme** "Kowboy 2026" (its own repository,
+  `KowboyMedia/wordpress-theme-2026`, since 2026-10-24) is the default set, with the design's sections as
   **blocks**, the pieces an editor places on a page in WordPress's editor. The plugin finds a
   view in the theme first, so a theme or a set can replace any file.
 - **An LKF code** is Statistics Sweden's code for a place: two digits for the **län** (county,

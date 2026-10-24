@@ -191,22 +191,6 @@ function core_driver_theme(string $argument): array
 }
 
 /**
- * `demo-pages`: what the theme does on activation (its demo pages and menus), and the pages' addresses.
- *
- * @return array<string, mixed>
- */
-function core_driver_demo_pages(): array
-{
-    do_action('after_switch_theme');
-    $pages = [];
-    foreach (['hem', 'till-salu', 'salda-bostader', 'om-oss'] as $slug) {
-        $page = get_page_by_path($slug);
-        $pages[$slug] = $page instanceof WP_Post ? get_permalink($page) : null;
-    }
-    return ['pages' => $pages, 'front' => (int) get_option('page_on_front')];
-}
-
-/**
  * `plugin activate|deactivate <plugin file>`: a test plugin (the fixture set) on or off.
  *
  * @return array<string, mixed>
@@ -347,7 +331,6 @@ $result = match ($command) {
     'option' => core_driver_option($argument),
     'plugin' => core_driver_plugin($argument),
     'theme' => core_driver_theme($argument),
-    'demo-pages' => core_driver_demo_pages(),
     'import' => core_driver_import((array) json_decode($argument, true)),
     'typed' => core_driver_typed((array) json_decode($argument, true)),
     'inside' => core_driver_inside((array) json_decode($argument, true)),

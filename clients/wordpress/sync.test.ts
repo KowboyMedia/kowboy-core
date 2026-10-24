@@ -114,11 +114,11 @@ describe('the WordPress client', () => {
     const out = mkdtempSync(join(tmpdir(), 'core-client-release-'));
     const release = join(import.meta.dirname, 'release.php');
     const plugin = join(import.meta.dirname, 'core-client');
-    const theme = join(import.meta.dirname, 'themes', 'kowboy-2026');
+    const theme = join(import.meta.dirname, 'test', 'fixtures', 'core-client-test-theme');
     const set = join(import.meta.dirname, 'test', 'fixtures', 'core-client-templates-fixture');
     const targets: [string, string][] = [
       [plugin, 'core-client'],
-      [theme, 'kowboy-2026'],
+      [theme, 'core-client-test-theme'],
       [set, 'core-client-templates-fixture'],
     ];
     for (const [dir, name] of targets) {
@@ -142,19 +142,19 @@ describe('the WordPress client', () => {
       package: `https://example.test/channel/core-client/core-client-${version}.zip`,
     });
 
-    // The theme's package is named by its style.css header and holds the views and the assets.
-    const themeFiles = (await run('unzip', ['-Z1', join(out, 'kowboy-2026.zip')])).stdout
+    // A theme that is a set is packaged too, named by its style.css header, with its views and assets.
+    const themeFiles = (await run('unzip', ['-Z1', join(out, 'core-client-test-theme.zip')])).stdout
       .trim()
       .split('\n');
-    expect(themeFiles).toContain('kowboy-2026/style.css');
-    expect(themeFiles).toContain('kowboy-2026/core/single-core_property.php');
-    expect(themeFiles).toContain('kowboy-2026/assets/kowboy-2026.css');
+    expect(themeFiles).toContain('core-client-test-theme/style.css');
+    expect(themeFiles).toContain('core-client-test-theme/core/single-core_property.php');
+    expect(themeFiles).toContain('core-client-test-theme/assets/test-theme.css');
     const themeVersion = /^Version:\s*(\S+)/m.exec(
       readFileSync(join(theme, 'style.css'), 'utf8'),
     )?.[1];
-    expect(JSON.parse(readFileSync(join(out, 'kowboy-2026.json'), 'utf8'))).toEqual({
+    expect(JSON.parse(readFileSync(join(out, 'core-client-test-theme.json'), 'utf8'))).toEqual({
       version: themeVersion,
-      package: `https://example.test/channel/kowboy-2026/kowboy-2026-${themeVersion}.zip`,
+      package: `https://example.test/channel/core-client-test-theme/core-client-test-theme-${themeVersion}.zip`,
     });
 
     const setFiles = (
@@ -180,8 +180,7 @@ describe('the WordPress client', () => {
       (file) =>
         file.endsWith('.php') &&
         !file.startsWith('vendor/') &&
-        !file.startsWith('core-client/lib/') &&
-        !file.startsWith('themes/kowboy-2026/assets/'),
+        !file.startsWith('core-client/lib/'),
     );
     expect(files.length).toBeGreaterThan(5);
     for (const file of files) await run('php', ['-l', join(import.meta.dirname, file)]);

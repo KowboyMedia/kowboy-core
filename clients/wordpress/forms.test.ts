@@ -1,9 +1,10 @@
-// The plugin's forms (docs/forms.md, "Built 2026-10-19"): its receiver keeps every form it sends,
-// delivered or not, with the visitor's details and the outcome, for 30 days on its page
-// "Formulär", and sends none again (Patric, 2026-10-19); a form that does not reach Core is tried
-// twice more (question 166); and the page's switch turns the forms off, which takes the window off
-// the pages. Proved against the test Core and its fake CRM
-// on the WordPress install of test/setup.sh.
+// The plugin's forms (docs/forms.md, "Built 2026-10-19"): its receivers carry the three forms
+// through Core to the CRM and read a viewing's times, and nothing the site serves carries its
+// token; the receiver keeps every form it sends, delivered or not, with the visitor's details and
+// the outcome, for 30 days on its page "Formulär", and sends none again (Patric, 2026-10-19); a
+// form that does not reach Core is tried twice more (question 166); and the page's switch turns
+// the forms off, which takes a theme's window off the pages. Proved against the test Core and its
+// fake CRM on the WordPress install of test/setup.sh, through the plugin's test theme.
 import { randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -12,7 +13,7 @@ import { harness, HUMAN_TOKEN, TOKEN, type Harness } from '../../acceptance/harn
 import { fakePollingAdapter, poll } from '../../adapters/fake-polling/index.js';
 import * as crm from '../../adapters/fake-polling/crm.js';
 import { BELL_SECRET, CONNECTION } from '../sync-scenarios.js';
-import { fillTheCrm } from './test/records.js';
+import { fillTheCrm, soon } from './test/records.js';
 import { driver, siteUrl, start, stop, wp } from './test/site.js';
 
 let core: Harness;
@@ -27,7 +28,7 @@ const HOP_BY_HOP = new Set([
   'expect',
 ]);
 
-/** A visitor's interest in Kungsgatan 1, as the theme's window builds it. */
+/** A visitor's interest in Kungsgatan 1, as a theme's window builds it. */
 const interest = (): Record<string, unknown> => ({
   id: randomUUID(),
   kind: 'interest',
@@ -209,8 +210,8 @@ describe('the WordPress client’s forms', () => {
     // The home's page as a page cache stored it, sent from once WordPress's codes made with it
     // have expired: the window's receiver and the home are read from the copy, as the script does.
     const copy = await (await fetch(home)).text();
-    const endpoint = /<dialog class="k-form" data-endpoint="([^"]+)"/.exec(copy)?.[1];
-    const named = /data-k-form="interest" data-record="property:([^":]+):([^"]+)"/.exec(copy);
+    const endpoint = /<dialog class="t-form" data-endpoint="([^"]+)"/.exec(copy)?.[1];
+    const named = /data-form="interest" data-record="property:([^":]+):([^"]+)"/.exec(copy);
     expect(endpoint).toBeDefined();
     expect(named?.[2]).toBe('P-1');
     await new Promise((resolve) => setTimeout(resolve, 2_100));
@@ -263,14 +264,13 @@ describe('the WordPress client’s forms', () => {
     expect(await columns()).toEqual(['id', 'sent_at', 'kind', 'body', 'outcome', 'said']);
   });
 
-  it('turned off on its page, the forms leave the pages and the buttons lead to a contact; turned on, the window is back', async () => {
-    const window = /<dialog class="k-form"/;
+  it('turned off on its page, the forms leave the pages and a form sent from a page kept from before is kept and refused; turned on, the window is back', async () => {
+    const window = /<dialog class="t-form"/;
     expect(await (await fetch(`${siteUrl}/`)).text()).toMatch(window);
     await driver('option', 'core_client_forms_on "0"');
     try {
       const off = await (await fetch(`${siteUrl}/`)).text();
       expect(off).not.toMatch(window);
-      expect(off).toContain('href="#k-contact" data-k-form="lead"');
       expect(await formsPage()).toContain('name="forms_on" value="1" >');
       // A page cached while they were on gets a clear answer, and the form is kept.
       const late = interest();
@@ -282,5 +282,85 @@ describe('the WordPress client’s forms', () => {
       await driver('option', 'core_client_forms_on null');
     }
     expect(await (await fetch(`${siteUrl}/`)).text()).toMatch(window);
+  });
+
+  it('carries an interest, a viewing booking and a valuation through Core to the CRM and reads a viewing’s times, and no page or answer the site serves carries the site’s token or the CRM login', async () => {
+    // The bookable viewing of Kungsgatan 3, with one free time, as the CRM has it now.
+    crm.setShowings('P-3', [
+      {
+        showing_id: 'SH-1',
+        from: soon(48),
+        to: soon(49),
+        book_before: soon(47),
+        open_booking: true,
+        shown: true,
+        times: [{ time_id: 'T-1', from: soon(48), to: soon(48.5), open: true, places_left: 4 }],
+      },
+    ]);
+    const served: string[] = [];
+    const read = async (response: Response): Promise<string> => {
+      const text = await response.text();
+      served.push(text);
+      return text;
+    };
+    const home = { datatype: 'property', connection_id: CONNECTION, remote_id: 'P-3' };
+
+    // The times, read live through the site's receiver as a booking window reads them.
+    const times = await fetch(
+      `${siteUrl}/?${new URLSearchParams({ rest_route: '/core/v1/forms/slots', connection_id: CONNECTION, remote_id: 'P-3' }).toString()}`,
+    );
+    expect(times.status).toBe(200);
+    expect(JSON.parse(await read(times))).toMatchObject({
+      viewings: [{ id: 'SH-1', slots: [{ id: 'T-1' }] }],
+    });
+
+    // The three forms, each to the site's receiver with the bot check's proof, each delivered.
+    const taken = crm.formsTaken().length;
+    const forms: Record<string, unknown>[] = [
+      { ...interest(), record: home },
+      { ...interest(), kind: 'viewing', record: home, slot_id: 'T-1' },
+      { ...interest(), kind: 'lead', record: undefined },
+    ];
+    for (const form of forms) {
+      const response = await fetch(`${siteUrl}/?rest_route=/core/v1/forms`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-core-human': HUMAN_TOKEN },
+        body: JSON.stringify(form),
+      });
+      expect(response.status, String(form.kind)).toBe(200);
+      expect(JSON.parse(await read(response)), String(form.kind)).toMatchObject({
+        status: 'delivered',
+      });
+    }
+    const arrived = crm.formsTaken().slice(taken);
+    expect(arrived).toHaveLength(3);
+    expect(arrived[0]?.payload).toMatchObject({ object_id: 'P-3' });
+    expect(arrived[1]?.payload).toMatchObject({ object_id: 'P-3', showing_time_id: 'T-1' });
+    expect(arrived[2]?.payload).toMatchObject({ object_id: null });
+
+    // The pages a visitor reads, the home's with its window among them: neither the site's token
+    // nor Core's address is in any of them or in any answer above. The CRM login never reaches
+    // the site at all: Core keeps it, and the site holds only its token.
+    const permalink = async (datatype: string, id: string): Promise<string> =>
+      (
+        await wp(
+          'eval',
+          `echo get_permalink(core_client_post_id(${JSON.stringify(datatype)}, ${JSON.stringify(id)}));`,
+        )
+      ).stdout.trim();
+    for (const address of [
+      `${siteUrl}/`,
+      `${siteUrl}/?post_type=core_property`,
+      await permalink('property', 'P-3'),
+      await permalink('agent', 'S-1'),
+    ]) {
+      expect((await fetch(address)).status, address).toBe(200);
+      await read(await fetch(address));
+    }
+    expect(served.some((text) => text.includes('data-endpoint='))).toBe(true);
+    for (const text of served) {
+      expect(text).not.toContain(TOKEN);
+      expect(text).not.toContain(core.baseUrl);
+    }
   });
 });

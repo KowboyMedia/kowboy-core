@@ -1,6 +1,7 @@
 > **2026-09-28:** the set built on the 2025 package is gone (question 107), and the default set
-> "Kowboy 2026" is the theme in `clients/wordpress/themes/kowboy-2026/`, described in
-> [kowboy-2026.md](kowboy-2026.md). What follows is the scaffolding and the history that led
+> "Kowboy 2026" is a theme, which since 2026-10-24 lives with its design notes in its own
+> repository, `KowboyMedia/wordpress-theme-2026` (Patric: the theme and its templates are not
+> Core's concern). What follows is the scaffolding and the history that led
 > there; where it names `clients/wordpress/templates/`, a set plugin or `new-template-set`, the
 > theme and a copy of its folder have taken their place.
 

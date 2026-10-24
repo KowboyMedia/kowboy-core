@@ -1,5 +1,5 @@
 // The WordPress client's user journeys (docs/search.md, test 5), walked in a real browser against
-// the real site: the plugin and the theme "Kowboy 2026" on the WordPress of test/setup.sh, with
+// the real site: the plugin and its test theme on the WordPress of test/setup.sh, with
 // the template suite's records brought in through a real Core (test/journey-site.ts). "It passed
 // the tests" then means "a visitor could do it".
 import { defineConfig, devices } from '@playwright/test';
@@ -37,10 +37,10 @@ export default defineConfig({
     { name: 'isolated', use: { extraHTTPHeaders: { 'x-core-styleisolation': '1' } } },
   ],
   webServer: {
-    // The journey site, out of `dist`, so the journeys walk what `npm run build` makes. The Till
-    // salu page is made last, once the records are on the site, so it is what is waited for.
+    // The journey site, out of `dist`, so the journeys walk what `npm run build` makes. The page
+    // of lists is made last, once the records are on the site, so it is what is waited for.
     command: `node dist/clients/wordpress/test/journey-site.js ${String(PORT)}`,
-    url: `http://127.0.0.1:${String(PORT)}/?pagename=till-salu`,
+    url: `http://127.0.0.1:${String(PORT)}/?pagename=listor`,
     reuseExistingServer: false,
     timeout: 120_000,
     // SIGTERM, so the site script stops the PHP server and Core itself before the group is killed.

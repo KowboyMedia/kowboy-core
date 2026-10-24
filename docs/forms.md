@@ -1235,6 +1235,16 @@ Patric's go (209 a, 2026-10-19) for the forms list he verified on 2026-10-07
   `clients/wordpress/forms.test.ts`, `acceptance/submissions.test.ts` and the journey "when the
   bot check cannot run".
 
+### 2026-10-24: the theme's side moves out
+
+The theme "Kowboy 2026", with its window, its buttons and the browser journeys that walked them
+(`e2e/forms-theme.spec.ts`), moved to its own repository, `KowboyMedia/wordpress-theme-2026`
+(Patric: the theme and its templates are not Core's concern, and only Core and the plugin have
+tests). Core proves the plugin's side in `clients/wordpress/forms.test.ts`: its receivers carry
+an interest, a booking and a valuation through Core to the CRM and read a viewing's times, and
+no page or answer the site serves carries the site's token. Where the sections above name the
+theme's files or that journey, they are history.
+
 ## The decisions (the discover list)
 
 | #   | Question                                                                                                                                                                            | Options                                                                                                                                                                                                                                                | Undo later?                       | Recommended                                                                                                     |

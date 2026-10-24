@@ -33,13 +33,15 @@ core-client/                     the plugin
   updater/core-client-updater.php  the must-use updater the plugin places itself; never loads plugin code
   lib/action-scheduler/          Action Scheduler 4.1.0, bundled (GPLv3)
   lib/tom-select/                Tom Select 2.6.2, the search box's combo box, bundled (Apache-2.0)
-themes/kowboy-2026/              the default template set "Kowboy 2026", a theme (docs/kowboy-2026.md)
-release.php                      packages the plugin, the theme or a set, and writes the index of sets
+release.php                      packages the plugin, a theme or a set, and writes the index of sets
 test/                            setup.sh, install.php, driver.php, site.ts and records.ts for the suites,
-                                 journey-site.ts for the journeys
+                                 journey-site.ts for the journeys, and fixtures/: the plugin's test theme
+                                 and a fixture set plugin
 sync.test.ts                     the shared sync scenarios, the updater, the packaging, WP-CLI
-templates.test.ts                the theme, its blocks and the template machinery on a real WordPress
-e2e/, playwright.config.ts       the browser journeys: the search box, the three forms, the pages
+templates.test.ts                the lists, pages, blocks and template machinery on a real WordPress,
+                                 through the test theme
+forms.test.ts                    the form receivers, through Core to the CRM
+e2e/, playwright.config.ts       the browser journeys: the search box and a list's pages
 ```
 
 ## Installing it on a site
@@ -245,8 +247,9 @@ answered to a signed-in editor only (`edit_posts`): every record, hidden agents 
 and a label that tells namesakes apart (an area with its kommun, an agent with an office, an
 office with its town, the id when two still match).
 
-**Template sets.** A set is a theme (the default, `themes/kowboy-2026/`, docs/kowboy-2026.md)
-or a plugin: one file that registers the set in one line (`core_client_register_template_set`,
+**Template sets.** A set is a theme (the default, "Kowboy 2026", lives in its own repository,
+`KowboyMedia/wordpress-theme-2026`, since 2026-10-24; Core's tests walk the plugin's small test
+theme in `test/fixtures/core-client-test-theme/`) or a plugin: one file that registers the set in one line (`core_client_register_template_set`,
 from a theme's `functions.php` or a plugin's main file), one file per view
 (`single-core_<datatype>.php`, `archive-core_<datatype>.php`, `list-<entity>.php`,
 `card-<entity>.php`, and any `list-<name>.php` and `card-<name>.php` a list names; a theme keeps
@@ -287,15 +290,15 @@ and `sets.json`, the index the settings page lists for installation. The channel
 inside the plugin's zip (`channel.json`, written by `release.php`); a site pins another channel,
 the staging one, with `define('CORE_CLIENT_CHANNEL', 'https://…/');` in `wp-config.php`.
 
-Every `v*` tag of this repository packages the plugin and every set (`release.php`), publishes
-them to the DigitalOcean Space named by the repository variables `DO_SPACES_BUCKET` and
+Every `v*` tag of this repository packages the plugin (`release.php`; no set lives here since
+2026-10-24), publishes it to the DigitalOcean Space named by the repository variables `DO_SPACES_BUCKET` and
 `DO_SPACES_REGION` (with the secrets `DO_SPACES_KEY` and `DO_SPACES_SECRET`), and attaches them
 to the GitHub Release as the record (`.github/workflows/release.yml`).
 
 ## Checking it
 
 `npm run test:wordpress` runs the shared scenario suite and the template suite against a real
-WordPress install (a classic theme, the plugin and the default set active) plus the updater and
+WordPress install (the plugin and its test theme, a classic theme that is a set) plus the updater and
 WP-CLI tests; see [../README.md](../README.md) for the one-time setup. `npm run
 test:journeys:wordpress` walks a visitor's journeys in a real browser (Playwright) on that
 WordPress with the template suite's records, served by `test/journey-site.ts` out of `dist`, each

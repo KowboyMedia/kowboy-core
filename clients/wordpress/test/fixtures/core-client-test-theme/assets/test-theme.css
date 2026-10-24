@@ -1,0 +1,10 @@
+/* The test theme's set stylesheet: the filter form's box and button side by side, so the box's
+   open list falls below the field and never over the button. */
+.t-filters {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.t-filters .core-place-search {
+  flex: 1;
+}

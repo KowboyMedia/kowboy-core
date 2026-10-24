@@ -22,10 +22,10 @@ if (!is_blog_installed()) {
     echo "WordPress installed\n";
 }
 
-// The theme "Kowboy 2026" is the set under test; the tests switch to twentytwentyone for the
+// The plugin's test theme is the set under test; the tests switch to twentytwentyone for the
 // set-plugin cases.
-if (get_option('stylesheet') !== 'kowboy-2026') {
-    switch_theme('kowboy-2026');
+if (get_option('stylesheet') !== 'core-client-test-theme') {
+    switch_theme('core-client-test-theme');
 }
 
 foreach (['core-client/core-client.php', 'core-client-templates-fixture/core-client-templates-fixture.php'] as $plugin) {

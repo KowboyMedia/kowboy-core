@@ -1,9 +1,9 @@
 name: Release
 
-# A tag v* is a release (strategy §4). The WordPress packages, the client plugin and every template
-# set, are published to the update channel on the DigitalOcean Space sites read from
-# (clients/wordpress/README.md), with the index of sets, and attached to the GitHub Release as the
-# record.
+# A tag v* is a release (strategy §4). The WordPress client plugin is published to the update
+# channel on the DigitalOcean Space sites read from (clients/wordpress/README.md), with the index
+# of sets, and attached to the GitHub Release as the record. No template set lives in this
+# repository (the theme "Kowboy 2026" has its own since 2026-10-24), so the index lists none.
 #
 # Repository variables: DO_SPACES_BUCKET, DO_SPACES_REGION (for example fra1).
 # Repository secrets:   DO_SPACES_KEY, DO_SPACES_SECRET (a Spaces access key pair).
@@ -22,16 +22,10 @@ jobs:
       CHANNEL: https://${{ vars.DO_SPACES_BUCKET }}.${{ vars.DO_SPACES_REGION }}.digitaloceanspaces.com/
     steps:
       - uses: actions/checkout@v4
-      - name: Package the plugin and every template set
+      - name: Package the plugin
         run: |
           php clients/wordpress/release.php package clients/wordpress/core-client core-client dist "$CHANNEL"
-          sets=()
-          for dir in clients/wordpress/templates/*/; do
-            slug=$(basename "$dir")
-            php clients/wordpress/release.php package "$dir" "core-client-templates-$slug" dist "$CHANNEL"
-            sets+=("$slug=$dir")
-          done
-          php clients/wordpress/release.php index dist "$CHANNEL" "${sets[@]}"
+          php clients/wordpress/release.php index dist "$CHANNEL"
       - name: Publish to the update channel
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.DO_SPACES_KEY }}
