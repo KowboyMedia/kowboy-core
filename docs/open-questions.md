@@ -4,10 +4,27 @@ The register of everything asked of Patric. A question gets the next number here
 asked in chat, chat refers to that number, and Patric answers by number, in any conversation.
 Numbers are never reused: an answered question gets its line in `decisions.md` and leaves this
 file. Each one is tagged with its part and names what is blocked and the smaller option, so
-answering is quick. Next number: 233 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
+answering is quick. Next number: 234 (214 was withdrawn on 2026-10-19: its four rules on designing are a `[handbook]` question, asked in chat and recorded only in the handbook's own register; 206 is the database question the thread "Database connection slots" asked in chat as 88 on 2026-10-18, a number closed on 2026-09-28; 192 was withdrawn on 2026-10-13 and replaced by 193; 191 was withdrawn on 2026-10-13 and replaced by 192; 185 was merged into 184 on 2026-10-06, so one answer covers both; 124 was asked in chat only on 2026-10-03 and answered the same day; 116 to 118 were used by the handbook sessions of 2026-09-29 to 2026-10-03, 116 in chat only; 75 to 77 were also used in chat on 2026-09-21 for the porting
 plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 2026-09-20 for the WordPress
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
+
+## 233. `[core]` Which addresses does Core answer on once it runs on Cloudways Velocity?
+
+- 2026-10-24 · Found while checking the move to Velocity (the thread "Verify Core runs on
+  Velocity"). Core answers on core.kowboy.cloud and staging.core.kowboy.cloud, both still served by
+  DigitalOcean. The Kowboy Chat project's plan for Velocity names core.kowboy.se and
+  staging.core.kowboy.se instead. Every website's plugin settings and every Vitec notification
+  address point at core.kowboy.cloud, and the admin panel's sign-in links use it too. Velocity
+  serves a custom address through Cloudways' Cloudflare add-on, about $4.99 a month each after a
+  30-day trial (the Chat project's figure, not checked here), so the cost is the same either way.
+- Blocked: the switch of Core's addresses to Velocity.
+- a) **Keep core.kowboy.cloud and staging.core.kowboy.cloud** (recommended, the smaller change):
+  at the switch the two names are pointed at Velocity, and no website, Vitec setting or sign-in
+  link changes.
+- b) **Move to core.kowboy.se and staging.core.kowboy.se**: at the switch every website's Core
+  address, every Vitec notification address and Core's own address setting change too, and the old
+  names keep forwarding for a while.
 
 ## 225. `[client-wordpress]` Does a home that is not for sale, coming or sold get a page on the website?
 
