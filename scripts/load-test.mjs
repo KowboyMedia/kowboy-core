@@ -46,7 +46,7 @@ const JOB_FAILED = 'load-test job failed';
  */
 const STORAGE_MIB = 35_840;
 const TEST =
-  'the load test at ten times launch answers 100-item pages within 100 ms to the first byte and 300 ms in full, p95';
+  'the load test at ten times launch answers a pull of a few changes within 500 ms and a 100-item page within 1 s in full, p95';
 const option = (name) => {
   const at = process.argv.indexOf(name);
   return at === -1 ? null : (process.argv[at + 1] ?? null);

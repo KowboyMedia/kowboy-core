@@ -338,7 +338,7 @@ describe('alerts', () => {
     expect(running.mails).toHaveLength(1);
     const first = `Test tenant’s site test site has not fetched the changes Core told it about at ${await toldAt()}.`;
     const said = `${first} Until it fetches, its visitors see the site as it was before these changes. Check that the site opens in a browser, and that the token in the site’s Core settings is the one on Test tenant’s page.`;
-    expect(running.mails[0]?.subject).toBe(`Core test: P1 Disrupted · ${first.slice(0, -1)}`);
+    expect(running.mails[0]?.subject).toBe(`P1 Disrupted · ${first.slice(0, -1)}`);
     expect(running.mails[0]?.text).toBe(
       [
         'P1 Disrupted · Sites fetching their changes',
@@ -355,7 +355,7 @@ describe('alerts', () => {
 
     await pull(running.baseUrl, 'property');
     expect((await checkAlerts(config)).closed).toEqual(['subscribers:1']);
-    expect(running.mails[1]?.subject).toBe(`Core test: Resolved · ${first.slice(0, -1)}`);
+    expect(running.mails[1]?.subject).toBe(`Resolved · ${first.slice(0, -1)}`);
     expect(running.mails[1]?.text.split('\n').slice(0, 2)).toEqual([
       'Resolved · Sites fetching their changes',
       `Resolved after 16 minutes: “${first}” Nothing to do.`,
@@ -423,7 +423,7 @@ describe('alerts', () => {
     );
     await db().query("update events set at = at - interval '20 seconds'");
     await checkAlerts(config);
-    expect(running.mails[0]?.subject).toBe('Core test: 2 problems, the worst P1 Disrupted');
+    expect(running.mails[0]?.subject).toBe('2 problems, the worst P1 Disrupted');
     expect(running.mails[0]?.text).toContain(
       `P1 Disrupted · The bot check stopped a site’s forms\n`,
     );
@@ -527,7 +527,7 @@ describe('alerts', () => {
     );
     await db().query("update events set at = at - interval '20 seconds'");
     await checkAlerts(config);
-    expect(running.mails[0]?.subject).toBe('Core test: 7 problems, the worst P1 Disrupted');
+    expect(running.mails[0]?.subject).toBe('7 problems, the worst P1 Disrupted');
     expect(running.mails[0]?.text).toContain('P1 Disrupted · A visitor’s form named no office\n');
 
     // Core keeps no copy of a stopped form, so without the website's page it opens the website.
@@ -535,7 +535,9 @@ describe('alerts', () => {
       "update subscribers set bell_url = 'https://abc.supabase.co/functions/v1/core-bell' where id = 1",
     );
     const elsewhere = await attention();
-    expect(new Set(elsewhere.map((line) => line.link))).toEqual(new Set(['/brokerages/1/websites/1']));
+    expect(new Set(elsewhere.map((line) => line.link))).toEqual(
+      new Set(['/brokerages/1/websites/1']),
+    );
     expect(elsewhere.every((line) => !line.said.includes('“Formulär”'))).toBe(true);
   });
 
@@ -592,7 +594,7 @@ describe('alerts', () => {
     await checkAlerts(config);
     expect(running.mails).toHaveLength(1);
     expect(running.mails[0]?.subject).toBe(
-      'Core test: P0 Core down · Core’s background worker has not reported for 10 minutes',
+      'P0 Core down · Core’s background worker has not reported for 10 minutes',
     );
     expect(running.mails[0]?.text).toContain('Have the worker restarted where Core is hosted.');
     expect(running.mails[0]?.text).toContain(
@@ -604,9 +606,7 @@ describe('alerts', () => {
     await heartbeat();
     await checkAlerts(config);
     expect(running.mails).toHaveLength(2);
-    expect(running.mails[1]?.subject).toBe(
-      'Core test: 1 problem, the worst P1 Disrupted; 1 problem resolved',
-    );
+    expect(running.mails[1]?.subject).toBe('1 problem, the worst P1 Disrupted; 1 problem resolved');
     expect(running.mails[1]?.text).toContain(
       'Resolved after 6 minutes: “Core’s background worker has not reported for 10 minutes.” Nothing to do.',
     );
@@ -688,7 +688,7 @@ describe('alerts', () => {
 
     await checkAlerts(config);
     expect(running.mails).toHaveLength(1);
-    expect(running.mails[0]?.subject).toBe('Core test: 2 problems, the worst P1 Disrupted');
+    expect(running.mails[0]?.subject).toBe('2 problems, the worst P1 Disrupted');
     expect(running.mails[0]?.text).toBe(
       [
         'P1 Disrupted · Office taken off the sites',
@@ -717,7 +717,7 @@ describe('alerts', () => {
     );
     await checkAlerts(config);
     expect(running.mails).toHaveLength(2);
-    expect(running.mails[1]?.subject).toBe('Core test: 1 thing to look at');
+    expect(running.mails[1]?.subject).toBe('1 thing to look at');
     expect(running.mails[1]?.text).toContain(
       'P2 To look at · Core stopped asking a CRM after failures',
     );
@@ -794,7 +794,7 @@ describe('alerts', () => {
     await checkAlerts(config);
     expect(running.mails).toHaveLength(1);
     expect(running.mails[0]?.subject).toBe(
-      'Core test: Resolved · Core’s background worker has never reported',
+      'Resolved · Core’s background worker has never reported',
     );
   });
 
@@ -819,7 +819,7 @@ describe('alerts', () => {
   });
 
   it('says which channel an alert went by, and which it could not go by', () => {
-    const subject = 'Core test: P1 Disrupted · Acme’s site acme.se has not fetched its changes';
+    const subject = 'P1 Disrupted · Acme’s site acme.se has not fetched its changes';
     expect(summarise('alert.sent', { subject, outcomes: { email: 'sent', slack: 'sent' } })).toBe(
       `Core sent the alert “${subject}” by mail and to Slack.`,
     );

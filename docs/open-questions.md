@@ -9,18 +9,6 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 232. `[core]` The load test's target, reworded to what Core reaches today
-
-Asked 2026-10-24 in the thread "Get Core production ready". Patric accepted today's speed ("Speed is
-fine now"); AC 27 still names 100 ms to the first byte and 300 ms in full for a page of 100. On
-today's servers at ten times launch: a pull of a few changes 290 ms p95 in full, a page of 100
-602 ms p95 in full (`.do/trials/load-test-claude-production-ready-omktsw.json`).
-
-- **a)** AC 27 becomes "at ten times launch, a pull of a few changes answers within 500 ms and a
-  page of 100 within 1 second in full, p95". Recommended: it holds today's result with room for
-  one run's spread.
-- **b)** Other numbers.
-
 ## 225. `[client-wordpress]` Does a home that is not for sale, coming or sold get a page on the website?
 
 - 2026-10-20 · Found while comparing norbanmakleri.se with the Norban demo (the thread "Norban:

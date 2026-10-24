@@ -154,7 +154,7 @@ async function round(config: AlertConfig): Promise<Round> {
     ...[...dueNow].map(problemTold),
     ...eventsTold(events?.rows ?? [], 'P1'),
   ];
-  if (told.length > 0) await send(`Core ${config.environment}: ${subjectOf(told)}`, told, config);
+  if (told.length > 0) await send(subjectOf(told), told, config);
 
   const result: Round = { opened: [], closed: [] };
   for (const row of ended) if (await close(row)) result.closed.push(row.name);
@@ -493,11 +493,7 @@ async function morningMail(
     ...eventsTold(await attentionBetween(clock.last, clock.until), 'P2'),
   ];
   if (told.length > 0) {
-    await send(
-      `Core ${config.environment}: ${counted(told.length, 'thing', 'things')} to look at`,
-      told,
-      config,
-    );
+    await send(`${counted(told.length, 'thing', 'things')} to look at`, told, config);
   }
   await keepPlace(MORNING_MAIL, clock.until);
 }

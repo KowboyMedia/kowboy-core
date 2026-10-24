@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ses, signed } from './mail.js';
+import { from, ses, signed } from './mail.js';
 
 const keys = { accessKeyId: 'AKIDEXAMPLE', secretAccessKey: 'secret', region: 'eu-north-1' };
 
@@ -17,7 +17,7 @@ describe('mail', () => {
       'noreply@mail.example',
     )({
       to: 'someone@example.com',
-      subject: 'Core staging: a problem',
+      subject: 'A problem',
       text: 'What happened.',
       html: '<p>What happened.</p>',
     });
@@ -29,7 +29,7 @@ describe('mail', () => {
       Destination: { ToAddresses: ['someone@example.com'] },
       Content: {
         Simple: {
-          Subject: { Data: 'Core staging: a problem', Charset: 'UTF-8' },
+          Subject: { Data: 'A problem', Charset: 'UTF-8' },
           Body: {
             Text: { Data: 'What happened.', Charset: 'UTF-8' },
             Html: { Data: '<p>What happened.</p>', Charset: 'UTF-8' },
@@ -69,6 +69,13 @@ describe('mail', () => {
     );
     expect(body['authorization']).not.toBe(one['authorization']);
     expect(later['authorization']).not.toBe(one['authorization']);
+  });
+
+  it('comes from the service by name, with the environment outside production', () => {
+    expect(from('production', 'noreply@mail.example')).toBe('Kowboy Core <noreply@mail.example>');
+    expect(from('staging', 'noreply@mail.example')).toBe(
+      'Kowboy Core staging <noreply@mail.example>',
+    );
   });
 
   it('throws with SES’s answer when the mail is refused', async () => {

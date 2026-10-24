@@ -5,7 +5,7 @@ import { closeDb, db } from './storage/db.js';
 import { migrate } from './storage/migrate.js';
 import { configureCredentials } from './storage/connections.js';
 import { configureBells, flushPendingBells } from './bells.js';
-import { configureMail, ses } from './mail.js';
+import { configureMail, from, ses } from './mail.js';
 import {
   down,
   forViewers,
@@ -86,7 +86,7 @@ export async function startEngine(overrides: Partial<Config> = {}): Promise<Engi
   configureCredentials(config.credentialsKey);
   configureBells(config.bellThrottleMs);
   configureCompression(config.gzipLevel);
-  configureMail(config.ses ? ses(config.ses, config.ses.sender) : null);
+  configureMail(config.ses ? ses(config.ses, from(config.environment, config.ses.sender)) : null);
   configurePanel(config);
   const alerts = {
     environment: config.environment,

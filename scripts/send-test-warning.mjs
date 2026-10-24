@@ -4,7 +4,7 @@
 // out again once it has run. It reads nothing else and prints no setting.
 //
 //   AWS_SES_…=… ALERT_EMAIL=… node scripts/send-test-warning.mjs
-import { ses } from '../dist/engine/mail.js';
+import { from, ses } from '../dist/engine/mail.js';
 
 const env = process.env;
 const missing = [
@@ -27,10 +27,10 @@ await ses(
     secretAccessKey: env['AWS_SES_SECRET_ACCESS_KEY'],
     region: env['AWS_SES_AWS_REGION'],
   },
-  env['AWS_SES_SENDER'],
+  from(environment, env['AWS_SES_SENDER']),
 )({
   to: env['ALERT_EMAIL'],
-  subject: `Core ${environment}: test warning · Nothing is wrong`,
+  subject: 'Test warning · Nothing is wrong',
   text: [
     'This is a test warning. Nothing is wrong.',
     'Core sends its alerts to this address, by mail through Amazon SES.',
