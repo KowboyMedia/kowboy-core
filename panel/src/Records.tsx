@@ -555,7 +555,7 @@ function RecordsView() {
                       <th className="k-pick-cell">
                         <input
                           type="checkbox"
-                          className="k-tick"
+                          className="k-pick-box"
                           aria-label="Pick every record"
                           checked={everything}
                           ref={(box) => {
@@ -590,7 +590,7 @@ function RecordsView() {
                           <td className="k-pick-cell" onClick={(event) => event.stopPropagation()}>
                             <input
                               type="checkbox"
-                              className="k-tick"
+                              className="k-pick-box"
                               aria-label={`Pick ${row.name}`}
                               checked={on}
                               onChange={() => toggle(row)}

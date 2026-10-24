@@ -2114,7 +2114,8 @@ body {
   border-color: var(--k-blue);
   background: var(--k-blue);
 }
-.k-tick {
+.k-pick-box {
+  display: block;
   width: 18px;
   height: 18px;
   margin: 0;

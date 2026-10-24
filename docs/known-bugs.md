@@ -165,3 +165,21 @@ sharing it (question 206 c, "revisit if staging's load is seen slowing live"), t
 Patric as one question with those numbers. Until then each episode is checked and its reports
 closed with what was seen; live's restart ends at the early release, whose version reports such
 an error and goes on.
+
+## 9. `[admin]` The sign-in page's "Keep me signed in" line is squeezed into 18 px and runs over the button
+
+**What happens.** On the admin's sign-in page, staging's and live's alike, the line "Keep me signed
+in on this device for 30 days (otherwise 14)" wraps a word or two at a time in a narrow column and
+runs over the "Email me a sign-in link" button and out of the box (Patric, 2026-10-24). Nothing
+else is wrong: the page works, and every other admin page shows as designed.
+
+**Why.** The Records list (design B part 6, 2026-10-19) gave its tick boxes the class `k-tick`,
+which the sign-in page already used for the whole line, label and box together, and the later
+rule's `width: 18px` won. It came with that change, not with any of 2026-10-24's.
+
+**What fixing it takes.** The Records list's tick boxes get a class of their own, and a test fails
+when a class in the panel's stylesheet gets a second top-level rule of its own.
+
+**Fixed on staging 2026-10-24** (`panel/src/panel.css`, `panel/src/Records.tsx`): the tick boxes
+are `k-pick-box`, and `panel/src/panel.css.test.ts` guards the stylesheet. The entry leaves when
+live has it, at the next release.
