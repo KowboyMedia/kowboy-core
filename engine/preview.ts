@@ -12,10 +12,27 @@ import { closeDb, db } from './storage/db.js';
 const EXAMPLES = 10;
 const FAILURES = 50;
 
-/** The preview over the database at `databaseUrl`, which it opens and closes. */
+/**
+ * The preview over the database at `databaseUrl`, which it opens and closes. A database Core has
+ * never started on, an app's first deploy, holds no record and so nothing that could fail.
+ */
 export async function previewRelease(databaseUrl: string): Promise<Progress> {
-  db(databaseUrl);
+  const pool = db(databaseUrl);
   try {
+    const { rows } = await pool.query<{ items: string | null }>(
+      "select to_regclass('items') as items",
+    );
+    if (!rows[0]?.items) {
+      return {
+        examined: 0,
+        changed: 0,
+        unchanged: 0,
+        failed: 0,
+        failures: [],
+        examples: [],
+        total: 0,
+      };
+    }
     return await recompute({}, { dryRun: true, exampleLimit: EXAMPLES, failureLimit: FAILURES });
   } finally {
     await closeDb();

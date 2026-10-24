@@ -119,4 +119,21 @@ describe('the release preview', () => {
       'The release may go ahead.',
     ]);
   });
+
+  it('lets an app’s first deploy go ahead over a database Core has never started on', async () => {
+    const name = `core_preview_fresh_${String(process.pid)}`;
+    const fresh = URL.replace(/\/[^/?]+(\?|$)/, `/${name}$1`);
+    await db(URL).query(`drop database if exists ${name}`);
+    await db(URL).query(`create database ${name}`);
+    await closeDb();
+
+    try {
+      const report = await previewRelease(fresh);
+
+      expect(report).toMatchObject({ examined: 0, failed: 0 });
+      expect(previewInWords(report).at(-1)).toBe('The release may go ahead.');
+    } finally {
+      await db(URL).query(`drop database if exists ${name}`);
+    }
+  });
 });

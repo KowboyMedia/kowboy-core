@@ -6,6 +6,14 @@
 # DATABASE_CA_CERT. Node trusts an extra CA from a file, so the value goes through one; `pg` then
 # verifies the certificate under the `sslmode=require` the platform's DATABASE_URL states.
 set -e
+# On Cloudways Velocity the version that runs is the one scripts/velocity-build.sh last built,
+# checked and switched to, never the files of a build that failed; it starts with its own copy of
+# this script. Elsewhere there is no .releases folder and nothing changes.
+if [ -d .releases/current ] && [ -z "${CORE_RELEASE:-}" ]; then
+  cd .releases/current
+  export CORE_RELEASE=1
+  exec sh scripts/start.sh "$@"
+fi
 if [ -n "$DATABASE_CA_CERT" ]; then
   printf '%s\n' "$DATABASE_CA_CERT" > /tmp/database-ca.crt
   export NODE_EXTRA_CA_CERTS=/tmp/database-ca.crt

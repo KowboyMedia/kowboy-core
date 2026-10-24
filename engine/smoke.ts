@@ -3,7 +3,9 @@
 // is down for every customer (`/v1/health`), the admin app built and served, and the sites' API
 // guarding its door. `node dist/main.js smoke` runs it as the deploy's last step (the job "smoke"
 // in .do/app.staging.yaml), and its lines go into the deploy's log. It reads nothing private and
-// changes nothing.
+// changes nothing. `smoke start` is the start check of a new version on Cloudways Velocity
+// (scripts/velocity-build.sh): the same requests but `/v1/health`, which reports on the worker
+// still running, not on the version being started beside it.
 
 /** One request of the suite and what its answer must be. */
 type Check = { path: string; expect: (response: Response) => Promise<string | null> };
@@ -29,14 +31,20 @@ const CHECKS: Check[] = [
   { path: '/v1/changes', expect: status(401, 'the sites’ API answers without a token') },
 ];
 
+/** The suites by name: `deploy` after a deploy, `start` before a new version takes over. */
+export const SUITES = {
+  deploy: CHECKS,
+  start: CHECKS.filter((check) => check.path !== '/v1/health'),
+} as const;
+
 /** How often the suite is tried while a new version settles, and the wait between tries. */
 const TRIES = 6;
 const WAIT_MS = 10_000;
 
 /** One pass of the suite: a line per failing check, none when every check passes. */
-async function pass(baseUrl: string): Promise<string[]> {
+async function pass(baseUrl: string, checks: readonly Check[]): Promise<string[]> {
   const failures: string[] = [];
-  for (const check of CHECKS) {
+  for (const check of checks) {
     try {
       const response = await fetch(new URL(check.path, baseUrl), { redirect: 'manual' });
       const failure = await check.expect(response);
@@ -53,10 +61,15 @@ async function pass(baseUrl: string): Promise<string[]> {
  * The suite against the Core at `baseUrl`, tried again while it fails, up to `tries` times:
  * the failing checks of the last try, none when the deploy answers as a whole.
  */
-export async function smoke(baseUrl: string, tries = TRIES, waitMs = WAIT_MS): Promise<string[]> {
+export async function smoke(
+  baseUrl: string,
+  tries = TRIES,
+  waitMs = WAIT_MS,
+  checks: readonly Check[] = SUITES.deploy,
+): Promise<string[]> {
   let failures: string[] = [];
   for (let attempt = 1; attempt <= tries; attempt += 1) {
-    failures = await pass(baseUrl);
+    failures = await pass(baseUrl, checks);
     if (failures.length === 0 || attempt === tries) break;
     await new Promise((resolve) => setTimeout(resolve, waitMs));
   }
@@ -64,12 +77,16 @@ export async function smoke(baseUrl: string, tries = TRIES, waitMs = WAIT_MS): P
 }
 
 /** The suite's result as lines for the deploy's log. */
-export function smokeInWords(baseUrl: string, failures: string[]): string[] {
+export function smokeInWords(
+  baseUrl: string,
+  failures: string[],
+  checks: readonly Check[] = SUITES.deploy,
+): string[] {
   if (failures.length === 0) {
-    return [`Smoke suite: ${String(CHECKS.length)} checks against ${baseUrl}, all pass.`];
+    return [`Smoke suite: ${String(checks.length)} checks against ${baseUrl}, all pass.`];
   }
   return [
-    `Smoke suite: ${String(failures.length)} of ${String(CHECKS.length)} checks against ${baseUrl} fail.`,
+    `Smoke suite: ${String(failures.length)} of ${String(checks.length)} checks against ${baseUrl} fail.`,
     ...failures.map((failure) => `Fails: ${failure}`),
   ];
 }

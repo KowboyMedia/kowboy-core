@@ -7,6 +7,8 @@
 //                              stored record through this version, nothing written
 //   node dist/main.js smoke    the smoke suite, a deploy's last step: a few requests to the
 //                              version now live at APP_URL, nothing read that is private
+//   node dist/main.js smoke start   the same as a new version's start check, without the
+//                              worker's health (scripts/velocity-build.sh)
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { pathToFileURL } from 'node:url';
@@ -18,7 +20,7 @@ import { removeLoginFields } from './engine/panel/login.js';
 import { closeErrorReporting, report } from './engine/errors.js';
 import { databaseUrl } from './engine/config.js';
 import { previewInWords, previewRelease } from './engine/preview.js';
-import { smoke, smokeInWords } from './engine/smoke.js';
+import { smoke, smokeInWords, SUITES } from './engine/smoke.js';
 import type { Adapter } from './engine/adapter-api/types.js';
 import { vitecAdapter } from './adapters/vitec/index.js';
 
@@ -121,8 +123,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       console.error('The smoke suite needs APP_URL, the address of the version it checks.');
       process.exit(1);
     }
-    const failures = await smoke(baseUrl);
-    for (const line of smokeInWords(baseUrl, failures)) console.log(line);
+    const checks = SUITES[process.argv[3] === 'start' ? 'start' : 'deploy'];
+    const failures = await smoke(baseUrl, undefined, undefined, checks);
+    for (const line of smokeInWords(baseUrl, failures, checks)) console.log(line);
     process.exit(failures.length === 0 ? 0 : 1);
   }
   const { engine } = await main(process.argv[2] ?? 'web').catch((error: unknown) => {
