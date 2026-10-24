@@ -17,8 +17,8 @@ lists (item 31, waits on 198) and the forms (item 29, started on 209 a, 2026-10-
 the first open step of item 33 that waits on nobody. On 2026-10-18 condition 1 was done and Core's
 part of condition 4, and the preview of condition 2 was built. On 2026-10-19 Patric answered 207 a
 (the early release) and 209 a (the forms), and on 2026-10-21 210 a, 211 a and 217 a: the preview
-goes into staging's deploys and the restore drill runs now; the rest waits on the threads or on
-the seven days. On 2026-10-22 the early release went out (live runs staging's version with its
+goes into staging's deploys and the restore drill runs now; the rest waits on the threads.
+On 2026-10-22 the early release went out (live runs staging's version with its
 new settings), the restore drill passed by script (AC 24), and the load test failed (AC 27):
 finding where its time goes is the next open step.
 
@@ -1024,18 +1024,19 @@ finding where its time goes is the next open step.
          (`scripts/load-test.mjs`): full pages p95 907 ms to the first byte and 1,367 ms in full
          against 100 and 300; the next run times the database's share (`decisions.md`). AC 32 is
          not built yet.
-      4. Seven days on staging with no unresolved Sentry issue (strategy §9, phase 7): 57 open on
+      4. No unresolved Sentry issue when the release goes out (strategy §9, phase 7; the seven days
+         were dropped, Patric 2026-10-24: "we release when ready"): 57 open on
          2026-10-18, 52 of them resolved that day, each checked against the code: the connection
          slots (fixed 2026-10-06), the dropped `active` column, the deleted events page, a database
          connection that dropped once, "Cannot use a pool after calling end on the pool" (the
          worker's tasks outlived a stop; fixed in 375079c) and a bell to a site that does not exist
          (no longer reported, a16b3d8). The five left are Vitec's, with "Vitec office whitelist"
          (1R, 1S, 1F, 1G) and "Proper error messages in admin" (1N; strategy §6 reports a fetch
-         given up, so it closes when those records load). The seven days start once they are
-         resolved; the cluster's pending maintenance (Tuesdays 08:49 UTC) may add a few.
+         given up, so it closes when those records load).
       5. Alerts in place on both apps and one seen arriving: `ALERT_EMAIL` (the address in
-         `ADMIN_EMAILS`), and `MAIL_FROM` with `POSTMARK_SERVER_TOKEN` in each worker, where
-         `checkAlerts` runs; Core's mail reaches kowboy.se inboxes since 2026-10-22. Patric's own uptime monitor on
+         `ADMIN_EMAILS`) and the `AWS_SES_*` settings in each worker, where `checkAlerts` runs
+         (Amazon SES since 2026-10-24; staging's worker had no alert address until then), and
+         `scripts/send-test-warning.mjs` as a one-off job for the one seen arriving. Patric's own uptime monitor on
          live's `/v1/health` (173), asked of him once the final release is out.
       6. Live's settings at the release, in the live app's own spec: the pool `live` (12 by 167 c,
          kept by 206 a), `SENTRY_DSN`, `ADMIN_SECRET` removed, the worker's mail settings,
