@@ -9,23 +9,6 @@ plan's questions, which are 78 to 80 here; 62 to 69 were also used in chat on 20
 plan's questions, which are 66 to 73 here; 47 and 48 were used in chat on 2026-09-19 for 16 and 2, and the helper-methods
 conversation of the same day counted 30 to 49 in chat; none of those are register numbers).
 
-## 233. `[core]` Which addresses does Core answer on once it runs on Cloudways Velocity?
-
-- 2026-10-24 · Found while checking the move to Velocity (the thread "Verify Core runs on
-  Velocity"). Core answers on core.kowboy.cloud and staging.core.kowboy.cloud, both still served by
-  DigitalOcean. The Kowboy Chat project's plan for Velocity names core.kowboy.se and
-  staging.core.kowboy.se instead. Every website's plugin settings and every Vitec notification
-  address point at core.kowboy.cloud, and the admin panel's sign-in links use it too. Velocity
-  serves a custom address through Cloudways' Cloudflare add-on, about $4.99 a month each after a
-  30-day trial (the Chat project's figure, not checked here), so the cost is the same either way.
-- Blocked: the switch of Core's addresses to Velocity.
-- a) **Keep core.kowboy.cloud and staging.core.kowboy.cloud** (recommended, the smaller change):
-  at the switch the two names are pointed at Velocity, and no website, Vitec setting or sign-in
-  link changes.
-- b) **Move to core.kowboy.se and staging.core.kowboy.se**: at the switch every website's Core
-  address, every Vitec notification address and Core's own address setting change too, and the old
-  names keep forwarding for a while.
-
 ## 225. `[client-wordpress]` Does a home that is not for sale, coming or sold get a page on the website?
 
 - 2026-10-20 · Found while comparing norbanmakleri.se with the Norban demo (the thread "Norban:
