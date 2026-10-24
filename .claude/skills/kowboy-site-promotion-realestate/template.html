@@ -1,0 +1,838 @@
+<title>{{brandPos}} Next Website</title>
+<meta name="claude:viewport-fit-sides" content="cover" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Source+Sans+3:wght@400;600&display=swap"
+/>
+<style>
+  /* Layout: A4 sheets; page 1 tells the story in numbers, page 2 walks through the steps, page 3 shows search. One paper look, by choice. */
+  :root {
+    --desk: #e4e7e3; /* the table the sheets lie on */
+    --paper: #ffffff;
+    --ink: #1c1f1d; /* charcoal, as on the new site */
+    --muted: #5d6460;
+    --line: #d9ddd9;
+    --mist: #f1f3f0; /* quiet panels */
+    --spruce: #2e5b4f; /* the next generation */
+    --spruce-soft: #e3ece8;
+    --blush: #f2dfd7; /* a warm tone for what the client keeps */
+    --today: #b9bfba; /* today's site in the chart */
+    --link: #1a0dab; /* a search result's title, as Google shows it */
+    --display: 'Manrope', 'Segoe UI', system-ui, sans-serif;
+    --body: 'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
+    color-scheme: light;
+  }
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: var(--desk);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 13px;
+    line-height: 1.42;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 28px;
+  }
+  .sheets {
+    display: grid;
+    gap: 28px;
+    justify-items: center;
+  }
+  .sheet {
+    background: var(--paper);
+    width: 100%;
+    max-width: 794px;
+    min-height: 1123px;
+    padding: 46px 52px 34px;
+    box-shadow:
+      0 1px 2px rgb(28 31 29 / 0.08),
+      0 12px 32px rgb(28 31 29 / 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .sheet.dense {
+    gap: 15px;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--display);
+    margin: 0;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  p {
+    margin: 0;
+  }
+  .eyebrow {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-family: var(--display);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 9px;
+  }
+  h1 {
+    font-size: 38px;
+    font-weight: 800;
+    line-height: 1.05;
+  }
+  .intro {
+    display: grid;
+    gap: 10px;
+  }
+  .lead {
+    font-size: 15px;
+    line-height: 1.48;
+    max-width: 72ch;
+  }
+  .lead strong {
+    font-weight: 600;
+  }
+
+  /* Page 1 */
+  .hero {
+    display: grid;
+    grid-template-columns: 168px 1fr;
+    gap: 22px;
+    align-items: start;
+  }
+  .phone {
+    border: 6px solid var(--ink);
+    border-radius: 26px;
+    overflow: hidden;
+    background: var(--ink);
+    max-width: 100%;
+  }
+  .phone img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .cap {
+    font-size: 10.5px;
+    line-height: 1.35;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .tiles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .tile {
+    background: var(--mist);
+    border-radius: 12px;
+    padding: 13px 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+  }
+  .tile b {
+    font-family: var(--display);
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--spruce);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .tile b small {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0;
+  }
+  .tile span {
+    font-size: 12px;
+  }
+  .tiles .span,
+  .tiles .wide {
+    grid-column: 1 / -1;
+  }
+  .tiles .wide {
+    background: var(--spruce);
+  }
+  .tiles .wide span {
+    color: var(--paper);
+    font-size: 12.5px;
+  }
+  .tiles .wide strong {
+    font-family: var(--display);
+    font-weight: 700;
+  }
+
+  .chart h2,
+  .keep h2 {
+    font-size: 14.5px;
+    font-weight: 700;
+  }
+  .chart p {
+    font-size: 11px;
+    color: var(--muted);
+    margin: 2px 0 6px;
+  }
+  .chart svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .chart text {
+    font-family: var(--body);
+  }
+
+  .keep {
+    background: var(--blush);
+    border-radius: 12px;
+    padding: 14px 16px 15px;
+    display: grid;
+    gap: 9px;
+  }
+  .keep ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(var(--n), 1fr);
+    gap: 12px;
+  }
+  .keep li {
+    display: grid;
+    grid-template-columns: 17px 1fr;
+    gap: 7px;
+    align-items: start;
+    font-size: 12px;
+    min-width: 0;
+  }
+  .keep svg {
+    width: 17px;
+    height: 17px;
+    margin-top: 1px;
+  }
+
+  /* Page 2 */
+  .head2 {
+    display: grid;
+    gap: 5px;
+  }
+  h2.big {
+    font-size: 28px;
+    font-weight: 800;
+  }
+  .head2 p {
+    font-size: 13.5px;
+    color: var(--muted);
+  }
+  .shots {
+    display: grid;
+    grid-template-columns: 1fr 104px;
+    gap: 14px;
+    align-items: end;
+  }
+  .shots.one {
+    grid-template-columns: 1fr;
+  }
+  .shots figure {
+    margin: 0;
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+  }
+  .shots figcaption {
+    font-size: 10.5px;
+    line-height: 1.35;
+    color: var(--muted);
+  }
+  .browser {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--paper);
+  }
+  .browser i {
+    display: flex;
+    gap: 5px;
+    padding: 6px 9px;
+    background: var(--mist);
+    border-bottom: 1px solid var(--line);
+  }
+  .browser i::before,
+  .browser i::after,
+  .browser i span {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--today);
+  }
+  .browser img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .phone.small {
+    border-width: 4px;
+    border-radius: 16px;
+  }
+  .phone.small img {
+    aspect-ratio: 480 / 700;
+    object-fit: cover;
+    object-position: top;
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+  }
+  .step {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 13px 10px;
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 3px 10px;
+    align-content: start;
+    min-width: 0;
+  }
+  .step svg {
+    width: 28px;
+    height: 28px;
+    grid-row: span 2;
+  }
+  .step h3 {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.25;
+    align-self: center;
+  }
+  .step .what {
+    grid-column: 2;
+    font-size: 11.5px;
+  }
+  .step dl {
+    grid-column: 1 / -1;
+    margin: 4px 0 0;
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    gap: 2px 8px;
+    font-size: 11px;
+    border-top: 1px solid var(--line);
+    padding-top: 5px;
+  }
+  .step dt {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--spruce);
+    padding-top: 2px;
+  }
+  .step dd {
+    margin: 0;
+  }
+  .extra {
+    font-size: 12px;
+    background: var(--mist);
+    border-radius: 10px;
+    padding: 8px 12px;
+  }
+  .extra strong {
+    font-family: var(--display);
+    font-weight: 700;
+  }
+  .foot {
+    margin-top: auto;
+    font-size: 9.5px;
+    line-height: 1.42;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    padding-top: 8px;
+    display: grid;
+    gap: 3px;
+  }
+  .foot a {
+    color: inherit;
+  }
+
+  /* Page 3: from a search to a customer, then what Core does for search */
+  .stats {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 10px;
+  }
+  .stats .tile b {
+    font-size: 26px;
+  }
+  .path {
+    display: grid;
+    grid-template-columns: 1.05fr 1.6fr 0.75fr 1fr;
+    gap: 10px;
+    align-items: stretch;
+  }
+  .path > div {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 11px;
+    display: grid;
+    gap: 7px;
+    align-content: start;
+    min-width: 0;
+    position: relative;
+  }
+  .path > div + div::before {
+    content: '→';
+    position: absolute;
+    left: -10px;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-family: var(--display);
+    font-weight: 700;
+    color: var(--spruce);
+    background: var(--paper);
+  }
+  .path h3 {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--spruce);
+  }
+  .query {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 11.5px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .query svg {
+    width: 12px;
+    height: 12px;
+    flex: none;
+  }
+  .serp {
+    font-family: Arial, Helvetica, sans-serif;
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+  .serp .site {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 10.5px;
+    color: var(--ink);
+  }
+  .serp .site i {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--mist);
+    border: 1px solid var(--line);
+    display: grid;
+    place-items: center;
+    font-style: normal;
+    font-size: 9px;
+    font-weight: 700;
+    flex: none;
+  }
+  .serp .site small {
+    display: block;
+    color: var(--muted);
+    font-size: 9.5px;
+    overflow-wrap: anywhere;
+  }
+  .serp .title {
+    color: var(--link);
+    font-size: 14px;
+    line-height: 1.25;
+  }
+  .serp .snippet {
+    font-size: 10.5px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .path .phone {
+    border-width: 3px;
+    border-radius: 12px;
+  }
+  .path .phone img {
+    aspect-ratio: 390 / 560;
+    object-fit: cover;
+    object-position: top;
+  }
+  .path p {
+    font-size: 11px;
+  }
+  .lead-card {
+    background: var(--spruce-soft);
+    border-radius: 10px;
+    padding: 9px 10px;
+    font-size: 11.5px;
+    display: grid;
+    gap: 3px;
+  }
+  .lead-card strong {
+    font-family: var(--display);
+    font-size: 12px;
+  }
+  .note {
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .features {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 18px;
+  }
+  .features li {
+    display: grid;
+    grid-template-columns: 17px 1fr;
+    gap: 8px;
+    align-items: start;
+    min-width: 0;
+  }
+  .features svg {
+    width: 17px;
+    height: 17px;
+    margin-top: 2px;
+  }
+  .features h3 {
+    font-size: 12.5px;
+    font-weight: 700;
+  }
+  .features p {
+    font-size: 11.5px;
+    color: var(--ink);
+  }
+  .features code {
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    font-size: 10px;
+    background: var(--mist);
+    border-radius: 4px;
+    padding: 1px 4px;
+    overflow-wrap: anywhere;
+  }
+  .badge {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    background: var(--spruce);
+    color: var(--paper);
+    border-radius: 12px;
+    padding: 12px 16px;
+  }
+  .badge b {
+    font-family: var(--display);
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .badge b small {
+    font-size: 14px;
+    opacity: 0.8;
+  }
+  .badge span {
+    font-size: 12.5px;
+  }
+
+  @media (max-width: 760px) {
+    body {
+      padding-block: 16px;
+    }
+    .sheets {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .sheet {
+      min-height: 0;
+      padding: 26px 18px 22px;
+    }
+    h1 {
+      font-size: 30px;
+    }
+    .hero {
+      grid-template-columns: 1fr;
+    }
+    .phone-wrap {
+      max-width: 200px;
+    }
+    .tile b {
+      font-size: 26px;
+    }
+    .keep ul,
+    .steps,
+    .features,
+    .path {
+      grid-template-columns: 1fr;
+    }
+    .stats {
+      grid-auto-flow: row;
+    }
+    .path > div + div::before {
+      content: none;
+    }
+    .path .phone {
+      max-width: 140px;
+    }
+    .shots {
+      grid-template-columns: 1fr 84px;
+    }
+    .chart {
+      overflow-x: auto;
+      min-width: 0;
+    }
+    .chart svg {
+      min-width: 560px;
+    }
+  }
+  @media print {
+    @page {
+      size: A4;
+      margin: 0;
+    }
+    body {
+      background: var(--paper);
+      padding: 0;
+    }
+    .sheets {
+      display: block;
+    }
+    .sheet {
+      box-shadow: none;
+      width: 210mm;
+      height: 297mm;
+      min-height: 0;
+      max-width: none;
+      overflow: hidden;
+      break-after: page;
+    }
+    .sheet.dense {
+      padding-top: 40px;
+    }
+    .sheet:last-child {
+      break-after: auto;
+    }
+  }
+</style>
+
+<div class="sheets">
+  <section class="sheet" aria-label="Page 1">
+    <div class="eyebrow"><span>Kowboy for {{brandFull}}</span><span>{{monthYear}}</span></div>
+    <div class="intro">
+      <h1>{{brandPos}} next website</h1>
+      <p class="lead">{{{lead}}}</p>
+    </div>
+
+    <div class="hero">
+      <div class="phone-wrap">
+        <div class="phone"><img src="{{propImg}}" alt="{{propAlt}}" /></div>
+        <p class="cap">{{propCaption}}</p>
+      </div>
+      <div class="tiles">{{{tilesHtml}}} {{{contactHtml}}}</div>
+    </div>
+
+    <!--if:showChart-->
+    <div class="chart">
+      <h2>Seconds until a phone shows the main content</h2>
+      <p>Measured side by side on {{dateLong}}, {{runsText}}.</p>
+      {{{chartHtml}}}
+    </div>
+    <!--end:showChart-->
+
+    <div class="keep">
+      <h2>What {{brand}} keeps</h2>
+      <ul style="--n: {{keepCount}}">
+        {{{keepHtml}}}
+      </ul>
+    </div>
+  </section>
+
+  <section class="sheet dense" aria-label="Page 2">
+    <div class="eyebrow">
+      <span>{{brandPos}} next website</span><span>Kowboy · {{monthYear}}</span>
+    </div>
+    <div class="head2">
+      <h2 class="big">{{stepsWord}}</h2>
+      <p>
+        Each step, and what it means for {{brandPos}} business and for the people who visit the
+        site.
+      </p>
+    </div>
+
+    <div class="shots<!--if:noArea--> one<!--end:noArea-->">
+      <figure>
+        <div class="browser">
+          <i><span></span></i
+          ><img
+            src="{{listImg}}"
+            alt="The list of homes for sale on a computer in the next generation: cards with the area, street, viewing, price, rooms and size"
+          />
+        </div>
+        <figcaption>
+          Till salu on a computer: every card names the area, the next viewing, the price, rooms and
+          size.
+        </figcaption>
+      </figure>
+      <!--if:showArea-->
+      <figure>
+        <div class="phone small">
+          <img src="{{areaImg}}" alt="An area page on a phone, with the area's outline on a map" />
+        </div>
+        <figcaption>Each area on a map.</figcaption>
+      </figure>
+      <!--end:showArea-->
+    </div>
+
+    <div class="steps">{{{stepsHtml}}}</div>
+
+    <!--if:chat-->
+    <p class="extra">
+      <strong>Also available:</strong> Kowboy Chat, which greets visitors on a home's page as its
+      agent and offers to book a viewing or a valuation.
+    </p>
+    <!--end:chat-->
+
+    <div class="foot">
+      <p>
+        How we measured: Google Lighthouse 12.8, the tool behind Google's PageSpeed Insights, on
+        {{theirHost}} and on {{oursKind}} with {{brandPos}} own homes, on {{dateLong}}. Lighthouse
+        tests as a mid-range phone on a slow mobile connection, so most visitors see shorter times
+        on both sites. The figures are measurements; the effects on rankings and leads are what we
+        expect.
+      </p>
+      <p>
+        Sources: Google Search Central,
+        <a href="https://developers.google.com/search/docs/appearance/core-web-vitals"
+          >Understanding Core Web Vitals</a
+        >
+        (updated 10 Dec 2025) and
+        <a
+          href="https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics"
+          >JavaScript SEO basics</a
+        >
+        (updated 4 Mar 2026); web.dev,
+        <a href="https://web.dev/articles/vitals">Web Vitals</a> (updated 31 Oct 2024); Vercel,
+        <a href="https://vercel.com/blog/the-rise-of-the-ai-crawler">The rise of the AI crawler</a>
+        (17 Dec 2024).
+      </p>
+    </div>
+  </section>
+
+  <section class="sheet" aria-label="Page 3">
+    <div class="eyebrow">
+      <span>{{brandPos}} next website</span><span>Search that brings customers</span>
+    </div>
+    <div class="head2">
+      <h2 class="big">Found in Google by people ready to move</h2>
+      <p class="lead" style="max-width: none">{{seoLead}}</p>
+    </div>
+
+    <div class="stats">
+      <div class="tile">
+        <b>52 <small>%</small></b
+        ><span>of buyers in the United States found the home they bought online.</span>
+      </div>
+      <div class="tile">
+        <b>70 <small>%</small></b
+        ><span>of them searched on a phone or a tablet.</span>
+      </div>
+      <!--if:oneTap-->
+      <div class="tile">
+        <b>1 <small>tap</small></b
+        ><span>from a search result to {{oneTapWhat}} on {{brandPos}} own page.</span>
+      </div>
+      <!--end:oneTap-->
+    </div>
+
+    <div class="path" aria-label="From a search to a customer">
+      <div>
+        <h3>1 · A buyer searches</h3>
+        <div class="query">
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <circle cx="5" cy="5" r="3.6" fill="none" stroke="#5d6460" stroke-width="1.4" />
+            <path
+              d="M7.7 7.7l3 3"
+              stroke="#5d6460"
+              stroke-width="1.4"
+              stroke-linecap="round"
+            /></svg
+          >{{query}}
+        </div>
+        <p>Someone planning a move asks Google.</p>
+      </div>
+      <div>
+        <h3>2 · Google shows {{brandPos}} page</h3>
+        <div class="serp">
+          <div class="site">
+            <i>{{brandInitial}}</i>
+            <div>{{serpSite}}<small>{{serpCrumb}}</small></div>
+          </div>
+          <div class="title">{{serpTitle}}</div>
+          <div class="snippet">{{serpSnippet}}</div>
+        </div>
+        <p class="note">An illustration with the home's real title and description.</p>
+      </div>
+      <div>
+        <h3>3 · The home's page</h3>
+        <div class="phone"><img src="{{propImg}}" alt="The home's page on a phone" /></div>
+      </div>
+      <div>
+        <h3>4 · A customer</h3>
+        <div class="lead-card"><strong>A lead in {{crm}}</strong><span>{{leadWhat}}</span></div>
+        <p>A visitor who came from search, on {{brandPos}} own page.</p>
+      </div>
+    </div>
+
+    <div class="head2">
+      <h2 style="font-size: 17px">What Kowboy Core does so Google finds every home</h2>
+      <p>Each point was checked on the next generation's pages on {{dateLong}}.</p>
+    </div>
+    <ul class="features">
+      {{{seoFeaturesHtml}}}
+    </ul>
+
+    <!--if:seoScoreShow-->
+    <div class="badge">
+      <b>{{seoScore}} <small>/ 100</small></b
+      ><span>in Google's search check for a home's page.{{seoScoreNote}}</span>
+    </div>
+    <!--end:seoScoreShow-->
+
+    <div class="foot">
+      <p>
+        Buyers' numbers: National Association of Realtors,
+        <a href="https://store.realtor/2025-nar-profile-of-home-buyers-and-sellers-digital-download"
+          >2025 Profile of Home Buyers and Sellers</a
+        >
+        (November 2025; buyers from July 2024 to June 2025). Search results: Google Search Central,
+        <a href="https://developers.google.com/search/docs/fundamentals/seo-starter-guide"
+          >SEO Starter Guide</a
+        >
+        (updated 10 Dec 2025). How much search adds for {{brand}} is what we expect, not a
+        measurement.
+      </p>
+    </div>
+  </section>
+</div>

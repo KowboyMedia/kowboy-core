@@ -1,0 +1,103 @@
+{
+  "date": "2026-10-24",
+  "brand": "Norban",
+  "brandFull": "Norban Mäkleri",
+  "crm": "Vitec",
+  "ours": {
+    "url": "https://wordpress-1545003-6698706.cloudwaysapps.com",
+    "host": "wordpress-1545003-6698706.cloudwaysapps.com",
+    "home": "https://wordpress-1545003-6698706.cloudwaysapps.com/objekt/till-salu-lund-brunnshog-brunnshogsgatan-2-obj5pbmxxt3g83l87mkb8/"
+  },
+  "theirs": {
+    "url": "https://norbanmakleri.se",
+    "host": "norbanmakleri.se",
+    "home": "https://norbanmakleri.se/objekt/till-salu-lund-brunnshog-brunnshogsgatan-2-obj5pbmxxt3g83l87mkb8/"
+  },
+  "counts": {
+    "homes": 423,
+    "forSale": 10,
+    "coming": 3,
+    "sold": 410,
+    "areas": 56,
+    "associations": 428,
+    "agents": 4,
+    "offices": 1
+  },
+  "theirsHasAssociations": false,
+  "home": {
+    "area": "Brunnshög",
+    "street": "Brunnshögsgatan 2",
+    "hasViewing": true,
+    "description": "Ljus och välplanerad 1:a högst upp i huset på attraktiva Brunnshög! Placeringen längst bort i loftgången på hörna, högst upp, skapar ett lugnt och tyst boende med en härlig känsla…",
+    "ogImage": "https://cdn-realestate.kowboy.se/r2/M31529/OBJ5PBMXXT3G83L87MKB8/MED5PDVBWZ3G83T99VV4F_1200.jpg",
+    "headings": 21,
+    "hasMap": true,
+    "path": "/objekt/till-salu-lund-brunnshog-brunnshogsgatan-2-obj5pbmxxt3g83l87mkb8/"
+  },
+  "list": {
+    "links": 9
+  },
+  "areaPage": {
+    "hasMap": true
+  },
+  "features": {
+    "valuation": true,
+    "interest": true,
+    "searchProfile": true,
+    "autocomplete": true,
+    "chat": true,
+    "humanKey": "1x00000000000000000000AA",
+    "viewing": true,
+    "robotCheck": true,
+    "testKey": true,
+    "forwardsById": true,
+    "canonicalPages": true,
+    "lastmod": true,
+    "noindex": true
+  },
+  "addresses": {
+    "checked": 418,
+    "kept": 418,
+    "failed": []
+  },
+  "runs": 3,
+  "speed": {
+    "ours": {
+      "home": {
+        "lcp": 1.5259920000000002,
+        "cls": 0.0007985305075460094,
+        "perf": 98,
+        "a11y": 97,
+        "seo": 78
+      },
+      "property": {
+        "lcp": 1.7055750000000003,
+        "cls": 0.00024265788605090123,
+        "perf": 98,
+        "a11y": 96,
+        "seo": 100
+      }
+    },
+    "theirs": {
+      "home": {
+        "lcp": 5.794367299999999,
+        "cls": 0.11950068773941395,
+        "perf": 70,
+        "a11y": 89,
+        "seo": 92
+      },
+      "property": {
+        "lcp": 6.321376199999997,
+        "cls": 0.669501822600243,
+        "perf": 42,
+        "a11y": 84,
+        "seo": 85
+      }
+    }
+  },
+  "images": {
+    "property": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+    "area": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+    "list": "data:image/gif;base64,R0lGODlhAQABAAAAACw="
+  }
+}
