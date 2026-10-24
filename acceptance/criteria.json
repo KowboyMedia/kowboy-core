@@ -357,7 +357,9 @@
       "ac": 32,
       "title": "Near-instant under normal load (Vitec)",
       "phase": "adapters",
-      "tests": []
+      "tests": [
+        "near-instant under normal load (Vitec) rings a site within 2 s of its notification, p95, less Vitec’s time, while another brokerage’s 30,000 records load (AC 32)"
+      ]
     },
     {
       "ac": 33,

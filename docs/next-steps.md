@@ -1023,7 +1023,8 @@ finding where its time goes is the next open step.
          loaded; deleted the same day, well under $1). AC 27 failed on 2026-10-22
          (`scripts/load-test.mjs`): full pages p95 907 ms to the first byte and 1,367 ms in full
          against 100 and 300; the next run times the database's share (`decisions.md`). AC 32 is
-         not built yet.
+         green since 2026-10-24 (`acceptance/near-instant.test.ts`): notification to bell p95
+         505 ms, less Vitec's time, while a 30,000-record load waits at the live speed limit.
       4. No unresolved Sentry issue when the release goes out (strategy §9, phase 7; the seven days
          were dropped, Patric 2026-10-24: "we release when ready"): 57 open on
          2026-10-18, 52 of them resolved that day, each checked against the code: the connection
